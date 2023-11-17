@@ -5,3 +5,59 @@
 mod error_path;
 
 pub(crate) use error_path::ErrorPath;
+
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
+use crate::{
+    error::FMLError,
+    intermediate_representation::{EnumDef, FeatureDef, ObjectDef},
+};
+
+pub(crate) struct FeatureValidationError {
+    pub(crate) literals: Vec<String>,
+    pub(crate) path: String,
+    pub(crate) message: String,
+}
+
+impl From<FeatureValidationError> for FMLError {
+    fn from(value: FeatureValidationError) -> Self {
+        Self::FeatureValidationError {
+            message: value.message,
+            literals: value.literals,
+            path: value.path,
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) struct ErrorConverter<'a> {
+    enum_defs: &'a BTreeMap<String, EnumDef>,
+    object_defs: &'a BTreeMap<String, ObjectDef>,
+}
+
+impl<'a> ErrorConverter<'a> {
+    pub(crate) fn new(
+        enum_defs: &'a BTreeMap<String, EnumDef>,
+        object_defs: &'a BTreeMap<String, ObjectDef>,
+    ) -> Self {
+        Self {
+            enum_defs,
+            object_defs,
+        }
+    }
+
+    pub(crate) fn convert_feature_error(
+        &self,
+        _feature_def: &FeatureDef,
+        _value: &Value,
+        error: FeatureValidationError,
+    ) -> FMLError {
+        error.into()
+    }
+
+    pub(crate) fn convert_object_error(&self, error: FeatureValidationError) -> FMLError {
+        error.into()
+    }
+}

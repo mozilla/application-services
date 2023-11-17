@@ -50,15 +50,18 @@ impl FmlFeatureInspector {
         }
     }
 
-    pub fn get_first_error(&self, string: String) -> Option<FmlEditorError> {
-        match self.get_syntax_error(&string) {
-            Ok(json) => self.get_semantic_error(&string, json).err(),
-            Err(err) => Some(err),
-        }
-    }
-
     pub fn get_errors(&self, string: String) -> Option<Vec<FmlEditorError>> {
-        self.get_first_error(string).map(|e| vec![e])
+        match self.parse_json_string(&string) {
+            Err(e) => Some(vec![e]),
+            Ok(json) => {
+                let errors = self.get_semantic_errors(&string, json);
+                if errors.is_empty() {
+                    None
+                } else {
+                    Some(errors)
+                }
+            }
+        }
     }
 
     pub fn get_schema_hash(&self) -> String {
@@ -75,7 +78,7 @@ impl FmlFeatureInspector {
 }
 
 impl FmlFeatureInspector {
-    fn get_syntax_error(&self, string: &str) -> Result<Value, FmlEditorError> {
+    fn parse_json_string(&self, string: &str) -> Result<Value, FmlEditorError> {
         let json = serde_json::from_str::<Value>(string);
         if let Err(e) = json {
             let col = e.column();
@@ -100,27 +103,28 @@ impl FmlFeatureInspector {
         }
     }
 
-    fn get_semantic_error(&self, src: &str, value: Value) -> Result<(), FmlEditorError> {
-        self.manifest
-            .validate_feature_config(&self.feature_id, value)
-            .map_err(|e| match e {
-                FMLError::FeatureValidationError {
-                    literals, message, ..
-                } => {
-                    let highlight = literals.last().cloned();
-                    let (line, col) = find_err(src, literals.into_iter());
-                    FmlEditorError {
-                        message,
-                        line: line as u32,
-                        col: col as u32,
-                        highlight,
-                    }
-                }
-                _ => {
-                    unreachable!("Error {e:?} should be caught as FeatureValidationError");
-                }
-            })
-            .map(|_| ())
+    fn get_semantic_errors(&self, src: &str, value: Value) -> Vec<FmlEditorError> {
+        let errors = self
+            .manifest
+            .get_errors(&self.feature_id, &value)
+            .unwrap_or_else(|e| {
+                unreachable!("Error {e:?} should be caught as FeatureValidationError")
+            });
+        let mut editor_errors: Vec<_> = Vec::with_capacity(errors.len());
+        for e in errors {
+            let message = e.message;
+            let literals = e.literals;
+            let highlight = literals.last().cloned();
+            let (line, col) = find_err(src, literals.into_iter());
+            let error = FmlEditorError {
+                message,
+                line: line as u32,
+                col: col as u32,
+                highlight,
+            };
+            editor_errors.push(error);
+        }
+        editor_errors
     }
 }
 
@@ -179,6 +183,13 @@ mod unit_tests {
     use crate::client::test_helper::client;
 
     use super::*;
+
+    impl FmlFeatureInspector {
+        fn get_first_error(&self, string: String) -> Option<FmlEditorError> {
+            let mut errors = self.get_errors(string)?;
+            errors.pop()
+        }
+    }
 
     #[test]
     fn test_construction() -> Result<()> {

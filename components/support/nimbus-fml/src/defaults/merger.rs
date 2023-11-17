@@ -238,7 +238,7 @@ impl<'object> DefaultsMerger<'object> {
 
     /// A convenience method to get the defaults from the feature, and merger it
     /// with the passed value.
-    pub(crate) fn _merge_feature_config(
+    pub(crate) fn merge_feature_config(
         &self,
         feature_def: &FeatureDef,
         value: &Value,
