@@ -1,6 +1,4 @@
-# v121.0 (In progress)
-
-[Full Changelog](In progress)
+# v121.0 (_2023-11-20_)
 
 ## Nimbus SDK ⛅️🔬🔭
 
@@ -21,6 +19,8 @@
 
 ### ⚠️ Breaking Changes ⚠️
   - `wipe_local` and `prune_destructively` have been removed from history API. `delete_everything` or `run_maintenance_*` methods should be used instead.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v120.0...v121.0)
 
 # v120.0 (_2023-10-23_)
 
