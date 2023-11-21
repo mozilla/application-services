@@ -4,7 +4,7 @@
 
 // Testing enrollment.rs
 
-use crate::tests::helpers::get_bucketed_rollout;
+use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_date};
 use crate::{
     defaults::Defaults,
     enrollment::*,
@@ -3133,6 +3133,61 @@ fn test_populate_feature_maps() -> Result<()> {
 
     let observed = observed.unwrap();
     assert_eq!(&expected, observed);
+
+    Ok(())
+}
+
+#[test]
+fn test_sort_experiments_by_published_date() -> Result<()> {
+    let slug_1 = "slug-1";
+    let slug_2 = "slug-2";
+    let slug_3 = "slug-3";
+    let slug_4 = "slug-4";
+    let experiments = vec![
+        get_experiment_with_published_date(slug_1, None),
+        get_experiment_with_published_date(slug_2, Some("2023-11-21T18:00:00Z".into())),
+        get_experiment_with_published_date(slug_3, None),
+        get_experiment_with_published_date(slug_4, Some("2023-11-21T15:00:00Z".into())),
+    ];
+    let result = sort_experiments_by_published_date(&experiments);
+
+    assert_eq!(slug_1, result[0].slug);
+    assert_eq!(slug_3, result[1].slug);
+    assert_eq!(slug_4, result[2].slug);
+    assert_eq!(slug_2, result[3].slug);
+    Ok(())
+}
+
+#[test]
+fn test_evolve_enrollments_ordering() -> Result<()> {
+    let _ = env_logger::try_init();
+    let (_, app_ctx, aru) = local_ctx();
+    let th = app_ctx.into();
+    let ids = HashSet::new();
+    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+
+    let exp1 = get_single_feature_experiment("slug-1", "colliding-feature", json!({"x": 1 }))
+        .patch(json!({"publishedDate": "2023-11-21T18:00:00Z"}));
+    let exp2 = get_single_feature_experiment("slug-2", "colliding-feature", json!({"x": 2 }))
+        .patch(json!({"publishedDate": "2023-11-21T15:00:00Z"}));
+
+    let all_experiments = [exp1, exp2];
+    let no_experiments: [Experiment; 0] = [];
+
+    let (enrollments, _) =
+        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+
+    let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
+    let expected = HashMap::from([(
+        "colliding-feature".to_string(),
+        EnrolledFeatureConfig::new(
+            "colliding-feature",
+            json!({"x": 2 }),
+            "slug-2",
+            Some("control"),
+        ),
+    )]);
+    assert_eq!(observed, expected);
 
     Ok(())
 }
