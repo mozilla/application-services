@@ -2,10 +2,10 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, PropDef, TypeRef, VariantDef,
+    EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TypeRef, VariantDef,
 };
 use serde_json::json;
 
@@ -50,4 +50,72 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
         )]),
         ..Default::default()
     }
+}
+
+pub(crate) fn get_feature_manifest(
+    obj_defs: Vec<ObjectDef>,
+    enum_defs: Vec<EnumDef>,
+    feature_defs: Vec<FeatureDef>,
+    all_imports: HashMap<ModuleId, FeatureManifest>,
+) -> FeatureManifest {
+    FeatureManifest {
+        enum_defs: map_from(enum_defs, |e| e.name()),
+        obj_defs: map_from(obj_defs, |o| o.name()),
+        feature_defs: map_from(feature_defs, |f| f.name()),
+        all_imports,
+        ..Default::default()
+    }
+}
+
+pub(crate) fn get_one_prop_feature_manifest(
+    obj_defs: Vec<ObjectDef>,
+    enum_defs: Vec<EnumDef>,
+    prop: &PropDef,
+) -> FeatureManifest {
+    FeatureManifest {
+        enum_defs: map_from(enum_defs, |e| e.name()),
+        obj_defs: map_from(obj_defs, |o| o.name()),
+        feature_defs: BTreeMap::from([(
+            "".to_string(),
+            FeatureDef {
+                props: vec![prop.clone()],
+                ..Default::default()
+            },
+        )]),
+        ..Default::default()
+    }
+}
+
+pub(crate) fn get_one_prop_feature_manifest_with_imports(
+    obj_defs: Vec<ObjectDef>,
+    enum_defs: Vec<EnumDef>,
+    prop: &PropDef,
+    all_imports: HashMap<ModuleId, FeatureManifest>,
+) -> FeatureManifest {
+    let mut fm = FeatureManifest {
+        enum_defs: map_from(enum_defs, |e| e.name()),
+        obj_defs: map_from(obj_defs, |o| o.name()),
+        all_imports,
+        ..Default::default()
+    };
+    fm.add_feature(FeatureDef {
+        props: vec![prop.clone()],
+        ..Default::default()
+    });
+    fm
+}
+
+fn map_from<T, F, K>(list: Vec<T>, key: F) -> BTreeMap<K, T>
+where
+    K: Ord,
+    F: Fn(&T) -> K,
+{
+    let mut res: BTreeMap<K, T> = Default::default();
+
+    for t in list {
+        let k = key(&t);
+        res.insert(k, t);
+    }
+
+    res
 }

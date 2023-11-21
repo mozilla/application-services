@@ -207,8 +207,9 @@ uniffi::include_scaffolding!("fml");
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use crate::intermediate_representation::{
-        unit_tests::get_feature_manifest, FeatureDef, ModuleId, PropDef, TypeRef,
+    use crate::{
+        fixtures::intermediate_representation::get_feature_manifest,
+        intermediate_representation::{FeatureDef, ModuleId, PropDef, TypeRef},
     };
     use serde_json::{json, Map, Number, Value};
     use std::collections::HashMap;
