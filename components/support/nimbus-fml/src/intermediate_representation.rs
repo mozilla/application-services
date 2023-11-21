@@ -894,11 +894,21 @@ impl<'a> ImportedModule<'a> {
 
 #[cfg(test)]
 pub mod unit_tests {
-    use serde_json::{json, Number};
+    use serde_json::json;
 
     use super::*;
     use crate::error::Result;
     use crate::fixtures::intermediate_representation::get_simple_homescreen_feature;
+
+    impl ObjectDef {
+        pub(crate) fn new(name: &str, props: &[PropDef]) -> Self {
+            Self {
+                name: name.into(),
+                doc: format!("Documentation for {name}"),
+                props: props.into(),
+            }
+        }
+    }
 
     impl PropDef {
         pub(crate) fn new(nm: &str, typ: TypeRef, default: Value) -> Self {
@@ -920,16 +930,6 @@ pub mod unit_tests {
                 default,
                 pref_key: None,
                 string_alias: None,
-            }
-        }
-    }
-
-    impl ObjectDef {
-        pub(crate) fn new(name: &str, props: &[PropDef]) -> Self {
-            Self {
-                name: name.into(),
-                doc: format!("Documentation for {name}"),
-                props: props.into(),
             }
         }
     }
@@ -986,6 +986,15 @@ pub mod unit_tests {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod manifest_structure {
+    use super::*;
+
+    use serde_json::json;
+
+    use crate::fixtures::intermediate_representation::get_simple_homescreen_feature;
 
     #[test]
     fn validate_duplicate_feature_defs_fails() -> Result<()> {
@@ -1203,74 +1212,18 @@ pub mod unit_tests {
             .expect_err("Should fail since we can't have nested optionals");
         Ok(())
     }
+}
 
-    pub fn get_feature_manifest(
-        obj_defs: Vec<ObjectDef>,
-        enum_defs: Vec<EnumDef>,
-        feature_defs: Vec<FeatureDef>,
-        all_imports: HashMap<ModuleId, FeatureManifest>,
-    ) -> FeatureManifest {
-        FeatureManifest {
-            enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs: map_from(obj_defs, |o| o.name()),
-            feature_defs: map_from(feature_defs, |f| f.name()),
-            all_imports,
-            ..Default::default()
-        }
-    }
+#[cfg(test)]
+mod imports_tests {
+    use super::*;
 
-    fn get_one_prop_feature_manifest(
-        obj_defs: Vec<ObjectDef>,
-        enum_defs: Vec<EnumDef>,
-        prop: &PropDef,
-    ) -> FeatureManifest {
-        FeatureManifest {
-            enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs: map_from(obj_defs, |o| o.name()),
-            feature_defs: BTreeMap::from([(
-                "".to_string(),
-                FeatureDef {
-                    props: vec![prop.clone()],
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        }
-    }
+    use serde_json::json;
 
-    fn get_one_prop_feature_manifest_with_imports(
-        obj_defs: Vec<ObjectDef>,
-        enum_defs: Vec<EnumDef>,
-        prop: &PropDef,
-        all_imports: HashMap<ModuleId, FeatureManifest>,
-    ) -> FeatureManifest {
-        let mut fm = FeatureManifest {
-            enum_defs: map_from(enum_defs, |e| e.name()),
-            obj_defs: map_from(obj_defs, |o| o.name()),
-            all_imports,
-            ..Default::default()
-        };
-        fm.add_feature(FeatureDef {
-            props: vec![prop.clone()],
-            ..Default::default()
-        });
-        fm
-    }
-
-    fn map_from<T, F, K>(list: Vec<T>, key: F) -> BTreeMap<K, T>
-    where
-        K: Ord,
-        F: Fn(&T) -> K,
-    {
-        let mut res: BTreeMap<K, T> = Default::default();
-
-        for t in list {
-            let k = key(&t);
-            res.insert(k, t);
-        }
-
-        res
-    }
+    use crate::fixtures::intermediate_representation::{
+        get_feature_manifest, get_one_prop_feature_manifest,
+        get_one_prop_feature_manifest_with_imports,
+    };
 
     #[test]
     fn test_iter_object_defs_deep_iterates_on_all_imports() -> Result<()> {
@@ -1501,6 +1454,14 @@ pub mod unit_tests {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod feature_config_tests {
+    use serde_json::{json, Number};
+
+    use super::*;
+    use crate::fixtures::intermediate_representation::get_feature_manifest;
 
     #[test]
     fn test_validate_feature_config_success() -> Result<()> {
