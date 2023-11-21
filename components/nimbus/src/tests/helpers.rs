@@ -552,3 +552,55 @@ pub fn get_targeted_experiment(slug: &str, targeting: &str) -> serde_json::Value
         "last_modified": 1_602_197_324_372i64,
     })
 }
+
+pub(crate) fn get_experiment_with_published_date(
+    slug: &str,
+    published_date: Option<String>,
+) -> Experiment {
+    serde_json::from_value(json!({
+        "schemaVersion": "1.0.0",
+        "slug": slug,
+        "endDate": null,
+        "branches":[
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": "about_welcome",
+                    "enabled": true,
+                }
+            },
+            {
+                "slug": "treatment",
+                "ratio": 1,
+                "feature": {
+                    "featureId": "about_welcome",
+                    "enabled": false,
+                }
+            },
+        ],
+        "featureIds": ["about_welcome"],
+        "channel": "nightly",
+        "probeSets":[],
+        "startDate":null,
+        "appName":"fenix",
+        "appId":"org.mozilla.fenix",
+        "bucketConfig":{
+            // Also enroll everyone.
+            "count":10_000,
+            "start":0,
+            "total":10_000,
+            "namespace":"secure-silver",
+            "randomizationUnit":"nimbus_id"
+        },
+        "userFacingName":"2nd test experiment",
+        "referenceBranch":"control",
+        "isEnrollmentPaused":false,
+        "proposedEnrollment":7,
+        "userFacingDescription":"2nd test experiment.",
+        "id":"secure-silver",
+        "last_modified":1_602_197_324_372i64,
+        "publishedDate": published_date
+    }))
+    .unwrap()
+}

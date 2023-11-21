@@ -681,6 +681,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Step 3. Evolve the remaining enrollments with the previous and
         // next data.
+        let next_experiments = sort_experiments_by_published_date(next_experiments);
         for next_experiment in next_experiments {
             let slug = &next_experiment.slug;
 
@@ -944,6 +945,12 @@ where
         .filter(|e| filter_fn(e))
         .cloned()
         .collect()
+}
+
+pub(crate) fn sort_experiments_by_published_date(experiments: &[Experiment]) -> Vec<&Experiment> {
+    let mut experiments: Vec<_> = experiments.iter().collect();
+    experiments.sort_by(|a, b| a.published_date.cmp(&b.published_date));
+    experiments
 }
 
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to

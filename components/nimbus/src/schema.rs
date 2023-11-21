@@ -46,6 +46,7 @@ pub struct Experiment {
     pub reference_branch: Option<String>,
     #[serde(default)]
     pub is_rollout: bool,
+    pub published_date: Option<chrono::DateTime<chrono::Utc>>,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
 }
@@ -75,6 +76,19 @@ impl Experiment {
             .collect::<HashSet<_>>();
 
         feature_ids.into_iter().collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn patch(&self, patch: Value) -> Self {
+        let mut experiment = serde_json::to_value(self).unwrap();
+        if let (Some(e), Some(w)) = (experiment.as_object(), patch.as_object()) {
+            let mut e = e.clone();
+            for (key, value) in w {
+                e.insert(key.clone(), value.clone());
+            }
+            experiment = serde_json::to_value(e).unwrap();
+        }
+        serde_json::from_value(experiment).unwrap()
     }
 }
 
