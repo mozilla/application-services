@@ -32,6 +32,7 @@ cfg-if = "1.0.0"
 console = "0.15.5"
 lazy_static = "1.4"
 email_address = { version = "0.2.4", features = ["serde"] }
+sha2 = "^0.10"
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"], optional = true }
