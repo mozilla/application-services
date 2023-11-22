@@ -11,6 +11,7 @@ mod fixtures;
 mod frontend;
 mod intermediate_representation;
 mod parser;
+mod structure;
 mod util;
 
 use anyhow::Result;
