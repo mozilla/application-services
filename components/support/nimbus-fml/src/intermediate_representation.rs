@@ -5,7 +5,7 @@ use crate::defaults::{DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
 use crate::frontend::{AboutBlock, FeatureMetadata};
-use crate::structure::{StructureValidator, TypeQuery};
+use crate::structure::{StructureHasher, StructureValidator};
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
@@ -456,12 +456,21 @@ impl FeatureManifest {
 
         Ok(feature_def)
     }
+
+    pub fn get_structure_hash(&self, feature_name: &str) -> Result<String> {
+        let (manifest, feature_def) = self
+            .find_feature(feature_name)
+            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
+
+        Ok(manifest.feature_structure_hash(feature_def))
+    }
 }
 
 impl FeatureManifest {
-    pub(crate) fn feature_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
-        let all_types = TypeQuery::new(&self.obj_defs);
-        all_types.all_types(feature_def)
+    pub(crate) fn feature_structure_hash(&self, feature_def: &FeatureDef) -> String {
+        let hasher = StructureHasher::new(&self.enum_defs, &self.obj_defs);
+        let hash = hasher.hash(feature_def) & 0xffffffff;
+        format!("{hash:x}")
     }
 }
 

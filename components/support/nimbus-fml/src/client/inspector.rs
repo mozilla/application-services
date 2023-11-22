@@ -66,6 +66,12 @@ impl FmlFeatureInspector {
     pub fn get_errors(&self, string: String) -> Option<Vec<FmlEditorError>> {
         self.get_first_error(string).map(|e| vec![e])
     }
+
+    pub fn get_structure_hash(&self) -> String {
+        self.manifest
+            .get_structure_hash(&self.feature_id)
+            .unwrap_or_default()
+    }
 }
 
 impl FmlFeatureInspector {

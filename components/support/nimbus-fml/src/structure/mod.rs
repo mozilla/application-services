@@ -6,6 +6,6 @@ mod hasher;
 mod types;
 mod validator;
 
-pub(crate) use hasher::{Sha256Hasher, StructureHasher};
+pub(crate) use hasher::StructureHasher;
 pub(crate) use types::TypeQuery;
 pub(crate) use validator::StructureValidator;
