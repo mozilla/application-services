@@ -103,6 +103,24 @@ interface FmlFeatureInspector {
     // Returns the default JSON for the feature for this channel.
     [Throws=FMLError]
     JsonObject get_default_json();
+
+    // Returns a 8 digit hex hash of the structure of the feature.
+    //
+    // This is suitable for tracking over time.
+    //
+    // This is a truncated SHA256 hash which takes in to consideration
+    // the name and types of all the variables in this feature, and nested
+    // objects, as well as the variants of enums.
+    //
+    // It does not take into consideration the default values for this
+    // feature, ordering of fields or variables or enum variants, or
+    // documentation, so as to remain stable despite superficial changes
+    // to the feature's configuration.
+    //
+    // If this hash changes for a given feature then it is almost
+    // certain that the code which uses this configuration will also have
+    // changed.
+    string get_structure_hash();
 };
 
 dictionary FmlEditorError {
