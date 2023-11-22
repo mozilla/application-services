@@ -4071,6 +4071,7 @@ dependencies = [
  "sql-support",
  "thiserror",
  "uniffi",
+ "url",
 ]
 
 [[package]]
