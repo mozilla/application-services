@@ -33,11 +33,11 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
                 "Represents the homescreen feature",
                 vec![PropDef::new(
                     "sections-enabled",
-                    TypeRef::EnumMap(
+                    &TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("HomeScreenSection".into())),
                         Box::new(TypeRef::Boolean),
                     ),
-                    json!({
+                    &json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,

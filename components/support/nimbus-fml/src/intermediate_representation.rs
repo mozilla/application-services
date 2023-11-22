@@ -900,40 +900,6 @@ pub mod unit_tests {
     use crate::error::Result;
     use crate::fixtures::intermediate_representation::get_simple_homescreen_feature;
 
-    impl ObjectDef {
-        pub(crate) fn new(name: &str, props: &[PropDef]) -> Self {
-            Self {
-                name: name.into(),
-                doc: format!("Documentation for {name}"),
-                props: props.into(),
-            }
-        }
-    }
-
-    impl PropDef {
-        pub(crate) fn new(nm: &str, typ: TypeRef, default: Value) -> Self {
-            PropDef {
-                name: nm.into(),
-                doc: format!("{nm} property of type {typ}"),
-                typ,
-                default,
-                pref_key: None,
-                string_alias: None,
-            }
-        }
-
-        pub(crate) fn new_with_doc(nm: &str, doc: &str, typ: TypeRef, default: Value) -> Self {
-            PropDef {
-                name: nm.into(),
-                doc: doc.into(),
-                typ,
-                default,
-                pref_key: None,
-                string_alias: None,
-            }
-        }
-    }
-
     #[test]
     fn can_ir_represent_smoke_test() -> Result<()> {
         let reference_manifest = get_simple_homescreen_feature();
@@ -977,7 +943,11 @@ pub mod unit_tests {
         fm.add_feature(FeatureDef::new(
             "some_def",
             "my lovely qtest doc",
-            vec![PropDef::new("some prop", TypeRef::String, json!("default"))],
+            vec![PropDef::new(
+                "some prop",
+                &TypeRef::String,
+                &json!("default"),
+            )],
             true,
         ));
         fm.validate_manifest()?;
@@ -1004,11 +974,11 @@ mod manifest_structure {
             "Represents the homescreen feature",
             vec![PropDef::new(
                 "sections-enabled",
-                TypeRef::EnumMap(
+                &TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("SectionId".into())),
                     Box::new(TypeRef::String),
                 ),
-                json!({
+                &json!({
                     "top-sites": true,
                     "jump-back-in": false,
                     "recently-saved": false,
@@ -1030,11 +1000,11 @@ mod manifest_structure {
             vec![
                 PropDef::new(
                     "duplicate-prop",
-                    TypeRef::EnumMap(
+                    &TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("SectionId".into())),
                         Box::new(TypeRef::String),
                     ),
-                    json!({
+                    &json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,
@@ -1042,11 +1012,11 @@ mod manifest_structure {
                 ),
                 PropDef::new(
                     "duplicate-prop",
-                    TypeRef::EnumMap(
+                    &TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("SectionId".into())),
                         Box::new(TypeRef::String),
                     ),
-                    json!({
+                    &json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,
@@ -1068,8 +1038,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::Enum("EnumDoesntExist".into()),
-                json!(null),
+                &TypeRef::Enum("EnumDoesntExist".into()),
+                &json!(null),
             )],
             false,
         ));
@@ -1087,8 +1057,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::Object("ObjDoesntExist".into()),
-                json!(null),
+                &TypeRef::Object("ObjDoesntExist".into()),
+                &json!(null),
             )],
             false,
         ));
@@ -1106,8 +1076,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
-                json!(null),
+                &TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String)),
+                &json!(null),
             )],
             false,
         ));
@@ -1124,8 +1094,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
-                json!(null),
+                &TypeRef::List(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
+                &json!(null),
             )],
             false,
         ));
@@ -1142,11 +1112,11 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::EnumMap(
+                &TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("EnumDoesntExist".into())),
                     Box::new(TypeRef::String),
                 ),
-                json!(null),
+                &json!(null),
             )],
             false,
         ));
@@ -1164,11 +1134,11 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::EnumMap(
+                &TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("SectionId".into())),
                     Box::new(TypeRef::Object("ObjDoesntExist".into())),
                 ),
-                json!(null),
+                &json!(null),
             )],
             false,
         ));
@@ -1185,8 +1155,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
-                json!(null),
+                &TypeRef::StringMap(Box::new(TypeRef::Enum("EnumDoesntExist".into()))),
+                &json!(null),
             )],
             false,
         ));
@@ -1203,8 +1173,8 @@ mod manifest_structure {
             "test doc",
             vec![PropDef::new(
                 "prop name",
-                TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
-                json!(null),
+                &TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::String)))),
+                &json!(null),
             )],
             false,
         ));
@@ -1229,30 +1199,28 @@ mod imports_tests {
     fn test_iter_object_defs_deep_iterates_on_all_imports() -> Result<()> {
         let prop_i = PropDef::new(
             "key_i",
-            TypeRef::Object("SampleObjImported".into()),
-            json!({
+            &TypeRef::Object("SampleObjImported".into()),
+            &json!({
                 "string": "bobo",
             }),
         );
-        let obj_defs_i = vec![ObjectDef {
-            name: "SampleObjImported".into(),
-            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
-            ..Default::default()
-        }];
+        let obj_defs_i = vec![ObjectDef::new(
+            "SampleObjImported",
+            &[PropDef::new("string", &TypeRef::String, &json!("a string"))],
+        )];
         let fm_i = get_one_prop_feature_manifest(obj_defs_i, vec![], &prop_i);
 
         let prop = PropDef::new(
             "key",
-            TypeRef::Object("SampleObj".into()),
-            json!({
+            &TypeRef::Object("SampleObj".into()),
+            &json!({
                 "string": "bobo",
             }),
         );
-        let obj_defs = vec![ObjectDef {
-            name: "SampleObj".into(),
-            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
-            ..Default::default()
-        }];
+        let obj_defs = vec![ObjectDef::new(
+            "SampleObj",
+            &[PropDef::new("string", &TypeRef::String, &json!("a string"))],
+        )];
         let fm = get_one_prop_feature_manifest_with_imports(
             obj_defs,
             vec![],
@@ -1270,10 +1238,10 @@ mod imports_tests {
 
     #[test]
     fn test_iter_feature_defs_deep_iterates_on_all_imports() -> Result<()> {
-        let prop_i = PropDef::new("key_i", TypeRef::String, json!("string"));
+        let prop_i = PropDef::new("key_i", &TypeRef::String, &json!("string"));
         let fm_i = get_one_prop_feature_manifest(vec![], vec![], &prop_i);
 
-        let prop = PropDef::new("key", TypeRef::String, json!("string"));
+        let prop = PropDef::new("key", &TypeRef::String, &json!("string"));
         let fm = get_one_prop_feature_manifest_with_imports(
             vec![],
             vec![],
@@ -1419,8 +1387,8 @@ mod imports_tests {
                 name: "feature_i".into(),
                 props: vec![PropDef::new(
                     "prop_i_1",
-                    TypeRef::String,
-                    Value::String("prop_i_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_i_1_value"),
                 )],
                 ..Default::default()
             }],
@@ -1434,8 +1402,8 @@ mod imports_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::String,
-                    Value::String("prop_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_1_value"),
                 )],
                 ..Default::default()
             }],
@@ -1472,8 +1440,8 @@ mod feature_config_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::String,
-                    Value::String("prop_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_1_value"),
                 )],
                 ..Default::default()
             }],
@@ -1501,8 +1469,8 @@ mod feature_config_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::String,
-                    Value::String("prop_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_1_value"),
                 )],
                 ..Default::default()
             }],
@@ -1534,21 +1502,15 @@ mod feature_config_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::Option(Box::new(TypeRef::String)),
-                    Value::Null,
+                    &TypeRef::Option(Box::new(TypeRef::String)),
+                    &Value::Null,
                 )],
                 ..Default::default()
             }],
             HashMap::new(),
         );
 
-        let result = fm.validate_feature_config(
-            "feature",
-            Value::Object(Map::from_iter([(
-                "prop".to_string(),
-                Value::String("new value".into()),
-            )])),
-        );
+        let result = fm.validate_feature_config("feature", json!({"prop": "new value"}));
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
@@ -1567,8 +1529,8 @@ mod feature_config_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::String,
-                    json!("prop_1_value"),
+                    &TypeRef::String,
+                    &json!("prop_1_value"),
                 )],
                 ..Default::default()
             }],
@@ -1590,11 +1552,10 @@ mod feature_config_tests {
 
     #[test]
     fn test_validate_feature_config_errors_on_invalid_object_prop() -> Result<()> {
-        let obj_defs = vec![ObjectDef {
-            name: "SampleObj".into(),
-            props: vec![PropDef::new("string", TypeRef::String, json!("a string"))],
-            ..Default::default()
-        }];
+        let obj_defs = vec![ObjectDef::new(
+            "SampleObj",
+            &[PropDef::new("string", &TypeRef::String, &json!("a string"))],
+        )];
         let fm = get_feature_manifest(
             obj_defs,
             vec![],
@@ -1602,8 +1563,8 @@ mod feature_config_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::Object("SampleObj".into()),
-                    json!({
+                    &TypeRef::Object("SampleObj".into()),
+                    &json!({
                         "string": "a value"
                     }),
                 )],
@@ -1676,7 +1637,7 @@ mod string_aliases {
         let newest_member = {
             let t = &name;
             let v = json!("Alice"); // it doesn't matter for this test what the value is.
-            PropDef::simple("newest-member", t, &v)
+            PropDef::new("newest-member", t, &v)
         };
 
         // -> Verify that a property in a feature can validate against the a string-alias
@@ -1698,7 +1659,7 @@ mod string_aliases {
             let t = TypeRef::Object("Team".to_string());
             let v = json!({ "newest-member": "Alice" });
 
-            PropDef::simple("team", &t, &v)
+            PropDef::new("team", &t, &v)
         };
 
         // { all-names: ["Alice"], team: { newest-member: "Alice" } }
@@ -1717,7 +1678,7 @@ mod string_aliases {
             let t = TypeRef::Object("Match".to_string());
             let v = json!({ "team": { "newest-member": "Alice" }});
 
-            PropDef::simple("match", &t, &v)
+            PropDef::new("match", &t, &v)
         };
 
         // { all-names: ["Alice"], match: { team: { newest-member: "Alice" }} }

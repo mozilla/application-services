@@ -222,8 +222,8 @@ mod unit_tests {
                 name: "feature_i".into(),
                 props: vec![PropDef::new(
                     "prop_i_1",
-                    TypeRef::String,
-                    Value::String("prop_i_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_i_1_value"),
                 )],
                 metadata: Default::default(),
                 ..Default::default()
@@ -238,8 +238,8 @@ mod unit_tests {
                 name: "feature".into(),
                 props: vec![PropDef::new(
                     "prop_1",
-                    TypeRef::String,
-                    Value::String("prop_1_value".into()),
+                    &TypeRef::String,
+                    &json!("prop_1_value"),
                 )],
                 metadata: Default::default(),
                 allow_coenrollment: true,
