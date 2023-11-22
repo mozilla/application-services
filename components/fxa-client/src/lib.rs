@@ -47,7 +47,10 @@ mod storage;
 mod telemetry;
 mod token;
 
+use std::fmt;
+
 pub use sync15::DeviceType;
+use url::Url;
 
 pub use auth::{AuthorizationInfo, FxaRustAuthState, MetricsParams};
 pub use device::{AttachedClient, Device, DeviceCapability, LocalDevice};
@@ -109,7 +112,7 @@ pub struct FxaConfig {
     pub token_server_url_override: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxaServer {
     Release,
     Stable,
@@ -129,6 +132,47 @@ impl FxaServer {
             Self::LocalDev => "http://127.0.0.1:3030",
             Self::Custom { url } => url,
         }
+    }
+}
+
+impl From<&Url> for FxaServer {
+    fn from(url: &Url) -> Self {
+        let origin = url.origin();
+        // Note: we can call unwrap() below because parsing content_url for known servers should
+        // never fail and `test_from_url` tests this.
+        if origin == Url::parse(Self::Release.content_url()).unwrap().origin() {
+            Self::Release
+        } else if origin == Url::parse(Self::Stable.content_url()).unwrap().origin() {
+            Self::Stable
+        } else if origin == Url::parse(Self::Stage.content_url()).unwrap().origin() {
+            Self::Stage
+        } else if origin == Url::parse(Self::China.content_url()).unwrap().origin() {
+            Self::China
+        } else if origin == Url::parse(Self::LocalDev.content_url()).unwrap().origin() {
+            Self::LocalDev
+        } else {
+            Self::Custom {
+                url: origin.ascii_serialization(),
+            }
+        }
+    }
+}
+
+/// Display impl
+///
+/// This identifies the variant, without recording the URL for custom servers.  It's good for
+/// Sentry reports when we don't want to give away any PII.
+impl fmt::Display for FxaServer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let variant_name = match self {
+            Self::Release => "Release",
+            Self::Stable => "Stable",
+            Self::Stage => "Stage",
+            Self::China => "China",
+            Self::LocalDev => "LocalDev",
+            Self::Custom { .. } => "Custom",
+        };
+        write!(f, "{variant_name}")
     }
 }
 
@@ -180,3 +224,29 @@ impl FxaConfig {
 }
 
 uniffi::include_scaffolding!("fxa_client");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_url() {
+        let test_cases = [
+            ("https://accounts.firefox.com", FxaServer::Release),
+            ("https://stable.dev.lcip.org", FxaServer::Stable),
+            ("https://accounts.stage.mozaws.net", FxaServer::Stage),
+            ("https://accounts.firefox.com.cn", FxaServer::China),
+            ("http://127.0.0.1:3030", FxaServer::LocalDev),
+            (
+                "http://my-fxa-server.com",
+                FxaServer::Custom {
+                    url: "http://my-fxa-server.com".to_owned(),
+                },
+            ),
+        ];
+        for (content_url, expected_result) in test_cases {
+            let url = Url::parse(content_url).unwrap();
+            assert_eq!(FxaServer::from(&url), expected_result);
+        }
+    }
+}

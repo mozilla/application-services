@@ -11,7 +11,7 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
-use crate::{AuthorizationParameters, Error, MetricsParams, Result, ScopedKey};
+use crate::{AuthorizationParameters, Error, FxaServer, MetricsParams, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
@@ -134,7 +134,11 @@ impl FirefoxAccount {
         }
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
-            return Err(Error::OriginMismatch);
+            let fxa_server = FxaServer::from(&url);
+            let pairing_fxa_server = FxaServer::from(&pairing_url);
+            return Err(Error::OriginMismatch(format!(
+                "fxa-server: {fxa_server}, pairing-url-fxa-server: {pairing_fxa_server}"
+            )));
         }
         url.set_fragment(pairing_url.fragment());
         self.oauth_flow(url, scopes)
