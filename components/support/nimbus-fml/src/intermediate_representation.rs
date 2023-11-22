@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::defaults::{DefaultsMerger, DefaultsValidator};
+use crate::defaults::{DefaultsHasher, DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
 use crate::frontend::{AboutBlock, FeatureMetadata};
@@ -464,11 +464,25 @@ impl FeatureManifest {
 
         Ok(manifest.feature_schema_hash(feature_def))
     }
+
+    pub fn get_defaults_hash(&self, feature_name: &str) -> Result<String> {
+        let (manifest, feature_def) = self
+            .find_feature(feature_name)
+            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
+
+        Ok(manifest.feature_defaults_hash(feature_def))
+    }
 }
 
 impl FeatureManifest {
     pub(crate) fn feature_schema_hash(&self, feature_def: &FeatureDef) -> String {
         let hasher = SchemaHasher::new(&self.enum_defs, &self.obj_defs);
+        let hash = hasher.hash(feature_def) & 0xffffffff;
+        format!("{hash:x}")
+    }
+
+    pub(crate) fn feature_defaults_hash(&self, feature_def: &FeatureDef) -> String {
+        let hasher = DefaultsHasher::new(&self.obj_defs);
         let hash = hasher.hash(feature_def) & 0xffffffff;
         format!("{hash:x}")
     }
