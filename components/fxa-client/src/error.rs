@@ -106,8 +106,8 @@ pub enum Error {
     #[error("Cannot xor arrays with different lengths: {0} and {1}")]
     XorLengthMismatch(usize, usize),
 
-    #[error("Origin mismatch")]
-    OriginMismatch,
+    #[error("Origin mismatch: {0}")]
+    OriginMismatch(String),
 
     #[error("Remote key and local key mismatch")]
     MismatchedKeys,
@@ -213,7 +213,7 @@ impl GetErrorHandling for Error {
             Error::BackoffError(_) => {
                 ErrorHandling::convert(FxaError::Other).report_error("fxa-client-backoff")
             }
-            Error::OriginMismatch => ErrorHandling::convert(FxaError::OriginMismatch),
+            Error::OriginMismatch(_) => ErrorHandling::convert(FxaError::OriginMismatch),
             _ => ErrorHandling::convert(FxaError::Other).report_error("fxa-client-other-error"),
         }
     }
