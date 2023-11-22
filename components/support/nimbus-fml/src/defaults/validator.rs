@@ -517,7 +517,7 @@ mod test_types {
 
     use serde_json::json;
 
-    use crate::intermediate_representation::{PropDef, VariantDef};
+    use crate::intermediate_representation::PropDef;
 
     use super::*;
 
@@ -529,75 +529,60 @@ mod test_types {
     }
 
     fn enums() -> BTreeMap<String, EnumDef> {
-        let enum_ = EnumDef {
-            name: "ButtonColor".into(),
-            variants: vec![
-                VariantDef {
-                    name: "blue".into(),
-                    ..Default::default()
-                },
-                VariantDef {
-                    name: "green".into(),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        };
+        let enum_ = EnumDef::new("ButtonColor", &["blue", "green"]);
 
-        BTreeMap::from([(enum_.name(), enum_)])
+        EnumDef::into_map(&[enum_])
     }
 
     fn objects() -> BTreeMap<String, ObjectDef> {
-        let obj1 = ObjectDef {
-            name: "SampleObj".into(),
-            props: vec![
-                PropDef::new("int", TypeRef::Int, json!(1)),
-                PropDef::new("string", TypeRef::String, json!("a string")),
-                PropDef::new("enum", TypeRef::Enum("ButtonColor".into()), json!("blue")),
+        let obj1 = ObjectDef::new(
+            "SampleObj",
+            &[
+                PropDef::new("int", &TypeRef::Int, &json!(1)),
+                PropDef::new("string", &TypeRef::String, &json!("a string")),
+                PropDef::new("enum", &TypeRef::Enum("ButtonColor".into()), &json!("blue")),
                 PropDef::new(
                     "list",
-                    TypeRef::List(Box::new(TypeRef::Boolean)),
-                    json!([true, false]),
+                    &TypeRef::List(Box::new(TypeRef::Boolean)),
+                    &json!([true, false]),
                 ),
                 PropDef::new(
                     "optional",
-                    TypeRef::Option(Box::new(TypeRef::Int)),
-                    json!(null),
+                    &TypeRef::Option(Box::new(TypeRef::Int)),
+                    &json!(null),
                 ),
                 PropDef::new(
                     "nestedObj",
-                    TypeRef::Object("NestedObject".into()),
-                    json!({
+                    &TypeRef::Object("NestedObject".into()),
+                    &json!({
                         "enumMap": {
                             "blue": 1,
                         },
                     }),
                 ),
             ],
-            ..Default::default()
-        };
+        );
 
-        let obj2 = ObjectDef {
-            name: "NestedObject".into(),
-            props: vec![PropDef::new(
+        let obj2 = ObjectDef::new(
+            "NestedObject",
+            &[PropDef::new(
                 "enumMap",
-                TypeRef::EnumMap(
+                &TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("ButtonColor".into())),
                     Box::new(TypeRef::Int),
                 ),
-                json!({
+                &json!({
                     "blue": 4,
                     "green": 2,
                 }),
             )],
-            ..Default::default()
-        };
-        BTreeMap::from([(obj1.name(), obj1), (obj2.name(), obj2)])
+        );
+        ObjectDef::into_map(&[obj1, obj2])
     }
 
     #[test]
     fn test_validate_prop_defaults_string() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::String, json!("default!"));
+        let mut prop = PropDef::new("key", &TypeRef::String, &json!("default!"));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -611,7 +596,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_int() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::Int, json!(100));
+        let mut prop = PropDef::new("key", &TypeRef::Int, &json!(100));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -625,7 +610,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_bool() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::Boolean, json!(true));
+        let mut prop = PropDef::new("key", &TypeRef::Boolean, &json!(true));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -639,7 +624,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_bundle_image() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::BundleImage, json!("IconBlue"));
+        let mut prop = PropDef::new("key", &TypeRef::BundleImage, &json!("IconBlue"));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -654,7 +639,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_bundle_text() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::BundleText, json!("BundledText"));
+        let mut prop = PropDef::new("key", &TypeRef::BundleText, &json!("BundledText"));
         let enums1 = Default::default();
         let objs = Default::default();
         let fm = DefaultsValidator::new(&enums1, &objs);
@@ -671,8 +656,8 @@ mod test_types {
     fn test_validate_prop_defaults_option_null() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::Option(Box::new(TypeRef::Boolean)),
-            json!(null),
+            &TypeRef::Option(Box::new(TypeRef::Boolean)),
+            &json!(null),
         );
         let enums1 = Default::default();
         let objs = Default::default();
@@ -690,8 +675,8 @@ mod test_types {
     fn test_validate_prop_defaults_nested_options() -> Result<()> {
         let prop = PropDef::new(
             "key",
-            TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
-            json!(true),
+            &TypeRef::Option(Box::new(TypeRef::Option(Box::new(TypeRef::Boolean)))),
+            &json!(true),
         );
         let enums1 = Default::default();
         let objs = Default::default();
@@ -705,8 +690,8 @@ mod test_types {
     fn test_validate_prop_defaults_option_non_null() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::Option(Box::new(TypeRef::Boolean)),
-            json!(true),
+            &TypeRef::Option(Box::new(TypeRef::Boolean)),
+            &json!(true),
         );
         let enums1 = Default::default();
         let objs = Default::default();
@@ -722,7 +707,7 @@ mod test_types {
 
     #[test]
     fn test_validate_prop_defaults_enum() -> Result<()> {
-        let mut prop = PropDef::new("key", TypeRef::Enum("ButtonColor".into()), json!("blue"));
+        let mut prop = PropDef::new("key", &TypeRef::Enum("ButtonColor".into()), &json!("blue"));
 
         let enums1 = enums();
         let objs = Default::default();
@@ -742,11 +727,11 @@ mod test_types {
     fn test_validate_prop_defaults_enum_map() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::EnumMap(
+            &TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("ButtonColor".into())),
                 Box::new(TypeRef::Int),
             ),
-            json!({
+            &json!({
                 "blue": 1,
                 "green": 22,
             }),
@@ -774,8 +759,8 @@ mod test_types {
     fn test_validate_prop_defaults_string_map() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::StringMap(Box::new(TypeRef::Int)),
-            json!({
+            &TypeRef::StringMap(Box::new(TypeRef::Int)),
+            &json!({
                 "blue": 1,
                 "green": 22,
             }),
@@ -803,8 +788,8 @@ mod test_types {
     fn test_validate_prop_defaults_list() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::List(Box::new(TypeRef::Int)),
-            json!([1, 3, 100]),
+            &TypeRef::List(Box::new(TypeRef::Int)),
+            &json!([1, 3, 100]),
         );
         let enums1 = Default::default();
         let objs = Default::default();
@@ -821,8 +806,8 @@ mod test_types {
     fn test_validate_prop_defaults_object() -> Result<()> {
         let mut prop = PropDef::new(
             "key",
-            TypeRef::Object("SampleObj".into()),
-            json!({
+            &TypeRef::Object("SampleObj".into()),
+            &json!({
                 "int": 1,
                 "string": "bobo",
                 "enum": "green",
@@ -912,11 +897,11 @@ mod test_types {
     fn test_validate_prop_defaults_enum_map_optional() -> Result<()> {
         let prop = PropDef::new(
             "key",
-            TypeRef::EnumMap(
+            &TypeRef::EnumMap(
                 Box::new(TypeRef::Enum("ButtonColor".into())),
                 Box::new(TypeRef::Option(Box::new(TypeRef::Int))),
             ),
-            json!({
+            &json!({
                 "blue": 1,
             }),
         );
@@ -1015,43 +1000,9 @@ mod string_alias {
         Ok(())
     }
 
-    impl PropDef {
-        pub(crate) fn simple(nm: &str, typ: &TypeRef, value: &Value) -> Self {
-            Self {
-                name: nm.to_string(),
-                typ: typ.clone(),
-                default: value.clone(),
-                doc: nm.to_string(),
-                pref_key: None,
-                string_alias: None,
-            }
-        }
-
-        pub(crate) fn with_string_alias(
-            nm: &str,
-            typ: &TypeRef,
-            value: &Value,
-            sa: &TypeRef,
-        ) -> Self {
-            PropDef {
-                name: nm.to_string(),
-                typ: typ.clone(),
-                default: value.clone(),
-                doc: nm.to_string(),
-                pref_key: None,
-                string_alias: Some(sa.clone()),
-            }
-        }
-    }
-
     fn objects(nm: &str, props: &[PropDef]) -> BTreeMap<String, ObjectDef> {
-        let obj1 = ObjectDef {
-            name: nm.to_string(),
-            props: props.into(),
-            ..Default::default()
-        };
-
-        BTreeMap::from([(nm.to_string(), obj1)])
+        let obj1 = ObjectDef::new(nm, props);
+        ObjectDef::into_map(&[obj1])
     }
 
     fn feature(props: &[PropDef]) -> FeatureDef {
@@ -1098,7 +1049,7 @@ mod string_alias {
         let t = mate.clone();
         let f = {
             let v = json!("Eve");
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
 
         validator.validate_feature_def(&f)?;
@@ -1106,7 +1057,7 @@ mod string_alias {
         let t = mate.clone();
         let f = {
             let v = json!("Nope");
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         assert!(validator.validate_feature_def(&f).is_err());
 
@@ -1115,19 +1066,19 @@ mod string_alias {
         let t = TypeRef::Option(Box::new(mate.clone()));
         let f = {
             let v = json!(null);
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         validator.validate_feature_def(&f)?;
 
         let f = {
             let v = json!("Charlie");
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         validator.validate_feature_def(&f)?;
 
         let f = {
             let v = json!("Nope");
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         assert!(validator.validate_feature_def(&f).is_err());
 
@@ -1137,19 +1088,19 @@ mod string_alias {
 
         let f = {
             let v = json!([]);
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         validator.validate_feature_def(&f)?;
 
         let f = {
             let v = json!(["Alice", "Charlie"]);
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         validator.validate_feature_def(&f)?;
 
         let f = {
             let v = json!(["Alice", "Nope"]);
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         assert!(validator.validate_feature_def(&f).is_err());
 
@@ -1158,13 +1109,13 @@ mod string_alias {
         let t = TypeRef::EnumMap(Box::new(mate.clone()), Box::new(TypeRef::Boolean));
         let f = {
             let v = json!({"Bonnie": false, "Deborah": true});
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         validator.validate_feature_def(&f)?;
 
         let f = {
             let v = json!({"Bonnie": false, "Nope": true});
-            feature(&[the_team.clone(), PropDef::simple(nm, &t, &v)])
+            feature(&[the_team.clone(), PropDef::new(nm, &t, &v)])
         };
         assert!(validator.validate_feature_def(&f).is_err());
 
@@ -1219,8 +1170,8 @@ mod string_alias {
         let objects = objects(
             "Player",
             &[
-                PropDef::simple("name", mate, &json!("Untested")),
-                PropDef::simple("position", &position, &json!("Untested")),
+                PropDef::new("name", mate, &json!("Untested")),
+                PropDef::new("position", &position, &json!("Untested")),
             ],
         );
         let enums = Default::default();
@@ -1234,7 +1185,7 @@ mod string_alias {
             feature(&[
                 the_team.clone(),
                 positions.clone(),
-                PropDef::simple(nm, &t, &v),
+                PropDef::new(nm, &t, &v),
             ])
         };
         validator.validate_feature_def(&f)?;
@@ -1244,7 +1195,7 @@ mod string_alias {
             feature(&[
                 the_team.clone(),
                 positions.clone(),
-                PropDef::simple(nm, &t, &v),
+                PropDef::new(nm, &t, &v),
             ])
         };
         assert!(validator.validate_feature_def(&f).is_err());

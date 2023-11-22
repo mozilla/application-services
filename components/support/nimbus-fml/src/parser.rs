@@ -538,17 +538,17 @@ mod unit_tests {
         let obj_def = &ir.obj_defs["Button"];
         assert!(obj_def.name == *"Button");
         assert!(obj_def.doc == *"This is a button object");
-        assert!(obj_def.props.contains(&PropDef::new_with_doc(
+        assert!(obj_def.props.contains(&PropDef::with_doc(
             "label",
             "This is the label for the button",
-            TypeRef::String,
-            serde_json::Value::String("REQUIRED FIELD".to_string()),
+            &TypeRef::String,
+            &serde_json::json!("REQUIRED FIELD")
         )));
-        assert!(obj_def.props.contains(&PropDef::new_with_doc(
+        assert!(obj_def.props.contains(&PropDef::with_doc(
             "color",
             "This is the color of the button",
-            TypeRef::Option(Box::new(TypeRef::String)),
-            serde_json::Value::Null,
+            &TypeRef::Option(Box::new(TypeRef::String)),
+            &serde_json::Value::Null
         )));
 
         // Validate parsed features
