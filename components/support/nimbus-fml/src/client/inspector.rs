@@ -72,6 +72,12 @@ impl FmlFeatureInspector {
             .get_schema_hash(&self.feature_id)
             .unwrap_or_default()
     }
+
+    pub fn get_defaults_hash(&self) -> String {
+        self.manifest
+            .get_defaults_hash(&self.feature_id)
+            .unwrap_or_default()
+    }
 }
 
 impl FmlFeatureInspector {

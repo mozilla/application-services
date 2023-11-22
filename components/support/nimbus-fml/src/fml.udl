@@ -121,6 +121,16 @@ interface FmlFeatureInspector {
     // certain that the code which uses this configuration will also have
     // changed.
     string get_schema_hash();
+
+    // Returns a 8 digit hex hash of the default values for the feature.
+    //
+    // This is suitable for tracking over time.
+    //
+    // This is likely to change more frequently than the structure hash.
+    //
+    // It should be noted that the any changes to the structure hash will
+    // necessitate a change to this value, but not vice versa.
+    string get_defaults_hash();
 };
 
 dictionary FmlEditorError {
