@@ -136,7 +136,7 @@ public class FeatureHolder<T: FMLFeatureInterface> {
 }
 
 /// A bare-bones interface for the FML generated objects.
-public protocol FMLObjectInterface {}
+public protocol FMLObjectInterface: Encodable {}
 
 /// A bare-bones interface for the FML generated features.
 ///

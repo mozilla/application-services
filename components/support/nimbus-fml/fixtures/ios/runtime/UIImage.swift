@@ -11,6 +11,8 @@ public class UIImage {
         self.bundle = bundle
         self.compatibleWith = compatibleWith
     }
+
+    public var accessibilityIdentifier: String?
 }
 
 public class Bundle {

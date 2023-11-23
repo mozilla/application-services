@@ -17,6 +17,7 @@ public class {{class_name}}: FMLObjectInterface {
     private let _variables: Variables
     private let _defaults: Defaults
     private let _prefs: UserDefaults?
+
     private init(variables: Variables = NilVariables.instance, prefs: UserDefaults? = nil, defaults: Defaults) {
         self._variables = variables
         self._defaults = defaults
@@ -44,6 +45,21 @@ public class {{class_name}}: FMLObjectInterface {
         self.init(variables: _variables, prefs: _prefs, defaults: Defaults({% for p in inner.props() %}
             {{p.name()|var_name}}: {{p.name()|var_name}}{% if !loop.last %},{% endif %}
         {%- endfor %}))
+    }
+
+    enum CodingKeys: String, CodingKey {
+    {%- for p in inner.props() %}
+    {%- let prop = p.name() %}
+        case {{ prop|var_name }} = {{ prop|quoted }}
+    {%- endfor %}
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+    {%- for p in inner.props() %}
+    {%- let prop = p.name()|var_name %}
+        try container.encode({{ prop|to_json(p.typ()) }}, forKey: .{{ prop }})
+    {%- endfor %}
     }
 
 {#- The property initializers #}
