@@ -416,11 +416,11 @@ mod test {
             .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
             .to_str()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
-        fs::create_dir_all(generated_src_dir())?;
+        let stem = pbuf.file_stem().unwrap().to_str().unwrap();
+        fs::create_dir_all(join(generated_src_dir(), stem))?;
         let manifest_out = format!(
-            "{}_{}.{}",
-            join(generated_src_dir(), file),
-            channel,
+            "{}/{stem}/{file}_{channel}.{}",
+            generated_src_dir(),
             language.extension()
         );
         let loader = Default::default();
