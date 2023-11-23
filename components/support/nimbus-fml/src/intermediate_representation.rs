@@ -1413,11 +1413,11 @@ mod imports_tests {
         let json = fm.default_json();
         assert_eq!(
             json.get("feature_i").unwrap().get("prop_i_1").unwrap(),
-            &Value::String("prop_i_1_value".into())
+            &json!("prop_i_1_value")
         );
         assert_eq!(
             json.get("feature").unwrap().get("prop_1").unwrap(),
-            &Value::String("prop_1_value".into())
+            &json!("prop_1_value")
         );
 
         Ok(())
@@ -1426,7 +1426,7 @@ mod imports_tests {
 
 #[cfg(test)]
 mod feature_config_tests {
-    use serde_json::{json, Number};
+    use serde_json::json;
 
     use super::*;
     use crate::fixtures::intermediate_representation::get_feature_manifest;
@@ -1448,14 +1448,8 @@ mod feature_config_tests {
             HashMap::new(),
         );
 
-        let result = fm.validate_feature_config(
-            "feature",
-            Value::Object(Map::from_iter([(
-                "prop_1".to_string(),
-                Value::String("new value".into()),
-            )])),
-        )?;
-        assert_eq!(result.props[0].default, Value::String("new value".into()));
+        let result = fm.validate_feature_config("feature", json!({ "prop_1": "new value" }))?;
+        assert_eq!(result.props[0].default, json!("new value"));
 
         Ok(())
     }
@@ -1477,13 +1471,7 @@ mod feature_config_tests {
             HashMap::new(),
         );
 
-        let result = fm.validate_feature_config(
-            "feature-1",
-            Value::Object(Map::from_iter([(
-                "prop_1".to_string(),
-                Value::String("new value".into()),
-            )])),
-        );
+        let result = fm.validate_feature_config("feature-1", json!({ "prop_1": "new value" }));
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
@@ -1539,10 +1527,9 @@ mod feature_config_tests {
 
         let result = fm.validate_feature_config(
             "feature",
-            Value::Object(Map::from_iter([(
-                "prop_1".to_string(),
-                Value::Number(Number::from(1)),
-            )])),
+            json!({
+                "prop_1": 1,
+            }),
         );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().to_string(), "Validation Error at features/feature.prop_1: Mismatch between type String and default 1".to_string());

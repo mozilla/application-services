@@ -211,7 +211,7 @@ mod unit_tests {
         fixtures::intermediate_representation::get_feature_manifest,
         intermediate_representation::{FeatureDef, ModuleId, PropDef, TypeRef},
     };
-    use serde_json::{json, Map, Number, Value};
+    use serde_json::{json, Value};
     use std::collections::HashMap;
 
     fn create_manifest() -> FeatureManifest {
@@ -273,7 +273,10 @@ mod unit_tests {
 
         assert!(client.is_feature_valid(
             "feature".to_string(),
-            Map::from_iter([("prop_1".to_string(), Value::String("new value".into()))])
+            json!({ "prop_1": "new value" })
+                .as_object()
+                .unwrap()
+                .clone()
         )?);
 
         Ok(())
@@ -286,11 +289,14 @@ mod unit_tests {
         let result = client.merge(HashMap::from_iter([
             (
                 "feature".to_string(),
-                Map::from_iter([("prop_1".to_string(), Value::String("new value".to_string()))]),
+                json!({ "prop_1": "new value" })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
             ),
             (
                 "feature_i".to_string(),
-                Map::from_iter([("prop_i_1".to_string(), Value::Number(Number::from(1)))]),
+                json!({"prop_i_1": 1}).as_object().unwrap().clone(),
             ),
         ]))?;
 
