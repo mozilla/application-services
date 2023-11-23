@@ -12,11 +12,12 @@ public extension Dictionary {
         return [K1: Value](uniqueKeysWithValues: transformed)
     }
 
+    @inline(__always)
     func mapValuesNotNull<V1>(_ transform: (Value) -> V1?) -> [Key: V1] {
         return compactMapValues(transform)
     }
 
-    func mapNotNull<K1, V1>(_ keyTransform: (Key) -> K1?, _ valueTransform: (Value) -> V1?) -> [K1: V1] {
+    func mapEntriesNotNull<K1, V1>(_ keyTransform: (Key) -> K1?, _ valueTransform: (Value) -> V1?) -> [K1: V1] {
         let transformed: [(K1, V1)] = compactMap { k, v in
             guard let k1 = keyTransform(k),
                   let v1 = valueTransform(v)
@@ -34,6 +35,13 @@ public extension Dictionary {
         }
 
         return merging(defaults, uniquingKeysWith: valueMerger)
+    }
+}
+
+public extension Array {
+    @inline(__always)
+    func mapNotNull<ElementOfResult>(_ transform: (Element) throws -> ElementOfResult?) rethrows -> [ElementOfResult] {
+        try compactMap(transform)
     }
 }
 
