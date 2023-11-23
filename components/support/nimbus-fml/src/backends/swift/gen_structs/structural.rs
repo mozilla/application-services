@@ -102,6 +102,14 @@ impl CodeType for OptionalCodeType {
         ))
     }
 
+    /// Implement these in different code types, and call recursively from different code types.
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        // We want to return None if the inner's json trasform is none,
+        // but if it's not, then use `prop?` as the new prop
+        let prop = format!("{}?", prop);
+        oracle.find(&self.inner).as_json_transform(oracle, &prop)
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -263,6 +271,34 @@ impl CodeType for MapCodeType {
         ))
     }
 
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+        Some(
+            match (
+                k_type.as_json_transform(oracle, &"$0"),
+                v_type.as_json_transform(oracle, &"$0"),
+            ) {
+                (Some(k), Some(v)) => {
+                    format!(
+                        "{prop}.mapEntriesNotNull({{ {k} }}, {{ {v} }})",
+                        prop = prop,
+                        k = k,
+                        v = v
+                    )
+                }
+                (None, Some(v)) => {
+                    format!("{prop}.mapValuesNotNull {{ {v} }}", prop = prop, v = v)
+                }
+                // We could do something with keys, but it's only every strings and enums.
+                (Some(k), None) => {
+                    format!("{prop}.mapKeysNotNull {{ {k} }}", prop = prop, k = k)
+                }
+                _ => return None,
+            },
+        )
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -385,6 +421,15 @@ impl CodeType for ListCodeType {
         Some(format!(
             "{value}.map {{ {mapper} }}",
             value = value,
+            mapper = mapper
+        ))
+    }
+
+    fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
+        let mapper = oracle.find(&self.inner).as_json_transform(oracle, &"$0")?;
+        Some(format!(
+            "{prop}.map {{ {mapper} }}",
+            prop = prop,
             mapper = mapper
         ))
     }

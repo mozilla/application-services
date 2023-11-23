@@ -14,6 +14,7 @@ public extension Array where Element == Bundle {
     func getImage(named name: String) -> UIImage? {
         for bundle in self {
             if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
+                image.accessibilityIdentifier = name
                 return image
             }
         }
@@ -76,5 +77,15 @@ public extension Bundle {
             }
         #endif
         return nil
+    }
+}
+
+public extension UIImage {
+    /// The ``accessibilityIdentifier``, or "unknown-image" if not found.
+    ///
+    /// The ``accessibilityIdentifier`` is set when images are loaded via Nimbus, so this
+    /// really to make the compiler happy with the generated code.
+    var encodableImageName: String {
+        accessibilityIdentifier ?? "unknown-image"
     }
 }
