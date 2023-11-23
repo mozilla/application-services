@@ -328,7 +328,7 @@ mod test {
     use super::*;
     use crate::backends::experimenter_manifest::ExperimenterManifest;
     use crate::backends::{kotlin, swift};
-    use crate::frontend::{AboutBlock, KotlinAboutBlock};
+    use crate::frontend::AboutBlock;
     use crate::util::{generated_src_dir, join, pkg_dir};
 
     const MANIFEST_PATHS: &[&str] = &[
@@ -340,7 +340,7 @@ mod test {
         "fixtures/fe/importing/diamond/00-app.yaml",
     ];
 
-    fn generate_and_assert(
+    pub(crate) fn generate_and_assert(
         test_script: &str,
         manifest: &str,
         channel: &str,
@@ -380,7 +380,7 @@ mod test {
 
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
-    fn generate_and_assert_with_config(
+    pub(crate) fn generate_and_assert_with_config(
         test_script: &str,
         manifest: &str,
         channel: &str,
@@ -397,7 +397,7 @@ mod test {
         Ok(())
     }
 
-    fn create_command_from_test(
+    pub(crate) fn create_command_from_test(
         test_script: &str,
         manifest: &str,
         channel: &str,
@@ -434,7 +434,10 @@ mod test {
         })
     }
 
-    fn generate_multiple_and_assert(test_script: &str, manifests: &[(&str, &str)]) -> Result<()> {
+    pub(crate) fn generate_multiple_and_assert(
+        test_script: &str,
+        manifests: &[(&str, &str)],
+    ) -> Result<()> {
         let cmds = manifests
             .iter()
             .map(|(manifest, channel)| {
@@ -476,341 +479,6 @@ mod test {
     }
 
     #[test]
-    fn test_simple_validation_code_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/simple_nimbus_validation.kts",
-            "fixtures/ir/simple_nimbus_validation.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_objects_code_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/with_objects.kts",
-            "fixtures/ir/with_objects.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_homescreen_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/full_homescreen.kts",
-            "fixtures/ir/full_homescreen.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_fenix_release() -> Result<()> {
-        generate_and_assert_with_config(
-            "test/fenix_release.kts",
-            "fixtures/fe/browser.yaml",
-            "release",
-            false,
-            AboutBlock {
-                kotlin_about: Some(KotlinAboutBlock {
-                    package: "com.example.app".to_string(),
-                    class: "com.example.release.FxNimbus".to_string(),
-                }),
-                swift_about: None,
-                ..Default::default()
-            },
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_fenix_nightly() -> Result<()> {
-        generate_and_assert_with_config(
-            "test/fenix_nightly.kts",
-            "fixtures/fe/browser.yaml",
-            "nightly",
-            false,
-            AboutBlock {
-                kotlin_about: Some(KotlinAboutBlock {
-                    package: "com.example.app".to_string(),
-                    class: "com.example.nightly.FxNimbus".to_string(),
-                }),
-                swift_about: None,
-                ..Default::default()
-            },
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_dx_improvements() -> Result<()> {
-        generate_and_assert(
-            "test/dx_improvements_testing.kts",
-            "fixtures/fe/dx_improvements.yaml",
-            "testing",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_app_menu_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/app_menu.kts",
-            "fixtures/ir/app_menu.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_app_menu_swift_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/app_menu.swift",
-            "fixtures/ir/app_menu.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_objects_swift_from_ir() -> Result<()> {
-        generate_and_assert(
-            "test/with_objects.swift",
-            "fixtures/ir/with_objects.json",
-            "release",
-            true,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_bundled_resources_kotlin() -> Result<()> {
-        generate_and_assert(
-            "test/bundled_resources.kts",
-            "fixtures/fe/bundled_resouces.yaml",
-            "testing",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_bundled_resources_swift() -> Result<()> {
-        generate_and_assert(
-            "test/bundled_resources.swift",
-            "fixtures/fe/bundled_resouces.yaml",
-            "testing",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_fenix_release_swift() -> Result<()> {
-        generate_and_assert(
-            "test/fenix_release.swift",
-            "fixtures/fe/browser.yaml",
-            "release",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_fenix_nightly_swift() -> Result<()> {
-        generate_and_assert(
-            "test/fenix_nightly.swift",
-            "fixtures/fe/browser.yaml",
-            "nightly",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_full_firefox_ios() -> Result<()> {
-        generate_and_assert(
-            "test/firefox_ios_release.swift",
-            "fixtures/fe/including/ios.yaml",
-            "release",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_simple_ios() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/simple/app_debug.swift",
-            &[
-                ("fixtures/fe/importing/simple/app.yaml", "debug"),
-                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_simple_android() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/simple/app_debug.kts",
-            &[
-                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
-                ("fixtures/fe/importing/simple/app.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_channel_mismatching_android() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/channels/app_debug.kts",
-            &[
-                ("fixtures/fe/importing/channels/app.fml.yaml", "app-debug"),
-                ("fixtures/fe/importing/channels/lib.fml.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_override_defaults_android() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/overrides/app_debug.kts",
-            &[
-                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
-                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_override_defaults_ios() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/overrides/app_debug.swift",
-            &[
-                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
-                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_override_defaults_coverall_android() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/overrides-coverall/app_debug.kts",
-            &[
-                (
-                    "fixtures/fe/importing/overrides-coverall/app.fml.yaml",
-                    "debug",
-                ),
-                (
-                    "fixtures/fe/importing/overrides-coverall/lib.fml.yaml",
-                    "debug",
-                ),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_diamond_overrides_android() -> Result<()> {
-        // In this test, sublib implements a feature.
-        // Both lib and app offer some configuration, and both app and lib
-        // need to import sublib.
-        generate_multiple_and_assert(
-            "test/importing/diamond/00-app.kts",
-            &[
-                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
-                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
-                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_diamond_overrides_ios() -> Result<()> {
-        // In this test, sublib implements a feature.
-        // Both lib and app offer some configuration, and both app and lib
-        // need to import sublib.
-        generate_multiple_and_assert(
-            "test/importing/diamond/00-app.swift",
-            &[
-                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
-                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
-                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn test_importing_reexporting_features() -> Result<()> {
-        // In this test, sublib implements a feature.
-        // Both lib and app offer some configuration, but app doesn't need to know
-        // that the feature is provided by sublib– where the feature lives
-        // is an implementation detail, and should be encapsulated by lib.
-        // This is currently not possible, but filed as EXP-2540.
-        generate_multiple_and_assert(
-            "test/importing/reexporting/00-app.kts",
-            &[
-                ("fixtures/fe/importing/reexporting/00-app.yaml", "debug"),
-                ("fixtures/fe/importing/reexporting/01-lib.yaml", "debug"),
-                ("fixtures/fe/importing/reexporting/02-sublib.yaml", "debug"),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_including_imports_android() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/including-imports/app_release.kts",
-            &[
-                (
-                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
-                    "none",
-                ),
-                (
-                    "fixtures/fe/importing/including-imports/app.fml.yaml",
-                    "release",
-                ),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_importing_including_imports_ios() -> Result<()> {
-        generate_multiple_and_assert(
-            "test/importing/including-imports/app_release.swift",
-            &[
-                (
-                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
-                    "none",
-                ),
-                (
-                    "fixtures/fe/importing/including-imports/app.fml.yaml",
-                    "release",
-                ),
-            ],
-        )?;
-        Ok(())
-    }
-
-    #[test]
     fn test_importing_simple_experimenter_manifest() -> Result<()> {
         // Both the app and lib files declare features, so we should have an experimenter manifest file with two features.
         let cmd = create_experimenter_manifest_cmd("fixtures/fe/importing/simple/app.yaml")?;
@@ -822,28 +490,6 @@ mod test {
         assert!(m.contains_key("homescreen"));
         assert!(m.contains_key("search"));
 
-        Ok(())
-    }
-
-    #[test]
-    fn regression_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
-        generate_and_assert(
-            "test/threadsafe_feature_holder.swift",
-            "fixtures/fe/browser.yaml",
-            "release",
-            false,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn regression_test_concurrent_access_of_feature_holder_kts() -> Result<()> {
-        generate_and_assert(
-            "test/threadsafe_feature_holder.kts",
-            "fixtures/fe/browser.yaml",
-            "release",
-            false,
-        )?;
         Ok(())
     }
 
@@ -1013,23 +659,245 @@ mod test {
         test_single_merged_manifest_file("fixtures/fe/misc-features.yaml", "debug")?;
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod kts_tests {
+    use crate::frontend::{AboutBlock, KotlinAboutBlock};
+
+    use super::{
+        test::{
+            generate_and_assert, generate_and_assert_with_config, generate_multiple_and_assert,
+        },
+        *,
+    };
 
     #[test]
-    fn test_with_coenrolled_features_and_imports_kotlin() -> Result<()> {
+    fn test_simple_validation_code_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/simple_nimbus_validation.kts",
+            "fixtures/ir/simple_nimbus_validation.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_objects_code_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/with_objects.kts",
+            "fixtures/ir/with_objects.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_homescreen_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/full_homescreen.kts",
+            "fixtures/ir/full_homescreen.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_release() -> Result<()> {
+        generate_and_assert_with_config(
+            "test/fenix_release.kts",
+            "fixtures/fe/browser.yaml",
+            "release",
+            false,
+            AboutBlock {
+                kotlin_about: Some(KotlinAboutBlock {
+                    package: "com.example.app".to_string(),
+                    class: "com.example.release.FxNimbus".to_string(),
+                }),
+                swift_about: None,
+                ..Default::default()
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_nightly() -> Result<()> {
+        generate_and_assert_with_config(
+            "test/fenix_nightly.kts",
+            "fixtures/fe/browser.yaml",
+            "nightly",
+            false,
+            AboutBlock {
+                kotlin_about: Some(KotlinAboutBlock {
+                    package: "com.example.app".to_string(),
+                    class: "com.example.nightly.FxNimbus".to_string(),
+                }),
+                swift_about: None,
+                ..Default::default()
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_dx_improvements() -> Result<()> {
+        generate_and_assert(
+            "test/dx_improvements_testing.kts",
+            "fixtures/fe/dx_improvements.yaml",
+            "testing",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_app_menu_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/app_menu.kts",
+            "fixtures/ir/app_menu.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_bundled_resources_kts() -> Result<()> {
+        generate_and_assert(
+            "test/bundled_resources.kts",
+            "fixtures/fe/bundled_resouces.yaml",
+            "testing",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_simple_kts() -> Result<()> {
         generate_multiple_and_assert(
-            "test/allow_coenrolling.kts",
+            "test/importing/simple/app_debug.kts",
             &[
-                ("fixtures/fe/importing/coenrolling/app.fml.yaml", "release"),
-                ("fixtures/fe/importing/coenrolling/ui.fml.yaml", "release"),
+                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
+                ("fixtures/fe/importing/simple/app.yaml", "debug"),
             ],
         )?;
         Ok(())
     }
 
     #[test]
-    fn test_with_coenrolled_features_and_imports_swift() -> Result<()> {
+    fn test_importing_channel_mismatching_kts() -> Result<()> {
         generate_multiple_and_assert(
-            "test/allow_coenrolling.swift",
+            "test/importing/channels/app_debug.kts",
+            &[
+                ("fixtures/fe/importing/channels/app.fml.yaml", "app-debug"),
+                ("fixtures/fe/importing/channels/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_kts() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides/app_debug.kts",
+            &[
+                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
+                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_coverall_kts() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides-coverall/app_debug.kts",
+            &[
+                (
+                    "fixtures/fe/importing/overrides-coverall/app.fml.yaml",
+                    "debug",
+                ),
+                (
+                    "fixtures/fe/importing/overrides-coverall/lib.fml.yaml",
+                    "debug",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_diamond_overrides_kts() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, and both app and lib
+        // need to import sublib.
+        generate_multiple_and_assert(
+            "test/importing/diamond/00-app.kts",
+            &[
+                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_importing_reexporting_features() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, but app doesn't need to know
+        // that the feature is provided by sublib– where the feature lives
+        // is an implementation detail, and should be encapsulated by lib.
+        // This is currently not possible, but filed as EXP-2540.
+        generate_multiple_and_assert(
+            "test/importing/reexporting/00-app.kts",
+            &[
+                ("fixtures/fe/importing/reexporting/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/reexporting/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/reexporting/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_including_imports_kts() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/including-imports/app_release.kts",
+            &[
+                (
+                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
+                    "none",
+                ),
+                (
+                    "fixtures/fe/importing/including-imports/app.fml.yaml",
+                    "release",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn regression_test_concurrent_access_of_feature_holder_kts() -> Result<()> {
+        generate_and_assert(
+            "test/threadsafe_feature_holder.kts",
+            "fixtures/fe/browser.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_coenrolled_features_and_imports_kts() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/allow_coenrolling.kts",
             &[
                 ("fixtures/fe/importing/coenrolling/app.fml.yaml", "release"),
                 ("fixtures/fe/importing/coenrolling/ui.fml.yaml", "release"),
@@ -1043,6 +911,159 @@ mod test {
         generate_multiple_and_assert(
             "test/pref_overrides.kts",
             &[("fixtures/fe/pref_overrides.fml.yaml", "debug")],
+        )?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod swift_tests {
+    use super::{
+        test::{generate_and_assert, generate_multiple_and_assert},
+        *,
+    };
+
+    #[test]
+    fn test_with_app_menu_swift_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/app_menu.swift",
+            "fixtures/ir/app_menu.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_objects_swift_from_ir() -> Result<()> {
+        generate_and_assert(
+            "test/with_objects.swift",
+            "fixtures/ir/with_objects.json",
+            "release",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_bundled_resources_swift() -> Result<()> {
+        generate_and_assert(
+            "test/bundled_resources.swift",
+            "fixtures/fe/bundled_resouces.yaml",
+            "testing",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_release_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_release.swift",
+            "fixtures/fe/browser.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_fenix_nightly_swift() -> Result<()> {
+        generate_and_assert(
+            "test/fenix_nightly.swift",
+            "fixtures/fe/browser.yaml",
+            "nightly",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_full_firefox_swift() -> Result<()> {
+        generate_and_assert(
+            "test/firefox_ios_release.swift",
+            "fixtures/fe/including/ios.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_simple_swift() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/simple/app_debug.swift",
+            &[
+                ("fixtures/fe/importing/simple/app.yaml", "debug"),
+                ("fixtures/fe/importing/simple/lib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_override_defaults_swift() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/overrides/app_debug.swift",
+            &[
+                ("fixtures/fe/importing/overrides/app.fml.yaml", "debug"),
+                ("fixtures/fe/importing/overrides/lib.fml.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+    #[test]
+    fn test_importing_diamond_overrides_swift() -> Result<()> {
+        // In this test, sublib implements a feature.
+        // Both lib and app offer some configuration, and both app and lib
+        // need to import sublib.
+        generate_multiple_and_assert(
+            "test/importing/diamond/00-app.swift",
+            &[
+                ("fixtures/fe/importing/diamond/00-app.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/01-lib.yaml", "debug"),
+                ("fixtures/fe/importing/diamond/02-sublib.yaml", "debug"),
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_importing_including_imports_swift() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/importing/including-imports/app_release.swift",
+            &[
+                (
+                    "fixtures/fe/importing/including-imports/ui.fml.yaml",
+                    "none",
+                ),
+                (
+                    "fixtures/fe/importing/including-imports/app.fml.yaml",
+                    "release",
+                ),
+            ],
+        )?;
+        Ok(())
+    }
+    #[test]
+    fn regression_test_concurrent_access_of_feature_holder_swift() -> Result<()> {
+        generate_and_assert(
+            "test/threadsafe_feature_holder.swift",
+            "fixtures/fe/browser.yaml",
+            "release",
+            false,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_coenrolled_features_and_imports_swift() -> Result<()> {
+        generate_multiple_and_assert(
+            "test/allow_coenrolling.swift",
+            &[
+                ("fixtures/fe/importing/coenrolling/app.fml.yaml", "release"),
+                ("fixtures/fe/importing/coenrolling/ui.fml.yaml", "release"),
+            ],
         )?;
         Ok(())
     }
