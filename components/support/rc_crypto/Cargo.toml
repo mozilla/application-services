@@ -17,8 +17,6 @@ nss = { path = "nss" }
 hawk = { version = "3.2", default-features = false, optional = true }
 ece = { version = "2.1", default-features = false, features = ["serializable-keys"], optional = true }
 
-[dev-dependencies]
-
 [dev-dependencies.ece]
 version = "2.0"
 default-features = false

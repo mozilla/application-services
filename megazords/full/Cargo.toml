@@ -24,5 +24,7 @@ autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
 suggest = { path = "../../components/suggest" }
+# Force the "bundled" feature????
+rusqlite = { version = "0.29.0" }
 
 lazy_static = "1.4"

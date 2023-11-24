@@ -277,11 +277,11 @@ def print_rust_environment():
 
 def calc_rust_env(package, features):
     if features == RustFeatures.ALL:
-        # nss-sys's --features handling is broken.  Workaround it by using a
-        # custom --cfg.  This shouldn't be this way!
+        # Anything needing special support for sqlite might fail to link it.
+        # `--all-features` in CI hits this - it shouldn't be this way!
         return {
             **os.environ,
-            'RUSTFLAGS' : "--cfg __appsvc_ci_hack"
+            'RUSTFLAGS' : "--cfg __appsvc_ci_sqlite_hack"
         }
     else:
         return None
