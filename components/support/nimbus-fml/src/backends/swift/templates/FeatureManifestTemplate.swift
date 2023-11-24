@@ -55,6 +55,24 @@ public class {{ nimbus_object }} : FeatureManifestInterface {
             {%- endfor %}]
     }
 
+    /// Introspection utility method.
+    {%- let features = self.iter_feature_defs() %}
+    {%- if features.is_empty() %}
+    public func getFeature(featureId _: String) -> FeatureHolderAny? {
+        return nil
+    }
+    {%- else %}
+    public func getFeature(featureId: String) -> FeatureHolderAny? {
+        switch featureId {
+    {%-     for f in features %}
+    {%-         let raw_name = f.name() %}
+            case {{ raw_name|quoted }}: return FeatureHolderAny(wrapping: features.{{ raw_name|var_name }})
+    {%-     endfor %}
+            default: return nil
+        }
+    }
+    {%- endif %}
+
     ///
     /// All generated initialization code. Clients shouldn't need to override or call
     /// this.

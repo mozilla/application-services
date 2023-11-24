@@ -32,5 +32,9 @@ public protocol FeatureManifestInterface {
     /// This happens automatically if you use the `NimbusBuilder` pattern of initialization.
     func invalidateCachedValues()
 
+    /// Get a feature configuration. This is of limited use for most uses of the FML, though
+    /// is quite useful for introspection.
+    func getFeature(featureId: String) -> FeatureHolderAny?
+
     func getCoenrollingFeatureIds() -> [String]
 }
