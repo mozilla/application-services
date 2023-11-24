@@ -164,6 +164,13 @@ public class FeatureHolderAny {
     public func value() -> FMLFeatureInterface {
         innerValue
     }
+
+    /// Returns a JSON string representing the complete configuration.
+    ///
+    /// A convenience for `self.value().toJSONString()`.
+    public func toJSONString() -> String {
+        innerValue.toJSONString()
+    }
 }
 
 extension FeatureHolderAny: FeatureHolderInterface {
@@ -199,10 +206,19 @@ public protocol FMLFeatureInterface: FMLObjectInterface {
     /// This may be `true` if a `pref-key` has been set in the feature manifest and the user has
     /// set that preference.
     func isModified() -> Bool
+
+    /// Returns a string representation of the complete feature configuration in JSON format.
+    func toJSONString() -> String
 }
 
 public extension FMLFeatureInterface {
     func isModified() -> Bool {
         return false
+    }
+
+    func toJSONString() -> String {
+        let encoder = JSONEncoder()
+        let data = try! encoder.encode(self)
+        return String(decoding: data, as: UTF8.self)
     }
 }
