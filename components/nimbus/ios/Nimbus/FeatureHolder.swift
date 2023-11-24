@@ -5,10 +5,47 @@ import Foundation
 
 public typealias GetSdk = () -> FeaturesInterface?
 
-/// `FeatureHolder` is a class that unpacks a JSON object from the Nimbus SDK and transforms it into a useful
+public protocol FeatureHolderInterface {
+    /// Send an exposure event for this feature. This should be done when the user is shown the feature, and may change
+    /// their behavior because of it.
+    func recordExposure()
+
+    /// Send an exposure event for this feature, in the given experiment.
+    ///
+    /// If the experiment does not exist, or the client is not enrolled in that experiment, then no exposure event
+    /// is recorded.
+    ///
+    /// If you are not sure of the experiment slug, then this is _not_ the API you need: you should use
+    /// {recordExposure} instead.
+    ///
+    /// - Parameter slug the experiment identifier, likely derived from the ``value``.
+    func recordExperimentExposure(slug: String)
+
+    /// Send a malformed feature event for this feature.
+    ///
+    /// - Parameter partId an optional detail or part identifier to be attached to the event.
+    func recordMalformedConfiguration(with partId: String)
+
+    /// Is this feature the focus of an automated test.
+    ///
+    /// A utility flag to be used in conjunction with ``HardcodedNimbusFeatures``.
+    ///
+    /// It is intended for use for app-code to detect when the app is under test, and
+    /// take steps to make itself easier to test.
+    ///
+    /// These cases should be rare, and developers should look for other ways to test
+    /// code without relying on this facility.
+    ///
+    /// For example, a background worker might be scheduled to run every 24 hours, but
+    /// under test it would be desirable to run immediately, and only once.
+    func isUnderTest() -> Bool
+}
+
+/// ``FeatureHolder`` is a class that unpacks a JSON object from the Nimbus SDK and transforms it into a useful
 /// type safe object, generated from a feature manifest (a `.fml.yaml` file).
 ///
-/// The two routinely useful methods are the `value()` and `recordExposure()` events.
+/// The routinely useful methods to application developers are the ``value()`` and  the event recording
+/// methods of ``FeatureHolderInterface``.
 ///
 /// There are methods useful for testing, and more advanced uses: these all start with `with`.
 ///
@@ -35,7 +72,7 @@ public class FeatureHolder<T: FMLFeatureInterface> {
     /// result used for the configuration of the feature.
     ///
     /// Some care is taken to cache the value, this is for performance critical uses of the API.
-    /// It is possible to invalidate the cache with `FxNimbus.invalidateCachedValues()` or `with(cachedValue: nil)`.
+    /// It is possible to invalidate the cache with `FxNimbus.invalidateCachedValues()` or ``with(cachedValue: nil)``.
     public func value() -> T {
         lock.lock()
         defer { self.lock.unlock() }
@@ -51,58 +88,6 @@ public class FeatureHolder<T: FMLFeatureInterface> {
         let v = create(variables, defaults)
         cachedValue = v
         return v
-    }
-
-    /// Send an exposure event for this feature. This should be done when the user is shown the feature, and may change
-    /// their behavior because of it.
-    public func recordExposure() {
-        if !value().isModified() {
-            getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: nil)
-        }
-    }
-
-    /// Send an exposure event for this feature, in the given experiment.
-    ///
-    /// If the experiment does not exist, or the client is not enrolled in that experiment, then no exposure event
-    /// is recorded.
-    ///
-    /// If you are not sure of the experiment slug, then this is _not_ the API you need: you should use
-    /// {recordExposure} instead.
-    ///
-    /// - Parameter slug the experiment identifier, likely derived from the {value}.
-    public func recordExperimentExposure(slug: String) {
-        if !value().isModified() {
-            getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: slug)
-        }
-    }
-
-    /// Send a malformed feature event for this feature.
-    ///
-    /// - Parameter partId an optional detail or part identifier to be attached to the event.
-    public func recordMalformedConfiguration(with partId: String = "") {
-        getSdk()?.recordMalformedConfiguration(featureId: featureId, with: partId)
-    }
-
-    /// Is this feature the focus of an automated test.
-    ///
-    /// A utility flag to be used in conjunction with {HardcodedNimbusFeatures}.
-    ///
-    /// It is intended for use for app-code to detect when the app is under test, and
-    /// take steps to make itself easier to test.
-    ///
-    /// These cases should be rare, and developers should look for other ways to test
-    /// code without relying on this facility.
-    ///
-    /// For example, a background worker might be scheduled to run every 24 hours, but
-    /// under test it would be desirable to run immediately, and only once.
-    public func isUnderTest() -> Bool {
-        lock.lock()
-        defer { self.lock.unlock() }
-
-        guard let features = getSdk() as? HardcodedNimbusFeatures else {
-            return false
-        }
-        return features.has(featureId: featureId)
     }
 
     /// This overwrites the cached value with the passed one.
@@ -124,7 +109,7 @@ public class FeatureHolder<T: FMLFeatureInterface> {
         cachedValue = nil
     }
 
-    /// This changes the mapping between a `Variables` and the feature configuration object.
+    /// This changes the mapping between a ``Variables`` and the feature configuration object.
     ///
     /// This is most likely useful during testing and other generated code.
     public func with(initializer: @escaping (Variables, UserDefaults?) -> T) {
@@ -132,6 +117,70 @@ public class FeatureHolder<T: FMLFeatureInterface> {
         defer { self.lock.unlock() }
         cachedValue = nil
         create = initializer
+    }
+}
+
+extension FeatureHolder: FeatureHolderInterface {
+    public func recordExposure() {
+        if !value().isModified() {
+            getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: nil)
+        }
+    }
+
+    public func recordExperimentExposure(slug: String) {
+        if !value().isModified() {
+            getSdk()?.recordExposureEvent(featureId: featureId, experimentSlug: slug)
+        }
+    }
+
+    public func recordMalformedConfiguration(with partId: String = "") {
+        getSdk()?.recordMalformedConfiguration(featureId: featureId, with: partId)
+    }
+
+    public func isUnderTest() -> Bool {
+        lock.lock()
+        defer { self.lock.unlock() }
+
+        guard let features = getSdk() as? HardcodedNimbusFeatures else {
+            return false
+        }
+        return features.has(featureId: featureId)
+    }
+}
+
+/// Swift generics don't allow us to do wildcards, which means implementing a
+/// ``getFeature(featureId: String) -> FeatureHolder<*>`` unviable.
+///
+/// To implement such a method, we need a wrapper object that gets the value, and forwards
+/// all other calls onto an inner ``FeatureHolder``.
+public class FeatureHolderAny {
+    let inner: FeatureHolderInterface
+    let innerValue: FMLFeatureInterface
+    init<T>(wrapping holder: FeatureHolder<T>) {
+        inner = holder
+        innerValue = holder.value()
+    }
+
+    public func value() -> FMLFeatureInterface {
+        innerValue
+    }
+}
+
+extension FeatureHolderAny: FeatureHolderInterface {
+    public func recordExposure() {
+        inner.recordExposure()
+    }
+
+    public func recordExperimentExposure(slug: String) {
+        inner.recordExperimentExposure(slug: slug)
+    }
+
+    public func recordMalformedConfiguration(with partId: String) {
+        inner.recordMalformedConfiguration(with: partId)
+    }
+
+    public func isUnderTest() -> Bool {
+        inner.isUnderTest()
     }
 }
 
