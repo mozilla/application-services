@@ -2264,7 +2264,6 @@ dependencies = [
  "push",
  "rc_log_ffi",
  "remote_settings",
- "rusqlite",
  "rust-log-forwarder",
  "suggest",
  "sync_manager",

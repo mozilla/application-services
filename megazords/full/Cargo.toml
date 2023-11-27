@@ -24,7 +24,11 @@ autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
 error-support = { path = "../../components/support/error" }
 suggest = { path = "../../components/suggest" }
-# Force the "bundled" feature????
-rusqlite = { version = "0.29.0" }
+
+# This is a bit of a mess. It appears we get rusqlite=bundled as a side-effect of
+# none of the rc_crypto consumers *not* using the `gecko` feature in that crate.
+# If we wanted to *avoid* the bundled sqlite here we'd need to use the `in_gecko` feature of rusqlite.
+# In an ideal world, it seems we should be required to use `features=["bundled]` for rusqlite here.
+# (But for now we want to ship our sqlite for Android, so don't need to do anything here currently)
 
 lazy_static = "1.4"
