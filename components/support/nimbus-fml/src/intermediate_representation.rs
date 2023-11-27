@@ -5,7 +5,7 @@ use crate::defaults::{DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
 use crate::frontend::{AboutBlock, FeatureMetadata};
-use crate::structure::StructureValidator;
+use crate::structure::{StructureValidator, TypeQuery};
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
@@ -455,6 +455,13 @@ impl FeatureManifest {
         validator.validate_feature_def(&feature_def)?;
 
         Ok(feature_def)
+    }
+}
+
+impl FeatureManifest {
+    pub(crate) fn feature_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
+        let all_types = TypeQuery::new(&self.obj_defs);
+        all_types.all_types(feature_def)
     }
 }
 
