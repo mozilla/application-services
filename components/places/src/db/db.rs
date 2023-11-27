@@ -207,6 +207,10 @@ impl Drop for PlacesDb {
     fn drop(&mut self) {
         // In line with both the recommendations from SQLite and the behavior of places in
         // Database.cpp, we run `PRAGMA optimize` before closing the connection.
+        if let ConnectionType::ReadOnly = self.conn_type() {
+            // A reader connection can't execute an optimize
+            return;
+        }
         let res = self.db.execute_batch("PRAGMA optimize(0x02);");
         if let Err(e) = res {
             log::warn!("Failed to execute pragma optimize (DB locked?): {}", e);
