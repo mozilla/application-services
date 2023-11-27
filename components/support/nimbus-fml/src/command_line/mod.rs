@@ -20,6 +20,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use self::commands::PrintInfoCmd;
+
 const RELEASE_CHANNEL: &str = "release";
 
 pub fn do_main<I, T>(args: I, cwd: &Path) -> Result<()>
@@ -41,6 +43,7 @@ fn process_command(cmd: &CliCmd) -> Result<()> {
         CliCmd::FetchFile(files, nm) => workflows::fetch_file(files, nm)?,
         CliCmd::Validate(params) => workflows::validate(params)?,
         CliCmd::PrintChannels(params) => workflows::print_channels(params)?,
+        CliCmd::PrintInfo(params) => workflows::print_info(params)?,
     };
     Ok(())
 }
@@ -72,6 +75,7 @@ where
         ("channels", Some(matches)) => {
             CliCmd::PrintChannels(create_print_channels_from_cli(matches, cwd)?)
         }
+        ("info", Some(matches)) => CliCmd::PrintInfo(create_print_info_from_cli(matches, cwd)?),
         (word, _) => unimplemented!("Command {} not implemented", word),
     })
 }
@@ -187,6 +191,23 @@ fn create_print_channels_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<Pr
         manifest,
         loader,
         as_json,
+    })
+}
+
+fn create_print_info_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<PrintInfoCmd> {
+    let manifest = input_file(matches)?;
+    let loader = create_loader(matches, cwd)?;
+    let as_json = matches.is_present("json");
+
+    let channel = matches.value_of("channel").map(str::to_string);
+    let feature = matches.value_of("feature").map(str::to_string);
+
+    Ok(PrintInfoCmd {
+        manifest,
+        channel,
+        loader,
+        as_json,
+        feature,
     })
 }
 
@@ -526,7 +547,7 @@ mod cli_tests {
 
     ///////////////////////////////////////////////////////////////////////////
     #[test]
-    fn test_cli_print_command() -> Result<()> {
+    fn test_cli_print_channels_command() -> Result<()> {
         let cwd = package_dir()?;
         let cmd = get_command_from_cli([FML_BIN, "channels", TEST_FILE], &cwd)?;
 
@@ -539,6 +560,49 @@ mod cli_tests {
         assert!(matches!(&cmd, CliCmd::PrintChannels(_)));
         assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.manifest.ends_with(TEST_FILE)));
         assert!(matches!(&cmd, CliCmd::PrintChannels(c) if c.as_json));
+        Ok(())
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    #[test]
+    fn test_cli_print_info_command() -> Result<()> {
+        let cwd = package_dir()?;
+        let cmd = get_command_from_cli([FML_BIN, "info", TEST_FILE, "--channel", "release"], &cwd)?;
+
+        assert!(matches!(&cmd, CliCmd::PrintInfo(_)));
+        assert!(matches!(&cmd, CliCmd::PrintInfo(c) if c.manifest.ends_with(TEST_FILE)));
+        assert!(
+            matches!(&cmd, CliCmd::PrintInfo(PrintInfoCmd { channel: Some(channel), as_json, .. }) if channel.as_str() == "release" && !as_json )
+        );
+
+        let cmd = get_command_from_cli(
+            [FML_BIN, "info", TEST_FILE, "--channel", "beta", "--json"],
+            &cwd,
+        )?;
+
+        assert!(matches!(&cmd, CliCmd::PrintInfo(_)));
+        assert!(matches!(&cmd, CliCmd::PrintInfo(c) if c.manifest.ends_with(TEST_FILE)));
+        assert!(
+            matches!(&cmd, CliCmd::PrintInfo(PrintInfoCmd { channel: Some(channel), as_json, .. }) if channel.as_str() == "beta" && *as_json )
+        );
+
+        let cmd = get_command_from_cli(
+            [
+                FML_BIN,
+                "info",
+                TEST_FILE,
+                "--feature",
+                "my-feature",
+                "--json",
+            ],
+            &cwd,
+        )?;
+
+        assert!(matches!(&cmd, CliCmd::PrintInfo(_)));
+        assert!(matches!(&cmd, CliCmd::PrintInfo(c) if c.manifest.ends_with(TEST_FILE)));
+        assert!(
+            matches!(&cmd, CliCmd::PrintInfo(PrintInfoCmd { feature: Some(feature), as_json, .. }) if feature.as_str() == "my-feature" && *as_json )
+        );
         Ok(())
     }
 

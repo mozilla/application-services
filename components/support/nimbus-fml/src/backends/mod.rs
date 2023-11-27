@@ -273,5 +273,6 @@ impl Display for VariablesType {
 
 pub(crate) mod experimenter_manifest;
 pub(crate) mod frontend_manifest;
+pub(crate) mod info;
 pub(crate) mod kotlin;
 pub(crate) mod swift;

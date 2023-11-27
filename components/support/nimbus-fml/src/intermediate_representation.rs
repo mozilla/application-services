@@ -5,7 +5,7 @@ use crate::defaults::{DefaultsHasher, DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
 use crate::frontend::{AboutBlock, FeatureMetadata};
-use crate::schema::{SchemaHasher, SchemaValidator};
+use crate::schema::{SchemaHasher, SchemaValidator, TypeQuery};
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
@@ -475,6 +475,10 @@ impl FeatureManifest {
 }
 
 impl FeatureManifest {
+    pub(crate) fn feature_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
+        TypeQuery::new(&self.obj_defs).all_types(feature_def)
+    }
+
     pub(crate) fn feature_schema_hash(&self, feature_def: &FeatureDef) -> String {
         let hasher = SchemaHasher::new(&self.enum_defs, &self.obj_defs);
         let hash = hasher.hash(feature_def) & 0xffffffff;

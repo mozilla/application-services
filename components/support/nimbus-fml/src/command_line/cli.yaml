@@ -163,3 +163,37 @@ subcommands:
                 long: json
                 help: If present, then print the channels as JSON. If not, then print one per line.
                 takes_value: false
+    - info:
+        about: Prints out information about the manifest
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - channel:
+                help: The channel used to generate the defaults for
+                long: channel
+                required: false
+                takes_value: true
+            - cache-dir:
+                help: The directory where downloaded files are cached
+                long: cache-dir
+                takes_value: true
+            - repo-file:
+                help: The file containing the version/refs/locations for other repos
+                long: repo-file
+                takes_value: true
+                multiple: true
+            - ref:
+                help: If INPUT is a remote file, then use this as the tag or branch name
+                long: ref
+                takes_value: true
+            - feature:
+                long: feature
+                help: Print the info of one feature only, if present
+                takes_value: true
+                required: false
+            - json:
+                long: json
+                help: If present, then print the info as JSON. If not, then present it as YAML
+                takes_value: false

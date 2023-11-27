@@ -15,6 +15,7 @@ pub(crate) enum CliCmd {
     FetchFile(LoaderConfig, String),
     Validate(ValidateCmd),
     PrintChannels(PrintChannelsCmd),
+    PrintInfo(PrintInfoCmd),
 }
 
 #[derive(Clone)]
@@ -51,6 +52,14 @@ pub(crate) struct PrintChannelsCmd {
     pub(crate) manifest: String,
     pub(crate) loader: LoaderConfig,
     pub(crate) as_json: bool,
+}
+
+pub(crate) struct PrintInfoCmd {
+    pub(crate) manifest: String,
+    pub(crate) loader: LoaderConfig,
+    pub(crate) channel: Option<String>,
+    pub(crate) as_json: bool,
+    pub(crate) feature: Option<String>,
 }
 
 impl TryFrom<&std::ffi::OsStr> for TargetLanguage {
