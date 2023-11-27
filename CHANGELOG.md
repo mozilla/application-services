@@ -1,5 +1,15 @@
 # v122.0 (In progress)
 
+
+## Nimbus FML ⛅️🔬🔭🔧
+
+### ✨ What's New ✨
+
+- Added an `info` command to add to the `nimbus-fml` command line ([#5967](https://github.com/mozilla/application-services/pull/5967)). It outputs JSON / YAML with a summmary of each feature including:
+  - the types used, as a proxy for feature complexity
+  - [feature metadata](https://experimenter.info/fml/feature-metadata), including documentation and events
+  - the schema hash and defaults hash.
+
 ## Places
 
 ### ⚠️ Breaking Changes ⚠️

@@ -7,8 +7,9 @@ use std::collections::HashSet;
 
 use super::commands::{
     GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
-    PrintChannelsCmd, ValidateCmd,
+    PrintChannelsCmd, PrintInfoCmd, ValidateCmd,
 };
+use crate::backends::info::ManifestInfo;
 use crate::error::FMLError::CliError;
 use crate::frontend::ManifestFrontEnd;
 use crate::{
@@ -313,6 +314,23 @@ pub(crate) fn print_channels(cmd: &PrintChannelsCmd) -> Result<()> {
         println!("{}", json);
     } else {
         println!("{}", channels.join("\n"));
+    }
+    Ok(())
+}
+
+pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
+    let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
+    let path = files.file_path(&cmd.manifest)?;
+    let fm = load_feature_manifest(files, path.clone(), false, cmd.channel.as_deref())?;
+    let info = if let Some(feature_id) = &cmd.feature {
+        ManifestInfo::from_feature(&path, &fm, feature_id)?
+    } else {
+        ManifestInfo::from(&path, &fm)
+    };
+    if cmd.as_json {
+        println!("{}", info.to_json()?);
+    } else {
+        println!("{}", info.to_yaml()?);
     }
     Ok(())
 }
