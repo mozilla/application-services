@@ -23,11 +23,28 @@
 //! Technical details of the pairing flow can be found in the [Firefox Accounts
 //! documentation hub](https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing).
 
-use crate::{ApiResult, Error, FirefoxAccount};
+use crate::{ApiResult, DeviceConfig, Error, FirefoxAccount};
 use error_support::handle_error;
 
 impl FirefoxAccount {
+    /// Get the current state
+    pub fn get_state(&self) -> FxaState {
+        self.internal.lock().get_state()
+    }
+
+    /// Process an event (login, logout, etc).
+    ///
+    /// On success, returns the new state.
+    /// On error, the state will remain the same.
+    #[handle_error(Error)]
+    pub fn process_event(&self, event: FxaEvent) -> ApiResult<FxaState> {
+        self.internal.lock().process_event(event)
+    }
+
     /// Get the high-level authentication state of the client
+    ///
+    /// TODO: remove this and the FxaRustAuthState type from the public API
+    /// https://bugzilla.mozilla.org/show_bug.cgi?id=1868614
     pub fn get_auth_state(&self) -> FxaRustAuthState {
         self.internal.lock().get_auth_state()
     }
@@ -196,9 +213,76 @@ pub struct AuthorizationInfo {
 ///
 /// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
 /// `FxaAuthState`.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxaRustAuthState {
     Disconnected,
     Connected,
     AuthIssues,
+}
+
+/// Fxa state
+///
+/// These are the states of [crate::FxaStateMachine] that consumers observe.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FxaState {
+    /// The state machine needs to be initialized via [Event::Initialize].
+    Uninitialized,
+    /// User has not connected to FxA or has logged out
+    Disconnected,
+    /// User is currently performing an OAuth flow
+    Authenticating { oauth_url: String },
+    /// User is currently connected to FxA
+    Connected,
+    /// User was connected to FxA, but we observed issues with the auth tokens.
+    /// The user needs to reauthenticate before the account can be used.
+    AuthIssues,
+}
+
+/// Fxa event
+///
+/// These are the events that consumers send to [crate::FxaStateMachine::process_event]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FxaEvent {
+    /// Initialize the state machine.  This must be the first event sent.
+    Initialize { device_config: DeviceConfig },
+    /// Begin an oauth flow
+    ///
+    /// If successful, the state machine will transition the [FxaState::Authenticating].  The next
+    /// step is to navigate the user to the `oauth_url` and let them sign and authorize the client.
+    BeginOAuthFlow {
+        scopes: Vec<String>,
+        entrypoint: String,
+    },
+    /// Begin an oauth flow using a URL from a pairing code
+    ///
+    /// If successful, the state machine will transition the [FxaState::Authenticating].  The next
+    /// step is to navigate the user to the `oauth_url` and let them sign and authorize the client.
+    BeginPairingFlow {
+        pairing_url: String,
+        scopes: Vec<String>,
+        entrypoint: String,
+    },
+    /// Complete an OAuth flow.
+    ///
+    /// Send this event after the user has navigated through the OAuth flow and has reached the
+    /// redirect URI.  Extract `code` and `state` from the query parameters or web channel.  If
+    /// successful the state machine will transition to [FxaState::Connected].
+    CompleteOAuthFlow { code: String, state: String },
+    /// Cancel an OAuth flow.
+    ///
+    /// Use this to cancel an in-progress OAuth, returning to [FxaState::Disconnected] so the
+    /// process can begin again.
+    CancelOAuthFlow,
+    /// Check the authorization status for a connected account.
+    ///
+    /// Send this when issues are detected with the auth tokens for a connected account.  It will
+    /// double check for authentication issues with the account.  If it detects them, the state
+    /// machine will transition to [FxaState::AuthIssues].  From there you can start an OAuth flow
+    /// again to re-connect the user.
+    CheckAuthorizationStatus,
+    /// Disconnect the user
+    ///
+    /// Send this when the user is asking to be logged out.  The state machine will transition to
+    /// [FxaState::Disconnected].
+    Disconnect,
 }

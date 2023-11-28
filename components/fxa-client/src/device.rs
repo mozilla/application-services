@@ -197,7 +197,7 @@ impl FirefoxAccount {
 }
 
 /// Device configuration
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeviceConfig {
     pub name: String,
     pub device_type: sync15::DeviceType,
