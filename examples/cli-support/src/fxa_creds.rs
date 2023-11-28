@@ -46,7 +46,7 @@ fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount
 
 fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
     let acct = FirefoxAccount::new(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds", None)?;
+    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds")?;
 
     if webbrowser::open(oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");

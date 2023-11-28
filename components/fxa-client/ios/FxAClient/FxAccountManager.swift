@@ -99,7 +99,6 @@ open class FxAccountManager {
     /// `finishAuthentication(...)` to complete the flow.
     public func beginAuthentication(
         entrypoint: String,
-        metrics: MetricsParams = MetricsParams(parameters: [:]),
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         FxALog.info("beginAuthentication")
@@ -107,8 +106,7 @@ open class FxAccountManager {
             let result = self.updatingLatestAuthState { account in
                 try account.beginOAuthFlow(
                     scopes: self.applicationScopes,
-                    entrypoint: entrypoint,
-                    metrics: metrics
+                    entrypoint: entrypoint
                 )
             }
             DispatchQueue.main.async { completionHandler(result) }
@@ -127,7 +125,6 @@ open class FxAccountManager {
     public func beginPairingAuthentication(
         pairingUrl: String,
         entrypoint: String,
-        metrics: MetricsParams = MetricsParams(parameters: [:]),
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         DispatchQueue.global().async {
@@ -135,8 +132,7 @@ open class FxAccountManager {
                 try account.beginPairingFlow(
                     pairingUrl: pairingUrl,
                     scopes: self.applicationScopes,
-                    entrypoint: entrypoint,
-                    metrics: metrics
+                    entrypoint: entrypoint
                 )
             }
             DispatchQueue.main.async { completionHandler(result) }

@@ -1,5 +1,11 @@
 # v122.0 (In progress)
 
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - Removed the `metrics_params` arguments from `begin_oauth_flow` and `begin_pairing_flow`.
+    This is technically a breaking change, but no consumers were using these optional params so it shouldn't cause any issues downstream.
+
 [Full Changelog](In progress)
 
 # v121.0 (_2023-11-20_)

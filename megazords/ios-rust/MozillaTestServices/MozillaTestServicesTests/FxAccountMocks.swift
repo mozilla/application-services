@@ -71,8 +71,7 @@ class MockFxAccount: PersistedFirefoxAccount {
 
     override func beginOAuthFlow(
         scopes _: [String],
-        entrypoint _: String,
-        metrics _: MetricsParams = MetricsParams(parameters: [:])
+        entrypoint _: String
     ) throws -> URL {
         return URL(string: "https://foo.bar/oauth?state=bobo")!
     }
