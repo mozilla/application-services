@@ -679,6 +679,24 @@ interface FirefoxAccount {
   void simulate_permanent_auth_token_issue();
 };
 
+interface FxaStateMachine {
+  // Create an FxaStateMachine
+  //
+  // Note: When restoring a connected account, only `device_config.capabilities` will be used.  We
+  // will use the device type and device name info that's stored on the server.
+  constructor(FirefoxAccount account, string oauth_entrypoint, DeviceConfig device_config);
+
+  // Get the current auth state
+  FxaState state();
+
+  // Process a auth event (login, logout, etc).
+  //
+  // On success, returns the new state.
+  // On error, the state will remain the same.
+  [Throws=FxaError]
+  FxaState process_event(FxaEvent event);
+};
+
 dictionary FxaConfig {
     // FxaServer to connect with
     FxaServer server;
@@ -924,6 +942,26 @@ dictionary Profile {
 
   // Whether the `avatar` URL represents the default avatar image.
   boolean is_default_avatar;
+};
+
+[Enum]
+interface FxaState {
+  Uninitialized();
+  Disconnected();
+  Authenticating(string oauth_url);
+  Connected();
+  AuthIssues();
+};
+
+[Enum]
+interface FxaEvent {
+  Initialize();
+  BeginOAuthFlow(sequence<string> scopes);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes);
+  CompleteOAuthFlow(string code, string state);
+  CancelOAuthFlow();
+  CheckAuthorizationStatus();
+  Disconnect();
 };
 
 enum FxaRustAuthState {

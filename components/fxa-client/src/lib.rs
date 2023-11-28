@@ -43,6 +43,7 @@ mod error;
 mod internal;
 mod profile;
 mod push;
+mod state_machine;
 mod storage;
 mod telemetry;
 mod token;
@@ -60,6 +61,7 @@ pub use profile::Profile;
 pub use push::{
     AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
 };
+pub use state_machine::{FxaEvent, FxaState, FxaStateMachine};
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
 /// Result returned by internal functions
