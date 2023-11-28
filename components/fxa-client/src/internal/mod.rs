@@ -11,7 +11,7 @@ use self::{
     state_persistence::PersistedState,
     telemetry::FxaTelemetry,
 };
-use crate::{Error, FxaConfig, FxaRustAuthState, Result};
+use crate::{DeviceConfig, Error, FxaConfig, FxaRustAuthState, FxaState, Result};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -54,6 +54,11 @@ pub struct FirefoxAccount {
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
     auth_circuit_breaker: AuthCircuitBreaker,
     telemetry: FxaTelemetry,
+    // TODO: Cleanup our usage of the word "state" and change this field name to `state`
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1868610
+    pub(crate) auth_state: FxaState,
+    // Set via `FxaEvent::Initialize`
+    pub(crate) device_config: Option<DeviceConfig>,
 }
 
 impl FirefoxAccount {
@@ -65,6 +70,8 @@ impl FirefoxAccount {
             devices_cache: None,
             auth_circuit_breaker: Default::default(),
             telemetry: FxaTelemetry::new(),
+            auth_state: FxaState::Uninitialized,
+            device_config: None,
         }
     }
 

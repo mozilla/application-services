@@ -259,7 +259,19 @@ interface FirefoxAccount {
   void on_auth_issues();
 
   // Get the high-level authentication state of the client
+  //
+  // Deprecated: Use get_state() instead
   FxaRustAuthState get_auth_state();
+
+  // Get the current state
+  FxaState get_state();
+
+  // Process an event (login, logout, etc).
+  //
+  // On success, update the current state and return it.
+  // On error, the current state will remain the same.
+  [Throws=FxaError]
+  FxaState process_event(FxaEvent event);
 
   // Get profile information for the signed-in user, if any.
   //
@@ -924,6 +936,26 @@ dictionary Profile {
 
   // Whether the `avatar` URL represents the default avatar image.
   boolean is_default_avatar;
+};
+
+[Enum]
+interface FxaState {
+  Uninitialized();
+  Disconnected();
+  Authenticating(string oauth_url);
+  Connected();
+  AuthIssues();
+};
+
+[Enum]
+interface FxaEvent {
+  Initialize(DeviceConfig device_config);
+  BeginOAuthFlow(sequence<string> scopes, string entrypoint);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint);
+  CompleteOAuthFlow(string code, string state);
+  CancelOAuthFlow();
+  CheckAuthorizationStatus();
+  Disconnect();
 };
 
 enum FxaRustAuthState {
