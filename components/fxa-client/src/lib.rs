@@ -52,7 +52,7 @@ use std::fmt;
 pub use sync15::DeviceType;
 use url::Url;
 
-pub use auth::{AuthorizationInfo, FxaRustAuthState, MetricsParams};
+pub use auth::{AuthorizationInfo, FxaRustAuthState};
 pub use device::{AttachedClient, Device, DeviceCapability, LocalDevice};
 pub use error::{Error, FxaError};
 use parking_lot::Mutex;

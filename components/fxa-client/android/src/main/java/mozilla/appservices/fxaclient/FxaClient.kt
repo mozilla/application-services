@@ -100,16 +100,14 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      *
      * @param scopes List of OAuth scopes for which the client wants access
      * @param entrypoint to be used for metrics
-     * @param metricsParams optional parameters used for metrics
      * @return String that resolves to the flow URL when complete
      */
     fun beginOAuthFlow(
         scopes: Array<String>,
         entrypoint: String,
-        metricsParams: MetricsParams = MetricsParams(mapOf()),
     ): String {
         return withMetrics {
-            this.inner.beginOauthFlow(scopes.toList(), entrypoint, metricsParams)
+            this.inner.beginOauthFlow(scopes.toList(), entrypoint)
         }
     }
 
@@ -121,17 +119,15 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * @param pairingUrl the url to initilaize the paring flow with
      * @param scopes List of OAuth scopes for which the client wants access
      * @param entrypoint to be used for metrics
-     * @param metricsParams optional parameters used for metrics
      * @return String that resoles to the flow URL when complete
      */
     fun beginPairingFlow(
         pairingUrl: String,
         scopes: Array<String>,
         entrypoint: String,
-        metricsParams: MetricsParams = MetricsParams(mapOf()),
     ): String {
         return withMetrics {
-            this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint, metricsParams)
+            this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint)
         }
     }
 

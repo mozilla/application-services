@@ -54,14 +54,12 @@ class PersistedFirefoxAccount {
 
     public func beginOAuthFlow(
         scopes: [String],
-        entrypoint: String,
-        metrics: MetricsParams = MetricsParams(parameters: [:])
+        entrypoint: String
     ) throws -> URL {
         return try notifyAuthErrors {
             try URL(string: self.inner.beginOauthFlow(
                 scopes: scopes,
-                entrypoint: entrypoint,
-                metrics: metrics
+                entrypoint: entrypoint
             ))!
         }
     }
@@ -73,14 +71,12 @@ class PersistedFirefoxAccount {
     public func beginPairingFlow(
         pairingUrl: String,
         scopes: [String],
-        entrypoint: String,
-        metrics: MetricsParams = MetricsParams(parameters: [:])
+        entrypoint: String
     ) throws -> URL {
         return try notifyAuthErrors {
             try URL(string: self.inner.beginPairingFlow(pairingUrl: pairingUrl,
                                                         scopes: scopes,
-                                                        entrypoint: entrypoint,
-                                                        metrics: metrics))!
+                                                        entrypoint: entrypoint))!
         }
     }
 

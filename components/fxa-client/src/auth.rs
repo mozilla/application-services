@@ -25,7 +25,6 @@
 
 use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
-use std::collections::HashMap;
 
 impl FirefoxAccount {
     /// Get the high-level authentication state of the client
@@ -61,12 +60,9 @@ impl FirefoxAccount {
         // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
         scopes: &[T],
         entrypoint: &str,
-        metrics: Option<MetricsParams>,
     ) -> ApiResult<String> {
         let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
-        self.internal
-            .lock()
-            .begin_oauth_flow(&scopes, entrypoint, metrics)
+        self.internal.lock().begin_oauth_flow(&scopes, entrypoint)
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -109,13 +105,12 @@ impl FirefoxAccount {
         pairing_url: &str,
         scopes: &[String],
         entrypoint: &str,
-        metrics: Option<MetricsParams>,
     ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         self.internal
             .lock()
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)
+            .begin_pairing_flow(pairing_url, &scopes, entrypoint)
     }
 
     /// Complete an OAuth flow.
@@ -191,11 +186,6 @@ impl FirefoxAccount {
 /// connected to the user's account.
 pub struct AuthorizationInfo {
     pub active: bool,
-}
-
-/// Additional metrics tracking parameters to include in an OAuth request.
-pub struct MetricsParams {
-    pub parameters: HashMap<String, String>,
 }
 
 /// High-level view of the authorization state

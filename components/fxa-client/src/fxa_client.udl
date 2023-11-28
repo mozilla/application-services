@@ -163,7 +163,7 @@ interface FirefoxAccount {
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
-  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
+  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint);
   
 
   // Get the URL at which to begin a device-pairing signin flow.
@@ -202,7 +202,7 @@ interface FirefoxAccount {
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
-  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint,  MetricsParams? metrics );
+  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint);
   
 
   // Complete an OAuth flow.
@@ -709,12 +709,6 @@ interface FxaServer {
 //
 dictionary AuthorizationInfo {
   boolean active;
-};
-
-// Additional metrics tracking parameters to include in an OAuth request.
-//
-dictionary MetricsParams {
-  record<DOMString, string> parameters;
 };
 
 // An OAuth access token, with its associated keys and metadata.
