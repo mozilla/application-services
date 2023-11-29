@@ -4,6 +4,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### General
+- Updated minimum Python version to 3.8 ([#5961](https://github.com/mozilla/application-services/pull/5961)).
+
 ### Glean
 - Updated to v60.0.0 ([#](https://github.com/mozilla/application-services/pull/)
 
