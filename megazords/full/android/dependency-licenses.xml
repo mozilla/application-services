@@ -137,6 +137,10 @@ the details of which are reproduced below.
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: crypto-common</name>
+    <url>https://github.com/RustCrypto/traits/blob/master/crypto-common/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: digest</name>
     <url>https://github.com/RustCrypto/traits/blob/master/digest/LICENSE-APACHE</url>
   </license>
@@ -275,10 +279,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: opaque-debug</name>
-    <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
