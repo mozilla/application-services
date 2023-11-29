@@ -156,7 +156,7 @@ extension FeatureHolder: FeatureHolderInterface {
 public class FeatureHolderAny {
     let inner: FeatureHolderInterface
     let innerValue: FMLFeatureInterface
-    init<T>(wrapping holder: FeatureHolder<T>) {
+    public init<T>(wrapping holder: FeatureHolder<T>) {
         inner = holder
         innerValue = holder.value()
     }
