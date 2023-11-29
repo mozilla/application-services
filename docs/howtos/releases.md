@@ -139,16 +139,18 @@ index 8cd923873..6482018e0 100644
 
 
 
-### Cutting patch releases for uplifted changes
+### Cutting patch releases for uplifted changes (dot-release)
 
-If you want to uplift changes into the a previous release:
+If you want to uplift changes into a previous release:
 
-* Make sure the changes are present in `main` and have been thoroughly tested.
-* Checkout the `release-vXXX` branch, where `XXX` is the major version number.
-* Bump the version in `version.txt`
-* Cherry-pick any commits that you want to uplift
-* Create a PR for the changes
-* Trigger release-promotion for the branch once the PRs are approved, merged, and CI has completed
+* Make sure the changes are present in `main` and have been thoroughly tested
+* Checkout the `release-vXXX` branch, where `XXX` is the major version number
+* Create a PR to bump the version in `version.txt` from [release_version].0 to [release_version].0.1 on the release branch
+* Cherry-pick any commits that you want to uplift into a PR or ensure all the needed PRs are merged into the release branch
+* Once the PRs are approved, merged, and CI has completed, Create a new Application Services release in Ship-It for the release branch. Promote & ship the release
+* Tag the release in the Application Services repo
+* Inform the Application Services team in case there is a need to cut a new release of [rust-components-swift](https://github.com/mozilla/rust-components-swift)
+* Update consumer applications 
 
 
 # What gets built in a release?
