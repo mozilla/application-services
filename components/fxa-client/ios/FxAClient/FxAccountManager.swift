@@ -395,7 +395,7 @@ open class FxAccountManager {
                         FxALog.info("Initializing device")
                         requireConstellation().initDevice(
                             name: deviceConfig.name,
-                            type: deviceConfig.type,
+                            type: deviceConfig.deviceType,
                             capabilities: deviceConfig.capabilities
                         )
 
@@ -421,7 +421,7 @@ open class FxAccountManager {
                         FxALog.info("Initializing device")
                         requireConstellation().initDevice(
                             name: deviceConfig.name,
-                            type: deviceConfig.type,
+                            type: deviceConfig.deviceType,
                             capabilities: deviceConfig.capabilities
                         )
 
@@ -436,7 +436,7 @@ open class FxAccountManager {
                             FxALog.info("Initializing device")
                             requireConstellation().initDevice(
                                 name: deviceConfig.name,
-                                type: deviceConfig.type,
+                                type: deviceConfig.deviceType,
                                 capabilities: deviceConfig.capabilities
                             )
 
@@ -572,7 +572,7 @@ open class FxAccountManager {
                     self.deviceConfig = DeviceConfig(
                         name: localDevice.displayName,
                         // The other properties are likely to not get modified.
-                        type: self.deviceConfig.type,
+                        type: self.deviceConfig.deviceType,
                         capabilities: self.deviceConfig.capabilities
                     )
                 }
@@ -647,14 +647,8 @@ public struct FxaAuthData {
     }
 }
 
-public struct DeviceConfig {
-    let name: String
-    let type: DeviceType
-    let capabilities: [DeviceCapability]
-
-    public init(name: String, type: DeviceType, capabilities: [DeviceCapability]) {
-        self.name = name
-        self.type = type
-        self.capabilities = capabilities
+extension DeviceConfig {
+    init(name: String, type: DeviceType, capabilities: [DeviceCapability]) {
+        self.init(name: name, deviceType: type, capabilities: capabilities)
     }
 }

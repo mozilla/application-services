@@ -53,7 +53,7 @@ pub use sync15::DeviceType;
 use url::Url;
 
 pub use auth::{AuthorizationInfo, FxaRustAuthState};
-pub use device::{AttachedClient, Device, DeviceCapability, LocalDevice};
+pub use device::{AttachedClient, Device, DeviceCapability, DeviceConfig, LocalDevice};
 pub use error::{Error, FxaError};
 use parking_lot::Mutex;
 pub use profile::Profile;

@@ -809,6 +809,13 @@ dictionary Device {
   i64? last_access_time;
 };
 
+// Device configuration
+dictionary DeviceConfig {
+  string name;
+  DeviceType device_type;
+  sequence<DeviceCapability> capabilities;
+};
+
 // Local device that's connecting to FxA
 //
 // This is returned by the device update methods and represents the server's view of the local
