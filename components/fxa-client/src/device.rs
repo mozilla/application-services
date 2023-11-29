@@ -196,6 +196,14 @@ impl FirefoxAccount {
     }
 }
 
+/// Device configuration
+#[derive(Debug)]
+pub struct DeviceConfig {
+    pub name: String,
+    pub device_type: sync15::DeviceType,
+    pub capabilities: Vec<DeviceCapability>,
+}
+
 /// Local device that's connecting to FxA
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalDevice {
