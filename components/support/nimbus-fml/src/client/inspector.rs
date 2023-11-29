@@ -67,9 +67,9 @@ impl FmlFeatureInspector {
         self.get_first_error(string).map(|e| vec![e])
     }
 
-    pub fn get_structure_hash(&self) -> String {
+    pub fn get_schema_hash(&self) -> String {
         self.manifest
-            .get_structure_hash(&self.feature_id)
+            .get_schema_hash(&self.feature_id)
             .unwrap_or_default()
     }
 }

@@ -5,7 +5,7 @@ use crate::defaults::{DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
 use crate::frontend::{AboutBlock, FeatureMetadata};
-use crate::structure::{StructureHasher, StructureValidator};
+use crate::schema::{SchemaHasher, SchemaValidator};
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
@@ -302,7 +302,7 @@ impl FeatureManifest {
 
     pub fn validate_manifest(&self) -> Result<()> {
         // We then validate that each type_ref is valid
-        self.validate_structure()?;
+        self.validate_schema()?;
         self.validate_defaults()?;
 
         // Validating the imported manifests.
@@ -314,8 +314,8 @@ impl FeatureManifest {
         Ok(())
     }
 
-    fn validate_structure(&self) -> Result<(), FMLError> {
-        let validator = StructureValidator::new(&self.enum_defs, &self.obj_defs);
+    fn validate_schema(&self) -> Result<(), FMLError> {
+        let validator = SchemaValidator::new(&self.enum_defs, &self.obj_defs);
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
         }
@@ -457,18 +457,18 @@ impl FeatureManifest {
         Ok(feature_def)
     }
 
-    pub fn get_structure_hash(&self, feature_name: &str) -> Result<String> {
+    pub fn get_schema_hash(&self, feature_name: &str) -> Result<String> {
         let (manifest, feature_def) = self
             .find_feature(feature_name)
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
-        Ok(manifest.feature_structure_hash(feature_def))
+        Ok(manifest.feature_schema_hash(feature_def))
     }
 }
 
 impl FeatureManifest {
-    pub(crate) fn feature_structure_hash(&self, feature_def: &FeatureDef) -> String {
-        let hasher = StructureHasher::new(&self.enum_defs, &self.obj_defs);
+    pub(crate) fn feature_schema_hash(&self, feature_def: &FeatureDef) -> String {
+        let hasher = SchemaHasher::new(&self.enum_defs, &self.obj_defs);
         let hash = hasher.hash(feature_def) & 0xffffffff;
         format!("{hash:x}")
     }

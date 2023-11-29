@@ -10,12 +10,12 @@ use crate::{
 };
 use std::collections::{BTreeMap, HashSet};
 
-pub(crate) struct StructureValidator<'a> {
+pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
 }
 
-impl<'a> StructureValidator<'a> {
+impl<'a> SchemaValidator<'a> {
     pub(crate) fn new(
         enums: &'a BTreeMap<String, EnumDef>,
         objs: &'a BTreeMap<String, ObjectDef>,
@@ -193,7 +193,7 @@ impl<'a> StructureValidator<'a> {
 }
 
 #[cfg(test)]
-mod manifest_structure {
+mod manifest_schema {
     use serde_json::json;
 
     use super::*;
@@ -204,7 +204,7 @@ mod manifest_structure {
     fn validate_enum_type_ref_doesnt_match_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -225,7 +225,7 @@ mod manifest_structure {
     fn validate_obj_type_ref_doesnt_match_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -246,7 +246,7 @@ mod manifest_structure {
     fn validate_enum_map_with_non_enum_key() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -267,7 +267,7 @@ mod manifest_structure {
     fn validate_list_with_enum_with_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -288,7 +288,7 @@ mod manifest_structure {
     fn validate_enum_map_with_enum_with_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -312,7 +312,7 @@ mod manifest_structure {
     fn validate_enum_map_with_obj_value_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -336,7 +336,7 @@ mod manifest_structure {
     fn validate_string_map_with_enum_value_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -357,7 +357,7 @@ mod manifest_structure {
     fn validate_nested_optionals_fail() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -396,7 +396,7 @@ mod string_aliases {
     }
 
     #[test]
-    fn test_validate_feature_structure() -> Result<()> {
+    fn test_validate_feature_schema() -> Result<()> {
         let name = TypeRef::StringAlias("PersonName".to_string());
         let all_names = {
             let t = TypeRef::List(Box::new(name.clone()));
@@ -412,7 +412,7 @@ mod string_aliases {
 
         let enums = Default::default();
         let objects = Default::default();
-        let validator = StructureValidator::new(&enums, &objects);
+        let validator = SchemaValidator::new(&enums, &objects);
 
         // -> Verify that only one property per feature can define the same string-alias.
         let fm = with_feature(&[all_names.clone(), all_names2.clone()]);
@@ -449,13 +449,13 @@ mod string_aliases {
         // { all-names: ["Alice"], team: { newest-member: "Alice" } }
         let fm = with_feature(&[all_names.clone(), team.clone()]);
         let objs = with_objects(&[team_def.clone()]);
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         validator.validate_feature_def(&fm)?;
 
         // { team: { newest-member: "Alice" } }
         let fm = with_feature(&[team.clone()]);
         let objs = with_objects(&[team_def.clone()]);
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         assert!(validator.validate_feature_def(&fm).is_err());
 
         // -> Validate a property in a deeply nested object can validate against a string-alias
@@ -472,12 +472,12 @@ mod string_aliases {
         // { all-names: ["Alice"], match: { team: { newest-member: "Alice" }} }
         let fm = with_feature(&[all_names.clone(), match_.clone()]);
         let objs = with_objects(&[team_def.clone(), match_def.clone()]);
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         validator.validate_feature_def(&fm)?;
 
         // { match: {team: { newest-member: "Alice" }} }
         let fm = with_feature(&[match_.clone()]);
-        let validator = StructureValidator::new(&enums, &objs);
+        let validator = SchemaValidator::new(&enums, &objs);
         assert!(validator.validate_feature_def(&fm).is_err());
 
         Ok(())

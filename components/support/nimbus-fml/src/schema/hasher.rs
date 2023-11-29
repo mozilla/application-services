@@ -14,12 +14,12 @@ use std::{
 
 use super::TypeQuery;
 
-pub(crate) struct StructureHasher<'a> {
+pub(crate) struct SchemaHasher<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
 }
 
-impl<'a> StructureHasher<'a> {
+impl<'a> SchemaHasher<'a> {
     pub(crate) fn new(
         enums: &'a BTreeMap<String, EnumDef>,
         objs: &'a BTreeMap<String, ObjectDef>,
@@ -32,7 +32,7 @@ impl<'a> StructureHasher<'a> {
 
     pub(crate) fn hash(&self, feature_def: &FeatureDef) -> u64 {
         let mut hasher: Sha256Hasher = Default::default();
-        feature_def.structure_hash(&mut hasher);
+        feature_def.schema_hash(&mut hasher);
 
         let types = self.all_types(feature_def);
 
@@ -41,13 +41,13 @@ impl<'a> StructureHasher<'a> {
         // By contrast, `types`, a HashSet, definitely does not have a stable ordering.
         for (obj_nm, obj_def) in self.object_defs {
             if types.contains(&TypeRef::Object(obj_nm.clone())) {
-                obj_def.structure_hash(&mut hasher);
+                obj_def.schema_hash(&mut hasher);
             }
         }
 
         for (enum_nm, enum_def) in self.enum_defs {
             if types.contains(&TypeRef::Enum(enum_nm.clone())) {
-                enum_def.structure_hash(&mut hasher);
+                enum_def.schema_hash(&mut hasher);
             }
         }
 
@@ -60,61 +60,61 @@ impl<'a> StructureHasher<'a> {
     }
 }
 
-trait StructureHash {
-    fn structure_hash<H: Hasher>(&self, state: &mut H);
+trait SchemaHash {
+    fn schema_hash<H: Hasher>(&self, state: &mut H);
 }
 
-impl StructureHash for FeatureDef {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
-        self.props.structure_hash(state);
+impl SchemaHash for FeatureDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
+        self.props.schema_hash(state);
         self.allow_coenrollment.hash(state);
     }
 }
 
-impl StructureHash for Vec<PropDef> {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
+impl SchemaHash for Vec<PropDef> {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
         let mut vec: Vec<_> = self.iter().collect();
         vec.sort_by_key(|item| &item.name);
 
         for item in vec {
-            item.structure_hash(state);
+            item.schema_hash(state);
         }
     }
 }
 
-impl StructureHash for Vec<VariantDef> {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
+impl SchemaHash for Vec<VariantDef> {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
         let mut vec: Vec<_> = self.iter().collect();
         vec.sort_by_key(|item| &item.name);
 
         for item in vec {
-            item.structure_hash(state);
+            item.schema_hash(state);
         }
     }
 }
 
-impl StructureHash for PropDef {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
+impl SchemaHash for PropDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
         self.typ.hash(state);
         self.string_alias.hash(state);
     }
 }
 
-impl StructureHash for ObjectDef {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
-        self.props.structure_hash(state);
+impl SchemaHash for ObjectDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
+        self.props.schema_hash(state);
     }
 }
 
-impl StructureHash for EnumDef {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
-        self.variants.structure_hash(state);
+impl SchemaHash for EnumDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
+        self.variants.schema_hash(state);
     }
 }
 
-impl StructureHash for VariantDef {
-    fn structure_hash<H: Hasher>(&self, state: &mut H) {
+impl SchemaHash for VariantDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
     }
 }
@@ -144,7 +144,7 @@ mod unit_tests {
     use super::*;
 
     #[test]
-    fn test_simple_structure_is_stable() -> Result<()> {
+    fn test_simple_schema_is_stable() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
 
@@ -155,7 +155,7 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false);
         let mut prev: Option<u64> = None;
         for _ in 0..100 {
-            let hasher = StructureHasher::new(&enums, &objs);
+            let hasher = SchemaHasher::new(&enums, &objs);
             let hash = hasher.hash(&feature_def);
             if let Some(prev) = prev {
                 assert_eq!(prev, hash);
@@ -167,7 +167,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_simple_structure_is_stable_with_props_in_any_order() -> Result<()> {
+    fn test_simple_schema_is_stable_with_props_in_any_order() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
 
@@ -185,14 +185,14 @@ mod unit_tests {
 
         let f2 = { FeatureDef::new("test_feature", "documentation", vec![prop2, prop1], false) };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
 
         Ok(())
     }
 
     #[test]
-    fn test_simple_structure_is_stable_changing_defaults() -> Result<()> {
+    fn test_simple_schema_is_stable_changing_defaults() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
 
@@ -208,14 +208,14 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
 
         Ok(())
     }
 
     #[test]
-    fn test_simple_structure_is_sensitive_to_change() -> Result<()> {
+    fn test_simple_schema_is_sensitive_to_change() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
 
@@ -225,7 +225,7 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
 
         // Sensitive to change in type of properties
         let ne = {
@@ -255,7 +255,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_structure_is_sensitive_to_enum_change() -> Result<()> {
+    fn test_schema_is_sensitive_to_enum_change() -> Result<()> {
         let objs = Default::default();
 
         let enum_nm = "MyEnum";
@@ -271,14 +271,14 @@ mod unit_tests {
             EnumDef::into_map(&[enum1])
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         let h1 = hasher.hash(&f1);
 
         let enums = {
             let enum1 = EnumDef::new(enum_nm, &["one", "two", "newly-added"]);
             EnumDef::into_map(&[enum1])
         };
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
@@ -287,7 +287,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_structure_is_sensitive_only_to_the_enums_used() -> Result<()> {
+    fn test_schema_is_sensitive_only_to_the_enums_used() -> Result<()> {
         let objs = Default::default();
 
         let enum_nm = "MyEnum";
@@ -304,7 +304,7 @@ mod unit_tests {
             EnumDef::into_map(enums1)
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -315,7 +315,7 @@ mod unit_tests {
             let enums1 = &[enum1, enum2];
             EnumDef::into_map(enums1)
         };
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         let h2 = hasher.hash(&f1);
 
         assert_eq!(h1, h2);
@@ -324,7 +324,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_structure_is_sensitive_to_object_change() -> Result<()> {
+    fn test_schema_is_sensitive_to_object_change() -> Result<()> {
         let enums = Default::default();
         let obj_nm = "MyObject";
         let obj_t = TypeRef::Object(obj_nm.to_string());
@@ -343,7 +343,7 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -359,7 +359,7 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
@@ -368,7 +368,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_structure_is_sensitive_only_to_the_objects_used() -> Result<()> {
+    fn test_schema_is_sensitive_only_to_the_objects_used() -> Result<()> {
         let enums = Default::default();
 
         let obj_nm = "MyObject";
@@ -387,7 +387,7 @@ mod unit_tests {
             ObjectDef::into_map(&[obj1])
         };
 
-        let hasher = StructureHasher::new(&enums, &objects);
+        let hasher = SchemaHasher::new(&enums, &objects);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -404,7 +404,7 @@ mod unit_tests {
             ObjectDef::into_map(&[obj1, obj2])
         };
 
-        let hasher = StructureHasher::new(&enums, &objects);
+        let hasher = SchemaHasher::new(&enums, &objects);
         let h2 = hasher.hash(&f1);
 
         assert_eq!(h1, h2);
@@ -413,7 +413,7 @@ mod unit_tests {
     }
 
     #[test]
-    fn test_structure_is_sensitive_to_nested_change() -> Result<()> {
+    fn test_schema_is_sensitive_to_nested_change() -> Result<()> {
         let obj_nm = "MyObject";
         let obj_t = TypeRef::Object(obj_nm.to_string());
 
@@ -436,7 +436,7 @@ mod unit_tests {
             EnumDef::into_map(&[enum1])
         };
 
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -445,7 +445,7 @@ mod unit_tests {
             let enum1 = EnumDef::new(enum_nm, &["one", "two", "newly-added"]);
             EnumDef::into_map(&[enum1])
         };
-        let hasher = StructureHasher::new(&enums, &objs);
+        let hasher = SchemaHasher::new(&enums, &objs);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);

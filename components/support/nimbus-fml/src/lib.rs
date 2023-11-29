@@ -9,7 +9,7 @@ pub mod error;
 pub(crate) mod frontend;
 pub mod intermediate_representation;
 pub mod parser;
-pub(crate) mod structure;
+pub(crate) mod schema;
 pub mod util;
 
 cfg_if::cfg_if! {
