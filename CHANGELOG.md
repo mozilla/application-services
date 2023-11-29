@@ -14,6 +14,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### General
+- Updated minimum Python version to 3.8 ([#5961](https://github.com/mozilla/application-services/pull/5961)).
+
 ### Webext-Storage
 - Uniffied the webext-storage component in preparation for desktop integration ([#6057](https://github.com/mozilla/application-services/pull/6057)).
 
