@@ -120,7 +120,7 @@ interface FmlFeatureInspector {
     // If this hash changes for a given feature then it is almost
     // certain that the code which uses this configuration will also have
     // changed.
-    string get_structure_hash();
+    string get_schema_hash();
 };
 
 dictionary FmlEditorError {
