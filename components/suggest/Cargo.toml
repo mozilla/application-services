@@ -14,7 +14,7 @@ interrupt-support = { path = "../support/interrupt" }
 once_cell = "1.5"
 parking_lot = ">=0.11,<=0.12"
 remote_settings = { path = "../remote_settings" }
-rusqlite = { version = "0.29.0", features = ["functions", "bundled"] }
+rusqlite = { version = "0.29.0", features = ["functions"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sql-support = { path = "../support/sql" }
@@ -26,6 +26,7 @@ env_logger = { version = "0.7", default-features = false }
 expect-test = "1.4"
 hex = "0.4"
 rc_crypto = { path = "../support/rc_crypto" }
+rusqlite = { version = "0.29.0", features = ["bundled"] }
 
 [build-dependencies]
 uniffi = { version = "0.24.1", features = ["build"] }

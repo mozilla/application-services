@@ -9,8 +9,11 @@
 mod bindings;
 pub use bindings::*;
 
-// So we link against the SQLite lib imported by parent crates
+// We need a sqlite - so we link against the SQLite lib imported by parent crates
 // such as places and logins.
+// But the "gecko" feature is confusingly different - we rely on an external linker
+// to put the bits together. `__appsvc_ci_sqlite_hack`` works around `--all-features`
+// errors in CI, where linker-related build failures are unavoidable.
 #[allow(unused_extern_crates)]
-#[cfg(any(not(feature = "gecko"), __appsvc_ci_hack))]
+#[cfg(any(not(feature = "gecko"), __appsvc_ci_sqlite_hack))]
 extern crate libsqlite3_sys;

@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4"
 parking_lot = ">=0.11,<=0.12"
+rusqlite = { version = "0.29.0", features = ["functions"] }
 
-[dependencies.rusqlite]
-version = "0.29.0"
-features = ["functions", "limits", "bundled", "unlock_notify"]
+[dev-dependencies]
+rusqlite = { version = "0.29.0", features = ["bundled"] }

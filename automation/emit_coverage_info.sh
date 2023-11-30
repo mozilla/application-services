@@ -54,4 +54,4 @@ cargo +nightly run -p sync-test || true
 cargo +nightly run -p protobuf-gen -- tools/protobuf_files.toml || true
 cargo +nightly run -p systest || true
 
-env RUSTFLAGS="--cfg __appsvc_ci_hack $RUSTFLAGS" cargo +nightly test --all --all-features --no-fail-fast || true
+env RUSTFLAGS="--cfg __appsvc_ci_sqlite_hack $RUSTFLAGS" cargo +nightly test --all --all-features --no-fail-fast || true

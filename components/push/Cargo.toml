@@ -13,7 +13,7 @@ bincode = "1.2"
 lazy_static = "1.4"
 base64 = "0.21"
 log = "0.4"
-rusqlite = { version = "0.29.0", features = ["bundled", "unlock_notify"] }
+rusqlite = "0.29.0"
 url = "2.2"
 viaduct = { path = "../viaduct" }
 error-support = { path = "../support/error" }
@@ -24,6 +24,7 @@ uniffi = "0.24.1"
 types = { path = "../support/types" }
 
 [build-dependencies]
+rusqlite = { version = "0.29.0", features = ["bundled"] }
 uniffi = { version = "0.24.1", features = ["build"] }
 
 [dev-dependencies]
