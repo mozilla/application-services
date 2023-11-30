@@ -5,7 +5,7 @@
 # shellcheck shell=bash
 
 mkdir -p "$HOME/bin"
-export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
+export PATH="$HOME/bin:$HOME/Library/Python/3.11/bin:$PATH"
 
 pip3 install pytest
 

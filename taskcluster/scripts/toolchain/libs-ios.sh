@@ -17,7 +17,7 @@ rm ninja-mac.zip
 gem install --user-install --bindir "$HOME"/bin xcpretty
 git clone https://chromium.googlesource.com/external/gyp.git
 pip3 install -v --user ./gyp six
-export PATH="$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH"
+export PATH="$HOME/bin:$HOME/Library/Python/3.11/bin:$PATH"
 
 # Build the libs
 cd vcs/libs
