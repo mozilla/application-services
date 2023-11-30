@@ -12,9 +12,11 @@ use error_support::{breadcrumb, convert_log_report_error, handle_error};
 use parking_lot::Mutex;
 
 use crate::{internal, ApiResult, DeviceConfig, Error, FirefoxAccount, Result};
+mod checker;
 mod logic;
 mod types;
 
+pub use checker::FxaStateMachineChecker;
 pub use types::{Event, FxaEvent, FxaState, State};
 
 use logic::next_state;

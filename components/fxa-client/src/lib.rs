@@ -64,6 +64,12 @@ pub use push::{
 pub use state_machine::{FxaEvent, FxaState, FxaStateMachine};
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
+// Used for auth state checking.  Remove this once firefox-android and firefox-ios are migrated to
+// using FxaAuthStateMachine
+pub use state_machine::Event as FxaInternalEvent;
+pub use state_machine::FxaStateMachineChecker;
+pub use state_machine::State as FxaInternalState;
+
 /// Result returned by internal functions
 pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions

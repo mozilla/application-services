@@ -1056,3 +1056,51 @@ interface IncomingDeviceCommand {
   // Indicates that a tab has been sent to this device.
   TabReceived(Device? sender, SendTabPayload payload );
 };
+
+// Machinery for dry-run testing of FxaAuthStateMachine
+//
+// Remove this once we've migrated the firefox-android and firefox-ios code to using FxaAuthStateMachine
+
+interface FxaStateMachineChecker {
+  constructor();
+
+  void advance(FxaInternalEvent event);
+  void check_state(FxaInternalState state);
+};
+
+[Enum]
+interface FxaInternalState {
+  Uninitialized();
+  Disconnected();
+  Authenticating(string oauth_url);
+  Connected();
+  AuthIssues();
+  GetAuthState();
+  BeginOAuthFlow(sequence<string> scopes);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes);
+  CompleteOAuthFlow(string code, string state);
+  InitializeDevice();
+  EnsureDeviceCapabilities();
+  CheckAuthorizationStatus();
+  Disconnect();
+};
+
+[Enum]
+interface FxaInternalEvent {
+  Initialize();
+  BeginOAuthFlow(sequence<string> scopes);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes);
+  CompleteOAuthFlow(string code, string state);
+  CancelOAuthFlow();
+  CheckAuthorizationStatus();
+  Disconnect();
+  GetAuthStateSuccess(FxaRustAuthState auth_state);
+  BeginOAuthFlowSuccess(string oauth_url);
+  BeginPairingFlowSuccess(string oauth_url);
+  CompleteOAuthFlowSuccess();
+  InitializeDeviceSuccess();
+  EnsureDeviceCapabilitiesSuccess();
+  CheckAuthorizationStatusSuccess(boolean active);
+  DisconnectSuccess();
+  CallError();
+};

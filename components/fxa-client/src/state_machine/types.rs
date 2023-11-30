@@ -127,7 +127,7 @@ impl State {
 ///
 /// There are also variants for interval events that represent the result of a
 /// [crate::internal::FirefoxAccount] call.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     // Public events
     Initialize,

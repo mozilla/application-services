@@ -196,7 +196,7 @@ pub struct AuthorizationInfo {
 ///
 /// In the long-term, we should track that data in Rust, remove the wrapper, and rename this to
 /// `FxaAuthState`.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxaRustAuthState {
     Disconnected,
     Connected,
