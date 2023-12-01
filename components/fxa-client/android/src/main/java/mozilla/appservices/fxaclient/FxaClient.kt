@@ -94,6 +94,16 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     fun getAuthState() = this.inner.getAuthState()
 
     /**
+     * Update the state based on authentication issues.
+     *
+     * Call this if you know there's an authentication / authorization issue that requires the user to
+     * re-authenticated.  It transitions the user to the [FxaRustAuthState.AuthIssues] state.
+     */
+    fun onAuthIssues() = this.inner.onAuthIssues().also {
+        this.tryPersistState()
+    }
+
+    /**
      * Constructs a URL used to begin the OAuth flow for the requested scopes and keys.
      *
      * This performs network requests, and should not be used on the main thread.
