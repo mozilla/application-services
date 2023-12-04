@@ -34,6 +34,10 @@ a number of hours to complete.
 
     1. Install the system dependencies required for SQLcipher
         1. Install tcl: `apt install tclsh` (required for SQLcipher)
+
+    1. Install the system dependencies required for bindgen
+        1. Install libclang: `apt install libclang-dev`
+
     #### MacOS
     1. Install Xcode: check the [ci config](https://github.com/mozilla/application-services/blob/main/.circleci/config.yml) for the correct version.
     1. Install Xcode tools: `xcode-select --install`
@@ -133,7 +137,7 @@ Configure maven to use the native windows maven repository - then, when doing `.
 
 1. Install [xcpretty](https://github.com/xcpretty/xcpretty#installation): `gem install xcpretty`
 1. Run `./libs/verify-ios-environment.sh` to check your setup and environment
-variables.  
+variables.
 1. Make any corrections recommended by the script and re-run.
 2. Next, run `./megazords/ios-rust/build-xcframework.sh` to build all the binaries needed to consume a-s in iOS
 
