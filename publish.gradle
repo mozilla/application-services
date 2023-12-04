@@ -135,8 +135,8 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
 
                     developers {
                         developer {
-                            name = 'Mozilla Application Services'
-                            email = 'application-services@mozilla.com'
+                            name = 'Sync Team'
+                            email = 'sync-team@mozilla.com'
                         }
                     }
 
@@ -171,8 +171,8 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
 
                         developers {
                             developer {
-                                name = 'Mozilla Application Services'
-                                email = 'application-services@mozilla.com'
+                                name = 'Sync Team'
+                                email = 'sync-team@mozilla.com'
                             }
                         }
 

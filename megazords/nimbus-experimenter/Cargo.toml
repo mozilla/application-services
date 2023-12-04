@@ -2,7 +2,7 @@
 name = "nimbus-experimenter"
 edition = "2021"
 version = "0.1.0"
-authors = ["application-services <application-services@mozilla.com>"]
+authors = ["Nimbus Team <project-nimbus@mozilla.com>"]
 license = "MPL-2.0"
 
 [lib]

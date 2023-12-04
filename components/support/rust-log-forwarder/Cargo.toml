@@ -2,7 +2,7 @@
 name = "rust-log-forwarder"
 version = "0.1.0"
 edition = "2021"
-authors = ["application-services@mozilla.com"]
+authors = ["Sync Team <sync-team@mozilla.com>"]
 license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
