@@ -401,3 +401,49 @@ fn test_targeting_is_already_enrolled() {
         })
     );
 }
+
+#[test]
+fn test_bucket_sample() {
+    let cases = [
+        (
+            "1.1",
+            "1000",
+            "1000",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: start is not an integer".into(),
+            }),
+        ),
+        (
+            "0",
+            "1.1",
+            "1000",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: count is not an integer".into(),
+            }),
+        ),
+        (
+            "0",
+            "0",
+            "1000.1",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: total is not an integer".into(),
+            }),
+        ),
+    ];
+
+    for (start, count, total, expected) in cases {
+        let expr = format!("0|bucketSample({start}, {count}, {total})");
+        println!("{}", expr);
+        let targeting_attributes: TargetingAttributes = AppContext {
+            app_name: "nimbus_test".into(),
+            app_id: "nimbus-test".into(),
+            channel: "test".into(),
+            ..Default::default()
+        }
+        .into();
+
+        let result = targeting(&expr, &targeting_attributes.clone().into());
+
+        assert_eq!(result, expected);
+    }
+}

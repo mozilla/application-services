@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
+        use anyhow::anyhow;
         use crate::stateful::behavior::{EventStore, EventQueryType, query_event_store};
         use std::sync::{Arc, Mutex};
     }
@@ -109,7 +110,8 @@ pub fn jexl_eval<Context: serde::Serialize>(
                 EventQueryType::LastSeen,
                 args,
             )?)
-        });
+        })
+        .with_transform("bucketSample", bucket_sample);
 
     let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {
@@ -140,4 +142,45 @@ fn version_compare(args: &[Value]) -> Result<Value> {
     } else {
         0
     }))
+}
+
+#[cfg(feature = "stateful")]
+fn bucket_sample(args: &[Value]) -> anyhow::Result<Value> {
+    fn get_arg_as_u32(args: &[Value], idx: usize, name: &str) -> anyhow::Result<u32> {
+        match args.get(idx) {
+            None => Err(anyhow!("{} doesn't exist in jexl transform", name)),
+            Some(Value::Number(n)) => {
+                let n: f64 = if let Some(n) = n.as_u64() {
+                    n as f64
+                } else if let Some(n) = n.as_i64() {
+                    n as f64
+                } else if let Some(n) = n.as_f64() {
+                    n
+                } else {
+                    unreachable!();
+                };
+
+                debug_assert!(n >= 0.0, "JEXL parser does not support negative values");
+                if n.fract() > 0.0 {
+                    Err(anyhow!("{} is not an integer", name))
+                } else if n > u32::MAX as f64 {
+                    Err(anyhow!("{} is out of range", name))
+                } else {
+                    Ok(n as u32)
+                }
+            }
+            Some(_) => Err(anyhow!("{} is not a number", name)),
+        }
+    }
+
+    let input = args
+        .get(0)
+        .ok_or_else(|| anyhow!("input doesn't exist in jexl transform"))?;
+    let start = get_arg_as_u32(args, 1, "start")?;
+    let count = get_arg_as_u32(args, 2, "count")?;
+    let total = get_arg_as_u32(args, 3, "total")?;
+
+    let result = crate::sampling::bucket_sample(input, start, count, total)?;
+
+    Ok(Value::Bool(result))
 }
