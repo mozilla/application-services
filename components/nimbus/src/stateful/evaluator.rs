@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{evaluator::split_locale, stateful::matcher::AppContext};
+use chrono::{DateTime, Utc};
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
@@ -18,6 +19,8 @@ pub struct TargetingAttributes {
     pub active_experiments: HashSet<String>,
     pub enrollments: HashSet<String>,
     pub enrollments_map: HashMap<String, String>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub current_date: DateTime<Utc>,
 }
 
 #[cfg(feature = "stateful")]
