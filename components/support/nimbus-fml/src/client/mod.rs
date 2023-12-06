@@ -110,13 +110,6 @@ impl FmlClient {
         }
     }
 
-    /// Validates a supplied feature configuration. Returns true or an FMLError.
-    pub fn is_feature_valid(&self, feature_id: String, value: JsonObject) -> Result<bool> {
-        self.manifest
-            .validate_feature_config(&feature_id, serde_json::Value::Object(value))
-            .map(|_| true)
-    }
-
     /// Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
     /// default feature JSON, and invalid configurations will be returned as a list of their respective errors.
     pub fn merge(
@@ -263,21 +256,6 @@ mod unit_tests {
                 }
             })
         );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_validate_feature_config() -> Result<()> {
-        let client: FmlClient = create_manifest().into();
-
-        assert!(client.is_feature_valid(
-            "feature".to_string(),
-            json!({ "prop_1": "new value" })
-                .as_object()
-                .unwrap()
-                .clone()
-        )?);
 
         Ok(())
     }
