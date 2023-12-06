@@ -37,20 +37,6 @@ def test_default_json(fml_client):
     assert defaults["example-feature"].get("something") is None
 
 
-def test_is_feature_valid(fml_client):
-    client = fml_client("test.fml.yml", "developer")
-    config = {"enabled": True}
-    assert client.is_feature_valid("example-feature", config) is True
-
-
-def test_is_feature_valid_is_invalid(fml_client):
-    client = fml_client("test.fml.yml", "developer")
-    config = {"enabled": True}
-
-    with pytest.raises(FmlError):
-        client.is_feature_valid("example-featurea", config)
-
-
 def test_merge(fml_client):
     client = fml_client("test.fml.yml", "developer")
     configs = {"example-feature": {"enabled": True}}

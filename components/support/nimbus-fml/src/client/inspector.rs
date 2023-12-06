@@ -50,12 +50,6 @@ impl FmlFeatureInspector {
         }
     }
 
-    pub fn is_feature_valid(&self, value: JsonObject) -> Result<bool> {
-        self.manifest
-            .validate_feature_config(&self.feature_id, serde_json::Value::Object(value))
-            .map(|_| true)
-    }
-
     pub fn get_first_error(&self, string: String) -> Option<FmlEditorError> {
         match self.get_syntax_error(&string) {
             Ok(json) => self.get_semantic_error(&string, json).err(),
