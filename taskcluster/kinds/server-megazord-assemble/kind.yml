@@ -14,14 +14,14 @@ loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
   - build-summary
-  - nimbus-build
+  - server-megazord-build
 
 transforms:
   - app_services_taskgraph.transforms.worker:transforms
-  - app_services_taskgraph.transforms.nimbus:assemble
+  - app_services_taskgraph.transforms.server_megazord:assemble
   - app_services_taskgraph.transforms.release_artifacts
   - app_services_taskgraph.transforms.appservices
-  - taskgraph.transforms.job
+  - taskgraph.transforms.run
   - taskgraph.transforms.task
 
 task-defaults:
@@ -33,17 +33,18 @@ task-defaults:
     max-run-time: 1800
 
 tasks:
-  nimbus-fml:
+  nimbus-experimenter-megazord:
     attributes:
-      nimbus-binary: "nimbus-fml"
+      megazord: "nimbus-experimenter"
       release-routes:
-        - index.project.{project}.v2.nimbus-fml.{appservices_version}
-    description: "Assemble nimbus-fml"
+        - index.project.{project}.v2.nimbus-experimenter.latest
+        - index.project.{project}.v2.nimbus-experimenter.{appservices_version}
+    description: "Assemble nimbus-experimenter megazord"
 
-  nimbus-cli:
+  cirrus-megazord:
     attributes:
-      nimbus-binary: "nimbus-cli"
+      megazord: "cirrus"
       release-routes:
-        - index.project.{project}.v2.nimbus-cli.{appservices_version}
-        - index.project.{project}.v2.nimbus-cli.latest
-    description: "Assemble nimbus-cli"
+        - index.project.{project}.v2.cirrus.latest
+        - index.project.{project}.v2.cirrus.{appservices_version}
+    description: "Assemble cirrus megazord"

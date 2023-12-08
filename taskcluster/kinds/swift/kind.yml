@@ -10,7 +10,7 @@ transforms:
   - app_services_taskgraph.transforms.worker
   - app_services_taskgraph.transforms.release_artifacts
   - app_services_taskgraph.transforms.appservices
-  - taskgraph.transforms.job
+  - taskgraph.transforms.run
   - taskgraph.transforms.task
 
 kind-dependencies:

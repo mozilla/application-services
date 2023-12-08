@@ -9,7 +9,7 @@ loader: taskgraph.loader.transform:loader
 transforms:
   - app_services_taskgraph.transforms.appservices:transforms
   - app_services_taskgraph.transforms.server_megazord:build
-  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.run:transforms
   - taskgraph.transforms.task:transforms
 
 kind-dependencies:

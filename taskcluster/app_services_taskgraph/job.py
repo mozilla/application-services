@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-from taskgraph.transforms.job import run_job_using, configure_taskdesc_for_run
+from taskgraph.transforms.run import run_task_using, configure_taskdesc_for_run
 from taskgraph.util.schema import Schema, taskref_or_string
 from voluptuous import Required, Optional
 
@@ -46,7 +46,7 @@ run_commands_schema = Schema({
 })
 
 
-@run_job_using("docker-worker", "run-commands", schema=run_commands_schema)
+@run_task_using("docker-worker", "run-commands", schema=run_commands_schema)
 def configure_run_commands_schema(config, job, taskdesc):
     run = job["run"]
     pre_commands = run.pop("pre-commands", [])
@@ -64,7 +64,7 @@ def configure_run_commands_schema(config, job, taskdesc):
     _set_run_task_attributes(job)
     configure_taskdesc_for_run(config, job, taskdesc, job["worker"]["implementation"])
 
-@run_job_using("generic-worker", "run-commands", schema=run_commands_schema)
+@run_task_using("generic-worker", "run-commands", schema=run_commands_schema)
 def configure_run_commands_schema_generic(config, job, taskdesc):
     run = job["run"]
     pre_commands = run.pop("pre-commands", [])
@@ -83,7 +83,7 @@ def configure_run_commands_schema_generic(config, job, taskdesc):
     configure_taskdesc_for_run(config, job, taskdesc, job["worker"]["implementation"])
 
 
-@run_job_using("docker-worker", "gradlew", schema=gradlew_schema)
+@run_task_using("docker-worker", "gradlew", schema=gradlew_schema)
 def configure_gradlew(config, job, taskdesc):
     run = job["run"]
     worker = taskdesc["worker"] = job["worker"]

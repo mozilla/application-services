@@ -11,7 +11,7 @@ kind-dependencies:
 transforms:
   - app_services_taskgraph.transforms.worker
   - app_services_taskgraph.transforms.branch_build
-  - taskgraph.transforms.job
+  - taskgraph.transforms.run
   - taskgraph.transforms.task
 
 tasks:
