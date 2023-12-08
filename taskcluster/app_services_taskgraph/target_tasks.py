@@ -5,7 +5,7 @@
 import json
 import logging
 
-from taskgraph.target_tasks import _target_task, filter_for_tasks_for
+from taskgraph.target_tasks import register_target_task, filter_for_tasks_for
 from taskgraph.util import taskcluster
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def filter_out_shipping_phase(task):
     )
 
 
-@_target_task('pr-skip')
+@register_target_task('pr-skip')
 def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
     return []
 
@@ -32,11 +32,11 @@ def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
 # This runs the same tasks as `pr-full`, plus:
 #  - build-summary, which sends a slack alert if the build fails
 #  - release-publish, which creates the `release.json` or `nightly.json` artifact
-@_target_task('full')
+@register_target_task('full')
 def target_tasks_release(full_task_graph, parameters, graph_config):
     return full_task_graph.tasks
 
-@_target_task('nightly')
+@register_target_task('nightly')
 def target_tasks_nightly(full_task_graph, parameters, graph_config):
     head_rev = parameters["head_rev"]
     try:
@@ -52,7 +52,7 @@ def target_tasks_nightly(full_task_graph, parameters, graph_config):
         return []
     return [l for l, task in full_task_graph.tasks.items() if filter_out_shipping_phase(task)]
 
-@_target_task('pr-full')
+@register_target_task('pr-full')
 def target_tasks_all(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
@@ -64,7 +64,7 @@ def target_tasks_all(full_task_graph, parameters, graph_config):
     return [l for l, task in full_task_graph.tasks.items() if filter(task)]
 
 
-@_target_task('pr-normal')
+@register_target_task('pr-normal')
 def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
@@ -93,7 +93,7 @@ def filter_release_promotion(
     ]
 
 
-@_target_task("promote")
+@register_target_task("promote")
 def target_tasks_promote(full_task_graph, parameters, graph_config):
     return filter_release_promotion(
         full_task_graph,
@@ -102,7 +102,7 @@ def target_tasks_promote(full_task_graph, parameters, graph_config):
     )
 
 
-@_target_task("ship")
+@register_target_task("ship")
 def target_tasks_ship(full_task_graph, parameters, graph_config):
     filtered_for_candidates = target_tasks_promote(
         full_task_graph,

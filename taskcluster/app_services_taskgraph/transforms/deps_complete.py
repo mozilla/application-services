@@ -78,7 +78,7 @@ def add_alert_routes(config, tasks):
 # can then depend on.
 #
 # This is separated out from the main transform since it depends on
-# taskgraph.transforms.job:transforms running first.
+# taskgraph.transforms.run:transforms running first.
 #
 # This code is based off the reverse_chunk_deps transform from Gecko
 reverse_chunk = TransformSequence()

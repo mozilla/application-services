@@ -10,7 +10,7 @@ transforms:
   - app_services_taskgraph.transforms.worker:transforms
   - app_services_taskgraph.transforms.secrets:transforms
   - app_services_taskgraph.transforms.module_build:transforms
-  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.run:transforms
   - taskgraph.transforms.task:transforms
 
 kind-dependencies:
