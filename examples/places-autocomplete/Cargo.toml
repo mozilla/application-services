@@ -22,10 +22,7 @@ clap = "2.33"
 tempfile = "3.1"
 rand = "0.8"
 find-places-db = "0.2"
-
-[dev-dependencies.rusqlite]
-version = "0.29.0"
-features = ["functions", "bundled"]
+rusqlite = { workspace = true, features = ["functions", "bundled"] }
 
 # While we don't have a replacement for termion on Windows yet (and thus
 # our example doesn't work on Windows), it does get further in the compilation
