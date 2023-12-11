@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::editing::ErrorPath;
 use crate::error::{did_you_mean, FMLError};
 use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 use crate::{
@@ -27,31 +28,25 @@ impl<'a> DefaultsValidator<'a> {
         }
     }
 
-    pub(crate) fn validate_object_def(&self, object: &ObjectDef) -> Result<(), FMLError> {
-        for prop in &object.props {
-            let path = format!("objects/{}.{}", object.name, prop.name);
-            let error_path = vec![prop.name.to_string()];
-            self.validate_types(path.as_str(), &error_path, &prop.typ, &prop.default)?;
+    pub(crate) fn validate_object_def(&self, object_def: &ObjectDef) -> Result<(), FMLError> {
+        let path = ErrorPath::object(&object_def.name);
+        for prop in &object_def.props {
+            self.validate_types(&path.property(&prop.name), &prop.typ, &prop.default)?;
         }
         Ok(())
     }
 
     pub(crate) fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
+        let path = ErrorPath::feature(&feature_def.name);
         for prop in &feature_def.props {
-            let path = format!("features/{}.{}", feature_def.name, prop.name);
-            let error_path = vec![prop.name.to_string()];
-            self.validate_types(path.as_str(), &error_path, &prop.typ, &prop.default)?;
+            self.validate_types(&path.property(&prop.name), &prop.typ, &prop.default)?;
         }
 
         let string_aliases = feature_def.get_string_aliases();
         let mut errors = Default::default();
         for prop in &feature_def.props {
-            let path = format!("features/{}.{}", feature_def.name, prop.name);
-            let error_path = vec![prop.name.to_string()];
-
             self.validate_string_aliases(
-                path.as_str(),
-                &error_path,
+                &path.property(&prop.name),
                 &prop.typ,
                 &prop.default,
                 &string_aliases,
@@ -74,13 +69,7 @@ impl<'a> DefaultsValidator<'a> {
         self.object_defs.get(nm)
     }
 
-    pub fn validate_types(
-        &self,
-        path: &str,
-        error_path: &Vec<String>,
-        type_ref: &TypeRef,
-        default: &Value,
-    ) -> Result<()> {
+    fn validate_types(&self, path: &ErrorPath, type_ref: &TypeRef, default: &Value) -> Result<()> {
         match (type_ref, default) {
             (TypeRef::Boolean, Value::Bool(_))
             | (TypeRef::BundleImage, Value::String(_))
@@ -92,11 +81,11 @@ impl<'a> DefaultsValidator<'a> {
             (TypeRef::Option(inner), v) => {
                 if let TypeRef::Option(_) = inner.as_ref() {
                     return Err(FMLError::ValidationError(
-                        path.to_string(),
+                        path.path.to_string(),
                         "Nested options".into(),
                     ));
                 }
-                self.validate_types(path, error_path, inner, v)
+                self.validate_types(path, inner, v)
             }
             (TypeRef::Enum(enum_name), Value::String(s)) => {
                 let enum_def = self
@@ -113,10 +102,11 @@ impl<'a> DefaultsValidator<'a> {
                     }
                     valid.insert(name);
                 }
+                let path = path.final_error_quoted(s);
                 Err(FMLError::FeatureValidationError {
-                    path: path.to_string(),
+                    path: path.path,
+                    literals: path.literals,
                     message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
-                    literals: append_quoted(error_path, s),
                 })
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map))
@@ -134,43 +124,39 @@ impl<'a> DefaultsValidator<'a> {
                 let mut seen = HashSet::new();
                 let mut unseen = HashSet::new();
                 let mut valid = HashSet::new();
-                for variant in enum_def.variants() {
-                    let nm = variant.name();
+                for variant in &enum_def.variants {
+                    let nm = &variant.name;
                     valid.insert(nm.clone());
 
-                    let map_value = map.get(&nm);
+                    let map_value = map.get(nm);
                     match (map_type.as_ref(), map_value) {
                         (TypeRef::Option(_), None) => (),
                         (_, None) => {
                             unseen.insert(variant.name());
                         }
                         (_, Some(inner)) => {
-                            let path = format!("{path}[{}#{nm}]", enum_def.name);
-                            let literals =
-                                append(error_path, &["{".to_string(), format!("\"{nm}\"")]);
-                            self.validate_types(&path, &literals, map_type, inner)?;
+                            self.validate_types(&path.enum_map_key(enum_name, nm), map_type, inner)?;
                             seen.insert(nm);
                         }
                     }
                 }
 
                 if !unseen.is_empty() {
+                    let path = path.open_brace();
                     return Err(FMLError::FeatureValidationError {
-                        path: path.to_string(),
+                        path: path.path,
+                        literals: path.literals,
                         message: format!("Enum map {enum_name} is missing values for {unseen:?}"),
                         // Can we be more specific that just the opening brace?
-                        literals: append1(error_path, "{"),
                     });
                 }
                 for map_key in map.keys() {
                     if !seen.contains(map_key) {
+                        let path = path.map_key(map_key);
                         return Err(FMLError::FeatureValidationError {
-                            path: path.to_string(),
-                            message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid)),
-                            literals: append(
-                                error_path,
-                                &["{".to_string(), format!("\"{map_key}\"")],
-                            ),
+                            path: path.path,
+                            literals: path.literals,
+                            message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid.clone())),
                         });
                     }
                 }
@@ -179,18 +165,13 @@ impl<'a> DefaultsValidator<'a> {
             (TypeRef::EnumMap(_, map_type), Value::Object(map)) // Map<string-alias, T>
             | (TypeRef::StringMap(map_type), Value::Object(map)) => {
                 for (key, value) in map {
-                    let path = format!("{path}['{key}']");
-                    let literals = append(error_path, &["{".to_string(), format!("\"{key}\"")]);
-                    self.validate_types(&path, &literals, map_type, value)?;
+                    self.validate_types(&path.map_key(key), map_type, value)?;
                 }
                 Ok(())
             }
             (TypeRef::List(list_type), Value::Array(arr)) => {
-                let mut literals = append1(error_path, "[");
                 for (index, value) in arr.iter().enumerate() {
-                    let path = format!("{path}['{index}']");
-                    self.validate_types(&path, &literals, list_type, value)?;
-                    literals.push(",".to_string());
+                    self.validate_types(&path.array_index(index), list_type, value)?;
                 }
                 Ok(())
             }
@@ -203,19 +184,14 @@ impl<'a> DefaultsValidator<'a> {
                     });
                 let mut valid = HashSet::new();
                 let mut unseen = HashSet::new();
-                let path = format!("{path}#{obj_name}");
+                let path = path.object_value(obj_name);
                 for prop in &obj_def.props {
                     // We only check the defaults overriding the property defaults
                     // from the object's own property defaults.
                     // We check the object property defaults previously.
                     let nm = prop.name();
                     if let Some(map_val) = map.get(&nm) {
-                        let path = format!("{path}.{}", prop.name);
-                        let literals = append(
-                            error_path,
-                            &["{".to_string(), format!("\"{}\"", &prop.name)],
-                        );
-                        self.validate_types(&path, &literals, &prop.typ, map_val)?;
+                        self.validate_types(&path.property(&prop.name), &prop.typ, map_val)?;
                     } else {
                         unseen.insert(nm.clone());
                     }
@@ -224,32 +200,34 @@ impl<'a> DefaultsValidator<'a> {
                 }
                 for map_key in map.keys() {
                     if !valid.contains(map_key) {
+                        let path = path.final_error_quoted(map_key);
                         return Err(FMLError::FeatureValidationError {
-                            path,
+                            path: path.path,
+                            literals: path.literals,
                             message: format!(
                                 "Invalid key \"{map_key}\" for object {obj_name}{}",
                                 did_you_mean(valid)
                             ),
-                            literals: append_quoted(error_path, map_key),
                         });
                     }
                 }
-
                 Ok(())
             }
-            _ => Err(FMLError::FeatureValidationError {
-                path: path.to_string(),
-                message: format!("Mismatch between type {type_ref} and default {default}"),
-                literals: append1(error_path, &default.to_string()),
-            }),
+            _ => {
+                let path = path.final_error(&default.to_string());
+                Err(FMLError::FeatureValidationError {
+                    path: path.path,
+                    literals: path.literals,
+                    message: format!("Mismatch between type {type_ref} and default {default}"),
+                })
+            }
         }
     }
 
     #[allow(clippy::too_many_arguments)]
     fn validate_string_aliases(
         &self,
-        path: &str,
-        error_path: &[String],
+        path: &ErrorPath,
         typ: &TypeRef,
         value: &Value,
         defn: &HashMap<&str, &PropDef>,
@@ -262,17 +240,22 @@ impl<'a> DefaultsValidator<'a> {
         let should_validate = |v: &TypeRef| -> bool { skip.as_ref() != Some(v) };
         match (typ, value) {
             (TypeRef::StringAlias(_), Value::String(s)) => {
-                check_string_aliased_property(path, error_path, typ, s, defn, errors)
+                check_string_aliased_property(path, typ, s, defn, errors)
             }
             (TypeRef::Option(_), &Value::Null) => (),
             (TypeRef::Option(inner), _) => {
-                self.validate_string_aliases(path, error_path, inner, value, defn, skip, errors)
+                self.validate_string_aliases(path, inner, value, defn, skip, errors)
             }
             (TypeRef::List(inner), Value::Array(array)) => {
                 if should_validate(inner) {
-                    for value in array {
+                    for (index, value) in array.iter().enumerate() {
                         self.validate_string_aliases(
-                            path, error_path, inner, value, defn, skip, errors,
+                            &path.array_index(index),
+                            inner,
+                            value,
+                            defn,
+                            skip,
+                            errors,
                         );
                     }
                 }
@@ -280,20 +263,14 @@ impl<'a> DefaultsValidator<'a> {
             (TypeRef::EnumMap(key_type, value_type), Value::Object(map)) => {
                 if should_validate(key_type) && matches!(**key_type, TypeRef::StringAlias(_)) {
                     for value in map.keys() {
-                        check_string_aliased_property(
-                            path, error_path, key_type, value, defn, errors,
-                        );
+                        check_string_aliased_property(path, key_type, value, defn, errors);
                     }
                 }
 
                 if should_validate(value_type) {
                     for (key, value) in map {
-                        let path = format!("{path}['{key}']");
-                        let error_path = append_quoted(error_path, key);
-
                         self.validate_string_aliases(
-                            &path,
-                            &error_path,
+                            &path.map_key(key),
                             value_type,
                             value,
                             defn,
@@ -306,12 +283,8 @@ impl<'a> DefaultsValidator<'a> {
             (TypeRef::StringMap(vt), Value::Object(map)) => {
                 if should_validate(vt) {
                     for (key, value) in map {
-                        let path = format!("{path}['{key}']");
-                        let error_path = append1(error_path, key);
-
                         self.validate_string_aliases(
-                            &path,
-                            &error_path,
+                            &path.map_key(key),
                             vt,
                             value,
                             defn,
@@ -322,18 +295,14 @@ impl<'a> DefaultsValidator<'a> {
                 }
             }
             (TypeRef::Object(obj_nm), Value::Object(map)) => {
-                let path = format!("{path}#{obj_nm}");
-                let error_path = append1(error_path, "{");
+                let path = path.object_value(obj_nm);
                 let obj_def = self.get_object(obj_nm).unwrap();
 
                 for prop in &obj_def.props {
                     let prop_nm = &prop.name;
                     if let Some(value) = map.get(prop_nm) {
-                        let path = format!("{path}.{prop_nm}");
-                        let error_path = append_quoted(&error_path, prop_nm);
                         self.validate_string_aliases(
-                            &path,
-                            &error_path,
+                            &path.property(prop_nm),
                             &prop.typ,
                             value,
                             defn,
@@ -347,8 +316,7 @@ impl<'a> DefaultsValidator<'a> {
                         // default.
                         let mut suberrors = Default::default();
                         self.validate_string_aliases(
-                            "",
-                            Default::default(),
+                            &ErrorPath::object(obj_nm),
                             &prop.typ,
                             &prop.default,
                             defn,
@@ -359,9 +327,10 @@ impl<'a> DefaultsValidator<'a> {
                         // If the default is invalid, then it doesn't really matter
                         // what the error is, we can just error out.
                         if !suberrors.is_empty() {
+                            let path = path.open_brace();
                             errors.push(FMLError::FeatureValidationError {
-                                literals: error_path.clone(),
-                                path: path.clone(),
+                                literals: path.literals,
+                                path: path.path,
                                 message: format!(
                                     "A valid value for {prop_nm} of type {} is missing",
                                     &prop.typ
@@ -377,8 +346,7 @@ impl<'a> DefaultsValidator<'a> {
 }
 
 fn check_string_aliased_property(
-    path: &str,
-    error_path: &[String],
+    path: &ErrorPath,
     alias_type: &TypeRef,
     value: &str,
     defn: &HashMap<&str, &PropDef>,
@@ -389,9 +357,10 @@ fn check_string_aliased_property(
             if !validate_string_alias_value(value, alias_type, &prop.typ, &prop.default) {
                 let mut valid = Default::default();
                 collect_string_alias_values(alias_type, &prop.typ, &prop.default, &mut valid);
+                let path = path.final_error_quoted(value);
                 errors.push(FMLError::FeatureValidationError {
-                    literals: append_quoted(error_path, value),
-                    path: path.to_string(),
+                    literals: path.literals,
+                    path: path.path,
                     message: format!(
                         "Invalid value \"{value}\" for type {alias_nm}{}",
                         did_you_mean(valid)
@@ -496,22 +465,6 @@ fn validate_string_alias_value(
     }
 }
 
-fn append(original: &[String], new: &[String]) -> Vec<String> {
-    let mut clone = original.to_owned();
-    clone.extend(new.iter().cloned());
-    clone
-}
-
-fn append1(original: &[String], new: &str) -> Vec<String> {
-    let mut clone = original.to_owned();
-    clone.push(new.to_string());
-    clone
-}
-
-fn append_quoted(original: &[String], new: &str) -> Vec<String> {
-    append1(original, &format!("\"{new}\""))
-}
-
 #[cfg(test)]
 mod test_types {
 
@@ -523,8 +476,8 @@ mod test_types {
 
     impl DefaultsValidator<'_> {
         fn validate_prop_defaults(&self, prop: &PropDef) -> Result<()> {
-            let error_path = Default::default();
-            self.validate_types(prop.name.as_str(), &error_path, &prop.typ, &prop.default)
+            let path = ErrorPath::feature("test");
+            self.validate_types(&path, &prop.typ, &prop.default)
         }
     }
 

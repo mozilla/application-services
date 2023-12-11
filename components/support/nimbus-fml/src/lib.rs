@@ -5,6 +5,7 @@
 mod backends;
 pub mod command_line;
 pub(crate) mod defaults;
+mod editing;
 pub mod error;
 pub(crate) mod frontend;
 pub mod intermediate_representation;
