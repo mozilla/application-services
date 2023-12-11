@@ -5,6 +5,7 @@
 mod backends;
 mod command_line;
 mod defaults;
+mod editing;
 mod error;
 #[cfg(test)]
 mod fixtures;
