@@ -1,5 +1,12 @@
 # v124.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### Webext-Storage
+- Uniffied the webext-storage component in preparation for desktop integration ([#6057](https://github.com/mozilla/application-services/pull/6057)).
+
+[Full Changelog](In progress)
+
 [Full Changelog](In progress)
 
 # v123.0 (_2024-01-22_)
