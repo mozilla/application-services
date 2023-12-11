@@ -5,7 +5,7 @@
 use std::os::raw::c_char;
 
 use ffi_support::{define_handle_map_deleter, ConcurrentHandleMap, ExternError, FfiStr};
-use webext_storage::{error, store::Store};
+use webext_storage::{error, store::WebExtStorageStore as Store};
 
 lazy_static::lazy_static! {
     static ref STORES: ConcurrentHandleMap<Store> = ConcurrentHandleMap::new();

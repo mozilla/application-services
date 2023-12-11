@@ -24,6 +24,7 @@ serde_derive = "1"
 sql-support = { path = "../support/sql" }
 sync15 = {path = "../../components/sync15", features=["sync-engine"]}
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
+uniffi = { workspace = true }
 url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
@@ -37,3 +38,4 @@ sql-support = { path = "../support/sql" }
 
 [build-dependencies]
 nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
+uniffi = { workspace = true, features = ["build"] }
