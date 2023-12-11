@@ -549,6 +549,10 @@ impl FeatureDef {
         }
         res
     }
+
+    pub fn get_prop(&self, name: &str) -> Option<&PropDef> {
+        self.props.iter().find(|p| p.name == name)
+    }
 }
 
 impl TypeFinder for FeatureDef {

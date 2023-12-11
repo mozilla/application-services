@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::{
     error::{did_you_mean, FMLError, Result},
@@ -44,7 +44,7 @@ impl<'object> DefaultsMerger<'object> {
     fn collect_feature_defaults(&self, feature: &FeatureDef) -> Result<serde_json::Value> {
         let mut res = serde_json::value::Map::new();
 
-        for p in feature.props() {
+        for p in &feature.props {
             let collected = self
                 .collect_prop_defaults(&p.typ, &p.default)?
                 .unwrap_or_else(|| p.default());
@@ -174,6 +174,44 @@ impl<'object> DefaultsMerger<'object> {
         feature_def: &mut FeatureDef,
         defaults: &Option<Vec<DefaultBlock>>,
     ) -> Result<(), FMLError> {
+        let variable_defaults = self.collect_feature_defaults(feature_def)?;
+        let defaults_to_merge = self.channel_specific_defaults(defaults)?;
+        let merged = merge_two_defaults(&variable_defaults, &defaults_to_merge);
+
+        self.overwrite_defaults(feature_def, &merged)
+    }
+
+    /// Mutates a FeatureDef by changing the defaults to the `merged` value.
+    pub(crate) fn overwrite_defaults(
+        &self,
+        feature_def: &mut FeatureDef,
+        merged: &Value,
+    ) -> Result<()> {
+        let map = merged.as_object().ok_or(FMLError::InternalError(
+            "Map was merged into a different type",
+        ))?;
+
+        feature_def.props = map
+            .iter()
+            .map(|(k, v)| -> Result<PropDef> {
+                if let Some(prop) = feature_def.get_prop(k) {
+                    let mut res = prop.clone();
+                    res.default = v.clone();
+                    Ok(res)
+                } else {
+                    let valid = feature_def.props.iter().map(|p| p.name()).collect();
+                    Err(FMLError::FeatureValidationError {
+                        literals: vec![format!("\"{k}\"")],
+                        path: format!("features/{}", feature_def.name),
+                        message: format!("Invalid property \"{k}\"{}", did_you_mean(valid)),
+                    })
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(())
+    }
+
+    fn channel_specific_defaults(&self, defaults: &Option<Vec<DefaultBlock>>) -> Result<Value> {
         let supported_channels = self.supported_channels.as_slice();
         let channel = &self.channel;
         if let Some(channel) = channel {
@@ -184,41 +222,29 @@ impl<'object> DefaultsMerger<'object> {
                 ));
             }
         }
-        let variable_defaults = self.collect_feature_defaults(feature_def)?;
-        let res = feature_def;
-
+        let empty_object = json!({});
         if let Some(defaults) = defaults {
             // No channel is represented by an unlikely string.
             let no_channel = "NO CHANNEL SPECIFIED".to_string();
             let merged_defaults =
                 collect_channel_defaults(defaults, supported_channels, &no_channel)?;
             let channel = self.channel.as_ref().unwrap_or(&no_channel);
-            if let Some(default_to_merged) = merged_defaults.get(channel) {
-                let merged = merge_two_defaults(&variable_defaults, default_to_merged);
-                let map = merged.as_object().ok_or(FMLError::InternalError(
-                    "Map was merged into a different type",
-                ))?;
-
-                res.props = map
-                    .iter()
-                    .map(|(k, v)| -> Result<PropDef> {
-                        if let Some(prop) = res.props.iter().find(|p| &p.name == k) {
-                            let mut res = prop.clone();
-                            res.default = v.clone();
-                            Ok(res)
-                        } else {
-                            let valid = res.props.iter().map(|p| p.name()).collect();
-                            Err(FMLError::FeatureValidationError {
-                                literals: vec![format!("\"{k}\"")],
-                                path: format!("features/{}", res.name),
-                                message: format!("Invalid property \"{k}\"{}", did_you_mean(valid)),
-                            })
-                        }
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-            }
+            let merged = merged_defaults[channel].clone();
+            Ok(merged)
+        } else {
+            Ok(empty_object)
         }
-        Ok(())
+    }
+
+    /// A convenience method to get the defaults from the feature, and merger it
+    /// with the passed value.
+    pub(crate) fn _merge_feature_config(
+        &self,
+        feature_def: &FeatureDef,
+        value: &Value,
+    ) -> Result<Value> {
+        let defaults = self.collect_feature_defaults(feature_def)?;
+        Ok(merge_two_defaults(&defaults, value))
     }
 }
 
