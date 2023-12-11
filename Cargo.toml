@@ -119,6 +119,10 @@ default-members = [
     "testing/separated/*/",
 ]
 
+[workspace.dependencies]
+rusqlite = "0.29.0"
+libsqlite3-sys = "0.26.0"
+
 [profile.release]
 opt-level = "s"
 debug = true
