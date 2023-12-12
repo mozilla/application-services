@@ -223,15 +223,12 @@ fn main() -> Result<()> {
         collection_name: collection_name.to_string(),
     };
 
-    let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(
         context.clone(),
         Default::default(),
         db_path,
         Some(config),
-        aru,
         Box::new(NoopMetricsHandler),
     )?;
     log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);

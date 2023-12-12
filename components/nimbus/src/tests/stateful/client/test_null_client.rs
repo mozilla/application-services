@@ -18,13 +18,11 @@ fn test_null_client() -> Result<()> {
 
     let tmp_dir = tempfile::tempdir()?;
 
-    let aru = Default::default();
     let client = NimbusClient::new(
         Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
-        aru,
         Box::new(metrics),
     )?;
     client.fetch_experiments()?;
