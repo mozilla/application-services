@@ -16,18 +16,13 @@ use crate::{
 };
 
 pub(crate) struct FeatureValidationError {
-    pub(crate) literals: Vec<String>,
-    pub(crate) path: String,
+    pub(crate) path: ErrorPath,
     pub(crate) message: String,
 }
 
 impl From<FeatureValidationError> for FMLError {
     fn from(value: FeatureValidationError) -> Self {
-        Self::FeatureValidationError {
-            message: value.message,
-            literals: value.literals,
-            path: value.path,
-        }
+        Self::ValidationError(value.path.path, value.message)
     }
 }
 

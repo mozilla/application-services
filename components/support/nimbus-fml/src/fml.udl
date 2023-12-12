@@ -12,7 +12,6 @@ enum FMLError {
     "IOError", "JSONError", "YAMLError", "UrlError", "EmailError", "FetchError", "InvalidPath",
     "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
     "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError",
-    "FeatureValidationError",
 };
 
 dictionary MergedJsonWithErrors {

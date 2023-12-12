@@ -250,8 +250,7 @@ impl<'a> DefaultsValidator<'a> {
                 }
                 let path = path.final_error_quoted(s);
                 errors.push(FeatureValidationError {
-                    path: path.path,
-                    literals: path.literals,
+                    path,
                     message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
                 });
             }
@@ -286,8 +285,7 @@ impl<'a> DefaultsValidator<'a> {
                     if !valid.contains(map_key) {
                         let path = path.map_key(map_key);
                         errors.push(FeatureValidationError {
-                            path: path.path,
-                            literals: path.literals,
+                            path,
                             message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid.clone())),
                         });
                     }
@@ -318,8 +316,7 @@ impl<'a> DefaultsValidator<'a> {
             _ => {
                 let path = path.final_error(&default.to_string());
                 errors.push(FeatureValidationError {
-                    path: path.path,
-                    literals: path.literals,
+                    path,
                     message: format!("Mismatch between type {type_ref} and default {default}"),
                 });
             }
@@ -350,8 +347,7 @@ impl<'a> DefaultsValidator<'a> {
             if !valid.contains(map_key) {
                 let path = path.final_error_quoted(map_key);
                 errors.push(FeatureValidationError {
-                    path: path.path,
-                    literals: path.literals,
+                    path,
                     message: format!(
                         "Invalid property \"{map_key}\"{}",
                         did_you_mean(valid.clone())
@@ -479,8 +475,7 @@ impl<'a> DefaultsValidator<'a> {
                         if !suberrors.is_empty() {
                             let path = path.open_brace();
                             errors.push(FeatureValidationError {
-                                literals: path.literals,
-                                path: path.path,
+                                path,
                                 message: format!(
                                     "A valid value for {prop_nm} of type {} is missing",
                                     &prop.typ
@@ -511,8 +506,7 @@ fn check_string_aliased_property(
                 collect_string_alias_values(alias_type, &prop.typ, def_value, &mut valid);
                 let path = path.final_error_quoted(value);
                 errors.push(FeatureValidationError {
-                    literals: path.literals,
-                    path: path.path,
+                    path,
                     message: format!(
                         "Invalid value \"{value}\" for type {alias_nm}{}",
                         did_you_mean(valid)
