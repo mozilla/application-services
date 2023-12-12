@@ -412,12 +412,9 @@ open class Nimbus(
     }
 
     override fun resetTelemetryIdentifiers() {
-        // The "dummy" field here is required for obscure reasons when generating code on desktop,
-        // so we just automatically set it to a dummy value.
-        val aru = AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0)
         dbScope.launch {
             withCatchAll("resetTelemetryIdentifiers") {
-                nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->
+                nimbusClient.resetTelemetryIdentifiers().also { enrollmentChangeEvents ->
                     recordExperimentTelemetryEvents(enrollmentChangeEvents)
                 }
             }
