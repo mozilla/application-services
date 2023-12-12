@@ -168,6 +168,7 @@ open class Nimbus(
             coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
+            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null),
             metricsHandler,
         )
     }

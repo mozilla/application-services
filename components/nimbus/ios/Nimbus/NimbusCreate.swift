@@ -102,6 +102,11 @@ public extension Nimbus {
             coenrollingFeatureIds: coenrollingFeatureIds,
             dbpath: dbPath,
             remoteSettingsConfig: remoteSettings,
+            availableRandomizationUnits: AvailableRandomizationUnits(
+                clientId: nil,
+                userId: nil,
+                nimbusId: nil,
+            ),
             metricsHandler: GleanMetricsHandler()
         )
 
