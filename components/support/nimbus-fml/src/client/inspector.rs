@@ -113,7 +113,7 @@ impl FmlFeatureInspector {
         let mut editor_errors: Vec<_> = Vec::with_capacity(errors.len());
         for e in errors {
             let message = e.message;
-            let literals = e.literals;
+            let literals = e.path.literals;
             let highlight = literals.last().cloned();
             let (line, col) = find_err(src, literals.into_iter());
             let error = FmlEditorError {

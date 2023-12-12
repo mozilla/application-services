@@ -34,12 +34,6 @@ pub enum FMLError {
     InternalError(&'static str),
     #[error("Validation Error at {0}: {1}")]
     ValidationError(String, String),
-    #[error("Validation Error at {path}: {message}")]
-    FeatureValidationError {
-        literals: Vec<String>,
-        path: String,
-        message: String,
-    },
     #[error("Type Parsing Error: {0}")]
     TypeParsingError(String),
     #[error("Invalid Channel error: The channel `{0}` is specified, but only {1:?} are supported for the file")]
