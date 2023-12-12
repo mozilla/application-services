@@ -520,7 +520,7 @@ fn test_wrong_randomization_units() {
         is_enrollment_paused: false,
         feature_ids: vec!["test-feature".to_string()],
         bucket_config: BucketConfig {
-            randomization_unit: RandomizationUnit::ClientId,
+            randomization_unit: RandomizationUnit::UserId,
             start: 0,
             count: 10000,
             total: 10000,
@@ -554,7 +554,7 @@ fn test_wrong_randomization_units() {
     };
 
     // We won't be enrolled in the experiment because we don't have the right randomization units since the
-    // experiment is requesting the `ClientId` and the `Default::default()` here will just have the
+    // experiment is requesting the `UserId` and the `Default::default()` here will just have the
     // NimbusId.
     let enrollment = evaluate_enrollment(
         &AvailableRandomizationUnits::with_nimbus_id(&uuid::Uuid::new_v4()),
@@ -565,15 +565,10 @@ fn test_wrong_randomization_units() {
     // The status should be `Error`
     assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
 
-    // Fits because of the client_id.
-    let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");
-    let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
-    let enrollment = evaluate_enrollment(
-        &available_randomization_units.apply_nimbus_id(&id),
-        &experiment,
-        &ctx.into(),
-    )
-    .unwrap();
+    // Fits because of the user_id.
+    let available_randomization_units = AvailableRandomizationUnits::with_user_id("bobo");
+    let enrollment =
+        evaluate_enrollment(&available_randomization_units, &experiment, &ctx.into()).unwrap();
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::Enrolled {
