@@ -539,7 +539,6 @@ impl NimbusClient {
     ///
     pub fn reset_telemetry_identifiers(
         &self,
-        new_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let mut events = vec![];
         let db = self.db()?;
@@ -562,7 +561,7 @@ impl NimbusClient {
         }
 
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
-        state.available_randomization_units = new_randomization_units;
+        state.available_randomization_units = Default::default();
 
         Ok(events)
     }

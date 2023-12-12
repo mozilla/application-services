@@ -85,7 +85,7 @@ fn test_telemetry_reset() -> Result<()> {
     let orig_nimbus_id = client.nimbus_id()?;
     assert_eq!(get_client_id(), Some(mock_client_id));
 
-    let events = client.reset_telemetry_identifiers(AvailableRandomizationUnits::default())?;
+    let events = client.reset_telemetry_identifiers()?;
 
     // We should have reset our nimbus_id.
     assert_ne!(orig_nimbus_id, client.nimbus_id()?);

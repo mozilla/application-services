@@ -264,8 +264,8 @@ extension Nimbus {
         postEnrollmentCalculation(changes)
     }
 
-    func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
-        let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
+    func resetTelemetryIdentifiersOnThisThread() throws {
+        let changes = try nimbusClient.resetTelemetryIdentifiers()
         postEnrollmentCalculation(changes)
     }
 }
