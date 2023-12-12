@@ -520,7 +520,7 @@ fn test_wrong_randomization_units() {
         is_enrollment_paused: false,
         feature_ids: vec!["test-feature".to_string()],
         bucket_config: BucketConfig {
-            randomization_unit: RandomizationUnit::ClientId,
+            randomization_unit: RandomizationUnit::UserId,
             start: 0,
             count: 10000,
             total: 10000,
@@ -566,7 +566,7 @@ fn test_wrong_randomization_units() {
     assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
 
     // Fits because of the client_id.
-    let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");
+    let available_randomization_units = AvailableRandomizationUnits::with_user_id("bobo");
     let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
     let enrollment = evaluate_enrollment(
         &available_randomization_units.apply_nimbus_id(&id),
