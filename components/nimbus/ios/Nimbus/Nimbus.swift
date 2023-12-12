@@ -264,8 +264,8 @@ extension Nimbus {
         postEnrollmentCalculation(changes)
     }
 
-    func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
-        let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
+    func resetTelemetryIdentifiersOnThisThread() throws {
+        let changes = try nimbusClient.resetTelemetryIdentifiers()
         postEnrollmentCalculation(changes)
     }
 }
@@ -314,10 +314,7 @@ extension Nimbus: NimbusUserConfiguration {
 
     public func resetTelemetryIdentifiers() {
         _ = catchAll(dbQueue) { _ in
-            // The "dummy" field here is required for obscure reasons when generating code on desktop,
-            // so we just automatically set it to a dummy value.
-            let aru = AvailableRandomizationUnits(clientId: nil, userId: nil, nimbusId: nil, dummy: 0)
-            try self.resetTelemetryIdentifiersOnThisThread(aru)
+            try self.resetTelemetryIdentifiersOnThisThread()
         }
     }
 }

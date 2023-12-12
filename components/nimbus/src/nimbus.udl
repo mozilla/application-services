@@ -244,7 +244,7 @@ interface NimbusClient {
     //      misleading incomplete data.
     //
     [Throws=NimbusError]
-    sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
+    sequence<EnrollmentChangeEvent> reset_telemetry_identifiers();
 
     // This provides low level access to the targeting machinery for other uses by the application (e.g. messages)
     // Additional parameters can be added via the optional JSON object. This allows for many JEXL expressions
