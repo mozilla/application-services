@@ -32,13 +32,11 @@ fn test_simple() -> Result<()> {
     };
 
     let tmp_dir = tempfile::tempdir()?;
-    let aru = Default::default();
     let client = NimbusClient::new(
         Default::default(),
         Default::default(),
         tmp_dir.path(),
         Some(config),
-        aru,
         Box::new(NoopMetricsHandler),
     )?;
     client.fetch_experiments()?;
