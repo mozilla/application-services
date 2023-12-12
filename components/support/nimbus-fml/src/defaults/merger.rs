@@ -7,9 +7,9 @@ use std::collections::{BTreeMap, HashMap};
 use serde_json::{json, Value};
 
 use crate::{
-    error::{did_you_mean, FMLError, Result},
+    error::{FMLError, Result},
     frontend::DefaultBlock,
-    intermediate_representation::{FeatureDef, ObjectDef, PropDef, TypeRef},
+    intermediate_representation::{FeatureDef, ObjectDef, TypeRef},
 };
 
 pub struct DefaultsMerger<'object> {
@@ -178,37 +178,28 @@ impl<'object> DefaultsMerger<'object> {
         let defaults_to_merge = self.channel_specific_defaults(defaults)?;
         let merged = merge_two_defaults(&variable_defaults, &defaults_to_merge);
 
-        self.overwrite_defaults(feature_def, &merged)
+        self.overwrite_defaults(feature_def, &merged);
+        Ok(())
     }
 
     /// Mutates a FeatureDef by changing the defaults to the `merged` value.
-    pub(crate) fn overwrite_defaults(
-        &self,
-        feature_def: &mut FeatureDef,
-        merged: &Value,
-    ) -> Result<()> {
-        let map = merged.as_object().ok_or(FMLError::InternalError(
-            "Map was merged into a different type",
-        ))?;
+    ///
+    /// This does not do any _merging_ of defaults with the passed value:
+    /// you can get the merged value from `merge_feature_config`.
+    ///
+    /// It also does not attempt to validate the keys against the property:
+    /// this is done in the `get_errors` of `DefaultsValidator`, more specifically, the
+    /// `validate_props_types` method.
+    ///
+    /// The `merged` value is expected to be a JSON object.
+    pub(crate) fn overwrite_defaults(&self, feature_def: &mut FeatureDef, merged: &Value) {
+        let map = merged.as_object().expect("`merged` value not a map");
 
-        feature_def.props = map
-            .iter()
-            .map(|(k, v)| -> Result<PropDef> {
-                if let Some(prop) = feature_def.get_prop(k) {
-                    let mut res = prop.clone();
-                    res.default = v.clone();
-                    Ok(res)
-                } else {
-                    let valid = feature_def.props.iter().map(|p| p.name()).collect();
-                    Err(FMLError::FeatureValidationError {
-                        literals: vec![format!("\"{k}\"")],
-                        path: format!("features/{}", feature_def.name),
-                        message: format!("Invalid property \"{k}\"{}", did_you_mean(valid)),
-                    })
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
-        Ok(())
+        for p in &mut feature_def.props {
+            if let Some(v) = map.get(&p.name) {
+                p.default = v.clone();
+            }
+        }
     }
 
     fn channel_specific_defaults(&self, defaults: &Option<Vec<DefaultBlock>>) -> Result<Value> {
@@ -343,6 +334,8 @@ fn collect_channel_defaults(
 
 #[cfg(test)]
 mod unit_tests {
+    use crate::intermediate_representation::PropDef;
+
     use super::*;
     use serde_json::json;
 
@@ -1274,37 +1267,6 @@ mod unit_tests {
                 &TypeRef::String,
                 &json!("dark-green"),
             )]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_merge_feature_default_throw_error_if_property_not_found_on_feature() -> Result<()> {
-        let mut feature_def = FeatureDef {
-            name: "feature".into(),
-            props: vec![PropDef::new(
-                "button-color",
-                &TypeRef::String,
-                &json!("blue"),
-            )],
-            ..Default::default()
-        };
-        let default_blocks = serde_json::from_value(json!([
-            {
-                "value": {
-                    "secondary-button-color": "dark-green"
-                }
-            }
-        ]))?;
-        let objects = Default::default();
-        let merger =
-            DefaultsMerger::new_with_channel(&objects, vec!["nightly".into()], "nightly".into());
-        let result = merger.merge_feature_defaults(&mut feature_def, &default_blocks);
-
-        assert!(result.is_err());
-        assert_eq!(
-            result.err().unwrap().to_string(),
-            "Validation Error at features/feature: Invalid property \"secondary-button-color\"; did you mean \"button-color\"?"
         );
         Ok(())
     }
