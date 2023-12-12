@@ -30,7 +30,6 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
-import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
@@ -169,9 +168,6 @@ open class Nimbus(
             coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
-            // The "dummy" field here is required for obscure reasons when generating code on desktop,
-            // so we just automatically set it to a dummy value.
-            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null, dummy = 0),
             metricsHandler,
         )
     }

@@ -44,16 +44,6 @@ dictionary ExperimentBranch {
     i32 ratio;
 };
 
-dictionary AvailableRandomizationUnits {
-    string? client_id;
-    string? user_id;
-    string? nimbus_id;
-    // work around uniffi-rs #331 by including a non-optional value. We'll
-    // try and hide this in the bindings used by clients and eventually remove
-    // it entirely.
-    i8 dummy;
-};
-
 dictionary EnrollmentChangeEvent {
     string experiment_slug;
     string branch_slug;
@@ -120,7 +110,6 @@ interface NimbusClient {
         sequence<string> coenrolling_feature_ids,
         string dbpath,
         RemoteSettingsConfig? remote_settings_config,
-        AvailableRandomizationUnits available_randomization_units,
         MetricsHandler metrics_handler
     );
 
