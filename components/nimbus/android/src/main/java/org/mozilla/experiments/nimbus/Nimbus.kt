@@ -169,6 +169,7 @@ open class Nimbus(
             coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
+            AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null),
             metricsHandler,
         )
     }
@@ -409,6 +410,10 @@ open class Nimbus(
     }
 
     override fun resetTelemetryIdentifiers() {
+<<<<<<< HEAD
+=======
+        val aru = AvailableRandomizationUnits(clientId = null, userId = null, nimbusId = null)
+>>>>>>> b5529172 (Remove AvailableRandomizationUnits.dummy)
         dbScope.launch {
             withCatchAll("resetTelemetryIdentifiers") {
                 nimbusClient.resetTelemetryIdentifiers().also { enrollmentChangeEvents ->

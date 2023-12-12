@@ -274,8 +274,6 @@ pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
     pub user_id: Option<String>,
     pub nimbus_id: Option<String>,
-    #[allow(dead_code)]
-    pub(crate) dummy: i8, // See comments in nimbus.udl for why this hacky item exists.
 }
 
 impl AvailableRandomizationUnits {
@@ -286,7 +284,6 @@ impl AvailableRandomizationUnits {
             client_id: Some(client_id.to_string()),
             user_id: None,
             nimbus_id: None,
-            dummy: 0,
         }
     }
 
@@ -297,7 +294,6 @@ impl AvailableRandomizationUnits {
             client_id: None,
             user_id: Some(user_id.to_string()),
             nimbus_id: None,
-            dummy: 0,
         }
     }
 
@@ -306,7 +302,6 @@ impl AvailableRandomizationUnits {
             client_id: None,
             user_id: None,
             nimbus_id: Some(nimbus_id.to_string()),
-            dummy: 0,
         }
     }
 
@@ -315,7 +310,6 @@ impl AvailableRandomizationUnits {
             client_id: self.client_id.clone(),
             user_id: self.user_id.clone(),
             nimbus_id: Some(nimbus_id.to_string()),
-            dummy: 0,
         }
     }
 
