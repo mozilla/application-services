@@ -321,7 +321,7 @@ fn main() -> Result<()> {
             }
 
             let mut num_tries = 0;
-            let aru = AvailableRandomizationUnits::with_client_id(&client_id);
+            let aru = AvailableRandomizationUnits::default();
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let aru = aru.apply_nimbus_id(&uuid);
@@ -383,8 +383,7 @@ fn main() -> Result<()> {
                 // by the experiment just generate a new uuid for all possible
                 // options.
                 let uuid = uuid::Uuid::new_v4();
-                let aru =
-                    AvailableRandomizationUnits::with_client_id(&client_id).apply_nimbus_id(&uuid);
+                let aru = AvailableRandomizationUnits::with_nimbus_id(&uuid);
                 let th = NimbusTargetingHelper::new(&context, event_store.clone());
                 let enrollment = nimbus::evaluate_enrollment(&aru, &exp, &th)?;
                 let key = match enrollment.status.clone() {
