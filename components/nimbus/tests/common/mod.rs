@@ -62,7 +62,6 @@ fn new_test_client_internal(
         bucket_name: None,
         collection_name: "doesn't matter".to_string(),
     };
-    let aru = Default::default();
     let ctx = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -75,7 +74,6 @@ fn new_test_client_internal(
         Default::default(),
         tmp_dir.path(),
         Some(config),
-        aru,
         Box::new(NoopMetricsHandler),
     )
 }

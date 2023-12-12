@@ -83,13 +83,12 @@ impl NimbusClient {
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
         config: Option<RemoteSettingsConfig>,
-        available_randomization_units: AvailableRandomizationUnits,
         metrics_handler: Box<dyn MetricsHandler>,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
         let mutable_state = Mutex::new(InternalMutableState {
-            available_randomization_units,
+            available_randomization_units: Default::default(),
             targeting_attributes: app_context.clone().into(),
         });
 

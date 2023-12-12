@@ -18,7 +18,7 @@ use crate::{
         get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
         TestMetrics,
     },
-    AppContext, AvailableRandomizationUnits, Experiment, NimbusClient, TargetingAttributes,
+    AppContext, Experiment, NimbusClient, TargetingAttributes,
     DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -31,7 +31,6 @@ use uuid::Uuid;
 #[test]
 fn test_telemetry_reset() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
     let mock_exp_slug = "exp-1".to_string();
     let mock_exp_branch = "branch-1".to_string();
 
@@ -41,22 +40,8 @@ fn test_telemetry_reset() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
-
-    let get_client_id = || {
-        client
-            .mutable_state
-            .lock()
-            .unwrap()
-            .available_randomization_units
-            .client_id
-            .clone()
-    };
 
     // Mock being enrolled in a single experiment.
     let db = client.db()?;
@@ -83,15 +68,11 @@ fn test_telemetry_reset() -> Result<()> {
 
     // Check expected state before resetting telemetry.
     let orig_nimbus_id = client.nimbus_id()?;
-    assert_eq!(get_client_id(), Some(mock_client_id));
 
     let events = client.reset_telemetry_identifiers()?;
 
     // We should have reset our nimbus_id.
     assert_ne!(orig_nimbus_id, client.nimbus_id()?);
-
-    // We should have updated the randomization units.
-    assert_eq!(get_client_id(), None);
 
     // We should have been disqualified from the enrolled experiment.
     assert_eq!(client.get_experiment_branch(mock_exp_slug)?, None);
@@ -105,7 +86,6 @@ fn test_telemetry_reset() -> Result<()> {
 #[test]
 fn test_installation_date() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
     let tmp_dir = tempfile::tempdir()?;
     // Step 1: We first test that the SDK will default to using the
     // value in the app context if it exists
@@ -121,10 +101,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
 
@@ -159,10 +135,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     delete_test_creation_date(tmp_dir.path()).ok();
@@ -184,10 +156,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.initialize()?;
@@ -217,10 +185,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     client.initialize()?;
@@ -251,7 +215,6 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        Default::default(),
         Box::new(metrics.clone()),
     )?;
 
@@ -278,7 +241,6 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        Default::default(),
         Box::new(metrics),
     )?;
     client.apply_pending_experiments()?;
@@ -292,17 +254,12 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
 #[test]
 fn test_days_since_update_changes_with_context() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.initialize()?;
@@ -322,10 +279,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.initialize()?;
@@ -352,10 +305,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id.clone()),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.initialize()?;
@@ -388,10 +337,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     client.initialize()?;
@@ -419,7 +364,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
 #[test]
 fn test_days_since_install() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
@@ -433,10 +377,6 @@ fn test_days_since_install() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -500,7 +440,6 @@ fn test_days_since_install() -> Result<()> {
 #[test]
 fn test_days_since_install_failed_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
@@ -514,10 +453,6 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -580,7 +515,6 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
 #[test]
 fn test_days_since_update() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
@@ -594,10 +528,6 @@ fn test_days_since_update() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -661,7 +591,6 @@ fn test_days_since_update() -> Result<()> {
 #[test]
 fn test_days_since_update_failed_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
@@ -675,10 +604,6 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -741,7 +666,6 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
 #[test]
 fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -768,10 +692,6 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -866,7 +786,6 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
 #[test]
 fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -893,10 +812,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -982,7 +897,6 @@ fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
 #[test]
 fn test_ios_rollout() -> Result<()> {
     let metrics = TestMetrics::new();
-    let aru = Default::default();
     let ctx = AppContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
@@ -996,7 +910,6 @@ fn test_ios_rollout() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        aru,
         Box::new(metrics),
     )?;
 
@@ -1031,7 +944,6 @@ fn test_fetch_enabled() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        Default::default(),
         Box::new(metrics.clone()),
     )?;
     client.set_fetch_enabled(false)?;
@@ -1044,7 +956,6 @@ fn test_fetch_enabled() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         None,
-        Default::default(),
         Box::new(metrics),
     )?;
     assert!(!client.is_fetch_enabled()?);
@@ -1054,7 +965,6 @@ fn test_fetch_enabled() -> Result<()> {
 #[test]
 fn test_active_enrollment_in_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -1069,10 +979,6 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
     let targeting_attributes = TargetingAttributes {
@@ -1080,6 +986,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
         ..Default::default()
     };
     client.with_targeting_attributes(targeting_attributes);
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
 
     // Apply an initial experiment
@@ -1115,7 +1022,6 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
 #[test]
 fn test_previous_enrollments_in_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -1136,10 +1042,6 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
 
@@ -1265,7 +1167,6 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
 #[test]
 fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -1283,10 +1184,6 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics),
     )?;
 
@@ -1397,7 +1294,6 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 #[test]
 fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -1413,10 +1309,6 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
@@ -1443,7 +1335,6 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 #[test]
 fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> {
     let metrics = TestMetrics::new();
-    let mock_client_id = "client-1".to_string();
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1458,10 +1349,6 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
         Default::default(),
         temp_dir.path(),
         None,
-        AvailableRandomizationUnits {
-            client_id: Some(mock_client_id),
-            ..AvailableRandomizationUnits::default()
-        },
         Box::new(metrics.clone()),
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
@@ -1485,11 +1372,6 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 }
 
 fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<NimbusClient> {
-    let mock_client_id = "client-1".to_string();
-    let aru = AvailableRandomizationUnits {
-        client_id: Some(mock_client_id),
-        ..AvailableRandomizationUnits::default()
-    };
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1504,7 +1386,6 @@ fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<Nimb
         vec![coenrolling_feature.to_string()],
         temp_dir.path(),
         None,
-        aru,
         Box::new(metrics.clone()),
     )
 }

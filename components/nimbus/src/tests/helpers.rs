@@ -540,7 +540,7 @@ pub fn get_targeted_experiment(slug: &str, targeting: &str) -> serde_json::Value
             "start": 0,
             "total": 10000,
             "namespace": "secure-gold",
-            "randomizationUnit": "client_id"
+            "randomizationUnit": "nimbus_id"
         },
         "targeting": targeting,
         "userFacingName": "test experiment",

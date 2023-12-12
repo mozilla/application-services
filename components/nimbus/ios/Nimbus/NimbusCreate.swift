@@ -102,14 +102,6 @@ public extension Nimbus {
             coenrollingFeatureIds: coenrollingFeatureIds,
             dbpath: dbPath,
             remoteSettingsConfig: remoteSettings,
-            // The "dummy" field here is required for obscure reasons when generating code on desktop,
-            // so we just automatically set it to a dummy value.
-            availableRandomizationUnits: AvailableRandomizationUnits(
-                clientId: nil,
-                userId: nil,
-                nimbusId: nil,
-                dummy: 0
-            ),
             metricsHandler: GleanMetricsHandler()
         )
 
