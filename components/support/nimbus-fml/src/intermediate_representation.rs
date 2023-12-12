@@ -454,7 +454,7 @@ impl FeatureManifest {
         validator.guard_errors(feature_def, &value, errors)?;
 
         let mut feature_def = feature_def.clone();
-        merger.overwrite_defaults(&mut feature_def, &value)?;
+        merger.overwrite_defaults(&mut feature_def, &value);
         Ok(feature_def)
     }
 
