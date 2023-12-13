@@ -1,5 +1,8 @@
 # v122.0 (In progress)
 
+### 🦊 What's Changed 🦊
+
+Bumped the version of rusqlite/libsqlite3-sys, meaning the bundled sqlite version is now 3.44.0.
 
 ## Nimbus FML ⛅️🔬🔭🔧
 
