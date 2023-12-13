@@ -45,10 +45,6 @@
 ### ⚠️ Breaking Changes ⚠️
   - `wipe_local` and `prune_destructively` have been removed from history API. `delete_everything` or `run_maintenance_*` methods should be used instead.
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v120.0...v121.0)
-
-# v120.0 (_2023-10-23_)
-
 ## FxA-Client
 
 ### 🦊 What's Changed 🦊
@@ -58,6 +54,10 @@
 - Check for missing sync scoped keys and return an error if they're not present
 - Began implementing functionality to track the authorization state
 - Added methods to simulate auth errors
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v120.0...v121.0)
+
+# v120.0 (_2023-10-23_)
 
 ## Nimbus SDK ⛅️🔬🔭
 
