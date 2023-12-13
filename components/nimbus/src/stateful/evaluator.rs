@@ -21,6 +21,7 @@ pub struct TargetingAttributes {
     pub enrollments_map: HashMap<String, String>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub current_date: DateTime<Utc>,
+    pub nimbus_id: Option<String>,
 }
 
 #[cfg(feature = "stateful")]

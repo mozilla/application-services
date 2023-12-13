@@ -55,7 +55,7 @@ pub const DB_KEY_FETCH_ENABLED: &str = "fetch-enabled";
 pub struct InternalMutableState {
     pub(crate) available_randomization_units: AvailableRandomizationUnits,
     // Application level targeting attributes
-    targeting_attributes: TargetingAttributes,
+    pub(crate) targeting_attributes: TargetingAttributes,
 }
 
 /// Nimbus is the main struct representing the experiments state
@@ -135,8 +135,7 @@ impl NimbusClient {
         writer: &mut Writer,
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
-        let id = self.read_or_create_nimbus_id(db, writer)?;
-        state.available_randomization_units.nimbus_id = Some(id.to_string());
+        self.read_or_create_nimbus_id(db, writer, state)?;
         self.update_ta_install_dates(db, writer, state)?;
         self.event_store.lock().unwrap().read_from_db(db)?;
         Ok(())
@@ -559,6 +558,7 @@ impl NimbusClient {
 
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
         state.available_randomization_units = Default::default();
+        state.targeting_attributes.nimbus_id = None;
 
         Ok(events)
     }
@@ -566,7 +566,9 @@ impl NimbusClient {
     pub fn nimbus_id(&self) -> Result<Uuid> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let uuid = self.read_or_create_nimbus_id(db, &mut writer)?;
+        let mut state = self.mutable_state.lock().unwrap();
+        let uuid = self.read_or_create_nimbus_id(db, &mut writer, &mut state)?;
+
         // We don't know whether we needed to generate and save the uuid, so
         // we commit just in case - this is hopefully close to a noop in that
         // case!
@@ -574,16 +576,30 @@ impl NimbusClient {
         Ok(uuid)
     }
 
-    fn read_or_create_nimbus_id(&self, db: &Database, writer: &mut Writer) -> Result<Uuid> {
+    /// Return the nimbus ID from the database, or create a new one and write it
+    /// to the database.
+    ///
+    /// The internal state will be updated with the nimbus ID.
+    fn read_or_create_nimbus_id(
+        &self,
+        db: &Database,
+        writer: &mut Writer,
+        state: &mut MutexGuard<'_, InternalMutableState>,
+    ) -> Result<Uuid> {
         let store = db.get_store(StoreId::Meta);
-        Ok(match store.get(writer, DB_KEY_NIMBUS_ID)? {
+        let nimbus_id = match store.get(writer, DB_KEY_NIMBUS_ID)? {
             Some(nimbus_id) => nimbus_id,
             None => {
                 let nimbus_id = Uuid::new_v4();
                 store.put(writer, DB_KEY_NIMBUS_ID, &nimbus_id)?;
                 nimbus_id
             }
-        })
+        };
+
+        state.available_randomization_units.nimbus_id = Some(nimbus_id.to_string());
+        state.targeting_attributes.nimbus_id = Some(nimbus_id.to_string());
+
+        Ok(nimbus_id)
     }
 
     // Sets the nimbus ID - TEST ONLY - should not be exposed to real clients.
