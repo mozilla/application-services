@@ -43,6 +43,26 @@ fn test_telemetry_reset() -> Result<()> {
         Box::new(metrics),
     )?;
 
+    let get_targeting_attributes_nimbus_id = || {
+        client
+            .mutable_state
+            .lock()
+            .unwrap()
+            .targeting_attributes
+            .nimbus_id
+            .clone()
+    };
+
+    let get_aru_nimbus_id = || {
+        client
+            .mutable_state
+            .lock()
+            .unwrap()
+            .available_randomization_units
+            .nimbus_id
+            .clone()
+    };
+
     // Mock being enrolled in a single experiment.
     let db = client.db()?;
     let mut writer = db.write()?;
@@ -68,11 +88,22 @@ fn test_telemetry_reset() -> Result<()> {
 
     // Check expected state before resetting telemetry.
     let orig_nimbus_id = client.nimbus_id()?;
+    assert_eq!(
+        get_targeting_attributes_nimbus_id().unwrap(),
+        orig_nimbus_id.to_string()
+    );
+    assert_eq!(get_aru_nimbus_id().unwrap(), orig_nimbus_id.to_string());
 
     let events = client.reset_telemetry_identifiers()?;
 
     // We should have reset our nimbus_id.
-    assert_ne!(orig_nimbus_id, client.nimbus_id()?);
+    let new_nimbus_id = client.nimbus_id()?;
+    assert_ne!(orig_nimbus_id, new_nimbus_id);
+    assert_eq!(
+        get_targeting_attributes_nimbus_id().unwrap(),
+        new_nimbus_id.to_string()
+    );
+    assert_eq!(get_aru_nimbus_id().unwrap(), new_nimbus_id.to_string());
 
     // We should have been disqualified from the enrolled experiment.
     assert_eq!(client.get_experiment_branch(mock_exp_slug)?, None);
