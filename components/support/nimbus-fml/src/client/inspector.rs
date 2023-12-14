@@ -113,9 +113,8 @@ impl FmlFeatureInspector {
         let mut editor_errors: Vec<_> = Vec::with_capacity(errors.len());
         for e in errors {
             let message = e.message;
-            let literals = e.path.literals;
-            let highlight = literals.last().cloned();
-            let (line, col) = find_err(src, literals.into_iter());
+            let highlight = e.path.last_token().map(str::to_string);
+            let (line, col) = e.path.line_col(src);
             let error = FmlEditorError {
                 message,
                 line: line as u32,
@@ -126,48 +125,6 @@ impl FmlFeatureInspector {
         }
         editor_errors
     }
-}
-
-fn find_err(src: &str, path: impl Iterator<Item = String>) -> (usize, usize) {
-    let mut lines = src.lines();
-
-    let mut line_no = 0;
-    let mut col_no = 0;
-
-    let mut first_match = false;
-    let mut cur = lines.next().unwrap_or_default();
-
-    for p in path {
-        loop {
-            // If we haven't had our first match of the line, then start there at the beginning.
-            // Otherwise, start one char on from where we were last time.
-            let start = if !first_match { 0 } else { col_no + 1 };
-
-            // if let Some(i) = cur[start..].find(&p).map(|i| i + start) {
-            if let Some(i) = find_index(cur, &p, start) {
-                col_no = i;
-                first_match = true;
-                break;
-            } else if let Some(next) = lines.next() {
-                // we try the next line!
-                cur = next;
-                line_no += 1;
-                first_match = false;
-                col_no = 0;
-            } else {
-                // we've run out of lines, so we should return
-                return (0, 0);
-            }
-        }
-    }
-
-    (line_no, col_no)
-}
-
-fn find_index(cur: &str, pattern: &str, start: usize) -> Option<usize> {
-    cur.match_indices(pattern)
-        .find(|(i, _)| i >= &start)
-        .map(|(i, _)| i)
 }
 
 #[derive(Debug, PartialEq)]
@@ -276,77 +233,6 @@ mod unit_tests {
             unreachable!("No error for \"{s}\"");
         }
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_find_err() -> Result<()> {
-        fn do_test(s: &str, path: &[&str], expected: (usize, usize)) {
-            let p = path.last().unwrap();
-            let path = path.iter().map(|p| p.to_string());
-            assert_eq!(
-                find_err(s, path),
-                expected,
-                "Can't find \"{p}\" at {expected:?} in {s}"
-            );
-        }
-
-        fn do_multi(s: &[&str], path: &[&str], expected: (usize, usize)) {
-            let s = s.join("\n");
-            do_test(&s, path, expected);
-        }
-
-        do_test("ab cd", &["ab", "cd"], (0, 3));
-
-        do_test("ab ab", &["ab"], (0, 0));
-        do_test("ab ab", &["ab", "ab"], (0, 3));
-
-        do_multi(
-            &["ab xx cd", "xx ef xx gh", "ij xx"],
-            &["ab", "cd", "gh", "xx"],
-            (2, 3),
-        );
-
-        do_multi(
-            &[
-                "{",                       // 0
-                "  boolean: true,",        // 1
-                "  object: {",             // 2
-                "    integer: \"string\"", // 3
-                "  }",                     // 4
-                "}",                       // 5
-            ],
-            &["object", "integer", "\"string\""],
-            (3, 13),
-        );
-
-        // pathological case
-        do_multi(
-            &[
-                "{",                       // 0
-                "  boolean: true,",        // 1
-                "  object: {",             // 2
-                "    integer: 1,",         // 3
-                "    astring: \"string\"", // 4
-                "  },",                    // 5
-                "  integer: \"string\"",   // 6
-                "}",                       // 7
-            ],
-            &["integer", "\"string\""],
-            (4, 13),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_find_index_from() -> Result<()> {
-        assert_eq!(find_index("012345601", "01", 0), Some(0));
-        assert_eq!(find_index("012345601", "01", 1), Some(7));
-        assert_eq!(find_index("012345602", "01", 1), None);
-
-        // TODO unicode indexing does not work.
-        // assert_eq!(find_index("åéîø token", "token", 0), Some(5));
         Ok(())
     }
 

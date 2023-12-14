@@ -31,10 +31,11 @@
 /// of `literals`) in a future commit.
 #[derive(Clone)]
 pub(crate) struct ErrorPath {
-    pub(crate) literals: Vec<String>,
+    literals: Vec<String>,
     pub(crate) path: String,
 }
 
+/// Chained Constructors
 impl ErrorPath {
     pub(crate) fn feature(name: &str) -> Self {
         Self {
@@ -111,6 +112,19 @@ impl ErrorPath {
     }
 }
 
+/// Accessors
+#[allow(dead_code)]
+#[cfg(feature = "client-lib")]
+impl ErrorPath {
+    pub(crate) fn line_col(&self, src: &str) -> (usize, usize) {
+        line_col(src, self.literals.iter().map(|s| s.as_str()))
+    }
+
+    pub(crate) fn last_token(&self) -> Option<&str> {
+        self.literals.last().map(|x| x.as_str())
+    }
+}
+
 fn append(original: &[String], new: &[String]) -> Vec<String> {
     let mut clone = Vec::with_capacity(original.len() + new.len());
     clone.extend_from_slice(original);
@@ -129,8 +143,53 @@ fn append_quoted(original: &[String], new: &str) -> Vec<String> {
     append1(original, &format!("\"{new}\""))
 }
 
+fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, usize) {
+    let mut lines = src.lines();
+
+    let mut line_no = 0;
+    let mut col_no = 0;
+
+    let mut first_match = false;
+    let mut line = lines.next().unwrap_or_default();
+
+    for p in path {
+        loop {
+            // If we haven't had our first match of the line, then start there at the beginning.
+            // Otherwise, start one char on from where we were last time.
+            let start = if !first_match { 0 } else { col_no + 1 };
+
+            // if let Some(i) = cur[start..].find(&p).map(|i| i + start) {
+            if let Some(i) = find_index(line, p, start) {
+                col_no = i;
+                first_match = true;
+                break;
+            } else if let Some(next) = lines.next() {
+                // we try the next line!
+                line = next;
+                line_no += 1;
+                first_match = false;
+                col_no = 0;
+            } else {
+                // we've run out of lines, so we should return
+                return (0, 0);
+            }
+        }
+    }
+
+    (line_no, col_no)
+}
+
+/// Find the index in `line` of the next instance of `pattern`, after `start`
+///
+/// A current weakness with this method is that it is not unicode aware.
+fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
+    line.match_indices(pattern)
+        .find(|(i, _)| i >= &start)
+        .map(|(i, _)| i)
+}
+
 #[cfg(test)]
-mod unit_tests {
+mod construction_tests {
     use super::ErrorPath;
 
     #[test]
@@ -228,5 +287,83 @@ mod unit_tests {
             &["\"sections-enabled\"", "{", "\"pocket\"", "1"],
             path.literals.as_slice()
         );
+    }
+}
+
+#[cfg(test)]
+mod line_col_tests {
+
+    use super::*;
+    use crate::error::Result;
+
+    #[test]
+    fn test_find_err() -> Result<()> {
+        fn do_test(s: &str, path: &[&str], expected: (usize, usize)) {
+            let p = path.last().unwrap();
+            let path = path.iter().cloned();
+            assert_eq!(
+                line_col(s, path),
+                expected,
+                "Can't find \"{p}\" at {expected:?} in {s}"
+            );
+        }
+
+        fn do_multi(s: &[&str], path: &[&str], expected: (usize, usize)) {
+            let s = s.join("\n");
+            do_test(&s, path, expected);
+        }
+
+        do_test("ab cd", &["ab", "cd"], (0, 3));
+
+        do_test("ab ab", &["ab"], (0, 0));
+        do_test("ab ab", &["ab", "ab"], (0, 3));
+
+        do_multi(
+            &["ab xx cd", "xx ef xx gh", "ij xx"],
+            &["ab", "cd", "gh", "xx"],
+            (2, 3),
+        );
+
+        do_multi(
+            &[
+                "{",                       // 0
+                "  boolean: true,",        // 1
+                "  object: {",             // 2
+                "    integer: \"string\"", // 3
+                "  }",                     // 4
+                "}",                       // 5
+            ],
+            &["object", "integer", "\"string\""],
+            (3, 13),
+        );
+
+        // pathological case
+        do_multi(
+            &[
+                "{",                       // 0
+                "  boolean: true,",        // 1
+                "  object: {",             // 2
+                "    integer: 1,",         // 3
+                "    astring: \"string\"", // 4
+                "  },",                    // 5
+                "  integer: \"string\"",   // 6
+                "}",                       // 7
+            ],
+            &["integer", "\"string\""],
+            (4, 13),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_find_index_from() -> Result<()> {
+        assert_eq!(find_index("012345601", "01", 0), Some(0));
+        assert_eq!(find_index("012345601", "01", 1), Some(7));
+        assert_eq!(find_index("012345602", "01", 1), None);
+
+        // TODO unicode indexing does not work.
+        // assert_eq!(find_index("åéîø token", "token", 0), Some(5));
+        Ok(())
     }
 }
