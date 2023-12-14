@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::editing::{ErrorConverter, ErrorPath, FeatureValidationError};
+use crate::editing::{ErrorConverter, ErrorKind, ErrorPath, FeatureValidationError};
 use crate::error::{did_you_mean, FMLError};
 use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 use crate::{
@@ -251,6 +251,7 @@ impl<'a> DefaultsValidator<'a> {
                 let path = path.final_error_quoted(s);
                 errors.push(FeatureValidationError {
                     path,
+                    kind: ErrorKind::invalid_value(type_ref),
                     message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
                 });
             }
@@ -286,6 +287,7 @@ impl<'a> DefaultsValidator<'a> {
                         let path = path.map_key(map_key);
                         errors.push(FeatureValidationError {
                             path,
+                            kind: ErrorKind::invalid_key(enum_type, map),
                             message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid.clone())),
                         });
                     }
@@ -317,6 +319,7 @@ impl<'a> DefaultsValidator<'a> {
                 let path = path.final_error(&default.to_string());
                 errors.push(FeatureValidationError {
                     path,
+                    kind: ErrorKind::type_mismatch(type_ref),
                     message: format!("Mismatch between type {type_ref} and default {default}"),
                 });
             }
@@ -348,6 +351,7 @@ impl<'a> DefaultsValidator<'a> {
                 let path = path.final_error_quoted(map_key);
                 errors.push(FeatureValidationError {
                     path,
+                    kind: ErrorKind::invalid_prop(props, map),
                     message: format!(
                         "Invalid property \"{map_key}\"{}",
                         did_you_mean(valid.clone())
@@ -476,6 +480,7 @@ impl<'a> DefaultsValidator<'a> {
                             let path = path.open_brace();
                             errors.push(FeatureValidationError {
                                 path,
+                                kind: ErrorKind::invalid_nested_value(prop_nm, &prop.typ),
                                 message: format!(
                                     "A valid value for {prop_nm} of type {} is missing",
                                     &prop.typ
@@ -502,11 +507,10 @@ fn check_string_aliased_property(
         if let Some(prop) = defn.get(alias_nm.as_str()) {
             let def_value = feature_value.get(&prop.name).unwrap();
             if !validate_string_alias_value(value, alias_type, &prop.typ, def_value) {
-                let mut valid = Default::default();
-                collect_string_alias_values(alias_type, &prop.typ, def_value, &mut valid);
                 let path = path.final_error_quoted(value);
                 errors.push(FeatureValidationError {
                     path,
+                    kind: ErrorKind::invalid_value(alias_type),
                     message: format!(
                         "Invalid value \"{value}\" for type {alias_nm}{}",
                         did_you_mean(valid)
@@ -514,43 +518,6 @@ fn check_string_aliased_property(
                 })
             }
         }
-    }
-}
-
-/// Takes
-/// - a string-alias type, StringAlias("TeammateName") / TeamMateName
-/// - a type definition of a wider collection of teammates: e.g. Map<TeamMateName, TeamMate>
-/// - an a value for the collection of teammates: e.g. {"Alice": {}, "Bonnie": {}, "Charlie": {}, "Dawn"}
-///
-/// and fills a hash set with the full set of TeamMateNames, in this case: ["Alice", "Bonnie", "Charlie", "Dawn"]
-fn collect_string_alias_values(
-    alias_type: &TypeRef,
-    def_type: &TypeRef,
-    def_value: &Value,
-    set: &mut HashSet<String>,
-) {
-    match (def_type, def_value) {
-        (TypeRef::StringAlias(_), Value::String(s)) if alias_type == def_type => {
-            set.insert(s.clone());
-        }
-        (TypeRef::Option(dt), dv) if dv != &Value::Null => {
-            collect_string_alias_values(alias_type, dt, dv, set);
-        }
-        (TypeRef::EnumMap(kt, _), Value::Object(map)) if alias_type == &**kt => {
-            set.extend(map.keys().cloned());
-        }
-        (TypeRef::EnumMap(_, vt), Value::Object(map))
-        | (TypeRef::StringMap(vt), Value::Object(map)) => {
-            for item in map.values() {
-                collect_string_alias_values(alias_type, vt, item, set);
-            }
-        }
-        (TypeRef::List(vt), Value::Array(array)) => {
-            for item in array {
-                collect_string_alias_values(alias_type, vt, item, set);
-            }
-        }
-        _ => {}
     }
 }
 
@@ -1009,14 +976,6 @@ mod string_alias {
     use super::*;
     use serde_json::json;
 
-    fn test_set(alias_type: &TypeRef, def_type: &TypeRef, def_value: &Value, set: &[&str]) {
-        let mut observed = Default::default();
-        collect_string_alias_values(alias_type, def_type, def_value, &mut observed);
-
-        let expected: HashSet<_> = set.iter().map(|s| s.to_string()).collect();
-        assert_eq!(expected, observed);
-    }
-
     // Does this string belong in the type definition?
     #[test]
     fn test_validate_value() -> Result<()> {
@@ -1027,18 +986,15 @@ mod string_alias {
         let value = json!("yes");
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes"]);
 
         // type definition is Name?
         let def = TypeRef::Option(Box::new(sa.clone()));
         let value = json!("yes");
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes"]);
 
         let value = json!(null);
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &[]);
 
         // type definition is Map<Name, Boolean>
         let def = TypeRef::EnumMap(Box::new(sa.clone()), Box::new(TypeRef::Boolean));
@@ -1049,7 +1005,6 @@ mod string_alias {
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(validate_string_alias_value("YES", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes", "YES"]);
 
         // type definition is Map<String, Name>
         let def = TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(sa.clone()));
@@ -1060,7 +1015,6 @@ mod string_alias {
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(validate_string_alias_value("YES", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes", "YES"]);
 
         // type definition is List<String>
         let def = TypeRef::List(Box::new(sa.clone()));
@@ -1068,7 +1022,6 @@ mod string_alias {
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(validate_string_alias_value("YES", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes", "YES"]);
 
         // type definition is List<Map<String, Name>>
         let def = TypeRef::List(Box::new(TypeRef::StringMap(Box::new(sa.clone()))));
@@ -1076,7 +1029,6 @@ mod string_alias {
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(validate_string_alias_value("YES", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes", "YES"]);
 
         // type definition is Map<String, List<Name>>
         let def = TypeRef::StringMap(Box::new(TypeRef::List(Box::new(sa.clone()))));
@@ -1084,7 +1036,6 @@ mod string_alias {
         assert!(validate_string_alias_value("yes", &sa, &def, &value));
         assert!(validate_string_alias_value("YES", &sa, &def, &value));
         assert!(!validate_string_alias_value("no", &sa, &def, &value));
-        test_set(&sa, &def, &value, &["yes", "YES"]);
 
         Ok(())
     }
