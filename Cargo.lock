@@ -2583,6 +2583,7 @@ dependencies = [
  "email_address",
  "glob",
  "heck 0.3.3",
+ "itertools",
  "jsonschema",
  "lazy_static",
  "reqwest",

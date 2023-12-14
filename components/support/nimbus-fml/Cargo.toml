@@ -33,6 +33,7 @@ console = "0.15.5"
 lazy_static = "1.4"
 email_address = { version = "0.2.4", features = ["serde"] }
 sha2 = "^0.10"
+itertools = "0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"], optional = true }
