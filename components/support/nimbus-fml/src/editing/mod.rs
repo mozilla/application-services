@@ -11,18 +11,9 @@ pub(crate) use error_converter::ErrorConverter;
 pub(crate) use error_kind::ErrorKind;
 pub(crate) use error_path::ErrorPath;
 
-use crate::error::FMLError;
-
 pub(crate) struct FeatureValidationError {
     pub(crate) path: ErrorPath,
     pub(crate) kind: ErrorKind,
-    pub(crate) message: String,
-}
-
-impl From<FeatureValidationError> for FMLError {
-    fn from(value: FeatureValidationError) -> Self {
-        Self::ValidationError(value.path.path, value.message)
-    }
 }
 
 #[derive(Debug, PartialEq)]
