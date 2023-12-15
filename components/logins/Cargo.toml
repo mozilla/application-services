@@ -28,10 +28,10 @@ rusqlite = { workspace = true, features = ["limits", "unlock_notify"] }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "0.25.2"
+uniffi = { workspace = true }
 
 [build-dependencies]
-uniffi = { version = "0.25.2", features = ["build"] }
+uniffi = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 more-asserts = "0.2"

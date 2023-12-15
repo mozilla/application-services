@@ -122,6 +122,7 @@ default-members = [
 [workspace.dependencies]
 rusqlite = "0.30.0"
 libsqlite3-sys = "0.27.0"
+uniffi = "0.25.2"
 
 [profile.release]
 opt-level = "s"
@@ -132,10 +133,3 @@ lto = "thin"
 # We always want to use the local version of our own crates in that case.
 [patch."https://github.com/mozilla/application-services"]
 viaduct = { path = "components/viaduct" }
-
-# If you need to test some local changes to UniFFI, uncomment the following line
-# for a convenient way to use a local checkout rather than the published version.
-# You just have to make sure that the version number in your local checkout
-# matches the one used in the `Cargo.toml` files in this workspace.
-#[patch.crates-io]
-#uniffi = { path = "../uniffi-rs/uniffi" }
