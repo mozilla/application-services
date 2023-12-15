@@ -34,7 +34,7 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "0.25.2"
+uniffi = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "0.6"
@@ -43,4 +43,4 @@ env_logger = {version = "0.7", default-features = false}
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]
-uniffi = { version = "0.25.2", features = ["build"] }
+uniffi = { workspace = true, features = ["build"] }
