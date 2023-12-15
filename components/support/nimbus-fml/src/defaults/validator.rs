@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::editing::{ErrorConverter, ErrorKind, ErrorPath, FeatureValidationError};
-use crate::error::{did_you_mean, FMLError};
+use crate::error::FMLError;
 use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 use crate::{
     error::Result,
@@ -252,7 +252,6 @@ impl<'a> DefaultsValidator<'a> {
                 errors.push(FeatureValidationError {
                     path,
                     kind: ErrorKind::invalid_value(type_ref),
-                    message: format!("\"{s}\" is not a valid {enum_name}{}", did_you_mean(valid)),
                 });
             }
             (TypeRef::EnumMap(enum_type, map_type), Value::Object(map))
@@ -288,7 +287,6 @@ impl<'a> DefaultsValidator<'a> {
                         errors.push(FeatureValidationError {
                             path,
                             kind: ErrorKind::invalid_key(enum_type, map),
-                            message: format!("Invalid key \"{map_key}\"{}", did_you_mean(valid.clone())),
                         });
                     }
 
@@ -320,7 +318,6 @@ impl<'a> DefaultsValidator<'a> {
                 errors.push(FeatureValidationError {
                     path,
                     kind: ErrorKind::type_mismatch(type_ref),
-                    message: format!("Mismatch between type {type_ref} and default {default}"),
                 });
             }
         };
@@ -352,10 +349,6 @@ impl<'a> DefaultsValidator<'a> {
                 errors.push(FeatureValidationError {
                     path,
                     kind: ErrorKind::invalid_prop(props, map),
-                    message: format!(
-                        "Invalid property \"{map_key}\"{}",
-                        did_you_mean(valid.clone())
-                    ),
                 });
             }
         }
@@ -481,10 +474,6 @@ impl<'a> DefaultsValidator<'a> {
                             errors.push(FeatureValidationError {
                                 path,
                                 kind: ErrorKind::invalid_nested_value(prop_nm, &prop.typ),
-                                message: format!(
-                                    "A valid value for {prop_nm} of type {} is missing",
-                                    &prop.typ
-                                ),
                             });
                         }
                     }
@@ -511,10 +500,6 @@ fn check_string_aliased_property(
                 errors.push(FeatureValidationError {
                     path,
                     kind: ErrorKind::invalid_value(alias_type),
-                    message: format!(
-                        "Invalid value \"{value}\" for type {alias_nm}{}",
-                        did_you_mean(valid)
-                    ),
                 })
             }
         }
@@ -583,7 +568,7 @@ mod test_types {
 
     use serde_json::json;
 
-    use crate::intermediate_representation::PropDef;
+    use crate::{error::FMLError, intermediate_representation::PropDef};
 
     use super::*;
 
@@ -592,8 +577,11 @@ mod test_types {
             let mut errors = Default::default();
             let path = ErrorPath::feature("test");
             self.validate_types(&path, &prop.typ, &prop.default, &mut errors);
-            if !errors.is_empty() {
-                return Err(errors.pop().unwrap().into());
+            if let Some(err) = errors.pop() {
+                return Err(FMLError::ValidationError(
+                    err.path.path,
+                    "Error".to_string(),
+                ));
             }
             self.validate_enum_maps(&path, &prop.typ, &prop.default)
         }

@@ -4,7 +4,6 @@
  * */
 
 use crate::intermediate_representation::ModuleId;
-use std::collections::HashSet;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FMLError {
@@ -67,19 +66,3 @@ pub enum ClientError {
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;
-
-pub(crate) fn did_you_mean(words: HashSet<String>) -> String {
-    if words.is_empty() {
-        "".to_string()
-    } else if words.len() == 1 {
-        format!("; did you mean \"{}\"?", words.iter().next().unwrap())
-    } else {
-        let mut words = words.into_iter().collect::<Vec<_>>();
-        words.sort();
-        let last = words.remove(words.len() - 1);
-        format!(
-            "; did you mean one of \"{}\" or \"{last}\"?",
-            words.join("\", \"")
-        )
-    }
-}
