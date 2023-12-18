@@ -61,7 +61,7 @@ impl<'a> DefaultsValidator<'a> {
     ///
     pub(crate) fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
         let defaults = feature_def.default_json();
-        let errors = self.get_errors(feature_def, &defaults);
+        let errors = self.get_errors(feature_def, &defaults, &defaults);
         self.guard_errors(feature_def, &defaults, errors)?;
 
         // This is only checking if a Map with an Enum as key has a complete set of keys (i.e. all variants)
@@ -88,30 +88,32 @@ impl<'a> DefaultsValidator<'a> {
     pub(crate) fn get_errors(
         &self,
         feature_def: &FeatureDef,
-        feature_value: &Value,
+        merged_value: &Value,
+        unmerged_value: &Value,
     ) -> Vec<FeatureValidationError> {
         let mut errors = Default::default();
         let path = ErrorPath::feature(&feature_def.name);
-        let map = feature_value
+        let unmerged_map = unmerged_value
             .as_object()
-            .expect("Assumption: an object is the only type that get here");
-        self.validate_props_types(&path, &feature_def.props, map, &mut errors);
+            .expect("Assumption: an object is the only type that can get here");
+        self.validate_props_types(&path, &feature_def.props, unmerged_map, &mut errors);
         if !errors.is_empty() {
             return errors;
         }
 
         let string_aliases = feature_def.get_string_aliases();
         for prop in &feature_def.props {
-            let value = map.get(&prop.name).unwrap_or(&prop.default);
-            self.validate_string_aliases(
-                &path.property(&prop.name),
-                &prop.typ,
-                value,
-                &string_aliases,
-                feature_value,
-                &prop.string_alias,
-                &mut errors,
-            );
+            if let Some(value) = unmerged_map.get(&prop.name) {
+                self.validate_string_aliases(
+                    &path.property(&prop.name),
+                    &prop.typ,
+                    value,
+                    &string_aliases,
+                    merged_value,
+                    &prop.string_alias,
+                    &mut errors,
+                );
+            }
         }
         errors
     }
