@@ -356,13 +356,25 @@ impl<'a> DefaultsValidator<'a> {
         }
     }
 
+    /// Validate a property against the string aliases in the feature.
+    ///
+    /// A property can be of any type: this will recurse into the structural types and object types
+    /// looking for strings to validate.
+    ///
+    /// - path The error path at which to report any errors
+    /// - typ The type of the value we're validating. Only objects, structural types and string-aliases will do anything.
+    ///     We'll be recursing into this type.
+    /// - value The value we're validating. We'll be recursing into this value.
+    /// - definitions The properties in this feature that define the string-alias types.
+    /// - feature_value The merged value for the entire feature
+    /// - skip The property we're validating may include a definition
     #[allow(clippy::too_many_arguments)]
     fn validate_string_aliases(
         &self,
         path: &ErrorPath,
         typ: &TypeRef,
         value: &Value,
-        defn: &HashMap<&str, &PropDef>,
+        definitions: &HashMap<&str, &PropDef>,
         feature_value: &Value,
         skip: &Option<TypeRef>,
         errors: &mut Vec<FeatureValidationError>,
@@ -373,12 +385,24 @@ impl<'a> DefaultsValidator<'a> {
         let should_validate = |v: &TypeRef| -> bool { skip.as_ref() != Some(v) };
         match (typ, value) {
             (TypeRef::StringAlias(_), Value::String(s)) => {
-                check_string_aliased_property(path, typ, s, defn, feature_value, errors)
+                if !is_string_alias_value_valid(typ, s, definitions, feature_value) {
+                    let path = path.final_error_quoted(s);
+                    errors.push(FeatureValidationError {
+                        path,
+                        kind: ErrorKind::invalid_value(typ),
+                    });
+                }
             }
             (TypeRef::Option(_), &Value::Null) => (),
-            (TypeRef::Option(inner), _) => {
-                self.validate_string_aliases(path, inner, value, defn, feature_value, skip, errors)
-            }
+            (TypeRef::Option(inner), _) => self.validate_string_aliases(
+                path,
+                inner,
+                value,
+                definitions,
+                feature_value,
+                skip,
+                errors,
+            ),
             (TypeRef::List(inner), Value::Array(array)) => {
                 if should_validate(inner) {
                     for (index, value) in array.iter().enumerate() {
@@ -386,7 +410,7 @@ impl<'a> DefaultsValidator<'a> {
                             &path.array_index(index),
                             inner,
                             value,
-                            defn,
+                            definitions,
                             feature_value,
                             skip,
                             errors,
@@ -397,14 +421,13 @@ impl<'a> DefaultsValidator<'a> {
             (TypeRef::EnumMap(key_type, value_type), Value::Object(map)) => {
                 if should_validate(key_type) && matches!(**key_type, TypeRef::StringAlias(_)) {
                     for key in map.keys() {
-                        check_string_aliased_property(
-                            &path.map_key(key),
-                            key_type,
-                            key,
-                            defn,
-                            feature_value,
-                            errors,
-                        );
+                        if !is_string_alias_value_valid(key_type, key, definitions, feature_value) {
+                            let path = path.final_error_quoted(key);
+                            errors.push(FeatureValidationError {
+                                path,
+                                kind: ErrorKind::invalid_key(key_type, map),
+                            });
+                        }
                     }
                 }
 
@@ -414,7 +437,7 @@ impl<'a> DefaultsValidator<'a> {
                             &path.map_key(key),
                             value_type,
                             value,
-                            defn,
+                            definitions,
                             feature_value,
                             skip,
                             errors,
@@ -429,7 +452,7 @@ impl<'a> DefaultsValidator<'a> {
                             &path.map_key(key),
                             vt,
                             value,
-                            defn,
+                            definitions,
                             feature_value,
                             skip,
                             errors,
@@ -450,7 +473,7 @@ impl<'a> DefaultsValidator<'a> {
                             &path.property(prop_nm),
                             &prop.typ,
                             value,
-                            defn,
+                            definitions,
                             feature_value,
                             &None,
                             errors,
@@ -463,7 +486,7 @@ impl<'a> DefaultsValidator<'a> {
                             &ErrorPath::object(obj_nm),
                             &prop.typ,
                             &prop.default,
-                            defn,
+                            definitions,
                             feature_value,
                             &None,
                             &mut suberrors,
@@ -486,26 +509,23 @@ impl<'a> DefaultsValidator<'a> {
     }
 }
 
-fn check_string_aliased_property(
-    path: &ErrorPath,
+fn is_string_alias_value_valid(
     alias_type: &TypeRef,
     value: &str,
-    defn: &HashMap<&str, &PropDef>,
-    feature_value: &Value,
-    errors: &mut Vec<FeatureValidationError>,
-) {
-    if let TypeRef::StringAlias(alias_nm) = alias_type {
-        if let Some(prop) = defn.get(alias_nm.as_str()) {
-            let def_value = feature_value.get(&prop.name).unwrap();
-            if !validate_string_alias_value(value, alias_type, &prop.typ, def_value) {
-                let path = path.final_error_quoted(value);
-                errors.push(FeatureValidationError {
-                    path,
-                    kind: ErrorKind::invalid_value(alias_type),
-                })
-            }
-        }
-    }
+    definitions: &HashMap<&str, &PropDef>,
+    merged_value: &Value,
+) -> bool {
+    let alias_name = alias_type
+        .name()
+        .expect("Assumption: this is a StringAlias type, and it has a name");
+    // SchemaValidator checked that the property definitely exists.
+    let prop = definitions
+        .get(alias_name)
+        .expect("Assumption: prop is defined by this feature");
+    let prop_value = merged_value
+        .get(&prop.name)
+        .expect("Assumption: value is defined in this feature");
+    validate_string_alias_value(value, alias_type, &prop.typ, prop_value)
 }
 
 /// Takes
