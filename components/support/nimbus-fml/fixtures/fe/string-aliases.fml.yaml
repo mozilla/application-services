@@ -93,6 +93,25 @@ features:
         value:
           available-players: ["Aka", "Ekeka", "Hene", "Iolana", "Keoni", "Lino", "Mele", "Nona", "Oliwa", "Pama", "Upana", "Wene"]
 
+  my-coverall-team:
+    description: Properties to mop up the other cases found with string-alias.
+    variables:
+      players:
+        description: The list of players
+        type: List<PlayerName>
+        string-alias: PlayerName
+        default: []
+
+      top-player:
+        description: The player with the highest score this year
+        type: Option<PlayerName>
+        default: null
+
+      availability:
+        description: Player availability
+        type: Map<PlayerName, Boolean>
+        default: {}
+
 objects:
   Team:
     description: A group of players
