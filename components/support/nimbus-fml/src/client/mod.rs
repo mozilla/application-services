@@ -600,3 +600,117 @@ mod string_aliases {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod error_messages {
+    use crate::client::test_helper::client;
+
+    use super::*;
+
+    #[test]
+    fn test_invalid_properties() -> Result<()> {
+        let client = client("enums.fml.yaml", "release")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-coverall-feature".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // An invalid property
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "invalid-property": true
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid property \"invalid-property\"; did you mean one of \"list\", \"map\", \"optional\" or \"scalar\"?"
+        );
+
+        // An invalid property, with a suggestion missing out the ones already in use.
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "invalid-property": true,
+                    "optional": null
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid property \"invalid-property\"; did you mean one of \"list\", \"map\" or \"scalar\"?"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_enums() -> Result<()> {
+        let client = client("enums.fml.yaml", "release")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-coverall-feature".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // An invalid boolean value of enum type
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "scalar": true
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid value true for type ViewPosition; did you mean one of \"bottom\", \"middle\" or \"top\"?"
+        );
+
+        // An invalid string value of enum type
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "scalar": "invalid-value"
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid value \"invalid-value\" for type ViewPosition; did you mean one of \"bottom\", \"middle\" or \"top\"?"
+        );
+
+        // An invalid key of enum type should not suggest all values for the string-alias, just the unused ones.
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "map": {
+                        "top": true,
+                        "invalid-key": true
+                    }
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid key \"invalid-key\" for type ViewPosition; did you mean \"bottom\" or \"middle\"?"
+        );
+
+        Ok(())
+    }
+}
