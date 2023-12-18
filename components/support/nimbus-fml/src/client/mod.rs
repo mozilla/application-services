@@ -608,6 +608,72 @@ mod error_messages {
     use super::*;
 
     #[test]
+    fn test_string_aliases() -> Result<()> {
+        let client = client("string-aliases.fml.yaml", "cyclones")?;
+        let inspector = {
+            let i = client.get_feature_inspector("my-coverall-team".to_string());
+            assert!(i.is_some());
+            i.unwrap()
+        };
+
+        // An invalid boolean value of string alias type
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "players": ["George", "Mildred"],
+                    "top-player": true
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid value true for type PlayerName; did you mean \"George\" or \"Mildred\"?"
+        );
+
+        // An invalid string value of string alias type
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "players": ["George", "Mildred"],
+                    "top-player": "Donkey"
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid value \"Donkey\" for type PlayerName; did you mean \"George\" or \"Mildred\"?"
+        );
+
+        // An invalid key of string alias type should not suggest all values for the string-alias, just the unused ones.
+        let error = {
+            let errors = inspector.get_errors(
+                r#"{
+                    "players": ["George", "Mildred"],
+                    "availability": {
+                        "George": true,
+                        "Donkey": true
+                    }
+                }"#
+                .to_string(),
+            );
+            assert!(errors.is_some());
+            errors.unwrap().remove(0)
+        };
+        assert_eq!(
+            error.message.as_str(),
+            "Invalid key \"Donkey\" for type PlayerName; did you mean \"Mildred\"?"
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_invalid_properties() -> Result<()> {
         let client = client("enums.fml.yaml", "release")?;
         let inspector = {
