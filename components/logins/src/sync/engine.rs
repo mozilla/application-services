@@ -495,12 +495,6 @@ impl SyncEngine for LoginsSyncEngine {
         self.do_reset(assoc)?;
         Ok(())
     }
-
-    fn wipe(&self) -> anyhow::Result<()> {
-        let db = self.store.db.lock();
-        db.wipe(&self.scope)?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]

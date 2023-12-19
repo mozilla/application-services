@@ -475,12 +475,6 @@ fn main() -> Result<()> {
                     log::warn!("Failed to reset! {}", e);
                 }
             }
-            'W' | 'w' => {
-                log::info!("Wiping all data from client!");
-                if let Err(e) = store.wipe() {
-                    log::warn!("Failed to wipe! {}", e);
-                }
-            }
             'S' | 's' => {
                 log::info!("Syncing!");
                 let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file)?;
