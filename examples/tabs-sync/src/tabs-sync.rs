@@ -129,8 +129,7 @@ fn main() -> Result<()> {
                 let tabs = vec![RemoteTabRecord {
                     title: "Mozilla".to_string(),
                     url_history: vec!["https://www.mozilla.org".to_string()],
-                    icon: None,
-                    last_used: 0,
+                    ..Default::default()
                 }];
                 dbg!(&tabs);
                 store.storage.lock().unwrap().update_local_state(tabs);
@@ -240,6 +239,7 @@ fn read_local_state() -> Vec<RemoteTabRecord> {
             url_history,
             icon,
             last_used,
+            inactive: false,
         });
     }
     local_state

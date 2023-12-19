@@ -47,10 +47,10 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Update tabs on c0");
 
     let t0 = RemoteTab {
-        icon: None,
         last_used: 1_572_265_044_661,
         title: "Welcome to Bobo".to_owned(),
         url_history: vec!["https://bobo.moz".to_owned()],
+        ..Default::default()
     };
     c0.tabs_store.set_local_tabs(vec![t0.clone()]);
 
@@ -69,16 +69,16 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
     );
 
     let t1 = RemoteTab {
-        icon: None,
         last_used: 1_572_267_197_207,
         title: "Foo".to_owned(),
         url_history: vec!["https://foo.org".to_owned()],
+        ..Default::default()
     };
     let t2 = RemoteTab {
-        icon: None,
         last_used: 1_572_267_191_104,
         title: "Bar".to_owned(),
         url_history: vec!["https://bar.org".to_owned()],
+        ..Default::default()
     };
 
     c1.tabs_store.set_local_tabs(vec![t1.clone(), t2.clone()]);
