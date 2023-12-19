@@ -7,11 +7,11 @@
     // Bash scripts linting.
     "timonwong.shellcheck",
     // Rust language support.
-    "matklad.rust-analyzer",
+    "rust-lang.rust-analyzer",
     // Protobuf files support.
     "peterj.proto",
     // TOML language support.
-    "bungcip.better-toml",
+    "tamasfe.even-better-toml",
     // YAML language support.
     "redhat.vscode-yaml",
     // Cargo.toml versions helper.
