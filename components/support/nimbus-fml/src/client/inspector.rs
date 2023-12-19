@@ -2,7 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub use crate::editing::FmlEditorError;
 use crate::{
+    editing::ErrorConverter,
     error::{ClientError, FMLError, Result},
     intermediate_representation::FeatureManifest,
     FmlClient, JsonObject,
@@ -104,40 +106,25 @@ impl FmlFeatureInspector {
     }
 
     fn get_semantic_errors(&self, src: &str, value: Value) -> Vec<FmlEditorError> {
-        let errors = self
+        let (merged_value, errors) = self
             .manifest
-            .get_errors(&self.feature_id, &value)
+            .merge_and_errors(&self.feature_id, &value)
             .unwrap_or_else(|e| {
                 unreachable!("Error {e:?} should be caught as FeatureValidationError")
             });
-        let mut editor_errors: Vec<_> = Vec::with_capacity(errors.len());
-        for e in errors {
-            let message = e.message;
-            let highlight = e.path.last_token().map(str::to_string);
-            let (line, col) = e.path.line_col(src);
-            let error = FmlEditorError {
-                message,
-                line: line as u32,
-                col: col as u32,
-                highlight,
-            };
-            editor_errors.push(error);
+        if !errors.is_empty() {
+            let (manifest, feature_def) = self.manifest.find_feature(&self.feature_id).unwrap();
+            let converter = ErrorConverter::new(&manifest.enum_defs, &manifest.obj_defs);
+            converter.convert_into_editor_errors(feature_def, &merged_value, src, &errors)
+        } else {
+            Default::default()
         }
-        editor_errors
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct FmlEditorError {
-    pub message: String,
-    pub line: u32,
-    pub col: u32,
-    pub highlight: Option<String>,
 }
 
 #[cfg(test)]
 mod unit_tests {
-    use crate::client::test_helper::client;
+    use crate::{client::test_helper::client, editing::FmlEditorError};
 
     use super::*;
 

@@ -63,7 +63,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
     NSS_DIST_DIR="${MOZ_FETCHES_DIR}/dist"
   else
     curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public/dist.tar.bz2"
-    SHA256="25762b2ad24e28632ccb0092f1625a725a665e0ad5c7f75370201d547775047b"
+    SHA256="15e8cab63a4e0484564231a24d23d8be349217ba6add53b56609c339bb306829"
     echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
     tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
     NSS_DIST_DIR=$(abspath "dist")

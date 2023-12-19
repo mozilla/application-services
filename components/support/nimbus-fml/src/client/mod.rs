@@ -290,7 +290,11 @@ mod unit_tests {
             })
         );
         assert_eq!(result.errors.len(), 1);
-        assert_eq!(result.errors[0].to_string(), "Validation Error at features/feature_i.prop_i_1: Mismatch between type String and default 1".to_string());
+        assert_eq!(
+            result.errors[0].to_string(),
+            "Validation Error at features/feature_i.prop_i_1: Invalid value 1 for type String"
+                .to_string()
+        );
 
         Ok(())
     }

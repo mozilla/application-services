@@ -119,7 +119,9 @@ impl ErrorPath {
     pub(crate) fn line_col(&self, src: &str) -> (usize, usize) {
         line_col(src, self.literals.iter().map(|s| s.as_str()))
     }
+}
 
+impl ErrorPath {
     pub(crate) fn last_token(&self) -> Option<&str> {
         self.literals.last().map(|x| x.as_str())
     }
@@ -143,6 +145,7 @@ fn append_quoted(original: &[String], new: &str) -> Vec<String> {
     append1(original, &format!("\"{new}\""))
 }
 
+#[allow(dead_code)]
 fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, usize) {
     let mut lines = src.lines();
 
@@ -182,6 +185,7 @@ fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, us
 /// Find the index in `line` of the next instance of `pattern`, after `start`
 ///
 /// A current weakness with this method is that it is not unicode aware.
+#[allow(dead_code)]
 fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
     line.match_indices(pattern)
         .find(|(i, _)| i >= &start)
