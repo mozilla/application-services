@@ -44,6 +44,7 @@ class RemoteTabsTest {
                         urlHistory = listOf(),
                         icon = null,
                         lastUsed = 12,
+                        inactive = true,
                     ),
                 ),
             )

@@ -10,6 +10,10 @@
 - Logins now correctly handle the following sync conflict resolution:
    - When the client locally deleted a login, and before it synced another client modified the same login, the client will recover the login
 
+### Tabs
+- RemoteTabRecord now has an `inactive` boolean with a default value of false ([#6026](https://github.com/mozilla/application-services/pull/6026/)).
+  Mobile platforms can populate this to indicate if the tab is "inactive" allowing other devices to treat them specially (eg, group them together, hide them by default, etc.)
+
 [Full Changelog](In progress)
 
 # v122.0 (_2023-12-18_)
