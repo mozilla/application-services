@@ -89,12 +89,26 @@ impl ErrorConverter<'_> {
         error: &FeatureValidationError,
         values: &ValuesFinder,
     ) -> BTreeSet<String> {
-        match &error.kind {
+        let complete = match &error.kind {
             ErrorKind::InvalidKey { key_type: t, .. }
             | ErrorKind::InvalidValue { value_type: t, .. }
             | ErrorKind::TypeMismatch { value_type: t } => values.all(t),
             ErrorKind::InvalidPropKey { valid, .. } => valid.to_owned(),
             ErrorKind::InvalidNestedValue { .. } => Default::default(),
+        };
+
+        // We don't want to suggest any tokens that the user has already used correctly, so
+        // we can filter out the ones in use.
+        match &error.kind {
+            ErrorKind::InvalidKey { in_use, .. } | ErrorKind::InvalidPropKey { in_use, .. }
+                // This last check is an optimization:
+                // if none of the in_use are valid,
+                // then we can skip cloning.
+                if !complete.is_disjoint(in_use) =>
+            {
+                complete.difference(in_use).cloned().collect()
+            }
+            _ => complete,
         }
     }
 }
