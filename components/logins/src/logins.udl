@@ -124,9 +124,6 @@ interface LoginStore {
     boolean delete([ByRef] string id);
 
     [Throws=LoginsApiError]
-    void wipe();
-
-    [Throws=LoginsApiError]
     void wipe_local();
 
     [Throws=LoginsApiError, Self=ByArc]

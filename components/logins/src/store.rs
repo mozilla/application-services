@@ -103,19 +103,6 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn wipe(&self) -> ApiResult<()> {
-        // This should not be exposed - it wipes the server too and there's
-        // no good reason to expose that to consumers. wipe_local makes some
-        // sense though.
-        // TODO: this is exposed to android-components consumers - we should
-        // check if anyone actually calls it.
-        let db = self.db.lock();
-        let scope = db.begin_interrupt_scope()?;
-        db.wipe(&scope)?;
-        Ok(())
-    }
-
-    #[handle_error(Error)]
     pub fn wipe_local(&self) -> ApiResult<()> {
         self.db.lock().wipe_local()?;
         Ok(())

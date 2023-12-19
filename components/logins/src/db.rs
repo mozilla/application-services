@@ -664,45 +664,6 @@ impl LoginDb {
         Ok(self.execute_cached(&CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
-    // Wipe is called both by Sync and also exposed publically, so it's
-    // implemented here.
-    pub(crate) fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
-        let tx = self.unchecked_transaction()?;
-        log::info!("Executing wipe on password engine!");
-        let now_ms = util::system_time_ms_i64(SystemTime::now());
-        scope.err_if_interrupted()?;
-        self.execute(
-            &format!(
-                "
-                UPDATE loginsL
-                SET local_modified = :now_ms,
-                    sync_status = {changed},
-                    is_deleted = 1,
-                    secFields = '',
-                    origin = ''
-                WHERE is_deleted = 0",
-                changed = SyncStatus::Changed as u8
-            ),
-            named_params! { ":now_ms": now_ms },
-        )?;
-        scope.err_if_interrupted()?;
-
-        self.execute("UPDATE loginsM SET is_overridden = 1", [])?;
-        scope.err_if_interrupted()?;
-
-        self.execute(
-            &format!("
-                INSERT OR IGNORE INTO loginsL
-                      (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
-                SELECT guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
-                FROM loginsM",
-                changed = SyncStatus::Changed as u8),
-            named_params! { ":now_ms": now_ms })?;
-        scope.err_if_interrupted()?;
-        tx.commit()?;
-        Ok(())
-    }
-
     pub fn wipe_local(&self) -> Result<()> {
         log::info!("Executing wipe_local on password engine!");
         let tx = self.unchecked_transaction()?;
@@ -1259,66 +1220,6 @@ mod tests {
         assert_eq!(local_login.login.fields.form_action_origin, None);
 
         assert!(!db.exists(login.guid_str()).unwrap());
-    }
-
-    #[test]
-    fn test_wipe() {
-        let db = LoginDb::open_in_memory().unwrap();
-        let login1 = db
-            .add(
-                LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("https://www.example.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "test_user_1".into(),
-                        password: "test_password_1".into(),
-                    },
-                },
-                &TEST_ENCRYPTOR,
-            )
-            .unwrap();
-
-        let login2 = db
-            .add(
-                LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example2.com".into(),
-                        http_realm: Some("https://www.example2.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "test_user_1".into(),
-                        password: "test_password_2".into(),
-                    },
-                },
-                &TEST_ENCRYPTOR,
-            )
-            .unwrap();
-
-        db.wipe(&db.begin_interrupt_scope().unwrap())
-            .expect("wipe should work");
-
-        let expected_tombstone_count = 2;
-        let actual_tombstone_count: i32 = db
-            .query_row(
-                "SELECT COUNT(guid)
-                    FROM loginsL
-                    WHERE guid IN (:guid1,:guid2)
-                        AND is_deleted = 1",
-                named_params! {
-                    ":guid1": login1.guid_str(),
-                    ":guid2": login2.guid_str(),
-                },
-                |row| row.get(0),
-            )
-            .unwrap();
-
-        assert_eq!(expected_tombstone_count, actual_tombstone_count);
-        assert!(!db.exists(login1.guid_str()).unwrap());
-        assert!(!db.exists(login2.guid_str()).unwrap());
     }
 
     mod test_find_login_to_update {

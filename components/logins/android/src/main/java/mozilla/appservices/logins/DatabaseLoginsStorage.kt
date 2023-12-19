@@ -34,11 +34,6 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsApiException::class)
-    fun wipe() {
-        this.store.wipe()
-    }
-
-    @Throws(LoginsApiException::class)
     fun wipeLocal() {
         this.store.wipeLocal()
     }
