@@ -11,11 +11,11 @@ use crate::intermediate_representation::{PropDef, TypeRef};
 pub(crate) enum ErrorKind {
     InvalidKey {
         key_type: TypeRef,
-        _in_use: BTreeSet<String>,
+        in_use: BTreeSet<String>,
     },
     InvalidPropKey {
         valid: BTreeSet<String>,
-        _in_use: BTreeSet<String>,
+        in_use: BTreeSet<String>,
     },
     InvalidValue {
         value_type: TypeRef,
@@ -34,7 +34,7 @@ impl ErrorKind {
         let keys = map.keys().cloned().collect();
         Self::InvalidKey {
             key_type: type_ref.clone(),
-            _in_use: keys,
+            in_use: keys,
         }
     }
 
@@ -56,7 +56,7 @@ impl ErrorKind {
         let props = props.iter().map(|p| p.name.clone()).collect();
         Self::InvalidPropKey {
             valid: props,
-            _in_use: keys,
+            in_use: keys,
         }
     }
 
