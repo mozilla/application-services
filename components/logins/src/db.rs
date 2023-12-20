@@ -742,6 +742,16 @@ pub mod test_utils {
         }
     }
 
+    pub fn insert_encrypted_login(
+        db: &LoginDb,
+        local: &EncryptedLogin,
+        mirror: &EncryptedLogin,
+        server_modified: &ServerTimestamp,
+    ) {
+        db.insert_new_login(local).unwrap();
+        add_mirror(db, mirror, server_modified, true).unwrap();
+    }
+
     pub fn add_mirror(
         db: &LoginDb,
         login: &EncryptedLogin,

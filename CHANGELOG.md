@@ -6,6 +6,10 @@
 
 - Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
 
+### Logins
+- Logins now correctly handle the following sync conflict resolution:
+   - When the client locally deleted a login, and before it synced another client modified the same login, the client will recover the login
+
 [Full Changelog](In progress)
 
 # v122.0 (_2023-12-18_)
