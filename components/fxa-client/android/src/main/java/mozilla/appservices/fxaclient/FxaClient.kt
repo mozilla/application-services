@@ -89,6 +89,14 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
+     * Process an event (login, logout, etc).
+     *
+     * On success, update the current state and return it.
+     * On error, the current state will remain the same.
+     */
+    fun processEvent(event: FxaEvent): FxaState = this.inner.processEvent(event)
+
+    /**
      * Get the high-level authentication state of the client
      */
     fun getAuthState() = this.inner.getAuthState()
