@@ -447,14 +447,14 @@ impl FeatureManifest {
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
         let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
-        let value = merger.merge_feature_config(feature_def, &feature_value)?;
+        let merged_value = merger.merge_feature_config(feature_def, &feature_value)?;
 
         let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
-        let errors = validator.get_errors(feature_def, &value);
-        validator.guard_errors(feature_def, &value, errors)?;
+        let errors = validator.get_errors(feature_def, &merged_value, &feature_value);
+        validator.guard_errors(feature_def, &merged_value, errors)?;
 
         let mut feature_def = feature_def.clone();
-        merger.overwrite_defaults(&mut feature_def, &value);
+        merger.overwrite_defaults(&mut feature_def, &merged_value);
         Ok(feature_def)
     }
 
@@ -469,11 +469,11 @@ impl FeatureManifest {
             .find_feature(feature_name)
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
         let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
-        let value = merger.merge_feature_config(feature_def, feature_value)?;
+        let merged_value = merger.merge_feature_config(feature_def, feature_value)?;
 
         let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
-        let errors = validator.get_errors(feature_def, &value);
-        Ok((value, errors))
+        let errors = validator.get_errors(feature_def, &merged_value, feature_value);
+        Ok((merged_value, errors))
     }
 
     pub fn get_schema_hash(&self, feature_name: &str) -> Result<String> {

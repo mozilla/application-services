@@ -1,0 +1,46 @@
+---
+about:
+  description: A coverall for string-alias.
+  swift:
+    class: AppConfig
+    module: application
+  kotlin:
+    package: org.mozilla.examples.nimbus
+    class: .enums.AppConfig
+channels:
+  - release
+features:
+  my-coverall-feature:
+    description: |
+      Properties useful for testing enums
+    variables:
+      scalar:
+        type: ViewPosition
+        description: A single position
+        default: top
+      optional:
+        type: Option<ViewPosition>
+        description: Zero or one positions
+        default: null
+      list:
+        type: List<ViewPosition>
+        description: Zero or more positions
+        default: []
+      map:
+        type: Map<ViewPosition, Boolean>
+        description: Each position should be represented
+        default:
+          top: true
+          middle: true
+          bottom: true
+
+enums:
+  ViewPosition:
+    description: The positions a button can be in.
+    variants:
+      top:
+        description: The top of a view
+      middle:
+        description: The vertical middle of a view
+      bottom:
+        description: The bottom of a view
