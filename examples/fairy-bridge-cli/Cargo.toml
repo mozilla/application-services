@@ -1,0 +1,19 @@
+[package]
+name = "fairy-bridge-cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fairy-bridge = { path = "../../components/fairy-bridge", features = ["backend-hyper", "backend-c"] }
+
+serde = {version = "1", features=["derive"] }
+serde_json = "1"
+uniffi = { version = "0.29.0" }
+url = "2.2"
+
+[build-dependencies]
+uniffi = { version = "0.29.0", features = ["build"] }

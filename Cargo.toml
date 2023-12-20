@@ -10,6 +10,7 @@ members = [
     "components/example",
     #"components/example/cli",
     "components/filter_adult",
+    "components/fairy-bridge",
     "components/fxa-client",
     "components/init_rust_components",
     "components/logins",
