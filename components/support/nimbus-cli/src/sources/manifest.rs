@@ -58,10 +58,13 @@ impl ManifestSource {
                     manifest_file,
                 },
                 (_, Some(channel), Some(_)) => {
-                    let github_repo = params.github_repo()?.to_string();
+                    let github_repo = params.github_repo(&value.version)?.to_string();
                     let ref_ = params.ref_from_version(&value.version, &value.ref_)?;
-                    let manifest_file =
-                        format!("@{}/{}", github_repo, params.manifest_location()?,);
+                    let manifest_file = format!(
+                        "@{}/{}",
+                        github_repo,
+                        params.manifest_location(&value.version)?,
+                    );
                     Self::FromGithub {
                         channel,
                         manifest_file,

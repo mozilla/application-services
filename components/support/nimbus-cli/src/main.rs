@@ -11,6 +11,7 @@ mod protocol;
 mod sources;
 mod updater;
 mod value_utils;
+mod version_utils;
 
 use anyhow::{bail, Result};
 use clap::Parser;

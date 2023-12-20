@@ -1,5 +1,11 @@
 # v123.0 (In progress)
 
+## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+
+### 🦊 What's Changed 🦊
+
+- Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
+
 [Full Changelog](In progress)
 
 # v122.0 (_2023-12-18_)
