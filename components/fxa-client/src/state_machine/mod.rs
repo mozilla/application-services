@@ -63,7 +63,7 @@ impl FirefoxAccount {
     ) -> Result<FxaState> {
         let device_config = self.handle_state_machine_initialization(&event)?;
 
-        breadcrumb!("FxaStateMachine.process_event starting");
+        breadcrumb!("FxaStateMachine.process_event starting: {event}");
         let mut internal_state = state_machine.initial_state(event)?;
         let mut count = 0;
         // Loop through internal state transitions until we reach a terminal state
@@ -72,24 +72,26 @@ impl FirefoxAccount {
         loop {
             count += 1;
             if count > MAX_INTERNAL_TRANSITIONS {
-                breadcrumb!("FxaStateMachine.process_event finished");
+                breadcrumb!("FxaStateMachine.process_event finished (MAX_INTERNAL_TRANSITIONS)");
                 return Err(Error::StateMachineLogicError(
                     "infinite loop detected".to_owned(),
                 ));
             }
             match internal_state {
                 InternalState::Complete(new_state) => {
-                    breadcrumb!("FxaStateMachine.process_event finished");
+                    breadcrumb!("FxaStateMachine.process_event finished (Complete({new_state}))");
                     self.auth_state = new_state.clone();
                     return Ok(new_state);
                 }
                 InternalState::Cancel => {
-                    breadcrumb!("FxaStateMachine.process_event finished");
+                    breadcrumb!("FxaStateMachine.process_event finished (Cancel)");
                     return Ok(self.auth_state.clone());
                 }
                 state => {
                     let event = state.make_call(self, &device_config)?;
+                    let event_msg = event.to_string();
                     internal_state = state_machine.next_state(state, event)?;
+                    breadcrumb!("FxaStateMachine.process_event {event_msg} -> {internal_state}")
                 }
             }
         }
