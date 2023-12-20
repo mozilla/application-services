@@ -52,6 +52,11 @@ impl LocalLogin {
             local_modified: util::system_time_millis_from_row(row, "local_modified")?,
         })
     }
+
+    pub fn is_tombstone(&self) -> bool {
+        // For all sync purposes, if the secure fields are not present, this is a tombstone
+        self.login.sec_fields.is_empty()
+    }
 }
 
 macro_rules! impl_login {

@@ -53,17 +53,31 @@ impl UpdatePlan {
             .unwrap_or_default();
         let remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
 
-        let local_delta = local.login.delta(&shared.login, encdec)?;
-        let upstream_delta = upstream.login.delta(&shared.login, encdec)?;
-
-        let merged_delta = local_delta.merge(upstream_delta, remote_age < local_age);
+        let delta = {
+            let upstream_delta = upstream.login.delta(&shared.login, encdec)?;
+            if local.is_tombstone() {
+                // If the login was deleted locally, the merged delta is the
+                // upstream delta. We do this because a user simultanously deleting their
+                // login and updating it has two possible outcomes:
+                //   - A login that was intended to be deleted remains because another update was
+                //   there
+                //   - A login that was intended to be updated got deleted
+                //
+                //   The second case is arguably worse, where a user could lose their login
+                //   indefinitely
+                upstream_delta
+            } else {
+                let local_delta = local.login.delta(&shared.login, encdec)?;
+                local_delta.merge(upstream_delta, remote_age < local_age)
+            }
+        };
 
         // Update mirror to upstream
         self.mirror_updates
             .push((upstream, upstream_time.as_millis()));
         let mut new = shared;
 
-        new.login.apply_delta(merged_delta, encdec)?;
+        new.login.apply_delta(delta, encdec)?;
         new.server_modified = upstream_time;
         self.local_updates.push(new);
         Ok(())
@@ -233,8 +247,9 @@ impl UpdatePlan {
                  timePasswordChanged = :time_password_changed,
                  timesUsed           = :times_used,
                  origin              = :origin,
-                 secFields     = :sec_fields,
-                 sync_status         = {changed}
+                 secFields           = :sec_fields,
+                 sync_status         = {changed},
+                 is_deleted          = 0
              WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
         );
@@ -288,12 +303,15 @@ impl UpdatePlan {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::db::test_utils::{
         check_local_login, check_mirror_login, get_local_guids, get_mirror_guids,
-        get_server_modified, insert_login,
+        get_server_modified, insert_encrypted_login, insert_login,
     };
     use crate::db::LoginDb;
+    use crate::encryption::test_utils::TEST_ENCRYPTOR;
     use crate::login::test_utils::enc_login;
 
     fn inc_login(id: &str, password: &str) -> crate::sync::IncomingLogin {
@@ -382,5 +400,213 @@ mod tests {
         .execute(&db, &db.begin_interrupt_scope().unwrap())
         .unwrap();
         check_local_login(&db, "login", "new-password", before_update);
+    }
+
+    #[test]
+    fn test_plan_three_way_merge_server_wins() {
+        let db = LoginDb::open_in_memory().unwrap();
+        // First we create our expected logins
+        let login = enc_login("login", "old local password");
+        let mirror_login = enc_login("login", "mirror password");
+        let server_login = enc_login("login", "new upstream password");
+
+        // Then, we create a new, empty update plan
+        let mut update_plan = UpdatePlan::default();
+        // Here, we define all the timestamps, remember, if difference between the
+        // upstream record timestamp and the server timestamp is less than the
+        // difference between the local record timestamp and time **now** then the server wins.
+        //
+        // In other words, if server_time - upstream_time < now - local_record_time then the server
+        // wins. This is because we determine which record to "prefer" based on the "age" of the
+        // update
+        let now = SystemTime::now();
+        // local record's timestamps is now - 100 second, so the local age is 100
+        let local_modified = now.checked_sub(Duration::from_secs(100)).unwrap();
+        // mirror timestamp is not too relevant here, but we set it for completeness
+        let mirror_timestamp = now.checked_sub(Duration::from_secs(1000)).unwrap();
+        // Server's timestamp is now
+        let server_timestamp = now;
+        // Server's record timestamp is now - 1 second, so the server age is: 1
+        // And since the local age is 100, then the server should win.
+        let server_record_timestamp = now.checked_sub(Duration::from_secs(1)).unwrap();
+        let local_login = LocalLogin {
+            login,
+            local_modified,
+        };
+        let mirror_login = MirrorLogin {
+            login: mirror_login,
+            server_modified: mirror_timestamp.try_into().unwrap(),
+        };
+
+        // Lets make sure our local login is in the database, so that it can be updated later
+        insert_encrypted_login(
+            &db,
+            &local_login.login,
+            &mirror_login.login,
+            &mirror_login.server_modified,
+        );
+        let upstream_login = IncomingLogin {
+            login: server_login,
+            unknown: None,
+        };
+
+        update_plan
+            .plan_three_way_merge(
+                local_login,
+                mirror_login,
+                upstream_login,
+                server_record_timestamp.try_into().unwrap(),
+                server_timestamp.try_into().unwrap(),
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap();
+        update_plan
+            .execute(&db, &db.begin_interrupt_scope().unwrap())
+            .unwrap();
+
+        check_local_login(&db, "login", "new upstream password", 0);
+    }
+
+    #[test]
+    fn test_plan_three_way_merge_local_wins() {
+        let db = LoginDb::open_in_memory().unwrap();
+        // First we create our expected logins
+        let login = enc_login("login", "new local password");
+        let mirror_login = enc_login("login", "mirror password");
+        let server_login = enc_login("login", "old upstream password");
+
+        // Then, we create a new, empty update plan
+        let mut update_plan = UpdatePlan::default();
+        // Here, we define all the timestamps, remember, if difference between the
+        // upstream record timestamp and the server timestamp is less than the
+        // difference between the local record timestamp and time **now** then the server wins.
+        //
+        // In other words, if server_time - upstream_time < now - local_record_time then the server
+        // wins. This is because we determine which record to "prefer" based on the "age" of the
+        // update
+        let now = SystemTime::now();
+        // local record's timestamps is now - 1 second, so the local age is 1
+        let local_modified = now.checked_sub(Duration::from_secs(1)).unwrap();
+        // mirror timestamp is not too relevant here, but we set it for completeness
+        let mirror_timestamp = now.checked_sub(Duration::from_secs(1000)).unwrap();
+        // Server's timestamp is now
+        let server_timestamp = now;
+        // Server's record timestamp is now - 500 second, so the server age is: 500
+        // And since the local age is 1, the local record should win!
+        let server_record_timestamp = now.checked_sub(Duration::from_secs(500)).unwrap();
+        let local_login = LocalLogin {
+            login,
+            local_modified,
+        };
+        let mirror_login = MirrorLogin {
+            login: mirror_login,
+            server_modified: mirror_timestamp.try_into().unwrap(),
+        };
+
+        // Lets make sure our local login is in the database, so that it can be updated later
+        insert_encrypted_login(
+            &db,
+            &local_login.login,
+            &mirror_login.login,
+            &mirror_login.server_modified,
+        );
+
+        let upstream_login = IncomingLogin {
+            login: server_login,
+            unknown: None,
+        };
+
+        update_plan
+            .plan_three_way_merge(
+                local_login,
+                mirror_login,
+                upstream_login,
+                server_record_timestamp.try_into().unwrap(),
+                server_timestamp.try_into().unwrap(),
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap();
+        update_plan
+            .execute(&db, &db.begin_interrupt_scope().unwrap())
+            .unwrap();
+
+        check_local_login(&db, "login", "new local password", 0);
+    }
+
+    #[test]
+    fn test_plan_three_way_merge_local_tombstone_loses() {
+        let db = LoginDb::open_in_memory().unwrap();
+        // First we create our expected logins
+        let login = enc_login("login", "new local password");
+        let mirror_login = enc_login("login", "mirror password");
+        let server_login = enc_login("login", "old upstream password");
+
+        // Then, we create a new, empty update plan
+        let mut update_plan = UpdatePlan::default();
+        // Here, we define all the timestamps, remember, if difference between the
+        // upstream record timestamp and the server timestamp is less than the
+        // difference between the local record timestamp and time **now** then the server wins.
+        //
+        // In other words, if server_time - upstream_time < now - local_record_time then the server
+        // wins. This is because we determine which record to "prefer" based on the "age" of the
+        // update
+        let now = SystemTime::now();
+        // local record's timestamps is now - 1 second, so the local age is 1
+        let local_modified = now.checked_sub(Duration::from_secs(1)).unwrap();
+        // mirror timestamp is not too relevant here, but we set it for completeness
+        let mirror_timestamp = now.checked_sub(Duration::from_secs(1000)).unwrap();
+        // Server's timestamp is now
+        let server_timestamp = now;
+        // Server's record timestamp is now - 500 second, so the server age is: 500
+        // And since the local age is 1, the local record should win!
+        let server_record_timestamp = now.checked_sub(Duration::from_secs(500)).unwrap();
+        let mirror_login = MirrorLogin {
+            login: mirror_login,
+            server_modified: mirror_timestamp.try_into().unwrap(),
+        };
+
+        // Lets make sure our local login is in the database, so that it can be updated later
+        insert_encrypted_login(
+            &db,
+            &login,
+            &mirror_login.login,
+            &mirror_login.server_modified,
+        );
+
+        // Now, lets delete our local login
+        db.delete("login").unwrap();
+
+        // Then, lets set our tombstone
+        let local_login = LocalLogin {
+            login: EncryptedLogin {
+                sec_fields: "".to_string(),
+                ..login
+            },
+            local_modified,
+        };
+
+        let upstream_login = IncomingLogin {
+            login: server_login,
+            unknown: None,
+        };
+
+        update_plan
+            .plan_three_way_merge(
+                local_login,
+                mirror_login,
+                upstream_login,
+                server_record_timestamp.try_into().unwrap(),
+                server_timestamp.try_into().unwrap(),
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap();
+        update_plan
+            .execute(&db, &db.begin_interrupt_scope().unwrap())
+            .unwrap();
+
+        // Now we verify that even though our login deletion was "younger"
+        // then the upstream modification, the upstream modification wins because
+        // modifications always beat tombstones
+        check_local_login(&db, "login", "old upstream password", 0);
     }
 }
