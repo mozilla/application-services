@@ -12,7 +12,7 @@ harness = false
 path = "src/bench.rs"
 
 [dependencies]
-criterion = "0.3"
+criterion = "0.5"
 tempfile = "3"
 parking_lot = ">=0.11,<=0.12"
 places = { path = "../../../components/places" }
