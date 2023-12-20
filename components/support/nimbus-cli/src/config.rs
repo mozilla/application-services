@@ -4,7 +4,11 @@
 
 use std::path::PathBuf;
 
-use crate::{cli::Cli, LaunchableApp, NimbusApp};
+use crate::{
+    cli::Cli,
+    version_utils::{is_before, pad_major, pad_major_minor, pad_major_minor_patch},
+    LaunchableApp, NimbusApp,
+};
 use anyhow::{bail, Result};
 
 impl TryFrom<&Cli> for LaunchableApp {
@@ -144,43 +148,124 @@ impl NimbusApp {
         if version.is_none() {
             return Ok(ref_.to_string());
         }
-        let version = version.as_ref().unwrap();
         let app_name = self
             .app_name()
             .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
+
+        let v = version.as_ref().unwrap();
+        let v = match app_name.as_str() {
+            "fenix" => {
+                if is_before(version, 110) {
+                    pad_major_minor_patch(v)
+                } else {
+                    pad_major(v)
+                }
+            }
+            "focus_android" => {
+                if is_before(version, 110) {
+                    pad_major_minor(v)
+                } else {
+                    pad_major(v)
+                }
+            }
+            "firefox_ios" => {
+                if is_before(version, 112) {
+                    pad_major_minor(v)
+                } else {
+                    pad_major(v)
+                }
+            }
+            "focus_ios" => pad_major(v),
+            _ => v.to_string(),
+        };
+
         Ok(match app_name.as_str() {
-            // Fenix and Focus are both in the same repo, so should have the
-            // same branching structure.
-            "fenix" | "focus_android" => format!("releases_v{version}"),
-            "firefox_ios" => format!("release/v{version}"),
-            "focus_ios" => format!("releases_v{version}"),
+            "fenix" => format!("releases_v{v}"),
+            "focus_android" => format!("releases_v{v}"),
+            "firefox_ios" => {
+                if is_before(version, 106) {
+                    format!("v{v}")
+                } else {
+                    format!("release/v{v}")
+                }
+            }
+            "focus_ios" => format!("releases_v{v}"),
 
             _ => anyhow::bail!("{} is not defined", app_name),
         })
     }
 
-    pub(crate) fn github_repo<'a>(&self) -> Result<&'a str> {
+    pub(crate) fn github_repo<'a>(&self, version: &Option<String>) -> Result<&'a str> {
         let app_name = self
             .app_name()
             .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
         Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo
-            "fenix" | "focus_android" => "mozilla-mobile/firefox-android",
+            "fenix" => {
+                if is_before(version, 110) {
+                    "mozilla-mobile/fenix"
+                } else {
+                    "mozilla-mobile/firefox-android"
+                }
+            }
+            "focus_android" => {
+                if is_before(version, 110) {
+                    "mozilla-mobile/focus-android"
+                } else {
+                    "mozilla-mobile/firefox-android"
+                }
+            }
             "firefox_ios" => "mozilla-mobile/firefox-ios",
             "focus_ios" => "mozilla-mobile/focus-ios",
             _ => unreachable!("{} is not defined", app_name),
         })
     }
 
-    pub(crate) fn manifest_location<'a>(&self) -> Result<&'a str> {
+    pub(crate) fn manifest_location<'a>(&self, version: &Option<String>) -> Result<&'a str> {
         let app_name = self
             .app_name()
             .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
         Ok(match app_name.as_str() {
-            "fenix" => "fenix/app/nimbus.fml.yaml",
-            "focus_android" => "focus-android/app/nimbus.fml.yaml",
-            "firefox_ios" => "nimbus.fml.yaml",
-            "focus_ios" => "nimbus.fml.yaml",
+            "fenix" => {
+                if is_before(version, 98) {
+                    bail!("Fenix wasn't Nimbus enabled before v98")
+                } else if is_before(version, 110) {
+                    "nimbus.fml.yaml"
+                } else if is_before(version, 112) {
+                    "fenix/nimbus.fml.yaml"
+                } else {
+                    "fenix/app/nimbus.fml.yaml"
+                }
+            }
+            "focus_android" => {
+                if is_before(version, 102) {
+                    bail!("Focus for Android wasn't Nimbus enabled before v102")
+                } else if is_before(version, 110) {
+                    "nimbus.fml.yaml"
+                } else if is_before(version, 112) {
+                    "focus-android/nimbus.fml.yaml"
+                } else {
+                    "focus-android/app/nimbus.fml.yaml"
+                }
+            }
+            "firefox_ios" => {
+                if is_before(version, 98) {
+                    bail!("Firefox for iOS wasn't Nimbus enabled before v98")
+                } else if is_before(version, 122) {
+                    "nimbus.fml.yaml"
+                } else {
+                    "firefox-ios/nimbus.fml.yaml"
+                }
+            }
+            "focus_ios" => {
+                if is_before(version, 108) {
+                    bail!("Focus wasn't Nimbus enabled before v108")
+                } else if is_before(version, 122) {
+                    "nimbus.fml.yaml"
+                } else {
+                    "focus-ios/nimbus.fml.yaml"
+                }
+            }
             _ => anyhow::bail!("{} is not defined", app_name),
         })
     }
