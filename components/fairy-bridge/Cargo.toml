@@ -1,0 +1,24 @@
+[package]
+name = "fairy-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+backend-reqwest = ["dep:reqwest"]
+backend-c = ["dep:oneshot"]
+
+[dependencies]
+async-trait = "0.1"
+oneshot = { version = "0.1", optional = true }
+pollster = "0.3.0"
+serde = "1"
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+uniffi = { workspace = true }
+url = "2.2"
+reqwest = { version = "0.11.23", optional = true }
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }
