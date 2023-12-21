@@ -127,6 +127,11 @@ fn is_dir(path_buf: &Path) -> bool {
     path_buf.is_dir()
 }
 
+// In tests, the directories don't always exist on-disk, so we cannot use the
+// `.is_dir()` method, which would call `stat` (or equivalent) on a non-existant
+// file. Instead, we check for the presence of a trailing slash, so all tests
+// that need to treat a path like a directory *must* append trailing slashes to
+// those paths.
 #[cfg(test)]
 fn is_dir(path_buf: &Path) -> bool {
     path_buf.display().to_string().ends_with('/')
