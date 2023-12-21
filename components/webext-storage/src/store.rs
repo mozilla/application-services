@@ -28,11 +28,11 @@ use serde_json::Value as JsonValue;
 /// Note that our Db implementation is behind an Arc<> because we share that
 /// connection with our sync engines - ie, these engines also hold an Arc<>
 /// around the same object.
-pub struct WebExtStorageStore {
+pub struct Store {
     db: Arc<ThreadSafeStorageDb>,
 }
 
-impl WebExtStorageStore {
+impl Store {
     /// Creates a store backed by a database at `db_path`. The path can be a
     /// file path or `file:` URI.
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
@@ -153,7 +153,7 @@ impl WebExtStorageStore {
                 // connections, and the next rusqlite version will not panic anyway.
                 // So this-is-fine.jpg
                 log::warn!("Attempting to close a store while other DB references exist.");
-                return Err(Error::OtherConnectionReferencesExist);
+                return Err(ErrorKind::OtherConnectionReferencesExist.into());
             }
         };
         // consume the mutex and get back the inner.
@@ -207,11 +207,11 @@ pub mod test {
     fn test_send() {
         fn ensure_send<T: Send>() {}
         // Compile will fail if not send.
-        ensure_send::<WebExtStorageStore>();
+        ensure_send::<Store>();
     }
 
-    pub fn new_mem_store() -> WebExtStorageStore {
-        WebExtStorageStore {
+    pub fn new_mem_store() -> Store {
+        Store {
             db: Arc::new(ThreadSafeStorageDb::new(crate::db::test::new_mem_db())),
         }
     }
