@@ -116,8 +116,9 @@ impl ErrorPath {
 #[allow(dead_code)]
 #[cfg(feature = "client-lib")]
 impl ErrorPath {
-    pub(crate) fn line_col(&self, src: &str) -> (usize, usize) {
-        line_col(src, self.literals.iter().map(|s| s.as_str()))
+    pub(crate) fn line_col(&self, src: &str) -> crate::editing::CursorPosition {
+        let (line, col) = line_col(src, self.literals.iter().map(|s| s.as_str()));
+        crate::editing::CursorPosition::new(line, col)
     }
 }
 
