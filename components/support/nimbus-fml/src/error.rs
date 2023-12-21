@@ -50,6 +50,9 @@ pub enum FMLError {
 
     #[error("Feature `{0}` not found on manifest")]
     InvalidFeatureError(String),
+
+    #[error("Invalid API token GITHUB_BEARER_TOKEN")]
+    InvalidApiToken,
 }
 
 #[cfg(feature = "client-lib")]

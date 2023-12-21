@@ -6,6 +6,7 @@ use crate::{
     SUPPORT_URL_LOADING,
 };
 
+use anyhow::anyhow;
 use reqwest::blocking::{Client, ClientBuilder};
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
@@ -17,6 +18,7 @@ use std::{
 use url::Url;
 
 pub(crate) const GITHUB_USER_CONTENT_DOTCOM: &str = "https://raw.githubusercontent.com";
+pub(crate) const API_GITHUB_DOTCOM: &str = "https://api.github.com";
 
 #[derive(Clone)]
 pub struct LoaderConfig {
@@ -51,11 +53,101 @@ impl Default for LoaderConfig {
     }
 }
 
+/// A FilePath for a file hosted in a GitHub repository with a specified ref.
+#[derive(Clone, Debug)]
+pub struct GitHubRepoFilePath {
+    /// The repository id, i.e,. `owner/repo`.
+    repo_id: String,
+
+    /// The Git ref.
+    git_ref: String,
+
+    /// A Url, which is only used so that we can re-use Url::join for paths
+    /// inside the repository.
+    ///
+    /// The URL scheme and host should not be referenced.
+    ///
+    /// Instead of this, you probably want [`Self::path()`] or
+    /// [`Self::default_download_url()`].
+    url: Url,
+}
+
+impl GitHubRepoFilePath {
+    pub fn new(repo_id: &str, git_ref: &str) -> Self {
+        Self {
+            repo_id: repo_id.into(),
+            git_ref: git_ref.into(),
+            url: Url::parse("invalid://do-not-use/").expect("This is a constant, valid URL"),
+        }
+    }
+
+    /// Return the repository ID.
+    pub fn repo_id(&self) -> &str {
+        &self.repo_id
+    }
+
+    /// Return the Git ref.
+    pub fn git_ref(&self) -> &str {
+        &self.git_ref
+    }
+
+    /// Return the path of the file in the GitHub repository.
+    pub fn path(&self) -> &str {
+        self.url.path()
+    }
+
+    pub fn join(&self, file: &str) -> Result<Self> {
+        Ok(Self {
+            repo_id: self.repo_id.clone(),
+            git_ref: self.git_ref.clone(),
+            url: self.url.join(file)?,
+        })
+    }
+
+    /// Return the default download URL, without a token, as a string.
+    ///
+    /// [`Self::default_download_url()`] can return an error, so this is
+    /// provided as a convenience for situations where an actual valid URL is
+    /// not required, such as in Display impls.
+    pub(crate) fn default_download_url_as_str(&self) -> String {
+        format!(
+            "{}/{}/{}{}",
+            GITHUB_USER_CONTENT_DOTCOM,
+            self.repo_id,
+            self.git_ref,
+            self.path() // begins with a /
+        )
+    }
+
+    /// Return the default download URL, without a token.
+    ///
+    /// This URL can only be used to download files from public repositories.
+    ///
+    /// Otherwise, the URL must be retrieved via the GitHub repository contents
+    /// API.
+    pub fn default_download_url(&self) -> Result<Url> {
+        Url::parse(&self.default_download_url_as_str()).map_err(Into::into)
+    }
+
+    pub fn contents_api_url(&self) -> Result<Url> {
+        // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#get-repository-content
+        Url::parse(&format!(
+            "{}/repos/{}/contents{}?ref={}",
+            API_GITHUB_DOTCOM,
+            self.repo_id,
+            self.path(), // begins with a /
+            self.git_ref
+        ))
+        .map_err(Into::into)
+    }
+}
+
 /// A small enum for working with URLs and relative files
 #[derive(Clone, Debug)]
 pub enum FilePath {
     Local(PathBuf),
     Remote(Url),
+    GitHub(GitHubRepoFilePath),
 }
 
 impl FilePath {
@@ -88,6 +180,7 @@ impl FilePath {
                 },
             ),
             Self::Remote(u) => Self::Remote(u.join(file)?),
+            Self::GitHub(p) => Self::GitHub(p.join(file)?),
         })
     }
 
@@ -98,7 +191,7 @@ impl FilePath {
                 // doesn't include the problematic file path.
                 FMLError::InvalidPath(format!("{}: {}", e, p.as_path().display()))
             })?),
-            Self::Remote(u) => Self::Remote(u.clone()),
+            _ => self.clone(),
         })
     }
 }
@@ -108,6 +201,7 @@ impl Display for FilePath {
         match self {
             Self::Local(p) => p.display().fmt(f),
             Self::Remote(u) => u.fmt(f),
+            Self::GitHub(p) => p.default_download_url_as_str().fmt(f),
         }
     }
 }
@@ -265,15 +359,6 @@ impl FileLoader {
         // `user/repo`.
         let repo_id = repo_id.strip_prefix('@').unwrap_or(repo_id);
 
-        // The `loc`, whatever the current working directory, is going to end up as a part of a path.
-        // A trailing slash ensures it gets treated like a directoy, rather than a file.
-        // See Url::join.
-        let loc = if loc.ends_with('/') {
-            loc.to_string()
-        } else {
-            format!("{}/", loc)
-        };
-
         // We construct the FilePath. We want to be able to tell the difference between a what `FilePath`s
         // can already reason about (relative file paths, absolute file paths and URLs) and what git knows about (refs, tags, versions).
         let file_path = if loc.starts_with('.')
@@ -281,11 +366,20 @@ impl FileLoader {
             || loc.contains(":\\")
             || loc.contains("://")
         {
+            // The `loc`, whatever the current working directory, is going to end up as a part of a path.
+            // A trailing slash ensures it gets treated like a directoy, rather than a file.
+            // See Url::join.
+            let loc = if loc.ends_with('/') {
+                loc.to_string()
+            } else {
+                format!("{}/", loc)
+            };
+
             // URLs, relative file paths, absolute paths.
             cwd.join(&loc)?
         } else {
             // refs, commmit hashes, tags, branches.
-            self.remote_file_path(&repo_id, &loc)?
+            self.remote_file_path(repo_id, loc)
         };
 
         // Finally, add the absolute path that we use every time the user refers to @user/repo.
@@ -293,14 +387,12 @@ impl FileLoader {
         Ok(())
     }
 
-    fn remote_file_path(&self, repo: &str, branch_or_tag: &str) -> Result<FilePath, FMLError> {
-        let base_url = format!("{}/{}/{}", GITHUB_USER_CONTENT_DOTCOM, repo, branch_or_tag);
-        Ok(FilePath::Remote(Url::parse(&base_url)?))
+    fn remote_file_path(&self, repo: &str, branch_or_tag: &str) -> FilePath {
+        FilePath::GitHub(GitHubRepoFilePath::new(repo, branch_or_tag))
     }
 
     fn default_remote_path(&self, key: String) -> FilePath {
-        self.remote_file_path(&key, "main/")
-            .expect("main branch never fails")
+        self.remote_file_path(&key, "main")
     }
 
     /// This loads a text file from disk or the network.
@@ -313,6 +405,44 @@ impl FileLoader {
         Ok(match file {
             FilePath::Local(path) => std::fs::read_to_string(path)?,
             FilePath::Remote(url) => self.fetch_and_cache(url)?,
+            FilePath::GitHub(p) => {
+                // If there is a GITHUB_BEARER_TOKEN environment variable
+                // present, we will use that to get the download URL from the
+                // GitHub contents API.
+                let api_key = match env::var("GITHUB_BEARER_TOKEN") {
+                    Ok(api_key) => Some(api_key),
+                    Err(env::VarError::NotPresent) => None,
+                    Err(env::VarError::NotUnicode(_)) => Err(FMLError::InvalidApiToken)?,
+                };
+
+                let download_url = if let Some(api_key) = api_key {
+                    let contents_api_url = p.contents_api_url()?;
+
+                    // The response format is documented here:
+                    // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#get-repository-content
+                    self.fetch_client
+                        .get(contents_api_url)
+                        .bearer_auth(api_key)
+                        .send()?
+                        .error_for_status()?
+                        .json::<serde_json::Value>()?
+                        .get("download_url")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or_else(|| {
+                            anyhow!(
+                                "GitHub API did not return a download_url for @{}/{} at ref {}",
+                                p.repo_id(),
+                                p.path(),
+                                p.git_ref()
+                            )
+                        })
+                        .and_then(|u| Url::parse(u).map_err(Into::into))?
+                } else {
+                    p.default_download_url()?
+                };
+
+                self.fetch_and_cache(&download_url)?
+            }
         })
     }
 
@@ -525,7 +655,9 @@ mod unit_tests {
         // A source file asks for a file in another repo. We haven't any specific configuration
         // for this repo, so we default to the `main` branch.
         let obs = files.join(&src_file, "@repo/unspecified/a/file.txt")?;
-        assert!(matches!(obs, FilePath::Remote(_)));
+        assert!(
+            matches!(obs, FilePath::GitHub(ref gh) if gh.repo_id() == "repo/unspecified" && gh.git_ref() == "main" && gh.path() == "/a/file.txt")
+        );
         assert_eq!(
             obs.to_string(),
             "https://raw.githubusercontent.com/repo/unspecified/main/a/file.txt"
@@ -569,14 +701,18 @@ mod unit_tests {
         // specified.
         files.add_repo("@repos/branch", "develop")?;
         let obs = files.join(&src_file, "@repos/branch/a/file.txt")?;
-        assert!(matches!(obs, FilePath::Remote(_)));
+        assert!(
+            matches!(obs, FilePath::GitHub(ref gh) if gh.repo_id() == "repos/branch" && gh.git_ref() == "develop" && gh.path() == "/a/file.txt")
+        );
         assert_eq!(
             obs.to_string(),
             "https://raw.githubusercontent.com/repos/branch/develop/a/file.txt"
         );
 
         let obs = files.file_path("@repos/branch/b/file.txt")?;
-        assert!(matches!(obs, FilePath::Remote(_)));
+        assert!(
+            matches!(obs, FilePath::GitHub(ref gh) if gh.repo_id() == "repos/branch" && gh.git_ref() == "develop" && gh.path() == "/b/file.txt")
+        );
         assert_eq!(
             obs.to_string(),
             "https://raw.githubusercontent.com/repos/branch/develop/b/file.txt"
@@ -725,6 +861,51 @@ mod unit_tests {
         drop(files);
 
         assert!(!cache_dir.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_github_repo_file_path() -> Result<()> {
+        let gh = GitHubRepoFilePath::new("owner/repo-name", "ref").join("a/file.txt")?;
+        assert_eq!(
+            gh.contents_api_url()?.to_string(),
+            "https://api.github.com/repos/owner/repo-name/contents/a/file.txt?ref=ref",
+        );
+        assert_eq!(
+            gh.default_download_url()?.to_string(),
+            "https://raw.githubusercontent.com/owner/repo-name/ref/a/file.txt"
+        );
+
+        let gh = gh.join("/b/file.txt")?;
+        assert_eq!(
+            gh.contents_api_url()?.to_string(),
+            "https://api.github.com/repos/owner/repo-name/contents/b/file.txt?ref=ref",
+        );
+        assert_eq!(
+            gh.default_download_url()?.to_string(),
+            "https://raw.githubusercontent.com/owner/repo-name/ref/b/file.txt"
+        );
+
+        let gh = gh.join("/c/")?.join("file.txt")?;
+        assert_eq!(
+            gh.contents_api_url()?.to_string(),
+            "https://api.github.com/repos/owner/repo-name/contents/c/file.txt?ref=ref",
+        );
+        assert_eq!(
+            gh.default_download_url()?.to_string(),
+            "https://raw.githubusercontent.com/owner/repo-name/ref/c/file.txt"
+        );
+
+        let gh = gh.join("d/")?.join("file.txt")?;
+        assert_eq!(
+            gh.contents_api_url()?.to_string(),
+            "https://api.github.com/repos/owner/repo-name/contents/c/d/file.txt?ref=ref",
+        );
+        assert_eq!(
+            gh.default_download_url()?.to_string(),
+            "https://raw.githubusercontent.com/owner/repo-name/ref/c/d/file.txt"
+        );
+
         Ok(())
     }
 }
