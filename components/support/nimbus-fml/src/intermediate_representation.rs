@@ -174,6 +174,7 @@ impl TryFrom<&FilePath> for ModuleId {
                 ModuleId::Local(p.display().to_string())
             }
             FilePath::Remote(u) => ModuleId::Remote(u.to_string()),
+            FilePath::GitHub(p) => ModuleId::Remote(p.default_download_url_as_str()),
         })
     }
 }
