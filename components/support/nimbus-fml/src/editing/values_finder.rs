@@ -27,7 +27,7 @@ impl<'a> ValuesFinder<'a> {
         }
     }
 
-    pub(crate) fn all(&self, type_ref: &TypeRef) -> BTreeSet<String> {
+    pub(crate) fn all_specific_strings(&self, type_ref: &TypeRef) -> BTreeSet<String> {
         match type_ref {
             TypeRef::StringAlias(_) => self.get_string_alias_values(type_ref),
             TypeRef::Enum(type_name) => self.get_enum_values(type_name),

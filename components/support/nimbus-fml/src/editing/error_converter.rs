@@ -2,9 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[cfg(feature = "client-lib")]
-use super::FmlEditorError;
 use super::{values_finder::ValuesFinder, ErrorKind, FeatureValidationError};
+#[cfg(feature = "client-lib")]
+use super::{CorrectionCandidate, FmlEditorError};
 use crate::{
     error::FMLError,
     intermediate_representation::{EnumDef, FeatureDef, ObjectDef},
@@ -51,17 +51,29 @@ impl<'a> ErrorConverter<'a> {
     ) -> Vec<FmlEditorError> {
         let mut editor_errors: Vec<_> = Default::default();
         let values = ValuesFinder::new(self.enum_defs, feature_def, feature_value);
-        for e in errors {
-            let message = self.long_message(&values, e);
-            let highlight = e.path.last_token().map(str::to_string);
-            let position = e.path.line_col(src);
+        for error in errors {
+            // While experimenter is not known to be using the corrections, we should continue to use
+            // the long message which includes the did_you_mean and corrections.
+            let message = self.long_message(&values, error);
+            // After experimenter is using the corrections, we can switch to
+            // let message = self.message(error);
+
+            let highlight = error.path.last_token().map(String::from);
+            let error_span = error.path.error_span(src);
+
+            let corrections = self.correction_candidates(&values, src, error);
+
             let error = FmlEditorError {
                 message,
+
                 highlight,
+                corrections,
 
                 // deprecated, can be removed once it's removed in experimenter.
-                line: position.line,
-                col: position.col,
+                line: error_span.from.line,
+                col: error_span.from.col,
+
+                error_span,
             };
             editor_errors.push(error);
         }
@@ -76,7 +88,7 @@ impl<'a> ErrorConverter<'a> {
 impl ErrorConverter<'_> {
     fn long_message(&self, values: &ValuesFinder, error: &FeatureValidationError) -> String {
         let message = self.message(error);
-        let mut suggestions = self.suggested_replacements(error, values);
+        let mut suggestions = self.string_replacements(error, values);
         let dym = did_you_mean(&mut suggestions);
         format!("{message}{dym}")
     }
@@ -86,7 +98,23 @@ impl ErrorConverter<'_> {
         error.kind.message(token)
     }
 
-    fn suggested_replacements(
+    #[allow(dead_code)]
+    #[cfg(feature = "client-lib")]
+    fn correction_candidates(
+        &self,
+        values: &ValuesFinder,
+        _src: &str,
+        error: &FeatureValidationError,
+    ) -> Vec<CorrectionCandidate> {
+        let strings = self.string_replacements(error, values);
+        let mut candidates = Vec::with_capacity(strings.len() + placeholders.len());
+        for s in &strings {
+            candidates.push(CorrectionCandidate::string_replacement(s));
+        }
+        candidates
+    }
+
+    fn string_replacements(
         &self,
         error: &FeatureValidationError,
         values: &ValuesFinder,
@@ -94,7 +122,7 @@ impl ErrorConverter<'_> {
         let complete = match &error.kind {
             ErrorKind::InvalidKey { key_type: t, .. }
             | ErrorKind::InvalidValue { value_type: t, .. }
-            | ErrorKind::TypeMismatch { value_type: t } => values.all(t),
+            | ErrorKind::TypeMismatch { value_type: t } => values.all_specific_strings(t),
             ErrorKind::InvalidPropKey { valid, .. } => valid.to_owned(),
             ErrorKind::InvalidNestedValue { .. } => Default::default(),
         };

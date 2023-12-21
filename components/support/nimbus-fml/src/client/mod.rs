@@ -11,7 +11,7 @@ mod test_helper;
 pub use config::FmlLoaderConfig;
 cfg_if::cfg_if! {
     if #[cfg(feature = "uniffi-bindings")] {
-    use crate::frontend::DocumentationLink;
+    use crate::{editing::{CorrectionCandidate, CursorPosition, CursorSpan}, frontend::DocumentationLink};
     use url::Url;
     use std::str::FromStr;
     use email_address::EmailAddress;
