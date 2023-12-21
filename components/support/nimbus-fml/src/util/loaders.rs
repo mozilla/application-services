@@ -157,7 +157,9 @@ pub struct FileLoader {
     cache_dir: Option<PathBuf>,
     fetch_client: Client,
 
-    config: BTreeMap<String, FilePath>,
+    /// A mapping of repository IDs (without the leading @) to the git refs that
+    /// should be used to download files.
+    repo_refs: BTreeMap<String, FilePath>,
 
     // This is used for resolving relative paths when no other path
     // information is available.
@@ -190,7 +192,7 @@ impl FileLoader {
     pub fn new(
         cwd: PathBuf,
         cache_dir: Option<PathBuf>,
-        config: BTreeMap<String, FilePath>,
+        repo_refs: BTreeMap<String, FilePath>,
     ) -> Result<Self> {
         let http_client = ClientBuilder::new()
             .https_only(true)
@@ -201,8 +203,7 @@ impl FileLoader {
             cache_dir,
             fetch_client: http_client,
             cwd,
-
-            config,
+            repo_refs,
         })
     }
 
@@ -288,7 +289,7 @@ impl FileLoader {
         };
 
         // Finally, add the absolute path that we use every time the user refers to @user/repo.
-        self.config.insert(repo_id.into(), v);
+        self.repo_refs.insert(repo_id.into(), v);
         Ok(())
     }
 
@@ -408,7 +409,7 @@ impl FileLoader {
 
     /// Checks that the given string has a @organization/repo/ prefix.
     /// If it does, then use that as a `repo_id` to look up the `FilePath` prefix
-    /// if it exists in the `config`, and use the `main` branch of the github repo if it
+    /// if it exists in the `repo_refs`, and use the `main` branch of the github repo if it
     /// doesn't exist.
     fn resolve_url_shortcut(&self, f: &str) -> Result<Option<FilePath>> {
         if f.starts_with('@') {
@@ -436,7 +437,7 @@ impl FileLoader {
 
     fn lookup_repo_path(&self, user: &str, repo: &str) -> Option<&FilePath> {
         let key = format!("{}/{}", user, repo);
-        self.config.get(&key)
+        self.repo_refs.get(&key)
     }
 }
 
@@ -613,9 +614,9 @@ mod unit_tests {
 
     fn create_loader() -> Result<FileLoader, FMLError> {
         let cache_dir = PathBuf::from(format!("{}/cache", build_dir()));
-        let config = Default::default();
+        let repo_refs = Default::default();
         let cwd = PathBuf::from(format!("{}/fixtures/", pkg_dir()));
-        let loader = FileLoader::new(cwd, Some(cache_dir), config)?;
+        let loader = FileLoader::new(cwd, Some(cache_dir), repo_refs)?;
         Ok(loader)
     }
 
