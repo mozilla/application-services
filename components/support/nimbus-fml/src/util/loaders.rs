@@ -262,7 +262,7 @@ impl FileLoader {
 
         // Standardize the form of repo id. We accept `@user/repo` or `user/repo`, but store it as
         // `user/repo`.
-        let repo_id = repo_id.replacen('@', "", 1);
+        let repo_id = repo_id.strip_prefix('@').unwrap_or(repo_id);
 
         // The `loc`, whatever the current working directory, is going to end up as a part of a path.
         // A trailing slash ensures it gets treated like a directoy, rather than a file.
@@ -288,7 +288,7 @@ impl FileLoader {
         };
 
         // Finally, add the absolute path that we use every time the user refers to @user/repo.
-        self.config.insert(repo_id, v);
+        self.config.insert(repo_id.into(), v);
         Ok(())
     }
 
