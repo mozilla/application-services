@@ -292,7 +292,7 @@ impl<'a> DefaultsValidator<'a> {
                         });
                     }
 
-                    self.validate_types(&path.enum_map_key(map_key, &enum_def.name), map_type, map_value, errors);
+                    self.validate_types(&path.enum_map_key(&enum_def.name, map_key), map_type, map_value, errors);
                 }
             }
             (TypeRef::EnumMap(_, map_type), Value::Object(map)) // Map<string-alias, T>
