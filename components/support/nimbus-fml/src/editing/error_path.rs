@@ -120,6 +120,14 @@ impl ErrorPath {
         let (line, col) = line_col(src, self.literals.iter().map(|s| s.as_str()));
         crate::editing::CursorPosition::new(line, col)
     }
+
+    /// Gives the span of characters within the given source code where this error
+    /// was detected.
+    ///
+    /// Currently, this is limited to finding the last token and adding the length.
+    pub(crate) fn error_span(&self, src: &str) -> crate::editing::CursorSpan {
+        self.line_col(src) + self.last_token().unwrap_or_default()
+    }
 }
 
 impl ErrorPath {

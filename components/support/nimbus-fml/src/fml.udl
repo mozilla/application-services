@@ -129,11 +129,49 @@ interface FmlFeatureInspector {
 };
 
 dictionary FmlEditorError {
+    // The error to display to the user.
     string message;
-    // zero indexed line number for the error.
+
+    // The span within the text where the error was found.
+    CursorSpan error_span;
+
+    // The error token, the text to highlight.
+    // The text string should coincide within the error_span. If not, then
+    // the error should be considered as out of date.
+    string? highlight;
+
+    // A list of corrections that the user could take.
+    sequence<CorrectionCandidate> corrections;
+
+    // Deprecated: zero indexed line number for the error. Use error_span.from.line instead.
+    u32 line;
+    // Deprecated: zero indexed column number for the error. Use error_span.from.col instead.
+    u32 col;
+};
+
+// The span of an error, or insertion into the editor text.
+dictionary CursorSpan {
+    CursorPosition from;
+    CursorPosition to;
+};
+
+dictionary CursorPosition {
+    // zero indexed line number.
     u32 line;
     // zero indexed column number for the error.
     u32 col;
-    // the text to highlight.
-    string? highlight;
+};
+
+dictionary CorrectionCandidate {
+    // The string that should be inserted into the source
+    string           insert;
+    // The short display name to represent the fix.
+    string?          display_name;
+
+    // Insertion span. If None, then the error's error_span should be used.
+    CursorSpan?        insertion_span;
+
+    // The final position of the cursor after the insertion has taken place.
+    // If None, then should be left to the editor to decide.
+    CursorPosition?   cursor_at;
 };

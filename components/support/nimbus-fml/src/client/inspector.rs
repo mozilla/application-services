@@ -4,7 +4,7 @@
 
 pub use crate::editing::FmlEditorError;
 use crate::{
-    editing::ErrorConverter,
+    editing::{CursorPosition, ErrorConverter},
     error::{ClientError, FMLError, Result},
     intermediate_representation::FeatureManifest,
     FmlClient, JsonObject,
@@ -117,10 +117,12 @@ fn syntax_error(
     message: &str,
     line: usize,
     col: usize,
-    _highlight: &str,
+    highlight: &str,
 ) -> Result<Value, FmlEditorError> {
+    let error_span = CursorPosition::new(line, col) + highlight;
     Err(FmlEditorError {
         message: String::from(message),
+        error_span,
         line: line as u32,
         col: col as u32,
         ..Default::default()
@@ -134,7 +136,7 @@ mod unit_tests {
     use super::*;
 
     impl FmlFeatureInspector {
-        fn get_first_error(&self, string: String) -> Option<FmlEditorError> {
+        pub(crate) fn get_first_error(&self, string: String) -> Option<FmlEditorError> {
             let mut errors = self.get_errors(string)?;
             errors.pop()
         }
@@ -268,7 +270,7 @@ mod unit_tests {
                 "Token {token} not detected in error in {input}"
             );
 
-            let observed = (err.line, err.col);
+            let observed = (err.error_span.from.line, err.error_span.from.col);
             assert_eq!(
                 expected, observed,
                 "Error at {token} in the wrong place in {input}"
@@ -401,6 +403,256 @@ mod unit_tests {
             ],
             "\"invalid\"",
             (7, 17),
+        );
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod correction_candidates {
+    use crate::{
+        client::test_helper::client,
+        editing::{CorrectionCandidate, CursorSpan},
+    };
+
+    use super::*;
+
+    // Makes a correction; this is a simulation of what the editor will do.
+    fn perform_correction(
+        lines: &[&str],
+        position: &CursorSpan,
+        correction: &CorrectionCandidate,
+    ) -> String {
+        let position = correction.insertion_span.as_ref().unwrap_or(position);
+        position.insert_str(lines, &correction.insert)
+    }
+
+    /// Takes an editor input and an inspector.
+    /// The editor input (lines) should have exactly one thing wrong with it.
+    ///
+    /// The correction candidates are tried one by one, and then the lines are
+    /// inspected again.
+    ///
+    /// The function fails if:
+    /// a) there are no errors in the initial text
+    /// b) there are no completions in the first error.
+    /// c) after applying each correction, then there is still an error.
+    ///
+    /// For obvious reasons, this does not handle arbitrary text. Some text will have too
+    /// many errors, some will not have any corrections, and some errors will not be corrected
+    /// by every correction (e.g. the key in a feature or object).
+    fn try_correcting_single_error(inspector: &FmlFeatureInspector, lines: &[&str]) {
+        let input = lines.join("\n");
+        let err = inspector.get_first_error(input.clone());
+        assert_ne!(None, err, "No error found in input: {input}");
+        let err = err.unwrap();
+        assert_ne!(
+            0,
+            err.corrections.len(),
+            "No corrections for {input}: {err:?}"
+        );
+
+        for correction in &err.corrections {
+            let input = perform_correction(lines, &err.error_span, correction);
+            let err = inspector.get_first_error(input.clone());
+            assert_eq!(None, err, "Error found in {input}");
+        }
+    }
+
+    #[test]
+    fn test_correction_candidates_property_keys() -> Result<()> {
+        let fm = client("./browser.yaml", "release")?;
+        let inspector = fm.get_feature_inspector("homescreen".to_string()).unwrap();
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,               // 0
+                r#"  "invalid": {}"#, // 1
+                r#"}"#,               // 2
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_correction_candidates_enum_strings() -> Result<()> {
+        let fm = client("./enums.fml.yaml", "release")?;
+        let inspector = fm
+            .get_feature_inspector("my-coverall-feature".to_string())
+            .unwrap();
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                // 0
+                r#"  "scalar": true"#, // 1
+                r#"}"#,                // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,              // 0
+                r#"  "scalar": 13"#, // 1
+                r#"}"#,              // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,              // 0
+                r#"  "list": [13]"#, // 1
+                r#"}"#,              // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                      // 0
+                r#"  "list": ["top", 13 ]"#, // 1
+                r#"}"#,                      // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                   // 0
+                r#"  "list": [ false ]"#, // 1
+                r#"}"#,                   // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                         // 0
+                r#"  "list": ["top", false ]"#, // 1
+                r#"}"#,                         // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                             // 0
+                r#"  "map": { "invalid": false }"#, // 1
+                r#"}"#,                             // 2
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{"#,                       // 0
+                r#"  "map": { "#,             // 1
+                r#"      "top": false, "#,    // 2
+                r#"      "invalid": false "#, // 3
+                r#"   } "#,                   // 4
+                r#"}"#,                       // 5
+            ],
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_correction_candidates_string_aliases() -> Result<()> {
+        let fm = client("string-aliases.fml.yaml", "storms")?;
+        let inspector = fm
+            .get_feature_inspector("my-coverall-team".to_string())
+            .unwrap();
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{                    "#, // 0
+                r#"  "players": [       "#, // 1
+                r#"       "Shrek",      "#, // 2
+                r#"       "Fiona"       "#, // 3
+                r#"  ],                 "#, // 4
+                r#"  "top-player": true "#, // 5
+                r#"}"#,                     // 6
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{                       "#, // 0
+                r#"  "players": [          "#, // 1
+                r#"       "Shrek",         "#, // 2
+                r#"       "Fiona"          "#, // 3
+                r#"  ],                    "#, // 4
+                r#"  "top-player": "Donkey""#, // 5
+                r#"}"#,                        // 6
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{                    "#, // 0
+                r#"  "players": [       "#, // 1
+                r#"       "Shrek",      "#, // 2
+                r#"       "Fiona"       "#, // 3
+                r#"  ],                 "#, // 4
+                r#"  "availability": {  "#, // 5
+                r#"     "Donkey": true  "#, // 6
+                r#"  }"#,                   // 7
+                r#"}"#,                     // 8
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{                    "#, // 0
+                r#"  "players": [       "#, // 1
+                r#"       "Shrek",      "#, // 2
+                r#"       "Fiona"       "#, // 3
+                r#"  ],                 "#, // 4
+                r#"  "availability": {  "#, // 5
+                r#"     "Shrek":   true,"#, // 6
+                r#"     "Donkey":  true "#, // 7
+                r#"  }"#,                   // 8
+                r#"}"#,                     // 9
+            ],
+        );
+
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890123
+                r#"{                    "#, // 0
+                r#"  "players": [       "#, // 1
+                r#"       "Shrek",      "#, // 2
+                r#"       "Fiona"       "#, // 3
+                r#"  ],                 "#, // 4
+                r#"  "availability": {  "#, // 5
+                r#"     "Fiona":  true, "#, // 6
+                r#"     "invalid": true "#, // 7
+                r#"  }"#,                   // 8
+                r#"}"#,                     // 9
+            ],
         );
 
         Ok(())
