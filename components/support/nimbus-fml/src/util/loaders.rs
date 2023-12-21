@@ -105,14 +105,10 @@ impl FilePath {
 
 impl Display for FilePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Local(p) => p.display().to_string(),
-                Self::Remote(u) => u.to_string(),
-            }
-        )
+        match self {
+            Self::Local(p) => p.display().fmt(f),
+            Self::Remote(u) => u.fmt(f),
+        }
     }
 }
 
