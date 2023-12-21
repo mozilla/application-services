@@ -89,7 +89,7 @@ impl FmlFeatureInspector {
                 // serde_json errors are 1 indexed.
                 line: e.line() as u32 - 1,
                 col: if col == 0 { 0 } else { col - 1 } as u32,
-                highlight: None,
+                ..Default::default()
             });
         }
         let json = json.ok().unwrap();
@@ -98,9 +98,8 @@ impl FmlFeatureInspector {
         } else {
             Err(FmlEditorError {
                 message: "Need valid JSON object".to_string(),
-                line: 0,
-                col: 0,
                 highlight: Some(string.to_string()),
+                ..Default::default()
             })
         }
     }
@@ -157,6 +156,7 @@ mod unit_tests {
             line,
             col,
             highlight: token.map(str::to_string),
+            ..Default::default()
         }
     }
 
