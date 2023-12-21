@@ -54,12 +54,14 @@ impl<'a> ErrorConverter<'a> {
         for e in errors {
             let message = self.long_message(&values, e);
             let highlight = e.path.last_token().map(str::to_string);
-            let (line, col) = e.path.line_col(src);
+            let position = e.path.line_col(src);
             let error = FmlEditorError {
                 message,
-                line: line as u32,
-                col: col as u32,
                 highlight,
+
+                // deprecated, can be removed once it's removed in experimenter.
+                line: position.line,
+                col: position.col,
             };
             editor_errors.push(error);
         }
