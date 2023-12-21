@@ -6,11 +6,6 @@
 
 - Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
 
-## Webext-Storage
-
-### 🦊 What's Changed 🦊
-- Uniffied the webext-storage component in preparation for desktop integration ([#5995](https://github.com/mozilla/application-services/pull/5995)).
-
 [Full Changelog](In progress)
 
 # v122.0 (_2023-12-18_)
