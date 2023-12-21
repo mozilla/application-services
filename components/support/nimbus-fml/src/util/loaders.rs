@@ -276,7 +276,7 @@ impl FileLoader {
 
         // We construct the FilePath. We want to be able to tell the difference between a what `FilePath`s
         // can already reason about (relative file paths, absolute file paths and URLs) and what git knows about (refs, tags, versions).
-        let v = if loc.starts_with('.')
+        let file_path = if loc.starts_with('.')
             || loc.starts_with('/')
             || loc.contains(":\\")
             || loc.contains("://")
@@ -289,7 +289,7 @@ impl FileLoader {
         };
 
         // Finally, add the absolute path that we use every time the user refers to @user/repo.
-        self.repo_refs.insert(repo_id.into(), v);
+        self.repo_refs.insert(repo_id.into(), file_path);
         Ok(())
     }
 
