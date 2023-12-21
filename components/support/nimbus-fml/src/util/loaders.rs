@@ -169,22 +169,22 @@ pub struct FileLoader {
 impl TryFrom<&LoaderConfig> for FileLoader {
     type Error = FMLError;
 
-    fn try_from(value: &LoaderConfig) -> Result<Self, Self::Error> {
-        let cache_dir = value.cache_dir.clone();
-        let cwd = value.cwd.clone();
+    fn try_from(loader_config: &LoaderConfig) -> Result<Self, Self::Error> {
+        let cache_dir = loader_config.cache_dir.clone();
+        let cwd = loader_config.cwd.clone();
 
-        let mut files = Self::new(cwd, cache_dir, Default::default())?;
+        let mut file_loader = Self::new(cwd, cache_dir, Default::default())?;
 
-        for (k, v) in &value.refs {
-            files.add_repo(k, v)?;
+        for (repo_id, git_ref) in &loader_config.refs {
+            file_loader.add_repo(repo_id, git_ref)?;
         }
 
-        for f in &value.repo_files {
-            let path = files.file_path(f)?;
-            files.add_repo_file(&path)?;
+        for f in &loader_config.repo_files {
+            let path = file_loader.file_path(f)?;
+            file_loader.add_repo_file(&path)?;
         }
 
-        Ok(files)
+        Ok(file_loader)
     }
 }
 
