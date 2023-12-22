@@ -98,23 +98,17 @@ impl State {
         account: &mut FirefoxAccount,
         device_config: &DeviceConfig,
     ) -> Result<Event> {
-        let is_ensure_capabilities = matches!(self, State::EnsureDeviceCapabilities);
-        self.make_call_inner(account, device_config).or_else(|e| {
-            // All errors get converted to events, except StateMachineLogicError
-            if matches!(e, Error::StateMachineLogicError(_)) {
-                Err(e)
-            } else {
-                // This call is mostly to report the error, but converting `Error` to `FxaError`
-                // also simplifies the match for authentication errors since multiple `Error`
-                // variants map to `FxaError::Authentication`.
-                let fxa_error = convert_log_report_error(e);
-                if is_ensure_capabilities && matches!(fxa_error, FxaError::Authentication) {
-                    Ok(Event::EnsureCapabilitiesAuthError)
-                } else {
-                    Ok(Event::CallError)
-                }
-            }
-        })
+        let mut error_handling = CallErrorHandler::new(self);
+        loop {
+            return match self.make_call_inner(account, device_config) {
+                Ok(event) => Ok(event),
+                Err(e) => match error_handling.handle_error(e, account) {
+                    CallResult::Retry => continue,
+                    CallResult::Finished(event) => Ok(event),
+                    CallResult::InternalError(err) => Err(err),
+                },
+            };
+        }
     }
 
     fn make_call_inner(
@@ -175,6 +169,85 @@ impl State {
             }
         })
     }
+}
+
+/// Number of times to retry fxa calls in the face of network errors
+const NETWORK_RETRY_LIMIT: usize = 3;
+
+struct CallErrorHandler<'a> {
+    network_retries: usize,
+    auth_retries: usize,
+    state: &'a State,
+}
+
+impl<'a> CallErrorHandler<'a> {
+    fn new(state: &'a State) -> Self {
+        Self {
+            network_retries: 0,
+            auth_retries: 0,
+            state,
+        }
+    }
+
+    fn handle_error(&mut self, e: Error, account: &mut FirefoxAccount) -> CallResult {
+        // If we see a StateMachineLogicError, return it immedately
+        if matches!(e, Error::StateMachineLogicError(_)) {
+            return CallResult::InternalError(e);
+        }
+        // Report the error and convert it to `FxaError` which makes it easier to handle.
+        // For example, multiple `Error` variants map to `FxaError::Authentication`.
+        log::warn!("handling error: {e}");
+        match convert_log_report_error(e) {
+            FxaError::Network => {
+                if self.network_retries < NETWORK_RETRY_LIMIT {
+                    self.network_retries += 1;
+                    CallResult::Retry
+                } else {
+                    CallResult::Finished(Event::CallError)
+                }
+            }
+            FxaError::Authentication => {
+                if self.auth_retries < 1 && !matches!(self.state, State::CheckAuthorizationStatus) {
+                    // Operations can fail with authentication errors when we have stale access
+                    // token in our cache.  To try to recover from this we should:
+                    //
+                    //   - Clear the access token
+                    //   - Call `check_authorization_status`.  If successful we can retry the operation.
+                    account.clear_access_token_cache();
+                    match account.check_authorization_status() {
+                        Ok(status) if status.active => {
+                            self.auth_retries += 1;
+                            CallResult::Retry
+                        }
+                        _ => CallResult::Finished(self.event_for_auth_error()),
+                    }
+                } else {
+                    CallResult::Finished(self.event_for_auth_error())
+                }
+            }
+            _ => CallResult::Finished(Event::CallError),
+        }
+    }
+
+    fn event_for_auth_error(&self) -> Event {
+        if matches!(self.state, State::EnsureDeviceCapabilities) {
+            Event::EnsureCapabilitiesAuthError
+        } else {
+            Event::CallError
+        }
+    }
+}
+
+/// The result of a single call to the FxA client
+enum CallResult {
+    /// The call finished, either successfully or unsuccessfully, and we have a new [Event] to
+    /// process.
+    Finished(Event),
+    /// We should to retry the call after an auth/network error.
+    Retry,
+    /// There was an internal error when trying to make the call and we should bail on the internal
+    /// state transition.
+    InternalError(Error),
 }
 
 fn invalid_transition(state: State, event: Event) -> Result<State> {
