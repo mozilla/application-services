@@ -19,6 +19,7 @@ use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::{Duration, UNIX_EPOCH};
 use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, ServerTimestamp};
@@ -91,8 +92,8 @@ impl LoginsSyncEngine {
                     telem.applied(1);
                 }
                 (None, Some(local)) => {
-                    log::debug!("  Conflicting record without shared parent, using newer");
-                    plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
+                    log::debug!("  Conflicting record without shared parent,  Resolving with 2WM");
+                    plan.plan_two_way_merge(local, (upstream, upstream_time));
                     telem.reconciled(1);
                 }
                 (None, None) => {
@@ -102,7 +103,13 @@ impl LoginsSyncEngine {
                             upstream.guid(),
                             dupe.guid()
                         );
-                        plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
+                        let local_modified = UNIX_EPOCH
+                            + Duration::from_millis(dupe.record.time_password_changed as u64);
+                        let local = LocalLogin::Alive {
+                            login: dupe,
+                            local_modified,
+                        };
+                        plan.plan_two_way_merge(local, (upstream, upstream_time));
                     } else {
                         log::debug!("  No dupe found, inserting into mirror");
                         plan.plan_mirror_insert(upstream, upstream_time, false);
@@ -509,10 +516,9 @@ mod tests {
 
     // Wrap sync functions for easier testing
     fn run_fetch_login_data(
-        store: LoginStore,
+        engine: &mut LoginsSyncEngine,
         records: Vec<IncomingBso>,
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
             .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
             .unwrap();
@@ -541,8 +547,10 @@ mod tests {
             Some("password"),
         );
 
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+
         let (res, _) = run_fetch_login_data(
-            store,
+            &mut engine,
             vec![
                 IncomingBso::new_test_tombstone(Guid::new("deleted_remotely")),
                 enc_login("added_remotely", "password")
@@ -572,12 +580,11 @@ mod tests {
                 let mut guids_seen = HashSet::new();
                 let passwords = SyncPasswords {
                     local: sync_login_data.local.map(|local_login| {
-                        guids_seen.insert(local_login.login.record.id.clone());
-                        local_login
-                            .login
-                            .decrypt_fields(&TEST_ENCRYPTOR)
-                            .unwrap()
-                            .password
+                        guids_seen.insert(local_login.guid_str().to_string());
+                        let LocalLogin::Alive { login, .. } = local_login else {
+                            unreachable!("this test is not expecting a tombstone");
+                        };
+                        login.decrypt_fields(&TEST_ENCRYPTOR).unwrap().password
                     }),
                     mirror: sync_login_data.mirror.map(|mirror_login| {
                         guids_seen.insert(mirror_login.login.record.id.clone());
@@ -670,11 +677,16 @@ mod tests {
     #[test]
     fn test_bad_record() {
         let store = LoginStore::new_in_memory().unwrap();
-        for id in ["dummy_000001", "dummy_000002", "dummy_000003"] {
+        let test_ids = ["dummy_000001", "dummy_000002", "dummy_000003"];
+        for id in test_ids {
             insert_login(&store.db.lock(), id, Some("password"), Some("password"));
         }
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+        engine
+            .mark_as_synchronized(&test_ids, ServerTimestamp::from_millis(100))
+            .unwrap();
         let (res, telem) = run_fetch_login_data(
-            store,
+            &mut engine,
             vec![
                 IncomingBso::new_test_tombstone(Guid::new("dummy_000001")),
                 // invalid
@@ -697,6 +709,7 @@ mod tests {
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].guid, "dummy_000001");
         assert_eq!(res[1].guid, "dummy_000003");
+        assert_eq!(engine.fetch_outgoing().unwrap().len(), 0);
     }
 
     fn make_enc_login(
@@ -943,5 +956,113 @@ mod tests {
                 .unwrap(),
             "else"
         );
+    }
+
+    fn count(engine: &LoginsSyncEngine, table_name: &str) -> u32 {
+        let sql = format!("SELECT COUNT(*) FROM {table_name}");
+        engine
+            .store
+            .db
+            .lock()
+            .try_query_one(&sql, [], false)
+            .unwrap()
+            .unwrap()
+    }
+
+    fn do_test_incoming_with_local_unmirrored_tombstone(local_newer: bool) {
+        fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
+            let bso = IncomingBso::from_test_content(payload);
+            let mut telem = sync15::telemetry::Engine::new(engine.collection_name());
+            engine.stage_incoming(vec![bso], &mut telem).unwrap();
+            engine
+                .apply(ServerTimestamp::from_millis(0), &mut telem)
+                .unwrap();
+        }
+
+        // The test itself...
+        let (local_timestamp, remote_timestamp) = if local_newer { (123, 0) } else { (0, 123) };
+
+        let store = LoginStore::new_in_memory().unwrap();
+        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+        engine
+            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .unwrap();
+
+        // apply an incoming record - will be in the mirror.
+        apply_incoming_payload(
+            &engine,
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+                "timePasswordChanged": local_timestamp,
+                "unknown1": "?",
+                "unknown2": {"sub": "object"},
+            }),
+        );
+
+        // Reset the engine - this wipes the mirror.
+        engine.reset(&EngineSyncAssociation::Disconnected).unwrap();
+        // But the local record does still exist.
+        assert!(engine
+            .store
+            .get("dummy_000001")
+            .expect("should work")
+            .is_some());
+
+        // Delete the local record.
+        engine.store.delete("dummy_000001").unwrap();
+        assert!(engine
+            .store
+            .get("dummy_000001")
+            .expect("should work")
+            .is_none());
+
+        // double-check our test preconditions - should now have 1 in LoginsL and 0 in LoginsM
+        assert_eq!(count(&engine, "LoginsL"), 1);
+        assert_eq!(count(&engine, "LoginsM"), 0);
+
+        // Now we assume we've been reconnected to sync and have an incoming change for the record.
+        apply_incoming_payload(
+            &engine,
+            serde_json::json!({
+                "id": "dummy_000001",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test2",
+                "timePasswordChanged": remote_timestamp,
+                "unknown1": "?",
+                "unknown2": {"sub": "object"},
+            }),
+        );
+
+        // Desktop semantics here are that a local tombstone is treated as though it doesn't exist at all.
+        // ie, the remote record should be taken whether it is newer or older than the tombstone.
+        assert!(engine
+            .store
+            .get("dummy_000001")
+            .expect("should work")
+            .is_some());
+        // and there should never be an outgoing record.
+        // XXX - but there is! But this is exceedingly rare, we
+        // should fix it :)
+        // assert_eq!(engine.fetch_outgoing().unwrap().len(), 0);
+
+        // should now be no records in loginsL and 1 in loginsM
+        assert_eq!(count(&engine, "LoginsL"), 0);
+        assert_eq!(count(&engine, "LoginsM"), 1);
+    }
+
+    #[test]
+    fn test_incoming_non_mirror_tombstone_local_newer() {
+        do_test_incoming_with_local_unmirrored_tombstone(true);
+    }
+
+    #[test]
+    fn test_incoming_non_mirror_tombstone_local_older() {
+        do_test_incoming_with_local_unmirrored_tombstone(false);
     }
 }

@@ -1223,11 +1223,11 @@ mod tests {
             .query_row(
                 "SELECT * FROM loginsL WHERE guid = :guid",
                 named_params! { ":guid": login.guid_str() },
-                |row| Ok(LocalLogin::from_row(row).unwrap()),
+                |row| Ok(LocalLogin::test_raw_from_row(row).unwrap()),
             )
             .unwrap();
-        assert_eq!(local_login.login.fields.http_realm, None);
-        assert_eq!(local_login.login.fields.form_action_origin, None);
+        assert_eq!(local_login.fields.http_realm, None);
+        assert_eq!(local_login.fields.form_action_origin, None);
 
         assert!(!db.exists(login.guid_str()).unwrap());
     }
