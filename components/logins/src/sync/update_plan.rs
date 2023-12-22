@@ -6,7 +6,6 @@ use super::merge::{LocalLogin, MirrorLogin};
 use super::{IncomingLogin, SyncStatus};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::EncryptedLogin;
 use crate::util;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::{named_params, Connection};
@@ -27,15 +26,24 @@ pub(super) struct UpdatePlan {
 impl UpdatePlan {
     pub fn plan_two_way_merge(
         &mut self,
-        local: &EncryptedLogin,
+        local: LocalLogin,
         upstream: (IncomingLogin, ServerTimestamp),
     ) {
-        let is_override =
-            local.record.time_password_changed > upstream.0.login.record.time_password_changed;
-        self.mirror_inserts
-            .push((upstream.0, upstream.1.as_millis(), is_override));
-        if !is_override {
-            self.delete_local.push(local.guid());
+        match &local {
+            LocalLogin::Tombstone { .. } => {
+                log::debug!("  ignoring local tombstone, inserting into mirror");
+                self.delete_local.push(upstream.0.guid());
+                self.plan_mirror_insert(upstream.0, upstream.1, false);
+            }
+            LocalLogin::Alive { login, .. } => {
+                log::debug!("  Conflicting record without shared parent, using newer");
+                let is_override = login.record.time_password_changed
+                    > upstream.0.login.record.time_password_changed;
+                self.plan_mirror_insert(upstream.0, upstream.1, is_override);
+                if !is_override {
+                    self.delete_local.push(login.guid());
+                }
+            }
         }
     }
 
@@ -49,26 +57,30 @@ impl UpdatePlan {
         encdec: &EncryptorDecryptor,
     ) -> Result<()> {
         let local_age = SystemTime::now()
-            .duration_since(local.local_modified)
+            .duration_since(local.local_modified())
             .unwrap_or_default();
         let remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
 
         let delta = {
             let upstream_delta = upstream.login.delta(&shared.login, encdec)?;
-            if local.is_tombstone() {
-                // If the login was deleted locally, the merged delta is the
-                // upstream delta. We do this because a user simultanously deleting their
-                // login and updating it has two possible outcomes:
-                //   - A login that was intended to be deleted remains because another update was
-                //   there
-                //   - A login that was intended to be updated got deleted
-                //
-                //   The second case is arguably worse, where a user could lose their login
-                //   indefinitely
-                upstream_delta
-            } else {
-                let local_delta = local.login.delta(&shared.login, encdec)?;
-                local_delta.merge(upstream_delta, remote_age < local_age)
+            match local {
+                LocalLogin::Tombstone { .. } => {
+                    // If the login was deleted locally, the merged delta is the
+                    // upstream delta. We do this because a user simultanously deleting their
+                    // login and updating it has two possible outcomes:
+                    //   - A login that was intended to be deleted remains because another update was
+                    //   there
+                    //   - A login that was intended to be updated got deleted
+                    //
+                    //   The second case is arguably worse, where a user could lose their login
+                    //   indefinitely
+                    // So, just like desktop, this acts as though the local login doesn't exist at all.
+                    upstream_delta
+                }
+                LocalLogin::Alive { login, .. } => {
+                    let local_delta = login.delta(&shared.login, encdec)?;
+                    local_delta.merge(upstream_delta, remote_age < local_age)
+                }
             }
         };
 
@@ -429,10 +441,11 @@ mod tests {
         // Server's record timestamp is now - 1 second, so the server age is: 1
         // And since the local age is 100, then the server should win.
         let server_record_timestamp = now.checked_sub(Duration::from_secs(1)).unwrap();
-        let local_login = LocalLogin {
-            login,
+        let local_login = LocalLogin::Alive {
+            login: login.clone(),
             local_modified,
         };
+
         let mirror_login = MirrorLogin {
             login: mirror_login,
             server_modified: mirror_timestamp.try_into().unwrap(),
@@ -441,7 +454,7 @@ mod tests {
         // Lets make sure our local login is in the database, so that it can be updated later
         insert_encrypted_login(
             &db,
-            &local_login.login,
+            &login,
             &mirror_login.login,
             &mirror_login.server_modified,
         );
@@ -494,8 +507,8 @@ mod tests {
         // Server's record timestamp is now - 500 second, so the server age is: 500
         // And since the local age is 1, the local record should win!
         let server_record_timestamp = now.checked_sub(Duration::from_secs(500)).unwrap();
-        let local_login = LocalLogin {
-            login,
+        let local_login = LocalLogin::Alive {
+            login: login.clone(),
             local_modified,
         };
         let mirror_login = MirrorLogin {
@@ -506,7 +519,7 @@ mod tests {
         // Lets make sure our local login is in the database, so that it can be updated later
         insert_encrypted_login(
             &db,
-            &local_login.login,
+            &login,
             &mirror_login.login,
             &mirror_login.server_modified,
         );
@@ -577,11 +590,8 @@ mod tests {
         db.delete("login").unwrap();
 
         // Then, lets set our tombstone
-        let local_login = LocalLogin {
-            login: EncryptedLogin {
-                sec_fields: "".to_string(),
-                ..login
-            },
+        let local_login = LocalLogin::Tombstone {
+            id: login.record.id.clone(),
             local_modified,
         };
 
@@ -608,5 +618,26 @@ mod tests {
         // then the upstream modification, the upstream modification wins because
         // modifications always beat tombstones
         check_local_login(&db, "login", "old upstream password", 0);
+    }
+
+    #[test]
+    fn test_plan_two_way_merge_local_tombstone_loses() {
+        let mut update_plan = UpdatePlan::default();
+        // Ensure the local tombstone is newer than the incoming - it still loses.
+        let local = LocalLogin::Tombstone {
+            id: "login-id".to_string(),
+            local_modified: SystemTime::now(),
+        };
+        let incoming = IncomingLogin {
+            login: enc_login("login-id", "new local password"),
+            unknown: None,
+        };
+
+        update_plan.plan_two_way_merge(local, (incoming, ServerTimestamp::from_millis(1234)));
+
+        // Plan should be to apply the incoming.
+        assert_eq!(update_plan.mirror_inserts.len(), 1);
+        assert_eq!(update_plan.delete_local.len(), 1);
+        assert_eq!(update_plan.delete_mirror.len(), 0);
     }
 }

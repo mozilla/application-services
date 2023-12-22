@@ -9,7 +9,7 @@ use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::Row;
-use std::time::{self, SystemTime};
+use std::time::SystemTime;
 use sync15::bso::{IncomingBso, IncomingKind};
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
@@ -33,29 +33,56 @@ impl MirrorLogin {
         })
     }
 }
-
 #[derive(Clone, Debug)]
-pub(crate) struct LocalLogin {
-    pub login: EncryptedLogin,
-    pub local_modified: SystemTime,
+pub(crate) enum LocalLogin {
+    Tombstone {
+        id: String,
+        local_modified: SystemTime,
+    },
+    Alive {
+        login: EncryptedLogin,
+        local_modified: SystemTime,
+    },
 }
 
 impl LocalLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.login.guid_str()
+        match &self {
+            LocalLogin::Tombstone { id, .. } => id.as_str(),
+            LocalLogin::Alive { login, .. } => login.guid_str(),
+        }
+    }
+
+    pub fn local_modified(&self) -> SystemTime {
+        match &self {
+            LocalLogin::Tombstone { local_modified, .. }
+            | LocalLogin::Alive { local_modified, .. } => *local_modified,
+        }
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
-        Ok(LocalLogin {
-            login: EncryptedLogin::from_row(row)?,
-            local_modified: util::system_time_millis_from_row(row, "local_modified")?,
+        let local_modified = util::system_time_millis_from_row(row, "local_modified")?;
+        Ok(if row.get("is_deleted")? {
+            let id = row.get("guid")?;
+            LocalLogin::Tombstone { id, local_modified }
+        } else {
+            let login = EncryptedLogin::from_row(row)?;
+            if login.sec_fields.is_empty() {
+                error_support::report_error!("logins-crypto", "empty ciphertext in the db",);
+            }
+            LocalLogin::Alive {
+                login,
+                local_modified,
+            }
         })
     }
 
-    pub fn is_tombstone(&self) -> bool {
-        // For all sync purposes, if the secure fields are not present, this is a tombstone
-        self.login.sec_fields.is_empty()
+    // Only used by tests where we want to get the "raw" record - ie, a tombstone will still
+    // be returned here, just with many otherwise invalid empty fields
+    #[cfg(test)]
+    pub(crate) fn test_raw_from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
+        EncryptedLogin::from_row(row)
     }
 }
 
@@ -90,10 +117,6 @@ macro_rules! impl_login {
         }
     };
 }
-
-impl_login!(LocalLogin {
-    local_modified: time::UNIX_EPOCH
-});
 
 impl_login!(MirrorLogin {
     server_modified: ServerTimestamp(0)

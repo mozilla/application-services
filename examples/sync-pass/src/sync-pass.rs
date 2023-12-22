@@ -409,8 +409,6 @@ fn main() -> Result<()> {
     log::debug!("db: {:?}", db_path);
     // Lets not log the encryption key, it's just not a good habit to be in.
 
-    // TODO: allow users to use stage/etc.
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
     let (store, encdec, encryption_key) = open_database(db_path)?;
     let store = Arc::new(store);
 
@@ -481,6 +479,8 @@ fn main() -> Result<()> {
                 let sync_key = URL_SAFE_NO_PAD.encode(
                     token_info.key.unwrap().key_bytes()?,
                 );
+                // TODO: allow users to use stage/etc.
+                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
                 match do_sync(
                     Arc::clone(&store),
                     cli_fxa.client_init.key_id.clone(),
