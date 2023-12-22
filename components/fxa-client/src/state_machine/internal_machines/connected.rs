@@ -17,6 +17,7 @@ impl InternalStateMachine for ConnectedStateMachine {
         match event {
             FxaEvent::Disconnect => Ok(Disconnect),
             FxaEvent::CheckAuthorizationStatus => Ok(CheckAuthorizationStatus),
+            FxaEvent::CallGetProfile => Ok(GetProfile),
             e => Err(Error::InvalidStateTransition(format!("Connected -> {e}"))),
         }
     }
@@ -37,6 +38,8 @@ impl InternalStateMachine for ConnectedStateMachine {
                     Complete(FxaState::AuthIssues)
                 }
             }
+            (GetProfile, GetProfileSuccess) => Complete(FxaState::Connected),
+            (GetProfile, CallError) => Complete(FxaState::AuthIssues),
             (CheckAuthorizationStatus, CallError) => Complete(FxaState::AuthIssues),
             (state, event) => return invalid_transition(state, event),
         })

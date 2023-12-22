@@ -537,6 +537,21 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
         }
     }
 
+    /**
+     * Used by the application to test auth token issues
+     */
+    fun simulateNetworkError() = this.inner.simulateNetworkError()
+
+    /**
+     * Used by the application to test auth token issues
+     */
+    fun simulateTemporaryAuthTokenIssue() = this.inner.simulateTemporaryAuthTokenIssue()
+
+    /**
+     * Used by the application to test auth token issues
+     */
+    fun simulatePermanentAuthTokenIssue() = this.inner.simulatePermanentAuthTokenIssue()
+
     @Synchronized
     override fun close() {
         this.inner.destroy()

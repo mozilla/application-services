@@ -55,6 +55,7 @@ pub enum State {
     EnsureDeviceCapabilities,
     CheckAuthorizationStatus,
     Disconnect,
+    GetProfile,
     /// Complete the current [FxaState] transition by transitioning to a new state
     Complete(FxaState),
     /// Complete the current [FxaState] transition by remaining at the current state
@@ -83,6 +84,7 @@ pub enum Event {
         active: bool,
     },
     DisconnectSuccess,
+    GetProfileSuccess,
     CallError,
     /// Auth error for the `ensure_capabilities` call that we do on startup.
     /// This should likely go away when we do https://bugzilla.mozilla.org/show_bug.cgi?id=1868418
@@ -161,6 +163,10 @@ impl State {
             State::Disconnect => {
                 account.disconnect();
                 Event::DisconnectSuccess
+            }
+            State::GetProfile => {
+                account.get_profile(true)?;
+                Event::GetProfileSuccess
             }
             state => {
                 return Err(Error::StateMachineLogicError(format!(

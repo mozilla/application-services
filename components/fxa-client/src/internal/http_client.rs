@@ -21,6 +21,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::HashMap,
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 use sync15::DeviceType;
@@ -144,6 +145,7 @@ pub(crate) trait FxAClient {
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse>;
     fn get_openid_configuration(&self, config: &Config) -> Result<OpenIdConfigurationResponse>;
+    fn simulate_network_error(&self) {}
 }
 
 enum HttpClientState {
@@ -156,6 +158,7 @@ enum HttpClientState {
 
 pub struct Client {
     state: Mutex<HashMap<String, HttpClientState>>,
+    simulate_network_error: AtomicBool,
 }
 impl FxAClient for Client {
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse> {
@@ -435,6 +438,10 @@ impl FxAClient for Client {
             .build()?;
         self.make_request(request)?.json().map_err(|e| e.into())
     }
+
+    fn simulate_network_error(&self) {
+        self.simulate_network_error.store(true, Ordering::Relaxed);
+    }
 }
 
 macro_rules! fetch {
@@ -459,6 +466,7 @@ impl Client {
     pub fn new() -> Self {
         Self {
             state: Mutex::new(HashMap::new()),
+            simulate_network_error: AtomicBool::new(false),
         }
     }
 
@@ -506,6 +514,12 @@ impl Client {
     }
 
     fn make_request(&self, request: Request) -> Result<Response> {
+        if self.simulate_network_error.swap(false, Ordering::Relaxed) {
+            return Err(Error::RequestError(viaduct::Error::NetworkError(
+                "Simulated error".to_owned(),
+            )));
+        }
+
         let url = request.url.path().to_string();
         if let HttpClientState::Backoff {
             backoff_end_duration,

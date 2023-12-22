@@ -249,6 +249,10 @@ impl FirefoxAccount {
         self.telemetry = FxaTelemetry::new();
     }
 
+    pub fn simulate_network_error(&mut self) {
+        self.client.simulate_network_error();
+    }
+
     pub fn simulate_temporary_auth_token_issue(&mut self) {
         self.state.simulate_temporary_auth_token_issue()
     }

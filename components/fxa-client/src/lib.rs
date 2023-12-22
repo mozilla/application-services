@@ -99,6 +99,11 @@ impl FirefoxAccount {
             internal: Mutex::new(internal::FirefoxAccount::new(config)),
         }
     }
+
+    /// Used by the application to test auth token issues
+    pub fn simulate_network_error(&self) {
+        self.internal.lock().simulate_network_error()
+    }
 }
 
 #[derive(Clone, Debug)]

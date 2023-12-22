@@ -285,4 +285,9 @@ pub enum FxaEvent {
     /// Send this when the user is asking to be logged out.  The state machine will transition to
     /// [FxaState::Disconnected].
     Disconnect,
+    /// Force a call to [FirefoxAccount::get_profile]
+    ///
+    /// This is used for testing the auth/network retry code, since it hits the network and
+    /// requires and auth token.
+    CallGetProfile,
 }

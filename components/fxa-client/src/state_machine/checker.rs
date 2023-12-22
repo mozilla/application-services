@@ -36,6 +36,7 @@ pub enum FxaStateCheckerState {
     InitializeDevice,
     EnsureDeviceCapabilities,
     CheckAuthorizationStatus,
+    GetProfile,
     Disconnect,
     Complete {
         new_state: FxaState,
@@ -219,6 +220,7 @@ impl From<InternalState> for FxaStateCheckerState {
             InternalState::EnsureDeviceCapabilities => Self::EnsureDeviceCapabilities,
             InternalState::CheckAuthorizationStatus => Self::CheckAuthorizationStatus,
             InternalState::Disconnect => Self::Disconnect,
+            InternalState::GetProfile => Self::GetProfile,
             InternalState::Complete(new_state) => Self::Complete { new_state },
             InternalState::Cancel => Self::Cancel,
         }
@@ -248,6 +250,7 @@ impl From<FxaStateCheckerState> for InternalState {
             FxaStateCheckerState::EnsureDeviceCapabilities => Self::EnsureDeviceCapabilities,
             FxaStateCheckerState::CheckAuthorizationStatus => Self::CheckAuthorizationStatus,
             FxaStateCheckerState::Disconnect => Self::Disconnect,
+            FxaStateCheckerState::GetProfile => Self::GetProfile,
             FxaStateCheckerState::Complete { new_state } => Self::Complete(new_state),
             FxaStateCheckerState::Cancel => Self::Cancel,
         }
