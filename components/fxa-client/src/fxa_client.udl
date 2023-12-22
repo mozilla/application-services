@@ -685,6 +685,9 @@ interface FirefoxAccount {
   string gather_telemetry();
 
   // Used by the application to test auth token issues
+  void simulate_network_error();
+
+  // Used by the application to test auth token issues
   void simulate_temporary_auth_token_issue();
 
   // Used by the application to test auth token issues
@@ -956,6 +959,7 @@ interface FxaEvent {
   CancelOAuthFlow();
   CheckAuthorizationStatus();
   Disconnect();
+  CallGetProfile();
 };
 
 enum FxaRustAuthState {
@@ -1075,6 +1079,7 @@ interface FxaStateCheckerEvent {
   EnsureDeviceCapabilitiesSuccess();
   CheckAuthorizationStatusSuccess(boolean active);
   DisconnectSuccess();
+  GetProfileSuccess();
   CallError();
   EnsureCapabilitiesAuthError();
 };
@@ -1089,6 +1094,7 @@ interface FxaStateCheckerState {
   EnsureDeviceCapabilities();
   CheckAuthorizationStatus();
   Disconnect();
+  GetProfile();
   Complete(FxaState new_state);
   Cancel();
 };

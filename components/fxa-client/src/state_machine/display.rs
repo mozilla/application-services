@@ -33,6 +33,7 @@ impl fmt::Display for FxaEvent {
             Self::CancelOAuthFlow => "CancelOAuthFlow",
             Self::CheckAuthorizationStatus => "CheckAuthorizationStatus",
             Self::Disconnect => "Disconnect",
+            Self::CallGetProfile => "CallGetProfile",
         };
         write!(f, "{name}")
     }
@@ -49,6 +50,7 @@ impl fmt::Display for internal_machines::State {
             Self::EnsureDeviceCapabilities => "EnsureDeviceCapabilities",
             Self::CheckAuthorizationStatus => "CheckAuthorizationStatus",
             Self::Disconnect => "Disconnect",
+            Self::GetProfile => "GetProfile",
             Self::Complete(_) => "Complete",
             Self::Cancel => "Cancel",
         };
@@ -67,6 +69,7 @@ impl fmt::Display for internal_machines::Event {
             Self::EnsureDeviceCapabilitiesSuccess => "EnsureDeviceCapabilitiesSuccess",
             Self::CheckAuthorizationStatusSuccess { .. } => "CheckAuthorizationStatusSuccess",
             Self::DisconnectSuccess => "DisconnectSuccess",
+            Self::GetProfileSuccess => "GetProfileSuccess",
             Self::CallError => "CallError",
             Self::EnsureCapabilitiesAuthError => "EnsureCapabilitiesAuthError",
         };
