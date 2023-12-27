@@ -368,7 +368,10 @@ impl FxAClient for Client {
     fn get_devices(&self, config: &Config, refresh_token: &str) -> Result<Vec<GetDeviceResponse>> {
         let url = config.auth_url_path("v1/account/devices")?;
         let timestamp = util::past_timestamp(DEVICES_FILTER_DAYS).to_string();
-        breadcrumb!("get_devices timestamp: {timestamp}");
+        breadcrumb!(
+            "get_devices timestamp: {timestamp}, refresh_token.len(): {}",
+            refresh_token.len()
+        );
         let request = Request::get(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .query(&[("filterIdleDevicesTimestamp", &timestamp)]);
