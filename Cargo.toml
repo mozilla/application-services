@@ -120,8 +120,8 @@ default-members = [
 ]
 
 [workspace.dependencies]
-rusqlite = "0.29.0"
-libsqlite3-sys = "0.26.0"
+rusqlite = "0.30.0"
+libsqlite3-sys = "0.27.0"
 uniffi = "0.25.2"
 
 [profile.release]
