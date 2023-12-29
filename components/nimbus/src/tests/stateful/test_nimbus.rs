@@ -1105,7 +1105,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         .collect_all(&db.write()?)?;
     assert_eq!(enrollments.len(), 5);
     assert!(matches!(
-        enrollments.get(0).unwrap(),
+        enrollments.first().unwrap(),
         ExperimentEnrollment {
             slug: _slug_1,
             status: EnrollmentStatus::WasEnrolled { .. }

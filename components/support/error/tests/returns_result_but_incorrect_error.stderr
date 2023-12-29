@@ -9,3 +9,7 @@ error[E0308]: mismatched types
    = note: expected enum `std::result::Result<String, ExternalError>`
               found enum `std::result::Result<_, OtherExternalError>`
    = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use the `?` operator to extract the `std::result::Result<_, OtherExternalError>` value, propagating a `Result::Err` value to the caller
+   |
+50 |  #[handle_error(Error)]?
+   |                        +
