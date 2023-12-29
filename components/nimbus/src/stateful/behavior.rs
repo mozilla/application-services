@@ -356,7 +356,7 @@ impl EventQueryType {
                 self
             )));
         }
-        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let event = serde_json::from_value::<String>(args.first().unwrap().clone())?;
         let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
         let interval = Interval::from_str(&interval)?;
         let num_buckets = match args.get(2).unwrap().as_f64() {
@@ -392,7 +392,7 @@ impl EventQueryType {
                 self
             )));
         }
-        let event = serde_json::from_value::<String>(args.get(0).unwrap().clone())?;
+        let event = serde_json::from_value::<String>(args.first().unwrap().clone())?;
         let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
         let interval = Interval::from_str(&interval)?;
         let zero = &Value::from(0);
