@@ -461,6 +461,184 @@ mod correction_candidates {
     }
 
     #[test]
+    fn test_correction_candidates_placeholders_scalar() -> Result<()> {
+        let fm = client("./browser.yaml", "release")?;
+
+        let inspector = fm
+            .get_feature_inspector("search-term-groups".to_string())
+            .unwrap();
+        // Correcting a Boolean, should correct 1 to true or false
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,              // 0
+                r#"  "enabled": 1"#, // 1
+                r#"}"#,              // 2
+            ],
+        );
+
+        let inspector = fm
+            .get_feature_inspector("nimbus-validation".to_string())
+            .unwrap();
+
+        // Correcting an Text, should correct 1 to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                           // 0
+                r#"  "settings-punctuation": 1"#, // 1
+                r#"}"#,                           // 2
+            ],
+        );
+
+        // Correcting an Image, should correct 1 to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                    // 0
+                r#"  "settings-icon": 1"#, // 1
+                r#"}"#,                    // 2
+            ],
+        );
+
+        // Correcting an Int, should correct "not-valid" to 0
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                          // 0
+                r#"  "string-int-map": { "#,     // 1
+                r#"     "valid": "not-valid" "#, // 2
+                r#"   }"#,                       // 3
+                r#"}"#,                          // 4
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_correction_candidates_replacing_structural() -> Result<()> {
+        let fm = client("./browser.yaml", "release")?;
+        let inspector = fm
+            .get_feature_inspector("nimbus-validation".to_string())
+            .unwrap();
+
+        // Correcting an Text, should correct {} to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                            // 0
+                r#"  "settings-punctuation": {}"#, // 1
+                r#"}"#,                            // 2
+            ],
+        );
+
+        // Correcting an Text, should correct [] to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                            // 0
+                r#"  "settings-punctuation": []"#, // 1
+                r#"}"#,                            // 2
+            ],
+        );
+
+        // Correcting an Text, should correct ["foo"] to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                                 // 0
+                r#"  "settings-punctuation": ["foo"]"#, // 1
+                r#"}"#,                                 // 2
+            ],
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_correction_candidates_placeholders_structural() -> Result<()> {
+        let fm = client("./browser.yaml", "release")?;
+        let inspector = fm
+            .get_feature_inspector("nimbus-validation".to_string())
+            .unwrap();
+
+        // Correcting an Option<Text>, should correct true to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                        // 0
+                r#"  "settings-title": true"#, // 1
+                r#"}"#,                        // 2
+            ],
+        );
+
+        // Correcting an Map<String, String>, should correct 1 to {}
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                 // 0
+                r#"  "string-map": 1"#, // 1
+                r#"}"#,                 // 2
+            ],
+        );
+
+        // Correcting a nested ValidationObject, should correct 1 to {}
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,             // 0
+                r#"  "nested": 1"#, // 1
+                r#"}"#,             // 2
+            ],
+        );
+
+        // Correcting a Option<ValidationObject>, should correct 1 to {}
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                      // 0
+                r#"  "nested-optional": 1"#, // 1
+                r#"}"#,                      // 2
+            ],
+        );
+
+        // Correcting a List<ValidationObject>, should correct 1 to []
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                  // 0
+                r#"  "nested-list": 1"#, // 1
+                r#"}"#,                  // 2
+            ],
+        );
+
+        // Correcting a List<ValidationObject>, should correct 1 to {}
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                    // 0
+                r#"  "nested-list": [1]"#, // 1
+                r#"}"#,                    // 2
+            ],
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_correction_candidates_property_keys() -> Result<()> {
         let fm = client("./browser.yaml", "release")?;
         let inspector = fm.get_feature_inspector("homescreen".to_string()).unwrap();

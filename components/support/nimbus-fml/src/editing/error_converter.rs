@@ -107,11 +107,35 @@ impl ErrorConverter<'_> {
         error: &FeatureValidationError,
     ) -> Vec<CorrectionCandidate> {
         let strings = self.string_replacements(error, values);
+        let placeholders = self.placeholder_replacements(error, values);
+
         let mut candidates = Vec::with_capacity(strings.len() + placeholders.len());
         for s in &strings {
             candidates.push(CorrectionCandidate::string_replacement(s));
         }
+        for s in &placeholders {
+            candidates.push(CorrectionCandidate::literal_replacement(s));
+        }
         candidates
+    }
+}
+
+/// The following methods are for unpacking errors coming out of the DefaultsValidator, to be used
+/// for correction candidates (like Quick Fix in VSCode) and autocomplete.
+impl ErrorConverter<'_> {
+    #[allow(dead_code)]
+    #[cfg(feature = "client-lib")]
+    fn placeholder_replacements(
+        &self,
+        error: &FeatureValidationError,
+        values: &ValuesFinder,
+    ) -> BTreeSet<String> {
+        match &error.kind {
+            ErrorKind::InvalidValue { value_type: t, .. }
+            | ErrorKind::TypeMismatch { value_type: t }
+            | ErrorKind::InvalidNestedValue { prop_type: t, .. } => values.all_placeholders(t),
+            _ => Default::default(),
+        }
     }
 
     fn string_replacements(
