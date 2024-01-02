@@ -562,6 +562,56 @@ mod correction_candidates {
         Ok(())
     }
 
+    // All of theses corrections fail because error_path is currently only able
+    // to encode the last token as the one in error. If the value in error is a `{ }`, it's encoded
+    // as `{}`, which is not found in the source code.
+    // The solution is to make error_path keep track of the start token and end token, and calculate
+    // an `error_range(src: &src) -> (from: CursorPosition, to: CursorPosition)`.
+    // Until that happens, we'll ignore this test.
+    #[ignore]
+    #[test]
+    fn test_correction_candidates_replacing_structural_plus_whitespace() -> Result<()> {
+        let fm = client("./browser.yaml", "release")?;
+        let inspector = fm
+            .get_feature_inspector("nimbus-validation".to_string())
+            .unwrap();
+
+        // Correcting an Text, should correct { } to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                             // 0
+                r#"  "settings-punctuation": { }"#, // 1
+                r#"}"#,                             // 2
+            ],
+        );
+
+        // Correcting an Text, should correct [ ] to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                             // 0
+                r#"  "settings-punctuation": [ ]"#, // 1
+                r#"}"#,                             // 2
+            ],
+        );
+
+        // Correcting an Text, should correct [ "foo"] to ""
+        try_correcting_single_error(
+            &inspector,
+            &[
+                // 012345678901234567890
+                r#"{"#,                                  // 0
+                r#"  "settings-punctuation": [ "foo"]"#, // 1
+                r#"}"#,                                  // 2
+            ],
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn test_correction_candidates_placeholders_structural() -> Result<()> {
         let fm = client("./browser.yaml", "release")?;
