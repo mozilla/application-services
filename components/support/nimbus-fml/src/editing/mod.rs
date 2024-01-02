@@ -62,4 +62,13 @@ impl CorrectionCandidate {
             ..Default::default()
         }
     }
+
+    /// Replace the error token with the literal,
+    /// represented by the `s: &str`.
+    pub(crate) fn literal_replacement(s: &str) -> Self {
+        CorrectionCandidate {
+            insert: s.to_owned(),
+            ..Default::default()
+        }
+    }
 }

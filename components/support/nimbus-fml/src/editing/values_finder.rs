@@ -34,6 +34,22 @@ impl<'a> ValuesFinder<'a> {
             _ => Default::default(),
         }
     }
+
+    #[allow(dead_code)]
+    #[cfg(feature = "client-lib")]
+    pub(crate) fn all_placeholders(&self, type_ref: &TypeRef) -> BTreeSet<String> {
+        let strings: &[&str] = match type_ref {
+            TypeRef::Boolean => &["true", "false"],
+            TypeRef::Int => &["0"],
+            TypeRef::String | TypeRef::BundleText | TypeRef::BundleImage => &["\"\""],
+            TypeRef::List(_) => &["[]"],
+            TypeRef::Object(_) | TypeRef::EnumMap(_, _) | TypeRef::StringMap(_) => &["{}"],
+
+            _ => &[],
+        };
+
+        strings.iter().cloned().map(String::from).collect()
+    }
 }
 
 impl<'a> ValuesFinder<'a> {
