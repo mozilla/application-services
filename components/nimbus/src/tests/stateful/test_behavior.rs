@@ -1198,17 +1198,14 @@ mod event_store_tests {
 
     #[test]
     fn query_last_seen_should_function() -> Result<()> {
-        let mut counter1 = MultiIntervalCounter::new(vec![
+        let counter1 = MultiIntervalCounter::new(vec![
             SingleIntervalCounter::new(IntervalConfig::new(12, Interval::Months)),
             SingleIntervalCounter::new(IntervalConfig::new(28, Interval::Days)),
         ]);
 
-        counter1.increment(1)?;
-        counter1.maybe_advance(Utc::now() + Duration::days(10))?;
-        counter1.increment(1)?;
-        counter1.maybe_advance(Utc::now() + Duration::days(20))?;
-
         let mut store = EventStore::from(vec![("event-1".to_string(), counter1)]);
+        store.record_past_event(1, "event-1", None, Duration::days(10))?;
+        store.record_past_event(1, "event-1", None, Duration::days(20))?;
 
         assert_eq!(
             store.query(
