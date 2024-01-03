@@ -19,7 +19,7 @@ pub(crate) struct FeatureValidationError {
     pub(crate) kind: ErrorKind,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct FmlEditorError {
     pub message: String,
     pub line: u32,

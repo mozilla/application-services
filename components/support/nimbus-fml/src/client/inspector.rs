@@ -81,28 +81,19 @@ impl FmlFeatureInspector {
 
 impl FmlFeatureInspector {
     fn parse_json_string(&self, string: &str) -> Result<Value, FmlEditorError> {
-        let json = serde_json::from_str::<Value>(string);
-        if let Err(e) = json {
-            let col = e.column();
-            return Err(FmlEditorError {
-                message: "Need valid JSON object".to_string(),
-                // serde_json errors are 1 indexed.
-                line: e.line() as u32 - 1,
-                col: if col == 0 { 0 } else { col - 1 } as u32,
-                highlight: None,
-            });
-        }
-        let json = json.ok().unwrap();
-        if json.is_object() {
-            Ok(json)
-        } else {
-            Err(FmlEditorError {
-                message: "Need valid JSON object".to_string(),
-                line: 0,
-                col: 0,
-                highlight: Some(string.to_string()),
-            })
-        }
+        Ok(match serde_json::from_str::<Value>(string) {
+            Ok(json) if json.is_object() => json,
+            Ok(_) => syntax_error("Need valid JSON object", 0, 0, string)?,
+            Err(e) => {
+                let col = e.column();
+                syntax_error(
+                    "Need valid JSON object",
+                    e.line() - 1,
+                    if col == 0 { 0 } else { col - 1 },
+                    "",
+                )?
+            }
+        })
     }
 
     fn get_semantic_errors(&self, src: &str, value: Value) -> Vec<FmlEditorError> {
@@ -120,6 +111,20 @@ impl FmlFeatureInspector {
             Default::default()
         }
     }
+}
+
+fn syntax_error(
+    message: &str,
+    line: usize,
+    col: usize,
+    _highlight: &str,
+) -> Result<Value, FmlEditorError> {
+    Err(FmlEditorError {
+        message: String::from(message),
+        line: line as u32,
+        col: col as u32,
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]
@@ -151,15 +156,6 @@ mod unit_tests {
         Ok(())
     }
 
-    fn error(message: &str, line: u32, col: u32, token: Option<&str>) -> FmlEditorError {
-        FmlEditorError {
-            message: message.to_string(),
-            line,
-            col,
-            highlight: token.map(str::to_string),
-        }
-    }
-
     #[test]
     fn test_get_first_error_invalid_json() -> Result<()> {
         let client = client("./nimbus_features.yaml", "release")?;
@@ -167,13 +163,20 @@ mod unit_tests {
             .get_feature_inspector("dialog-appearance".to_string())
             .unwrap();
 
-        fn test_syntax_error(f: &FmlFeatureInspector, input: &str, col: u32, highlight: bool) {
-            if let Some(e) = f.get_first_error(input.to_string()) {
-                let highlight = if highlight { Some(input) } else { None };
-                assert_eq!(e, error("Need valid JSON object", 0, col, highlight))
-            } else {
-                unreachable!("No error for \"{input}\"");
-            }
+        fn test_syntax_error(
+            inspector: &FmlFeatureInspector,
+            input: &str,
+            col: usize,
+            highlight: bool,
+        ) {
+            let error = inspector
+                .get_first_error(input.to_string())
+                .unwrap_or_else(|| unreachable!("No error for '{input}'"));
+            let highlight = if highlight { input } else { "" };
+            assert_eq!(
+                error,
+                syntax_error("Need valid JSON object", 0, col, highlight).unwrap_err()
+            );
         }
 
         test_syntax_error(&f, "", 0, false);
