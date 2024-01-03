@@ -372,7 +372,7 @@ impl FxAClient for Client {
         let url = config.auth_url_path("v1/account/devices")?;
         let timestamp = util::past_timestamp(DEVICES_FILTER_DAYS).to_string();
         breadcrumb!(
-            "get_devices timestamp: {timestamp}, refresh_token.len(): {}",
+            "get_devices timestamp: {timestamp}, refresh len: {}",
             refresh_token.len()
         );
         let request = Request::get(url)
