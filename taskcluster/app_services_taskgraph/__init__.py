@@ -9,15 +9,25 @@ import re
 
 from taskgraph.parameters import extend_parameters_schema
 from mozilla_taskgraph import register as mozilla_taskgraph_register
+from mozilla_taskgraph.actions import enable_action
 
 from . import branch_builds
 from .build_config import get_version_from_version_txt
 
 PREVIEW_RE = re.compile(r'\[preview ([\w-]+)\]')
+RELEASE_PROMOTION_PROJECTS = (
+    "https://github.com/mozilla/application-services",
+    "https://github.com/mozilla-releng/staging-application-services",
+)
+
+
+def is_relpro_available(params):
+    return params["head_repository"] in RELEASE_PROMOTION_PROJECTS
+
+
 def register(graph_config):
     # Import modules to register decorated functions
     _import_modules([
-        "actions.release_promotion",
         "branch_builds",
         "job",
         "target_tasks",
@@ -47,10 +57,14 @@ def register(graph_config):
     # Register mozilla-taskgraph extensions
     mozilla_taskgraph_register(graph_config)
 
+    # Enable mozilla-taskgraph actions
+    enable_action("release-promotion", available=is_relpro_available)
+
 
 def _import_modules(modules):
     for module in modules:
         import_module(f".{module}", package=__name__)
+
 
 def get_decision_parameters(graph_config, parameters):
     if parameters["tasks_for"] == "github-pull-request":
