@@ -159,9 +159,11 @@ fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, us
         loop {
             // If we haven't had our first match of the line, then start there at the beginning.
             // Otherwise, start one char on from where we were last time.
+            //
+            // We might optimize this by adding the grapheme length to col_no,
+            // but we're in the "make it right" phase.
             let start = if !first_match { 0 } else { col_no + 1 };
 
-            // if let Some(i) = cur[start..].find(&p).map(|i| i + start) {
             if let Some(i) = find_index(line, p, start) {
                 col_no = i;
                 first_match = true;
@@ -184,12 +186,19 @@ fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, us
 
 /// Find the index in `line` of the next instance of `pattern`, after `start`
 ///
-/// A current weakness with this method is that it is not unicode aware.
 #[allow(dead_code)]
 fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
-    line.match_indices(pattern)
-        .find(|(i, _)| i >= &start)
-        .map(|(i, _)| i)
+    use unicode_segmentation::UnicodeSegmentation;
+    let line: Vec<&str> = UnicodeSegmentation::graphemes(line, true).collect();
+    let line_from_start = &line[start..];
+
+    let pattern: Vec<&str> = UnicodeSegmentation::graphemes(pattern, true).collect();
+    let pattern = pattern.as_slice();
+
+    line_from_start
+        .windows(pattern.len())
+        .position(|window| window == pattern)
+        .map(|i| i + start)
 }
 
 #[cfg(test)]
@@ -317,7 +326,9 @@ mod line_col_tests {
             do_test(&s, path, expected);
         }
 
+        do_test("ab cd", &["cd"], (0, 3));
         do_test("ab cd", &["ab", "cd"], (0, 3));
+        do_test("áط ¢đ εƒ gի", &["áط", "¢đ"], (0, 3));
 
         do_test("ab ab", &["ab"], (0, 0));
         do_test("ab ab", &["ab", "ab"], (0, 3));
@@ -357,6 +368,24 @@ mod line_col_tests {
             (4, 13),
         );
 
+        // With unicode tokens (including R2L)
+        do_multi(&["áط ab", "¢đ cd", "εƒ ef", "gh gի"], &["áط", "cd"], (1, 3));
+
+        // Pseudolocalized pangrams, as a small fuzz test
+        do_multi(
+            &[
+                "Wàłţż, Waltz,",
+                "bâđ bad",
+                "ņÿmƥĥ, nymph,",
+                "ƒőŕ for",
+                "qüíĉķ quick",
+                "ĵíğş jigs",
+                "vęx vex",
+            ],
+            &["bad", "nymph"],
+            (2, 7),
+        );
+
         Ok(())
     }
 
@@ -365,9 +394,7 @@ mod line_col_tests {
         assert_eq!(find_index("012345601", "01", 0), Some(0));
         assert_eq!(find_index("012345601", "01", 1), Some(7));
         assert_eq!(find_index("012345602", "01", 1), None);
-
-        // TODO unicode indexing does not work.
-        // assert_eq!(find_index("åéîø token", "token", 0), Some(5));
+        assert_eq!(find_index("åéîø token", "token", 0), Some(5));
         Ok(())
     }
 }
