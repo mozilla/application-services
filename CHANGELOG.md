@@ -1,9 +1,8 @@
 # v123.0 (In progress)
 
-## Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
+## 🦊 What's Changed 🦊
 
-### 🦊 What's Changed 🦊
-
+### Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
 - Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
 
 ### Logins
@@ -13,6 +12,8 @@
 ### Tabs
 - RemoteTabRecord now has an `inactive` boolean with a default value of false ([#6026](https://github.com/mozilla/application-services/pull/6026/)).
   Mobile platforms can populate this to indicate if the tab is "inactive" allowing other devices to treat them specially (eg, group them together, hide them by default, etc.)
+### Push
+- verifyConnection now returns an empty list when there are no subscriptions (which is typical when a device first starts up).
 
 [Full Changelog](In progress)
 
