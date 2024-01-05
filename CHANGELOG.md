@@ -1,5 +1,12 @@
 # v123.0 (In progress)
 
+## ✨ What's New ✨
+
+### Nimbus FML ⛅️🔬🔭🔧
+
+- Added correction candidates to errors returned by the FeatureInspector ([#6019](https://github.com/mozilla/application-services/pull/6019)).
+  - This will drive the JSON editor on the Experimenter frontend.
+
 ## 🦊 What's Changed 🦊
 
 ### Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
@@ -620,7 +627,7 @@ The Tabs engine is now more efficient in how it fetches its records:
 ## Places
 ### What's changed
  - Removes Fennec migration code. ([#5268](https://github.com/mozilla/application-services/pull/5268))
-  The following functions no longer exist: 
+  The following functions no longer exist:
    - `importBookmarksFromFennec`
    - `importPinnedSitesFromFennec`
    - `importVisitsFromFennec`
@@ -1349,7 +1356,7 @@ The Tabs engine is now more efficient in how it fetches its records:
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.2.0...v87.3.0)
 
 ## Supported Xcode Versions
-- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details. 
+- As of Jan 2022, support for Xcode version 13.2.1 is upcoming. After the associated PR is merged AS side and a release is cut, Fx-iOS will update on their side to fully support this Xcode version. See Fx-iOS's Wiki for details.
 
 ## viaduct
 ### What's New
@@ -1822,7 +1829,7 @@ Logins now Uniffi-ed! While this is a very large change internally, the external
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
 
 ## CI-only to force iOS artifact build, 77.0.0 is not good for iOS
-  - add --force flag when installing swift-protobuf via homebrew (#4137) 
+  - add --force flag when installing swift-protobuf via homebrew (#4137)
 
 # v77.0.0 (_2021-05-24_)
 
@@ -1842,17 +1849,17 @@ Logins now Uniffi-ed! While this is a very large change internally, the external
  - Enable consuming applications to change the server collection being used. (#4076)
 
 ### What's Changed
- - Add manual feature exposure recording (#4120) 
+ - Add manual feature exposure recording (#4120)
  - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
  - Localized strings and images are provided by the app, but usable from nimbus. (#4133)
 
 ### ⚠️ Breaking changes ⚠️
- - Migrate the experiment database from version 1 to version 2 on first run .(#4078)  
+ - Migrate the experiment database from version 1 to version 2 on first run .(#4078)
    - Various kinds of incorrectly specified feature and featureId
    related fields will be detected, and any related experiments & enrollments
-   will be discarded.  
+   will be discarded.
    - Experiments & enrollments will also be discarded if they
-   are missing other required fields (eg schemaVersion).  
+   are missing other required fields (eg schemaVersion).
    - If there is an error
    during the database upgrade, the database will be wiped, since losing
    existing enrollments is still less bad than having the database in an unknown
@@ -3139,7 +3146,7 @@ Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before usin
 
 - `LoginsStorage.importLogins` returns logins migration metrics as JSON object. ([#2382](https://github.com/mozilla/application-services/issues/2382))
 
-- iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).  
+- iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).
 New databases must be opened using `LoginsStorage.unlockWithKeyAndSalt` instead of `LoginsStorage.unlock` which is now deprecated.
 To migrate current users databases, it is required to call `LoginsStorage.migrateToPlaintextHeader` before opening the database. This new method requires a salt. The salt persistence is now the responsibility of the application, which should be stored alongside the encryption key. For an existing database, the salt can be obtained using `LoginsStorage.getDbSaltForKey`.
 
@@ -3380,7 +3387,7 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 
 ### What's New
 
-- Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))  
+- Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))
 For existing contributors, here's what you need to do immediately:
   - Download and extract the [Android NDK r20](https://developer.android.com/ndk/downloads).
   - Change the `ANDROID_NDK_ROOT` and `ANDROID_NDK_HOME` environment variables to point to the newer NDK dir. You can also delete the now un-used `ANDROID_NDK_TOOLCHAIN_DIR` variable.
