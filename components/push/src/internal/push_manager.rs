@@ -226,7 +226,10 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         if force_verify {
             self.verify_connection_rate_limiter.reset(&self.store);
         }
-        if !self.verify_connection_rate_limiter.check(&self.store) {
+
+        // If we were rate limited or there are no subscriptions yet, we should signal to the
+        // consumer that everything is ok
+        if self.uaid.is_none() || !self.verify_connection_rate_limiter.check(&self.store) {
             return Ok(vec![]);
         }
         let channels = self.store.get_channel_list()?;
@@ -860,6 +863,16 @@ mod test {
 
         // the same error got propagated
         assert!(matches!(err, PushError::CommunicationError(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_no_local_uaid_ok() -> Result<()> {
+        let mut pm = get_test_manager()?;
+        let channel_list = pm
+            .verify_connection(true)
+            .expect("There are no subscriptions, so verify connection should not fail");
+        assert!(channel_list.is_empty());
         Ok(())
     }
 
