@@ -410,14 +410,7 @@ fn test_days_since_install() -> Result<()> {
         None,
         Box::new(metrics),
     )?;
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        days_since_install: Some(10),
-        days_since_update: None,
-        is_already_enrolled: false,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
+    client.set_install_time(Utc::now() - Duration::days(10));
     client.initialize()?;
     let experiment_json = serde_json::to_string(&json!({
         "data": [{
@@ -486,14 +479,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         None,
         Box::new(metrics),
     )?;
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        days_since_install: Some(10),
-        days_since_update: None,
-        is_already_enrolled: false,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
+    client.set_install_time(Utc::now() - Duration::days(10));
     client.initialize()?;
     let experiment_json = serde_json::to_string(&json!({
         "data": [{
@@ -561,14 +547,7 @@ fn test_days_since_update() -> Result<()> {
         None,
         Box::new(metrics),
     )?;
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        days_since_install: None,
-        days_since_update: Some(10),
-        is_already_enrolled: false,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
+    client.set_update_time(Utc::now() - Duration::days(10));
     client.initialize()?;
     let experiment_json = serde_json::to_string(&json!({
         "data": [{
@@ -637,14 +616,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         None,
         Box::new(metrics),
     )?;
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        days_since_install: None,
-        days_since_update: Some(10),
-        is_already_enrolled: false,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
+    client.set_update_time(Utc::now() - Duration::days(10));
     client.initialize()?;
     let experiment_json = serde_json::to_string(&json!({
         "data": [{

@@ -15,7 +15,7 @@ use nimbus::error::Result;
 #[cfg(test)]
 mod message_tests {
 
-    use nimbus::{AppContext, TargetingAttributes};
+    use chrono::{Duration, Utc};
     use serde_json::json;
 
     use super::*;
@@ -115,22 +115,8 @@ mod message_tests {
 
         assert!(helper.eval_jexl("days_since_update == 0".to_string())?);
 
-        let app_context = AppContext {
-            app_name: "fenix".to_string(),
-            app_id: "org.mozilla.fenix".to_string(),
-            channel: "nightly".to_string(),
-            ..Default::default()
-        };
-
-        let targeting_attributes = TargetingAttributes {
-            app_context,
-            days_since_install: Some(10),
-            days_since_update: Some(5),
-            is_already_enrolled: false,
-            ..Default::default()
-        };
-
-        nimbus.with_targeting_attributes(targeting_attributes);
+        nimbus.set_install_time(Utc::now() - Duration::days(10));
+        nimbus.set_update_time(Utc::now() - Duration::days(5));
 
         let helper = nimbus.create_targeting_helper(None)?;
         assert!(helper.eval_jexl("days_since_install == 10".to_string())?);
