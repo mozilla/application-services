@@ -41,3 +41,16 @@ impl From<AppContext> for TargetingAttributes {
         }
     }
 }
+
+impl TargetingAttributes {
+    pub(crate) fn update_time_to_now(
+        &mut self,
+        now: DateTime<Utc>,
+        install_date: &Option<DateTime<Utc>>,
+        update_date: &Option<DateTime<Utc>>,
+    ) {
+        self.days_since_install = install_date.map(|then| (now - then).num_days() as i32);
+        self.days_since_update = update_date.map(|then| (now - then).num_days() as i32);
+        self.current_date = now;
+    }
+}
