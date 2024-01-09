@@ -12,6 +12,10 @@
 ### Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)
 - Changed the locations of firefox-ios and focus-ios feature manifest files ([#6012](https://github.com/mozilla/application-services/pull/6012)) and added version sensitivity.
 
+### Nimbus SDK ⛅️🔬🔭
+- Moved the `days_since_install` calculation to closer to where it's needed ([#6042](https://github.com/mozilla/application-services/pull/6042)).
+  - This means that the Nimbus SDK can run for longer and the JEXL evaluator still is accurate.
+
 ### Logins
 - Logins now correctly handle the following sync conflict resolution:
    - When the client locally deleted a login, and before it synced another client modified the same login, the client will recover the login
