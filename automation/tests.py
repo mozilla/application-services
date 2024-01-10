@@ -358,14 +358,39 @@ def cargo_fmt(package=None, fix_issues=False):
     run_command(cmdline)
 
 def swift_format():
+    swift_format_args = [
+        'megazords',
+        'components/*/ios',
+        '--exclude',
+        '**/Generated',
+        '--exclude',
+        'components/nimbus/ios/Nimbus/Utils',
+        '--lint',
+        '--swiftversion',
+        '5',
+    ]
     if on_darwin():
-        run_command([
-            'swiftformat', 'megazords', 'components/*/ios',
-            '--exclude', '**/Generated', '--exclude', 'components/nimbus/ios/Nimbus/Utils',
-            '--lint', '--swiftversion', '5',
-        ])
-    else:
+        run_command(["swiftformat", *swift_format_args])
+    elif not docker_installed():
+        print("WARNING: On non-Darwin hosts, docker is required to run swiftformat")
         print("WARNING: skipping swiftformat on non-Darwin host")
+    else:
+        cwd = os.getcwd()
+
+        run_command(
+            [
+                "docker",
+                "run",
+                "-it",
+                "--rm",
+                "-v",
+                f"{cwd}:{cwd}",
+                "-w",
+                cwd,
+                "ghcr.io/nicklockwood/swiftformat:latest",
+                *swift_format_args,
+            ]
+        )
 
 def check_for_fmt_changes(branch_changes):
     print()
