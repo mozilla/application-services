@@ -311,8 +311,27 @@ def run_ktlint():
 def run_swiftlint():
     if on_darwin():
         run_command(['swiftlint', '--strict'])
+    elif not docker_installed():
+        print("WARNING: On non-Darwin hosts, docker is required to run swiftlint")
+        print("WARNING: skipping swiftlint on non-Darwin host")
     else:
-       print("WARNING: skipping swiftlint on non-Darwin host")
+        cwd = os.getcwd()
+
+        run_command(
+            [
+                "docker",
+                "run",
+                "-it",
+                "--rm",
+                "-v",
+                f"{cwd}:{cwd}",
+                "-w",
+                cwd,
+                "ghcr.io/realm/swiftlint:latest",
+                "swiftlint",
+                "--strict"
+            ]
+        )
 
 def run_gradle_tests():
     run_command([GRADLE, 'test'])
