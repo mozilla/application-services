@@ -316,7 +316,7 @@ impl<'a> DefaultsValidator<'a> {
                 self.validate_props_types(&path.object_value(obj_name), &obj_def.props, map, errors);
             }
             _ => {
-                let path = path.final_error(&default.to_string());
+                let path = path.final_error_value(default);
                 errors.push(FeatureValidationError {
                     path,
                     kind: ErrorKind::type_mismatch(type_ref),

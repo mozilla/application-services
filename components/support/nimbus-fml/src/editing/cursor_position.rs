@@ -22,6 +22,12 @@ impl CursorPosition {
     }
 }
 
+impl From<(usize, usize)> for CursorPosition {
+    fn from((line, col): (usize, usize)) -> Self {
+        Self::new(line, col)
+    }
+}
+
 /// CursorSpan is used to for reporting errors and defining corrections.
 /// This is passed across the FFI and used by the editor.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -67,6 +73,17 @@ impl Add<&str> for CursorPosition {
         };
 
         Self::Output { from: self, to }
+    }
+}
+
+impl Add<CursorSpan> for CursorPosition {
+    type Output = CursorSpan;
+
+    fn add(self, rhs: CursorSpan) -> Self::Output {
+        Self::Output {
+            from: self,
+            to: rhs.to,
+        }
     }
 }
 
