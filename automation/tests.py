@@ -490,5 +490,14 @@ def exit_with_error(code, text, print_exception=False):
         traceback.print_exc()
     sys.exit(code)
 
+def docker_installed():
+    result = subprocess.run(
+        ["docker"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    return result.returncode == 0
+
 if __name__ == '__main__':
     main()
