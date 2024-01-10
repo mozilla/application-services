@@ -2,6 +2,8 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use serde_json::Value;
+
 /// The `ErrorPath` struct is constructed in the default validator to be used
 /// to derive where an error has been detected.
 ///
@@ -31,45 +33,48 @@
 /// of `literals`) in a future commit.
 #[derive(Clone)]
 pub(crate) struct ErrorPath {
+    start_index: Option<usize>,
     literals: Vec<String>,
     pub(crate) path: String,
 }
 
 /// Chained Constructors
 impl ErrorPath {
-    pub(crate) fn feature(name: &str) -> Self {
+    fn new(path: String, literals: Vec<String>) -> Self {
         Self {
-            path: format!("features/{name}"),
-            literals: Default::default(),
+            path,
+            literals,
+            start_index: None,
         }
+    }
+
+    pub(crate) fn feature(name: &str) -> Self {
+        Self::new(format!("features/{name}"), Default::default())
     }
 
     pub(crate) fn object(name: &str) -> Self {
-        Self {
-            path: format!("objects/{name}"),
-            literals: Default::default(),
-        }
+        Self::new(format!("objects/{name}"), Default::default())
     }
 
     pub(crate) fn property(&self, prop_key: &str) -> Self {
-        Self {
-            path: format!("{}.{prop_key}", &self.path),
-            literals: append_quoted(&self.literals, prop_key),
-        }
+        Self::new(
+            format!("{}.{prop_key}", &self.path),
+            append_quoted(&self.literals, prop_key),
+        )
     }
 
     pub(crate) fn enum_map_key(&self, enum_: &str, key: &str) -> Self {
-        Self {
-            path: format!("{}[{enum_}#{key}]", &self.path),
-            literals: append(&self.literals, &["{".to_string(), format!("\"{key}\"")]),
-        }
+        Self::new(
+            format!("{}[{enum_}#{key}]", &self.path),
+            append(&self.literals, &["{".to_string(), format!("\"{key}\"")]),
+        )
     }
 
     pub(crate) fn map_key(&self, key: &str) -> Self {
-        Self {
-            path: format!("{}['{key}']", &self.path),
-            literals: append(&self.literals, &["{".to_string(), format!("\"{key}\"")]),
-        }
+        Self::new(
+            format!("{}['{key}']", &self.path),
+            append(&self.literals, &["{".to_string(), format!("\"{key}\"")]),
+        )
     }
 
     pub(crate) fn array_index(&self, index: usize) -> Self {
@@ -77,48 +82,92 @@ impl ErrorPath {
         if index > 0 {
             literals.extend_from_slice(&[",".repeat(index)]);
         }
-        Self {
-            path: format!("{}[{index}]", &self.path),
-            literals,
-        }
+        Self::new(format!("{}[{index}]", &self.path), literals)
     }
 
     pub(crate) fn object_value(&self, name: &str) -> Self {
-        Self {
-            path: format!("{}#{name}", &self.path),
-            literals: append1(&self.literals, "{"),
-        }
+        Self::new(
+            format!("{}#{name}", &self.path),
+            append1(&self.literals, "{"),
+        )
     }
 
     pub(crate) fn open_brace(&self) -> Self {
-        Self {
-            path: self.path.clone(),
-            literals: append1(&self.literals, "{"),
-        }
+        Self::new(self.path.clone(), append1(&self.literals, "{"))
     }
 
-    pub(crate) fn final_error(&self, hightlight: &str) -> Self {
-        Self {
-            path: self.path.clone(),
-            literals: append1(&self.literals, hightlight),
-        }
+    pub(crate) fn final_error_quoted(&self, highlight: &str) -> Self {
+        Self::new(self.path.clone(), append_quoted(&self.literals, highlight))
     }
 
-    pub(crate) fn final_error_quoted(&self, hightlight: &str) -> Self {
+    pub(crate) fn final_error_value(&self, value: &Value) -> Self {
+        let len = self.literals.len();
+        let mut literals = Vec::with_capacity(len * 2);
+        literals.extend_from_slice(self.literals.as_slice());
+        collect_path(&mut literals, value);
+
         Self {
             path: self.path.clone(),
-            literals: append_quoted(&self.literals, hightlight),
+            literals,
+            start_index: Some(len),
+        }
+    }
+}
+
+fn collect_path(literals: &mut Vec<String>, value: &Value) {
+    match value {
+        Value::Bool(_) | Value::Number(_) | Value::Null => literals.push(value.to_string()),
+        Value::String(s) => literals.push(format!("\"{s}\"")),
+
+        Value::Array(array) => {
+            literals.push(String::from("["));
+            for v in array {
+                collect_path(literals, v);
+            }
+            literals.push(String::from("]"));
+        }
+
+        Value::Object(map) => {
+            literals.push(String::from("{"));
+            if let Some((k, v)) = map.iter().last() {
+                literals.push(format!("\"{k}\""));
+                collect_path(literals, v);
+            }
+            literals.push(String::from("}"));
         }
     }
 }
 
 /// Accessors
-#[allow(dead_code)]
+impl ErrorPath {
+    pub(crate) fn error_token_abbr(&self) -> String {
+        match self.start_index {
+            Some(index) if index < self.literals.len() - 1 => {
+                let start = self
+                    .literals
+                    .get(index)
+                    .map(String::as_str)
+                    .unwrap_or_default();
+                let end = self.last_error_token().unwrap();
+                format!("{start}…{end}")
+            }
+            _ => self.last_error_token().unwrap().to_owned(),
+        }
+    }
+
+    pub(crate) fn last_error_token(&self) -> Option<&str> {
+        self.literals.last().map(String::as_str)
+    }
+}
+
 #[cfg(feature = "client-lib")]
 impl ErrorPath {
-    pub(crate) fn line_col(&self, src: &str) -> crate::editing::CursorPosition {
-        let (line, col) = line_col(src, self.literals.iter().map(|s| s.as_str()));
-        crate::editing::CursorPosition::new(line, col)
+    pub(crate) fn first_error_token(&self) -> Option<&str> {
+        if let Some(index) = self.start_index {
+            self.literals.get(index).map(String::as_str)
+        } else {
+            self.last_error_token()
+        }
     }
 
     /// Gives the span of characters within the given source code where this error
@@ -126,13 +175,25 @@ impl ErrorPath {
     ///
     /// Currently, this is limited to finding the last token and adding the length.
     pub(crate) fn error_span(&self, src: &str) -> crate::editing::CursorSpan {
-        self.line_col(src) + self.last_token().unwrap_or_default()
-    }
-}
+        use crate::editing::CursorPosition;
+        let mut lines = src.lines().peekable();
+        let last_token = self.last_error_token().unwrap();
+        if let Some(index) = self.start_index {
+            let path_to_first = self.literals[..index + 1].iter().map(String::as_str);
+            let rest = self.literals[index + 1..].iter().map(String::as_str);
 
-impl ErrorPath {
-    pub(crate) fn last_token(&self) -> Option<&str> {
-        self.literals.last().map(|x| x.as_str())
+            let pos = line_col_from_lines(&mut lines, (0, 0), path_to_first);
+            let from: CursorPosition = pos.into();
+
+            let to: CursorPosition = line_col_from_lines(&mut lines, pos, rest).into();
+
+            from + (to + last_token)
+        } else {
+            let from: CursorPosition =
+                line_col_from_lines(&mut lines, (0, 0), self.literals.iter().map(String::as_str))
+                    .into();
+            from + last_token
+        }
     }
 }
 
@@ -154,35 +215,37 @@ fn append_quoted(original: &[String], new: &str) -> Vec<String> {
     append1(original, &format!("\"{new}\""))
 }
 
-#[allow(dead_code)]
-fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, usize) {
-    let mut lines = src.lines();
+#[cfg(feature = "client-lib")]
+fn line_col_from_lines<'a>(
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    start: (usize, usize),
+    path: impl Iterator<Item = &'a str>,
+) -> (usize, usize) {
+    let (mut line_no, mut col_no) = start;
 
-    let mut line_no = 0;
-    let mut col_no = 0;
-
-    let mut first_match = false;
-    let mut line = lines.next().unwrap_or_default();
+    // `first_match` is "are we looking for the first match of the line"
+    let mut first_match = col_no == 0;
 
     for p in path {
         loop {
-            // If we haven't had our first match of the line, then start there at the beginning.
-            // Otherwise, start one char on from where we were last time.
-            //
-            // We might optimize this by adding the grapheme length to col_no,
-            // but we're in the "make it right" phase.
-            let start = if !first_match { 0 } else { col_no + 1 };
+            if let Some(line) = lines.peek() {
+                // If we haven't had our first match of the line, then start there at the beginning.
+                // Otherwise, start one char on from where we were last time.
+                //
+                // We might optimize this by adding the grapheme length to col_no,
+                // but we're in the "make it right" phase.
+                let start = if first_match { 0 } else { col_no + 1 };
 
-            if let Some(i) = find_index(line, p, start) {
-                col_no = i;
-                first_match = true;
-                break;
-            } else if let Some(next) = lines.next() {
-                // we try the next line!
-                line = next;
-                line_no += 1;
-                first_match = false;
-                col_no = 0;
+                if let Some(i) = find_index(line, p, start) {
+                    col_no = i;
+                    first_match = false;
+                    break;
+                } else if lines.next().is_some() {
+                    // we try the next line!
+                    line_no += 1;
+                    first_match = true;
+                    col_no = 0;
+                }
             } else {
                 // we've run out of lines, so we should return
                 return (0, 0);
@@ -195,7 +258,7 @@ fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, us
 
 /// Find the index in `line` of the next instance of `pattern`, after `start`
 ///
-#[allow(dead_code)]
+#[cfg(feature = "client-lib")]
 fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
     use unicode_segmentation::UnicodeSegmentation;
     let line: Vec<&str> = UnicodeSegmentation::graphemes(line, true).collect();
@@ -210,8 +273,11 @@ fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
         .map(|i| i + start)
 }
 
+#[cfg(feature = "client-lib")]
 #[cfg(test)]
 mod construction_tests {
+    use serde_json::json;
+
     use super::ErrorPath;
 
     #[test]
@@ -278,7 +344,7 @@ mod construction_tests {
             .map_key("my-message")
             .object_value("MessageData")
             .property("is-control")
-            .final_error("1");
+            .final_error_value(&json!(1));
         assert_eq!(
             "features/messaging.messages['my-message']#MessageData.is-control",
             &path.path
@@ -299,7 +365,7 @@ mod construction_tests {
         let path = ErrorPath::feature("homescreen")
             .property("sections-enabled")
             .enum_map_key("HomeScreenSection", "pocket")
-            .final_error("1");
+            .final_error_value(&json!(1));
         assert_eq!(
             "features/homescreen.sections-enabled[HomeScreenSection#pocket]",
             &path.path
@@ -310,24 +376,112 @@ mod construction_tests {
             path.literals.as_slice()
         );
     }
+
+    #[test]
+    fn test_final_error_value_scalars() {
+        let path = ErrorPath::feature("my-feature").property("is-enabled");
+
+        let observed = {
+            let value = json!(true);
+            path.final_error_value(&value)
+        };
+        assert_eq!(observed.literals.as_slice(), &["\"is-enabled\"", "true"]);
+
+        let observed = {
+            let value = json!(13);
+            path.final_error_value(&value)
+        };
+        assert_eq!(observed.literals.as_slice(), &["\"is-enabled\"", "13"]);
+
+        let observed = {
+            let value = json!("string");
+            path.final_error_value(&value)
+        };
+        assert_eq!(
+            observed.literals.as_slice(),
+            &["\"is-enabled\"", "\"string\""]
+        );
+    }
+
+    #[test]
+    fn test_final_error_value_arrays() {
+        let path = ErrorPath::feature("my-feature").property("is-enabled");
+
+        let observed = {
+            let value = json!([]);
+            let o = path.final_error_value(&value);
+            assert_eq!(o.first_error_token(), Some("["));
+            o
+        };
+        assert_eq!(observed.literals.as_slice(), &["\"is-enabled\"", "[", "]"]);
+
+        let observed = {
+            let value = json!([1, 2]);
+            let o = path.final_error_value(&value);
+            assert_eq!(o.first_error_token(), Some("["));
+            o
+        };
+        assert_eq!(
+            observed.literals.as_slice(),
+            &["\"is-enabled\"", "[", "1", "2", "]"]
+        );
+    }
+
+    #[test]
+    fn test_final_error_value_objects() {
+        let path = ErrorPath::feature("my-feature").property("is-enabled");
+
+        let observed = {
+            let value = json!({});
+            let o = path.final_error_value(&value);
+            assert_eq!(o.first_error_token(), Some("{"));
+            o
+        };
+        assert_eq!(observed.literals.as_slice(), &["\"is-enabled\"", "{", "}"]);
+
+        let observed = {
+            let value = json!({"last": true});
+            let o = path.final_error_value(&value);
+            assert_eq!(o.first_error_token(), Some("{"));
+            o
+        };
+        assert_eq!(
+            observed.literals.as_slice(),
+            &["\"is-enabled\"", "{", "\"last\"", "true", "}"]
+        );
+
+        let observed = {
+            let value = json!({"first": true, "last": true});
+            let o = path.final_error_value(&value);
+            assert_eq!(o.first_error_token(), Some("{"));
+            o
+        };
+        assert_eq!(
+            observed.literals.as_slice(),
+            &["\"is-enabled\"", "{", "\"last\"", "true", "}"]
+        );
+    }
 }
 
+#[cfg(feature = "client-lib")]
 #[cfg(test)]
 mod line_col_tests {
 
     use super::*;
     use crate::error::Result;
 
+    fn line_col<'a>(src: &'a str, path: impl Iterator<Item = &'a str>) -> (usize, usize) {
+        let mut lines = src.lines().peekable();
+        line_col_from_lines(&mut lines, (0, 0), path)
+    }
+
     #[test]
     fn test_find_err() -> Result<()> {
         fn do_test(s: &str, path: &[&str], expected: (usize, usize)) {
             let p = path.last().unwrap();
             let path = path.iter().cloned();
-            assert_eq!(
-                line_col(s, path),
-                expected,
-                "Can't find \"{p}\" at {expected:?} in {s}"
-            );
+            let from = line_col(s, path);
+            assert_eq!(from, expected, "Can't find \"{p}\" at {expected:?} in {s}");
         }
 
         fn do_multi(s: &[&str], path: &[&str], expected: (usize, usize)) {
@@ -405,5 +559,150 @@ mod line_col_tests {
         assert_eq!(find_index("012345602", "01", 1), None);
         assert_eq!(find_index("åéîø token", "token", 0), Some(5));
         Ok(())
+    }
+}
+
+#[cfg(feature = "client-lib")]
+#[cfg(test)]
+mod integration_tests {
+
+    use serde_json::json;
+
+    use super::*;
+
+    fn test_error_span(src: &[&str], path: &ErrorPath, from: (usize, usize), to: (usize, usize)) {
+        test_error_span_string(src.join("\n"), path, from, to);
+    }
+
+    fn test_error_span_oneline(
+        src: &[&str],
+        path: &ErrorPath,
+        from: (usize, usize),
+        to: (usize, usize),
+    ) {
+        test_error_span_string(src.join(""), path, from, to);
+    }
+
+    fn test_error_span_string(
+        src: String,
+        path: &ErrorPath,
+        from: (usize, usize),
+        to: (usize, usize),
+    ) {
+        let observed = path.error_span(src.as_str());
+
+        assert_eq!(
+            observed.from,
+            from.into(),
+            "Incorrectly found first error token \"{p}\" starts at {from:?} in {src}",
+            from = observed.from,
+            p = path.first_error_token().unwrap()
+        );
+        assert_eq!(
+            observed.to,
+            to.into(),
+            "Incorrectly found last error token \"{p}\" ends at {to:?} in {src}",
+            p = path.last_error_token().unwrap(),
+            to = observed.to,
+        );
+    }
+
+    #[test]
+    fn test_last_token() {
+        let path = ErrorPath::feature("test-feature")
+            .property("integer")
+            .final_error_quoted("string");
+        let src = &[
+            // 01234567890123456789012345
+            r#"{"#,                     // 0
+            r#"  "boolean": true,"#,    // 1
+            r#"  "integer": "string""#, // 2
+            r#"}"#,                     // 3
+        ];
+
+        test_error_span(src, &path, (2, 13), (2, 21));
+        test_error_span_oneline(src, &path, (0, 32), (0, 32 + "string".len() + 2))
+    }
+
+    #[test]
+    fn test_type_mismatch_scalar() {
+        let path = ErrorPath::feature("test-feature")
+            .property("boolean")
+            .final_error_value(&json!(13));
+
+        let src = &[
+            // 01234567890123456789012345
+            r#"{"#,                // 0
+            r#"  "boolean": 13,"#, // 1
+            r#"  "integer": 1"#,   // 2
+            r#"}"#,                // 3
+        ];
+        test_error_span(src, &path, (1, 13), (1, 13 + 2));
+    }
+
+    #[test]
+    fn test_type_mismatch_error_on_one_line() {
+        let path = ErrorPath::feature("test-feature")
+            .property("integer")
+            .final_error_value(&json!({
+                "string": "string"
+            }));
+
+        let src = &[
+            // 01234567890123456789012345
+            r#"{"#,                                    // 0
+            r#"  "integer": { "string": "string" },"#, // 1
+            r#"  "short": 1,"#,                        // 2
+            r#"  "boolean": true,"#,                   // 3
+            r#"}"#,                                    // 4
+        ];
+        test_error_span(
+            src,
+            &path,
+            (1, 13),
+            (1, 13 + r#"{ "string": "string" }"#.len()),
+        );
+
+        test_error_span_oneline(
+            src,
+            &path,
+            (0, 14),
+            (0, 14 + r#"{ "string": "string" }"#.len()),
+        );
+    }
+
+    #[test]
+    fn test_type_mismatch_error_on_multiple_lines() {
+        let path = ErrorPath::feature("test-feature").final_error_value(&json!({}));
+        let src = &[
+            // 012345678
+            r#"{ "#, // 0
+            r#"  "#, // 1
+            r#"  "#, // 2
+            r#"  "#, // 3
+            r#"} "#, // 4
+        ];
+        test_error_span(src, &path, (0, 0), (4, 1));
+    }
+
+    #[test]
+    fn test_error_abbr() {
+        let path = ErrorPath::feature("test_feature").final_error_value(&json!(true));
+        assert_eq!(path.error_token_abbr().as_str(), "true");
+
+        let path = ErrorPath::feature("test_feature").final_error_value(&json!(42));
+        assert_eq!(path.error_token_abbr().as_str(), "42");
+
+        let path = ErrorPath::feature("test_feature").final_error_value(&json!("string"));
+        assert_eq!(path.error_token_abbr().as_str(), "\"string\"");
+
+        let path = ErrorPath::feature("test_feature").final_error_value(&json!([]));
+        assert_eq!(path.error_token_abbr().as_str(), "[…]");
+
+        let path = ErrorPath::feature("test_feature").final_error_value(&json!({}));
+        assert_eq!(path.error_token_abbr().as_str(), "{…}");
+
+        let path = ErrorPath::feature("test_feature").final_error_quoted("foo");
+        assert_eq!(path.error_token_abbr().as_str(), "\"foo\"");
     }
 }

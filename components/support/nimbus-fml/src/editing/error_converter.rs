@@ -58,7 +58,8 @@ impl<'a> ErrorConverter<'a> {
             // After experimenter is using the corrections, we can switch to
             // let message = self.message(error);
 
-            let highlight = error.path.last_token().map(String::from);
+            let highlight = error.path.first_error_token().map(String::from);
+            // TODO: derive the highlighted token from the error span.
             let error_span = error.path.error_span(src);
 
             let corrections = self.correction_candidates(&values, src, error);
@@ -94,8 +95,8 @@ impl ErrorConverter<'_> {
     }
 
     fn message(&self, error: &FeatureValidationError) -> String {
-        let token = error.path.last_token().unwrap_or("unknown");
-        error.kind.message(token)
+        let token = error.path.error_token_abbr();
+        error.kind.message(&token)
     }
 
     #[allow(dead_code)]

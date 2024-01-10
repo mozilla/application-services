@@ -568,7 +568,6 @@ mod correction_candidates {
     // The solution is to make error_path keep track of the start token and end token, and calculate
     // an `error_range(src: &src) -> (from: CursorPosition, to: CursorPosition)`.
     // Until that happens, we'll ignore this test.
-    #[ignore]
     #[test]
     fn test_correction_candidates_replacing_structural_plus_whitespace() -> Result<()> {
         let fm = client("./browser.yaml", "release")?;
