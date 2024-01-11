@@ -34,7 +34,7 @@ buildscript {
 
         // In general, we should aim to keep these in sync with AC
         compileSdkVersion: 34,
-        targetSdkVersion: 33,
+        targetSdkVersion: 34,
         minSdkVersion: 21,
         jvmTargetCompatibility: 17,
     ]
