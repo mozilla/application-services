@@ -49,7 +49,7 @@ enum ArgumentProcessor {
             return ["1", "true"].contains(v.lowercased())
         }
 
-        queryItems.forEach { item in
+        for item in queryItems {
             switch item.name {
             case "--nimbus-cli":
                 meantForUs = flag(item.value)
@@ -91,7 +91,7 @@ enum ArgumentProcessor {
         var resetDatabase = false
         var logState = false
 
-        args.forEach { arg in
+        for arg in args {
             var value: String?
             switch arg {
             case "--version":
