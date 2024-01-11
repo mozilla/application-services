@@ -41,7 +41,7 @@ func processSyncTelemetry(syncTelemetry: RustSyncTelemetryPing,
                                 failureReasonMetric: SyncMetrics.failureReason)
         }
 
-        try syncInfo.engines.forEach { engineInfo in
+        for engineInfo in syncInfo.engines {
             switch engineInfo.name {
             case SupportedEngines.Bookmarks.rawValue:
                 try individualBookmarksSync(hashedFxaUid: syncTelemetry.uid,
@@ -154,7 +154,7 @@ private func individualBookmarksSync(hashedFxaUid: String, engineInfo: EngineInf
     }
 
     if let validation = engineInfo.validation {
-        validation.problems.forEach { problemInfo in
+        for problemInfo in validation.problems {
             BookmarksMetrics.remoteTreeProblems[problemInfo.name].add(Int32(problemInfo.count))
         }
     }

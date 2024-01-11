@@ -1,10 +1,10 @@
-@testable import MozillaTestServices
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+@testable import MozillaTestServices
 import XCTest
-// some utility functions for the test code
 
+// some utility functions for the test code
 func dynCmp<T: Equatable>(_ optVal: T?, _ optDynVal: Any?) -> Bool {
     guard let dynVal = optDynVal else {
         // no requierment given, all is fine
