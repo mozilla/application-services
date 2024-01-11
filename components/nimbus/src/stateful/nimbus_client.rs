@@ -54,8 +54,17 @@ pub const DB_KEY_FETCH_ENABLED: &str = "fetch-enabled";
 #[derive(Default)]
 pub struct InternalMutableState {
     pub(crate) available_randomization_units: AvailableRandomizationUnits,
+    pub(crate) install_date: Option<DateTime<Utc>>,
+    pub(crate) update_date: Option<DateTime<Utc>>,
     // Application level targeting attributes
     pub(crate) targeting_attributes: TargetingAttributes,
+}
+
+impl InternalMutableState {
+    pub(crate) fn update_time_to_now(&mut self, now: DateTime<Utc>) {
+        self.targeting_attributes
+            .update_time_to_now(now, &self.install_date, &self.update_date);
+    }
 }
 
 /// Nimbus is the main struct representing the experiments state
@@ -90,6 +99,8 @@ impl NimbusClient {
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units: Default::default(),
             targeting_attributes: app_context.clone().into(),
+            install_date: Default::default(),
+            update_date: Default::default(),
         });
 
         Ok(Self {
@@ -111,7 +122,8 @@ impl NimbusClient {
     }
 
     pub fn get_targeting_attributes(&self) -> TargetingAttributes {
-        let state = self.mutable_state.lock().unwrap();
+        let mut state = self.mutable_state.lock().unwrap();
+        state.update_time_to_now(Utc::now());
         state.targeting_attributes.clone()
     }
 
@@ -301,29 +313,19 @@ impl NimbusClient {
         writer: &mut Writer,
         state: &mut MutexGuard<InternalMutableState>,
     ) -> Result<()> {
-        let installation_date = self.get_installation_date(db, writer)?;
-        log::info!("[Nimbus] Installation Date: {}", installation_date);
-        let update_date = self.get_update_date(db, writer)?;
-        log::info!("[Nimbus] Update Date: {}", update_date);
-        let now = Utc::now();
-        let duration_since_install = now - installation_date;
-        log::info!(
-            "[Nimbus] Days since install: {}",
-            duration_since_install.num_days()
-        );
-        let duration_since_update = now - update_date;
-        log::info!(
-            "[Nimbus] Days since update: {}",
-            duration_since_update.num_days()
-        );
-        if state.targeting_attributes.days_since_install.is_none() {
-            state.targeting_attributes.days_since_install =
-                Some(duration_since_install.num_days() as i32);
+        // Only set install_date and update_date with this method if it hasn't been set already.
+        // This cuts down on deriving the dates at runtime, but also allows us to use
+        // the test methods set_install_date() and set_update_date() to set up
+        // scenarios for test.
+        if state.install_date.is_none() {
+            let installation_date = self.get_installation_date(db, writer)?;
+            state.install_date = Some(installation_date);
         }
-        if state.targeting_attributes.days_since_update.is_none() {
-            state.targeting_attributes.days_since_update =
-                Some(duration_since_update.num_days() as i32);
+        if state.update_date.is_none() {
+            let update_date = self.get_update_date(db, writer)?;
+            state.update_date = Some(update_date);
         }
+        state.update_time_to_now(Utc::now());
 
         Ok(())
     }
@@ -718,6 +720,20 @@ impl NimbusClient {
             );
         }
         Ok(())
+    }
+}
+
+impl NimbusClient {
+    pub fn set_install_time(&mut self, then: DateTime<Utc>) {
+        let mut state = self.mutable_state.lock().unwrap();
+        state.install_date = Some(then);
+        state.update_time_to_now(Utc::now());
+    }
+
+    pub fn set_update_time(&mut self, then: DateTime<Utc>) {
+        let mut state = self.mutable_state.lock().unwrap();
+        state.update_date = Some(then);
+        state.update_time_to_now(Utc::now());
     }
 }
 
