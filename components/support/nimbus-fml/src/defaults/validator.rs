@@ -66,6 +66,15 @@ impl<'a> DefaultsValidator<'a> {
 
         // This is only checking if a Map with an Enum as key has a complete set of keys (i.e. all variants)
         self.validate_feature_enum_maps(feature_def)?;
+
+        // Now check the examples for this feature.
+        let path = ErrorPath::feature(&feature_def.name);
+        for ex in &feature_def.examples {
+            let path = path.example(&ex.metadata.name);
+            let errors = self.get_errors_with_path(&path, feature_def, &defaults, &ex.value);
+            self.guard_errors(feature_def, &defaults, errors)?;
+        }
+
         Ok(())
     }
 
@@ -91,12 +100,22 @@ impl<'a> DefaultsValidator<'a> {
         merged_value: &Value,
         unmerged_value: &Value,
     ) -> Vec<FeatureValidationError> {
-        let mut errors = Default::default();
         let path = ErrorPath::feature(&feature_def.name);
+        self.get_errors_with_path(&path, feature_def, merged_value, unmerged_value)
+    }
+
+    pub(crate) fn get_errors_with_path(
+        &self,
+        path: &ErrorPath,
+        feature_def: &FeatureDef,
+        merged_value: &Value,
+        unmerged_value: &Value,
+    ) -> Vec<FeatureValidationError> {
+        let mut errors = Default::default();
         let unmerged_map = unmerged_value
             .as_object()
             .expect("Assumption: an object is the only type that can get here");
-        self.validate_props_types(&path, &feature_def.props, unmerged_map, &mut errors);
+        self.validate_props_types(path, &feature_def.props, unmerged_map, &mut errors);
         if !errors.is_empty() {
             return errors;
         }

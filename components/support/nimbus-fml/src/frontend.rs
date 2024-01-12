@@ -133,7 +133,75 @@ pub(crate) struct ImportBlock {
     pub(crate) path: String,
     pub(crate) channel: String,
     #[serde(default)]
-    pub(crate) features: BTreeMap<String, Vec<DefaultBlock>>,
+    pub(crate) features: BTreeMap<String, FeatureAdditionChoices>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub(crate) struct FeatureAdditions {
+    #[serde(default)]
+    pub(crate) defaults: Vec<DefaultBlock>,
+    #[serde(default)]
+    pub(crate) examples: Vec<ExampleBlock>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub(crate) enum FeatureAdditionChoices {
+    AllDefaults(Vec<DefaultOrExampleBlock>),
+    FeatureAdditions(FeatureAdditions),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub(crate) enum DefaultOrExampleBlock {
+    Default(DefaultBlock),
+    LabelledDefault(LabelledDefaultBlock),
+    LabelledExample(LabelledExampleBlock),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub(crate) struct LabelledExampleBlock {
+    pub(crate) example: ExampleBlock,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub(crate) struct LabelledDefaultBlock {
+    #[serde(alias = "defaults")]
+    pub(crate) default: DefaultBlock,
+}
+
+// Rationalize all the different ways we can express imported
+// defaults and examples for a feature into a single way that the parser
+// can use to merge.
+impl From<FeatureAdditionChoices> for FeatureAdditions {
+    fn from(choices: FeatureAdditionChoices) -> Self {
+        match choices {
+            FeatureAdditionChoices::FeatureAdditions(a) => a,
+            FeatureAdditionChoices::AllDefaults(list) => {
+                let mut examples = Vec::new();
+                let mut defaults = Vec::new();
+                for addition in list {
+                    match addition {
+                        DefaultOrExampleBlock::Default(default)
+                        | DefaultOrExampleBlock::LabelledDefault(LabelledDefaultBlock {
+                            default,
+                        }) => defaults.push(default),
+                        DefaultOrExampleBlock::LabelledExample(LabelledExampleBlock {
+                            example,
+                        }) => examples.push(example),
+                    }
+                }
+
+                FeatureAdditions { examples, defaults }
+            }
+        }
+    }
+}
+
+impl From<FeatureAdditions> for FeatureAdditionChoices {
+    fn from(additions: FeatureAdditions) -> Self {
+        FeatureAdditionChoices::FeatureAdditions(additions)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -154,6 +222,10 @@ pub(crate) struct FeatureBody {
     #[serde(default)]
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub(crate) allow_coenrollment: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) examples: Vec<ExampleBlock>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -323,11 +395,14 @@ impl ManifestFrontEnd {
             for (fnm, field) in &body.variables {
                 fields.push(self.get_prop_def_from_feature_field(fnm, field));
             }
+            let examples = body.examples.iter().map(Into::into).collect();
+
             let mut def = FeatureDef {
                 name: nm.clone(),
                 metadata: body.metadata.clone(),
                 props: fields,
                 allow_coenrollment: body.allow_coenrollment,
+                examples,
             };
             merger.merge_feature_defaults(&mut def, &body.default)?;
             features.insert(nm.to_owned(), def);
@@ -412,6 +487,51 @@ impl ManifestFrontEnd {
             about,
         ))
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum ExampleBlock {
+    /// This is the complete example inlined into the manifest file.
+    Inline(InlineExampleBlock),
+    /// This is the name, description and URL inlined into the manifest, but a path to a JSON file containing the feature configuration.
+    Partial(PartialExampleBlock),
+    /// This is a path to a YAML or JSON file containing the name, description, and URL as well as the actual feature configuration.
+    Path(PathOnly),
+    /// This is a path to a YAML or JSON file containing the name, description, and URL as well as the actual feature configuration.
+    BarePath(String),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct InlineExampleBlock {
+    #[serde(flatten)]
+    pub(crate) metadata: FeatureExampleMetadata,
+    pub(crate) value: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PartialExampleBlock {
+    #[serde(flatten)]
+    pub(crate) metadata: FeatureExampleMetadata,
+    pub(crate) path: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PathOnly {
+    pub(crate) path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct FeatureExampleMetadata {
+    pub(crate) name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) url: Option<Url>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -679,6 +799,200 @@ mod feature_metadata {
         }"#,
         );
         assert!(fm.is_err());
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod example_block {
+    use super::*;
+
+    #[test]
+    fn test_inline() -> Result<()> {
+        let v1 = json!({ "my-int": 1 });
+        let input = json!({
+            "value": v1.clone(),
+            "name": "An example example",
+            "description": "A paragraph of description",
+        });
+
+        let frontend: ExampleBlock = serde_json::from_value(input)?;
+        assert_eq!(
+            frontend,
+            ExampleBlock::Inline(InlineExampleBlock {
+                value: v1,
+                metadata: FeatureExampleMetadata {
+                    name: "An example example".to_owned(),
+                    description: Some("A paragraph of description".to_owned()),
+                    url: None
+                }
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_partial_inline() -> Result<()> {
+        let input = json!({
+            "name": "An example example",
+            "description": "A paragraph of description",
+            "path": "./path/to-example.json"
+        });
+
+        let frontend: ExampleBlock = serde_json::from_value(input)?;
+        assert_eq!(
+            frontend,
+            ExampleBlock::Partial(PartialExampleBlock {
+                path: "./path/to-example.json".to_owned(),
+                metadata: FeatureExampleMetadata {
+                    name: "An example example".to_owned(),
+                    description: Some("A paragraph of description".to_owned()),
+                    url: None
+                }
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_only() -> Result<()> {
+        let input = json!({
+            "path": "./path/to-example-with-name-and-description.yaml"
+        });
+
+        let frontend: ExampleBlock = serde_json::from_value(input)?;
+        assert_eq!(
+            frontend,
+            ExampleBlock::Path(PathOnly {
+                path: "./path/to-example-with-name-and-description.yaml".to_owned(),
+            })
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn test_bare_path() -> Result<()> {
+        let input = json!("./path/to-example-with-name-and-description.yaml");
+
+        let frontend: ExampleBlock = serde_json::from_value(input)?;
+        assert_eq!(
+            frontend,
+            ExampleBlock::BarePath("./path/to-example-with-name-and-description.yaml".to_owned(),)
+        );
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod feature_additions {
+    use super::*;
+
+    #[test]
+    fn test_legacy_case() -> Result<()> {
+        let v1 = json!({ "my-int": 1 });
+        let v2 = json!({ "my-int": 2 });
+        let input = json!([
+            { "value": v1.clone(), "channel": "a-channel" },
+            { "value": v2.clone() },
+        ]);
+
+        let frontend: FeatureAdditionChoices = serde_json::from_value(input)?;
+        let observed: FeatureAdditions = frontend.into();
+
+        assert_eq!(observed.defaults.len(), 2);
+        assert_eq!(
+            observed.defaults[0].channel.as_ref().unwrap().as_str(),
+            "a-channel"
+        );
+        assert_eq!(observed.defaults[0].value, v1);
+
+        assert_eq!(observed.defaults[1].channel, None);
+        assert_eq!(observed.defaults[1].value, v2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_easy_addition_example() -> Result<()> {
+        let v1 = json!({ "my-int": 1 });
+        let v2 = json!({ "my-int": 2 });
+        let input = json!([
+            { "value": v1.clone(), "channel": "a-channel" },
+            { "example": { "name": "Example example", "value": v2.clone() } },
+            { "example": { "name": "Example example", "path": "./path/to-example.json"} },
+            { "example": { "path": "./path/to-example.yaml"} },
+            { "example": "./path/to-example.yaml" },
+        ]);
+
+        let frontend: FeatureAdditionChoices = serde_json::from_value(input)?;
+        let observed: FeatureAdditions = frontend.into();
+
+        assert_eq!(observed.defaults.len(), 1);
+        assert_eq!(
+            observed.defaults[0].channel.as_ref().unwrap().as_str(),
+            "a-channel"
+        );
+        assert_eq!(observed.defaults[0].value, v1);
+
+        assert_eq!(observed.examples.len(), 4);
+        assert!(matches!(&observed.examples[0], ExampleBlock::Inline(..)));
+        assert!(matches!(&observed.examples[1], ExampleBlock::Partial(..)));
+        assert!(matches!(&observed.examples[2], ExampleBlock::Path(..)));
+        assert!(matches!(&observed.examples[3], ExampleBlock::BarePath(..)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_of_defaults_or_examples() -> Result<()> {
+        let v1 = json!({ "my-int": 1 });
+        let v2 = json!({ "my-int": 2 });
+        let input = json!([
+            { "default": { "value": v1.clone(), "channel": "a-channel" } },
+            { "example": { "name": "Example example", "value": v2.clone() } },
+        ]);
+
+        let frontend: FeatureAdditionChoices = serde_json::from_value(input)?;
+        let observed: FeatureAdditions = frontend.into();
+
+        assert_eq!(observed.defaults.len(), 1);
+        assert_eq!(
+            observed.defaults[0].channel.as_ref().unwrap().as_str(),
+            "a-channel"
+        );
+        assert_eq!(observed.defaults[0].value, v1);
+
+        assert_eq!(observed.examples.len(), 1);
+        assert!(matches!(&observed.examples[0], ExampleBlock::Inline(..)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_of_defaults_and_list_of_examples() -> Result<()> {
+        let v1 = json!({ "my-int": 1 });
+        let v2 = json!({ "my-int": 2 });
+        let input = json!({
+            "defaults": [ { "value": v1.clone(), "channel": "a-channel" } ],
+            "examples": [ { "name": "Example example", "value": v2.clone() } ],
+        });
+
+        let frontend: FeatureAdditionChoices = serde_json::from_value(input)?;
+        let observed: FeatureAdditions = frontend.into();
+
+        assert_eq!(observed.defaults.len(), 1);
+        assert_eq!(
+            observed.defaults[0].channel.as_ref().unwrap().as_str(),
+            "a-channel"
+        );
+        assert_eq!(observed.defaults[0].value, v1);
+
+        assert_eq!(observed.examples.len(), 1);
+        assert!(matches!(&observed.examples[0], ExampleBlock::Inline(..)));
+
         Ok(())
     }
 }

@@ -56,6 +56,13 @@ impl ErrorPath {
         Self::new(format!("objects/{name}"), Default::default())
     }
 
+    pub(crate) fn example(&self, name: &str) -> Self {
+        Self::new(
+            format!("{}#examples[\"{name}\"]", &self.path),
+            self.literals.clone(),
+        )
+    }
+
     pub(crate) fn property(&self, prop_key: &str) -> Self {
         Self::new(
             format!("{}.{prop_key}", &self.path),

@@ -4,7 +4,9 @@
 use crate::defaults::{DefaultsHasher, DefaultsMerger, DefaultsValidator};
 use crate::error::FMLError::InvalidFeatureError;
 use crate::error::{FMLError, Result};
-use crate::frontend::{AboutBlock, FeatureMetadata};
+use crate::frontend::{
+    AboutBlock, ExampleBlock, FeatureExampleMetadata, FeatureMetadata, InlineExampleBlock,
+};
 use crate::schema::{SchemaHasher, SchemaValidator, TypeQuery};
 use crate::util::loaders::FilePath;
 use anyhow::{bail, Error, Result as AnyhowResult};
@@ -500,6 +502,9 @@ pub struct FeatureDef {
     pub(crate) metadata: FeatureMetadata,
     pub(crate) props: Vec<PropDef>,
     pub(crate) allow_coenrollment: bool,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) examples: Vec<FeatureExample>,
 }
 
 impl FeatureDef {
@@ -512,6 +517,7 @@ impl FeatureDef {
             },
             props,
             allow_coenrollment,
+            ..Default::default()
         }
     }
     pub fn name(&self) -> String {
@@ -708,6 +714,26 @@ impl<'a> ImportedModule<'a> {
             .iter()
             .filter_map(|f| fm.get_feature(f))
             .collect()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub(crate) struct FeatureExample {
+    pub(crate) metadata: FeatureExampleMetadata,
+    pub(crate) value: Value,
+}
+
+impl From<&ExampleBlock> for FeatureExample {
+    fn from(value: &ExampleBlock) -> Self {
+        match value {
+            ExampleBlock::Inline(InlineExampleBlock { metadata, value }) => Self {
+                metadata: metadata.to_owned(),
+                value: value.to_owned(),
+            },
+            _ => unreachable!(
+                "Examples should have been inlined by now. This is a bug in nimbus-fml"
+            ),
+        }
     }
 }
 
