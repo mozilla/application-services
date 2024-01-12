@@ -5,11 +5,11 @@
 use std::collections::BTreeMap;
 
 use crate::frontend::{
-    EnumBody, EnumVariantBody, FeatureBody, FeatureFieldBody, FieldBody, ManifestFrontEnd,
-    ObjectBody, Types,
+    EnumBody, EnumVariantBody, ExampleBlock, FeatureBody, FeatureFieldBody, FieldBody,
+    InlineExampleBlock, ManifestFrontEnd, ObjectBody, Types,
 };
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
+    EnumDef, FeatureDef, FeatureExample, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
 };
 
 impl From<FeatureManifest> for ManifestFrontEnd {
@@ -67,11 +67,29 @@ impl From<FeatureDef> for FeatureBody {
             variables.insert(f.name(), f.into());
         }
 
+        let examples: Vec<_> = value.examples.into_iter().map(ExampleBlock::from).collect();
+
         Self {
             metadata: value.metadata,
             variables,
             default: None,
             allow_coenrollment: value.allow_coenrollment,
+            examples,
+        }
+    }
+}
+
+impl From<FeatureExample> for ExampleBlock {
+    fn from(example: FeatureExample) -> Self {
+        ExampleBlock::Inline(example.into())
+    }
+}
+
+impl From<FeatureExample> for InlineExampleBlock {
+    fn from(example: FeatureExample) -> Self {
+        Self {
+            metadata: example.metadata,
+            value: example.value,
         }
     }
 }

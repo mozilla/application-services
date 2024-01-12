@@ -4,10 +4,15 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use serde_json::Value;
+
 use crate::{
     defaults::DefaultsMerger,
     error::{FMLError, Result},
-    frontend::{ImportBlock, ManifestFrontEnd, Types},
+    frontend::{
+        ExampleBlock, FeatureAdditionChoices, FeatureAdditions, ImportBlock, InlineExampleBlock,
+        ManifestFrontEnd, PartialExampleBlock, PathOnly, Types,
+    },
     intermediate_representation::{FeatureManifest, ModuleId, TypeRef},
     util::loaders::{FileLoader, FilePath},
 };
@@ -117,6 +122,8 @@ impl Parser {
         self.canonicalize_import_paths(path, &mut parent.imports)
             .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
+        self.inline_manifest_resources(path, &mut parent)?;
+
         loading.insert(id.clone());
         parent
             .includes()
@@ -177,6 +184,35 @@ impl Parser {
         };
 
         Ok(merged)
+    }
+
+    fn inline_manifest_resources(
+        &self,
+        path: &FilePath,
+        manifest: &mut ManifestFrontEnd,
+    ) -> Result<()> {
+        for feature in manifest.features.values_mut() {
+            let as_typed = &feature.examples;
+            let mut inlined = Vec::with_capacity(as_typed.len());
+            for example in as_typed {
+                inlined.push(example.inline(&self.files, path)?);
+            }
+            feature.examples = inlined;
+        }
+
+        for import in &mut manifest.imports {
+            let mut features: BTreeMap<String, FeatureAdditionChoices> = Default::default();
+            for (feature_id, additions) in &import.features {
+                let additions: FeatureAdditions = additions.clone().into();
+                features.insert(
+                    feature_id.clone(),
+                    additions.inline(&self.files, path)?.into(),
+                );
+            }
+            import.features = features;
+        }
+
+        Ok(())
     }
 
     /// Load a manifest and all its imports, recursively if necessary.
@@ -252,21 +288,27 @@ impl Parser {
             //    this to be a more recursive look up. e.g. change `FeatureManifest.feature_defs` to be a `BTreeMap`.
             let feature_map = &mut child_manifest.feature_defs;
 
-            // c. Iterate over the features we want to override
-            for (f, default_blocks) in &block.features {
+            // c. Iterate over the features we want to add to the original feature:
+            //    - by adding to the list of examples.
+            //    - by overriding default values.
+            for (f, feature_additions) in &block.features {
                 let feature_def = feature_map.get_mut(f).ok_or_else(|| {
                     FMLError::FMLModuleError(
                         id.clone(),
-                        format!(
-                            "Cannot override defaults for `{}` feature from {}",
-                            f, &child_id
-                        ),
+                        format!("Cannot override defaults for `{f}` feature from {child_id}"),
                     )
                 })?;
+                // FeatureAdditions holds the extra examples and defaults for this feature.
+                let additions: FeatureAdditions = feature_additions.clone().into();
 
-                // d. And merge the overrides in place into the FeatureDefs
+                // d.i) Append the imported list of examples to the original feature examples and…
+                feature_def
+                    .examples
+                    .extend(additions.examples.iter().map(Into::into));
+
+                // d.ii) Merge the overrides in place into the FeatureDefs
                 merger
-                    .merge_feature_defaults(feature_def, &Some(default_blocks).cloned())
+                    .merge_feature_defaults(feature_def, &Some(additions.defaults))
                     .map_err(|e| FMLError::FMLModuleError(child_id.clone(), e.to_string()))?;
 
                 feature_ids.insert(f.clone());
@@ -443,13 +485,12 @@ fn merge_map<T: Clone>(
 fn merge_import_block(a: &ImportBlock, b: &ImportBlock) -> Result<ImportBlock> {
     let mut block = a.clone();
 
-    for (id, defaults) in &b.features {
-        let mut defaults = defaults.clone();
-        if let Some(existing) = block.features.get_mut(id) {
-            existing.append(&mut defaults);
-        } else {
-            block.features.insert(id.clone(), defaults.clone());
-        }
+    for (id, additions) in &b.features {
+        block
+            .features
+            .entry(id.clone())
+            .and_modify(|existing| existing.merge(additions))
+            .or_insert(additions.clone());
     }
     Ok(block)
 }
@@ -488,6 +529,55 @@ fn check_can_import_list(
         ))
     } else {
         Ok(())
+    }
+}
+
+impl ExampleBlock {
+    fn inline(&self, files: &FileLoader, root: &FilePath) -> Result<Self> {
+        Ok(match self {
+            Self::Inline(_) => self.clone(),
+            Self::Partial(PartialExampleBlock { metadata, path }) => {
+                let file = files.join(root, path)?;
+                let value: Value = files.read(&file)?;
+                Self::Inline(InlineExampleBlock {
+                    metadata: metadata.to_owned(),
+                    value,
+                })
+            }
+            Self::BarePath(path) | Self::Path(PathOnly { path }) => {
+                let file = files.join(root, path)?;
+                let value: InlineExampleBlock = files.read(&file)?;
+                Self::Inline(value)
+            }
+        })
+    }
+}
+
+impl FeatureAdditionChoices {
+    fn merge(&mut self, other: &Self) {
+        match (self, other) {
+            (Self::FeatureAdditions(a), Self::FeatureAdditions(b)) => a.merge(b),
+            _ => unreachable!("FeatureAdditionChoices should have been rationalized already. This is a bug in nimbus-fml"),
+        };
+    }
+}
+
+impl FeatureAdditions {
+    fn inline(&self, files: &FileLoader, root: &FilePath) -> Result<Self> {
+        let examples = self
+            .examples
+            .iter()
+            .map(|ex| ex.inline(files, root))
+            .collect::<Result<_>>()?;
+        Ok(Self {
+            examples,
+            defaults: self.defaults.clone(),
+        })
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.examples.extend(other.examples.clone());
+        self.defaults.extend(other.defaults.clone());
     }
 }
 

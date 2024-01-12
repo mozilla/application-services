@@ -236,6 +236,7 @@ mod unit_tests {
                 )],
                 metadata: Default::default(),
                 allow_coenrollment: true,
+                ..Default::default()
             }],
             HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
         )
