@@ -351,7 +351,7 @@ mod string_aliases {
         let expected = r#"Invalid value "Donkey" for type PlayerName; did you mean one of "Agnes", "Babet", "Ciarán", "Debi", "Elin", "Fergus", "Gerrit", "Henk", "Isha", "Jocelyn", "Kathleen" or "Lilian"?"#;
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
         assert_eq!(expected, err.message.as_str());
 
@@ -367,7 +367,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
         assert_eq!(expected, err.message.as_str());
 
@@ -439,7 +439,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"CONNECT-4\""), err.highlight.as_deref());
         assert_eq!(
             "Invalid value \"CONNECT-4\" for type SportName; did you mean \"CHESS\"?",
@@ -461,7 +461,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("{"), err.highlight.as_deref());
         assert_eq!(
             "A valid value for sport of type SportName is missing",
@@ -483,7 +483,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"Donkey\""), err.highlight.as_deref());
 
         // ------------------------------------------------------------------
@@ -503,7 +503,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"Aka\""), err.highlight.as_deref());
 
         // ------------------------------------------------------------
@@ -594,7 +594,7 @@ mod string_aliases {
         );
         assert!(errors.is_some());
         let errors = errors.unwrap();
-        let err = errors.first().unwrap();
+        let err = errors.get(0).unwrap();
         assert_eq!(Some("\"Archery\""), err.highlight.as_deref());
 
         Ok(())

@@ -4,7 +4,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-pub use super::http_client::{GetDeviceResponse as Device, PushSubscription};
+pub use super::http_client::{
+    DeviceLocation as Location, GetDeviceResponse as Device, PushSubscription,
+};
 use super::{
     commands::{self, IncomingDeviceCommand},
     http_client::{

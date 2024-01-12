@@ -831,7 +831,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(true, &[], &recipes, &[])?;
 
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::NotEnrolled { .. }));
 
@@ -847,7 +847,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
         enrollments.as_slice(),
     )?;
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
 
@@ -863,7 +863,7 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
         enrollments.as_slice(),
     )?;
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(
         &enr.status,
@@ -892,7 +892,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(true, &[], &recipes, &[])?;
 
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::NotEnrolled { .. }));
 
@@ -908,7 +908,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         enrollments.as_slice(),
     )?;
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
 
@@ -924,7 +924,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         enrollments.as_slice(),
     )?;
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(
         &enr.status,
@@ -946,7 +946,7 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         enrollments.as_slice(),
     )?;
     assert_eq!(enrollments.len(), 1);
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug);
     assert!(matches!(&enr.status, EnrollmentStatus::Enrolled { .. }));
 
@@ -994,7 +994,7 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
 
     assert_eq!(enrollments.len(), 2);
 
-    let enr = enrollments.first().unwrap();
+    let enr = enrollments.get(0).unwrap();
     assert_eq!(&enr.slug, slug_1);
     assert!(matches!(&enr.status, EnrollmentStatus::Disqualified { .. }));
 

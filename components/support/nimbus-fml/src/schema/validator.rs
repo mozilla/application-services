@@ -120,7 +120,7 @@ impl<'a> SchemaValidator<'a> {
             .collect();
 
         if !unaccounted.is_empty() {
-            let t = unaccounted.first().unwrap();
+            let t = unaccounted.get(0).unwrap();
             return Err(FMLError::ValidationError(
                 path.to_string(),
                 format!("A string-alias {t} is used by– but has not been defined in– the {feature} feature"),

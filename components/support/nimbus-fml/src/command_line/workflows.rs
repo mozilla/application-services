@@ -383,6 +383,7 @@ mod test {
         // and while we still have to support setting those options from the commmand line.
         // We will deprecate setting classnames, package names etc, then we can simplify.
         let from_file = ir.about;
+        let from_cli = from_cli;
         let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);
         let swift_about = from_cli.swift_about.or(from_file.swift_about);
         let about = AboutBlock {

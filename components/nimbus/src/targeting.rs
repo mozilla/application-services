@@ -121,7 +121,7 @@ pub fn jexl_eval<Context: serde::Serialize>(
 }
 
 fn version_compare(args: &[Value]) -> Result<Value> {
-    let curr_version = args.first().ok_or_else(|| {
+    let curr_version = args.get(0).ok_or_else(|| {
         NimbusError::VersionParsingError("current version doesn't exist in jexl transform".into())
     })?;
     let curr_version = curr_version.as_str().ok_or_else(|| {
@@ -174,7 +174,7 @@ fn bucket_sample(args: &[Value]) -> anyhow::Result<Value> {
     }
 
     let input = args
-        .first()
+        .get(0)
         .ok_or_else(|| anyhow!("input doesn't exist in jexl transform"))?;
     let start = get_arg_as_u32(args, 1, "start")?;
     let count = get_arg_as_u32(args, 2, "count")?;

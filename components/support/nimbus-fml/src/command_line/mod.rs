@@ -244,7 +244,7 @@ mod cli_tests {
 
     fn package_dir() -> Result<PathBuf> {
         let string = env::var("CARGO_MANIFEST_DIR")?;
-        Ok(PathBuf::from(string))
+        Ok(PathBuf::try_from(string)?)
     }
 
     // All these tests just exercise the command line parsing.
