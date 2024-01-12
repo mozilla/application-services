@@ -131,8 +131,7 @@ fn load_feature_manifest(
         let parser: Parser = Parser::new(files, path)?;
         parser.get_intermediate_representation(channel)?
     } else {
-        let string = files.read_to_string(&path)?;
-        serde_json::from_str::<FeatureManifest>(&string)?
+        files.read::<FeatureManifest>(&path)?
     };
     ir.validate_manifest()?;
     Ok(ir)

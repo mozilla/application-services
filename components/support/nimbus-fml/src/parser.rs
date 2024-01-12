@@ -106,11 +106,9 @@ impl Parser {
     ) -> Result<ManifestFrontEnd> {
         let id: ModuleId = path.try_into()?;
         let files = &self.files;
-        let s = files
-            .read_to_string(path)
-            .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
-        let mut parent = serde_yaml::from_str::<ManifestFrontEnd>(&s)
+        let mut parent = files
+            .read::<ManifestFrontEnd>(path)
             .map_err(|e| FMLError::FMLModuleError(id.clone(), e.to_string()))?;
 
         // We canonicalize the paths to the import files really soon after the loading so when we merge
