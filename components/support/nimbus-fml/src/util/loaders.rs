@@ -194,6 +194,20 @@ impl FilePath {
             _ => self.clone(),
         })
     }
+
+    pub fn extension(&self) -> Option<&str> {
+        Some(match self {
+            Self::Local(p) => {
+                let ext = p.extension()?;
+                ext.to_str()?
+            }
+            Self::GitHub(GitHubRepoFilePath { url, .. }) | Self::Remote(url) => {
+                let file = url.path_segments()?.last()?;
+                let (_, ext) = file.rsplit_once('.')?;
+                ext
+            }
+        })
+    }
 }
 
 impl Display for FilePath {
@@ -325,13 +339,7 @@ impl FileLoader {
     ///
     /// Relative paths to on disk directories will be taken as relative to this file.
     pub fn add_repo_file(&mut self, file: &FilePath) -> Result<()> {
-        let string = self.read_to_string(file)?;
-
-        let config: BTreeMap<String, String> = if file.to_string().ends_with(".json") {
-            serde_json::from_str(&string)?
-        } else {
-            serde_yaml::from_str(&string)?
-        };
+        let config: BTreeMap<String, String> = self.read(file)?;
 
         for (k, v) in config {
             self.add_repo_relative(file, &k, &v)?;
@@ -444,6 +452,14 @@ impl FileLoader {
                 self.fetch_and_cache(&download_url)?
             }
         })
+    }
+
+    pub fn read<T: serde::de::DeserializeOwned>(&self, file: &FilePath) -> Result<T> {
+        let string = self
+            .read_to_string(file)
+            .map_err(|e| FMLError::InvalidPath(format!("{file}: {e}")))?;
+
+        Ok(serde_yaml::from_str(&string)?)
     }
 
     fn fetch_and_cache(&self, url: &Url) -> Result<String> {
@@ -905,6 +921,45 @@ mod unit_tests {
             gh.default_download_url()?.to_string(),
             "https://raw.githubusercontent.com/owner/repo-name/ref/c/d/file.txt"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_extension() -> Result<()> {
+        let path = FilePath::Local("file.json".into());
+        assert_eq!(path.extension(), Some("json"));
+
+        let path = FilePath::Local("file.fml.yaml".into());
+        assert_eq!(path.extension(), Some("yaml"));
+
+        let path = FilePath::Local("file".into());
+        assert_eq!(path.extension(), None);
+
+        // Remote paths
+        let path = FilePath::Remote("https://example.com/file.json".try_into()?);
+        assert_eq!(path.extension(), Some("json"));
+
+        let path = FilePath::Remote("https://example.com/file.fml.yaml".try_into()?);
+        assert_eq!(path.extension(), Some("yaml"));
+
+        let path = FilePath::Remote("https://example.com/".try_into()?);
+        assert_eq!(path.extension(), None);
+
+        let path = FilePath::Remote("https://example.com/file".try_into()?);
+        assert_eq!(path.extension(), None);
+
+        let path = FilePath::Remote("https://example.com/path/".try_into()?);
+        assert_eq!(path.extension(), None);
+
+        let path = FilePath::GitHub(GitHubRepoFilePath::new("example", "main"));
+        assert_eq!(path.extension(), None);
+
+        let path = path.join("./file.json")?;
+        assert_eq!(path.extension(), Some("json"));
+
+        let path = path.join("./file.fml.yaml")?;
+        assert_eq!(path.extension(), Some("yaml"));
 
         Ok(())
     }
