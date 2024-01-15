@@ -6,11 +6,12 @@ pub use crate::editing::FmlEditorError;
 use crate::{
     editing::{CursorPosition, ErrorConverter},
     error::{ClientError, FMLError, Result},
-    intermediate_representation::{FeatureDef, FeatureManifest},
+    intermediate_representation::{FeatureDef, FeatureExample, FeatureManifest},
     FmlClient, JsonObject,
 };
 use serde_json::Value;
 use std::sync::Arc;
+use url::Url;
 
 impl FmlClient {
     pub fn get_feature_inspector(&self, id: String) -> Option<Arc<FmlFeatureInspector>> {
@@ -45,6 +46,23 @@ impl FmlFeatureInspector {
                     .to_string(),
             ))),
         }
+    }
+
+    pub fn get_examples(&self) -> Result<Vec<FmlFeatureExample>> {
+        let feature_examples = &self.get_feature().examples;
+        let mut examples: Vec<FmlFeatureExample> = Vec::with_capacity(feature_examples.len() + 1);
+        // Make an FmlFeatureExample out of the FeatureExample, for exposure to foreign languages.
+        examples.extend(feature_examples.clone().into_iter().map(Into::into).rev());
+
+        // Add the full defaults for every feature.
+        // This will help kick-start adoption.
+        examples.push(FmlFeatureExample {
+            name: String::from("Default configuration (in full)"),
+            value: self.get_default_json()?,
+            ..Default::default()
+        });
+
+        Ok(examples)
     }
 
     pub fn get_errors(&self, string: String) -> Option<Vec<FmlEditorError>> {
@@ -129,6 +147,29 @@ fn syntax_error(
         col: col as u32,
         ..Default::default()
     })
+}
+
+#[derive(Default)]
+pub struct FmlFeatureExample {
+    pub name: String,
+    pub description: Option<String>,
+    pub url: Option<Url>,
+    pub value: JsonObject,
+}
+
+impl From<FeatureExample> for FmlFeatureExample {
+    fn from(example: FeatureExample) -> Self {
+        let metadata = example.metadata;
+        Self {
+            name: metadata.name,
+            description: metadata.description,
+            url: metadata.url,
+            value: match example.value {
+                Value::Object(v) => v,
+                _ => Default::default(),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -883,6 +924,57 @@ mod correction_candidates {
                 r#"}"#,                     // 9
             ],
         );
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod config_examples {
+    use super::*;
+    use crate::client::test_helper::client;
+
+    #[test]
+    fn smoke_test() -> Result<()> {
+        let fm = client("./config-examples/app.fml.yaml", "release")?;
+        let inspector = fm
+            .get_feature_inspector(String::from("my-component-feature"))
+            .unwrap();
+
+        let examples = inspector.get_examples()?;
+
+        assert_eq!(examples.len(), 5);
+        let names: Vec<_> = examples.iter().map(|ex| ex.name.as_str()).collect();
+        assert_eq!(
+            &[
+                "4. Partial example with JSON for imported feature",
+                "3. Inlined example for imported feature",
+                "2. An example from a file adjacent to the component",
+                "1. Inlined example for feature",
+                "Default configuration (in full)",
+            ],
+            names.as_slice()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn validating_test() -> Result<()> {
+        let res = client(
+            "./config-examples/app-with-broken-example.fml.yaml",
+            "release",
+        );
+        assert!(res.is_err());
+
+        let is_validation_err = matches!(
+                res.err().unwrap(),
+                FMLError::ValidationError(path, message) if
+                       path.as_str() ==
+                        "features/my-component-feature#examples[\"Broken example with invalid-property\"]"
+                    && message.starts_with(
+                        "Invalid property \"invalid-property\""));
+        assert!(is_validation_err);
 
         Ok(())
     }

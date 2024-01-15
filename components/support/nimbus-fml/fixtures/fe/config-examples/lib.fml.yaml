@@ -1,0 +1,32 @@
+version: 1.0
+channels:
+  # These channels can be set to whatever the lib developer wants.
+  # The app developer chooses which of these channels to use.
+  - ios
+  - android
+about:
+  description: A small test of examples
+  ios:
+    class: ComponentsNimbus
+    module: Components
+  android:
+    class: .nimbus.LibNimbus
+    package: com.example.lib
+features:
+  my-component-feature:
+    description: A component instrumented as a Nimbus feature
+    examples:
+      - name: 1. Inlined example for feature
+        value:
+          component-string: Example from the component
+          component-boolean: true
+      - external-example.yaml
+    variables:
+      component-string:
+        description: A string to configure this component
+        type: String
+        default: A string
+      component-boolean:
+        description: A boolean to configure this component
+        type: Boolean
+        default: false

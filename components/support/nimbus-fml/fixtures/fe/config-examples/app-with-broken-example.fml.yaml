@@ -1,0 +1,21 @@
+version: 1.0
+about:
+  description: A small test for feature configuration examples
+  ios:
+    class: AppNimbus
+    module: App
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+channels:
+  - debug
+  - release
+import:
+  - path: ./lib.fml.yaml
+    channel: android
+    features:
+      my-component-feature:
+        examples:
+          - name: Broken example with invalid-property
+            value:
+              invalid-property: true
