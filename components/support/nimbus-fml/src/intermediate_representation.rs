@@ -448,7 +448,7 @@ impl FeatureManifest {
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
         let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
-        let merged_value = merger.merge_feature_config(feature_def, &feature_value)?;
+        let merged_value = merger.merge_feature_config(feature_def, &feature_value);
 
         let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
         let errors = validator.get_errors(feature_def, &merged_value, &feature_value);
@@ -463,34 +463,15 @@ impl FeatureManifest {
     #[cfg(feature = "client-lib")]
     pub(crate) fn merge_and_errors(
         &self,
-        feature_name: &str,
+        feature_def: &FeatureDef,
         feature_value: &Value,
-    ) -> Result<(Value, Vec<crate::editing::FeatureValidationError>)> {
-        let (manifest, feature_def) = self
-            .find_feature(feature_name)
-            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
-        let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
-        let merged_value = merger.merge_feature_config(feature_def, feature_value)?;
+    ) -> (Value, Vec<crate::editing::FeatureValidationError>) {
+        let merger = DefaultsMerger::new(&self.obj_defs, Default::default(), None);
+        let merged_value = merger.merge_feature_config(feature_def, feature_value);
 
-        let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
+        let validator = DefaultsValidator::new(&self.enum_defs, &self.obj_defs);
         let errors = validator.get_errors(feature_def, &merged_value, feature_value);
-        Ok((merged_value, errors))
-    }
-
-    pub fn get_schema_hash(&self, feature_name: &str) -> Result<String> {
-        let (manifest, feature_def) = self
-            .find_feature(feature_name)
-            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
-
-        Ok(manifest.feature_schema_hash(feature_def))
-    }
-
-    pub fn get_defaults_hash(&self, feature_name: &str) -> Result<String> {
-        let (manifest, feature_def) = self
-            .find_feature(feature_name)
-            .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
-
-        Ok(manifest.feature_defaults_hash(feature_def))
+        (merged_value, errors)
     }
 }
 
