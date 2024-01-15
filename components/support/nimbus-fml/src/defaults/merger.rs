@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use crate::{
     error::{FMLError, Result},
     frontend::DefaultBlock,
-    intermediate_representation::{FeatureDef, ObjectDef, TypeRef},
+    intermediate_representation::{FeatureDef, ObjectDef, PropDef, TypeRef},
 };
 
 pub struct DefaultsMerger<'object> {
@@ -41,68 +41,46 @@ impl<'object> DefaultsMerger<'object> {
         Self::new(objects, supported_channels, Some(channel.to_string()))
     }
 
-    fn collect_feature_defaults(&self, feature: &FeatureDef) -> Result<serde_json::Value> {
+    fn collect_feature_defaults(&self, feature: &FeatureDef) -> serde_json::Value {
+        self.collect_props_defaults(&feature.props)
+    }
+
+    fn collect_object_defaults(&self, name: &str) -> serde_json::Value {
+        let obj = self
+            .objects
+            .get(name)
+            .unwrap_or_else(|| panic!("Object named {} is not defined", name));
+
+        self.collect_props_defaults(&obj.props)
+    }
+
+    fn collect_props_defaults(&self, props: &Vec<PropDef>) -> Value {
         let mut res = serde_json::value::Map::new();
-
-        for p in &feature.props {
-            let collected = self
-                .collect_prop_defaults(&p.typ, &p.default)?
-                .unwrap_or_else(|| p.default());
-            res.insert(p.name(), collected);
+        for p in props {
+            res.insert(p.name(), self.collect_prop_defaults(&p.typ, &p.default));
         }
-
-        Ok(serde_json::to_value(res)?)
+        serde_json::Value::Object(res)
     }
 
-    fn collect_object_defaults(&self, nm: &str) -> Result<serde_json::Value> {
-        if !self.objects.contains_key(nm) {
-            return Err(FMLError::ValidationError(
-                format!("objects/{}", nm),
-                format!("Object named {} is not defined", nm),
-            ));
+    fn collect_prop_defaults(&self, typ: &TypeRef, v: &serde_json::Value) -> serde_json::Value {
+        match typ {
+            TypeRef::Object(name) => merge_two_defaults(&self.collect_object_defaults(name), v),
+            TypeRef::EnumMap(_, v_type) => self.collect_map_defaults(v_type, v),
+            TypeRef::StringMap(v_type) => self.collect_map_defaults(v_type, v),
+            _ => v.clone(),
         }
-
-        let obj = self.objects.get(nm).unwrap();
-        let mut res = serde_json::value::Map::new();
-
-        for p in obj.props() {
-            if let Some(collected) = self.collect_prop_defaults(&p.typ, &p.default)? {
-                res.insert(p.name(), collected);
-            }
-        }
-
-        Ok(serde_json::to_value(res)?)
     }
 
-    fn collect_prop_defaults(
-        &self,
-        typ: &TypeRef,
-        v: &serde_json::Value,
-    ) -> Result<Option<serde_json::Value>> {
-        Ok(match typ {
-            TypeRef::Object(nm) => Some(merge_two_defaults(&self.collect_object_defaults(nm)?, v)),
-            TypeRef::EnumMap(_, v_type) => Some(self.collect_map_defaults(v_type, v)?),
-            TypeRef::StringMap(v_type) => Some(self.collect_map_defaults(v_type, v)?),
-            _ => None,
-        })
-    }
-
-    fn collect_map_defaults(
-        &self,
-        v_type: &TypeRef,
-        obj: &serde_json::Value,
-    ) -> Result<serde_json::Value> {
+    fn collect_map_defaults(&self, v_type: &TypeRef, obj: &serde_json::Value) -> serde_json::Value {
         let map = obj
             .as_object()
             .unwrap_or_else(|| panic!("Expected a JSON object as a default"));
         let mut res = serde_json::value::Map::new();
         for (k, v) in map {
-            let collected = self
-                .collect_prop_defaults(v_type, v)?
-                .unwrap_or_else(|| v.clone());
+            let collected = self.collect_prop_defaults(v_type, v);
             res.insert(k.clone(), collected);
         }
-        Ok(serde_json::to_value(res)?)
+        serde_json::Value::Object(res)
     }
 
     /// Transforms a feature definition with unmerged defaults into a feature
@@ -174,7 +152,7 @@ impl<'object> DefaultsMerger<'object> {
         feature_def: &mut FeatureDef,
         defaults: &Option<Vec<DefaultBlock>>,
     ) -> Result<(), FMLError> {
-        let variable_defaults = self.collect_feature_defaults(feature_def)?;
+        let variable_defaults = self.collect_feature_defaults(feature_def);
         let defaults_to_merge = self.channel_specific_defaults(defaults)?;
         let merged = merge_two_defaults(&variable_defaults, &defaults_to_merge);
 
@@ -229,13 +207,9 @@ impl<'object> DefaultsMerger<'object> {
 
     /// A convenience method to get the defaults from the feature, and merger it
     /// with the passed value.
-    pub(crate) fn merge_feature_config(
-        &self,
-        feature_def: &FeatureDef,
-        value: &Value,
-    ) -> Result<Value> {
-        let defaults = self.collect_feature_defaults(feature_def)?;
-        Ok(merge_two_defaults(&defaults, value))
+    pub(crate) fn merge_feature_config(&self, feature_def: &FeatureDef, value: &Value) -> Value {
+        let defaults = self.collect_feature_defaults(feature_def);
+        merge_two_defaults(&defaults, value)
     }
 }
 

@@ -6,7 +6,7 @@ pub use crate::editing::FmlEditorError;
 use crate::{
     editing::{CursorPosition, ErrorConverter},
     error::{ClientError, FMLError, Result},
-    intermediate_representation::FeatureManifest,
+    intermediate_representation::{FeatureDef, FeatureManifest},
     FmlClient, JsonObject,
 };
 use serde_json::Value;
@@ -36,14 +36,9 @@ impl FmlFeatureInspector {
     }
 
     pub fn get_default_json(&self) -> Result<JsonObject> {
-        match self
-            .manifest
-            .find_feature(&self.feature_id)
-            .map(|(_, f)| f.default_json())
-            // We know it's safe to unwrap here, because find_feature returns something, because we constructed
-            // a inspector with the feature id.
-            .unwrap()
-        {
+        let f = self.get_feature();
+
+        match f.default_json() {
             Value::Object(map) => Ok(map),
             _ => Err(FMLError::ClientError(ClientError::InvalidFeatureValue(
                 "A non-JSON object is returned as default. This is likely a Nimbus FML bug."
@@ -67,19 +62,31 @@ impl FmlFeatureInspector {
     }
 
     pub fn get_schema_hash(&self) -> String {
-        self.manifest
-            .get_schema_hash(&self.feature_id)
-            .unwrap_or_default()
+        let (fm, f) = self.get_manifest_and_feature();
+        fm.feature_schema_hash(f)
     }
 
     pub fn get_defaults_hash(&self) -> String {
-        self.manifest
-            .get_defaults_hash(&self.feature_id)
-            .unwrap_or_default()
+        let (fm, f) = self.get_manifest_and_feature();
+        fm.feature_defaults_hash(f)
     }
 }
 
 impl FmlFeatureInspector {
+    fn get_feature(&self) -> &FeatureDef {
+        self.get_manifest_and_feature().1
+    }
+
+    fn _get_manifest(&self) -> &FeatureManifest {
+        self.get_manifest_and_feature().0
+    }
+
+    fn get_manifest_and_feature(&self) -> (&FeatureManifest, &FeatureDef) {
+        self.manifest
+            .find_feature(&self.feature_id)
+            .expect("We construct an inspector with a feature_id, so this should be impossible")
+    }
+
     fn parse_json_string(&self, string: &str) -> Result<Value, FmlEditorError> {
         Ok(match serde_json::from_str::<Value>(string) {
             Ok(json) if json.is_object() => json,
@@ -97,14 +104,9 @@ impl FmlFeatureInspector {
     }
 
     fn get_semantic_errors(&self, src: &str, value: Value) -> Vec<FmlEditorError> {
-        let (merged_value, errors) = self
-            .manifest
-            .merge_and_errors(&self.feature_id, &value)
-            .unwrap_or_else(|e| {
-                unreachable!("Error {e:?} should be caught as FeatureValidationError")
-            });
+        let (manifest, feature_def) = self.get_manifest_and_feature();
+        let (merged_value, errors) = manifest.merge_and_errors(feature_def, &value);
         if !errors.is_empty() {
-            let (manifest, feature_def) = self.manifest.find_feature(&self.feature_id).unwrap();
             let converter = ErrorConverter::new(&manifest.enum_defs, &manifest.obj_defs);
             converter.convert_into_editor_errors(feature_def, &merged_value, src, &errors)
         } else {
