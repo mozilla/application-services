@@ -16,9 +16,9 @@ cfg_if::cfg_if! {
     use std::str::FromStr;
     use email_address::EmailAddress;
     use descriptor::FmlFeatureDescriptor;
+    use inspector::{FmlEditorError, FmlFeatureExample, FmlFeatureInspector};
     }
 }
-pub use inspector::{FmlEditorError, FmlFeatureInspector};
 use serde_json::Value;
 
 use crate::{

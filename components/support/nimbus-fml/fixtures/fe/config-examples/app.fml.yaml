@@ -1,0 +1,24 @@
+version: 1.0
+about:
+  description: A small test for feature configuration examples
+  ios:
+    class: AppNimbus
+    module: App
+  android:
+    class: .nimbus.AppNimbus
+    package: com.example.app
+channels:
+  - debug
+  - release
+import:
+  - path: ./lib.fml.yaml
+    channel: android
+    features:
+      my-component-feature:
+        examples:
+          - name: 3. Inlined example for imported feature
+            value:
+              component-string: Example from the app
+              component-boolean: true
+          - name: 4. Partial example with JSON for imported feature
+            path: external-partial-example.json

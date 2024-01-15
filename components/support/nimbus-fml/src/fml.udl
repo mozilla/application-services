@@ -100,6 +100,9 @@ interface FmlFeatureInspector {
     [Throws=FMLError]
     JsonObject get_default_json();
 
+    [Throws=FMLError]
+    sequence<FmlFeatureExample> get_examples();
+
     // Returns a 8 digit hex hash of the structure of the feature.
     //
     // This is suitable for tracking over time.
@@ -175,4 +178,11 @@ dictionary CorrectionCandidate {
     // The final position of the cursor after the insertion has taken place.
     // If None, then should be left to the editor to decide.
     CursorPosition?   cursor_at;
+};
+
+dictionary FmlFeatureExample {
+    string name;
+    string? description;
+    Url? url;
+    JsonObject value;
 };
