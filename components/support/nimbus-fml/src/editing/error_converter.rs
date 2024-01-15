@@ -148,7 +148,14 @@ impl ErrorConverter<'_> {
             ErrorKind::InvalidKey { key_type: t, .. }
             | ErrorKind::InvalidValue { value_type: t, .. }
             | ErrorKind::TypeMismatch { value_type: t } => values.all_specific_strings(t),
-            ErrorKind::InvalidPropKey { valid, .. } => valid.to_owned(),
+            // For property keys that we don't want to suggest to the user, but we _do_ want them involved in
+            // validation or code generation, we make them never/difficult to be overridden by an experiment,
+            // by filtering them here.
+            ErrorKind::InvalidPropKey { valid, .. } => valid
+                .iter()
+                .filter(|s| s.starts_with(char::is_alphanumeric))
+                .map(ToOwned::to_owned)
+                .collect(),
             ErrorKind::InvalidNestedValue { .. } => Default::default(),
         };
 
