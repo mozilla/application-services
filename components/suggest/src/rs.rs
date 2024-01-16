@@ -148,15 +148,16 @@ where
 }
 
 /// Fields that are common to all downloaded suggestions.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedSuggestionCommonDetails {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
+    pub score: Option<f64>,
 }
 
 /// An AMP suggestion to ingest from an AMP-Wikipedia attachment.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedAmpSuggestion {
     #[serde(flatten)]
     pub common_details: DownloadedSuggestionCommonDetails,
@@ -171,7 +172,7 @@ pub(crate) struct DownloadedAmpSuggestion {
 }
 
 /// A Wikipedia suggestion to ingest from an AMP-Wikipedia attachment.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedWikipediaSuggestion {
     #[serde(flatten)]
     pub common_details: DownloadedSuggestionCommonDetails,
@@ -181,7 +182,7 @@ pub(crate) struct DownloadedWikipediaSuggestion {
 
 /// A suggestion to ingest from an AMP-Wikipedia attachment downloaded from
 /// Remote Settings.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub(crate) enum DownloadedAmpWikipediaSuggestion {
     Amp(DownloadedAmpSuggestion),
     Wikipedia(DownloadedWikipediaSuggestion),

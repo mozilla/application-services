@@ -602,6 +602,7 @@ mod tests {
                 "icon": "5678",
                 "impression_url": "https://example.com/impression_url",
                 "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?;
 
@@ -625,6 +626,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -689,7 +691,8 @@ mod tests {
                 "url": "https://penne.biz",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
@@ -728,6 +731,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.2,
                     },
                 ]
             "#]]
@@ -765,6 +769,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -809,7 +814,8 @@ mod tests {
                  "url": "https://www.lasagna.restaurant",
                  "icon": "2",
                  "impression_url": "https://example.com/impression_url",
-                 "click_url": "https://example.com/click_url"
+                 "click_url": "https://example.com/click_url",
+                 "score": 0.3
             }),
         )?;
 
@@ -832,6 +838,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -876,7 +883,8 @@ mod tests {
                 "url": "https://www.lasagna.restaurant",
                 "icon": "1",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }, {
                 "id": 0,
                 "advertiser": "Los Pollos Hermanos",
@@ -886,7 +894,8 @@ mod tests {
                 "url": "https://www.lph-nm.biz",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?;
 
@@ -910,6 +919,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -946,7 +956,8 @@ mod tests {
                 "url": "https://www.lph-nm.biz",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }, {
                 "id": 0,
                 "advertiser": "Good Place Eats",
@@ -956,7 +967,8 @@ mod tests {
                 "url": "https://penne.biz",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?;
 
@@ -985,6 +997,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -1007,6 +1020,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -1072,7 +1086,8 @@ mod tests {
                 "url": "https://www.lasagna.restaurant",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }, {
                 "id": 0,
                 "advertiser": "Los Pollos Hermanos",
@@ -1082,7 +1097,8 @@ mod tests {
                 "url": "https://www.lph-nm.biz",
                 "icon": "3",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?
         .with_icon("icon-2.png", "lasagna-icon".as_bytes().into())
@@ -1167,6 +1183,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -1207,6 +1224,7 @@ mod tests {
                         impression_url: "https://example.com/impression_url",
                         click_url: "https://example.com/click_url",
                         raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
                     },
                 ]
             "#]]
@@ -1509,7 +1527,8 @@ mod tests {
                 "url": "https://www.lasagna.restaurant",
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
@@ -1634,6 +1653,7 @@ mod tests {
                 "icon": "2",
                 "impression_url": "https://example.com",
                 "click_url": "https://example.com",
+                "score": 0.3
             }]),
         )?;
 
@@ -1761,6 +1781,7 @@ mod tests {
                 "icon": "2",
                 "impression_url": "https://example.com/impression_url",
                 "click_url": "https://example.com/click_url",
+                "score": 0.3
             }, {
                 "id": 0,
                 "advertiser": "Wikipedia",
@@ -1831,7 +1852,7 @@ mod tests {
                     "lowConfidenceKeywords": [],
                     "highConfidenceKeywords": ["multimatch"],
                     "title": "Multimatching",
-                    "score": 0.25
+                    "score": 0.88
                 },
             ]),
         )?
@@ -1917,6 +1938,7 @@ mod tests {
                             impression_url: "https://example.com/impression_url",
                             click_url: "https://example.com/click_url",
                             raw_click_url: "https://example.com/click_url",
+                            score: 0.3,
                         },
                     ]
                 "#]],
@@ -1935,6 +1957,24 @@ mod tests {
                 },
                 expect![[r#"
                     [
+                        Pocket {
+                            title: "Multimatching",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.88,
+                            is_top_pick: true,
+                        },
+                        Amo {
+                            title: "Firefox Multimatch",
+                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
+                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                            description: "amo suggestion multi-match",
+                            rating: Some(
+                                "4.9",
+                            ),
+                            number_of_ratings: 888,
+                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                            score: 0.25,
+                        },
                         Wikipedia {
                             title: "Multimatch",
                             url: "https://wikipedia.org/Multimatch",
@@ -1955,24 +1995,6 @@ mod tests {
                                 ],
                             ),
                             full_keyword: "multimatch",
-                        },
-                        Amo {
-                            title: "Firefox Multimatch",
-                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                            description: "amo suggestion multi-match",
-                            rating: Some(
-                                "4.9",
-                            ),
-                            number_of_ratings: 888,
-                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                            score: 0.25,
-                        },
-                        Pocket {
-                            title: "Multimatching",
-                            url: "https://getpocket.com/collections/multimatch",
-                            score: 0.25,
-                            is_top_pick: true,
                         },
                     ]
                 "#]],
@@ -1991,6 +2013,24 @@ mod tests {
                 },
                 expect![[r#"
                     [
+                        Pocket {
+                            title: "Multimatching",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.88,
+                            is_top_pick: true,
+                        },
+                        Amo {
+                            title: "Firefox Multimatch",
+                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
+                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                            description: "amo suggestion multi-match",
+                            rating: Some(
+                                "4.9",
+                            ),
+                            number_of_ratings: 888,
+                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                            score: 0.25,
+                        },
                         Wikipedia {
                             title: "Multimatch",
                             url: "https://wikipedia.org/Multimatch",
@@ -2011,24 +2051,6 @@ mod tests {
                                 ],
                             ),
                             full_keyword: "multimatch",
-                        },
-                        Amo {
-                            title: "Firefox Multimatch",
-                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                            description: "amo suggestion multi-match",
-                            rating: Some(
-                                "4.9",
-                            ),
-                            number_of_ratings: 888,
-                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                            score: 0.25,
-                        },
-                        Pocket {
-                            title: "Multimatching",
-                            url: "https://getpocket.com/collections/multimatch",
-                            score: 0.25,
-                            is_top_pick: true,
                         },
                     ]
                 "#]],
@@ -2047,26 +2069,11 @@ mod tests {
                 },
                 expect![[r#"
                     [
-                        Wikipedia {
-                            title: "Multimatch",
-                            url: "https://wikipedia.org/Multimatch",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            full_keyword: "multimatch",
+                        Pocket {
+                            title: "Multimatching",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.88,
+                            is_top_pick: true,
                         },
                         Amo {
                             title: "Firefox Multimatch",
@@ -2119,6 +2126,7 @@ mod tests {
                             impression_url: "https://example.com/impression_url",
                             click_url: "https://example.com/click_url",
                             raw_click_url: "https://example.com/click_url",
+                            score: 0.3,
                         },
                     ]
                 "#]],
@@ -2869,6 +2877,311 @@ mod tests {
         Ok(())
     }
 
+    // Tests querying amp wikipedia
+    #[test]
+    fn query_with_multiple_providers_and_diff_scores() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "data-2",
+            "type": "pocket-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-2.json",
+                "mimetype": "application/json",
+                "location": "data-2.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-3",
+            "type": "icon",
+            "last_modified": 25,
+            "attachment": {
+                "filename": "icon-3.png",
+                "mimetype": "image/png",
+                "location": "icon-3.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow", "amp wiki match"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
+            }, {
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["pe", "pen", "penne", "penne for your thoughts", "amp wiki match"],
+                "title": "Penne for Your Thoughts",
+                "url": "https://penne.biz",
+                "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+                "score": 0.1
+            }, {
+                "id": 0,
+                "advertiser": "Wikipedia",
+                "iab_category": "5 - Education",
+                "keywords": ["amp wiki match", "pocket wiki match"],
+                "title": "Multimatch",
+                "url": "https://wikipedia.org/Multimatch",
+                "icon": "3"
+            }]),
+        )?
+        .with_data(
+            "data-2.json",
+            json!([
+                {
+                    "description": "pocket suggestion",
+                    "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                    "lowConfidenceKeywords": ["soft life", "workaholism", "toxic work culture", "work-life balance", "pocket wiki match"],
+                    "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout"],
+                    "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                    "score": 0.05
+                },
+                {
+                    "description": "pocket suggestion multi-match",
+                    "url": "https://getpocket.com/collections/multimatch",
+                    "lowConfidenceKeywords": [],
+                    "highConfidenceKeywords": ["pocket wiki match"],
+                    "title": "Pocket wiki match",
+                    "score": 0.88
+                },
+            ]),
+        )?
+        .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "keyword = `amp wiki match`; all providers",
+                SuggestionQuery {
+                    keyword: "amp wiki match".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                        SuggestionProvider::Yelp,
+                    ],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Amp {
+                            title: "Lasagna Come Out Tomorrow",
+                            url: "https://www.lasagna.restaurant",
+                            raw_url: "https://www.lasagna.restaurant",
+                            icon: None,
+                            full_keyword: "amp wiki match",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
+                            raw_click_url: "https://example.com/click_url",
+                            score: 0.3,
+                        },
+                        Wikipedia {
+                            title: "Multimatch",
+                            url: "https://wikipedia.org/Multimatch",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "amp wiki match",
+                        },
+                        Amp {
+                            title: "Penne for Your Thoughts",
+                            url: "https://penne.biz",
+                            raw_url: "https://penne.biz",
+                            icon: None,
+                            full_keyword: "amp wiki match",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
+                            raw_click_url: "https://example.com/click_url",
+                            score: 0.1,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `amp wiki match`; all providers, limit 2",
+                SuggestionQuery {
+                    keyword: "amp wiki match".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                        SuggestionProvider::Yelp,
+                    ],
+                    limit: Some(2),
+                },
+                expect![[r#"
+                    [
+                        Amp {
+                            title: "Lasagna Come Out Tomorrow",
+                            url: "https://www.lasagna.restaurant",
+                            raw_url: "https://www.lasagna.restaurant",
+                            icon: None,
+                            full_keyword: "amp wiki match",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
+                            raw_click_url: "https://example.com/click_url",
+                            score: 0.3,
+                        },
+                        Wikipedia {
+                            title: "Multimatch",
+                            url: "https://wikipedia.org/Multimatch",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "amp wiki match",
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "pocket wiki match; all providers",
+                SuggestionQuery {
+                    keyword: "pocket wiki match".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Pocket {
+                            title: "Pocket wiki match",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.88,
+                            is_top_pick: true,
+                        },
+                        Wikipedia {
+                            title: "Multimatch",
+                            url: "https://wikipedia.org/Multimatch",
+                            icon: Some(
+                                [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                            ),
+                            full_keyword: "pocket wiki match",
+                        },
+                        Pocket {
+                            title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                            url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                            score: 0.05,
+                            is_top_pick: false,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "pocket wiki match; all providers limit 1",
+                SuggestionQuery {
+                    keyword: "pocket wiki match".into(),
+                    providers: vec![
+                        SuggestionProvider::Amp,
+                        SuggestionProvider::Wikipedia,
+                        SuggestionProvider::Amo,
+                        SuggestionProvider::Pocket,
+                    ],
+                    limit: Some(1),
+                },
+                expect![[r#"
+                    [
+                        Pocket {
+                            title: "Pocket wiki match",
+                            url: "https://getpocket.com/collections/multimatch",
+                            score: 0.88,
+                            is_top_pick: true,
+                        },
+                    ]
+                "#]],
+            ),
+        ];
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
     /// Tests ingesting malformed Remote Settings records that we understand,
     /// but that are missing fields, or aren't in the format we expect.
     #[test]
@@ -2947,10 +3260,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                         },
                     ),
@@ -3001,6 +3314,7 @@ mod tests {
                 "icon": "5678",
                 "impression_url": "https://example.com/impression_url",
                 "click_url": "https://example.com/click_url",
+                "score": 0.3,
             }]),
         )?;
 
@@ -3015,10 +3329,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                         },
                     ),
@@ -3096,6 +3410,7 @@ mod tests {
                 "icon": "5678",
                 "impression_url": "https://example.com/impression_url",
                 "click_url": "https://example.com/click_url",
+                "score": 0.3
             }]),
         )?;
 
@@ -3121,10 +3436,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 10,
+                                schema_version: 11,
                             },
                         },
                     ),

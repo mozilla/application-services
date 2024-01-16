@@ -33,6 +33,9 @@ pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 /// that aren't parsable and which schema version it was first seen in.
 pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
 
+// Default value when Suggestion does not have a value for score
+const DEFAULT_SUGGESTION_SCORE: f64 = 0.2;
+
 /// The database connection type.
 #[derive(Clone, Copy)]
 pub(crate) enum ConnectionType {
@@ -140,40 +143,40 @@ impl<'a> SuggestDao<'a> {
         {
             (self.conn.prepare_cached(
                 &format!(
-                    "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
+                    "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, NULL as confidence, NULL as keyword_suffix
                      FROM suggestions s
                      JOIN keywords k ON k.suggestion_id = s.id
                      WHERE s.provider IN ({}) AND
                            k.keyword = :keyword
                      UNION ALL
-                     SELECT s.id, k.rank, s.title, s.url, s.provider, k.confidence, k.keyword_suffix
+                     SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
                      FROM suggestions s
                      JOIN prefix_keywords k ON k.suggestion_id = s.id
                      WHERE k.keyword_prefix = :keyword_prefix
-                     ORDER BY s.provider
+                     ORDER BY s.score DESC
                      LIMIT :suggestions_limit",
                     providers_to_sql_list(&query.providers),
                 ),
             )?, vec![
                 (":keyword", keyword_lowercased as &dyn ToSql),
                 (":keyword_prefix", &keyword_prefix as &dyn ToSql),
-                (":suggestions_limit", &suggestions_limit as &dyn ToSql),
+                (":suggestions_limit", &suggestions_limit as &dyn ToSql)
             ])
         } else {
             (self.conn.prepare_cached(
                 &format!(
-                    "SELECT s.id, k.rank, s.title, s.url, s.provider, NULL as confidence, NULL as keyword_suffix
+                    "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, NULL as confidence, NULL as keyword_suffix
                      FROM suggestions s
                      JOIN keywords k ON k.suggestion_id = s.id
                      WHERE s.provider IN ({}) AND
                            k.keyword = :keyword
-                     ORDER BY s.provider
+                     ORDER BY s.score DESC
                      LIMIT :suggestions_limit",
                     providers_to_sql_list(&query.providers),
                 ),
             )?, vec![
                 (":keyword", keyword_lowercased as &dyn ToSql),
-                (":suggestions_limit", &suggestions_limit as &dyn ToSql),
+                (":suggestions_limit", &suggestions_limit as &dyn ToSql)
             ])
         };
 
@@ -182,6 +185,7 @@ impl<'a> SuggestDao<'a> {
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
                 let provider = row.get("provider")?;
+                let score = row.get::<_, f64>("score")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
                     "SELECT keyword FROM keywords
@@ -220,6 +224,7 @@ impl<'a> SuggestDao<'a> {
                                     impression_url: row.get("impression_url")?,
                                     click_url: cooked_click_url,
                                     raw_click_url,
+                                    score,
                                 }))
                             }
                         )
@@ -245,7 +250,7 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Amo => {
                         let full_suffix = row.get::<_, String>("keyword_suffix")?;
                         self.conn.query_row_and_then(
-                            "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings, amo.score
+                            "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings
                              FROM amo_custom_details amo
                              WHERE amo.suggestion_id = :suggestion_id",
                             named_params! {
@@ -261,7 +266,7 @@ impl<'a> SuggestDao<'a> {
                                         rating: row.get("rating")?,
                                         number_of_ratings: row.get("number_of_ratings")?,
                                         guid: row.get("guid")?,
-                                        score: row.get("score")?,
+                                        score,
                                     }))
                                 } else {
                                     Ok(None)
@@ -276,26 +281,16 @@ impl<'a> SuggestDao<'a> {
                             KeywordConfidence::High => full_suffix == keyword_suffix,
                         };
                         if suffixes_match {
-                            self.conn.query_row_and_then(
-                                "SELECT p.score
-                                FROM pocket_custom_details p
-                                WHERE p.suggestion_id = :suggestion_id",
-                                named_params! {
-                                    ":suggestion_id": suggestion_id
-                                },
-                                |row| {
+
                                     Ok(Some(Suggestion::Pocket {
                                         title,
                                         url: raw_url,
-                                        score: row.get("score")?,
+                                        score,
                                         is_top_pick: matches!(
                                             confidence,
                                             KeywordConfidence::High
-                                        )
-                                    }))
-                                }
-                            )
-                        } else {
+                                        )}))
+                                    } else {
                             Ok(None)
                         }
                     },
@@ -322,13 +317,15 @@ impl<'a> SuggestDao<'a> {
                          record_id,
                          provider,
                          title,
-                         url
+                         url,
+                         score
                      )
                      VALUES(
                          :record_id,
                          {},
                          :title,
-                         :url
+                         :url,
+                         :score
                      )
                      RETURNING id",
                     SuggestionProvider::Amo as u8
@@ -337,6 +334,7 @@ impl<'a> SuggestDao<'a> {
                     ":record_id": record_id.as_str(),
                     ":title": suggestion.title,
                     ":url": suggestion.url,
+                    ":score": suggestion.score,
                 },
                 |row| row.get(0),
                 true,
@@ -348,8 +346,7 @@ impl<'a> SuggestDao<'a> {
                              guid,
                              icon_url,
                              rating,
-                             number_of_ratings,
-                             score
+                             number_of_ratings
                          )
                          VALUES(
                              :suggestion_id,
@@ -357,8 +354,7 @@ impl<'a> SuggestDao<'a> {
                              :guid,
                              :icon_url,
                              :rating,
-                             :number_of_ratings,
-                             :score
+                             :number_of_ratings
                          )",
                 named_params! {
                     ":suggestion_id": suggestion_id,
@@ -366,8 +362,7 @@ impl<'a> SuggestDao<'a> {
                     ":guid": suggestion.guid,
                     ":icon_url": suggestion.icon_url,
                     ":rating": suggestion.rating,
-                    ":number_of_ratings": suggestion.number_of_ratings,
-                    ":score": suggestion.score,
+                    ":number_of_ratings": suggestion.number_of_ratings
                 },
             )?;
             for (index, keyword) in suggestion.keywords.iter().enumerate() {
@@ -414,13 +409,15 @@ impl<'a> SuggestDao<'a> {
                          record_id,
                          provider,
                          title,
-                         url
+                         url,
+                         score
                      )
                      VALUES(
                          :record_id,
                          {},
                          :title,
-                         :url
+                         :url,
+                         :score
                      )
                      RETURNING id",
                     provider as u8
@@ -429,7 +426,7 @@ impl<'a> SuggestDao<'a> {
                     ":record_id": record_id.as_str(),
                     ":title": common_details.title,
                     ":url": common_details.url,
-
+                    ":score": common_details.score.unwrap_or(DEFAULT_SUGGESTION_SCORE)
                 },
                 |row| row.get(0),
                 true,
@@ -521,13 +518,15 @@ impl<'a> SuggestDao<'a> {
                          record_id,
                          provider,
                          title,
-                         url
+                         url,
+                         score
                      )
                      VALUES(
                          :record_id,
                          {},
                          :title,
-                         :url
+                         :url,
+                         :score
                      )
                      RETURNING id",
                     SuggestionProvider::Pocket as u8
@@ -536,24 +535,12 @@ impl<'a> SuggestDao<'a> {
                     ":record_id": record_id.as_str(),
                     ":title": suggestion.title,
                     ":url": suggestion.url,
+                    ":score": suggestion.score,
                 },
                 |row| row.get(0),
                 true,
             )?;
-            self.conn.execute(
-                "INSERT INTO pocket_custom_details(
-                             suggestion_id,
-                             score
-                         )
-                         VALUES(
-                             :suggestion_id,
-                             :score
-                         )",
-                named_params! {
-                    ":suggestion_id": suggestion_id,
-                    ":score": suggestion.score,
-                },
-            )?;
+
             for ((rank, keyword), confidence) in suggestion
                 .high_confidence_keywords
                 .iter()
