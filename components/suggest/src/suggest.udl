@@ -38,7 +38,8 @@ interface Suggestion {
         string iab_category,
         string impression_url,
         string click_url,
-        string raw_click_url
+        string raw_click_url,
+        f64 score
     );
     Pocket(
         string title,

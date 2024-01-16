@@ -29,6 +29,7 @@ pub enum Suggestion {
         impression_url: String,
         click_url: String,
         raw_click_url: String,
+        score: f64,
     },
     Pocket {
         title: String,
