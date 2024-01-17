@@ -268,6 +268,12 @@ impl GetErrorHandling for Error {
                     .report_error("places-unexpected-sync-error"),
                 }
             }
+            Error::InvalidMetadataObservation(InvalidMetadataObservation::ViewTimeTooLong) => {
+                ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
+                    reason: self.to_string(),
+                })
+                .log_warning()
+            }
             _ => ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
                 reason: self.to_string(),
             })
