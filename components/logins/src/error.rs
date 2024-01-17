@@ -73,9 +73,6 @@ pub enum Error {
     #[error("Invalid path: {0:?}")]
     InvalidPath(OsString),
 
-    #[error("Invalid database file: {0}")]
-    InvalidDatabaseFile(String),
-
     #[error("CryptoError({0})")]
     CryptoError(#[from] EncryptorDecryptorError),
 
@@ -162,17 +159,6 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("logins-sync"),
             },
-            // Errors that are unexpected in the sense that they are too rare to deserve a
-            // LoginsApiError variant, but we still don't need to report them to Sentry.
-            //
-            // For now, just log a warning.  Eventually, it would be nice to count these with
-            // telemetry.
-            Self::InvalidDatabaseFile(_) => {
-                ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
-                    reason: self.to_string(),
-                })
-                .log_warning()
-            }
             // Unexpected errors that we report to Sentry.  We should watch the reports for these
             // and do one or more of these things if we see them:
             //   - Fix the underlying issue
