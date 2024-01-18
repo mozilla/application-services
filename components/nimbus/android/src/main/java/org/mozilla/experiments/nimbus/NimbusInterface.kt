@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.annotation.AnyThread
 import androidx.annotation.RawRes
 import kotlinx.coroutines.Job
+import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
@@ -303,6 +304,16 @@ interface NimbusEventStore {
      * This is only useful for testing.
      */
     fun dumpStateToLog() = Unit
+
+    /**
+     * Record the Nimbus `is_ready` event a number of times equal to the `count` variable.
+     */
+    fun recordIsReady(count: Int) {
+        @Suppress("unused")
+        for (i in 1..count) {
+            NimbusEvents.isReady.record()
+        }
+    }
 }
 
 class NullNimbus(override val context: Context) : NimbusInterface
