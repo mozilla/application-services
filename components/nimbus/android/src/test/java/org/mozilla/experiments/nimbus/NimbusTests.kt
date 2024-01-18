@@ -708,6 +708,17 @@ class NimbusTests {
         assertEquals("errorString must match", null, enrolledExtra["error_string"])
         assertEquals("conflictSlug must match", null, enrolledExtra["conflict_slug"])
     }
+
+    @Test
+    fun `recordIsReady records the correct number of is_ready events`() {
+        nimbus.recordIsReady(1)
+        var isReadyEvents = NimbusEvents.isReady.testGetValue()!!
+        assertEquals("Event count must match", isReadyEvents.count(), 1)
+
+        nimbus.recordIsReady(2)
+        isReadyEvents = NimbusEvents.isReady.testGetValue()!!
+        assertEquals("Event count must match", isReadyEvents.count(), 3)
+    }
 }
 
 // Mocking utilities, from mozilla.components.support.test

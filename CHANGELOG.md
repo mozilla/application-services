@@ -10,6 +10,7 @@
 ### Nimbus SDK ⛅️🔬🔭
 
 - Added definition for new Glean `nimbus-test-event` ([#6062](https://github.com/mozilla/application-services/pull/6062)).
+  - Added `recordIsReady` method to NimbusInterface ([#6063](https://github.com/mozilla/application-services/pull/6063)).
 
 ## 🦊 What's Changed 🦊
 
