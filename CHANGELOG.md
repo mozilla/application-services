@@ -7,6 +7,10 @@
 - Added correction candidates to errors returned by the FeatureInspector ([#6019](https://github.com/mozilla/application-services/pull/6019)).
   - This will drive the JSON editor on the Experimenter frontend.
 
+### Nimbus SDK ⛅️🔬🔭
+
+- Added definition for new Glean `nimbus-test-event` ([#6062](https://github.com/mozilla/application-services/pull/6062)).
+
 ## 🦊 What's Changed 🦊
 
 ### Nimbus CLI [⛅️🔬🔭👾](./components/support/nimbus-cli)

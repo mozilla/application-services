@@ -257,6 +257,20 @@ nimbus_events:
       - project-nimbus@mozilla.com
     expires: never
     disabled: true
+  is_ready:
+    type: event
+    description: >
+      An event sent when Nimbus finishes launching.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/EXP-4221
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/6062#issuecomment-1899087931
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - chumphreys@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: 2024-06-01
 nimbus_health:
   cache_not_ready_for_feature:
     type: event
