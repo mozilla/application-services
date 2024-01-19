@@ -38,6 +38,10 @@ android {
     }
 }
 
+kotlin {
+    jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
+}
+
 dependencies {
     testImplementation "junit:junit:$junit_version"
     testImplementation "org.robolectric:robolectric:$robolectric_core_version"
