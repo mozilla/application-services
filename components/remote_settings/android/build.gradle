@@ -1,6 +1,10 @@
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
+android {
+    namespace 'org.mozilla.appservices.remotesettings'
+}
+
 ext.configureUniFFIBindgen("../src/remote_settings.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

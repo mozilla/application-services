@@ -1,4 +1,3 @@
-
 plugins {
     id "com.jetbrains.python.envs" version "0.0.26"
 }
@@ -9,6 +8,10 @@ apply from: "$rootDir/publish.gradle"
 
 ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
+
+android {
+    namespace 'org.mozilla.appservices.places'
+}
 
 dependencies {
     // Part of the public API.

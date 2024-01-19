@@ -1,6 +1,9 @@
-
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.native_support'
+}
 
 dependencies {
     implementation "net.java.dev.jna:jna:$jna_version@aar"
