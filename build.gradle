@@ -252,6 +252,10 @@ subprojects {
                     targetCompatibility rootProject.ext.build.jvmTargetCompatibility
                 }
 
+                buildFeatures {
+                    buildConfig true
+                }
+
                 publishing {
                     singleVariant('release') {
                         withSourcesJar()
