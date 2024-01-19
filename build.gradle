@@ -6,7 +6,7 @@ buildscript {
         kotlin_version = '1.8.22'
         kotlin_coroutines_version = '1.7.2'
         jna_version = '5.13.0'
-        android_gradle_plugin_version = '7.4.2'
+        android_gradle_plugin_version = '8.0.2'
         android_components_version = '117.0.1'
         glean_version = '56.0.0'
 
