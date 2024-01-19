@@ -70,30 +70,12 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
         }
     }
 
-    task sourcesJar(type: Jar) {
-        from android.sourceSets.main.java.srcDirs
-        classifier = 'sources'
-    }
-
-    task javadoc(type: Javadoc) {
-        source = android.sourceSets.main.java.srcDirs
-        classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-    }
-
-    task javadocJar(type: Jar, dependsOn: javadoc) {
-        classifier = 'javadoc'
-        from javadoc.destinationDir
-    }
-
     publishing {
         publications {
             aar(MavenPublication) {
                 project.afterEvaluate {
                     from components.release
                 }
-                artifact sourcesJar
-                // Can't publish Javadoc yet: fxaclient isn't well behaved.
-                // artifact javadocJar
 
                 if (isMegazord) {
                     artifact file("${projectDir}/../DEPENDENCIES.md"), {

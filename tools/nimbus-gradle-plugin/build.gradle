@@ -73,11 +73,6 @@ tasks.register("testRelease") {
   }
 }
 
-tasks.register("sourcesJar", Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
 tasks.register("checkMavenArtifacts") {
     doLast {
         // Do nothing. Like the `lint` task above this is just a dummy task so that this module
@@ -95,7 +90,6 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-            artifact sourcesJar
 
             pom {
                 groupId = rootProject.ext.library.groupId
@@ -122,6 +116,14 @@ publishing {
                     developerConnection = properties.libVcsUrl
                     url = properties.libUrl
                 }
+            }
+        }
+    }
+
+    if (it.hasProperty('android')) {
+        android {
+            singleVariant('release') {
+                withSourcesJar()
             }
         }
     }
