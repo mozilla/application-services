@@ -1,6 +1,9 @@
-
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.autofill'
+}
 
 dependencies {
     // Part of the public API.

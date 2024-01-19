@@ -11,6 +11,10 @@ ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml", "${project.projec
 ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
+android {
+    namespace 'org.mozilla.appservices.syncmanager'
+}
+
 dependencies {
     // Part of the public API.
     api project(':sync15')

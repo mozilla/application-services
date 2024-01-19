@@ -3,6 +3,8 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace 'org.mozilla.appservices.full_megazord'
+
     ndkVersion rootProject.ext.build.ndkVersion
     compileSdkVersion rootProject.ext.build.compileSdkVersion
 

@@ -9,6 +9,10 @@ ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
 ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
+android {
+    namespace 'org.mozilla.experiments.nimbus'
+}
+
 dependencies {
     implementation "androidx.annotation:annotation:$androidx_annotation_version"
 

@@ -1,6 +1,9 @@
-
 apply from: "$rootDir/build-scripts/component-common.gradle"
 apply from: "$rootDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.rust_log_forwarder'
+}
 
 ext.configureUniFFIBindgen("../src/rust_log_forwarder.udl")
 ext.dependsOnTheMegazord()
