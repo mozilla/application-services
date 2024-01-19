@@ -251,6 +251,12 @@ subprojects {
                     sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
                     targetCompatibility rootProject.ext.build.jvmTargetCompatibility
                 }
+
+                publishing {
+                    singleVariant('release') {
+                        withSourcesJar()
+                    }
+                }
             }
         }
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
