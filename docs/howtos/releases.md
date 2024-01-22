@@ -26,7 +26,7 @@ Release builds are generated from the `release-vXXX` branches and triggered in S
 
 On Merge Day we take a snapshot of the current `main`, and prepare a release. See [Firefox Release Calendar](https://whattrainisitnow.com/calendar/).
 
-1. Create a branch name with the format `releases-v[release_version]` off of the `main` branch (for example, `release-v118`) through the GitHub UI.
+1. Create a branch name with the format `release-v[release_version]` off of the `main` branch (for example, `release-v118`) through the GitHub UI.
 `[release_version]` should follow the Firefox release number. See [Firefox Release Calendar](https://whattrainisitnow.com/calendar/).
 
 2. Create a PR against the release branch that updates `version.txt` and updates the `CHANGELOG.md` as follows:
