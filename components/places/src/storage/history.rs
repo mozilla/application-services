@@ -1508,7 +1508,6 @@ mod tests {
     use crate::api::places_api::ConnectionType;
     use crate::history_sync::record::HistoryRecordVisit;
     use crate::types::VisitTransitionSet;
-    use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
     use sync15::engine::CollSyncIds;
     use types::Timestamp;

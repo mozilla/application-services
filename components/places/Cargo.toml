@@ -19,16 +19,16 @@ serde_json = "1"
 parking_lot = "0.12"
 log = "0.4"
 lazy_static = "1.4"
-url = { version = "2.1", features = ["serde"] }
+url = { version = "2.5", features = ["serde"] }
 percent-encoding = "2.1"
 caseless = "0.2"
 rusqlite = { workspace = true, features = ["functions", "window", "bundled", "unlock_notify"] }
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
 bitflags = "1.2"
-idna = "0.2"
+idna = "0.5"
 memchr = "2.3"
-dogear = "0.4"
+dogear = "0.5"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
@@ -37,9 +37,8 @@ anyhow = "1.0"
 uniffi = { workspace = true }
 
 [dev-dependencies]
-pretty_assertions = "0.6"
 tempfile = "3.1"
-env_logger = {version = "0.7", default-features = false}
+env_logger = {version = "0.10", default-features = false}
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]

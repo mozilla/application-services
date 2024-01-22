@@ -17,6 +17,6 @@ webbrowser = "0.5"
 # used.
 
 [dependencies.env_logger]
-version = "0.7"
+version = "0.10"
 default-features = false
-features = ["termcolor", "atty", "humantime"]
+features = ["humantime"]

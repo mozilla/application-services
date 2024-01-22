@@ -21,7 +21,7 @@ prettytable-rs = { version = "0.10", optional = true }
 rusqlite = { workspace = true, features = ["functions", "limits", "bundled", "unlock_notify"] }
 
 [dev-dependencies]
-env_logger = {version = "0.7", default-features = false}
+env_logger = {version = "0.10", default-features = false}
 
 [build-dependencies]
 nss_build_common = { path = "../rc_crypto/nss/nss_build_common" }

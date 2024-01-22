@@ -18,7 +18,7 @@ places = { path = "../../../components/places" }
 sync15 = { path = "../../../components/sync15" }
 serde_json = "1.0"
 url = "2.2"
-dogear = "0.4"
+dogear = "0.5"
 tempfile = "3.1"
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.10", default-features = false }
 rusqlite = { workspace = true, features = ["functions", "bundled"] }

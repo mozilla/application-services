@@ -557,10 +557,6 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: matches</name>
-    <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>MIT License: mime_guess</name>
     <url>https://github.com/abonander/mime_guess/blob/master/LICENSE</url>
   </license>

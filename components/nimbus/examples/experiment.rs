@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     // To manually set the log level, you can set the `RUST_LOG` environment variable
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
-    env_logger::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     viaduct_reqwest::use_reqwest_backend();
 
     // Initiate the matches for the command line arguments

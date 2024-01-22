@@ -1751,7 +1751,6 @@ mod tests {
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
     use dogear::{Store as DogearStore, Validity};
-    use pretty_assertions::assert_eq;
     use rusqlite::{Error as RusqlError, ErrorCode};
     use serde_json::{json, Value};
     use std::{

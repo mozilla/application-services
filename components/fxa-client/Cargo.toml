@@ -17,7 +17,7 @@ serde = { version = "1", features = ["rc"] }
 serde_derive = "1"
 serde_json = "1"
 sync15 = { path = "../sync15", default-features=false, features=["crypto"] }
-url = "2.2"
+url = "2.5"
 viaduct = { path = "../viaduct" }
 jwcrypto = { path = "../support/jwcrypto" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }

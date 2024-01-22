@@ -15,8 +15,6 @@ use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
-use pretty_assertions::assert_eq;
-
 pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
     let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
     let folder_node = match tree {

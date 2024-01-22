@@ -622,7 +622,6 @@ mod tests {
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::storage::bookmarks::BookmarkRootGuid;
     use crate::types::UnknownFields;
-    use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
 
     fn apply_incoming(api: &PlacesApi, records_json: Value) {

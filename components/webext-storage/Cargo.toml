@@ -24,10 +24,10 @@ serde_derive = "1"
 sql-support = { path = "../support/sql" }
 sync15 = {path = "../../components/sync15", features=["sync-engine"]}
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-url = { version = "2.1", features = ["serde"] }
+url = { version = "2.5", features = ["serde"] }
 
 [dev-dependencies]
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.10", default-features = false }
 tempfile = "3"
 # A *direct* dep on the -sys crate is required for our build.rs
 # to see the DEP_SQLITE3_LINK_TARGET env var that cargo sets

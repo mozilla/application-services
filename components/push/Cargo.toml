@@ -14,7 +14,7 @@ lazy_static = "1.4"
 base64 = "0.21"
 log = "0.4"
 rusqlite = { workspace = true, features = ["bundled", "unlock_notify"] }
-url = "2.2"
+url = "2.5"
 viaduct = { path = "../viaduct" }
 error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
@@ -27,7 +27,7 @@ types = { path = "../support/types" }
 uniffi = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }
+env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 mockito = "0.31"
 hex = "0.4"
 tempfile = "3.1.0"

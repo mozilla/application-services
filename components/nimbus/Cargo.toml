@@ -26,7 +26,7 @@ serde_derive = "1"
 serde_json = "1"
 log = "0.4"
 thiserror = "1"
-url = "2.2"
+url = "2.5"
 rkv = { version = "0.17", optional = true }
 jexl-eval = "0.2.2"
 uuid = { version = "0.8", features = ["serde", "v4"]}
@@ -46,6 +46,6 @@ glean-build = { path = "../external/glean/glean-core/build" }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-env_logger = "0.7"
+env_logger = "0.10"
 clap = "2.33.3"
 tempfile = "3"

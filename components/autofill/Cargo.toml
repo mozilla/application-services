@@ -25,10 +25,10 @@ sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 types = { path = "../support/types" }
 uniffi = { workspace = true }
-url = { version = "2.2", features = ["serde"] }
+url = { version = "2.5", features = ["serde"] }
 
 [dev-dependencies]
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.10", default-features = false }
 libsqlite3-sys = { workspace = true }
 
 [build-dependencies]
