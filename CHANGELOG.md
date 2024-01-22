@@ -1,4 +1,8 @@
-# v123.0 (In progress)
+# v124.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v123.0 (_2024-01-22_)
 
 ## ✨ What's New ✨
 
@@ -31,7 +35,7 @@
 ### Push
 - verifyConnection now returns an empty list when there are no subscriptions (which is typical when a device first starts up).
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v122.0...v123.0)
 
 # v122.0 (_2023-12-18_)
 
