@@ -87,6 +87,8 @@ RUN apt-get update -qq \
         bzip2 \
         # Required by tooltool to extract tar.xz archives.
         xz-utils \
+        # Required to unpack compiler
+        zstd \
         # For windows cross-compilation.
         mingw-w64 \
         # Required to cross compile for linux-musl
