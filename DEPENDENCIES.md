@@ -473,6 +473,7 @@ The following text applies to code linked from these dependencies:
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
+[equivalent](https://github.com/cuviper/equivalent),
 [errno](https://github.com/lambda-fairy/rust-errno),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),

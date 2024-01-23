@@ -450,6 +450,7 @@ The following text applies to code linked from these dependencies:
 [crypto-common](https://github.com/RustCrypto/traits),
 [digest](https://github.com/RustCrypto/traits),
 [either](https://github.com/bluss/either),
+[equivalent](https://github.com/cuviper/equivalent),
 [errno](https://github.com/lambda-fairy/rust-errno),
 [fastrand](https://github.com/smol-rs/fastrand),
 [ffi-support](https://github.com/mozilla/ffi-support),
