@@ -16,6 +16,7 @@ def main():
     app_services_rev = get_app_services_rev()
     update_cargo_toml(moz_central_root / "Cargo.toml", app_services_rev)
     subprocess.run(["./mach", "vendor", "rust"], cwd=moz_central_root)
+    subprocess.run(["./mach", "uniffi", "generate"], cwd=moz_central_root)
 
     print("The vendoring was successful")
     print(" - If you saw a warning saying `There are 2 different versions of crate X`, then "
