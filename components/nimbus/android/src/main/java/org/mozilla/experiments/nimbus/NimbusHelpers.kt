@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import org.json.JSONObject
+import org.mozilla.experiments.nimbus.internal.FFIObject
 import org.mozilla.experiments.nimbus.internal.NimbusStringHelperInterface
 import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
 
@@ -12,12 +13,32 @@ import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
  * Instances of this class are useful for implementing a messaging service based upon
  * Nimbus.
  */
-interface GleanPlumbInterface {
-    fun createMessageHelper(additionalContext: JSONObject? = null): GleanPlumbMessageHelper =
-        GleanPlumbMessageHelper(
+interface NimbusMessagingInterface {
+    fun createMessageHelper(additionalContext: JSONObject? = null): NimbusMessagingHelperInterface =
+        NimbusMessagingHelper(
             AlwaysFalseTargetingHelper(),
             NonStringHelper(),
         )
+
+    val events: NimbusEventStore
+}
+
+typealias GleanPlumbInterface = NimbusMessagingInterface
+typealias GleanPlumbMessageHelper = NimbusMessagingHelper
+
+interface NimbusMessagingHelperInterface : NimbusTargetingHelperInterface, NimbusStringHelperInterface {
+    /**
+     * The backing native object needs to be cleaned up after use. This method fees the memory used
+     * by Rust.
+     *
+     * Once this has been destroyed, then no other methods should be called.
+     */
+    fun destroy() = Unit
+
+    /**
+     * Clears the JEXL cache
+     */
+    fun clearCache() = Unit
 }
 
 /**
@@ -29,10 +50,28 @@ interface GleanPlumbInterface {
  *
  * It should also provide a similar function for String substitution, though this scheduled for EXP-2159.
  */
-class GleanPlumbMessageHelper(
+class NimbusMessagingHelper(
     private val targetingHelper: NimbusTargetingHelperInterface,
     private val stringHelper: NimbusStringHelperInterface,
-) : NimbusStringHelperInterface by stringHelper, NimbusTargetingHelperInterface by targetingHelper
+    private val cache: MutableMap<String, Boolean> = mutableMapOf(),
+) : NimbusStringHelperInterface by stringHelper, NimbusTargetingHelperInterface, NimbusMessagingHelperInterface {
+
+    override fun evalJexl(expression: String): Boolean =
+        cache.getOrPut(expression) {
+            targetingHelper.evalJexl(expression)
+        }
+
+    override fun clearCache() = cache.clear()
+
+    override fun destroy() {
+        if (targetingHelper is FFIObject) {
+            targetingHelper.destroy()
+        }
+        if (stringHelper is FFIObject) {
+            stringHelper.destroy()
+        }
+    }
+}
 
 internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
     override fun evalJexl(expression: String): Boolean = false

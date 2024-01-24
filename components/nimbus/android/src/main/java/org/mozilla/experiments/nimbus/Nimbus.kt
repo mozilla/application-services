@@ -460,8 +460,8 @@ open class Nimbus(
         nimbusClient.dumpStateToLog()
     }
 
-    override fun createMessageHelper(additionalContext: JSONObject?): GleanPlumbMessageHelper =
-        GleanPlumbMessageHelper(
+    override fun createMessageHelper(additionalContext: JSONObject?): NimbusMessagingHelper =
+        NimbusMessagingHelper(
             nimbusClient.createTargetingHelper(additionalContext),
             nimbusClient.createStringHelper(additionalContext),
         )
