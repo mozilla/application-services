@@ -25,7 +25,7 @@ typealias EnrolledExperiment = EnrolledExperiment
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventStore {
+interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusEventStore {
 
     /**
      * Get the list of currently enrolled experiments
@@ -190,7 +190,7 @@ interface NimbusInterface : FeaturesInterface, GleanPlumbInterface, NimbusEventS
         get() = false
         set(_) = Unit
 
-    val events: NimbusEventStore
+    override val events: NimbusEventStore
         get() = this
 
     /**

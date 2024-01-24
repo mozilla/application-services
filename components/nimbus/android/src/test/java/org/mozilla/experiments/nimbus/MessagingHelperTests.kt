@@ -25,7 +25,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
-class GleanPlumbTests {
+class MessagingHelperTests {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
 
