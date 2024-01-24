@@ -855,7 +855,7 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "lalrpop-util": {
         "license": {
-            "check": "Apache-2.0/MIT",
+            "check": "Apache-2.0 OR MIT",
         },
         "license_url": {
             "check": None,
@@ -918,6 +918,19 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/raw/master/LICENSE-APACHE"
         }
     },
+    "unicode-ident": {
+         "license": {
+            "check": "(MIT OR Apache-2.0) AND Unicode-DFS-2016",
+        },
+       "license_url": {
+            "check": None,
+            "fixup": "https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/dtolnay/unicode-ident/master/LICENSE-APACHE"
+        }
+    },
 
     "xshell-macros": {
         "license": {
@@ -932,13 +945,69 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/matklad/xshell/master/LICENSE-APACHE"
         }
     },
+    "system-configuration": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+       "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mullvad/system-configuration-rs/blob/main/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mullvad/system-configuration-rs/main/LICENSE-APACHE"
+        }
+    },
+    "system-configuration-sys": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+       "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mullvad/system-configuration-rs/blob/main/LICENSE-APACHE"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mullvad/system-configuration-rs/main/LICENSE-APACHE"
+        }
+    },
+    "allocator-api2": {
+         "license_url": {
+            "check": None,
+            "fixup": "https://github.com/LeopoldArkham/humansize/blob/master/LICENSE-APACHE",
+        },
+         "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE"
+        }
+    },
     # The following crates do not have repositories in the package metadata
     "openssl-macros": {
         "repository": {
             "check": None,
             "fixup": "https://github.com/sfackler/rust-openssl"
         }
-    }
+    },
+    "toml": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/toml-rs/toml/blob/main/crates/toml/LICENSE-APACHE",
+        }
+    },
+      "oneshot-uniffi": {
+        "license": {
+            "check": "MIT OR Apache-2.0",
+        },
+         "license_url": {
+            "check": None,
+            "fixup": "https://github.com/faern/oneshot"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/faern/oneshot/main/README.md"
+        }
+    },
+   
 }
 
 # Sets of common licence file names, by license type.
@@ -1177,8 +1246,8 @@ class WorkspaceMetadata(object):
         here in the license summary tool...
         """
         # Special case for `encoding_rs`, which is the only dependency in the
-        # tree that has an "AND" in its license
-        if licenseId == "(Apache-2.0 OR MIT) AND BSD-3-Clause":
+        # tree that has an "AND" in its license, same as unicode-ident
+        if licenseId == "(Apache-2.0 OR MIT) AND BSD-3-Clause" or licenseId == "(MIT OR Apache-2.0) AND Unicode-DFS-2016":
             return licenseId
 
         # Split "A/B" and "A OR B" into individual license names.

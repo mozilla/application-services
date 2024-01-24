@@ -69,6 +69,10 @@ the details of which are reproduced below.
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: allocator-api2</name>
+    <url>https://github.com/LeopoldArkham/humansize/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: android-tzdata</name>
     <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
   </license>
@@ -90,6 +94,10 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: askama_escape</name>
+    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_parser</name>
     <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
@@ -221,10 +229,6 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: io-lifetimes</name>
-    <url>https://github.com/sunfishcode/io-lifetimes/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: itertools</name>
     <url>https://github.com/rust-itertools/itertools/blob/master/LICENSE-APACHE</url>
   </license>
@@ -285,8 +289,8 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: oneshot</name>
-    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    <name>Apache License 2.0: oneshot-uniffi</name>
+    <url>https://github.com/faern/oneshot</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
@@ -429,10 +433,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: time</name>
-    <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
-  </license>
-  <license>
     <name>Apache License 2.0: tinyvec</name>
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
@@ -442,7 +442,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: toml</name>
-    <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/toml-rs/toml/blob/main/crates/toml/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: typenum</name>
@@ -457,8 +457,8 @@ the details of which are reproduced below.
     <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: unicode-ident</name>
-    <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
+    <name>Apache License 2.0: unicode-linebreak</name>
+    <url>https://github.com/axelf4/unicode-linebreak/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-normalization</name>
@@ -467,6 +467,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: unicode-segmentation</name>
     <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: unicode-width</name>
+    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: url</name>
@@ -485,15 +489,11 @@ the details of which are reproduced below.
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: winapi</name>
-    <url>https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: winapi-x86_64-pc-windows-gnu</name>
-    <url>https://github.com/retep998/winapi-rs/blob/0.3/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: windows-sys</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows-targets</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>
@@ -511,6 +511,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: xshell-macros</name>
     <url>https://github.com/matklad/xshell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: zerocopy</name>
+    <url>https://github.com/google/zerocopy/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>MIT License: aho-corasick</name>
@@ -581,6 +585,14 @@ the details of which are reproduced below.
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: smawk</name>
+    <url>https://github.com/mgeisler/smawk/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: textwrap</name>
+    <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: weedle2</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/weedle2/LICENSE.md</url>
   </license>
@@ -607,5 +619,9 @@ the details of which are reproduced below.
   <license>
     <name>Optional Notice: SQLite</name>
     <url>https://sqlite.org/copyright.html</url>
+  </license>
+  <license>
+    <name>(MIT OR Apache-2.0) AND Unicode-DFS-2016 License: unicode-ident</name>
+    <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
   </license>
 </licenses>
