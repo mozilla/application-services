@@ -93,8 +93,8 @@ public extension Nimbus {
         let context = Nimbus.buildExperimentContext(appSettings)
         let remoteSettings = server.map { server -> RemoteSettingsConfig in
             RemoteSettingsConfig(
-                serverUrl: server.url.absoluteString,
-                collectionName: server.collection
+                collectionName: server.collection,
+                serverUrl: server.url.absoluteString
             )
         }
         let nimbusClient = try NimbusClient(
