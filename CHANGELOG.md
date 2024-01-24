@@ -5,6 +5,13 @@
 ### Webext-Storage
 - Uniffied the webext-storage component in preparation for desktop integration ([#6057](https://github.com/mozilla/application-services/pull/6057)).
 
+### Remote Settings
+- The Remote Settings UniFFI bindings have been changed. The
+  `RemoteSettingsConfig` dictionary has had its field re-ordered to [fix code
+  generation for the Python
+  bindings](https://bugzilla.mozilla.org/show_bug.cgi?id=1874030). This also
+  affects the Swift bindings, since Swift enforces argument ordering.
+
 [Full Changelog](In progress)
 
 [Full Changelog](In progress)
