@@ -17,7 +17,7 @@ class NimbusMessagingTests: XCTestCase {
     }
 
     func createNimbus() throws -> NimbusMessagingProtocol {
-        let appSettings = NimbusAppSettings(appName: "GleanPlumbTest", channel: "nightly")
+        let appSettings = NimbusAppSettings(appName: "NimbusMessagingTests", channel: "nightly")
         let nimbusEnabled = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
         XCTAssert(nimbusEnabled is Nimbus)
         if let nimbus = nimbusEnabled as? Nimbus {
@@ -30,8 +30,8 @@ class NimbusMessagingTests: XCTestCase {
         let nimbus = try createNimbus()
 
         let helper = try nimbus.createMessageHelper()
-        XCTAssertTrue(try helper.evalJexl(expression: "app_name == 'GleanPlumbTest'"))
-        XCTAssertFalse(try helper.evalJexl(expression: "app_name == 'tseTbmulPnaelG'"))
+        XCTAssertTrue(try helper.evalJexl(expression: "app_name == 'NimbusMessagingTests'"))
+        XCTAssertFalse(try helper.evalJexl(expression: "app_name == 'not-the-app-name'"))
 
         // The JEXL evaluator should error for unknown identifiers
         XCTAssertThrowsError(try helper.evalJexl(expression: "appName == 'snake_case_only'"))
@@ -62,7 +62,7 @@ class NimbusMessagingTests: XCTestCase {
 
         let helper = try nimbus.createMessageHelper(additionalContext: ["test_value_from_json": 42])
 
-        XCTAssertEqual(helper.stringFormat(template: "{app_name} version {test_value_from_json}", uuid: nil), "GleanPlumbTest version 42")
+        XCTAssertEqual(helper.stringFormat(template: "{app_name} version {test_value_from_json}", uuid: nil), "NimbusMessagingTests version 42")
     }
 
     func testStringHelperWithUUID() throws {

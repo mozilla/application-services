@@ -21,12 +21,16 @@ public protocol NimbusMessagingProtocol {
     func createMessageHelper() throws -> NimbusMessagingHelperProtocol
     func createMessageHelper(additionalContext: [String: Any]) throws -> NimbusMessagingHelperProtocol
     func createMessageHelper<T: Encodable>(additionalContext: T) throws -> NimbusMessagingHelperProtocol
+
+    var events: NimbusEventStore { get }
 }
 
-// Deprecated the name GleanPlumb.
-public typealias GleanPlumbProtocol = NimbusMessagingProtocol
-public typealias GleanPlumbMessageHelper = NimbusMessagingHelper
-public typealias NimbusMessagingHelperProtocol = NimbusStringHelperProtocol & NimbusTargetingHelperProtocol
+public protocol NimbusMessagingHelperProtocol: NimbusStringHelperProtocol, NimbusTargetingHelperProtocol {
+    /**
+     * Clear the JEXL cache
+     */
+    func clearCache()
+}
 
 /**
  * A helper object to make working with Strings uniform across multiple implementations of the messaging
@@ -40,14 +44,29 @@ public typealias NimbusMessagingHelperProtocol = NimbusStringHelperProtocol & Ni
 public class NimbusMessagingHelper: NimbusMessagingHelperProtocol {
     private let targetingHelper: NimbusTargetingHelperProtocol
     private let stringHelper: NimbusStringHelperProtocol
+    private var cache: [String: Bool]
 
-    public init(targetingHelper: NimbusTargetingHelperProtocol, stringHelper: NimbusStringHelperProtocol) {
+    public init(targetingHelper: NimbusTargetingHelperProtocol,
+                stringHelper: NimbusStringHelperProtocol,
+                cache: [String: Bool] = [:])
+    {
         self.targetingHelper = targetingHelper
         self.stringHelper = stringHelper
+        self.cache = cache
     }
 
     public func evalJexl(expression: String) throws -> Bool {
-        try targetingHelper.evalJexl(expression: expression)
+        if let result = cache[expression] {
+            return result
+        } else {
+            let result = try targetingHelper.evalJexl(expression: expression)
+            cache[expression] = result
+            return result
+        }
+    }
+
+    public func clearCache() {
+        cache.removeAll()
     }
 
     public func getUuid(template: String) -> String? {
