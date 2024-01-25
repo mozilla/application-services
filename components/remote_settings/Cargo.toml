@@ -6,7 +6,7 @@ edition = "2021"
 authors = ["The Android Mobile Team <firefox-android-team@mozilla.com>", "The Glean Team <glean-team@mozilla.com>"]
 description = "A Remote Settings client intended for application layer platforms."
 license = "MPL-2.0" 
-exclude = ["/android"]
+exclude = ["/android", "/ios"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

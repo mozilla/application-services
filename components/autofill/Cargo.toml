@@ -4,7 +4,7 @@ edition = "2021"
 version = "0.1.0"
 authors = ["Sync Team <sync-team@mozilla.com>"]
 license = "MPL-2.0"
-exclude = ["/android"]
+exclude = ["/android", "/ios"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
