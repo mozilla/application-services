@@ -76,10 +76,6 @@ extension Nimbus: NimbusQueues {
 }
 
 extension Nimbus: NimbusEventStore {
-    public var events: NimbusEventStore {
-        self
-    }
-
     public func recordEvent(_ eventId: String) {
         recordEvent(1, eventId)
     }
@@ -425,6 +421,10 @@ extension Nimbus: NimbusMessagingProtocol {
         let stringHelper = try nimbusClient.createStringHelper(additionalContext: string)
         return NimbusMessagingHelper(targetingHelper: targetingHelper, stringHelper: stringHelper)
     }
+
+    public var events: NimbusEventStore {
+        self
+    }
 }
 
 public class NimbusDisabled: NimbusApi {
@@ -522,4 +522,6 @@ extension NimbusDisabled: NimbusMessagingProtocol {
     public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> NimbusMessagingHelperProtocol {
         try createMessageHelper()
     }
+
+    public var events: NimbusEventStore { self }
 }
