@@ -28,7 +28,7 @@ uniffi = { workspace = true }
 url = { version = "2.2", features = ["serde"] }
 
 [dev-dependencies]
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.10", default-features = false }
 libsqlite3-sys = { workspace = true }
 
 [build-dependencies]

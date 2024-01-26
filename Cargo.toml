@@ -16,6 +16,7 @@ members = [
     "components/suggest",
     "components/support/error",
     "components/support/error/tests",
+    "components/support/find-places-db",
     "components/support/guid",
     "components/support/interrupt",
     "components/support/jwcrypto",

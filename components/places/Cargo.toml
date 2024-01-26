@@ -26,9 +26,9 @@ rusqlite = { workspace = true, features = ["functions", "window", "bundled", "un
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
 bitflags = "1.2"
-idna = "0.2"
+idna = "0.5"
 memchr = "2.3"
-dogear = "0.4"
+dogear = "0.5"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
@@ -39,7 +39,7 @@ uniffi = { workspace = true }
 [dev-dependencies]
 pretty_assertions = "0.6"
 tempfile = "3.1"
-env_logger = {version = "0.7", default-features = false}
+env_logger = {version = "0.10", default-features = false}
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]
