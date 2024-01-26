@@ -40,4 +40,4 @@ uniffi = { workspace = true, features = ["build"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
-jsonschema = { version = "0.13", default-features = false }
+jsonschema = { version = "0.17", default-features = false }

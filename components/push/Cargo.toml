@@ -27,7 +27,7 @@ types = { path = "../support/types" }
 uniffi = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }
+env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 mockito = "0.31"
 hex = "0.4"
 tempfile = "3.1.0"

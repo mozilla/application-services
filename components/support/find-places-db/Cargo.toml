@@ -1,0 +1,9 @@
+[package]
+name = "find-places-db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dirs = "4"
+anyhow = "1.0"
+log = "0.4"

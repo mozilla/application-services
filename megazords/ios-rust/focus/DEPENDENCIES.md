@@ -16,7 +16,6 @@ the details of which are reproduced below.
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
-* [MIT License: matches](#mit-license-matches)
 * [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
@@ -441,7 +440,6 @@ The following text applies to code linked from these dependencies:
 [block-buffer](https://github.com/RustCrypto/utils),
 [camino](https://github.com/camino-rs/camino),
 [cargo-platform](https://github.com/rust-lang/cargo),
-[cc](https://github.com/rust-lang/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
@@ -483,8 +481,6 @@ The following text applies to code linked from these dependencies:
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
-[lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
-[lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
@@ -500,7 +496,6 @@ The following text applies to code linked from these dependencies:
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-utils](https://github.com/rust-lang-nursery/pin-utils),
-[pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [plain](https://github.com/randomites/plain),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
@@ -1062,40 +1057,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-```
--------------
-## MIT License: matches
-
-The following text applies to code linked from these dependencies:
-[matches](https://github.com/SimonSapin/rust-std-candidates)
-
-```
-Copyright (c) 2014-2016 Simon Sapin
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
 
 ```
 -------------

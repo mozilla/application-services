@@ -253,14 +253,6 @@ the details of which are reproduced below.
     <url>https://github.com/sunfishcode/linux-raw-sys/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: lmdb-rkv</name>
-    <url>https://github.com/mozilla/lmdb-rs/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: lmdb-rkv-sys</name>
-    <url>https://github.com/mozilla/lmdb-rs/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: lock_api</name>
     <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
@@ -555,10 +547,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: rusqlite</name>
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: matches</name>
-    <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: mime_guess</name>

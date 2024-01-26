@@ -24,7 +24,7 @@ uniffi = { workspace = true }
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 
 [dev-dependencies]
-env_logger = { version = "0.8.0", default-features = false, features = ["termcolor", "atty", "humantime"] }
+env_logger = { version = "0.10.0", default-features = false, features = ["humantime"] }
 tempfile = "3.1"
 
 [build-dependencies]
