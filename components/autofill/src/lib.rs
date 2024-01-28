@@ -9,6 +9,7 @@
 pub mod db;
 pub mod encryption;
 pub mod error;
+mod name_utils;
 pub mod sync;
 
 // Re-export stuff the sync manager needs.
