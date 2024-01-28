@@ -100,30 +100,30 @@ lazy_static::lazy_static! {
             },
         },
         // This fails now because split algorithm
-        //{
-            //"description": "Remote change, old reocrd, name is not updated",
-            //"parent": {
-                //"version": 1,
-                //"name": "Mr. Mark Jones",
-                //"street-address": "32 Vassar Street",
-            //},
-            //"local": [
-                //{
-                    //"name": "Mr. Mark Jones",
-                    //"street-address": "32 Vassar Street",
-                //},
-            //],
-            //"remote": {
-                //"version": 1,
-                //"given-name": "Mark",
-                //"family-name": "Jones",
-                //"street-address": "I moved!",
-            //},
-            //"reconciled": {
-                //"name": "Mr. Mark Jones",
-                //"street-address": "I moved",
-            //},
-        //},
+        {
+            "description": "Remote change, old reocrd, name is not updated",
+            "parent": {
+                "version": 1,
+                "name": "Mr. Mark Jones",
+                "street-address": "32 Vassar Street",
+            },
+            "local": [
+                {
+                    "name": "Mr. Mark Jones",
+                    "street-address": "32 Vassar Street",
+                },
+            ],
+            "remote": {
+                "version": 1,
+                "given-name": "Mark",
+                "family-name": "Jones",
+                "street-address": "I moved!",
+            },
+            "reconciled": {
+                "name": "Mr. Mark Jones",
+                "street-address": "I moved!",
+            },
+        },
         {
             "description": "Remote change, old reocrd, name is updated",
             "parent": {

@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::sql_fns;
+use crate::name_utils::{join_name_parts, NameParts};
 use rusqlite::{functions::FunctionFlags, Connection, Transaction};
 use sql_support::open_database::{ConnectionInitializer, Error, Result};
-use crate::sync::address::join_name_parts;
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
@@ -252,7 +252,11 @@ fn upgrade_from_v2(db: &Connection) -> Result<()> {
         let times_used: u64 = row.get(16)?;
         let sync_change_counter: u64 = row.get(17)?;
 
-        let name = join_name_parts(&given_name, &additional_name, &family_name);
+        let name = join_name_parts(&NameParts {
+            given: given_name,
+            middle: additional_name,
+            family: family_name,
+        });
 
         db.execute(&format!(
             "INSERT INTO new_addresses_data (

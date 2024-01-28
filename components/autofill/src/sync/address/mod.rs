@@ -13,6 +13,7 @@ use super::{
 };
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
+use crate::name_utils::{join_name_parts, split_name, NameParts};
 use crate::sync_merge_field_check;
 use incoming::IncomingAddressesImpl;
 use outgoing::OutgoingAddressesImpl;
@@ -121,23 +122,36 @@ impl InternalAddress {
         let additional = p.entry.additional_name;
         let family = p.entry.family_name;
 
-        if name.is_empty() &&
-            (!given.is_empty() || !additional.is_empty() || !family.is_empty()) {
+        if name.is_empty() && (!given.is_empty() || !additional.is_empty() || !family.is_empty()) {
             println!("[Dimi]this is an old record");
             match l_name {
                 Some(l_name) => {
-                    let (l_given, l_additional, l_family) = split_name(&l_name);
+                    // TODO(issam): change this and ideally change middle to additional.
+                    let NameParts {
+                        given: l_given,
+                        middle: l_additional,
+                        family: l_family,
+                    } = split_name(&l_name);
+
                     if given == l_given && additional == l_additional && family == l_family {
                         println!("[Dimi]migrate remote use local name");
                         name = l_name;
                     } else {
                         println!("[Dimi]migrate remote join, remote name is changed");
-                        name = join_name_parts(&given, &additional, &family);
+                        name = join_name_parts(&NameParts {
+                            given: given,
+                            middle: additional,
+                            family: family,
+                        });
                     }
                 }
                 None => {
                     println!("[Dimi]migrate remote join because there is no local record");
-                    name = join_name_parts(&given, &additional, &family);
+                    name = join_name_parts(&NameParts {
+                        given: given,
+                        middle: additional,
+                        family: family,
+                    })
                 }
             };
         } else {
@@ -167,8 +181,12 @@ impl InternalAddress {
     }
 
     fn into_payload(self) -> Result<AddressPayload> {
-        let (given, additional, family) = split_name(&self.name);
-
+        // TODO(issam): change this and ideally change middle to additional.
+        let NameParts {
+            given,
+            middle: additional,
+            family,
+        } = split_name(&self.name);
         Ok(AddressPayload {
             id: self.guid,
             entry: PayloadEntry {
@@ -266,29 +284,4 @@ fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
     local_record_data.metadata.sync_change_counter = 1;
 
     local_record_data
-}
-
-// Dimi: FIX
-pub fn split_name(full_name: &str) -> (String, String, String) {
-    let parts: Vec<&str> = full_name.split_whitespace().collect();
-
-    match parts.len() {
-        0 => ("".to_string(), "".to_string(), "".to_string()),
-        1 => (parts.get(0).unwrap_or(&"").to_string(), "".to_string(), "".to_string()),
-        2 => (parts.get(0).unwrap_or(&"").to_string(), "".to_string(), parts.get(1).unwrap_or(&"").to_string()),
-        3 => (parts.get(0).unwrap_or(&"").to_string(), parts.get(1).unwrap_or(&"").to_string(), parts.get(2).unwrap_or(&"").to_string()),
-        _ => todo!(),
-    }
-}
-
-// Dimi: FIX
-pub fn join_name_parts(given_name: &str, additional_name: &str, family_name: &str) -> String {
-    if given_name.is_empty() {
-        return format!("");
-    }
-
-    if additional_name.is_empty() {
-        return format!("{} {}", given_name, family_name);
-    }
-    format!("{} {} {}", given_name, additional_name, family_name)
 }

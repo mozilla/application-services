@@ -1,0 +1,2711 @@
+diff --git a/components/autofill/sql/create_shared_schema.sql b/components/autofill/sql/create_shared_schema.sql
+index 39fa0d7d..86d4b070 100644
+--- a/components/autofill/sql/create_shared_schema.sql
++++ b/components/autofill/sql/create_shared_schema.sql
+@@ -4,9 +4,7 @@
+ 
+ CREATE TABLE IF NOT EXISTS addresses_data (
+     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+-    given_name          TEXT NOT NULL,
+-    additional_name     TEXT NOT NULL,
+-    family_name         TEXT NOT NULL,
++    name                TEXT NOT NULL,  -- Name
+     organization        TEXT NOT NULL,  -- Company
+     street_address      TEXT NOT NULL,  -- (Multiline)
+     address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
+diff --git a/components/autofill/sql/tests/create_v2_db.sql b/components/autofill/sql/tests/create_v2_db.sql
+new file mode 100644
+index 00000000..6e3fb059
+--- /dev/null
++++ b/components/autofill/sql/tests/create_v2_db.sql
+@@ -0,0 +1,110 @@
++-- This Source Code Form is subject to the terms of the Mozilla Public
++-- License, v. 2.0. If a copy of the MPL was not distributed with this
++-- file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++-- Initialize the v1 schema
++
++CREATE TABLE IF NOT EXISTS addresses_data (
++    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
++    given_name          TEXT NOT NULL,
++    additional_name     TEXT NOT NULL,
++    family_name         TEXT NOT NULL,
++    organization        TEXT NOT NULL,  -- Company
++    street_address      TEXT NOT NULL,  -- (Multiline)
++    address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
++    address_level2      TEXT NOT NULL,  -- City/Town
++    address_level1      TEXT NOT NULL,  -- Province (Standardized code if possible)
++    postal_code         TEXT NOT NULL,
++    country             TEXT NOT NULL,  -- ISO 3166
++    tel                 TEXT NOT NULL,  -- Stored in E.164 format
++    email               TEXT NOT NULL,
++
++    time_created        INTEGER NOT NULL,
++    time_last_used      INTEGER NOT NULL,
++    time_last_modified  INTEGER NOT NULL,
++    times_used          INTEGER NOT NULL,
++
++    sync_change_counter INTEGER NOT NULL
++);
++
++-- What's on the server as the JSON payload.
++CREATE TABLE IF NOT EXISTS addresses_mirror (
++    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
++    payload             TEXT NOT NULL CHECK(length(payload) != 0)
++    -- We could also have `modified`, which is in the server response and
++    -- passed around in the sync code, but we don't have a use-case for using it.
++);
++
++-- Tombstones are items deleted locally but not deleted in the mirror (ie, ones
++-- we are yet to upload)
++CREATE TABLE IF NOT EXISTS addresses_tombstones (
++    guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
++    time_deleted    INTEGER NOT NULL
++) WITHOUT ROWID;
++
++-- XXX There are still questions around how we implement the necessary security model for credit cards, specifically
++-- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
++-- them as plain text.
++CREATE TABLE IF NOT EXISTS credit_cards_data (
++guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
++cc_name             TEXT NOT NULL,
++cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
++cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
++cc_exp_month        INTEGER,
++cc_exp_year         INTEGER,
++cc_type             TEXT NOT NULL,
++time_created        INTEGER NOT NULL,
++time_last_used      INTEGER,
++time_last_modified  INTEGER NOT NULL,
++times_used          INTEGER NOT NULL,
++sync_change_counter INTEGER NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS credit_cards_mirror (
++    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
++    payload             TEXT NOT NULL CHECK(length(payload) != 0)
++);
++
++CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
++    guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
++    time_deleted    INTEGER NOT NULL
++) WITHOUT ROWID;
++
++-- This table holds key-value metadata for the Autofill component and its consumers.
++CREATE TABLE IF NOT EXISTS moz_meta (
++    key TEXT PRIMARY KEY,
++    value NOT NULL
++) WITHOUT ROWID;
++
++-- Populate it with some data, we test that this makes it through all the migrations.
++INSERT INTO credit_cards_data (
++    guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year,
++    cc_type, time_created, time_last_used, time_last_modified, times_used,
++    sync_change_counter
++) VALUES (
++    "A", "Jane Doe", "012345678901234567890", "1234", 1, 2020, "visa", 0, 1, 2,
++    3, 0
++);
++
++INSERT INTO addresses_data (
++    guid, given_name, additional_name, family_name, organization,
++    street_address, address_level3, address_level2, address_level1,
++    postal_code, country, tel, email, time_created, time_last_used,
++    time_last_modified, times_used, sync_change_counter
++) VALUES (
++    "A", "Jane", "John", "Doe", "Mozilla", "123 Maple lane", "Shelbyville",
++    "Springfield", "MA", "12345", "US", "01-234-567-8000", "jane@hotmail.com", 0,
++    1, 2, 3, 0
++);
++
++INSERT INTO addresses_data (
++    guid, given_name, additional_name, family_name, organization,
++    street_address, address_level3, address_level2, address_level1,
++    postal_code, country, tel, email, time_created, time_last_used,
++    time_last_modified, times_used, sync_change_counter
++) VALUES (
++    "B", "", "", "", "Mozilla", "123 Maple lane", "Shelbyville",
++    "Springfield", "MA", "12345", "US", "01-234-567-8000", "jane@hotmail.com", 0,
++    1, 2, 3, 0
++);
++PRAGMA user_version=2;
+diff --git a/components/autofill/src/autofill.udl b/components/autofill/src/autofill.udl
+index 4949eac4..7d4b3b85 100644
+--- a/components/autofill/src/autofill.udl
++++ b/components/autofill/src/autofill.udl
+@@ -43,9 +43,7 @@ dictionary CreditCard {
+ 
+ // What you pass to create or update an address.
+ dictionary UpdatableAddressFields {
+-    string given_name;
+-    string additional_name;
+-    string family_name;
++    string name;
+     string organization;
+     string street_address;
+     string address_level3;
+@@ -60,9 +58,7 @@ dictionary UpdatableAddressFields {
+ // What you get back as an address.
+ dictionary Address {
+     string guid;
+-    string given_name;
+-    string additional_name;
+-    string family_name;
++    string name;
+     string organization;
+     string street_address;
+     string address_level3;
+diff --git a/components/autofill/src/db/addresses.rs b/components/autofill/src/db/addresses.rs
+index fcfdbabb..7bf507d0 100644
+--- a/components/autofill/src/db/addresses.rs
++++ b/components/autofill/src/db/addresses.rs
+@@ -27,9 +27,7 @@ pub(crate) fn add_address(
+     // fields, before we insert it.
+     let address = InternalAddress {
+         guid: Guid::random(),
+-        given_name: new.given_name,
+-        additional_name: new.additional_name,
+-        family_name: new.family_name,
++        name: new.name,
+         organization: new.organization,
+         street_address: new.street_address,
+         address_level3: new.address_level3,
+@@ -65,9 +63,7 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
+         ),
+         rusqlite::named_params! {
+             ":guid": address.guid,
+-            ":given_name": address.given_name,
+-            ":additional_name": address.additional_name,
+-            ":family_name": address.family_name,
++            ":name": address.name,
+             ":organization": address.organization,
+             ":street_address": address.street_address,
+             ":address_level3": address.address_level3,
+@@ -129,9 +125,7 @@ pub(crate) fn update_address(
+     let tx = conn.unchecked_transaction()?;
+     tx.execute(
+         "UPDATE addresses_data
+-        SET given_name         = :given_name,
+-            additional_name     = :additional_name,
+-            family_name         = :family_name,
++        SET name                = :name,
+             organization        = :organization,
+             street_address      = :street_address,
+             address_level3      = :address_level3,
+@@ -144,9 +138,7 @@ pub(crate) fn update_address(
+             sync_change_counter = sync_change_counter + 1
+         WHERE guid              = :guid",
+         rusqlite::named_params! {
+-            ":given_name": address.given_name,
+-            ":additional_name": address.additional_name,
+-            ":family_name": address.family_name,
++            ":name": address.name,
+             ":organization": address.organization,
+             ":street_address": address.street_address,
+             ":address_level3": address.address_level3,
+@@ -175,9 +167,7 @@ pub(crate) fn update_internal_address(
+     let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
+     let rows_changed = tx.execute(
+         "UPDATE addresses_data SET
+-            given_name          = :given_name,
+-            additional_name     = :additional_name,
+-            family_name         = :family_name,
++            name                = :name,
+             organization        = :organization,
+             street_address      = :street_address,
+             address_level3      = :address_level3,
+@@ -194,9 +184,7 @@ pub(crate) fn update_internal_address(
+             sync_change_counter = sync_change_counter + :change_incr
+         WHERE guid              = :guid",
+         rusqlite::named_params! {
+-            ":given_name": address.given_name,
+-            ":additional_name": address.additional_name,
+-            ":family_name": address.family_name,
++            ":name": address.name,
+             ":organization": address.organization,
+             ":street_address": address.street_address,
+             ":address_level3": address.address_level3,
+@@ -307,8 +295,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "jane".to_string(),
+-                family_name: "doe".to_string(),
++                name: "jane doe".to_string(),
+                 street_address: "123 Main Street".to_string(),
+                 address_level2: "Seattle, WA".to_string(),
+                 country: "United States".to_string(),
+@@ -331,8 +318,7 @@ mod tests {
+         let retrieved_address = get_address(&db, &saved_address.guid)
+             .expect("should contain optional retrieved address");
+         assert_eq!(saved_address.guid, retrieved_address.guid);
+-        assert_eq!(saved_address.given_name, retrieved_address.given_name);
+-        assert_eq!(saved_address.family_name, retrieved_address.family_name);
++        assert_eq!(saved_address.name, retrieved_address.name);
+         assert_eq!(
+             saved_address.street_address,
+             retrieved_address.street_address
+@@ -370,8 +356,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "jane".to_string(),
+-                family_name: "doe".to_string(),
++                name: "jane doe".to_string(),
+                 street_address: "123 Second Avenue".to_string(),
+                 address_level2: "Chicago, IL".to_string(),
+                 country: "United States".to_string(),
+@@ -384,8 +369,7 @@ mod tests {
+         let saved_address2 = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "john".to_string(),
+-                family_name: "deer".to_string(),
++                name: "john deer".to_string(),
+                 street_address: "123 First Avenue".to_string(),
+                 address_level2: "Los Angeles, CA".to_string(),
+                 country: "United States".to_string(),
+@@ -399,8 +383,7 @@ mod tests {
+         let saved_address3 = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "abraham".to_string(),
+-                family_name: "lincoln".to_string(),
++                name: "abraham lincoln".to_string(),
+                 street_address: "1600 Pennsylvania Ave NW".to_string(),
+                 address_level2: "Washington, DC".to_string(),
+                 country: "United States".to_string(),
+@@ -436,8 +419,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "john".to_string(),
+-                family_name: "doe".to_string(),
++                name: "john doe".to_string(),
+                 street_address: "1300 Broadway".to_string(),
+                 address_level2: "New York, NY".to_string(),
+                 country: "United States".to_string(),
+@@ -449,14 +431,12 @@ mod tests {
+         // change_counter starts at 0
+         assert_eq!(0, saved_address.metadata.sync_change_counter);
+ 
+-        let expected_additional_name = "paul".to_string();
++        let expected_name = "john paul deer".to_string();
+         let update_result = update_address(
+             &db,
+             &saved_address.guid,
+             &UpdatableAddressFields {
+-                given_name: "john".to_string(),
+-                additional_name: expected_additional_name.clone(),
+-                family_name: "deer".to_string(),
++                name: expected_name.clone(),
+                 organization: "".to_string(),
+                 street_address: "123 First Avenue".to_string(),
+                 address_level3: "".to_string(),
+@@ -474,7 +454,7 @@ mod tests {
+             get_address(&db, &saved_address.guid).expect("should contain optional updated address");
+ 
+         assert_eq!(saved_address.guid, updated_address.guid);
+-        assert_eq!(expected_additional_name, updated_address.additional_name);
++        assert_eq!(expected_name, updated_address.name);
+ 
+         //check that the sync_change_counter was incremented
+         assert_eq!(1, updated_address.metadata.sync_change_counter);
+@@ -490,9 +470,7 @@ mod tests {
+             &tx,
+             &InternalAddress {
+                 guid: guid.clone(),
+-                given_name: "john".to_string(),
+-                additional_name: "paul".to_string(),
+-                family_name: "deer".to_string(),
++                name: "john paul deer".to_string(),
+                 organization: "".to_string(),
+                 street_address: "123 First Avenue".to_string(),
+                 address_level3: "".to_string(),
+@@ -506,14 +484,12 @@ mod tests {
+             },
+         )?;
+ 
+-        let expected_family_name = "dear";
++        let expected_name = "john paul dear";
+         update_internal_address(
+             &tx,
+             &InternalAddress {
+                 guid: guid.clone(),
+-                given_name: "john".to_string(),
+-                additional_name: "paul".to_string(),
+-                family_name: expected_family_name.to_string(),
++                name: expected_name.to_string(),
+                 organization: "".to_string(),
+                 street_address: "123 First Avenue".to_string(),
+                 address_level3: "".to_string(),
+@@ -533,10 +509,10 @@ mod tests {
+                 SELECT 1
+                 FROM addresses_data
+                 WHERE guid = :guid
+-                AND family_name = :family_name
++                AND name = :name
+                 AND sync_change_counter = 0
+             )",
+-            [&guid.to_string(), &expected_family_name.to_string()],
++            [&guid.to_string(), &expected_name.to_string()],
+             |row| row.get(0),
+         )?;
+         assert!(record_exists);
+@@ -558,8 +534,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "jane".to_string(),
+-                family_name: "doe".to_string(),
++                name: "jane doe".to_string(),
+                 street_address: "123 Second Avenue".to_string(),
+                 address_level2: "Chicago, IL".to_string(),
+                 country: "United States".to_string(),
+@@ -576,8 +551,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "jane".to_string(),
+-                family_name: "doe".to_string(),
++                name: "jane doe".to_string(),
+                 street_address: "123 Second Avenue".to_string(),
+                 address_level2: "Chicago, IL".to_string(),
+                 country: "United States".to_string(),
+@@ -610,8 +584,7 @@ mod tests {
+         // create a new address with the tombstone's guid
+         let address = InternalAddress {
+             guid,
+-            given_name: "jane".to_string(),
+-            family_name: "doe".to_string(),
++            name: "jane doe".to_string(),
+             street_address: "123 Second Avenue".to_string(),
+             address_level2: "Chicago, IL".to_string(),
+             country: "United States".to_string(),
+@@ -637,8 +610,7 @@ mod tests {
+         // create an address
+         let address = InternalAddress {
+             guid,
+-            given_name: "jane".to_string(),
+-            family_name: "doe".to_string(),
++            name: "jane doe".to_string(),
+             street_address: "123 Second Avenue".to_string(),
+             address_level2: "Chicago, IL".to_string(),
+             country: "United States".to_string(),
+@@ -665,8 +637,7 @@ mod tests {
+         let saved_address = add_address(
+             &db,
+             UpdatableAddressFields {
+-                given_name: "jane".to_string(),
+-                family_name: "doe".to_string(),
++                name: "jane doe".to_string(),
+                 street_address: "123 Second Avenue".to_string(),
+                 address_level2: "Chicago, IL".to_string(),
+                 country: "United States".to_string(),
+diff --git a/components/autofill/src/db/models/address.rs b/components/autofill/src/db/models/address.rs
+index d72c93fb..e526f278 100644
+--- a/components/autofill/src/db/models/address.rs
++++ b/components/autofill/src/db/models/address.rs
+@@ -15,9 +15,7 @@ use sync_guid::Guid;
+ // have special methods for doing so.
+ #[derive(Debug, Clone, Default)]
+ pub struct UpdatableAddressFields {
+-    pub given_name: String,
+-    pub additional_name: String,
+-    pub family_name: String,
++    pub name: String,
+     pub organization: String,
+     pub street_address: String,
+     pub address_level3: String,
+@@ -33,9 +31,7 @@ pub struct UpdatableAddressFields {
+ #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+ pub struct Address {
+     pub guid: String,
+-    pub given_name: String,
+-    pub additional_name: String,
+-    pub family_name: String,
++    pub name: String,
+     pub organization: String,
+     pub street_address: String,
+     pub address_level3: String,
+@@ -58,9 +54,7 @@ impl From<InternalAddress> for Address {
+     fn from(ia: InternalAddress) -> Self {
+         Address {
+             guid: ia.guid.to_string(),
+-            given_name: ia.given_name,
+-            additional_name: ia.additional_name,
+-            family_name: ia.family_name,
++            name: ia.name,
+             organization: ia.organization,
+             street_address: ia.street_address,
+             address_level3: ia.address_level3,
+@@ -89,9 +83,7 @@ impl From<InternalAddress> for Address {
+ #[derive(Default, Debug, Clone)]
+ pub struct InternalAddress {
+     pub guid: Guid,
+-    pub given_name: String,
+-    pub additional_name: String,
+-    pub family_name: String,
++    pub name: String,
+     pub organization: String,
+     pub street_address: String,
+     pub address_level3: String,
+@@ -108,9 +100,7 @@ impl InternalAddress {
+     pub fn from_row(row: &Row<'_>) -> Result<InternalAddress, rusqlite::Error> {
+         Ok(Self {
+             guid: row.get("guid")?,
+-            given_name: row.get("given_name")?,
+-            additional_name: row.get("additional_name")?,
+-            family_name: row.get("family_name")?,
++            name: row.get("name")?,
+             organization: row.get("organization")?,
+             street_address: row.get("street_address")?,
+             address_level3: row.get("address_level3")?,
+diff --git a/components/autofill/src/db/schema.rs b/components/autofill/src/db/schema.rs
+index b0a696cc..31924cff 100644
+--- a/components/autofill/src/db/schema.rs
++++ b/components/autofill/src/db/schema.rs
+@@ -3,14 +3,13 @@
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+ use crate::db::sql_fns;
++use crate::name_utils::{join_name_parts, NameParts};
+ use rusqlite::{functions::FunctionFlags, Connection, Transaction};
+ use sql_support::open_database::{ConnectionInitializer, Error, Result};
+ 
+ pub const ADDRESS_COMMON_COLS: &str = "
+     guid,
+-    given_name,
+-    additional_name,
+-    family_name,
++    name,
+     organization,
+     street_address,
+     address_level3,
+@@ -27,9 +26,7 @@ pub const ADDRESS_COMMON_COLS: &str = "
+ 
+ pub const ADDRESS_COMMON_VALS: &str = "
+     :guid,
+-    :given_name,
+-    :additional_name,
+-    :family_name,
++    :name,
+     :organization,
+     :street_address,
+     :address_level3,
+@@ -78,7 +75,7 @@ pub struct AutofillConnectionInitializer;
+ 
+ impl ConnectionInitializer for AutofillConnectionInitializer {
+     const NAME: &'static str = "autofill db";
+-    const END_VERSION: u32 = 2;
++    const END_VERSION: u32 = 3;
+ 
+     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
+         define_functions(conn)?;
+@@ -107,6 +104,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
+             // upgrade_from_v0() for more details.
+             0 => upgrade_from_v0(db),
+             1 => upgrade_from_v1(db),
++            2 => upgrade_from_v2(db),
+             _ => Err(Error::IncompatibleVersion(version)),
+         }
+     }
+@@ -193,6 +191,114 @@ fn upgrade_from_v1(db: &Connection) -> Result<()> {
+     Ok(())
+ }
+ 
++fn upgrade_from_v2(db: &Connection) -> Result<()> {
++    // Dimi: Tried to use ADD COLLUMN NAME TEXT NOT NULL, but encountered an error
++    db.execute_batch(
++        "
++        CREATE TABLE new_addresses_data (
++            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
++            name                TEXT NOT NULL,  -- Name
++            organization        TEXT NOT NULL,  -- Company
++            street_address      TEXT NOT NULL,  -- (Multiline)
++            address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
++            address_level2      TEXT NOT NULL,  -- City/Town
++            address_level1      TEXT NOT NULL,  -- Province (Standardized code if possible)
++            postal_code         TEXT NOT NULL,
++            country             TEXT NOT NULL,  -- ISO 3166
++            tel                 TEXT NOT NULL,  -- Stored in E.164 format
++            email               TEXT NOT NULL,
++
++            time_created        INTEGER NOT NULL,
++            time_last_used      INTEGER NOT NULL,
++            time_last_modified  INTEGER NOT NULL,
++            times_used          INTEGER NOT NULL,
++
++            sync_change_counter INTEGER NOT NULL
++        );
++        ")?;
++
++    let mut stmt = db.prepare("
++        select guid, given_name, additional_name, family_name, organization, street_address, address_level3,
++        address_level2, address_level1, postal_code, country, tel, email, time_created, time_last_used,
++        time_last_modified, times_used, sync_change_counter
++        from addresses_data
++        "
++    )?;
++
++    // Why this doesn't work?
++    //stmt.query_map([], |row| {
++        //println!("[Dimi]row");
++        //Ok(())
++    //})?;
++    // Dimi: TODO: Simplify this ?
++    let mut results = stmt.query([])?;
++    while let Some(row) = results.next()? {
++        let guid: String = row.get(0)?;
++        let given_name: String = row.get(1)?;
++        let additional_name: String = row.get(2)?;
++        let family_name: String = row.get(3)?;
++        let organization: String = row.get(4)?;
++        let street_address: String = row.get(5)?;
++        let address_level3: String = row.get(6)?;
++        let address_level2: String = row.get(7)?;
++        let address_level1: String = row.get(8)?;
++        let postal_code: String = row.get(9)?;
++        let country: String = row.get(10)?;
++        let tel: String = row.get(11)?;
++        let email: String = row.get(12)?;
++        let time_created: u64 = row.get(13)?;
++        let time_last_used: u64 = row.get(14)?;
++        let time_last_modified: u64 = row.get(15)?;
++        let times_used: u64 = row.get(16)?;
++        let sync_change_counter: u64 = row.get(17)?;
++
++        let name = join_name_parts(&NameParts {
++            given: given_name,
++            middle: additional_name,
++            family: family_name,
++        });
++
++        db.execute(&format!(
++            "INSERT INTO new_addresses_data (
++                {common_cols},
++                sync_change_counter
++            ) VALUES (
++                {common_vals},
++                :sync_change_counter
++            )",
++            common_cols = ADDRESS_COMMON_COLS,
++            common_vals = ADDRESS_COMMON_VALS,
++            ),
++            rusqlite::named_params! {
++                ":guid": guid,
++                ":name": name,
++                ":organization": organization,
++                ":street_address": street_address,
++                ":address_level3": address_level3,
++                ":address_level2": address_level2,
++                ":address_level1": address_level1,
++                ":postal_code": postal_code,
++                ":country": country,
++                ":tel": tel,
++                ":email": email,
++                ":time_created": time_created,
++                ":time_last_used": time_last_used,
++                ":time_last_modified": time_last_modified,
++                ":times_used": times_used,
++                ":sync_change_counter": sync_change_counter,
++            },
++        )?;
++    };
++
++    db.execute_batch(
++        "
++        DROP TABLE addresses_data;
++        ALTER TABLE new_addresses_data RENAME to addresses_data
++        "
++    )?;
++    Ok(())
++}
++
+ pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
+     log::debug!("Initializing sync temp tables");
+     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
+@@ -211,6 +317,7 @@ mod tests {
+ 
+     const CREATE_V0_DB: &str = include_str!("../../sql/tests/create_v0_db.sql");
+     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
++    const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
+ 
+     #[test]
+     fn test_create_schema_twice() {
+@@ -248,9 +355,7 @@ mod tests {
+ 
+         let address = get_address(&conn, &Guid::new("A")).unwrap();
+         assert_eq!(address.guid, "A");
+-        assert_eq!(address.given_name, "Jane");
+-        assert_eq!(address.family_name, "Doe");
+-        assert_eq!(address.additional_name, "JaneDoe2");
++        assert_eq!(address.name, "Jane JaneDoe2 Doe");
+         assert_eq!(address.organization, "Mozilla");
+         assert_eq!(address.street_address, "123 Maple lane");
+         assert_eq!(address.address_level3, "Shelbyville");
+@@ -299,4 +404,40 @@ mod tests {
+         db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", [])
+             .expect_err("cc_number_enc should be invalid");
+     }
++
++    #[test]
++    fn test_upgrade_version_2() {
++        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V2_DB);
++        let db = db_file.open();
++
++        db.execute_batch("SELECT name from addresses_data")
++            .expect_err("select should fail");
++        db.execute_batch("SELECT street_address from addresses_data")
++            .expect("street_address should work");
++        db.execute_batch("SELECT additional_name from addresses_data")
++            .expect("additional_name should work");
++        db.execute_batch("SELECT family_name from addresses_data")
++            .expect("family_name should work");
++
++        db_file.upgrade_to(3);
++
++        db.execute_batch("SELECT name from addresses_data")
++            .expect("select name should now work");
++        db.execute_batch("SELECT given_name from addresses_data")
++            .expect_err("given_name should fail");
++        db.execute_batch("SELECT additional_name from addresses_data")
++            .expect_err("additional_name should fail");
++        db.execute_batch("SELECT family_name from addresses_data")
++            .expect_err("family_name should fail");
++
++        let mut address = get_address(&db, &Guid::new("A")).unwrap();
++        assert_eq!(address.guid, "A");
++        assert_eq!(address.name, "Jane John Doe");
++
++        address = get_address(&db, &Guid::new("B")).unwrap();
++        assert_eq!(address.guid, "B");
++
++        // Dimi: to be fixed
++        assert_eq!(address.name, "");
++    }
+ }
+diff --git a/components/autofill/src/lib.rs b/components/autofill/src/lib.rs
+index 962394af..770c627e 100644
+--- a/components/autofill/src/lib.rs
++++ b/components/autofill/src/lib.rs
+@@ -9,6 +9,7 @@
+ pub mod db;
+ pub mod encryption;
+ pub mod error;
++mod name_utils;
+ pub mod sync;
+ 
+ // Re-export stuff the sync manager needs.
+diff --git a/components/autofill/src/name_utils.rs b/components/autofill/src/name_utils.rs
+new file mode 100644
+index 00000000..fcad2efa
+--- /dev/null
++++ b/components/autofill/src/name_utils.rs
+@@ -0,0 +1,596 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++* License, v. 2.0. If a copy of the MPL was not distributed with this
++* file, You can obtain one at http://mozilla.org/MPL/2.0/.
++*/
++
++const NAME_PREFIXES: &[&str] = &[
++    "1lt", "1st", "2lt", "2nd", "3rd", "admiral", "capt", "captain", "col", "cpt", "dr", "gen",
++    "general", "lcdr", "lt", "ltc", "ltg", "ltjg", "maj", "major", "mg", "mr", "mrs", "ms",
++    "pastor", "prof", "rep", "reverend", "rev", "sen",
++];
++
++const NAME_SUFFIXES: &[&str] = &[
++    "b.a", "ba", "d.d.s", "dds", "i", "ii", "iii", "iv", "ix", "jr", "m.a", "m.d", "ma", "md",
++    "ms", "ph.d", "phd", "sr", "v", "vi", "vii", "viii", "x",
++];
++
++const FAMILY_NAME_PREFIXES: &[&str] = &[
++    "d'", "de", "del", "der", "di", "la", "le", "mc", "san", "st", "ter", "van", "von",
++];
++
++// The common and non-ambiguous CJK surnames (last names) that have more than
++// one character.
++const COMMON_CJK_MULTI_CHAR_SURNAMES: &[&str] = &[
++    // Korean, taken from the list of surnames:
++    // https://ko.wikipedia.org/wiki/%ED%95%9C%EA%B5%AD%EC%9D%98_%EC%84%B1%EC%94%A8_%EB%AA%A9%EB%A1%9D
++    "남궁", "사공", "서문", "선우", "제갈", "황보", "독고", "망절",
++    // Chinese, taken from the top 10 Chinese 2-character surnames:
++    // https://zh.wikipedia.org/wiki/%E8%A4%87%E5%A7%93#.E5.B8.B8.E8.A6.8B.E7.9A.84.E8.A4.87.E5.A7.93
++    // Simplified Chinese (mostly mainland China)
++    "欧阳", "令狐", "皇甫", "上官", "司徒", "诸葛", "司马", "宇文", "呼延", "端木",
++    // Traditional Chinese (mostly Taiwan)
++    "張簡", "歐陽", "諸葛", "申屠", "尉遲", "司馬", "軒轅", "夏侯",
++];
++
++// All Korean surnames that have more than one character, even the
++// rare/ambiguous ones.
++const KOREAN_MULTI_CHAR_SURNAMES: &[&str] = &[
++    "강전", "남궁", "독고", "동방", "망절", "사공", "서문", "선우", "소봉", "어금", "장곡", "제갈",
++    "황목", "황보",
++];
++
++// The middle dot is used as a separator for foreign names in Japanese.
++const MIDDLE_DOT: &[char] = &[
++    '\u{30FB}', // KATAKANA MIDDLE DOT
++    '\u{00B7}', // A (common?) typo for "KATAKANA MIDDLE DOT}"
++];
++
++const CJK_RANGE: &[(char, char)] = &[
++    ('\u{1100}', '\u{11FF}'), // Hangul Jamo
++    ('\u{3040}', '\u{309F}'), // Hiragana
++    ('\u{30A0}', '\u{30FF}'), // Katakana
++    ('\u{3105}', '\u{312C}'), // Bopomofo
++    ('\u{3130}', '\u{318F}'), // Hangul Compatibility Jamo
++    ('\u{31F0}', '\u{31FF}'), // Katakana Phonetic Extensions
++    ('\u{3200}', '\u{32FF}'), // Enclosed CJK Letters and Months
++    ('\u{3400}', '\u{4DBF}'), // CJK unified ideographs Extension A
++    ('\u{4E00}', '\u{9FFF}'), // CJK Unified Ideographs
++    ('\u{A960}', '\u{A97F}'), // Hangul Jamo Extended-A
++    ('\u{AC00}', '\u{D7AF}'), // Hangul Syllables
++    ('\u{D7B0}', '\u{D7FF}'), // Hangul Jamo Extended-B
++    ('\u{FF00}', '\u{FFEF}'), // Halfwidth and Fullwidth Forms
++];
++
++const HANGUL_RANGE: &[(char, char)] = &[
++    ('\u{1100}', '\u{11FF}'), // Hangul Jamo
++    ('\u{3130}', '\u{318F}'), // Hangul Compatibility Jamo
++    ('\u{A960}', '\u{A97F}'), // Hangul Jamo Extended-A
++    ('\u{AC00}', '\u{D7AF}'), // Hangul Syllables
++    ('\u{D7B0}', '\u{D7FF}'), // Hangul Jamo Extended-B
++];
++
++#[derive(PartialEq, Debug, Default)]
++pub(crate) struct NameParts {
++    pub(crate) given: String,
++    pub(crate) middle: String,
++    pub(crate) family: String,
++}
++
++fn is_name_separator(c: char) -> bool {
++    c.is_whitespace() || MIDDLE_DOT.contains(&c) || c == ','
++}
++
++fn contains_string(set: &[&str], token: &str) -> bool {
++    let target = token.trim_end_matches('.').to_lowercase();
++    set.contains(&target.as_str())
++}
++
++fn strip_prefixes<'a>(name_tokens: &'a [&'a str]) -> &'a [&'a str] {
++    name_tokens
++        .iter()
++        .position(|token| !contains_string(NAME_PREFIXES, token))
++        .map_or(&[], |index| &name_tokens[index..])
++}
++
++fn strip_suffixes<'a>(name_tokens: &'a [&'a str]) -> &'a [&'a str] {
++    name_tokens
++        .iter()
++        .rposition(|token| !contains_string(NAME_SUFFIXES, token))
++        .map_or(&[], |index| &name_tokens[..=index])
++}
++
++fn is_char_in_range(c: char, range: &[(char, char)]) -> bool {
++    range.iter().any(|&(start, end)| c >= start && c <= end)
++}
++
++fn is_cjk_name(name: &str) -> bool {
++    // TODO(issam): Do we need these checks inside each function?
++    if name.is_empty() || name.split_whitespace().count() > 2 {
++        return false;
++    }
++
++    name.split_whitespace().all(|part| {
++        part.chars()
++            .all(|c| MIDDLE_DOT.contains(&c) || is_char_in_range(c, CJK_RANGE))
++    })
++}
++
++fn is_korean_name(name: &str) -> bool {
++    // TODO(issam): Do we need these checks inside each function?
++    if name.is_empty() {
++        return false;
++    }
++
++    name.split_whitespace()
++        .all(|part| part.chars().all(|c| is_char_in_range(c, HANGUL_RANGE)))
++}
++
++fn get_cjk_surname_length(name: &str) -> usize {
++    let surnames = if is_korean_name(name) && name.chars().count() > 3 {
++        KOREAN_MULTI_CHAR_SURNAMES
++    } else {
++        COMMON_CJK_MULTI_CHAR_SURNAMES
++    };
++
++    surnames
++        .iter()
++        .any(|&surname| name.starts_with(surname))
++        .then(|| 2)
++        .unwrap_or(1)
++}
++
++fn split_cjk_name(name_tokens: &[&str]) -> Option<NameParts> {
++    match name_tokens.len() {
++        1 => {
++            let name = name_tokens[0];
++            let surname_length = get_cjk_surname_length(name);
++            Some(NameParts {
++                given: name.chars().skip(surname_length).collect(),
++                family: name.chars().take(surname_length).collect(),
++                ..Default::default()
++            })
++        }
++        2 => Some(NameParts {
++            given: name_tokens[1].to_string(),
++            family: name_tokens[0].to_string(),
++            ..Default::default()
++        }),
++        _ => None,
++    }
++}
++
++pub(crate) fn join_name_parts(name_parts: &NameParts) -> String {
++    if is_cjk_name(&name_parts.given)
++        && is_cjk_name(&name_parts.family)
++        && name_parts.middle.is_empty()
++    {
++        return format!("{}{}", name_parts.family, name_parts.given);
++    }
++
++    [
++        name_parts.given.as_str(),
++        name_parts.middle.as_str(),
++        name_parts.family.as_str(),
++    ]
++    .iter()
++    .filter(|&part| !part.is_empty())
++    .cloned()
++    .collect::<Vec<&str>>()
++    .join(" ")
++}
++
++pub(crate) fn split_name(name: &str) -> NameParts {
++    if name.is_empty() {
++        return NameParts::default();
++    }
++
++    let name_tokens: Vec<&str> = name
++        .trim()
++        .split(is_name_separator)
++        .filter(|s| !s.is_empty())
++        .collect();
++
++    // TODO(issam): Refactor. Still not too happy about this block below.
++    let stripped_prefixes = strip_prefixes(&name_tokens).to_vec();
++
++    if is_cjk_name(name) {
++        if let Some(cjk_parts) = split_cjk_name(&stripped_prefixes) {
++            return cjk_parts;
++        }
++    }
++
++    let mut stripped_suffixes: Vec<&str> = stripped_prefixes.to_vec();
++
++    if name_tokens.len() > 2 {
++        stripped_suffixes = strip_suffixes(&stripped_prefixes).to_vec();
++    }
++
++    match stripped_suffixes.len() {
++        0 => NameParts {
++            given: name.to_string(),
++            ..Default::default()
++        },
++        1 => NameParts {
++            given: stripped_suffixes[0].to_string(),
++            ..Default::default()
++        },
++        _ => {
++            let mut family_tokens = vec![stripped_suffixes.pop().unwrap()];
++            while !stripped_suffixes.is_empty()
++                && contains_string(FAMILY_NAME_PREFIXES, stripped_suffixes.last().unwrap())
++            {
++                family_tokens.insert(0, stripped_suffixes.pop().unwrap());
++            }
++
++            let family = family_tokens.join(" ");
++            let middle = if stripped_suffixes.len() >= 2 {
++                stripped_suffixes.pop().unwrap().to_string()
++            } else {
++                String::new()
++            };
++            let given = stripped_suffixes.join(" ");
++
++            NameParts {
++                given,
++                middle,
++                family,
++            }
++        }
++    }
++}
++
++// These tests were ported from:
++// https://searchfox.org/mozilla-central/rev/2a867dd1ab015c3ef24b774a57709fb3b3dc4961/toolkit/components/formautofill/shared/FormAutofillNameUtils.sys.mjs
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    macro_rules! test_name_split_and_join {
++        ($desc:expr, full_name: $full_name:expr, expected_full_name: $expected_full_name:expr, name_parts: { given: $given:expr, middle: $middle:expr, family: $family:expr }) => {{
++            println!("Starting testcase: {}", $desc);
++
++            // Creating a NameParts instance from provided parts
++            let expected_name_parts = NameParts {
++                given: $given.to_string(),
++                middle: $middle.to_string(),
++                family: $family.to_string(),
++            };
++
++            // Test split_name function
++            let name_parts = split_name($full_name);
++            assert_eq!(
++                name_parts, expected_name_parts,
++                "Test failed in split_name for: {}",
++                $desc
++            );
++
++            // Test join_name_parts function
++            let full_name_result = join_name_parts(&expected_name_parts);
++            assert_eq!(
++                full_name_result, $expected_full_name,
++                "Test failed in join_name_parts for: {}",
++                $desc
++            );
++        }};
++    }
++
++    #[test]
++    fn test_name_functions() {
++        test_name_split_and_join!(
++             "Empty name",
++            full_name: "",
++            expected_full_name: "",
++            name_parts:  {
++                given: "",
++                middle: "",
++                family: ""
++            }
++        );
++
++        test_name_split_and_join!(
++             "Full name including prefixes and suffixes and comma",
++            full_name: "Mr. John Doe, Jr.",
++            expected_full_name: "John Doe",
++            name_parts:  {
++                given: "John",
++                middle: "",
++                family: "Doe"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Full name including given, middle and family names",
++            full_name: "Homer Jay Simpson",
++            expected_full_name: "Homer Jay Simpson",
++            name_parts:  {
++                given: "Homer",
++                middle: "Jay",
++                family: "Simpson"
++            }
++        );
++
++        test_name_split_and_join!(
++             "No middle name",
++            full_name: "Moe Szyslak",
++            expected_full_name: "Moe Szyslak",
++            name_parts:  {
++                given: "Moe",
++                middle: "",
++                family: "Szyslak"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Common name prefixes removed",
++            full_name: "Reverend Timothy Lovejoy",
++            expected_full_name: "Timothy Lovejoy",
++            name_parts:  {
++                given: "Timothy",
++                middle: "",
++                family: "Lovejoy"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Common name suffixes removed",
++            full_name: "John Frink Phd",
++            expected_full_name: "John Frink",
++            name_parts:  {
++                given: "John",
++                middle: "",
++                family: "Frink"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Exception to the name suffix removal",
++            full_name: "John Ma",
++            expected_full_name: "John Ma",
++            name_parts:  {
++                given: "John",
++                middle: "",
++                family: "Ma"
++            }
++        );
++
++        test_name_split_and_join!(
++            "Common family name prefixes not considered a middle name",
++           full_name: "Milhouse Van Houten",
++           expected_full_name: "Milhouse Van Houten",
++
++           name_parts:  {
++               given: "Milhouse",
++               middle: "",
++               family: "Van Houten"
++           }
++        );
++
++        // CJK names have reverse order (surname goes first, given name goes second).
++        test_name_split_and_join!(
++             "Chinese name, Unihan",
++            full_name: "孫 德明",
++            expected_full_name: "孫德明",
++            name_parts:  {
++                given: "德明",
++                middle: "",
++                family: "孫"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Chinese name, Unihan, IDEOGRAPHIC SPACE",
++            full_name: "孫　德明",
++            expected_full_name: "孫德明",
++            name_parts:  {
++                given: "德明",
++                middle: "",
++                family: "孫"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "홍 길동",
++            expected_full_name: "홍길동",
++            name_parts:  {
++                given: "길동",
++                middle: "",
++                family: "홍"
++            }
++        );
++        test_name_split_and_join!(
++            "Japanese name, Unihan",
++           full_name: "山田 貴洋",
++           expected_full_name: "山田貴洋",
++           name_parts:  {
++               given: "貴洋",
++               middle: "",
++               family: "山田"
++           }
++        );
++
++        // In Japanese, foreign names use 'KATAKANA MIDDLE DOT' (U+30FB) as a
++        // separator. There is no consensus for the ordering. For now, we use the same
++        // ordering as regular Japanese names ("last・first").
++        test_name_split_and_join!(
++            "Foreign name in Japanese, Katakana",
++           full_name: "ゲイツ・ビル",
++           expected_full_name: "ゲイツビル",
++           name_parts:  {
++               given: "ビル",
++               middle: "",
++               family: "ゲイツ"
++           }
++        );
++
++        // 'KATAKANA MIDDLE DOT' is occasionally typoed as 'MIDDLE DOT' (U+00B7).
++        test_name_split_and_join!(
++            "Foreign name in Japanese, Katakana",
++           full_name: "ゲイツ·ビル",
++           expected_full_name: "ゲイツビル",
++           name_parts:  {
++               given: "ビル",
++               middle: "",
++               family: "ゲイツ"
++           }
++        );
++
++        // CJK names don't usually have a space in the middle, but most of the time,
++        // the surname is only one character (in Chinese & Korean).
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "최성훈",
++            expected_full_name: "최성훈",
++            name_parts:  {
++                given: "성훈",
++                middle: "",
++                family: "최"
++            }
++        );
++
++        test_name_split_and_join!(
++             "(Simplified) Chinese name, Unihan",
++            full_name: "刘翔",
++            expected_full_name: "刘翔",
++
++            name_parts:  {
++                given: "翔",
++                middle: "",
++                family: "刘"
++            }
++        );
++
++        test_name_split_and_join!(
++            "(Traditional) Chinese name, Unihan",
++           full_name: "劉翔",
++           expected_full_name: "劉翔",
++
++           name_parts:  {
++               given: "翔",
++               middle: "",
++               family: "劉"
++           }
++        );
++
++        // There are a few exceptions. Occasionally, the surname has two characters.
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "남궁도",
++            expected_full_name: "남궁도",
++
++            name_parts:  {
++                given: "도",
++                middle: "",
++                family: "남궁"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "황보혜정",
++            expected_full_name: "황보혜정",
++
++            name_parts:  {
++                given: "혜정",
++                middle: "",
++                family: "황보"
++            }
++        );
++
++        test_name_split_and_join!(
++            "(Traditional) Chinese name, Unihan",
++           full_name: "歐陽靖",
++           expected_full_name: "歐陽靖",
++
++           name_parts:  {
++               given: "靖",
++               middle: "",
++               family: "歐陽"
++           }
++        );
++
++        // In Korean, some 2-character surnames are rare/ambiguous, like "강전": "강"
++        // is a common surname, and "전" can be part of a given name. In those cases,
++        // we assume it's 1/2 for 3-character names, or 2/2 for 4-character names.
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "강전희",
++            expected_full_name: "강전희",
++
++            name_parts:  {
++                given: "전희",
++                middle: "",
++                family: "강"
++            }
++        );
++
++        test_name_split_and_join!(
++            "Korean name, Hangul",
++           full_name: "황목치승",
++           expected_full_name: "황목치승",
++
++           name_parts:  {
++               given: "치승",
++               middle: "",
++               family: "황목"
++           }
++        );
++
++        // It occasionally happens that a full name is 2 characters, 1/1.
++        test_name_split_and_join!(
++             "Korean name, Hangul",
++            full_name: "이도",
++            expected_full_name: "이도",
++            name_parts:  {
++                given: "도",
++                middle: "",
++                family: "이"
++            }
++        );
++
++        test_name_split_and_join!(
++            "Korean name, Hangul",
++           full_name: "孫文",
++           expected_full_name: "孫文",
++           name_parts:  {
++               given: "文",
++               middle: "",
++               family: "孫"
++           }
++        );
++
++        // These are no CJK names for us, they're just bogus.
++        test_name_split_and_join!(
++             "Bogus",
++            full_name: "Homer シンプソン",
++            expected_full_name: "Homer シンプソン",
++            name_parts:  {
++                given: "Homer",
++                middle: "",
++                family: "シンプソン"
++            }
++        );
++
++        test_name_split_and_join!(
++             "Bogus",
++            full_name: "ホーマー Simpson",
++            expected_full_name: "ホーマー Simpson",
++            name_parts:  {
++                given: "ホーマー",
++                middle: "",
++                family: "Simpson"
++            }
++        );
++
++        test_name_split_and_join!(
++            "CJK has a middle-name, too unusual",
++           full_name: "반 기 문",
++           expected_full_name: "반 기 문",
++           name_parts:  {
++               given: "반",
++               middle: "기",
++               family: "문"
++           }
++        );
++    }
++}
+diff --git a/components/autofill/src/sync/address/incoming.rs b/components/autofill/src/sync/address/incoming.rs
+index 31e3c627..160be7bc 100644
+--- a/components/autofill/src/sync/address/incoming.rs
++++ b/components/autofill/src/sync/address/incoming.rs
+@@ -20,7 +20,7 @@ use sync_guid::Guid as SyncGuid;
+ 
+ // Takes a raw payload, as stored in our database, and returns an InternalAddress
+ // or a tombstone. Addresses store the raw payload as cleartext json.
+-fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<InternalAddress>> {
++fn raw_payload_to_incoming(id: SyncGuid, raw: String, l_name: Option<String>) -> Result<IncomingContent<InternalAddress>> {
+     // Make an IncomingBso from the payload.
+     let bso = IncomingBso {
+         envelope: IncomingEnvelope {
+@@ -34,10 +34,13 @@ fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<
+     // For hysterical raisins, we use an IncomingContent<AddressPayload> to convert
+     // to an IncomingContent<InternalAddress>
+     let payload_content = bso.into_content::<AddressPayload>();
++
+     Ok(match payload_content.kind {
+-        IncomingKind::Content(content) => IncomingContent {
+-            envelope: payload_content.envelope,
+-            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
++        IncomingKind::Content(content) => {
++            IncomingContent {
++                envelope: payload_content.envelope,
++                kind: IncomingKind::Content(InternalAddress::from_payload(content, l_name)?),
++            }
+         },
+         IncomingKind::Tombstone => IncomingContent {
+             envelope: payload_content.envelope,
+@@ -88,9 +91,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
+             t.guid as t_guid,
+             s.payload as s_payload,
+             m.payload as m_payload,
+-            l.given_name,
+-            l.additional_name,
+-            l.family_name,
++            l.name,
+             l.organization,
+             l.street_address,
+             l.address_level3,
+@@ -114,7 +115,11 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
+             // the 'guid' and 's_payload' rows must be non-null.
+             let guid: SyncGuid = row.get("guid")?;
+             // turn it into a sync15::Payload
+-            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?)?;
++
++            // Dimi: passing name to `raw_payload_to_incoming` all the way to `from_payload` is kind
++            // of ugly, is there an alternative?
++            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?, row.get("name")?)?;
++
+             Ok(IncomingState {
+                 incoming,
+                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
+@@ -144,7 +149,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
+                     match row.get::<_, Option<String>>("m_payload")? {
+                         Some(m_payload) => {
+                             // a tombstone in the mirror can be treated as though it's missing.
+-                            raw_payload_to_incoming(guid, m_payload)?.content()
++                            raw_payload_to_incoming(guid, m_payload, None)?.content()
+                         }
+                         None => None,
+                     }
+@@ -175,9 +180,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
+                     FROM addresses_mirror
+                 )
+                 -- and sql can check the field values.
+-                AND given_name == :given_name
+-                AND additional_name == :additional_name
+-                AND family_name == :family_name
++                AND name == :name
+                 AND organization == :organization
+                 AND street_address == :street_address
+                 AND address_level3 == :address_level3
+@@ -190,9 +193,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
+ 
+         let params = named_params! {
+             ":guid": incoming.guid,
+-            ":given_name": incoming.given_name,
+-            ":additional_name": incoming.additional_name,
+-            ":family_name": incoming.family_name,
++            ":name": incoming.name,
+             ":organization": incoming.organization,
+             ":street_address": incoming.street_address,
+             ":address_level3": incoming.address_level3,
+@@ -280,6 +281,7 @@ mod tests {
+                 "A" : {
+                     "id": expand_test_guid('A'),
+                     "entry": {
++                        "name": "john doe",
+                         "given-name": "john",
+                         "family-name": "doe",
+                         "street-address": "1300 Broadway",
+@@ -291,6 +293,7 @@ mod tests {
+                 "C" : {
+                     "id": expand_test_guid('C'),
+                     "entry": {
++                        "name": "jane doe",
+                         "given-name": "jane",
+                         "family-name": "doe",
+                         "street-address": "3050 South La Brea Ave",
+@@ -306,6 +309,7 @@ mod tests {
+                 "D" : {
+                     "id": expand_test_guid('D'),
+                     "entry": {
++                        "name": "test1 test2",
+                         "given-name": "test1",
+                         "family-name": "test2",
+                         "street-address": "85 Pike St",
+@@ -331,7 +335,7 @@ mod tests {
+     fn test_record(guid_prefix: char) -> InternalAddress {
+         let json = test_json_record(guid_prefix);
+         let address_payload = serde_json::from_value(json).unwrap();
+-        InternalAddress::from_payload(address_payload).expect("should be valid")
++        InternalAddress::from_payload(address_payload, None).expect("should be valid")
+     }
+ 
+     #[test]
+@@ -408,7 +412,7 @@ mod tests {
+                 |row| -> Result<IncomingContent<InternalAddress>> {
+                     let guid: SyncGuid = row.get_unwrap("guid");
+                     let payload: String = row.get_unwrap("payload");
+-                    raw_payload_to_incoming(guid, payload)
++                    raw_payload_to_incoming(guid, payload, None)
+                 },
+             )?;
+ 
+diff --git a/components/autofill/src/sync/address/mod.rs b/components/autofill/src/sync/address/mod.rs
+index d29cae21..4935b2e5 100644
+--- a/components/autofill/src/sync/address/mod.rs
++++ b/components/autofill/src/sync/address/mod.rs
+@@ -13,6 +13,7 @@ use super::{
+ };
+ use crate::db::models::address::InternalAddress;
+ use crate::error::*;
++use crate::name_utils::{join_name_parts, split_name, NameParts};
+ use crate::sync_merge_field_check;
+ use incoming::IncomingAddressesImpl;
+ use outgoing::OutgoingAddressesImpl;
+@@ -75,6 +76,8 @@ pub struct AddressPayload {
+ #[derive(Default, Deserialize, Serialize)]
+ #[serde(default, rename_all = "kebab-case")]
+ struct PayloadEntry {
++    pub name: String,
++    // Exist in PayloadEntry but not in InternalAddress
+     pub given_name: String,
+     pub additional_name: String,
+     pub family_name: String,
+@@ -104,7 +107,7 @@ struct PayloadEntry {
+ }
+ 
+ impl InternalAddress {
+-    fn from_payload(p: AddressPayload) -> Result<Self> {
++    fn from_payload(p: AddressPayload, l_name: Option<String>) -> Result<Self> {
+         if p.entry.version != 1 {
+             // Always been version 1
+             return Err(Error::InvalidSyncPayload(format!(
+@@ -113,11 +116,51 @@ impl InternalAddress {
+             )));
+         }
+ 
++        // Dimi: refactoring the code and maybe move it to another function?
++        let mut name = p.entry.name;
++        let given = p.entry.given_name;
++        let additional = p.entry.additional_name;
++        let family = p.entry.family_name;
++
++        if name.is_empty() && (!given.is_empty() || !additional.is_empty() || !family.is_empty()) {
++            println!("[Dimi]this is an old record");
++            match l_name {
++                Some(l_name) => {
++                    // TODO(issam): change this and ideally change middle to additional.
++                    let NameParts {
++                        given: l_given,
++                        middle: l_additional,
++                        family: l_family,
++                    } = split_name(&l_name);
++
++                    if given == l_given && additional == l_additional && family == l_family {
++                        println!("[Dimi]migrate remote use local name");
++                        name = l_name;
++                    } else {
++                        println!("[Dimi]migrate remote join, remote name is changed");
++                        name = join_name_parts(&NameParts {
++                            given: given,
++                            middle: additional,
++                            family: family,
++                        });
++                    }
++                }
++                None => {
++                    println!("[Dimi]migrate remote join because there is no local record");
++                    name = join_name_parts(&NameParts {
++                        given: given,
++                        middle: additional,
++                        family: family,
++                    })
++                }
++            };
++        } else {
++            println!("[Dimi]this is a new record");
++        }
++
+         Ok(InternalAddress {
+             guid: p.id,
+-            given_name: p.entry.given_name,
+-            additional_name: p.entry.additional_name,
+-            family_name: p.entry.family_name,
++            name: name,
+             organization: p.entry.organization,
+             street_address: p.entry.street_address,
+             address_level3: p.entry.address_level3,
+@@ -138,12 +181,19 @@ impl InternalAddress {
+     }
+ 
+     fn into_payload(self) -> Result<AddressPayload> {
++        // TODO(issam): change this and ideally change middle to additional.
++        let NameParts {
++            given,
++            middle: additional,
++            family,
++        } = split_name(&self.name);
+         Ok(AddressPayload {
+             id: self.guid,
+             entry: PayloadEntry {
+-                given_name: self.given_name,
+-                additional_name: self.additional_name,
+-                family_name: self.family_name,
++                name: self.name,
++                given_name: given,
++                additional_name: additional,
++                family_name: family,
+                 organization: self.organization,
+                 street_address: self.street_address,
+                 address_level3: self.address_level3,
+@@ -200,9 +250,7 @@ impl SyncRecord for InternalAddress {
+ 
+         merged_record.guid = incoming.guid.clone();
+ 
+-        sync_merge_field_check!(given_name, incoming, local, mirror, merged_record);
+-        sync_merge_field_check!(additional_name, incoming, local, mirror, merged_record);
+-        sync_merge_field_check!(family_name, incoming, local, mirror, merged_record);
++        sync_merge_field_check!(name, incoming, local, mirror, merged_record);
+         sync_merge_field_check!(organization, incoming, local, mirror, merged_record);
+         sync_merge_field_check!(street_address, incoming, local, mirror, merged_record);
+         sync_merge_field_check!(address_level3, incoming, local, mirror, merged_record);
+diff --git a/components/autofill/src/sync/address/outgoing.rs b/components/autofill/src/sync/address/outgoing.rs
+index 4c32a756..b7e3e0ff 100644
+--- a/components/autofill/src/sync/address/outgoing.rs
++++ b/components/autofill/src/sync/address/outgoing.rs
+@@ -41,6 +41,9 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
+             common_cols = ADDRESS_COMMON_COLS,
+         );
+         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
++            // Dimi: This is where we transform internal address data to address sync payload
++            //       Maybe we need to do the "name" to "*-name" conversion in either here or
++            //       in `into_payload`
+             let mut record = InternalAddress::from_row(row)?.into_payload()?;
+             // If the server had unknown fields we fetch it and add it to the record
+             // we'll be uploading
+@@ -135,8 +138,7 @@ mod tests {
+                 "C" : {
+                     "id": expand_test_guid('C'),
+                     "entry": {
+-                        "givenName": "jane",
+-                        "familyName": "doe",
++                        "name": "jane doe",
+                         "streetAddress": "3050 South La Brea Ave",
+                         "addressLevel2": "Los Angeles, CA",
+                         "country": "United States",
+@@ -150,8 +152,7 @@ mod tests {
+                 "D" : {
+                     "id": expand_test_guid('D'),
+                     "entry": {
+-                        "given-name": "john",
+-                        "family-name": "doe",
++                        "name": "john doe",
+                         "street-address": "85 Pike St",
+                         "address-level2": "Seattle, WA",
+                         "country": "United States",
+@@ -180,7 +181,7 @@ mod tests {
+     fn test_record(guid_prefix: char) -> InternalAddress {
+         let json = test_json_record(guid_prefix);
+         let payload = serde_json::from_value(json).unwrap();
+-        InternalAddress::from_payload(payload).expect("should be valid")
++        InternalAddress::from_payload(payload, None).expect("should be valid")
+     }
+ 
+     #[test]
+@@ -321,4 +322,24 @@ mod tests {
+             STAGING_TABLE_NAME,
+         );
+     }
++
++    #[test]
++    fn test_outgoing_with_migrated_fields() {
++        let mut db = new_syncable_mem_db();
++        let tx = db.transaction().expect("should get tx");
++        let ao = OutgoingAddressesImpl {};
++        let mut test_record = test_record('C');
++        let initial_change_counter_val = 2;
++        test_record.metadata.sync_change_counter = initial_change_counter_val;
++        assert!(add_internal_address(&tx, &test_record).is_ok());
++
++        let outgoing = ao.fetch_outgoing_records(&tx).unwrap();
++        // *-name fields are: {"given-name": "john", "family-name": "doe"}
++        let bso_payload: Map<String, Value> = serde_json::from_str(&outgoing[0].payload).unwrap();
++        let entry = bso_payload.get("entry").unwrap();
++        assert_eq!(entry.get("name").unwrap(), "jane doe");
++        assert_eq!(entry.get("given-name").unwrap(), "jane");
++        assert_eq!(entry.get("additional-name").unwrap(), "");
++        assert_eq!(entry.get("family-name").unwrap(), "doe");
++    }
+ }
+diff --git a/components/autofill/src/sync/tests/mod.rs b/components/autofill/src/sync/tests/mod.rs
+index 9db08d02..6ea78e09 100644
+--- a/components/autofill/src/sync/tests/mod.rs
++++ b/components/autofill/src/sync/tests/mod.rs
+@@ -5,3 +5,4 @@
+ 
+ mod test_reconcile;
+ mod test_sync_impl;
++mod test_migrate_remote_address;
+diff --git a/components/autofill/src/sync/tests/test_migrate_remote_address.rs b/components/autofill/src/sync/tests/test_migrate_remote_address.rs
+new file mode 100644
+index 00000000..32e8f443
+--- /dev/null
++++ b/components/autofill/src/sync/tests/test_migrate_remote_address.rs
+@@ -0,0 +1,405 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++* License, v. 2.0. If a copy of the MPL was not distributed with this
++* file, You can obtain one at http://mozilla.org/MPL/2.0/.
++*/
++
++// This is a "port" of the desktop xpcshell test named test_reconcile.js.
++
++// NOTE: a guide to reading these test-cases:
++// "parent": What the local record looked like the last time we wrote the
++//         record to the Sync server (ie, what's in our "mirror")
++// "local":  What the local record looks like now. IOW, the differences between
++//         '"parent":' and 'local' are changes recently made which we wish to sync.
++// "remote": An incoming record we need to apply (ie, a record that was possibly
++//         changed on a remote device)
++//
++// To further help understanding this, a few of the testcases are annotated.
++
++use crate::db::addresses;
++use crate::db::schema::create_empty_sync_temp_tables;
++use crate::error::Result;
++use crate::sync::address::create_engine as create_address_engine;
++use crate::sync::{IncomingBso, Metadata};
++use crate::{InternalAddress, Store};
++use sync15::engine::SyncEngine;
++use types::Timestamp;
++
++use rusqlite::Connection;
++use serde_json::{json, Map, Value};
++use std::sync::Arc;
++use sync15::{telemetry, ServerTimestamp};
++use sync_guid::Guid as SyncGuid;
++
++lazy_static::lazy_static! {
++    static ref ADDRESS_RECONCILE_TESTCASES: Value = json!([
++        // No Local
++        {
++            "description": "Remote is old, no Local",
++            "local": [
++            ],
++            "remote": {
++                "version": 1,
++                "given-name": "Mark",
++                "family-name": "Jones",
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        {
++            "description": "Remote is new, no Local",
++            "local": [
++            ],
++            "remote": {
++                "version": 1,
++                "name": "Mr. Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "Mr. Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        {
++            "description": "Remote record doesn't have name, no Local",
++            "local": [
++            ],
++            "remote": {
++                "version": 1,
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        // Remote change, same guid
++        {
++            "description": "Remote change, new reocrd",
++            "parent": {
++                "version": 1,
++                "name": "Mr. Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++            "local": [
++                {
++                    "name": "Mr. Mark Jones",
++                    "street-address": "32 Vassar Street",
++                },
++            ],
++            "remote": {
++                "version": 1,
++                "name": "Mr. John Doe",
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "Mr. John Doe",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        // This fails now because split algorithm
++        {
++            "description": "Remote change, old reocrd, name is not updated",
++            "parent": {
++                "version": 1,
++                "name": "Mr. Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++            "local": [
++                {
++                    "name": "Mr. Mark Jones",
++                    "street-address": "32 Vassar Street",
++                },
++            ],
++            "remote": {
++                "version": 1,
++                "given-name": "Mark",
++                "family-name": "Jones",
++                "street-address": "I moved!",
++            },
++            "reconciled": {
++                "name": "Mr. Mark Jones",
++                "street-address": "I moved!",
++            },
++        },
++        {
++            "description": "Remote change, old reocrd, name is updated",
++            "parent": {
++                "version": 1,
++                "name": "Mr. Mark Jones",
++                "street-address": "32 Vassar Street",
++            },
++            "local": [
++                {
++                    "name": "Mr. Mark Jones",
++                    "street-address": "32 Vassar Street",
++                },
++            ],
++            "remote": {
++                "version": 1,
++                "given-name": "John",
++                "family-name": "Doe",
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "John Doe",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        {
++            "description": "Remote change, old reocrd adds name",
++            "parent": {
++                "version": 1,
++                "street-address": "32 Vassar Street",
++            },
++            "local": [
++                {
++                    "street-address": "32 Vassar Street",
++                },
++            ],
++            "remote": {
++                "version": 1,
++                "given-name": "John",
++                "family-name": "Doe",
++                "street-address": "32 Vassar Street",
++            },
++            "reconciled": {
++                "name": "John Doe",
++                "street-address": "32 Vassar Street",
++            },
++        },
++        {
++            "description": "Remote change, remote record does not have name",
++            "parent": {
++                "version": 1,
++                "street-address": "32 Vassar Street",
++            },
++            "local": [
++                {
++                    "street-address": "32 Vassar Street",
++                },
++            ],
++            "remote": {
++                "version": 1,
++                "street-address": "I moved!",
++            },
++            "reconciled": {
++                "name": "",
++                "street-address": "I moved!",
++            },
++        },
++    ]);
++}
++
++// Takes the JSON from one of the tests above and turns it into an IncomingBso,
++// suitable for sticking in the mirror or passing to the sync impl.
++fn test_to_bso(guid: &SyncGuid, test_payload: &serde_json::Value) -> IncomingBso {
++    let json = json!({
++        "id": guid.clone(),
++        "entry": test_payload.clone(),
++    });
++    IncomingBso::from_test_content(json)
++}
++
++fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, Value>) {
++    // InternalAddress doesn't derive Serialize making this a bit painful.
++    // 'expected' only has some fields, so we check them individually and explicitly.
++    for (name, val) in expected.iter() {
++        let name = name.as_ref();
++        match name {
++            "name" => assert_eq!(val.as_str().unwrap(), address.name),
++            "street-address" => assert_eq!(val.as_str().unwrap(), address.street_address),
++            "country" => assert_eq!(val.as_str().unwrap(), address.country),
++            "tel" => assert_eq!(val.as_str().unwrap(), address.tel),
++            "organization" => assert_eq!(val.as_str().unwrap(), address.organization),
++            "timeCreated" => assert_eq!(
++                Timestamp(val.as_u64().unwrap()),
++                address.metadata.time_created
++            ),
++            "timeLastModified" => assert_eq!(
++                Timestamp(val.as_u64().unwrap()),
++                address.metadata.time_last_modified
++            ),
++            "timeLastUsed" => assert_eq!(
++                Timestamp(val.as_u64().unwrap()),
++                address.metadata.time_last_used
++            ),
++            "timesUsed" => assert_eq!(val.as_i64().unwrap(), address.metadata.times_used),
++            // Sometimes we'll have an `expected_unknown_fields` set for reconciled, we can skip it safely here
++            "expected_unknown_fields" => (),
++            _ => unreachable!("unexpected field {name}"),
++        }
++    }
++}
++
++// Make a local record, flagged as "changed", from the JSON in our test cases.
++fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAddress {
++    InternalAddress {
++        guid: guid.clone(),
++        // Note that our test cases only include a subset of possible fields.
++        name: json["name"].as_str().unwrap_or_default().to_string(),
++        street_address: json["street-address"].as_str().unwrap_or_default().to_string(),
++        country: json["country"].as_str().unwrap_or_default().to_string(),
++        tel: json["tel"].as_str().unwrap_or_default().to_string(),
++        organization: json["organization"]
++            .as_str()
++            .unwrap_or_default()
++            .to_string(),
++        metadata: Metadata {
++            time_created: Timestamp(json["timeCreated"].as_u64().unwrap_or_default()),
++            time_last_used: Timestamp(json["timeLastUsed"].as_u64().unwrap_or_default()),
++            time_last_modified: Timestamp(json["timeLastModified"].as_u64().unwrap_or_default()),
++            times_used: json["timesUsed"].as_i64().unwrap_or_default(),
++            // all these tests assume local has changed.
++            sync_change_counter: 1,
++        },
++        ..Default::default()
++    }
++}
++
++// Insert a mirror record from the JSON in our test cases.
++fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde_json::Value) {
++    let bso = test_to_bso(guid, test_payload);
++    conn.execute(
++        "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
++         VALUES (:guid, :payload)",
++        rusqlite::named_params! {
++            ":guid": bso.envelope.id,
++            ":payload": bso.payload,
++        },
++    )
++    .expect("should insert");
++}
++
++#[test]
++fn test_migrate_remote_addresses() -> Result<()> {
++    let _ = env_logger::try_init();
++
++    let j = &ADDRESS_RECONCILE_TESTCASES;
++    for test_case in j.as_array().unwrap() {
++        let desc = test_case["description"].as_str().unwrap();
++        println!("[Dimi]test: {}", desc);
++        let store = Arc::new(Store::new_memory());
++        let db = store.db.lock().unwrap();
++        let tx = db.unchecked_transaction().unwrap();
++
++        create_empty_sync_temp_tables(&tx)?;
++        log::info!("starting test case: {}", desc);
++        // stick the local records in the local DB as real items.
++        // Note that some test-cases have multiple "local" records, but that's
++        // to explicitly test desktop's version of the "mirror", and doesn't
++        // make sense here - we just want the last one.
++        let local_array = test_case["local"].as_array().unwrap();
++        let guid = if local_array.is_empty() {
++            // no local record in this test case, so allocate a random guid.
++            log::trace!("local record: doesn't exist");
++            SyncGuid::random()
++        } else {
++            let local = local_array.last().unwrap();
++            log::trace!("local record: {local}");
++            let guid = SyncGuid::random();
++            addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;
++
++            // Dimi: move from below to else block because parent exists only when there is a local record?
++            // stick the "parent" item in the mirror
++            let mut parent_json = test_case["parent"].clone();
++            // we need to add an 'id' entry, the same as the local item we added.
++            let map = parent_json.as_object_mut().unwrap();
++            map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
++            log::trace!("parent record: {:?}", parent_json);
++            insert_mirror_record(&tx, &guid, &parent_json);
++
++            guid
++        };
++
++        tx.commit().expect("should commit");
++
++        // convert "incoming" items into payloads and have the sync engine apply them.
++        let mut remote = test_case["remote"].clone();
++        log::trace!("remote record: {:?}", remote);
++        // we need to add an 'id' entry, the same as the local item we added.
++        let map = remote.as_object_mut().unwrap();
++        map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
++
++        let bso = test_to_bso(&guid, &remote);
++        let remote_time = ServerTimestamp(0);
++        let mut telem = telemetry::Engine::new("addresses");
++
++        std::mem::drop(db); // unlock the mutex for the engine.
++        let engine = create_address_engine(Arc::clone(&store));
++
++        engine
++            .stage_incoming(vec![bso], &mut telem)
++            .expect("should stage");
++
++        let outgoing = engine.apply(remote_time, &mut telem).expect("should apply");
++        // For some tests, we want to check that the outgoing has what we're expecting
++        // to go to the server
++        if let Some(outgoing_expected) = test_case.get("outgoing") {
++            log::trace!("Testing outgoing changeset: {:?}", outgoing);
++            let bso_payload: Map<String, Value> =
++                serde_json::from_str(&outgoing[0].payload).unwrap();
++            let entry = bso_payload.get("entry").unwrap();
++            let oeb = outgoing_expected.as_object().unwrap();
++
++            // Verify all fields we want tested are in the payload
++            for expected in oeb {
++                assert_eq!(entry.get(expected.0).unwrap(), expected.1);
++            }
++        };
++
++        // get a DB reference back to we can check the results.
++        let db = store.db.lock().unwrap();
++
++        let all = addresses::get_all_addresses(&db)?;
++
++        // If the JSON has "forked", then we expect 2 different addresses.
++        let reconciled = match test_case.get("forked") {
++            Some(forked) => {
++                let forked = forked.as_object().unwrap();
++                assert_eq!(all.len(), 2, "should get a forked address");
++                if all[0].guid == guid {
++                    check_address_as_expected(&all[1], forked);
++                    &all[0]
++                } else {
++                    assert_eq!(all[1].guid, guid); // lost the local record?
++                    check_address_as_expected(&all[0], forked);
++                    &all[1]
++                }
++            }
++            None => {
++                assert_eq!(all.len(), 1, "should only be one address");
++                assert_eq!(all[0].guid, guid);
++                &all[0]
++            }
++        };
++        let expected = test_case["reconciled"].as_object().unwrap();
++        check_address_as_expected(reconciled, expected);
++
++        // If the reconciled json has `expected_unknown_fields` then we want to validate that the mirror
++        // DB has the fields we're trying to roundtrip
++        if let Some(unknown_fields) = expected.get("expected_unknown_fields") {
++            let tx = db.unchecked_transaction().unwrap();
++            let mut stmt = tx.prepare("SELECT payload FROM addresses_mirror")?;
++            let rows = stmt.query_map([], |row| row.get(0)).unwrap();
++
++            for row in rows {
++                let payload_str: String = row.unwrap();
++                let payload: Value = serde_json::from_str(&payload_str).unwrap();
++                let entry = payload.get("entry").unwrap();
++
++                // There's probably multiple rows in the mirror, we only want to test against the
++                // record we reconciled
++                if expected.get("name").unwrap() == entry.get("name").unwrap() {
++                    let expected_unknown = unknown_fields.as_object().unwrap();
++                    for expected in expected_unknown {
++                        assert_eq!(entry.get(expected.0).unwrap(), expected.1);
++                    }
++                }
++            }
++        };
++    }
++    Ok(())
++}
+diff --git a/components/autofill/src/sync/tests/test_reconcile.rs b/components/autofill/src/sync/tests/test_reconcile.rs
+index afff1f0b..1a03ea84 100644
+--- a/components/autofill/src/sync/tests/test_reconcile.rs
++++ b/components/autofill/src/sync/tests/test_reconcile.rs
+@@ -40,15 +40,15 @@ lazy_static::lazy_static! {
+             "parent": {
+                 // So when we last wrote the record to the server, it had these values.
+                 "version": 1,
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+             "local": [
+                 {
+                     // The current local record - by comparing against parent we can see that
+-                    // only the given-name has changed locally.
+-                    "given-name": "Skip",
+-                    "family-name": "Jones",
++                    // only the name has changed locally.
++                    "name": "Skip",
++                    "street-address": "32 Vassar Street",
+                 },
+             ],
+             "remote": {
+@@ -56,59 +56,59 @@ lazy_static::lazy_static! {
+                 // we can deduce the record hasn't actually been changed remotely so we
+                 // can safely ignore the incoming record and write our local changes.
+                 "version": 1,
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+             "reconciled": {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+         },
+         {
+             "description": "Remote change",
+             "parent": {
+                 "version": 1,
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+             "local": [
+                 {
+-                    "given-name": "Mark",
+-                    "family-name": "Jones",
++                    "name": "Mark Jones",
++                    "street-address": "32 Vassar Street",
+                 },
+             ],
+             "remote": {
+                 "version": 1,
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+             "reconciled": {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+         },
+     {
+         "description": "New local field",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+                 "tel": "123456",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+     },
+@@ -116,24 +116,24 @@ lazy_static::lazy_static! {
+         "description": "New remote field",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+     },
+@@ -141,50 +141,50 @@ lazy_static::lazy_static! {
+         "description": "Deleted field locally",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+     },
+     {
+         "description": "Deleted field remotely",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+                 "tel": "123456",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+     },
+     {
+@@ -192,36 +192,36 @@ lazy_static::lazy_static! {
+         "parent": {
+             // The last time we wrote this to the server, country was NZ.
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "NZ",
+             // We also had an unknown field we round-tripped
+             "foo": "bar",
+         },
+         "local": [
+             {
+-                // The current local record - so locally we've changed given-name to Skip.
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                // The current local record - so locally we've changed name to Skip.
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+                 "country": "NZ",
+             },
+         ],
+         "remote": {
+             // Remotely, we've changed the country to AU.
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "AU",
+             // This is a new unknown field that should send instead!
+             "unknown-1": "we have a new unknown",
+         },
+         "reconciled": {
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+             "country": "AU",
+         },
+         "outgoing": {
+-            "given-name": "Skip",
++            "name": "Skip",
+             // We should be roundtripping the newest "unknown"
+             "unknown-1": "we have a new unknown",
+         }
+@@ -230,31 +230,31 @@ lazy_static::lazy_static! {
+         "description": "Multiple local changes",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+         },
+         "local": [
+             {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+             {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+                 "organization": "Mozilla",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "tel": "123456",
+             "country": "AU",
+         },
+         "reconciled": {
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+             "organization": "Mozilla",
+             "country": "AU",
+         },
+@@ -265,30 +265,30 @@ lazy_static::lazy_static! {
+         "description": "Same change to local and remote",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             // unknown fields we previous roundtripped
+             "foo": "bar",
+         },
+         "local": [
+             {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+             // New unknown field that should be the new round trip
+             "unknown-2": "changing the schema",
+             },
+         "reconciled": {
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+         },
+         "outgoing": {
+-            "given-name": "Skip",
++            "name": "Skip",
+             // We expect the new unknown instead of the previous
+             "unknown-2": "changing the schema",
+         }
+@@ -298,36 +298,36 @@ lazy_static::lazy_static! {
+         "parent": {
+             // This is what we last wrote to the sync server.
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             // An unknown field we round tripped
+             "foo": "bar",
+         },
+         "local": [
+             {
+-                // The current version of the local record - the given-name has changed locally.
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                // The current version of the local record - the name has changed locally.
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+             },
+         ],
+         "remote": {
+-            // An incoming record has a different given-name than any of the above!
++            // An incoming record has a different name than any of the above!
+             "version": 1,
+-            "given-name": "Kip",
+-            "family-name": "Jones",
++            "name": "Kip",
++            "street-address": "32 Vassar Street",
+             // A NEW unknown field
+             "new-unknown-field": "we love to change schema",
+         },
+         "forked": {
+             // So we've forked the local record to a new GUID (and the next sync is
+             // going to write this as a new record)
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+         },
+         "reconciled": {
+             // And we've updated the local version of the record to be the remote version.
+-            "given-name": "Kip",
+-            "family-name": "Jones",
++            "name": "Kip",
++            "street-address": "32 Vassar Street",
+             // Verify that the mirror DB has the expected fields
+             "expected_unknown_fields" : {
+                 "new-unknown-field": "we love to change schema",
+@@ -336,7 +336,7 @@ lazy_static::lazy_static! {
+         // Because our record has been "forked" the local change we send out
+         // should have the ORIGINAL unknown fields
+         "outgoing": {
+-            "given-name": "Skip",
++            "name": "Skip",
+             "foo": "bar",
+         },
+     },
+@@ -344,31 +344,31 @@ lazy_static::lazy_static! {
+         "description": "Conflicting changes to multiple fields",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "NZ",
+         },
+         "local": [
+             {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+                 "country": "AU",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Kip",
+-            "family-name": "Jones",
++            "name": "Kip",
++            "street-address": "32 Vassar Street",
+             "country": "CA",
+         },
+         "forked": {
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+             "country": "AU",
+         },
+         "reconciled": {
+-            "given-name": "Kip",
+-            "family-name": "Jones",
++            "name": "Kip",
++            "street-address": "32 Vassar Street",
+             "country": "CA",
+         },
+     },
+@@ -376,29 +376,29 @@ lazy_static::lazy_static! {
+         "description": "Field deleted locally, changed remotely",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "AU",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "NZ",
+         },
+         "forked": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "NZ",
+         },
+     },
+@@ -406,30 +406,30 @@ lazy_static::lazy_static! {
+         "description": "Field changed locally, deleted remotely",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "AU",
+         },
+         "local": [
+             {
+-                "given-name": "Mark",
+-                "family-name": "Jones",
++                "name": "Mark Jones",
++                "street-address": "32 Vassar Street",
+                 "country": "NZ",
+             },
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+         "forked": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "country": "NZ",
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+         },
+     },
+     {
+@@ -439,8 +439,8 @@ lazy_static::lazy_static! {
+         "description": "Created, last modified time reconciliation without local changes",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1234,
+             "timeLastModified": 5678,
+             "timeLastUsed": 5678,
+@@ -449,16 +449,16 @@ lazy_static::lazy_static! {
+         "local": [],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1200,
+             "timeLastModified": 5700,
+             "timeLastUsed": 5700,
+             "timesUsed": 3,
+         },
+         "reconciled": {
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1200,
+             "timeLastModified": 5700,
+             // XXX - desktop has `"timeLastUsed": 5678,` which seems wrong -
+@@ -478,8 +478,8 @@ lazy_static::lazy_static! {
+         "description": "Created, last modified time reconciliation with local changes",
+         "parent": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1234,
+             "timeLastModified": 5678,
+             "timeLastUsed": 5678,
+@@ -487,13 +487,13 @@ lazy_static::lazy_static! {
+         },
+         "local": [
+             {
+-                "given-name": "Skip",
+-                "family-name": "Jones",
++                "name": "Skip",
++                "street-address": "32 Vassar Street",
+                 // desktop didn't have this metadata for local, but we need it
+                 // as otherwise we take ::now()
+                 // Further, we don't quite use the parent in the same way, so we
+                 // need our local record to have the same values as the parent except
+-                // for what's explicitly changed - which is only `given-name`.
++                // for what's explicitly changed - which is only `name`.
+                 "timeCreated": 1234,
+                 "timeLastModified": 5678,
+                 "timeLastUsed": 5678,
+@@ -502,16 +502,16 @@ lazy_static::lazy_static! {
+         ],
+         "remote": {
+             "version": 1,
+-            "given-name": "Mark",
+-            "family-name": "Jones",
++            "name": "Mark Jones",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1300,
+             "timeLastModified": 5000,
+             "timeLastUsed": 5000,
+             "timesUsed": 3,
+         },
+         "reconciled": {
+-            "given-name": "Skip",
+-            "family-name": "Jones",
++            "name": "Skip",
++            "street-address": "32 Vassar Street",
+             "timeCreated": 1234,
+             "timeLastUsed": 5678,
+             "timesUsed": 6,
+@@ -537,8 +537,8 @@ fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, V
+     for (name, val) in expected.iter() {
+         let name = name.as_ref();
+         match name {
+-            "given-name" => assert_eq!(val.as_str().unwrap(), address.given_name),
+-            "family-name" => assert_eq!(val.as_str().unwrap(), address.family_name),
++            "name" => assert_eq!(val.as_str().unwrap(), address.name),
++            "street-address" => assert_eq!(val.as_str().unwrap(), address.street_address),
+             "country" => assert_eq!(val.as_str().unwrap(), address.country),
+             "tel" => assert_eq!(val.as_str().unwrap(), address.tel),
+             "organization" => assert_eq!(val.as_str().unwrap(), address.organization),
+@@ -567,8 +567,8 @@ fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAd
+     InternalAddress {
+         guid: guid.clone(),
+         // Note that our test cases only include a subset of possible fields.
+-        given_name: json["given-name"].as_str().unwrap_or_default().to_string(),
+-        family_name: json["family-name"].as_str().unwrap_or_default().to_string(),
++        name: json["name"].as_str().unwrap_or_default().to_string(),
++        street_address: json["street-address"].as_str().unwrap_or_default().to_string(),
+         country: json["country"].as_str().unwrap_or_default().to_string(),
+         tel: json["tel"].as_str().unwrap_or_default().to_string(),
+         organization: json["organization"]
+@@ -603,11 +603,13 @@ fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde
+ 
+ #[test]
+ fn test_reconcile_addresses() -> Result<()> {
++        println!("[Dimi]test reconcile address");
+     let _ = env_logger::try_init();
+ 
+     let j = &ADDRESS_RECONCILE_TESTCASES;
+     for test_case in j.as_array().unwrap() {
+         let desc = test_case["description"].as_str().unwrap();
++        println!("[Dimi]test: {}", desc);
+         let store = Arc::new(Store::new_memory());
+         let db = store.db.lock().unwrap();
+         let tx = db.unchecked_transaction().unwrap();
+@@ -717,7 +719,7 @@ fn test_reconcile_addresses() -> Result<()> {
+ 
+                 // There's probably multiple rows in the mirror, we only want to test against the
+                 // record we reconciled
+-                if expected.get("given-name").unwrap() == entry.get("given-name").unwrap() {
++                if expected.get("name").unwrap() == entry.get("name").unwrap() {
+                     let expected_unknown = unknown_fields.as_object().unwrap();
+                     for expected in expected_unknown {
+                         assert_eq!(entry.get(expected.0).unwrap(), expected.1);
+diff --git a/examples/autofill-utils/src/autofill-utils.rs b/examples/autofill-utils/src/autofill-utils.rs
+index 20fad036..67128d21 100644
+--- a/examples/autofill-utils/src/autofill-utils.rs
++++ b/examples/autofill-utils/src/autofill-utils.rs
+@@ -177,9 +177,7 @@ enum Command {
+ 
+ fn run_add_address(store: &Store) -> Result<()> {
+     let address_fields = address::UpdatableAddressFields {
+-        given_name: prompt_string("given_name").unwrap_or_default(),
+-        additional_name: prompt_string("additional_name").unwrap_or_default(),
+-        family_name: prompt_string("family_name").unwrap_or_default(),
++        name: prompt_string("name").unwrap_or_default(),
+         organization: prompt_string("organization").unwrap_or_default(),
+         street_address: prompt_string("street_address").unwrap_or_default(),
+         address_level3: prompt_string("address_level3").unwrap_or_default(),
+@@ -221,9 +219,7 @@ fn run_update_address(store: &Store, guid: String) -> Result<()> {
+     let address = Store::get_address(store, guid.clone())?;
+ 
+     let updatable = address::UpdatableAddressFields {
+-        given_name: update_string("given_name", address.given_name),
+-        additional_name: update_string("additional_name", address.additional_name),
+-        family_name: update_string("family_name", address.family_name),
++        name: update_string("name", address.name),
+         organization: update_string("organization", address.organization),
+         street_address: update_string("street_address", address.street_address),
+         address_level3: update_string("address_level3", address.address_level3),
+diff --git a/tmp_run_tests.sh b/tmp_run_tests.sh
+new file mode 100755
+index 00000000..53e0a603
+--- /dev/null
++++ b/tmp_run_tests.sh
+@@ -0,0 +1,2 @@
++# Run tests without cargo or installingd deps
++rustc --test components/autofill/src/name_utils.rs && ./name_utils && rm name_utils
+\ No newline at end of file
