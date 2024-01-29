@@ -9,12 +9,14 @@ use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
-    #[serde(flatten)]
-    pub app_context: AppContext,
-    #[serde(flatten)]
-    pub request_context: Map<String, Value>,
     pub language: Option<String>,
     pub region: Option<String>,
+    #[serde(flatten)]
+    pub app_context: AppContext,
+    // This should be last so that any calculated fields (e.g. language and region)
+    // are not overwriting the explicit fields set by the request.
+    #[serde(flatten)]
+    pub request_context: Map<String, Value>,
 }
 
 impl TargetingAttributes {

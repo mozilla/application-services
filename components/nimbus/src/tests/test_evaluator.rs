@@ -719,3 +719,35 @@ fn test_enrollment_bucketing() {
         }
     ));
 }
+
+#[cfg(not(feature = "stateful"))]
+#[test]
+fn test_lang_region_overrides() {
+    let request = json!({
+        "language": "en",
+        "region": "US",
+    });
+    let ta = TargetingAttributes::new(AppContext::default(), request.as_object().unwrap().clone());
+    let value = serde_json::to_value(ta).unwrap();
+    assert_eq!(value.get("language").unwrap(), &json!("en"));
+    assert_eq!(value.get("region").unwrap(), &json!("US"));
+
+    let request = json!({
+        "locale": "en",
+        "region": "US",
+    });
+    let ta = TargetingAttributes::new(AppContext::default(), request.as_object().unwrap().clone());
+    let value = serde_json::to_value(ta).unwrap();
+    assert_eq!(value.get("language").unwrap(), &json!("en"));
+    assert_eq!(value.get("region").unwrap(), &json!("US"));
+
+    let request = json!({
+        "locale": "es-CX",
+        "language": "en",
+        "region": "US",
+    });
+    let ta = TargetingAttributes::new(AppContext::default(), request.as_object().unwrap().clone());
+    let value = serde_json::to_value(ta).unwrap();
+    assert_eq!(value.get("language").unwrap(), &json!("en"));
+    assert_eq!(value.get("region").unwrap(), &json!("US"));
+}
