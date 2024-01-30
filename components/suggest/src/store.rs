@@ -3171,6 +3171,24 @@ mod tests {
                     ]
                 "#]],
             ),
+            (
+                "work-life balance; duplicate providers",
+                SuggestionQuery {
+                    keyword: "work-life balance".into(),
+                    providers: vec![SuggestionProvider::Pocket, SuggestionProvider::Pocket],
+                    limit: Some(-1),
+                },
+                expect![[r#"
+                    [
+                        Pocket {
+                            title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                            url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                            score: 0.05,
+                            is_top_pick: false,
+                        },
+                    ]
+                "#]],
+            ),
         ];
         for (what, query, expect) in table {
             expect.assert_debug_eq(

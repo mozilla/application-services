@@ -117,19 +117,19 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Fetch Yelp suggestion from given user's query.
-    pub fn fetch_yelp_suggestion(&self, query: &SuggestionQuery) -> Result<Option<Suggestion>> {
+    pub fn fetch_yelp_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         if !query.providers.contains(&SuggestionProvider::Yelp) {
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         if query.keyword.len() > MAX_QUERY_LENGTH {
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         let query_string = &query.keyword.trim();
         if !query_string.contains(' ') {
             if !self.is_subject(query_string)? {
-                return Ok(None);
+                return Ok(vec![]);
             }
 
             let builder = SuggestionBuilder {
@@ -141,7 +141,7 @@ impl<'a> SuggestDao<'a> {
                 location: None,
                 need_location: false,
             };
-            return Ok(Some(builder.into()));
+            return Ok(vec![builder.into()]);
         }
 
         // Find the yelp keyword modifier and remove them from the query.
@@ -154,12 +154,12 @@ impl<'a> SuggestDao<'a> {
 
         if let (Some(_), false) = (&location, need_location) {
             // The location sign does not need the specific location, but user is setting something.
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         if query_without_location.is_empty() {
             // No remained query.
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         // Find the modifiers.
@@ -167,7 +167,7 @@ impl<'a> SuggestDao<'a> {
             self.find_modifiers(&query_without_location, Modifier::Pre, Modifier::Post)?;
 
         if !self.is_subject(&subject_candidate)? {
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         let builder = SuggestionBuilder {
@@ -179,7 +179,7 @@ impl<'a> SuggestDao<'a> {
             location,
             need_location,
         };
-        Ok(Some(builder.into()))
+        Ok(vec![builder.into()])
     }
 
     /// Find the location information from the given query string.

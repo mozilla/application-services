@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{path::Path, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::Mutex;
@@ -34,7 +34,7 @@ pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
 
 // Default value when Suggestion does not have a value for score
-const DEFAULT_SUGGESTION_SCORE: f64 = 0.2;
+pub const DEFAULT_SUGGESTION_SCORE: f64 = 0.2;
 
 /// The database connection type.
 #[derive(Clone, Copy)]
@@ -128,63 +128,46 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches suggestions that match the given query from the database.
     pub fn fetch_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        if let Some(suggestion) = self.fetch_yelp_suggestion(query)? {
-            return Ok(vec![suggestion]);
-        }
-
-        let keyword_lowercased = &query.keyword.to_lowercase();
-        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
-        let suggestions_limit = query.limit.unwrap_or(-1);
-
-        let (mut statement, params) = if query
-            .providers
+        let unique_providers = query.providers.iter().collect::<HashSet<_>>();
+        unique_providers
             .iter()
-            .any(|p| matches!(p, SuggestionProvider::Pocket | SuggestionProvider::Amo))
-        {
-            (self.conn.prepare_cached(
-                &format!(
-                    "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, NULL as confidence, NULL as keyword_suffix
-                     FROM suggestions s
-                     JOIN keywords k ON k.suggestion_id = s.id
-                     WHERE s.provider IN ({}) AND
-                           k.keyword = :keyword
-                     UNION ALL
-                     SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
-                     FROM suggestions s
-                     JOIN prefix_keywords k ON k.suggestion_id = s.id
-                     WHERE k.keyword_prefix = :keyword_prefix
-                     ORDER BY s.score DESC
-                     LIMIT :suggestions_limit",
-                    providers_to_sql_list(&query.providers),
-                ),
-            )?, vec![
-                (":keyword", keyword_lowercased as &dyn ToSql),
-                (":keyword_prefix", &keyword_prefix as &dyn ToSql),
-                (":suggestions_limit", &suggestions_limit as &dyn ToSql)
-            ])
-        } else {
-            (self.conn.prepare_cached(
-                &format!(
-                    "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, NULL as confidence, NULL as keyword_suffix
-                     FROM suggestions s
-                     JOIN keywords k ON k.suggestion_id = s.id
-                     WHERE s.provider IN ({}) AND
-                           k.keyword = :keyword
-                     ORDER BY s.score DESC
-                     LIMIT :suggestions_limit",
-                    providers_to_sql_list(&query.providers),
-                ),
-            )?, vec![
-                (":keyword", keyword_lowercased as &dyn ToSql),
-                (":suggestions_limit", &suggestions_limit as &dyn ToSql)
-            ])
-        };
+            .try_fold(vec![], |mut acc, provider| {
+                let suggestions = match provider {
+                    SuggestionProvider::Amp => self.fetch_amp_suggestions(query),
+                    SuggestionProvider::Wikipedia => self.fetch_wikipedia_suggestions(query),
+                    SuggestionProvider::Amo => self.fetch_amo_suggestions(query),
+                    SuggestionProvider::Pocket => self.fetch_pocket_suggestions(query),
+                    SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
+                }?;
+                acc.extend(suggestions);
+                Ok(acc)
+            })
+            .map(|mut suggestions| {
+                suggestions.sort();
+                if let Some(limit) = query.limit.and_then(|limit| usize::try_from(limit).ok()) {
+                    suggestions.truncate(limit);
+                }
+                suggestions
+            })
+    }
 
-        let suggestions = statement.query_and_then(&*params, |row| -> Result<Option<Suggestion>> {
+    /// Fetches Suggestions of type Amp provider that match the given query
+    pub fn fetch_amp_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let suggestions = self.conn.query_rows_and_then_cached(
+            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score
+             FROM suggestions s
+             JOIN keywords k ON k.suggestion_id = s.id
+             WHERE s.provider = :provider AND
+             k.keyword = :keyword",
+             named_params! {
+                ":keyword": keyword_lowercased,
+                ":provider": SuggestionProvider::Amp
+            },
+            |row| -> Result<Suggestion>{
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
-                let provider = row.get("provider")?;
                 let score = row.get::<_, f64>("score")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
@@ -197,108 +180,179 @@ impl<'a> SuggestDao<'a> {
                     },
                     |row| row.get(0),
                 )?;
-
-                match provider {
-                    SuggestionProvider::Amp => {
-                        self.conn.query_row_and_then(
-                            "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url,
-                                    (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
-                             FROM amp_custom_details amp
-                             WHERE amp.suggestion_id = :suggestion_id",
-                            named_params! {
-                                ":suggestion_id": suggestion_id
-                            },
-                            |row| {
-                                let cooked_url = cook_raw_suggestion_url(&raw_url);
-                                let raw_click_url = row.get::<_, String>("click_url")?;
-                                let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
-                                Ok(Some(Suggestion::Amp {
-                                    block_id: row.get("block_id")?,
-                                    advertiser: row.get("advertiser")?,
-                                    iab_category: row.get("iab_category")?,
-                                    title,
-                                    url: cooked_url,
-                                    raw_url,
-                                    full_keyword: full_keyword(keyword_lowercased, &keywords),
-                                    icon: row.get("icon")?,
-                                    impression_url: row.get("impression_url")?,
-                                    click_url: cooked_click_url,
-                                    raw_click_url,
-                                    score,
-                                }))
-                            }
-                        )
+                self.conn.query_row_and_then(
+                    "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url,
+                            (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
+                     FROM amp_custom_details amp
+                     WHERE amp.suggestion_id = :suggestion_id",
+                    named_params! {
+                        ":suggestion_id": suggestion_id
                     },
-                    SuggestionProvider::Wikipedia => {
-                        let icon = self.conn.try_query_one(
-                            "SELECT i.data
-                             FROM icons i
-                             JOIN wikipedia_custom_details s ON s.icon_id = i.id
-                             WHERE s.suggestion_id = :suggestion_id",
-                            named_params! {
-                                ":suggestion_id": suggestion_id
-                            },
-                            true,
-                        )?;
-                        Ok(Some(Suggestion::Wikipedia {
+                    |row| {
+                        let cooked_url = cook_raw_suggestion_url(&raw_url);
+                        let raw_click_url = row.get::<_, String>("click_url")?;
+                        let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
+                        Ok(Suggestion::Amp {
+                            block_id: row.get("block_id")?,
+                            advertiser: row.get("advertiser")?,
+                            iab_category: row.get("iab_category")?,
+                            title,
+                            url: cooked_url,
+                            raw_url,
+                            full_keyword: full_keyword(keyword_lowercased, &keywords),
+                            icon: row.get("icon")?,
+                            impression_url: row.get("impression_url")?,
+                            click_url: cooked_click_url,
+                            raw_click_url,
+                            score,
+                        })
+                    }
+                )
+            }
+            )?;
+        Ok(suggestions)
+    }
+
+    /// Fetches Suggestions of type Wikipedia provider that match the given query
+    pub fn fetch_wikipedia_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let suggestions = self.conn.query_rows_and_then_cached(
+            "SELECT s.id, k.rank, s.title, s.url
+             FROM suggestions s
+             JOIN keywords k ON k.suggestion_id = s.id
+             WHERE s.provider = :provider AND
+             k.keyword = :keyword",
+            named_params! {
+                ":keyword": keyword_lowercased,
+                ":provider": SuggestionProvider::Wikipedia
+            },
+            |row| -> Result<Suggestion> {
+                let suggestion_id: i64 = row.get("id")?;
+                let title = row.get("title")?;
+                let raw_url = row.get::<_, String>("url")?;
+
+                let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
+                    "SELECT keyword FROM keywords
+                     WHERE suggestion_id = :suggestion_id AND rank >= :rank
+                     ORDER BY rank ASC",
+                    named_params! {
+                        ":suggestion_id": suggestion_id,
+                        ":rank": row.get::<_, i64>("rank")?,
+                    },
+                    |row| row.get(0),
+                )?;
+                let icon = self.conn.try_query_one(
+                    "SELECT i.data
+                     FROM icons i
+                     JOIN wikipedia_custom_details s ON s.icon_id = i.id
+                     WHERE s.suggestion_id = :suggestion_id",
+                    named_params! {
+                        ":suggestion_id": suggestion_id
+                    },
+                    true,
+                )?;
+                Ok(Suggestion::Wikipedia {
+                    title,
+                    url: raw_url,
+                    full_keyword: full_keyword(keyword_lowercased, &keywords),
+                    icon,
+                })
+            },
+        )?;
+        Ok(suggestions)
+    }
+
+    /// Fetches Suggestions of type Amo provider that match the given query
+    pub fn fetch_amo_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
+        let suggestions_limit = &query.limit.unwrap_or(-1);
+        let suggestions = self.conn.query_rows_and_then_cached(
+            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
+                     FROM suggestions s
+                     JOIN prefix_keywords k ON k.suggestion_id = s.id
+                     WHERE k.keyword_prefix = :keyword_prefix AND s.provider = :provider
+                     ORDER by s.score DESC
+                     LIMIT :suggestions_limit",
+             named_params! {
+                ":keyword_prefix": keyword_prefix,
+                ":provider": SuggestionProvider::Amo,
+                ":suggestions_limit": suggestions_limit,
+            },
+            |row| -> Result<Option<Suggestion>>{
+                let suggestion_id: i64 = row.get("id")?;
+                let title = row.get("title")?;
+                let raw_url = row.get::<_, String>("url")?;
+                let score = row.get::<_, f64>("score")?;
+
+                let full_suffix = row.get::<_, String>("keyword_suffix")?;
+                full_suffix.starts_with(keyword_suffix).then(||
+                    self.conn.query_row_and_then(
+                        "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings
+                        FROM amo_custom_details amo
+                        WHERE amo.suggestion_id = :suggestion_id",
+                    named_params! {
+                        ":suggestion_id": suggestion_id
+                    },
+                    |row| {
+                        Ok(Suggestion::Amo {
                             title,
                             url: raw_url,
-                            full_keyword: full_keyword(keyword_lowercased, &keywords),
-                            icon,
-                        }))
-                    }
-                    SuggestionProvider::Amo => {
-                        let full_suffix = row.get::<_, String>("keyword_suffix")?;
-                        self.conn.query_row_and_then(
-                            "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings
-                             FROM amo_custom_details amo
-                             WHERE amo.suggestion_id = :suggestion_id",
-                            named_params! {
-                                ":suggestion_id": suggestion_id
-                            },
-                            |row| {
-                                if full_suffix.starts_with(keyword_suffix) {
-                                    Ok(Some(Suggestion::Amo{
-                                        title,
-                                        url: raw_url,
-                                        icon_url: row.get("icon_url")?,
-                                        description: row.get("description")?,
-                                        rating: row.get("rating")?,
-                                        number_of_ratings: row.get("number_of_ratings")?,
-                                        guid: row.get("guid")?,
-                                        score,
-                                    }))
-                                } else {
-                                    Ok(None)
-                                }
-                            })
-                    },
-                    SuggestionProvider::Pocket => {
-                        let confidence = row.get("confidence")?;
-                        let full_suffix = row.get::<_, String>("keyword_suffix")?;
-                        let suffixes_match = match confidence {
-                            KeywordConfidence::Low => full_suffix.starts_with(keyword_suffix),
-                            KeywordConfidence::High => full_suffix == keyword_suffix,
-                        };
-                        if suffixes_match {
+                            icon_url: row.get("icon_url")?,
+                            description: row.get("description")?,
+                            rating: row.get("rating")?,
+                            number_of_ratings: row.get("number_of_ratings")?,
+                            guid: row.get("guid")?,
+                            score,
+                        })
+                    })).transpose()
+                }
+            )?.into_iter().flatten().collect();
+        Ok(suggestions)
+    }
 
-                                    Ok(Some(Suggestion::Pocket {
-                                        title,
-                                        url: raw_url,
-                                        score,
-                                        is_top_pick: matches!(
-                                            confidence,
-                                            KeywordConfidence::High
-                                        )}))
-                                    } else {
-                            Ok(None)
-                        }
-                    },
-                    _ => Ok(None),
+    /// Fetches Suggestions of type pocket provider that match the given query
+    pub fn fetch_pocket_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
+        let suggestions_limit = &query.limit.unwrap_or(-1);
+        let suggestions = self.conn.query_rows_and_then_cached(
+            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
+                     FROM suggestions s
+                     JOIN prefix_keywords k ON k.suggestion_id = s.id
+                     WHERE k.keyword_prefix = :keyword_prefix AND s.provider = :provider
+                     ORDER BY s.score DESC
+                     LIMIT :suggestions_limit",
+             named_params! {
+                ":keyword_prefix": keyword_prefix,
+                ":provider": SuggestionProvider::Pocket,
+                ":suggestions_limit": suggestions_limit,
+
+            },
+            |row| -> Result<Option<Suggestion>>{
+                let title = row.get("title")?;
+                let raw_url = row.get::<_, String>("url")?;
+                let score = row.get::<_, f64>("score")?;
+                let confidence = row.get("confidence")?;
+                let full_suffix = row.get::<_, String>("keyword_suffix")?;
+                let suffixes_match = match confidence {
+                    KeywordConfidence::Low => full_suffix.starts_with(keyword_suffix),
+                    KeywordConfidence::High => full_suffix == keyword_suffix,
+                };
+                if suffixes_match {
+                    Ok(Some(Suggestion::Pocket {
+                        title,
+                        url: raw_url,
+                        score,
+                        is_top_pick: matches!(
+                        confidence,
+                        KeywordConfidence::High)
+                    }))
+                } else {
+                    Ok(None)
                 }
             }
-        )?.flat_map(Result::transpose).collect::<Result<_>>()?;
-
+            )?.into_iter().flatten().collect();
         Ok(suggestions)
     }
 
@@ -710,13 +764,4 @@ impl<'a> SuggestDao<'a> {
         };
         self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)
     }
-}
-
-/// Formats a slice of [`SuggestionProvider`]s as a SQL list.
-fn providers_to_sql_list(providers: &[SuggestionProvider]) -> String {
-    providers
-        .iter()
-        .map(|&provider| (provider as u8).to_string())
-        .collect::<Vec<_>>()
-        .join(",")
 }
