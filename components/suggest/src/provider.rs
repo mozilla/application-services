@@ -17,6 +17,7 @@ pub enum SuggestionProvider {
     Amo = 3,
     Pocket = 4,
     Yelp = 5,
+    Mdn = 6,
 }
 
 impl FromSql for SuggestionProvider {
@@ -38,6 +39,7 @@ impl SuggestionProvider {
             3 => Some(SuggestionProvider::Amo),
             4 => Some(SuggestionProvider::Pocket),
             5 => Some(SuggestionProvider::Yelp),
+            6 => Some(SuggestionProvider::Mdn),
             _ => None,
         }
     }

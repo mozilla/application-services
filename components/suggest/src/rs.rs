@@ -92,6 +92,8 @@ pub(crate) enum SuggestRecord {
     Pocket,
     #[serde(rename = "yelp-suggestions")]
     Yelp,
+    #[serde(rename = "mdn-suggestions")]
+    Mdn,
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -288,4 +290,14 @@ pub(crate) struct DownloadedYelpSuggestion {
     pub location_signs: Vec<DownloadedYelpLocationSign>,
     #[serde(rename = "yelpModifiers")]
     pub yelp_modifiers: Vec<String>,
+}
+
+/// An MDN suggestion to ingest from an attachment
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedMdnSuggestion {
+    pub url: String,
+    pub title: String,
+    pub description: String,
+    pub keywords: Vec<String>,
+    pub score: f64,
 }

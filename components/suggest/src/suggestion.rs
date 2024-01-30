@@ -59,6 +59,12 @@ pub enum Suggestion {
         url: String,
         title: String,
     },
+    Mdn {
+        title: String,
+        url: String,
+        description: String,
+        score: f64,
+    },
 }
 
 impl PartialOrd for Suggestion {
