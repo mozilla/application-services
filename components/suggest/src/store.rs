@@ -342,6 +342,15 @@ where
                         },
                     )?;
                 }
+                SuggestRecord::Mdn => {
+                    self.ingest_suggestions_from_record(
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_mdn_suggestions(record_id, suggestions)
+                        },
+                    )?;
+                }
             }
         }
         Ok(())
@@ -1747,6 +1756,17 @@ mod tests {
                 "size": 0,
             },
         }, {
+            "id": "data-5",
+            "type": "mdn-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-5.json",
+                "mimetype": "application/json",
+                "location": "data-5.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
             "id": "icon-2",
             "type": "icon",
             "last_modified": 20,
@@ -1870,6 +1890,18 @@ mod tests {
                 ],
                 "yelpModifiers": ["yelp", "yelp keyword"],
             }),
+        )?
+        .with_data(
+            "data-5.json",
+            json!([
+                {
+                    "description": "Javascript Array",
+                    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                    "keywords": ["array javascript", "javascript array", "wildcard"],
+                    "title": "Array",
+                    "score": 0.24
+                },
+            ]),
         )?
         .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
         .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
@@ -3278,10 +3310,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                         },
                     ),
@@ -3347,10 +3379,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                         },
                     ),
@@ -3454,10 +3486,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 11,
+                                schema_version: 12,
                             },
                         },
                     ),
@@ -3474,6 +3506,136 @@ mod tests {
     fn unparsable_record_serialized_correctly() -> anyhow::Result<()> {
         let unparseable_record = UnparsableRecord { schema_version: 1 };
         assert_eq!(serde_json::to_value(unparseable_record)?, json!({ "v": 1 }),);
+        Ok(())
+    }
+
+    #[test]
+    fn query_mdn() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "mdn-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([
+                {
+                    "description": "Javascript Array",
+                    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                    "keywords": ["array javascript", "javascript array", "wildcard"],
+                    "title": "Array",
+                    "score": 0.24
+                },
+            ]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "keyword = prefix; MDN only",
+                SuggestionQuery {
+                    keyword: "array".into(),
+                    providers: vec![SuggestionProvider::Mdn],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Mdn {
+                            title: "Array",
+                            url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                            description: "Javascript Array",
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = prefix + partial suffix; MDN only",
+                SuggestionQuery {
+                    keyword: "array java".into(),
+                    providers: vec![SuggestionProvider::Mdn],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Mdn {
+                            title: "Array",
+                            url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                            description: "Javascript Array",
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = prefix + entire suffix; MDN only",
+                SuggestionQuery {
+                    keyword: "javascript array".into(),
+                    providers: vec![SuggestionProvider::Mdn],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Mdn {
+                            title: "Array",
+                            url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                            description: "Javascript Array",
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = `partial prefix word`; MDN only",
+                SuggestionQuery {
+                    keyword: "wild".into(),
+                    providers: vec![SuggestionProvider::Mdn],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = single word; MDN only",
+                SuggestionQuery {
+                    keyword: "wildcard".into(),
+                    providers: vec![SuggestionProvider::Mdn],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Mdn {
+                            title: "Array",
+                            url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+                            description: "Javascript Array",
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+        ];
+
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
         Ok(())
     }
 }

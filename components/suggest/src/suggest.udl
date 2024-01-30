@@ -22,7 +22,8 @@ enum SuggestionProvider {
     "Pocket",
     "Wikipedia",
     "Amo",
-    "Yelp"
+    "Yelp",
+    "Mdn",
 };
 
 [Enum]
@@ -66,6 +67,12 @@ interface Suggestion {
     Yelp(
         string url,
         string title
+    );
+    Mdn(
+        string title,
+        string url,
+        string description,
+        f64 score
     );
 };
 

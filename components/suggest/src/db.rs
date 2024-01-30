@@ -14,7 +14,7 @@ use rusqlite::{
 };
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
-use crate::rs::{DownloadedAmoSuggestion, DownloadedPocketSuggestion};
+use crate::rs::{DownloadedAmoSuggestion, DownloadedMdnSuggestion, DownloadedPocketSuggestion};
 use crate::{
     keyword::full_keyword,
     pocket::{split_keyword, KeywordConfidence},
@@ -138,6 +138,7 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Amo => self.fetch_amo_suggestions(query),
                     SuggestionProvider::Pocket => self.fetch_pocket_suggestions(query),
                     SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
+                    SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
                 }?;
                 acc.extend(suggestions);
                 Ok(acc)
@@ -353,6 +354,76 @@ impl<'a> SuggestDao<'a> {
                 }
             }
             )?.into_iter().flatten().collect();
+        Ok(suggestions)
+    }
+
+    /// Fetches suggestions for MDN
+    pub fn fetch_mdn_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
+        let suggestions_limit = &query.limit.unwrap_or(-1);
+        let suggestions = self
+            .conn
+            .query_rows_and_then_cached(
+                r#"
+                SELECT
+                    s.id, s.title, s.url, s.provider, s.score, k.keyword_suffix
+                FROM
+                    suggestions s
+                JOIN
+                    prefix_keywords k ON k.suggestion_id = s.id
+                WHERE
+                    k.keyword_prefix = :keyword_prefix
+                AND
+                    s.provider = :provider
+                ORDER BY
+                    s.score DESC
+                LIMIT :suggestions_limit
+                "#,
+                named_params! {
+                    ":keyword_prefix": keyword_prefix,
+                    ":provider": SuggestionProvider::Mdn,
+                    ":suggestions_limit": suggestions_limit,
+                },
+                |row| -> Result<Option<Suggestion>> {
+                    let suggestion_id: i64 = row.get("id")?;
+                    let title = row.get("title")?;
+                    let raw_url = row.get::<_, String>("url")?;
+                    let score = row.get::<_, f64>("score")?;
+
+                    let full_suffix = row.get::<_, String>("keyword_suffix")?;
+                    full_suffix
+                        .starts_with(keyword_suffix)
+                        .then(|| {
+                            self.conn.query_row_and_then(
+                                r#"
+                                SELECT
+                                    description
+                                FROM
+                                    mdn_custom_details
+                                WHERE
+                                    suggestion_id = :suggestion_id
+                                "#,
+                                named_params! {
+                                    ":suggestion_id": suggestion_id
+                                },
+                                |row| {
+                                    Ok(Suggestion::Mdn {
+                                        title,
+                                        url: raw_url,
+                                        description: row.get("description")?,
+                                        score,
+                                    })
+                                },
+                            )
+                        })
+                        .transpose()
+                },
+            )?
+            .into_iter()
+            .flatten()
+            .collect();
+
         Ok(suggestions)
     }
 
@@ -629,6 +700,84 @@ impl<'a> SuggestDao<'a> {
                         ":keyword_suffix": keyword_suffix,
                         ":confidence": confidence,
                         ":rank": rank,
+                        ":suggestion_id": suggestion_id,
+                    },
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Inserts all suggestions from a downloaded MDN attachment into
+    /// the database.
+    pub fn insert_mdn_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedMdnSuggestion],
+    ) -> Result<()> {
+        for suggestion in suggestions {
+            self.scope.err_if_interrupted()?;
+            let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
+                &format!(
+                    "INSERT INTO suggestions(
+                         record_id,
+                         provider,
+                         title,
+                         url,
+                         score
+                     )
+                     VALUES(
+                         :record_id,
+                         {},
+                         :title,
+                         :url,
+                         :score
+                     )
+                     RETURNING id",
+                    SuggestionProvider::Mdn as u8
+                ),
+                named_params! {
+                    ":record_id": record_id.as_str(),
+                    ":title": suggestion.title,
+                    ":url": suggestion.url,
+                    ":score": suggestion.score,
+                },
+                |row| row.get(0),
+                true,
+            )?;
+            self.conn.execute_cached(
+                "INSERT INTO mdn_custom_details(
+                     suggestion_id,
+                     description
+                 )
+                 VALUES(
+                     :suggestion_id,
+                     :description
+                 )",
+                named_params! {
+                    ":suggestion_id": suggestion_id,
+                    ":description": suggestion.description,
+                },
+            )?;
+            for (index, keyword) in suggestion.keywords.iter().enumerate() {
+                let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
+                self.conn.execute_cached(
+                    "INSERT INTO prefix_keywords(
+                         keyword_prefix,
+                         keyword_suffix,
+                         suggestion_id,
+                         rank
+                     )
+                     VALUES(
+                         :keyword_prefix,
+                         :keyword_suffix,
+                         :suggestion_id,
+                         :rank
+                     )",
+                    named_params! {
+                        ":keyword_prefix": keyword_prefix,
+                        ":keyword_suffix": keyword_suffix,
+                        ":rank": index,
                         ":suggestion_id": suggestion_id,
                     },
                 )?;
