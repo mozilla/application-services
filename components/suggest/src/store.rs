@@ -8,6 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use error_support::handle_error;
 use once_cell::sync::OnceCell;
 use remote_settings::{
     self, GetItemsOptions, RemoteSettingsConfig, RemoteSettingsRecord, SortOrder,
@@ -22,6 +23,7 @@ use crate::{
     db::{
         ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY,
     },
+    error::Error,
     rs::{
         SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
         REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
@@ -97,6 +99,7 @@ pub(crate) struct UnparsableRecord {
 
 impl SuggestStore {
     /// Creates a Suggest store.
+    #[handle_error(Error)]
     pub fn new(
         path: &str,
         settings_config: Option<RemoteSettingsConfig>,
@@ -116,8 +119,9 @@ impl SuggestStore {
     }
 
     /// Queries the database for suggestions.
+    #[handle_error(Error)]
     pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
-        Ok(self.inner.query(query)?)
+        self.inner.query(query)
     }
 
     /// Interrupts any ongoing queries.
@@ -130,13 +134,15 @@ impl SuggestStore {
     }
 
     /// Ingests new suggestions from Remote Settings.
+    #[handle_error(Error)]
     pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> SuggestApiResult<()> {
-        Ok(self.inner.ingest(constraints)?)
+        self.inner.ingest(constraints)
     }
 
     /// Removes all content from the database.
+    #[handle_error(Error)]
     pub fn clear(&self) -> SuggestApiResult<()> {
-        Ok(self.inner.clear()?)
+        self.inner.clear()
     }
 }
 

@@ -4081,6 +4081,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "env_logger 0.7.1",
+ "error-support",
  "expect-test",
  "hex",
  "interrupt-support",
@@ -4095,6 +4096,7 @@ dependencies = [
  "thiserror",
  "uniffi",
  "url",
+ "viaduct",
 ]
 
 [[package]]
