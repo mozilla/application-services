@@ -58,6 +58,7 @@ pub enum Suggestion {
     Yelp {
         url: String,
         title: String,
+        is_top_pick: bool,
     },
     Mdn {
         title: String,

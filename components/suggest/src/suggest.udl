@@ -72,7 +72,8 @@ interface Suggestion {
     );
     Yelp(
         string url,
-        string title
+        string title,
+        boolean is_top_pick
     );
     Mdn(
         string title,
