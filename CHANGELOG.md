@@ -12,7 +12,8 @@
   bindings](https://bugzilla.mozilla.org/show_bug.cgi?id=1874030). This also
   affects the Swift bindings, since Swift enforces argument ordering.
 
-[Full Changelog](In progress)
+## What's Fixed
+- It was possible for sync to apply a tombstone for places while a bookmark was still in the database. This would have resulted in foreign constraint SQLite error.
 
 [Full Changelog](In progress)
 

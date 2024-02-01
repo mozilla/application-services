@@ -1019,8 +1019,20 @@ pub mod history_sync {
     }
 
     pub fn apply_synced_deletion(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
+        // First we delete any visits for the page
+        // because it's possible the moz_places foreign_count is not 0
+        // and thus the moz_places entry won't be deleted.
         db.execute_cached(
-            "DELETE FROM moz_places WHERE guid = :guid",
+            "DELETE FROM moz_historyvisits
+              WHERE place_id IN (
+                  SELECT id
+                  FROM moz_places
+                  WHERE guid = :guid
+              )",
+            &[(":guid", guid)],
+        )?;
+        db.execute_cached(
+            "DELETE FROM moz_places WHERE guid = :guid AND foreign_count = 0",
             &[(":guid", guid)],
         )?;
         Ok(())
@@ -1505,9 +1517,10 @@ pub fn get_visit_page_with_bound(
 mod tests {
     use super::history_sync::*;
     use super::*;
-    use crate::api::places_api::ConnectionType;
     use crate::history_sync::record::HistoryRecordVisit;
+    use crate::storage::bookmarks::{insert_bookmark, InsertableItem};
     use crate::types::VisitTransitionSet;
+    use crate::{api::places_api::ConnectionType, storage::bookmarks::BookmarkRootGuid};
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
     use sync15::engine::CollSyncIds;
@@ -2418,6 +2431,33 @@ mod tests {
             "should have been deleted"
         );
         assert_eq!(get_tombstone_count(&conn), 0, "should be no tombstones");
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_synced_deletions_deletes_visits_but_not_page_if_bookmark_exists() -> Result<()> {
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
+        let pi = get_observed_page(&mut conn, "http://example.com/1")?;
+        let item = InsertableItem::Bookmark {
+            b: crate::InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+                position: crate::BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: pi.url.clone(),
+                title: Some("Title".to_string()),
+            },
+        };
+        insert_bookmark(&conn, item).unwrap();
+        apply_synced_deletion(&conn, &pi.guid)?;
+        let page_info =
+            fetch_page_info(&conn, &pi.url)?.expect("The places entry should have remained");
+        assert!(
+            page_info.last_visit_id.is_none(),
+            "Should have no more visits"
+        );
         Ok(())
     }
 
