@@ -568,7 +568,10 @@ fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAd
         guid: guid.clone(),
         // Note that our test cases only include a subset of possible fields.
         name: json["name"].as_str().unwrap_or_default().to_string(),
-        street_address: json["street-address"].as_str().unwrap_or_default().to_string(),
+        street_address: json["street-address"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
         country: json["country"].as_str().unwrap_or_default().to_string(),
         tel: json["tel"].as_str().unwrap_or_default().to_string(),
         organization: json["organization"]
@@ -603,13 +606,11 @@ fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde
 
 #[test]
 fn test_reconcile_addresses() -> Result<()> {
-        println!("[Dimi]test reconcile address");
     let _ = env_logger::try_init();
 
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
         let desc = test_case["description"].as_str().unwrap();
-        println!("[Dimi]test: {}", desc);
         let store = Arc::new(Store::new_memory());
         let db = store.db.lock().unwrap();
         let tx = db.unchecked_transaction().unwrap();

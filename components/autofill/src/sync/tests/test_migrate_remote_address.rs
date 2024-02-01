@@ -4,6 +4,7 @@
 */
 
 // This is a "port" of the desktop xpcshell test named test_reconcile.js.
+// https://searchfox.org/mozilla-central/rev/896042a1a71066254ceb5291f016ca3dbca21cb7/browser/extensions/formautofill/test/unit/test_reconcile.js
 
 // NOTE: a guide to reading these test-cases:
 // "parent": What the local record looked like the last time we wrote the
@@ -240,7 +241,10 @@ fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAd
         guid: guid.clone(),
         // Note that our test cases only include a subset of possible fields.
         name: json["name"].as_str().unwrap_or_default().to_string(),
-        street_address: json["street-address"].as_str().unwrap_or_default().to_string(),
+        street_address: json["street-address"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
         country: json["country"].as_str().unwrap_or_default().to_string(),
         tel: json["tel"].as_str().unwrap_or_default().to_string(),
         organization: json["organization"]
@@ -280,7 +284,6 @@ fn test_migrate_remote_addresses() -> Result<()> {
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
         let desc = test_case["description"].as_str().unwrap();
-        println!("[Dimi]test: {}", desc);
         let store = Arc::new(Store::new_memory());
         let db = store.db.lock().unwrap();
         let tx = db.unchecked_transaction().unwrap();
@@ -302,8 +305,6 @@ fn test_migrate_remote_addresses() -> Result<()> {
             let guid = SyncGuid::random();
             addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;
 
-            // Dimi: move from below to else block because parent exists only when there is a local record?
-            // stick the "parent" item in the mirror
             let mut parent_json = test_case["parent"].clone();
             // we need to add an 'id' entry, the same as the local item we added.
             let map = parent_json.as_object_mut().unwrap();

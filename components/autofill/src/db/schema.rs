@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::sql_fns;
-use crate::name_utils::{join_name_parts, NameParts};
+use crate::sync::address::name_utils::{join_name_parts, NameParts};
 use rusqlite::{functions::FunctionFlags, Connection, Transaction};
 use sql_support::open_database::{ConnectionInitializer, Error, Result};
 
@@ -192,110 +192,41 @@ fn upgrade_from_v1(db: &Connection) -> Result<()> {
 }
 
 fn upgrade_from_v2(db: &Connection) -> Result<()> {
-    // Dimi: Tried to use ADD COLLUMN NAME TEXT NOT NULL, but encountered an error
-    db.execute_batch(
-        "
-        CREATE TABLE new_addresses_data (
-            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-            name                TEXT NOT NULL,  -- Name
-            organization        TEXT NOT NULL,  -- Company
-            street_address      TEXT NOT NULL,  -- (Multiline)
-            address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
-            address_level2      TEXT NOT NULL,  -- City/Town
-            address_level1      TEXT NOT NULL,  -- Province (Standardized code if possible)
-            postal_code         TEXT NOT NULL,
-            country             TEXT NOT NULL,  -- ISO 3166
-            tel                 TEXT NOT NULL,  -- Stored in E.164 format
-            email               TEXT NOT NULL,
+    db.execute_batch("ALTER TABLE addresses_data ADD COLUMN name TEXT NOT NULL DEFAULT ''")?;
 
-            time_created        INTEGER NOT NULL,
-            time_last_used      INTEGER NOT NULL,
-            time_last_modified  INTEGER NOT NULL,
-            times_used          INTEGER NOT NULL,
+    let mut stmt =
+        db.prepare("SELECT guid, given_name, additional_name, family_name FROM addresses_data")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>("guid")?,
+            row.get::<_, String>("given_name")?,
+            row.get::<_, String>("additional_name")?,
+            row.get::<_, String>("family_name")?,
+        ))
+    })?;
 
-            sync_change_counter INTEGER NOT NULL
-        );
-        ")?;
-
-    let mut stmt = db.prepare("
-        select guid, given_name, additional_name, family_name, organization, street_address, address_level3,
-        address_level2, address_level1, postal_code, country, tel, email, time_created, time_last_used,
-        time_last_modified, times_used, sync_change_counter
-        from addresses_data
-        "
-    )?;
-
-    // Why this doesn't work?
-    //stmt.query_map([], |row| {
-        //println!("[Dimi]row");
-        //Ok(())
-    //})?;
-    // Dimi: TODO: Simplify this ?
-    let mut results = stmt.query([])?;
-    while let Some(row) = results.next()? {
-        let guid: String = row.get(0)?;
-        let given_name: String = row.get(1)?;
-        let additional_name: String = row.get(2)?;
-        let family_name: String = row.get(3)?;
-        let organization: String = row.get(4)?;
-        let street_address: String = row.get(5)?;
-        let address_level3: String = row.get(6)?;
-        let address_level2: String = row.get(7)?;
-        let address_level1: String = row.get(8)?;
-        let postal_code: String = row.get(9)?;
-        let country: String = row.get(10)?;
-        let tel: String = row.get(11)?;
-        let email: String = row.get(12)?;
-        let time_created: u64 = row.get(13)?;
-        let time_last_used: u64 = row.get(14)?;
-        let time_last_modified: u64 = row.get(15)?;
-        let times_used: u64 = row.get(16)?;
-        let sync_change_counter: u64 = row.get(17)?;
-
-        let name = join_name_parts(&NameParts {
-            given: given_name,
-            middle: additional_name,
-            family: family_name,
+    for row in rows {
+        let (guid, given, middle, family) = row?;
+        let full_name = join_name_parts(&NameParts {
+            given,
+            middle,
+            family,
         });
 
-        db.execute(&format!(
-            "INSERT INTO new_addresses_data (
-                {common_cols},
-                sync_change_counter
-            ) VALUES (
-                {common_vals},
-                :sync_change_counter
-            )",
-            common_cols = ADDRESS_COMMON_COLS,
-            common_vals = ADDRESS_COMMON_VALS,
-            ),
-            rusqlite::named_params! {
-                ":guid": guid,
-                ":name": name,
-                ":organization": organization,
-                ":street_address": street_address,
-                ":address_level3": address_level3,
-                ":address_level2": address_level2,
-                ":address_level1": address_level1,
-                ":postal_code": postal_code,
-                ":country": country,
-                ":tel": tel,
-                ":email": email,
-                ":time_created": time_created,
-                ":time_last_used": time_last_used,
-                ":time_last_modified": time_last_modified,
-                ":times_used": times_used,
-                ":sync_change_counter": sync_change_counter,
-            },
+        db.execute(
+            "UPDATE addresses_data SET name = (:name) WHERE guid = (:guid)",
+            rusqlite::named_params! { ":name": full_name, ":guid": guid},
         )?;
-    };
+    }
 
     db.execute_batch(
         "
-        DROP TABLE addresses_data;
-        ALTER TABLE new_addresses_data RENAME to addresses_data
-        "
+        ALTER TABLE addresses_data DROP COLUMN given_name;
+        ALTER TABLE addresses_data DROP COLUMN additional_name;
+        ALTER TABLE addresses_data DROP COLUMN family_name;
+        ",
     )?;
+
     Ok(())
 }
 
@@ -437,7 +368,7 @@ mod tests {
         address = get_address(&db, &Guid::new("B")).unwrap();
         assert_eq!(address.guid, "B");
 
-        // Dimi: to be fixed
+        // Record B has no given_name, additional_name or family_name, so name should also be empty.
         assert_eq!(address.name, "");
     }
 }

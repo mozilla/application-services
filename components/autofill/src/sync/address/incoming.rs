@@ -8,6 +8,7 @@ use crate::db::addresses::{add_internal_address, update_internal_address};
 use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
+use crate::sync::address::name_utils::{join_name_parts, split_name, NameParts};
 use crate::sync::common::*;
 use crate::sync::{
     IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, IncomingState, LocalRecordInfo,
@@ -18,10 +19,50 @@ use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 
-// Takes a raw payload, as stored in our database, and returns an InternalAddress
-// or a tombstone. Addresses store the raw payload as cleartext json.
-fn raw_payload_to_incoming(id: SyncGuid, raw: String, l_name: Option<String>) -> Result<IncomingContent<InternalAddress>> {
-    // Make an IncomingBso from the payload.
+fn update_name(payload_content: &mut IncomingContent<AddressPayload>, local_name: String) {
+    // Check if the kind is IncomingKind::Content and get a mutable reference to internal_address
+    let internal_address =
+        if let IncomingKind::Content(internal_address) = &mut payload_content.kind {
+            internal_address
+        } else {
+            return;
+        };
+
+    let entry = &mut internal_address.entry;
+
+    // Return early if the name is not empty or all other name parts are empty
+    if !entry.name.is_empty()
+        || (entry.given_name.is_empty()
+            && entry.additional_name.is_empty()
+            && entry.family_name.is_empty())
+    {
+        return;
+    }
+
+    // Split the local name into its parts
+    let NameParts {
+        given,
+        middle,
+        family,
+    } = split_name(&local_name);
+
+    // Check if the local name matches the entry names
+    let is_local_name_matching =
+        entry.given_name == given && entry.additional_name == middle && entry.family_name == family;
+
+    // Update the name based on whether the local name matches
+    entry.name = if is_local_name_matching {
+        local_name
+    } else {
+        join_name_parts(&NameParts {
+            given: entry.given_name.clone(),
+            middle: entry.additional_name.clone(),
+            family: entry.family_name.clone(),
+        })
+    };
+}
+
+fn create_incoming_bso(id: SyncGuid, raw: String) -> IncomingContent<AddressPayload> {
     let bso = IncomingBso {
         envelope: IncomingEnvelope {
             id,
@@ -31,16 +72,37 @@ fn raw_payload_to_incoming(id: SyncGuid, raw: String, l_name: Option<String>) ->
         },
         payload: raw,
     };
-    // For hysterical raisins, we use an IncomingContent<AddressPayload> to convert
-    // to an IncomingContent<InternalAddress>
-    let payload_content = bso.into_content::<AddressPayload>();
+    bso.into_content::<AddressPayload>()
+}
+
+fn bso_to_incoming(
+    payload_content: IncomingContent<AddressPayload>,
+) -> Result<IncomingContent<InternalAddress>> {
+    Ok(match payload_content.kind {
+        IncomingKind::Content(content) => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
+        },
+        IncomingKind::Tombstone => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Tombstone,
+        },
+        IncomingKind::Malformed => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Malformed,
+        },
+    })
+}
+
+// Takes a raw payload, as stored in our database, and returns an InternalAddress
+// or a tombstone. Addresses store the raw payload as cleartext json.
+fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<InternalAddress>> {
+    let payload_content = create_incoming_bso(id, raw);
 
     Ok(match payload_content.kind {
-        IncomingKind::Content(content) => {
-            IncomingContent {
-                envelope: payload_content.envelope,
-                kind: IncomingKind::Content(InternalAddress::from_payload(content, l_name)?),
-            }
+        IncomingKind::Content(content) => IncomingContent {
+            envelope: payload_content.envelope,
+            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
         },
         IncomingKind::Tombstone => IncomingContent {
             envelope: payload_content.envelope,
@@ -114,11 +176,18 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         tx.query_rows_and_then(sql, [], |row| -> Result<IncomingState<Self::Record>> {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
-            // turn it into a sync15::Payload
 
-            // Dimi: passing name to `raw_payload_to_incoming` all the way to `from_payload` is kind
-            // of ugly, is there an alternative?
-            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?, row.get("name")?)?;
+            // We update the 'name' field using the update_name function.
+            // We utilize create_incoming_bso and bso_to_incoming functions
+            // instead of payload_to_incoming. This is done to avoid directly passing
+            // row.get("name") to payload_to_incoming, which would result in having to pass
+            // None parameters in a few places.
+            let mut payload_content = create_incoming_bso(guid.clone(), row.get("s_payload")?);
+            update_name(
+                &mut payload_content,
+                row.get("name").unwrap_or("".to_string()),
+            );
+            let incoming = bso_to_incoming(payload_content)?;
 
             Ok(IncomingState {
                 incoming,
@@ -149,7 +218,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
                             // a tombstone in the mirror can be treated as though it's missing.
-                            raw_payload_to_incoming(guid, m_payload, None)?.content()
+                            raw_payload_to_incoming(guid, m_payload)?.content()
                         }
                         None => None,
                     }
@@ -335,7 +404,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         let address_payload = serde_json::from_value(json).unwrap();
-        InternalAddress::from_payload(address_payload, None).expect("should be valid")
+        InternalAddress::from_payload(address_payload).expect("should be valid")
     }
 
     #[test]
@@ -412,7 +481,7 @@ mod tests {
                 |row| -> Result<IncomingContent<InternalAddress>> {
                     let guid: SyncGuid = row.get_unwrap("guid");
                     let payload: String = row.get_unwrap("payload");
-                    raw_payload_to_incoming(guid, payload, None)
+                    raw_payload_to_incoming(guid, payload)
                 },
             )?;
 
