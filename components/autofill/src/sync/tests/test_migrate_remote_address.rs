@@ -91,11 +91,11 @@ lazy_static::lazy_static! {
             ],
             "remote": {
                 "version": 1,
-                "name": "Mr. Mark Jones",
+                "name": "Mr. John Doe",
                 "street-address": "32 Vassar Street",
             },
             "reconciled": {
-                "name": "Mr. Mark Jones",
+                "name": "Mr. John Doe",
                 "street-address": "32 Vassar Street",
             },
         },
