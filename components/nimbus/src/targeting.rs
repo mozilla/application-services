@@ -161,9 +161,7 @@ fn bucket_sample(args: &[Value]) -> anyhow::Result<Value> {
                 };
 
                 debug_assert!(n >= 0.0, "JEXL parser does not support negative values");
-                if n.fract() > 0.0 {
-                    Err(anyhow!("{} is not an integer", name))
-                } else if n > u32::MAX as f64 {
+                if n > u32::MAX as f64 {
                     Err(anyhow!("{} is out of range", name))
                 } else {
                     Ok(n as u32)

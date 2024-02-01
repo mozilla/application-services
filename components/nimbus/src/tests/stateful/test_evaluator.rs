@@ -405,28 +405,69 @@ fn test_targeting_is_already_enrolled() {
 #[test]
 fn test_bucket_sample() {
     let cases = [
-        (
-            "1.1",
-            "1000",
-            "1000",
-            Some(EnrollmentStatus::Error {
-                reason: "EvaluationError: Custom error: start is not an integer".into(),
-            }),
-        ),
+        ("1.1", "1000", "1000", None),
         (
             "0",
             "1.1",
             "1000",
-            Some(EnrollmentStatus::Error {
-                reason: "EvaluationError: Custom error: count is not an integer".into(),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
             }),
         ),
         (
             "0",
             "0",
             "1000.1",
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
+            }),
+        ),
+        (
+            "4294967296",
+            "1",
+            "4294967297",
             Some(EnrollmentStatus::Error {
-                reason: "EvaluationError: Custom error: total is not an integer".into(),
+                reason: "EvaluationError: Custom error: start is out of range".into(),
+            }),
+        ),
+        (
+            "0",
+            "4294967296",
+            "4294967296",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: count is out of range".into(),
+            }),
+        ),
+        (
+            "0",
+            "0",
+            "4294967296",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: total is out of range".into(),
+            }),
+        ),
+        (
+            r#""hello""#,
+            "0",
+            "1000",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: start is not a number".into(),
+            }),
+        ),
+        (
+            "0",
+            r#""hello""#,
+            "1000",
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: count is not a number".into(),
+            }),
+        ),
+        (
+            "0",
+            "1000",
+            r#""hello""#,
+            Some(EnrollmentStatus::Error {
+                reason: "EvaluationError: Custom error: total is not a number".into(),
             }),
         ),
     ];
