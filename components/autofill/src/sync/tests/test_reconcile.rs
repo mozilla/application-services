@@ -40,15 +40,15 @@ lazy_static::lazy_static! {
             "parent": {
                 // So when we last wrote the record to the server, it had these values.
                 "version": 1,
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
             "local": [
                 {
                     // The current local record - by comparing against parent we can see that
-                    // only the given-name has changed locally.
-                    "given-name": "Skip",
-                    "family-name": "Jones",
+                    // only the name has changed locally.
+                    "name": "Skip",
+                    "street-address": "32 Vassar Street",
                 },
             ],
             "remote": {
@@ -56,59 +56,59 @@ lazy_static::lazy_static! {
                 // we can deduce the record hasn't actually been changed remotely so we
                 // can safely ignore the incoming record and write our local changes.
                 "version": 1,
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
             "reconciled": {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
         },
         {
             "description": "Remote change",
             "parent": {
                 "version": 1,
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
             "local": [
                 {
-                    "given-name": "Mark",
-                    "family-name": "Jones",
+                    "name": "Mark Jones",
+                    "street-address": "32 Vassar Street",
                 },
             ],
             "remote": {
                 "version": 1,
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
             "reconciled": {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
         },
     {
         "description": "New local field",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
                 "tel": "123456",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
     },
@@ -116,24 +116,24 @@ lazy_static::lazy_static! {
         "description": "New remote field",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
     },
@@ -141,50 +141,50 @@ lazy_static::lazy_static! {
         "description": "Deleted field locally",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
     },
     {
         "description": "Deleted field remotely",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
                 "tel": "123456",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
     },
     {
@@ -192,36 +192,36 @@ lazy_static::lazy_static! {
         "parent": {
             // The last time we wrote this to the server, country was NZ.
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "NZ",
             // We also had an unknown field we round-tripped
             "foo": "bar",
         },
         "local": [
             {
-                // The current local record - so locally we've changed given-name to Skip.
-                "given-name": "Skip",
-                "family-name": "Jones",
+                // The current local record - so locally we've changed name to Skip.
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
                 "country": "NZ",
             },
         ],
         "remote": {
             // Remotely, we've changed the country to AU.
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "AU",
             // This is a new unknown field that should send instead!
             "unknown-1": "we have a new unknown",
         },
         "reconciled": {
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
             "country": "AU",
         },
         "outgoing": {
-            "given-name": "Skip",
+            "name": "Skip",
             // We should be roundtripping the newest "unknown"
             "unknown-1": "we have a new unknown",
         }
@@ -230,31 +230,31 @@ lazy_static::lazy_static! {
         "description": "Multiple local changes",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
         },
         "local": [
             {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
             {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
                 "organization": "Mozilla",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "tel": "123456",
             "country": "AU",
         },
         "reconciled": {
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
             "organization": "Mozilla",
             "country": "AU",
         },
@@ -265,30 +265,30 @@ lazy_static::lazy_static! {
         "description": "Same change to local and remote",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             // unknown fields we previous roundtripped
             "foo": "bar",
         },
         "local": [
             {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
             // New unknown field that should be the new round trip
             "unknown-2": "changing the schema",
             },
         "reconciled": {
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
         },
         "outgoing": {
-            "given-name": "Skip",
+            "name": "Skip",
             // We expect the new unknown instead of the previous
             "unknown-2": "changing the schema",
         }
@@ -298,36 +298,36 @@ lazy_static::lazy_static! {
         "parent": {
             // This is what we last wrote to the sync server.
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             // An unknown field we round tripped
             "foo": "bar",
         },
         "local": [
             {
-                // The current version of the local record - the given-name has changed locally.
-                "given-name": "Skip",
-                "family-name": "Jones",
+                // The current version of the local record - the name has changed locally.
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
             },
         ],
         "remote": {
-            // An incoming record has a different given-name than any of the above!
+            // An incoming record has a different name than any of the above!
             "version": 1,
-            "given-name": "Kip",
-            "family-name": "Jones",
+            "name": "Kip",
+            "street-address": "32 Vassar Street",
             // A NEW unknown field
             "new-unknown-field": "we love to change schema",
         },
         "forked": {
             // So we've forked the local record to a new GUID (and the next sync is
             // going to write this as a new record)
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
         },
         "reconciled": {
             // And we've updated the local version of the record to be the remote version.
-            "given-name": "Kip",
-            "family-name": "Jones",
+            "name": "Kip",
+            "street-address": "32 Vassar Street",
             // Verify that the mirror DB has the expected fields
             "expected_unknown_fields" : {
                 "new-unknown-field": "we love to change schema",
@@ -336,7 +336,7 @@ lazy_static::lazy_static! {
         // Because our record has been "forked" the local change we send out
         // should have the ORIGINAL unknown fields
         "outgoing": {
-            "given-name": "Skip",
+            "name": "Skip",
             "foo": "bar",
         },
     },
@@ -344,31 +344,31 @@ lazy_static::lazy_static! {
         "description": "Conflicting changes to multiple fields",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "NZ",
         },
         "local": [
             {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
                 "country": "AU",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Kip",
-            "family-name": "Jones",
+            "name": "Kip",
+            "street-address": "32 Vassar Street",
             "country": "CA",
         },
         "forked": {
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
             "country": "AU",
         },
         "reconciled": {
-            "given-name": "Kip",
-            "family-name": "Jones",
+            "name": "Kip",
+            "street-address": "32 Vassar Street",
             "country": "CA",
         },
     },
@@ -376,29 +376,29 @@ lazy_static::lazy_static! {
         "description": "Field deleted locally, changed remotely",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "AU",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "NZ",
         },
         "forked": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "NZ",
         },
     },
@@ -406,30 +406,30 @@ lazy_static::lazy_static! {
         "description": "Field changed locally, deleted remotely",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "AU",
         },
         "local": [
             {
-                "given-name": "Mark",
-                "family-name": "Jones",
+                "name": "Mark Jones",
+                "street-address": "32 Vassar Street",
                 "country": "NZ",
             },
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
         "forked": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "country": "NZ",
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
         },
     },
     {
@@ -439,8 +439,8 @@ lazy_static::lazy_static! {
         "description": "Created, last modified time reconciliation without local changes",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1234,
             "timeLastModified": 5678,
             "timeLastUsed": 5678,
@@ -449,16 +449,16 @@ lazy_static::lazy_static! {
         "local": [],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1200,
             "timeLastModified": 5700,
             "timeLastUsed": 5700,
             "timesUsed": 3,
         },
         "reconciled": {
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1200,
             "timeLastModified": 5700,
             // XXX - desktop has `"timeLastUsed": 5678,` which seems wrong -
@@ -478,8 +478,8 @@ lazy_static::lazy_static! {
         "description": "Created, last modified time reconciliation with local changes",
         "parent": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1234,
             "timeLastModified": 5678,
             "timeLastUsed": 5678,
@@ -487,13 +487,13 @@ lazy_static::lazy_static! {
         },
         "local": [
             {
-                "given-name": "Skip",
-                "family-name": "Jones",
+                "name": "Skip",
+                "street-address": "32 Vassar Street",
                 // desktop didn't have this metadata for local, but we need it
                 // as otherwise we take ::now()
                 // Further, we don't quite use the parent in the same way, so we
                 // need our local record to have the same values as the parent except
-                // for what's explicitly changed - which is only `given-name`.
+                // for what's explicitly changed - which is only `name`.
                 "timeCreated": 1234,
                 "timeLastModified": 5678,
                 "timeLastUsed": 5678,
@@ -502,16 +502,16 @@ lazy_static::lazy_static! {
         ],
         "remote": {
             "version": 1,
-            "given-name": "Mark",
-            "family-name": "Jones",
+            "name": "Mark Jones",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1300,
             "timeLastModified": 5000,
             "timeLastUsed": 5000,
             "timesUsed": 3,
         },
         "reconciled": {
-            "given-name": "Skip",
-            "family-name": "Jones",
+            "name": "Skip",
+            "street-address": "32 Vassar Street",
             "timeCreated": 1234,
             "timeLastUsed": 5678,
             "timesUsed": 6,
@@ -537,8 +537,8 @@ fn check_address_as_expected(address: &InternalAddress, expected: &Map<String, V
     for (name, val) in expected.iter() {
         let name = name.as_ref();
         match name {
-            "given-name" => assert_eq!(val.as_str().unwrap(), address.given_name),
-            "family-name" => assert_eq!(val.as_str().unwrap(), address.family_name),
+            "name" => assert_eq!(val.as_str().unwrap(), address.name),
+            "street-address" => assert_eq!(val.as_str().unwrap(), address.street_address),
             "country" => assert_eq!(val.as_str().unwrap(), address.country),
             "tel" => assert_eq!(val.as_str().unwrap(), address.tel),
             "organization" => assert_eq!(val.as_str().unwrap(), address.organization),
@@ -567,8 +567,8 @@ fn make_local_from_json(guid: &SyncGuid, json: &serde_json::Value) -> InternalAd
     InternalAddress {
         guid: guid.clone(),
         // Note that our test cases only include a subset of possible fields.
-        given_name: json["given-name"].as_str().unwrap_or_default().to_string(),
-        family_name: json["family-name"].as_str().unwrap_or_default().to_string(),
+        name: json["name"].as_str().unwrap_or_default().to_string(),
+        street_address: json["street-address"].as_str().unwrap_or_default().to_string(),
         country: json["country"].as_str().unwrap_or_default().to_string(),
         tel: json["tel"].as_str().unwrap_or_default().to_string(),
         organization: json["organization"]
@@ -603,11 +603,13 @@ fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde
 
 #[test]
 fn test_reconcile_addresses() -> Result<()> {
+        println!("[Dimi]test reconcile address");
     let _ = env_logger::try_init();
 
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
         let desc = test_case["description"].as_str().unwrap();
+        println!("[Dimi]test: {}", desc);
         let store = Arc::new(Store::new_memory());
         let db = store.db.lock().unwrap();
         let tx = db.unchecked_transaction().unwrap();
@@ -717,7 +719,7 @@ fn test_reconcile_addresses() -> Result<()> {
 
                 // There's probably multiple rows in the mirror, we only want to test against the
                 // record we reconciled
-                if expected.get("given-name").unwrap() == entry.get("given-name").unwrap() {
+                if expected.get("name").unwrap() == entry.get("name").unwrap() {
                     let expected_unknown = unknown_fields.as_object().unwrap();
                     for expected in expected_unknown {
                         assert_eq!(entry.get(expected.0).unwrap(), expected.1);

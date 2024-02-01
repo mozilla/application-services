@@ -20,7 +20,7 @@ use sync_guid::Guid as SyncGuid;
 
 // Takes a raw payload, as stored in our database, and returns an InternalAddress
 // or a tombstone. Addresses store the raw payload as cleartext json.
-fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<InternalAddress>> {
+fn raw_payload_to_incoming(id: SyncGuid, raw: String, l_name: Option<String>) -> Result<IncomingContent<InternalAddress>> {
     // Make an IncomingBso from the payload.
     let bso = IncomingBso {
         envelope: IncomingEnvelope {
@@ -34,10 +34,13 @@ fn raw_payload_to_incoming(id: SyncGuid, raw: String) -> Result<IncomingContent<
     // For hysterical raisins, we use an IncomingContent<AddressPayload> to convert
     // to an IncomingContent<InternalAddress>
     let payload_content = bso.into_content::<AddressPayload>();
+
     Ok(match payload_content.kind {
-        IncomingKind::Content(content) => IncomingContent {
-            envelope: payload_content.envelope,
-            kind: IncomingKind::Content(InternalAddress::from_payload(content)?),
+        IncomingKind::Content(content) => {
+            IncomingContent {
+                envelope: payload_content.envelope,
+                kind: IncomingKind::Content(InternalAddress::from_payload(content, l_name)?),
+            }
         },
         IncomingKind::Tombstone => IncomingContent {
             envelope: payload_content.envelope,
@@ -88,9 +91,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             t.guid as t_guid,
             s.payload as s_payload,
             m.payload as m_payload,
-            l.given_name,
-            l.additional_name,
-            l.family_name,
+            l.name,
             l.organization,
             l.street_address,
             l.address_level3,
@@ -114,7 +115,11 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
             // the 'guid' and 's_payload' rows must be non-null.
             let guid: SyncGuid = row.get("guid")?;
             // turn it into a sync15::Payload
-            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?)?;
+
+            // Dimi: passing name to `raw_payload_to_incoming` all the way to `from_payload` is kind
+            // of ugly, is there an alternative?
+            let incoming = raw_payload_to_incoming(guid.clone(), row.get("s_payload")?, row.get("name")?)?;
+
             Ok(IncomingState {
                 incoming,
                 local: match row.get_unwrap::<_, Option<String>>("l_guid") {
@@ -144,7 +149,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                     match row.get::<_, Option<String>>("m_payload")? {
                         Some(m_payload) => {
                             // a tombstone in the mirror can be treated as though it's missing.
-                            raw_payload_to_incoming(guid, m_payload)?.content()
+                            raw_payload_to_incoming(guid, m_payload, None)?.content()
                         }
                         None => None,
                     }
@@ -175,9 +180,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
                     FROM addresses_mirror
                 )
                 -- and sql can check the field values.
-                AND given_name == :given_name
-                AND additional_name == :additional_name
-                AND family_name == :family_name
+                AND name == :name
                 AND organization == :organization
                 AND street_address == :street_address
                 AND address_level3 == :address_level3
@@ -190,9 +193,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
 
         let params = named_params! {
             ":guid": incoming.guid,
-            ":given_name": incoming.given_name,
-            ":additional_name": incoming.additional_name,
-            ":family_name": incoming.family_name,
+            ":name": incoming.name,
             ":organization": incoming.organization,
             ":street_address": incoming.street_address,
             ":address_level3": incoming.address_level3,
@@ -280,6 +281,7 @@ mod tests {
                 "A" : {
                     "id": expand_test_guid('A'),
                     "entry": {
+                        "name": "john doe",
                         "given-name": "john",
                         "family-name": "doe",
                         "street-address": "1300 Broadway",
@@ -291,6 +293,7 @@ mod tests {
                 "C" : {
                     "id": expand_test_guid('C'),
                     "entry": {
+                        "name": "jane doe",
                         "given-name": "jane",
                         "family-name": "doe",
                         "street-address": "3050 South La Brea Ave",
@@ -306,6 +309,7 @@ mod tests {
                 "D" : {
                     "id": expand_test_guid('D'),
                     "entry": {
+                        "name": "test1 test2",
                         "given-name": "test1",
                         "family-name": "test2",
                         "street-address": "85 Pike St",
@@ -331,7 +335,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         let address_payload = serde_json::from_value(json).unwrap();
-        InternalAddress::from_payload(address_payload).expect("should be valid")
+        InternalAddress::from_payload(address_payload, None).expect("should be valid")
     }
 
     #[test]
@@ -408,7 +412,7 @@ mod tests {
                 |row| -> Result<IncomingContent<InternalAddress>> {
                     let guid: SyncGuid = row.get_unwrap("guid");
                     let payload: String = row.get_unwrap("payload");
-                    raw_payload_to_incoming(guid, payload)
+                    raw_payload_to_incoming(guid, payload, None)
                 },
             )?;
 

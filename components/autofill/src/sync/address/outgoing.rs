@@ -41,6 +41,9 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             common_cols = ADDRESS_COMMON_COLS,
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
+            // Dimi: This is where we transform internal address data to address sync payload
+            //       Maybe we need to do the "name" to "*-name" conversion in either here or
+            //       in `into_payload`
             let mut record = InternalAddress::from_row(row)?.into_payload()?;
             // If the server had unknown fields we fetch it and add it to the record
             // we'll be uploading
@@ -135,8 +138,7 @@ mod tests {
                 "C" : {
                     "id": expand_test_guid('C'),
                     "entry": {
-                        "givenName": "jane",
-                        "familyName": "doe",
+                        "name": "jane doe",
                         "streetAddress": "3050 South La Brea Ave",
                         "addressLevel2": "Los Angeles, CA",
                         "country": "United States",
@@ -150,8 +152,7 @@ mod tests {
                 "D" : {
                     "id": expand_test_guid('D'),
                     "entry": {
-                        "given-name": "john",
-                        "family-name": "doe",
+                        "name": "john doe",
                         "street-address": "85 Pike St",
                         "address-level2": "Seattle, WA",
                         "country": "United States",
@@ -180,7 +181,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         let payload = serde_json::from_value(json).unwrap();
-        InternalAddress::from_payload(payload).expect("should be valid")
+        InternalAddress::from_payload(payload, None).expect("should be valid")
     }
 
     #[test]
@@ -320,5 +321,25 @@ mod tests {
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,
         );
+    }
+
+    #[test]
+    fn test_outgoing_with_migrated_fields() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ao = OutgoingAddressesImpl {};
+        let mut test_record = test_record('C');
+        let initial_change_counter_val = 2;
+        test_record.metadata.sync_change_counter = initial_change_counter_val;
+        assert!(add_internal_address(&tx, &test_record).is_ok());
+
+        let outgoing = ao.fetch_outgoing_records(&tx).unwrap();
+        // *-name fields are: {"given-name": "john", "family-name": "doe"}
+        let bso_payload: Map<String, Value> = serde_json::from_str(&outgoing[0].payload).unwrap();
+        let entry = bso_payload.get("entry").unwrap();
+        assert_eq!(entry.get("name").unwrap(), "jane doe");
+        assert_eq!(entry.get("given-name").unwrap(), "jane");
+        assert_eq!(entry.get("additional-name").unwrap(), "");
+        assert_eq!(entry.get("family-name").unwrap(), "doe");
     }
 }

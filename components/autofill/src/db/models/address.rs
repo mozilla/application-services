@@ -15,9 +15,7 @@ use sync_guid::Guid;
 // have special methods for doing so.
 #[derive(Debug, Clone, Default)]
 pub struct UpdatableAddressFields {
-    pub given_name: String,
-    pub additional_name: String,
-    pub family_name: String,
+    pub name: String,
     pub organization: String,
     pub street_address: String,
     pub address_level3: String,
@@ -33,9 +31,7 @@ pub struct UpdatableAddressFields {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Address {
     pub guid: String,
-    pub given_name: String,
-    pub additional_name: String,
-    pub family_name: String,
+    pub name: String,
     pub organization: String,
     pub street_address: String,
     pub address_level3: String,
@@ -58,9 +54,7 @@ impl From<InternalAddress> for Address {
     fn from(ia: InternalAddress) -> Self {
         Address {
             guid: ia.guid.to_string(),
-            given_name: ia.given_name,
-            additional_name: ia.additional_name,
-            family_name: ia.family_name,
+            name: ia.name,
             organization: ia.organization,
             street_address: ia.street_address,
             address_level3: ia.address_level3,
@@ -89,9 +83,7 @@ impl From<InternalAddress> for Address {
 #[derive(Default, Debug, Clone)]
 pub struct InternalAddress {
     pub guid: Guid,
-    pub given_name: String,
-    pub additional_name: String,
-    pub family_name: String,
+    pub name: String,
     pub organization: String,
     pub street_address: String,
     pub address_level3: String,
@@ -108,9 +100,7 @@ impl InternalAddress {
     pub fn from_row(row: &Row<'_>) -> Result<InternalAddress, rusqlite::Error> {
         Ok(Self {
             guid: row.get("guid")?,
-            given_name: row.get("given_name")?,
-            additional_name: row.get("additional_name")?,
-            family_name: row.get("family_name")?,
+            name: row.get("name")?,
             organization: row.get("organization")?,
             street_address: row.get("street_address")?,
             address_level3: row.get("address_level3")?,

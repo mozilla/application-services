@@ -75,6 +75,8 @@ pub struct AddressPayload {
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "kebab-case")]
 struct PayloadEntry {
+    pub name: String,
+    // Exist in PayloadEntry but not in InternalAddress
     pub given_name: String,
     pub additional_name: String,
     pub family_name: String,
@@ -104,7 +106,7 @@ struct PayloadEntry {
 }
 
 impl InternalAddress {
-    fn from_payload(p: AddressPayload) -> Result<Self> {
+    fn from_payload(p: AddressPayload, l_name: Option<String>) -> Result<Self> {
         if p.entry.version != 1 {
             // Always been version 1
             return Err(Error::InvalidSyncPayload(format!(
@@ -113,11 +115,38 @@ impl InternalAddress {
             )));
         }
 
+        // Dimi: refactoring the code and maybe move it to another function?
+        let mut name = p.entry.name;
+        let given = p.entry.given_name;
+        let additional = p.entry.additional_name;
+        let family = p.entry.family_name;
+
+        if name.is_empty() &&
+            (!given.is_empty() || !additional.is_empty() || !family.is_empty()) {
+            println!("[Dimi]this is an old record");
+            match l_name {
+                Some(l_name) => {
+                    let (l_given, l_additional, l_family) = split_name(&l_name);
+                    if given == l_given && additional == l_additional && family == l_family {
+                        println!("[Dimi]migrate remote use local name");
+                        name = l_name;
+                    } else {
+                        println!("[Dimi]migrate remote join, remote name is changed");
+                        name = join_name_parts(&given, &additional, &family);
+                    }
+                }
+                None => {
+                    println!("[Dimi]migrate remote join because there is no local record");
+                    name = join_name_parts(&given, &additional, &family);
+                }
+            };
+        } else {
+            println!("[Dimi]this is a new record");
+        }
+
         Ok(InternalAddress {
             guid: p.id,
-            given_name: p.entry.given_name,
-            additional_name: p.entry.additional_name,
-            family_name: p.entry.family_name,
+            name: name,
             organization: p.entry.organization,
             street_address: p.entry.street_address,
             address_level3: p.entry.address_level3,
@@ -138,12 +167,15 @@ impl InternalAddress {
     }
 
     fn into_payload(self) -> Result<AddressPayload> {
+        let (given, additional, family) = split_name(&self.name);
+
         Ok(AddressPayload {
             id: self.guid,
             entry: PayloadEntry {
-                given_name: self.given_name,
-                additional_name: self.additional_name,
-                family_name: self.family_name,
+                name: self.name,
+                given_name: given,
+                additional_name: additional,
+                family_name: family,
                 organization: self.organization,
                 street_address: self.street_address,
                 address_level3: self.address_level3,
@@ -200,9 +232,7 @@ impl SyncRecord for InternalAddress {
 
         merged_record.guid = incoming.guid.clone();
 
-        sync_merge_field_check!(given_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(additional_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(family_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(name, incoming, local, mirror, merged_record);
         sync_merge_field_check!(organization, incoming, local, mirror, merged_record);
         sync_merge_field_check!(street_address, incoming, local, mirror, merged_record);
         sync_merge_field_check!(address_level3, incoming, local, mirror, merged_record);
@@ -236,4 +266,29 @@ fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
     local_record_data.metadata.sync_change_counter = 1;
 
     local_record_data
+}
+
+// Dimi: FIX
+pub fn split_name(full_name: &str) -> (String, String, String) {
+    let parts: Vec<&str> = full_name.split_whitespace().collect();
+
+    match parts.len() {
+        0 => ("".to_string(), "".to_string(), "".to_string()),
+        1 => (parts.get(0).unwrap_or(&"").to_string(), "".to_string(), "".to_string()),
+        2 => (parts.get(0).unwrap_or(&"").to_string(), "".to_string(), parts.get(1).unwrap_or(&"").to_string()),
+        3 => (parts.get(0).unwrap_or(&"").to_string(), parts.get(1).unwrap_or(&"").to_string(), parts.get(2).unwrap_or(&"").to_string()),
+        _ => todo!(),
+    }
+}
+
+// Dimi: FIX
+pub fn join_name_parts(given_name: &str, additional_name: &str, family_name: &str) -> String {
+    if given_name.is_empty() {
+        return format!("");
+    }
+
+    if additional_name.is_empty() {
+        return format!("{} {}", given_name, family_name);
+    }
+    format!("{} {} {}", given_name, additional_name, family_name)
 }

@@ -43,9 +43,7 @@ dictionary CreditCard {
 
 // What you pass to create or update an address.
 dictionary UpdatableAddressFields {
-    string given_name;
-    string additional_name;
-    string family_name;
+    string name;
     string organization;
     string street_address;
     string address_level3;
@@ -60,9 +58,7 @@ dictionary UpdatableAddressFields {
 // What you get back as an address.
 dictionary Address {
     string guid;
-    string given_name;
-    string additional_name;
-    string family_name;
+    string name;
     string organization;
     string street_address;
     string address_level3;

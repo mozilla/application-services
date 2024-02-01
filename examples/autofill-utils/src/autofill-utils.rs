@@ -177,9 +177,7 @@ enum Command {
 
 fn run_add_address(store: &Store) -> Result<()> {
     let address_fields = address::UpdatableAddressFields {
-        given_name: prompt_string("given_name").unwrap_or_default(),
-        additional_name: prompt_string("additional_name").unwrap_or_default(),
-        family_name: prompt_string("family_name").unwrap_or_default(),
+        name: prompt_string("name").unwrap_or_default(),
         organization: prompt_string("organization").unwrap_or_default(),
         street_address: prompt_string("street_address").unwrap_or_default(),
         address_level3: prompt_string("address_level3").unwrap_or_default(),
@@ -221,9 +219,7 @@ fn run_update_address(store: &Store, guid: String) -> Result<()> {
     let address = Store::get_address(store, guid.clone())?;
 
     let updatable = address::UpdatableAddressFields {
-        given_name: update_string("given_name", address.given_name),
-        additional_name: update_string("additional_name", address.additional_name),
-        family_name: update_string("family_name", address.family_name),
+        name: update_string("name", address.name),
         organization: update_string("organization", address.organization),
         street_address: update_string("street_address", address.street_address),
         address_level3: update_string("address_level3", address.address_level3),

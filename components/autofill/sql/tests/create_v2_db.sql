@@ -2,9 +2,13 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+-- Initialize the v1 schema
+
 CREATE TABLE IF NOT EXISTS addresses_data (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    name                TEXT NOT NULL,  -- Name
+    given_name          TEXT NOT NULL,
+    additional_name     TEXT NOT NULL,
+    family_name         TEXT NOT NULL,
     organization        TEXT NOT NULL,  -- Company
     street_address      TEXT NOT NULL,  -- (Multiline)
     address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
@@ -26,7 +30,6 @@ CREATE TABLE IF NOT EXISTS addresses_data (
 -- What's on the server as the JSON payload.
 CREATE TABLE IF NOT EXISTS addresses_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    -- The plain-text sync15 payload.
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
     -- We could also have `modified`, which is in the server response and
     -- passed around in the sync code, but we don't have a use-case for using it.
@@ -43,45 +46,22 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
 -- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
 -- them as plain text.
 CREATE TABLE IF NOT EXISTS credit_cards_data (
-    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    cc_name             TEXT NOT NULL, -- full name
-    -- Encrypted card number, stored as a JWE. All valid unencrypted card
-    -- numbers are 19 chars or less, and a base64 encoded JWE is always going to
-    -- be longer than thus, so we add a CHECK designed to ensure we don't
-    -- accidentally store unencrypted numbers here.
-    -- The one exception is a completely blank value, which indicates that we
-    -- lost the key to decrypt the card number and need to refetch the value from
-    -- the sync server.
-    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
-    -- last 4 digits unencrypted. Check no larger than 4 to avoid the full number.
-    cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL,
-
-    /* Same "sync change counter" strategy used by other components. */
-    sync_change_counter INTEGER NOT NULL
+guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+cc_name             TEXT NOT NULL,
+cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
+cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+cc_exp_month        INTEGER,
+cc_exp_year         INTEGER,
+cc_type             TEXT NOT NULL,
+time_created        INTEGER NOT NULL,
+time_last_used      INTEGER,
+time_last_modified  INTEGER NOT NULL,
+times_used          INTEGER NOT NULL,
+sync_change_counter INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    /*
-    Note that:
-    * The mirror needs to have a fully-formed Sync BSO payload, which
-      includes the plaintext cc number.
-    * But we don't want plaintext cc numbers on disk, so we have to encrypt the
-      numbers in this payload - and the simplest way to do that is to just
-      encrypt the entire payload.
-    * The JWE encryption scheme is how we encrypt data for local storage, so
-      that's what we use here (ie, we use the same encryption scheme that we
-      use for `credit_cards_data.cc_number_enc`, and not the scheme Sync itself
-      uses for encrypting payloads)
-    */
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
 );
 
@@ -95,3 +75,36 @@ CREATE TABLE IF NOT EXISTS moz_meta (
     key TEXT PRIMARY KEY,
     value NOT NULL
 ) WITHOUT ROWID;
+
+-- Populate it with some data, we test that this makes it through all the migrations.
+INSERT INTO credit_cards_data (
+    guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year,
+    cc_type, time_created, time_last_used, time_last_modified, times_used,
+    sync_change_counter
+) VALUES (
+    "A", "Jane Doe", "012345678901234567890", "1234", 1, 2020, "visa", 0, 1, 2,
+    3, 0
+);
+
+INSERT INTO addresses_data (
+    guid, given_name, additional_name, family_name, organization,
+    street_address, address_level3, address_level2, address_level1,
+    postal_code, country, tel, email, time_created, time_last_used,
+    time_last_modified, times_used, sync_change_counter
+) VALUES (
+    "A", "Jane", "John", "Doe", "Mozilla", "123 Maple lane", "Shelbyville",
+    "Springfield", "MA", "12345", "US", "01-234-567-8000", "jane@hotmail.com", 0,
+    1, 2, 3, 0
+);
+
+INSERT INTO addresses_data (
+    guid, given_name, additional_name, family_name, organization,
+    street_address, address_level3, address_level2, address_level1,
+    postal_code, country, tel, email, time_created, time_last_used,
+    time_last_modified, times_used, sync_change_counter
+) VALUES (
+    "B", "", "", "", "Mozilla", "123 Maple lane", "Shelbyville",
+    "Springfield", "MA", "12345", "US", "01-234-567-8000", "jane@hotmail.com", 0,
+    1, 2, 3, 0
+);
+PRAGMA user_version=2;
