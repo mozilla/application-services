@@ -22,7 +22,7 @@ buildscript {
         ktlint_version = '0.50.0'
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
-        mockito_core_version = '5.5.0'
+        mockito_core_version = '5.10.0'
         robolectric_core_version = '4.11'
         rust_android_gradle_version = '0.9.3'
         protobuf_version = '3.21.10'
