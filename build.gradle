@@ -18,7 +18,7 @@ buildscript {
         androidx_work_testing_version = '2.7.1'
         espresso_core_version = '3.5.1'
 
-        detekt_version = '1.23.0'
+        detekt_version = '1.23.5'
         ktlint_version = '0.50.0'
         gradle_download_task_version = '5.2.1'
         junit_version = '4.13.2'
