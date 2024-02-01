@@ -1972,7 +1972,7 @@ mod tests {
         .with_data(
             "data-4.json",
             json!({
-                "subjects": ["ramen", "spicy ramen", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
+                "subjects": ["ramen", "spicy ramen", "spicy random ramen", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
                 "preModifiers": ["best", "super best", "same_modifier"],
                 "postModifiers": ["delivery", "super delivery", "same_modifier"],
                 "locationSigns": [
@@ -2579,6 +2579,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=best+spicy+ramen+delivery&find_loc=tokyo",
                         title: "best spicy ramen delivery in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2595,6 +2596,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=BeSt+SpIcY+rAmEn+DeLiVeRy&find_loc=ToKyO",
                         title: "BeSt SpIcY rAmEn DeLiVeRy In ToKyO",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2611,6 +2613,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=best+ramen+delivery&find_loc=tokyo",
                         title: "best ramen delivery in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2649,6 +2652,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=super+best+ramen+delivery&find_loc=tokyo",
                         title: "super best ramen delivery in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2676,6 +2680,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen+delivery&find_loc=tokyo",
                         title: "ramen delivery in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2692,6 +2697,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen+super+delivery&find_loc=tokyo",
                         title: "ramen super delivery in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2719,6 +2725,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                         title: "ramen in tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2735,6 +2742,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                         title: "ramen near tokyo",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2762,6 +2770,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen&find_loc=San+Francisco",
                         title: "ramen in San Francisco",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2778,6 +2787,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "ramen in",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2794,6 +2804,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen+near+by",
                         title: "ramen near by",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2810,6 +2821,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen+near+me",
                         title: "ramen near me",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2837,6 +2849,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "ramen",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2853,6 +2866,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
                         title: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2913,6 +2927,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "yelp ramen",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2929,6 +2944,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "yelp keyword ramen",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2945,6 +2961,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                         title: "ramen in tokyo yelp",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2961,6 +2978,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                         title: "ramen in tokyo yelp keyword",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2977,6 +2995,7 @@ mod tests {
                     Yelp {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "yelp ramen yelp",
+                        is_top_pick: true,
                     },
                 ]
                 "#]],
@@ -2985,6 +3004,68 @@ mod tests {
                 "keyword = `best yelp ramen`; Yelp only",
                 SuggestionQuery {
                     keyword: "best yelp ramen".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                []
+                "#]],
+            ),
+            (
+                "keyword = `Spicy R`; Yelp only",
+                SuggestionQuery {
+                    keyword: "Spicy R".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=Spicy+Ramen",
+                        title: "Spicy Ramen",
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `BeSt             Ramen`; Yelp only",
+                SuggestionQuery {
+                    keyword: "BeSt             Ramen".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=BeSt+Ramen",
+                        title: "BeSt Ramen",
+                        is_top_pick: true,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `BeSt             Spicy R`; Yelp only",
+                SuggestionQuery {
+                    keyword: "BeSt             Spicy R".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=BeSt+Spicy+Ramen",
+                        title: "BeSt Spicy Ramen",
+                        is_top_pick: false,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `BeSt             R`; Yelp only",
+                SuggestionQuery {
+                    keyword: "BeSt             R".into(),
                     providers: vec![SuggestionProvider::Yelp],
                     limit: None,
                 },
