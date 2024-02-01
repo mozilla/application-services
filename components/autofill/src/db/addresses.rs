@@ -27,9 +27,7 @@ pub(crate) fn add_address(
     // fields, before we insert it.
     let address = InternalAddress {
         guid: Guid::random(),
-        given_name: new.given_name,
-        additional_name: new.additional_name,
-        family_name: new.family_name,
+        name: new.name,
         organization: new.organization,
         street_address: new.street_address,
         address_level3: new.address_level3,
@@ -65,9 +63,7 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
         ),
         rusqlite::named_params! {
             ":guid": address.guid,
-            ":given_name": address.given_name,
-            ":additional_name": address.additional_name,
-            ":family_name": address.family_name,
+            ":name": address.name,
             ":organization": address.organization,
             ":street_address": address.street_address,
             ":address_level3": address.address_level3,
@@ -129,9 +125,7 @@ pub(crate) fn update_address(
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "UPDATE addresses_data
-        SET given_name         = :given_name,
-            additional_name     = :additional_name,
-            family_name         = :family_name,
+        SET name                = :name,
             organization        = :organization,
             street_address      = :street_address,
             address_level3      = :address_level3,
@@ -144,9 +138,7 @@ pub(crate) fn update_address(
             sync_change_counter = sync_change_counter + 1
         WHERE guid              = :guid",
         rusqlite::named_params! {
-            ":given_name": address.given_name,
-            ":additional_name": address.additional_name,
-            ":family_name": address.family_name,
+            ":name": address.name,
             ":organization": address.organization,
             ":street_address": address.street_address,
             ":address_level3": address.address_level3,
@@ -175,9 +167,7 @@ pub(crate) fn update_internal_address(
     let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
     let rows_changed = tx.execute(
         "UPDATE addresses_data SET
-            given_name          = :given_name,
-            additional_name     = :additional_name,
-            family_name         = :family_name,
+            name                = :name,
             organization        = :organization,
             street_address      = :street_address,
             address_level3      = :address_level3,
@@ -194,9 +184,7 @@ pub(crate) fn update_internal_address(
             sync_change_counter = sync_change_counter + :change_incr
         WHERE guid              = :guid",
         rusqlite::named_params! {
-            ":given_name": address.given_name,
-            ":additional_name": address.additional_name,
-            ":family_name": address.family_name,
+            ":name": address.name,
             ":organization": address.organization,
             ":street_address": address.street_address,
             ":address_level3": address.address_level3,
@@ -307,8 +295,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
+                name: "jane doe".to_string(),
                 street_address: "123 Main Street".to_string(),
                 address_level2: "Seattle, WA".to_string(),
                 country: "United States".to_string(),
@@ -331,8 +318,7 @@ mod tests {
         let retrieved_address = get_address(&db, &saved_address.guid)
             .expect("should contain optional retrieved address");
         assert_eq!(saved_address.guid, retrieved_address.guid);
-        assert_eq!(saved_address.given_name, retrieved_address.given_name);
-        assert_eq!(saved_address.family_name, retrieved_address.family_name);
+        assert_eq!(saved_address.name, retrieved_address.name);
         assert_eq!(
             saved_address.street_address,
             retrieved_address.street_address
@@ -370,8 +356,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
+                name: "jane doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
@@ -384,8 +369,7 @@ mod tests {
         let saved_address2 = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "john".to_string(),
-                family_name: "deer".to_string(),
+                name: "john deer".to_string(),
                 street_address: "123 First Avenue".to_string(),
                 address_level2: "Los Angeles, CA".to_string(),
                 country: "United States".to_string(),
@@ -399,8 +383,7 @@ mod tests {
         let saved_address3 = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "abraham".to_string(),
-                family_name: "lincoln".to_string(),
+                name: "abraham lincoln".to_string(),
                 street_address: "1600 Pennsylvania Ave NW".to_string(),
                 address_level2: "Washington, DC".to_string(),
                 country: "United States".to_string(),
@@ -436,8 +419,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "john".to_string(),
-                family_name: "doe".to_string(),
+                name: "john doe".to_string(),
                 street_address: "1300 Broadway".to_string(),
                 address_level2: "New York, NY".to_string(),
                 country: "United States".to_string(),
@@ -449,14 +431,12 @@ mod tests {
         // change_counter starts at 0
         assert_eq!(0, saved_address.metadata.sync_change_counter);
 
-        let expected_additional_name = "paul".to_string();
+        let expected_name = "john paul deer".to_string();
         let update_result = update_address(
             &db,
             &saved_address.guid,
             &UpdatableAddressFields {
-                given_name: "john".to_string(),
-                additional_name: expected_additional_name.clone(),
-                family_name: "deer".to_string(),
+                name: expected_name.clone(),
                 organization: "".to_string(),
                 street_address: "123 First Avenue".to_string(),
                 address_level3: "".to_string(),
@@ -474,7 +454,7 @@ mod tests {
             get_address(&db, &saved_address.guid).expect("should contain optional updated address");
 
         assert_eq!(saved_address.guid, updated_address.guid);
-        assert_eq!(expected_additional_name, updated_address.additional_name);
+        assert_eq!(expected_name, updated_address.name);
 
         //check that the sync_change_counter was incremented
         assert_eq!(1, updated_address.metadata.sync_change_counter);
@@ -490,9 +470,7 @@ mod tests {
             &tx,
             &InternalAddress {
                 guid: guid.clone(),
-                given_name: "john".to_string(),
-                additional_name: "paul".to_string(),
-                family_name: "deer".to_string(),
+                name: "john paul deer".to_string(),
                 organization: "".to_string(),
                 street_address: "123 First Avenue".to_string(),
                 address_level3: "".to_string(),
@@ -506,14 +484,12 @@ mod tests {
             },
         )?;
 
-        let expected_family_name = "dear";
+        let expected_name = "john paul dear";
         update_internal_address(
             &tx,
             &InternalAddress {
                 guid: guid.clone(),
-                given_name: "john".to_string(),
-                additional_name: "paul".to_string(),
-                family_name: expected_family_name.to_string(),
+                name: expected_name.to_string(),
                 organization: "".to_string(),
                 street_address: "123 First Avenue".to_string(),
                 address_level3: "".to_string(),
@@ -533,10 +509,10 @@ mod tests {
                 SELECT 1
                 FROM addresses_data
                 WHERE guid = :guid
-                AND family_name = :family_name
+                AND name = :name
                 AND sync_change_counter = 0
             )",
-            [&guid.to_string(), &expected_family_name.to_string()],
+            [&guid.to_string(), &expected_name.to_string()],
             |row| row.get(0),
         )?;
         assert!(record_exists);
@@ -558,8 +534,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
+                name: "jane doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
@@ -576,8 +551,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
+                name: "jane doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
@@ -610,8 +584,7 @@ mod tests {
         // create a new address with the tombstone's guid
         let address = InternalAddress {
             guid,
-            given_name: "jane".to_string(),
-            family_name: "doe".to_string(),
+            name: "jane doe".to_string(),
             street_address: "123 Second Avenue".to_string(),
             address_level2: "Chicago, IL".to_string(),
             country: "United States".to_string(),
@@ -637,8 +610,7 @@ mod tests {
         // create an address
         let address = InternalAddress {
             guid,
-            given_name: "jane".to_string(),
-            family_name: "doe".to_string(),
+            name: "jane doe".to_string(),
             street_address: "123 Second Avenue".to_string(),
             address_level2: "Chicago, IL".to_string(),
             country: "United States".to_string(),
@@ -665,8 +637,7 @@ mod tests {
         let saved_address = add_address(
             &db,
             UpdatableAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
+                name: "jane doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),

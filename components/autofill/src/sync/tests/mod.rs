@@ -5,3 +5,4 @@
 
 mod test_reconcile;
 mod test_sync_impl;
+mod test_migrate_remote_address;

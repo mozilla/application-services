@@ -5,12 +5,11 @@
 use crate::db::sql_fns;
 use rusqlite::{functions::FunctionFlags, Connection, Transaction};
 use sql_support::open_database::{ConnectionInitializer, Error, Result};
+use crate::sync::address::join_name_parts;
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
-    given_name,
-    additional_name,
-    family_name,
+    name,
     organization,
     street_address,
     address_level3,
@@ -27,9 +26,7 @@ pub const ADDRESS_COMMON_COLS: &str = "
 
 pub const ADDRESS_COMMON_VALS: &str = "
     :guid,
-    :given_name,
-    :additional_name,
-    :family_name,
+    :name,
     :organization,
     :street_address,
     :address_level3,
@@ -78,7 +75,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 2;
+    const END_VERSION: u32 = 3;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -107,6 +104,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             // upgrade_from_v0() for more details.
             0 => upgrade_from_v0(db),
             1 => upgrade_from_v1(db),
+            2 => upgrade_from_v2(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -193,6 +191,110 @@ fn upgrade_from_v1(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn upgrade_from_v2(db: &Connection) -> Result<()> {
+    // Dimi: Tried to use ADD COLLUMN NAME TEXT NOT NULL, but encountered an error
+    db.execute_batch(
+        "
+        CREATE TABLE new_addresses_data (
+            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+            name                TEXT NOT NULL,  -- Name
+            organization        TEXT NOT NULL,  -- Company
+            street_address      TEXT NOT NULL,  -- (Multiline)
+            address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
+            address_level2      TEXT NOT NULL,  -- City/Town
+            address_level1      TEXT NOT NULL,  -- Province (Standardized code if possible)
+            postal_code         TEXT NOT NULL,
+            country             TEXT NOT NULL,  -- ISO 3166
+            tel                 TEXT NOT NULL,  -- Stored in E.164 format
+            email               TEXT NOT NULL,
+
+            time_created        INTEGER NOT NULL,
+            time_last_used      INTEGER NOT NULL,
+            time_last_modified  INTEGER NOT NULL,
+            times_used          INTEGER NOT NULL,
+
+            sync_change_counter INTEGER NOT NULL
+        );
+        ")?;
+
+    let mut stmt = db.prepare("
+        select guid, given_name, additional_name, family_name, organization, street_address, address_level3,
+        address_level2, address_level1, postal_code, country, tel, email, time_created, time_last_used,
+        time_last_modified, times_used, sync_change_counter
+        from addresses_data
+        "
+    )?;
+
+    // Why this doesn't work?
+    //stmt.query_map([], |row| {
+        //println!("[Dimi]row");
+        //Ok(())
+    //})?;
+    // Dimi: TODO: Simplify this ?
+    let mut results = stmt.query([])?;
+    while let Some(row) = results.next()? {
+        let guid: String = row.get(0)?;
+        let given_name: String = row.get(1)?;
+        let additional_name: String = row.get(2)?;
+        let family_name: String = row.get(3)?;
+        let organization: String = row.get(4)?;
+        let street_address: String = row.get(5)?;
+        let address_level3: String = row.get(6)?;
+        let address_level2: String = row.get(7)?;
+        let address_level1: String = row.get(8)?;
+        let postal_code: String = row.get(9)?;
+        let country: String = row.get(10)?;
+        let tel: String = row.get(11)?;
+        let email: String = row.get(12)?;
+        let time_created: u64 = row.get(13)?;
+        let time_last_used: u64 = row.get(14)?;
+        let time_last_modified: u64 = row.get(15)?;
+        let times_used: u64 = row.get(16)?;
+        let sync_change_counter: u64 = row.get(17)?;
+
+        let name = join_name_parts(&given_name, &additional_name, &family_name);
+
+        db.execute(&format!(
+            "INSERT INTO new_addresses_data (
+                {common_cols},
+                sync_change_counter
+            ) VALUES (
+                {common_vals},
+                :sync_change_counter
+            )",
+            common_cols = ADDRESS_COMMON_COLS,
+            common_vals = ADDRESS_COMMON_VALS,
+            ),
+            rusqlite::named_params! {
+                ":guid": guid,
+                ":name": name,
+                ":organization": organization,
+                ":street_address": street_address,
+                ":address_level3": address_level3,
+                ":address_level2": address_level2,
+                ":address_level1": address_level1,
+                ":postal_code": postal_code,
+                ":country": country,
+                ":tel": tel,
+                ":email": email,
+                ":time_created": time_created,
+                ":time_last_used": time_last_used,
+                ":time_last_modified": time_last_modified,
+                ":times_used": times_used,
+                ":sync_change_counter": sync_change_counter,
+            },
+        )?;
+    };
+
+    db.execute_batch(
+        "
+        DROP TABLE addresses_data;
+        ALTER TABLE new_addresses_data RENAME to addresses_data
+        "
+    )?;
+    Ok(())
+}
+
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     log::debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -211,6 +313,7 @@ mod tests {
 
     const CREATE_V0_DB: &str = include_str!("../../sql/tests/create_v0_db.sql");
     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
+    const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
 
     #[test]
     fn test_create_schema_twice() {
@@ -248,9 +351,7 @@ mod tests {
 
         let address = get_address(&conn, &Guid::new("A")).unwrap();
         assert_eq!(address.guid, "A");
-        assert_eq!(address.given_name, "Jane");
-        assert_eq!(address.family_name, "Doe");
-        assert_eq!(address.additional_name, "JaneDoe2");
+        assert_eq!(address.name, "Jane JaneDoe2 Doe");
         assert_eq!(address.organization, "Mozilla");
         assert_eq!(address.street_address, "123 Maple lane");
         assert_eq!(address.address_level3, "Shelbyville");
@@ -298,5 +399,41 @@ mod tests {
             .expect("blank cc_number_enc should be valid");
         db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", [])
             .expect_err("cc_number_enc should be invalid");
+    }
+
+    #[test]
+    fn test_upgrade_version_2() {
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V2_DB);
+        let db = db_file.open();
+
+        db.execute_batch("SELECT name from addresses_data")
+            .expect_err("select should fail");
+        db.execute_batch("SELECT street_address from addresses_data")
+            .expect("street_address should work");
+        db.execute_batch("SELECT additional_name from addresses_data")
+            .expect("additional_name should work");
+        db.execute_batch("SELECT family_name from addresses_data")
+            .expect("family_name should work");
+
+        db_file.upgrade_to(3);
+
+        db.execute_batch("SELECT name from addresses_data")
+            .expect("select name should now work");
+        db.execute_batch("SELECT given_name from addresses_data")
+            .expect_err("given_name should fail");
+        db.execute_batch("SELECT additional_name from addresses_data")
+            .expect_err("additional_name should fail");
+        db.execute_batch("SELECT family_name from addresses_data")
+            .expect_err("family_name should fail");
+
+        let mut address = get_address(&db, &Guid::new("A")).unwrap();
+        assert_eq!(address.guid, "A");
+        assert_eq!(address.name, "Jane John Doe");
+
+        address = get_address(&db, &Guid::new("B")).unwrap();
+        assert_eq!(address.guid, "B");
+
+        // Dimi: to be fixed
+        assert_eq!(address.name, "");
     }
 }
