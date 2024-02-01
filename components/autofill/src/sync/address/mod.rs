@@ -4,6 +4,7 @@
 */
 
 pub mod incoming;
+pub mod name_utils;
 pub mod outgoing;
 
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
@@ -13,9 +14,9 @@ use super::{
 };
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
-use crate::name_utils::{join_name_parts, split_name, NameParts};
 use crate::sync_merge_field_check;
 use incoming::IncomingAddressesImpl;
+use name_utils::{split_name, NameParts};
 use outgoing::OutgoingAddressesImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
@@ -77,7 +78,8 @@ pub struct AddressPayload {
 #[serde(default, rename_all = "kebab-case")]
 struct PayloadEntry {
     pub name: String,
-    // Exist in PayloadEntry but not in InternalAddress
+    // given_name, additional_name and family_name
+    // should exist in PayloadEntry but not in InternalAddress
     pub given_name: String,
     pub additional_name: String,
     pub family_name: String,
@@ -107,7 +109,7 @@ struct PayloadEntry {
 }
 
 impl InternalAddress {
-    fn from_payload(p: AddressPayload, l_name: Option<String>) -> Result<Self> {
+    fn from_payload(p: AddressPayload) -> Result<Self> {
         if p.entry.version != 1 {
             // Always been version 1
             return Err(Error::InvalidSyncPayload(format!(
@@ -116,51 +118,9 @@ impl InternalAddress {
             )));
         }
 
-        // Dimi: refactoring the code and maybe move it to another function?
-        let mut name = p.entry.name;
-        let given = p.entry.given_name;
-        let additional = p.entry.additional_name;
-        let family = p.entry.family_name;
-
-        if name.is_empty() && (!given.is_empty() || !additional.is_empty() || !family.is_empty()) {
-            println!("[Dimi]this is an old record");
-            match l_name {
-                Some(l_name) => {
-                    // TODO(issam): change this and ideally change middle to additional.
-                    let NameParts {
-                        given: l_given,
-                        middle: l_additional,
-                        family: l_family,
-                    } = split_name(&l_name);
-
-                    if given == l_given && additional == l_additional && family == l_family {
-                        println!("[Dimi]migrate remote use local name");
-                        name = l_name;
-                    } else {
-                        println!("[Dimi]migrate remote join, remote name is changed");
-                        name = join_name_parts(&NameParts {
-                            given: given,
-                            middle: additional,
-                            family: family,
-                        });
-                    }
-                }
-                None => {
-                    println!("[Dimi]migrate remote join because there is no local record");
-                    name = join_name_parts(&NameParts {
-                        given: given,
-                        middle: additional,
-                        family: family,
-                    })
-                }
-            };
-        } else {
-            println!("[Dimi]this is a new record");
-        }
-
         Ok(InternalAddress {
             guid: p.id,
-            name: name,
+            name: p.entry.name,
             organization: p.entry.organization,
             street_address: p.entry.street_address,
             address_level3: p.entry.address_level3,
@@ -181,10 +141,9 @@ impl InternalAddress {
     }
 
     fn into_payload(self) -> Result<AddressPayload> {
-        // TODO(issam): change this and ideally change middle to additional.
         let NameParts {
             given,
-            middle: additional,
+            middle,
             family,
         } = split_name(&self.name);
         Ok(AddressPayload {
@@ -192,7 +151,7 @@ impl InternalAddress {
             entry: PayloadEntry {
                 name: self.name,
                 given_name: given,
-                additional_name: additional,
+                additional_name: middle,
                 family_name: family,
                 organization: self.organization,
                 street_address: self.street_address,

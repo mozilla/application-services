@@ -41,9 +41,6 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             common_cols = ADDRESS_COMMON_COLS,
         );
         let record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)> = &|row| {
-            // Dimi: This is where we transform internal address data to address sync payload
-            //       Maybe we need to do the "name" to "*-name" conversion in either here or
-            //       in `into_payload`
             let mut record = InternalAddress::from_row(row)?.into_payload()?;
             // If the server had unknown fields we fetch it and add it to the record
             // we'll be uploading
@@ -181,7 +178,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         let payload = serde_json::from_value(json).unwrap();
-        InternalAddress::from_payload(payload, None).expect("should be valid")
+        InternalAddress::from_payload(payload).expect("should be valid")
     }
 
     #[test]

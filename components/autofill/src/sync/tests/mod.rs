@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+mod test_migrate_remote_address;
+mod test_name_utils;
 mod test_reconcile;
 mod test_sync_impl;
-mod test_migrate_remote_address;

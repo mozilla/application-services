@@ -42,9 +42,6 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;
 
--- XXX There are still questions around how we implement the necessary security model for credit cards, specifically
--- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
--- them as plain text.
 CREATE TABLE IF NOT EXISTS credit_cards_data (
 guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
 cc_name             TEXT NOT NULL,
