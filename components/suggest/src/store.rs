@@ -291,13 +291,9 @@ where
 
             match fields {
                 SuggestRecord::AmpWikipedia => {
-                    self.ingest_suggestions_from_record(
-                        writer,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) =
@@ -321,48 +317,69 @@ where
                     })?;
                 }
                 SuggestRecord::Amo => {
-                    self.ingest_suggestions_from_record(
-                        writer,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_amo_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        dao.insert_amo_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Pocket => {
-                    self.ingest_suggestions_from_record(
-                        writer,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_pocket_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        dao.insert_pocket_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Yelp => {
-                    self.ingest_suggestions_from_record(
-                        writer,
-                        record,
-                        |dao, record_id, suggestions| match suggestions.first() {
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        match suggestions.first() {
                             Some(suggestion) => dao.insert_yelp_suggestions(record_id, suggestion),
                             None => Ok(()),
-                        },
-                    )?;
+                        }
+                    })?;
                 }
                 SuggestRecord::Mdn => {
-                    self.ingest_suggestions_from_record(
-                        writer,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_mdn_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        dao.insert_mdn_suggestions(record_id, suggestions)
+                    })?;
+                }
+                SuggestRecord::Weather(data) => {
+                    self.ingest_record(writer, record, |dao, record_id| {
+                        dao.insert_weather_data(record_id, &data)
+                    })?;
                 }
             }
         }
         Ok(())
     }
 
-    fn ingest_suggestions_from_record<T>(
+    fn ingest_record(
+        &self,
+        writer: &SuggestDb,
+        record: &RemoteSettingsRecord,
+        ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
+    ) -> Result<()> {
+        let record_id = SuggestRecordId::from(&record.id);
+
+        writer.write(|dao| {
+            // Drop any data that we previously ingested from this record.
+            // Suggestions in particular don't have a stable identifier, and
+            // determining which suggestions in the record actually changed is
+            // more complicated than dropping and re-ingesting all of them.
+            dao.drop_suggestions(&record_id)?;
+
+            // Ingest (or re-ingest) all data in the record.
+            ingestion_handler(dao, &record_id)?;
+
+            // Remove this record's ID from the list of unparsable
+            // records, since we understand it now.
+            dao.drop_unparsable_record_id(&record_id)?;
+
+            // Advance the last fetch time, so that we can resume
+            // fetching after this record if we're interrupted.
+            dao.put_last_ingest_if_newer(record.last_modified)?;
+
+            Ok(())
+        })
+    }
+
+    fn ingest_attachment<T>(
         &self,
         writer: &SuggestDb,
         record: &RemoteSettingsRecord,
@@ -371,42 +388,22 @@ where
     where
         T: DeserializeOwned,
     {
-        let record_id = SuggestRecordId::from(&record.id);
-
         let Some(attachment) = record.attachment.as_ref() else {
-            // A record should always have an
-            // attachment with suggestions. If it doesn't, it's
-            // malformed, so skip to the next record.
+            // This method should be called only when a record is expected to
+            // have an attachment. If it doesn't have one, it's malformed, so
+            // skip to the next record.
             writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
             return Ok(());
         };
 
         let attachment_data = self.settings_client.get_attachment(&attachment.location)?;
         match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
-            Ok(attachment) => writer.write(|dao| {
-                // Drop any suggestions that we previously ingested from
-                // this record's attachment. Suggestions don't have a
-                // stable identifier, and determining which suggestions in
-                // the attachment actually changed is more complicated than
-                // dropping and re-ingesting all of them.
-                dao.drop_suggestions(&record_id)?;
-
-                // Ingest (or re-ingest) all suggestions in the
-                // attachment.
-                ingestion_handler(dao, &record_id, attachment.suggestions())?;
-
-                // Remove this record's ID from the list of unparsable
-                // records, since we understand it now.
-                dao.drop_unparsable_record_id(&record_id)?;
-
-                // Advance the last fetch time, so that we can resume
-                // fetching after this record if we're interrupted.
-                dao.put_last_ingest_if_newer(record.last_modified)?;
-
-                Ok(())
+            Ok(attachment) => self.ingest_record(writer, record, |dao, record_id| {
+                ingestion_handler(dao, record_id, attachment.suggestions())
             }),
             Err(_) => writer.write(|dao| {
                 // The attachment was not able to be parsed, record this and continue on
+                let record_id = SuggestRecordId::from(&record.id);
                 dao.put_unparsable_record_id(&record_id)?;
                 dao.put_last_ingest_if_newer(record.last_modified)?;
                 Ok(())
@@ -1933,6 +1930,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
+                        SuggestionProvider::Weather,
                     ],
                     limit: None,
                 },
@@ -1950,6 +1948,7 @@ mod tests {
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
+                        SuggestionProvider::Weather,
                     ],
                     limit: None,
                 },
@@ -3749,6 +3748,93 @@ mod tests {
                             title: "Array",
                             url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
                             description: "Javascript Array",
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+        ];
+
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn query_weather() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "weather",
+            "last_modified": 15,
+            "weather": {
+                "keywords": ["weath", "weathe", "weather"],
+                "score": 0.24
+            }
+        }]))?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "keyword = 'weat'; Weather only, no match",
+                SuggestionQuery {
+                    keyword: "weat".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'weath'; Weather only",
+                SuggestionQuery {
+                    keyword: "weath".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'weathe'; Weather only",
+                SuggestionQuery {
+                    keyword: "weathe".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'weather'; Weather only",
+                SuggestionQuery {
+                    keyword: "weather".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
                             score: 0.24,
                         },
                     ]

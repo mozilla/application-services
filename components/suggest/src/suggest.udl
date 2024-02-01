@@ -29,6 +29,7 @@ enum SuggestionProvider {
     "Amo",
     "Yelp",
     "Mdn",
+    "Weather",
 };
 
 [Enum]
@@ -77,6 +78,9 @@ interface Suggestion {
         string title,
         string url,
         string description,
+        f64 score
+    );
+    Weather(
         f64 score
     );
 };
