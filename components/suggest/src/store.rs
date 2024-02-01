@@ -381,31 +381,37 @@ where
             return Ok(());
         };
 
-        let attachment: SuggestAttachment<T> =
-            serde_json::from_slice(&self.settings_client.get_attachment(&attachment.location)?)?;
+        let attachment_data = self.settings_client.get_attachment(&attachment.location)?;
+        match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
+            Ok(attachment) => writer.write(|dao| {
+                // Drop any suggestions that we previously ingested from
+                // this record's attachment. Suggestions don't have a
+                // stable identifier, and determining which suggestions in
+                // the attachment actually changed is more complicated than
+                // dropping and re-ingesting all of them.
+                dao.drop_suggestions(&record_id)?;
 
-        writer.write(|dao| {
-            // Drop any suggestions that we previously ingested from
-            // this record's attachment. Suggestions don't have a
-            // stable identifier, and determining which suggestions in
-            // the attachment actually changed is more complicated than
-            // dropping and re-ingesting all of them.
-            dao.drop_suggestions(&record_id)?;
+                // Ingest (or re-ingest) all suggestions in the
+                // attachment.
+                ingestion_handler(dao, &record_id, attachment.suggestions())?;
 
-            // Ingest (or re-ingest) all suggestions in the
-            // attachment.
-            ingestion_handler(dao, &record_id, attachment.suggestions())?;
+                // Remove this record's ID from the list of unparsable
+                // records, since we understand it now.
+                dao.drop_unparsable_record_id(&record_id)?;
 
-            // Remove this record's ID from the list of unparsable
-            // records, since we understand it now.
-            dao.drop_unparsable_record_id(&record_id)?;
+                // Advance the last fetch time, so that we can resume
+                // fetching after this record if we're interrupted.
+                dao.put_last_ingest_if_newer(record.last_modified)?;
 
-            // Advance the last fetch time, so that we can resume
-            // fetching after this record if we're interrupted.
-            dao.put_last_ingest_if_newer(record.last_modified)?;
-
-            Ok(())
-        })
+                Ok(())
+            }),
+            Err(_) => writer.write(|dao| {
+                // The attachment was not able to be parsed, record this and continue on
+                dao.put_unparsable_record_id(&record_id)?;
+                dao.put_last_ingest_if_newer(record.last_modified)?;
+                Ok(())
+            }),
+        }
     }
 }
 
@@ -3502,6 +3508,122 @@ mod tests {
                 )
             "#]]
             .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests that records with invalid attachments are ignored and marked as unparsable.
+    #[test]
+    fn skip_over_invalid_records() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([
+            {
+                "id": "invalid-attachment",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-2.json",
+                    "mimetype": "application/json",
+                    "location": "data-2.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "valid-record",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+        ]))?
+        .with_data(
+            "data-1.json",
+            json!([{
+                    "id": 0,
+                    "advertiser": "Los Pollos Hermanos",
+                    "iab_category": "8 - Food & Drink",
+                    "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                    "title": "Los Pollos Hermanos - Albuquerque",
+                    "url": "https://www.lph-nm.biz",
+                    "icon": "5678",
+                    "impression_url": "https://example.com/impression_url",
+                    "click_url": "https://example.com/click_url",
+                    "score": 0.3
+            }]),
+        )?
+        // This attachment is missing the `keywords` field and is invalid
+        .with_data(
+            "data-2.json",
+            json!([{
+                    "id": 1,
+                    "advertiser": "Los Pollos Hermanos",
+                    "iab_category": "8 - Food & Drink",
+                    "title": "Los Pollos Hermanos - Albuquerque",
+                    "url": "https://www.lph-nm.biz",
+                    "icon": "5678",
+                    "impression_url": "https://example.com/impression_url",
+                    "click_url": "https://example.com/click_url",
+                    "score": 0.3
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        // Test that the invalid record marked as unparsable
+        store.dbs()?.reader.read(|dao| {
+            expect![[r#"
+                Some(
+                    UnparsableRecords(
+                        {
+                            "invalid-attachment": UnparsableRecord {
+                                schema_version: 12,
+                            },
+                        },
+                    ),
+                )
+            "#]]
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
+            Ok(())
+        })?;
+
+        // Test that the valid record was read
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            expect![[r#"
+                [
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        full_keyword: "los",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "lo".into(),
+                providers: vec![SuggestionProvider::Amp],
+                limit: None,
+            })?);
+
             Ok(())
         })?;
 
