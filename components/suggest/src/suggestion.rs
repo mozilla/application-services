@@ -65,6 +65,9 @@ pub enum Suggestion {
         description: String,
         score: f64,
     },
+    Weather {
+        score: f64,
+    },
 }
 
 impl PartialOrd for Suggestion {

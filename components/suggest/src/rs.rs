@@ -79,7 +79,7 @@ impl SuggestRemoteSettingsClient for remote_settings::Client {
 ///
 /// Except for the type, Suggest records don't carry additional fields. All
 /// suggestions are stored in each record's attachment.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
 pub(crate) enum SuggestRecord {
     #[serde(rename = "icon")]
@@ -94,6 +94,8 @@ pub(crate) enum SuggestRecord {
     Yelp,
     #[serde(rename = "mdn-suggestions")]
     Mdn,
+    #[serde(rename = "weather")]
+    Weather(DownloadedWeatherData),
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -298,6 +300,17 @@ pub(crate) struct DownloadedMdnSuggestion {
     pub url: String,
     pub title: String,
     pub description: String,
+    pub keywords: Vec<String>,
+    pub score: f64,
+}
+
+/// Weather data to ingest from a weather record
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedWeatherData {
+    pub weather: DownloadedWeatherDataInner,
+}
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedWeatherDataInner {
     pub keywords: Vec<String>,
     pub score: f64,
 }

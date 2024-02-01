@@ -14,12 +14,14 @@ use rusqlite::{
 };
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
-use crate::rs::{DownloadedAmoSuggestion, DownloadedMdnSuggestion, DownloadedPocketSuggestion};
 use crate::{
     keyword::full_keyword,
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
-    rs::{DownloadedAmpWikipediaSuggestion, SuggestRecordId},
+    rs::{
+        DownloadedAmoSuggestion, DownloadedAmpWikipediaSuggestion, DownloadedMdnSuggestion,
+        DownloadedPocketSuggestion, DownloadedWeatherData, SuggestRecordId,
+    },
     schema::{SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
     suggestion::{cook_raw_suggestion_url, Suggestion},
@@ -139,6 +141,7 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Pocket => self.fetch_pocket_suggestions(query),
                     SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
                     SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
+                    SuggestionProvider::Weather => self.fetch_weather_suggestions(query),
                 }?;
                 acc.extend(suggestions);
                 Ok(acc)
@@ -424,6 +427,27 @@ impl<'a> SuggestDao<'a> {
             .flatten()
             .collect();
 
+        Ok(suggestions)
+    }
+
+    /// Fetches weather suggestions
+    pub fn fetch_weather_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let keyword_lowercased = &query.keyword.to_lowercase();
+        let suggestions = self.conn.query_rows_and_then_cached(
+            "SELECT s.score
+             FROM suggestions s
+             JOIN keywords k ON k.suggestion_id = s.id
+             WHERE s.provider = :provider AND k.keyword = :keyword",
+            named_params! {
+                ":keyword": keyword_lowercased,
+                ":provider": SuggestionProvider::Weather
+            },
+            |row| -> Result<Suggestion> {
+                Ok(Suggestion::Weather {
+                    score: row.get::<_, f64>("score")?,
+                })
+            },
+        )?;
         Ok(suggestions)
     }
 
@@ -782,6 +806,41 @@ impl<'a> SuggestDao<'a> {
                     },
                 )?;
             }
+        }
+        Ok(())
+    }
+
+    /// Inserts weather record data into the database.
+    pub fn insert_weather_data(
+        &mut self,
+        record_id: &SuggestRecordId,
+        data: &DownloadedWeatherData,
+    ) -> Result<()> {
+        self.scope.err_if_interrupted()?;
+        let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
+            &format!(
+                "INSERT INTO suggestions(record_id, provider, title, url, score)
+                 VALUES(:record_id, {}, '', '', :score)
+                 RETURNING id",
+                SuggestionProvider::Weather as u8
+            ),
+            named_params! {
+                ":record_id": record_id.as_str(),
+                ":score": data.weather.score,
+            },
+            |row| row.get(0),
+            true,
+        )?;
+        for (index, keyword) in data.weather.keywords.iter().enumerate() {
+            self.conn.execute(
+                "INSERT INTO keywords(keyword, suggestion_id, rank)
+                 VALUES(:keyword, :suggestion_id, :rank)",
+                named_params! {
+                    ":keyword": keyword,
+                    ":suggestion_id": suggestion_id,
+                    ":rank": index,
+                },
+            )?;
         }
         Ok(())
     }
