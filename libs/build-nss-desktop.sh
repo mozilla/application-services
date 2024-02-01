@@ -62,8 +62,8 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
     # run-task has already downloaded + extracted the dependency
     NSS_DIST_DIR="${MOZ_FETCHES_DIR}/dist"
   else
-    curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/yFaMDJo8TgSJeZ51Npqxbg/runs/0/artifacts/public/dist.tar.bz2"
-    SHA256="1f4ba2d130a59f3c95e316d39667fc8a0e9d5db052469091ed17bef18a563066"
+    curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/SdO3Q-VZTkS8BxpV2kgfag/runs/0/artifacts/public/dist.tar.bz2"
+    SHA256="a9b52d4e9ced9301341a19857393fcb6b1c8c375b3511e98fe12891869eed3d4"
     echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
     tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
     NSS_DIST_DIR=$(abspath "dist")
