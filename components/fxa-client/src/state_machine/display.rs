@@ -6,6 +6,9 @@
 //!
 //! These are sent to Sentry, so they must not leak PII.
 //! In general this means they don't output values for inner fields.
+//!
+//! Also, they must not use the string "auth" since Sentry will filter that out.
+//! Use "ath" instead.
 
 use super::{internal_machines, FxaEvent, FxaState};
 use std::fmt;
@@ -15,9 +18,9 @@ impl fmt::Display for FxaState {
         let name = match self {
             Self::Uninitialized => "Uninitialized",
             Self::Disconnected => "Disconnected",
-            Self::Authenticating { .. } => "Authenticating",
+            Self::Authenticating { .. } => "Athenticating",
             Self::Connected => "Connected",
-            Self::AuthIssues => "AuthIssues",
+            Self::AuthIssues => "AthIssues",
         };
         write!(f, "{name}")
     }
@@ -27,11 +30,11 @@ impl fmt::Display for FxaEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             Self::Initialize { .. } => "Initialize",
-            Self::BeginOAuthFlow { .. } => "BeginOAuthFlow",
+            Self::BeginOAuthFlow { .. } => "BeginOAthFlow",
             Self::BeginPairingFlow { .. } => "BeginPairingFlow",
-            Self::CompleteOAuthFlow { .. } => "CompleteOAuthFlow",
-            Self::CancelOAuthFlow => "CancelOAuthFlow",
-            Self::CheckAuthorizationStatus => "CheckAuthorizationStatus",
+            Self::CompleteOAuthFlow { .. } => "CompleteOAthFlow",
+            Self::CancelOAuthFlow => "CancelOAthFlow",
+            Self::CheckAuthorizationStatus => "CheckAthorizationStatus",
             Self::Disconnect => "Disconnect",
             Self::CallGetProfile => "CallGetProfile",
         };
@@ -41,37 +44,36 @@ impl fmt::Display for FxaEvent {
 
 impl fmt::Display for internal_machines::State {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let name = match self {
-            Self::GetAuthState => "GetAuthState",
-            Self::BeginOAuthFlow { .. } => "BeginOAuthFlow",
-            Self::BeginPairingFlow { .. } => "BeginPairingFlow",
-            Self::CompleteOAuthFlow { .. } => "CompleteOAuthFlow",
-            Self::InitializeDevice => "InitializeDevice",
-            Self::EnsureDeviceCapabilities => "EnsureDeviceCapabilities",
-            Self::CheckAuthorizationStatus => "CheckAuthorizationStatus",
-            Self::Disconnect => "Disconnect",
-            Self::GetProfile => "GetProfile",
-            Self::Complete(_) => "Complete",
-            Self::Cancel => "Cancel",
-        };
-        write!(f, "{name}")
+        match self {
+            Self::GetAuthState => write!(f, "GetAthState"),
+            Self::BeginOAuthFlow { .. } => write!(f, "BeginOAthFlow"),
+            Self::BeginPairingFlow { .. } => write!(f, "BeginPairingFlow"),
+            Self::CompleteOAuthFlow { .. } => write!(f, "CompleteOAthFlow"),
+            Self::InitializeDevice => write!(f, "InitializeDevice"),
+            Self::EnsureDeviceCapabilities => write!(f, "EnsureDeviceCapabilities"),
+            Self::CheckAuthorizationStatus => write!(f, "CheckAthorizationStatus"),
+            Self::Disconnect => write!(f, "Disconnect"),
+            Self::GetProfile => write!(f, "GetProfile"),
+            Self::Complete(state) => write!(f, "Complete({state})"),
+            Self::Cancel => write!(f, "Cancel"),
+        }
     }
 }
 
 impl fmt::Display for internal_machines::Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            Self::GetAuthStateSuccess { .. } => "GetAuthStateSuccess",
-            Self::BeginOAuthFlowSuccess { .. } => "BeginOAuthFlowSuccess",
+            Self::GetAuthStateSuccess { .. } => "GetAthStateSuccess",
+            Self::BeginOAuthFlowSuccess { .. } => "BeginOAthFlowSuccess",
             Self::BeginPairingFlowSuccess { .. } => "BeginPairingFlowSuccess",
-            Self::CompleteOAuthFlowSuccess => "CompleteOAuthFlowSuccess",
+            Self::CompleteOAuthFlowSuccess => "CompleteOAthFlowSuccess",
             Self::InitializeDeviceSuccess => "InitializeDeviceSuccess",
             Self::EnsureDeviceCapabilitiesSuccess => "EnsureDeviceCapabilitiesSuccess",
-            Self::CheckAuthorizationStatusSuccess { .. } => "CheckAuthorizationStatusSuccess",
+            Self::CheckAuthorizationStatusSuccess { .. } => "CheckAthorizationStatusSuccess",
             Self::DisconnectSuccess => "DisconnectSuccess",
             Self::GetProfileSuccess => "GetProfileSuccess",
             Self::CallError => "CallError",
-            Self::EnsureCapabilitiesAuthError => "EnsureCapabilitiesAuthError",
+            Self::EnsureCapabilitiesAuthError => "EnsureCapabilitiesAthError",
         };
         write!(f, "{name}")
     }
