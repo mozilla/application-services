@@ -314,7 +314,7 @@ pub(crate) struct DownloadedWeatherDataInner {
     pub keywords: Vec<String>,
     // Remote settings doesn't support floats in record JSON so we use a
     // stringified float instead. If a float can't be parsed, this will be None.
-    #[serde(deserialize_with = "de_stringified_f64")]
+    #[serde(default, deserialize_with = "de_stringified_f64")]
     pub score: Option<f64>,
 }
 
@@ -322,7 +322,5 @@ fn de_stringified_f64<'de, D>(deserializer: D) -> std::result::Result<Option<f64
 where
     D: Deserializer<'de>,
 {
-    use std::str::FromStr;
-    let s = String::deserialize(deserializer)?;
-    Ok(f64::from_str(&s).ok())
+    String::deserialize(deserializer).map(|s| s.parse().ok())
 }
