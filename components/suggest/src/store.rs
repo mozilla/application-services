@@ -4250,7 +4250,7 @@ mod tests {
         .assert_debug_eq(
             &store
                 .fetch_config()
-                .with_context(|| format!("fetch_config failed"))?,
+                .with_context(|| "fetch_config failed")?,
         );
 
         Ok(())
@@ -4272,7 +4272,7 @@ mod tests {
         .assert_debug_eq(
             &store
                 .fetch_config()
-                .with_context(|| format!("fetch_config failed"))?,
+                .with_context(|| "fetch_config failed")?,
         );
 
         Ok(())
