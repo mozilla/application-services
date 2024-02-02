@@ -34,7 +34,7 @@
 use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{provider::SuggestionProvider, Result};
 
@@ -96,6 +96,8 @@ pub(crate) enum SuggestRecord {
     Mdn,
     #[serde(rename = "weather")]
     Weather(DownloadedWeatherData),
+    #[serde(rename = "configuration")]
+    Config(DownloadedConfig),
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -316,6 +318,18 @@ pub(crate) struct DownloadedWeatherDataInner {
     // stringified float instead. If a float can't be parsed, this will be None.
     #[serde(default, deserialize_with = "de_stringified_f64")]
     pub score: Option<f64>,
+}
+
+/// Suggest configuration data to ingest from a configuration record
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct DownloadedConfig {
+    pub configuration: DownloadedConfigInner,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct DownloadedConfigInner {
+    /// The maximum number of times the user can click "Show less frequently"
+    /// for a suggestion in the UI.
+    pub show_less_frequently_cap: i32,
 }
 
 fn de_stringified_f64<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
