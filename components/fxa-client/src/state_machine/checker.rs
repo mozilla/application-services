@@ -122,10 +122,16 @@ impl FxaStateMachineChecker {
         {
             Ok(state) => {
                 breadcrumb!("fxa-state-machine-checker: {event} -> {state}");
-                if let InternalState::Complete(new_state) = &state {
-                    inner.public_state = new_state.clone();
-                    breadcrumb!("fxa-state-machine-checker: public transition end");
-                }
+                match &state {
+                    InternalState::Complete(new_state) => {
+                        inner.public_state = new_state.clone();
+                        breadcrumb!("fxa-state-machine-checker: public transition end");
+                    }
+                    InternalState::Cancel => {
+                        breadcrumb!("fxa-state-machine-checker: public transition end (cancelled)");
+                    }
+                    _ => (),
+                };
                 inner.internal_state = state;
             }
             Err(e) => {
@@ -160,11 +166,13 @@ impl FxaStateMachineChecker {
         if inner.public_state != state {
             report_error!(
                 "fxa-state-machine-checker",
-                "State mismatch: expected: {state}, actual: {}",
+                "Public state mismatch: expected: {state}, actual: {} ({})",
+                inner.public_state,
                 inner.internal_state
             );
             inner.reported_error = true;
         }
+        breadcrumb!("fxa-state-machine-checker: check_public_state successfull {state}");
     }
 
     /// Check the internal state
@@ -179,7 +187,7 @@ impl FxaStateMachineChecker {
         if inner.internal_state != state {
             report_error!(
                 "fxa-state-machine-checker",
-                "State mismatch: {} vs {state}",
+                "Internal state mismatch: {} vs {state}",
                 inner.internal_state
             );
             inner.reported_error = true;
