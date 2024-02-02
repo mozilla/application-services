@@ -110,3 +110,19 @@ interface SuggestStore {
     [Throws=SuggestApiError]
     void clear();
 };
+
+interface SuggestStoreBuilder {
+    constructor();
+
+    [Self=ByArc]
+    SuggestStoreBuilder data_path(string path);
+
+    [Self=ByArc]
+    SuggestStoreBuilder cache_path(string path);
+
+    [Self=ByArc]
+    SuggestStoreBuilder remote_settings_config(RemoteSettingsConfig config);
+
+    [Throws=SuggestApiError]
+    SuggestStore build();
+};
