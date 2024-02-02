@@ -323,14 +323,18 @@ impl<'a> SuggestDao<'a> {
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
         let suggestions_limit = &query.limit.unwrap_or(-1);
         let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
-                     FROM suggestions s
-                     JOIN prefix_keywords k ON k.suggestion_id = s.id
-                     WHERE k.keyword_prefix = :keyword_prefix AND s.provider = :provider
-                     ORDER by s.score DESC
-                     LIMIT :suggestions_limit",
+            "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.keyword_suffix
+            FROM suggestions s
+            JOIN prefix_keywords k ON k.suggestion_id = s.id
+            WHERE k.keyword_prefix = :keyword_prefix AND
+                k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
+                s.provider = :provider
+            GROUP BY s.id
+            ORDER BY s.score DESC, rank DESC
+            LIMIT :suggestions_limit",
              named_params! {
                 ":keyword_prefix": keyword_prefix,
+                ":keyword_suffix": keyword_suffix,
                 ":provider": SuggestionProvider::Amo,
                 ":suggestions_limit": suggestions_limit,
             },
@@ -370,19 +374,20 @@ impl<'a> SuggestDao<'a> {
     pub fn fetch_pocket_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
-        let suggestions_limit = &query.limit.unwrap_or(-1);
         let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score, k.confidence, k.keyword_suffix
-                     FROM suggestions s
-                     JOIN prefix_keywords k ON k.suggestion_id = s.id
-                     WHERE k.keyword_prefix = :keyword_prefix AND s.provider = :provider
-                     ORDER BY s.score DESC
-                     LIMIT :suggestions_limit",
+            "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.confidence, 
+                k.keyword_suffix
+            FROM suggestions s
+            JOIN prefix_keywords k ON k.suggestion_id = s.id
+            WHERE k.keyword_prefix = :keyword_prefix AND
+                k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
+                s.provider = :provider
+            GROUP BY s.id, k.confidence
+            ORDER BY s.score DESC, rank DESC",
              named_params! {
                 ":keyword_prefix": keyword_prefix,
+                ":keyword_suffix": keyword_suffix,
                 ":provider": SuggestionProvider::Pocket,
-                ":suggestions_limit": suggestions_limit,
-
             },
             |row| -> Result<Option<Suggestion>>{
                 let title = row.get("title")?;
@@ -407,7 +412,11 @@ impl<'a> SuggestDao<'a> {
                     Ok(None)
                 }
             }
-            )?.into_iter().flatten().collect();
+            )?.into_iter().flatten().take(
+                query.limit.and_then(|limit|
+                    usize::try_from(limit).ok()
+                ).unwrap_or(usize::MAX)
+            ).collect();
         Ok(suggestions)
     }
 
@@ -419,23 +428,19 @@ impl<'a> SuggestDao<'a> {
         let suggestions = self
             .conn
             .query_rows_and_then_cached(
-                r#"
-                SELECT
-                    s.id, s.title, s.url, s.provider, s.score, k.keyword_suffix
-                FROM
-                    suggestions s
-                JOIN
-                    prefix_keywords k ON k.suggestion_id = s.id
-                WHERE
-                    k.keyword_prefix = :keyword_prefix
-                AND
+                "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.keyword_suffix
+                FROM suggestions s
+                JOIN prefix_keywords k ON k.suggestion_id = s.id
+                WHERE k.keyword_prefix = :keyword_prefix AND
+                    k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
                     s.provider = :provider
-                ORDER BY
-                    s.score DESC
+                GROUP BY s.id
+                ORDER BY s.score DESC, rank DESC
                 LIMIT :suggestions_limit
-                "#,
+                ",
                 named_params! {
                     ":keyword_prefix": keyword_prefix,
+                    ":keyword_suffix": keyword_suffix,
                     ":provider": SuggestionProvider::Mdn,
                     ":suggestions_limit": suggestions_limit,
                 },
