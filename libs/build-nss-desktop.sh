@@ -57,12 +57,12 @@ fi
 # We do not know how to cross compile these, so we pull pre-built versions from NSS CI
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  #From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
   if [[ "${MOZ_AUTOMATION}" == "1" ]]; then
     # run-task has already downloaded + extracted the dependency
     NSS_DIST_DIR="${MOZ_FETCHES_DIR}/dist"
   else
-    curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/SdO3Q-VZTkS8BxpV2kgfag/runs/0/artifacts/public/dist.tar.bz2"
+    # From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
+    curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public%2Fdist.tar.bz2"
     SHA256="a9b52d4e9ced9301341a19857393fcb6b1c8c375b3511e98fe12891869eed3d4"
     echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
     tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
