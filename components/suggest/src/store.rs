@@ -3411,6 +3411,153 @@ mod tests {
 
         Ok(())
     }
+
+    // Tests querying multiple suggestions with multiple keywords with same prefix keyword
+    #[test]
+    fn query_with_multiple_suggestions_with_same_prefix() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+             "id": "data-1",
+             "type": "amo-suggestions",
+             "last_modified": 15,
+             "attachment": {
+                 "filename": "data-1.json",
+                 "mimetype": "application/json",
+                 "location": "data-1.json",
+                 "hash": "",
+                 "size": 0,
+             },
+         }, {
+             "id": "data-2",
+             "type": "pocket-suggestions",
+             "last_modified": 15,
+             "attachment": {
+                 "filename": "data-2.json",
+                 "mimetype": "application/json",
+                 "location": "data-2.json",
+                 "hash": "",
+                 "size": 0,
+             },
+         }, {
+             "id": "icon-3",
+             "type": "icon",
+             "last_modified": 25,
+             "attachment": {
+                 "filename": "icon-3.png",
+                 "mimetype": "image/png",
+                 "location": "icon-3.png",
+                 "hash": "",
+                 "size": 0,
+             },
+         }]))?
+         .with_data(
+             "data-1.json",
+             json!([
+                    {
+                    "description": "amo suggestion",
+                    "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
+                    "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                    "keywords": ["relay", "spam", "masking email", "masking emails", "masking accounts", "alias" ],
+                    "title": "Firefox Relay",
+                    "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                    "rating": "4.9",
+                    "number_of_ratings": 888,
+                    "score": 0.25
+                }
+            ]),
+         )?
+         .with_data(
+             "data-2.json",
+             json!([
+                 {
+                     "description": "pocket suggestion",
+                     "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                     "lowConfidenceKeywords": ["soft life", "soft living", "soft work", "workaholism", "toxic work culture"],
+                     "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout", "soft lives"],
+                     "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                     "score": 0.05
+                 }
+             ]),
+         )?
+         .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "keyword = `soft li`; pocket",
+                SuggestionQuery {
+                    keyword: "soft li".into(),
+                    providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Pocket {
+                            title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                            url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                            score: 0.05,
+                            is_top_pick: false,
+                        },
+                    ]
+                 "#]],
+            ),
+            (
+                "keyword = `soft lives`; pocket",
+                SuggestionQuery {
+                    keyword: "soft lives".into(),
+                    providers: vec![SuggestionProvider::Pocket],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Pocket {
+                            title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
+                            url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
+                            score: 0.05,
+                            is_top_pick: true,
+                        },
+                    ]
+                 "#]],
+            ),
+            (
+                "keyword = `masking `; amo provider",
+                SuggestionQuery {
+                    keyword: "masking ".into(),
+                    providers: vec![SuggestionProvider::Amo],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Amo {
+                            title: "Firefox Relay",
+                            url: "https://addons.mozilla.org/en-US/firefox/addon/example",
+                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
+                            description: "amo suggestion",
+                            rating: Some(
+                                "4.9",
+                            ),
+                            number_of_ratings: 888,
+                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
+                            score: 0.25,
+                        },
+                    ]
+                 "#]],
+            ),
+        ];
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
     /// Tests ingesting malformed Remote Settings records that we understand,
     /// but that are missing fields, or aren't in the format we expect.
     #[test]
