@@ -6,10 +6,12 @@
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use error_support::handle_error;
 use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 use remote_settings::{
     self, GetItemsOptions, RemoteSettingsConfig, RemoteSettingsRecord, SortOrder,
 };
@@ -34,6 +36,70 @@ use crate::{
 
 /// The chunk size used to request unparsable records.
 pub const UNPARSABLE_IDS_PER_REQUEST: usize = 150;
+
+/// Builder for [SuggestStore]
+///
+/// Using a builder is preferred to calling the constructor directly since it's harder to confuse
+/// the data_path and cache_path strings.
+pub struct SuggestStoreBuilder(Mutex<SuggestStoreBuilderInner>);
+
+#[derive(Default)]
+struct SuggestStoreBuilderInner {
+    data_path: Option<String>,
+    cache_path: Option<String>,
+    remote_settings_config: Option<RemoteSettingsConfig>,
+}
+
+impl Default for SuggestStoreBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SuggestStoreBuilder {
+    pub fn new() -> SuggestStoreBuilder {
+        Self(Mutex::new(SuggestStoreBuilderInner::default()))
+    }
+
+    pub fn data_path(self: Arc<Self>, path: String) -> Arc<Self> {
+        self.0.lock().data_path = Some(path);
+        self
+    }
+
+    pub fn cache_path(self: Arc<Self>, path: String) -> Arc<Self> {
+        self.0.lock().cache_path = Some(path);
+        self
+    }
+
+    pub fn remote_settings_config(self: Arc<Self>, config: RemoteSettingsConfig) -> Arc<Self> {
+        self.0.lock().remote_settings_config = Some(config);
+        self
+    }
+
+    #[handle_error(Error)]
+    pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
+        let inner = self.0.lock();
+        let data_path = inner
+            .data_path
+            .clone()
+            .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
+        let cache_path = inner
+            .cache_path
+            .clone()
+            .ok_or_else(|| Error::SuggestStoreBuilder("cache_path not specified".to_owned()))?;
+        let settings_client =
+            remote_settings::Client::new(inner.remote_settings_config.clone().unwrap_or_else(
+                || RemoteSettingsConfig {
+                    server_url: None,
+                    bucket_name: None,
+                    collection_name: REMOTE_SETTINGS_COLLECTION.into(),
+                },
+            ))?;
+        Ok(Arc::new(SuggestStore {
+            inner: SuggestStoreInner::new(data_path, cache_path, settings_client),
+        }))
+    }
+}
 
 /// The store is the entry point to the Suggest component. It incrementally
 /// downloads suggestions from the Remote Settings service, stores them in a
@@ -114,7 +180,7 @@ impl SuggestStore {
             )?)
         }()?;
         Ok(Self {
-            inner: SuggestStoreInner::new(path, settings_client),
+            inner: SuggestStoreInner::new("".to_owned(), path.to_owned(), settings_client),
         })
     }
 
@@ -161,15 +227,29 @@ pub struct SuggestIngestionConstraints {
 /// client, and is split out from the concrete [`SuggestStore`] for testing
 /// with a mock client.
 pub(crate) struct SuggestStoreInner<S> {
-    path: PathBuf,
+    /// Path to the persistent SQL database.
+    ///
+    /// This stores things that should persist when the user clears their cache.
+    /// It's not currently used because not all consumers pass this in yet.
+    #[allow(unused)]
+    data_path: PathBuf,
+    /// Path to the temporary SQL database.
+    ///
+    /// This stores things that should be deleted when the user clears their cache.
+    cache_path: PathBuf,
     dbs: OnceCell<SuggestStoreDbs>,
     settings_client: S,
 }
 
 impl<S> SuggestStoreInner<S> {
-    fn new(path: impl AsRef<Path>, settings_client: S) -> Self {
+    fn new(
+        data_path: impl Into<PathBuf>,
+        cache_path: impl Into<PathBuf>,
+        settings_client: S,
+    ) -> Self {
         Self {
-            path: path.as_ref().into(),
+            data_path: data_path.into(),
+            cache_path: cache_path.into(),
             dbs: OnceCell::new(),
             settings_client,
         }
@@ -179,7 +259,7 @@ impl<S> SuggestStoreInner<S> {
     /// they're not already open.
     fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
-            .get_or_try_init(|| SuggestStoreDbs::open(&self.path))
+            .get_or_try_init(|| SuggestStoreDbs::open(&self.cache_path))
     }
 
     fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
@@ -455,7 +535,11 @@ mod tests {
         // it in shared-cache mode so that both connections can access it.
         SuggestStoreInner::new(
             format!(
-                "file:test_store_{}?mode=memory&cache=shared",
+                "file:test_store_data_{}?mode=memory&cache=shared",
+                hex::encode(unique_suffix),
+            ),
+            format!(
+                "file:test_store_cache_{}?mode=memory&cache=shared",
                 hex::encode(unique_suffix),
             ),
             settings_client,

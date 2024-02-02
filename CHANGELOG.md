@@ -14,6 +14,9 @@
 
 ### Suggest
 - Added more error variants to `SuggestApiError`
+- Added `SuggestStoreBuilder` to create `SuggestStore` instances.
+- `SuggestStore` now stores a data path.  This is the path to the SQLite database that should
+  persist when the cache is cleared.
 
 ## What's Fixed
 - It was possible for sync to apply a tombstone for places while a bookmark was still in the database. This would have resulted in foreign constraint SQLite error.

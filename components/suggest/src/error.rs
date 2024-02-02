@@ -25,6 +25,9 @@ pub(crate) enum Error {
 
     #[error("Operation interrupted")]
     Interrupted(#[from] interrupt_support::Interrupted),
+
+    #[error("SuggestStoreBuilder {0}")]
+    SuggestStoreBuilder(String),
 }
 
 /// The error type for all Suggest component operations. These errors are
