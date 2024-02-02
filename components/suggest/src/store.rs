@@ -3775,8 +3775,8 @@ mod tests {
             "type": "weather",
             "last_modified": 15,
             "weather": {
-                "keywords": ["weath", "weathe", "weather"],
-                "score": 0.24
+                "keywords": ["ab", "xyz", "weather"],
+                "score": "0.24"
             }
         }]))?;
 
@@ -3785,9 +3785,9 @@ mod tests {
 
         let table = [
             (
-                "keyword = 'weat'; Weather only, no match",
+                "keyword = 'ab'; Weather only, no match since query is too short",
                 SuggestionQuery {
-                    keyword: "weat".into(),
+                    keyword: "ab".into(),
                     providers: vec![SuggestionProvider::Weather],
                     limit: None,
                 },
@@ -3796,7 +3796,118 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = 'weath'; Weather only",
+                "keyword = 'xab'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "xab".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'abx'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "abx".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'xy'; Weather only, no match since query is too short",
+                SuggestionQuery {
+                    keyword: "xy".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'xyz'; Weather only, match",
+                SuggestionQuery {
+                    keyword: "xyz".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'xxyz'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "xxyz".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'xyzx'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "xyzx".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'we'; Weather only, no match since query is too short",
+                SuggestionQuery {
+                    keyword: "we".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'wea'; Weather only, match",
+                SuggestionQuery {
+                    keyword: "wea".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'weat'; Weather only, match",
+                SuggestionQuery {
+                    keyword: "weat".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'weath'; Weather only, match",
                 SuggestionQuery {
                     keyword: "weath".into(),
                     providers: vec![SuggestionProvider::Weather],
@@ -3811,7 +3922,7 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = 'weathe'; Weather only",
+                "keyword = 'weathe'; Weather only, match",
                 SuggestionQuery {
                     keyword: "weathe".into(),
                     providers: vec![SuggestionProvider::Weather],
@@ -3826,7 +3937,7 @@ mod tests {
                 "#]],
             ),
             (
-                "keyword = 'weather'; Weather only",
+                "keyword = 'weather'; Weather only, match",
                 SuggestionQuery {
                     keyword: "weather".into(),
                     providers: vec![SuggestionProvider::Weather],
@@ -3838,6 +3949,76 @@ mod tests {
                             score: 0.24,
                         },
                     ]
+                "#]],
+            ),
+            (
+                "keyword = 'weatherx'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "weatherx".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'xweather'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "xweather".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = 'xwea'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "xwea".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = '   weather  '; Weather only, match",
+                SuggestionQuery {
+                    keyword: "   weather  ".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    [
+                        Weather {
+                            score: 0.24,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "keyword = 'x   weather  '; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "x   weather  ".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "keyword = '   weather  x'; Weather only, no matching keyword",
+                SuggestionQuery {
+                    keyword: "   weather  x".into(),
+                    providers: vec![SuggestionProvider::Weather],
+                    limit: None,
+                },
+                expect![[r#"
+                    []
                 "#]],
             ),
         ];

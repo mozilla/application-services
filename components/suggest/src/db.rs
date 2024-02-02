@@ -432,12 +432,19 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches weather suggestions
     pub fn fetch_weather_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        let keyword_lowercased = &query.keyword.to_lowercase();
+        // Weather keywords are matched by prefix but the query must be at least
+        // three chars long. Unlike the prefix matching of other suggestion
+        // types, the query doesn't need to contain the first full word.
+        if query.keyword.len() < 3 {
+            return Ok(vec![]);
+        }
+
+        let keyword_lowercased = &query.keyword.trim().to_lowercase();
         let suggestions = self.conn.query_rows_and_then_cached(
             "SELECT s.score
              FROM suggestions s
              JOIN keywords k ON k.suggestion_id = s.id
-             WHERE s.provider = :provider AND k.keyword = :keyword",
+             WHERE s.provider = :provider AND (k.keyword BETWEEN :keyword AND :keyword || X'FFFF')",
             named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": SuggestionProvider::Weather
@@ -826,7 +833,7 @@ impl<'a> SuggestDao<'a> {
             ),
             named_params! {
                 ":record_id": record_id.as_str(),
-                ":score": data.weather.score,
+                ":score": data.weather.score.unwrap_or(DEFAULT_SUGGESTION_SCORE),
             },
             |row| row.get(0),
             true,
