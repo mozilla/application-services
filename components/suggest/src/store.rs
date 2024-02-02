@@ -27,8 +27,8 @@ use crate::{
     },
     error::Error,
     rs::{
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
-        REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        DownloadedConfig, SuggestAttachment, SuggestRecord, SuggestRecordId,
+        SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
     schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -210,6 +210,12 @@ impl SuggestStore {
     pub fn clear(&self) -> SuggestApiResult<()> {
         self.inner.clear()
     }
+
+    // Returns Suggest configuration data.
+    #[handle_error(Error)]
+    pub fn fetch_config(&self) -> SuggestApiResult<SuggestConfig> {
+        self.inner.fetch_config()
+    }
 }
 
 /// Constraints limit which suggestions to ingest from Remote Settings.
@@ -221,6 +227,20 @@ pub struct SuggestIngestionConstraints {
     /// Because of how suggestions are partitioned in Remote Settings, this is a
     /// soft limit, and the store might ingest more than requested.
     pub max_suggestions: Option<u64>,
+}
+
+/// Suggest configuration data.
+#[derive(Clone, Default, Debug)]
+pub struct SuggestConfig {
+    pub show_less_frequently_cap: i32,
+}
+
+impl From<DownloadedConfig> for SuggestConfig {
+    fn from(value: DownloadedConfig) -> Self {
+        Self {
+            show_less_frequently_cap: value.configuration.show_less_frequently_cap,
+        }
+    }
 }
 
 /// The implementation of the store. This is generic over the Remote Settings
@@ -278,6 +298,10 @@ impl<S> SuggestStoreInner<S> {
 
     fn clear(&self) -> Result<()> {
         self.dbs()?.writer.write(|dao| dao.clear())
+    }
+
+    pub fn fetch_config(&self) -> Result<SuggestConfig> {
+        self.dbs()?.reader.read(|dao| dao.get_config())
     }
 }
 
@@ -423,6 +447,9 @@ where
                     self.ingest_record(writer, record, |dao, record_id| {
                         dao.insert_weather_data(record_id, &data)
                     })?;
+                }
+                SuggestRecord::Config(config) => {
+                    self.ingest_record(writer, record, |dao, _| dao.put_config(&config))?;
                 }
             }
         }
@@ -4195,6 +4222,58 @@ mod tests {
                     .with_context(|| format!("Couldn't query store for {}", what))?,
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_config() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "configuration",
+            "last_modified": 15,
+            "configuration": {
+                "show_less_frequently_cap": 3,
+            }
+        }]))?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        expect![[r#"
+            SuggestConfig {
+                show_less_frequently_cap: 3,
+            }
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_config()
+                .with_context(|| format!("fetch_config failed"))?,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_config_default() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([]))?;
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        expect![[r#"
+            SuggestConfig {
+                show_less_frequently_cap: 0,
+            }
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_config()
+                .with_context(|| format!("fetch_config failed"))?,
+        );
 
         Ok(())
     }

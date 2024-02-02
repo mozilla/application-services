@@ -96,6 +96,10 @@ dictionary SuggestIngestionConstraints {
     u64? max_suggestions = null;
 };
 
+dictionary SuggestConfig {
+    i32 show_less_frequently_cap;
+};
+
 interface SuggestStore {
     [Throws=SuggestApiError]
     constructor([ByRef] string path, optional RemoteSettingsConfig? settings_config = null);
@@ -110,6 +114,9 @@ interface SuggestStore {
 
     [Throws=SuggestApiError]
     void clear();
+
+    [Throws=SuggestApiError]
+    SuggestConfig fetch_config();
 };
 
 interface SuggestStoreBuilder {
