@@ -35,7 +35,7 @@ We use a Linux TC worker for cross-compiling NSS for iOS, Android and Linux desk
 3. Update [taskcluster/ci/fetch/kind.yml](https://github.com/mozilla/application-services/blob/main/taskcluster/ci/fetch/kind.yml), specifically `nss-artifact` task to the appropriate `url` and `checksum` and `size`
     > Note: _To get the checksum, you can run `shasum -a 256 {path-to-artifact}` or you can make a PR and see the output of the failed log._
 4. Update the SHA256 value for darwin cross-compile in [libs/build-nss-desktop.sh](https://github.com/mozilla/application-services/blob/main/libs/build-nss-desktop.sh) to the same checksum as above.
-5. Open a pull request with these changes and it should update the [Taskcluster artifact](https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-1.content.v1.nss-artifact/latest)
+5. Once the pull request lands, `build-nss-desktop.sh` should be updated once more using the L3 cache [Taskcluster artifact](https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest).
 
 ---
 
