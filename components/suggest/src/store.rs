@@ -26,9 +26,11 @@ use crate::{
         ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY,
     },
     error::Error,
+    provider::SuggestionProvider,
     rs::{
-        DownloadedConfig, SuggestAttachment, SuggestRecord, SuggestRecordId,
-        SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        DownloadedGlobalConfig, DownloadedWeatherData, SuggestAttachment, SuggestRecord,
+        SuggestRecordId, SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION,
+        SUGGESTIONS_PER_ATTACHMENT,
     },
     schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -211,10 +213,19 @@ impl SuggestStore {
         self.inner.clear()
     }
 
-    // Returns Suggest configuration data.
+    // Returns global Suggest configuration data.
     #[handle_error(Error)]
-    pub fn fetch_config(&self) -> SuggestApiResult<SuggestConfig> {
-        self.inner.fetch_config()
+    pub fn fetch_global_config(&self) -> SuggestApiResult<SuggestGlobalConfig> {
+        self.inner.fetch_global_config()
+    }
+
+    // Returns per-provider Suggest configuration data.
+    #[handle_error(Error)]
+    pub fn fetch_provider_config(
+        &self,
+        provider: SuggestionProvider,
+    ) -> SuggestApiResult<Option<SuggestProviderConfig>> {
+        self.inner.fetch_provider_config(provider)
     }
 }
 
@@ -229,16 +240,30 @@ pub struct SuggestIngestionConstraints {
     pub max_suggestions: Option<u64>,
 }
 
-/// Suggest configuration data.
-#[derive(Clone, Default, Debug)]
-pub struct SuggestConfig {
+/// Global Suggest configuration data.
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+pub struct SuggestGlobalConfig {
     pub show_less_frequently_cap: i32,
 }
 
-impl From<DownloadedConfig> for SuggestConfig {
-    fn from(value: DownloadedConfig) -> Self {
+impl From<&DownloadedGlobalConfig> for SuggestGlobalConfig {
+    fn from(config: &DownloadedGlobalConfig) -> Self {
         Self {
-            show_less_frequently_cap: value.configuration.show_less_frequently_cap,
+            show_less_frequently_cap: config.configuration.show_less_frequently_cap,
+        }
+    }
+}
+
+/// Per-provider configuration data.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum SuggestProviderConfig {
+    Weather { min_keyword_length: i32 },
+}
+
+impl From<&DownloadedWeatherData> for SuggestProviderConfig {
+    fn from(data: &DownloadedWeatherData) -> Self {
+        Self::Weather {
+            min_keyword_length: data.weather.min_keyword_length,
         }
     }
 }
@@ -300,8 +325,17 @@ impl<S> SuggestStoreInner<S> {
         self.dbs()?.writer.write(|dao| dao.clear())
     }
 
-    pub fn fetch_config(&self) -> Result<SuggestConfig> {
-        self.dbs()?.reader.read(|dao| dao.get_config())
+    pub fn fetch_global_config(&self) -> Result<SuggestGlobalConfig> {
+        self.dbs()?.reader.read(|dao| dao.get_global_config())
+    }
+
+    pub fn fetch_provider_config(
+        &self,
+        provider: SuggestionProvider,
+    ) -> Result<Option<SuggestProviderConfig>> {
+        self.dbs()?
+            .reader
+            .read(|dao| dao.get_provider_config(provider))
     }
 }
 
@@ -448,8 +482,10 @@ where
                         dao.insert_weather_data(record_id, &data)
                     })?;
                 }
-                SuggestRecord::Config(config) => {
-                    self.ingest_record(writer, record, |dao, _| dao.put_config(&config))?;
+                SuggestRecord::GlobalConfig(config) => {
+                    self.ingest_record(writer, record, |dao, _| {
+                        dao.put_global_config(&SuggestGlobalConfig::from(&config))
+                    })?;
                 }
             }
         }
@@ -3959,7 +3995,7 @@ mod tests {
     }
 
     #[test]
-    fn query_weather() -> anyhow::Result<()> {
+    fn weather() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([{
@@ -3967,6 +4003,7 @@ mod tests {
             "type": "weather",
             "last_modified": 15,
             "weather": {
+                "min_keyword_length": 3,
                 "keywords": ["ab", "xyz", "weather"],
                 "score": "0.24"
             }
@@ -4223,11 +4260,24 @@ mod tests {
             );
         }
 
+        expect![[r#"
+            Some(
+                Weather {
+                    min_keyword_length: 3,
+                },
+            )
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_provider_config(SuggestionProvider::Weather)
+                .with_context(|| "Couldn't fetch provider config")?,
+        );
+
         Ok(())
     }
 
     #[test]
-    fn fetch_config() -> anyhow::Result<()> {
+    fn fetch_global_config() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([{
@@ -4243,21 +4293,21 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         expect![[r#"
-            SuggestConfig {
+            SuggestGlobalConfig {
                 show_less_frequently_cap: 3,
             }
         "#]]
         .assert_debug_eq(
             &store
-                .fetch_config()
-                .with_context(|| "fetch_config failed")?,
+                .fetch_global_config()
+                .with_context(|| "fetch_global_config failed")?,
         );
 
         Ok(())
     }
 
     #[test]
-    fn fetch_config_default() -> anyhow::Result<()> {
+    fn fetch_global_config_default() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([]))?;
@@ -4265,14 +4315,75 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         expect![[r#"
-            SuggestConfig {
+            SuggestGlobalConfig {
                 show_less_frequently_cap: 0,
             }
         "#]]
         .assert_debug_eq(
             &store
-                .fetch_config()
-                .with_context(|| "fetch_config failed")?,
+                .fetch_global_config()
+                .with_context(|| "fetch_global_config failed")?,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_provider_config_none() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([]))?;
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        expect![[r#"
+            None
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_provider_config(SuggestionProvider::Amp)
+                .with_context(|| "fetch_provider_config failed for Amp")?,
+        );
+
+        expect![[r#"
+            None
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_provider_config(SuggestionProvider::Weather)
+                .with_context(|| "fetch_provider_config failed for Weather")?,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_provider_config_other() -> anyhow::Result<()> {
+        before_each();
+
+        // Add some weather config.
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "weather",
+            "last_modified": 15,
+            "weather": {
+                "min_keyword_length": 3,
+                "keywords": ["weather"],
+                "score": "0.24"
+            }
+        }]))?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        // Getting the config for a different provider should return None.
+        expect![[r#"
+            None
+        "#]]
+        .assert_debug_eq(
+            &store
+                .fetch_provider_config(SuggestionProvider::Amp)
+                .with_context(|| "fetch_provider_config failed for Amp")?,
         );
 
         Ok(())

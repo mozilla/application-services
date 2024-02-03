@@ -19,12 +19,11 @@ use crate::{
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
     rs::{
-        DownloadedAmoSuggestion, DownloadedAmpWikipediaSuggestion, DownloadedConfig,
-        DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
-        SuggestRecordId,
+        DownloadedAmoSuggestion, DownloadedAmpWikipediaSuggestion, DownloadedMdnSuggestion,
+        DownloadedPocketSuggestion, DownloadedWeatherData, SuggestRecordId,
     },
     schema::{SuggestConnectionInitializer, VERSION},
-    store::{SuggestConfig, UnparsableRecord, UnparsableRecords},
+    store::{SuggestGlobalConfig, SuggestProviderConfig, UnparsableRecord, UnparsableRecords},
     suggestion::{cook_raw_suggestion_url, Suggestion},
     Result, SuggestionQuery,
 };
@@ -35,9 +34,13 @@ pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
 /// The metadata key whose value keeps track of records of suggestions
 /// that aren't parsable and which schema version it was first seen in.
 pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
-/// The metadata key whose value is a JSON string encoding a `DownloadedConfig`,
-/// which contains Suggest configuration data.
-pub const CONFIG_META_KEY: &str = "config";
+/// The metadata key whose value is a JSON string encoding a
+/// `SuggestGlobalConfig`, which contains global Suggest configuration data.
+pub const GLOBAL_CONFIG_META_KEY: &str = "global_config";
+/// Prefix of metadata keys whose values are JSON strings encoding
+/// `SuggestProviderConfig`, which contains per-provider configuration data. The
+/// full key is this prefix plus the `SuggestionProvider` value as a u8.
+pub const PROVIDER_CONFIG_META_KEY_PREFIX: &str = "provider_config_";
 
 // Default value when Suggestion does not have a value for score
 pub const DEFAULT_SUGGESTION_SCORE: f64 = 0.2;
@@ -853,6 +856,10 @@ impl<'a> SuggestDao<'a> {
                 },
             )?;
         }
+        self.put_provider_config(
+            SuggestionProvider::Weather,
+            &SuggestProviderConfig::from(data),
+        )?;
         Ok(())
     }
 
@@ -984,19 +991,44 @@ impl<'a> SuggestDao<'a> {
         self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)
     }
 
-    /// Stores Suggest configuration data.
-    pub fn put_config(&mut self, config: &DownloadedConfig) -> Result<()> {
-        self.put_meta(CONFIG_META_KEY, serde_json::to_string(config)?)
+    /// Stores global Suggest configuration data.
+    pub fn put_global_config(&mut self, config: &SuggestGlobalConfig) -> Result<()> {
+        self.put_meta(GLOBAL_CONFIG_META_KEY, serde_json::to_string(config)?)
     }
 
-    /// Gets the stored Suggest configuration data or a default config if none
-    /// is stored.
-    pub fn get_config(&self) -> Result<SuggestConfig> {
-        if let Some(json) = self.get_meta::<String>(CONFIG_META_KEY)? {
-            let downloaded: DownloadedConfig = serde_json::from_str(&json)?;
-            Ok(SuggestConfig::from(downloaded))
-        } else {
-            Ok(SuggestConfig::default())
-        }
+    /// Gets the stored global Suggest configuration data or a default config if
+    /// none is stored.
+    pub fn get_global_config(&self) -> Result<SuggestGlobalConfig> {
+        self.get_meta::<String>(GLOBAL_CONFIG_META_KEY)?
+            .map_or_else(
+                || Ok(SuggestGlobalConfig::default()),
+                |json| Ok(serde_json::from_str(&json)?),
+            )
     }
+
+    /// Stores configuration data for a given provider.
+    pub fn put_provider_config(
+        &mut self,
+        provider: SuggestionProvider,
+        config: &SuggestProviderConfig,
+    ) -> Result<()> {
+        self.put_meta(
+            &provider_config_meta_key(provider),
+            serde_json::to_string(config)?,
+        )
+    }
+
+    /// Gets the stored configuration data for a given provider or None if none
+    /// is stored.
+    pub fn get_provider_config(
+        &self,
+        provider: SuggestionProvider,
+    ) -> Result<Option<SuggestProviderConfig>> {
+        self.get_meta::<String>(&provider_config_meta_key(provider))?
+            .map_or_else(|| Ok(None), |json| Ok(serde_json::from_str(&json)?))
+    }
+}
+
+fn provider_config_meta_key(provider: SuggestionProvider) -> String {
+    format!("{}{}", PROVIDER_CONFIG_META_KEY_PREFIX, provider as u8)
 }
