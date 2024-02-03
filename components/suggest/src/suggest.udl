@@ -96,8 +96,15 @@ dictionary SuggestIngestionConstraints {
     u64? max_suggestions = null;
 };
 
-dictionary SuggestConfig {
+dictionary SuggestGlobalConfig {
     i32 show_less_frequently_cap;
+};
+
+[Enum]
+interface SuggestProviderConfig {
+    Weather(
+        i32 min_keyword_length
+    );
 };
 
 interface SuggestStore {
@@ -116,7 +123,10 @@ interface SuggestStore {
     void clear();
 
     [Throws=SuggestApiError]
-    SuggestConfig fetch_config();
+    SuggestGlobalConfig fetch_global_config();
+
+    [Throws=SuggestApiError]
+    SuggestProviderConfig? fetch_provider_config(SuggestionProvider provider);
 };
 
 interface SuggestStoreBuilder {

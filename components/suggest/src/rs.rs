@@ -34,7 +34,7 @@
 use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer};
 
 use crate::{provider::SuggestionProvider, Result};
 
@@ -97,7 +97,7 @@ pub(crate) enum SuggestRecord {
     #[serde(rename = "weather")]
     Weather(DownloadedWeatherData),
     #[serde(rename = "configuration")]
-    Config(DownloadedConfig),
+    GlobalConfig(DownloadedGlobalConfig),
 }
 
 /// Represents either a single value, or a list of values. This is used to
@@ -313,6 +313,7 @@ pub(crate) struct DownloadedWeatherData {
 }
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedWeatherDataInner {
+    pub min_keyword_length: i32,
     pub keywords: Vec<String>,
     // Remote settings doesn't support floats in record JSON so we use a
     // stringified float instead. If a float can't be parsed, this will be None.
@@ -320,13 +321,13 @@ pub(crate) struct DownloadedWeatherDataInner {
     pub score: Option<f64>,
 }
 
-/// Suggest configuration data to ingest from a configuration record
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct DownloadedConfig {
-    pub configuration: DownloadedConfigInner,
+/// Global Suggest configuration data to ingest from a configuration record
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedGlobalConfig {
+    pub configuration: DownloadedGlobalConfigInner,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct DownloadedConfigInner {
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedGlobalConfigInner {
     /// The maximum number of times the user can click "Show less frequently"
     /// for a suggestion in the UI.
     pub show_less_frequently_cap: i32,
