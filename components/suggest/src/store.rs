@@ -374,16 +374,7 @@ where
             if record.deleted {
                 // If the entire record was deleted, drop all its suggestions
                 // and advance the last ingest time.
-                writer.write(|dao| {
-                    match record_id.as_icon_id() {
-                        Some(icon_id) => dao.drop_icon(icon_id)?,
-                        None => dao.drop_suggestions(&record_id)?,
-                    };
-                    dao.drop_unparsable_record_id(&record_id)?;
-                    dao.put_last_ingest_if_newer(record.last_modified)?;
-
-                    Ok(())
-                })?;
+                writer.write(|dao| dao.handle_deleted_record(record))?;
                 continue;
             }
             let Ok(fields) =
@@ -391,11 +382,7 @@ where
             else {
                 // We don't recognize this record's type, so we don't know how
                 // to ingest its suggestions. Record this in the meta table.
-                writer.write(|dao| {
-                    dao.put_unparsable_record_id(&record_id)?;
-                    dao.put_last_ingest_if_newer(record.last_modified)?;
-                    Ok(())
-                })?;
+                writer.write(|dao| dao.handle_unparsable_record(record))?;
                 continue;
             };
 
@@ -418,12 +405,7 @@ where
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.put_icon(icon_id, &data)?;
-                        dao.put_last_ingest_if_newer(record.last_modified)?;
-                        // Remove this record's ID from the list of unparsable
-                        // records, since we understand it now.
-                        dao.drop_unparsable_record_id(&record_id)?;
-
-                        Ok(())
+                        dao.handle_ingested_record(record)
                     })?;
                 }
                 SuggestRecord::Amo => {
@@ -482,15 +464,7 @@ where
             // Ingest (or re-ingest) all data in the record.
             ingestion_handler(dao, &record_id)?;
 
-            // Remove this record's ID from the list of unparsable
-            // records, since we understand it now.
-            dao.drop_unparsable_record_id(&record_id)?;
-
-            // Advance the last fetch time, so that we can resume
-            // fetching after this record if we're interrupted.
-            dao.put_last_ingest_if_newer(record.last_modified)?;
-
-            Ok(())
+            dao.handle_ingested_record(record)
         })
     }
 
@@ -516,13 +490,7 @@ where
             Ok(attachment) => self.ingest_record(writer, record, |dao, record_id| {
                 ingestion_handler(dao, record_id, attachment.suggestions())
             }),
-            Err(_) => writer.write(|dao| {
-                // The attachment was not able to be parsed, record this and continue on
-                let record_id = SuggestRecordId::from(&record.id);
-                dao.put_unparsable_record_id(&record_id)?;
-                dao.put_last_ingest_if_newer(record.last_modified)?;
-                Ok(())
-            }),
+            Err(_) => writer.write(|dao| dao.handle_unparsable_record(record)),
         }
     }
 }
