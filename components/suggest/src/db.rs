@@ -150,11 +150,20 @@ impl<'a> SuggestDao<'a> {
         self.put_last_ingest_if_newer(record.last_modified)
     }
 
-    pub fn handle_ingested_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+    pub fn handle_ingested_record(
+        &mut self,
+        record: &RemoteSettingsRecord,
+        saw_unknown_fields: bool,
+    ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
-        // Remove this record's ID from the list of unparsable
-        // records, since we understand it now.
-        self.drop_unparsable_record_id(&record_id)?;
+        if saw_unknown_fields {
+            // Remember this record's ID so that we will try again later
+            self.put_unparsable_record_id(&record_id)?;
+        } else {
+            // Remove this record's ID from the list of unparsable
+            // records, since we understand it now.
+            self.drop_unparsable_record_id(&record_id)?;
+        }
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
         self.put_last_ingest_if_newer(record.last_modified)

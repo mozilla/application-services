@@ -19,7 +19,7 @@ use rusqlite::{
     types::{FromSql, ToSqlOutput},
     ToSql,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
@@ -29,8 +29,8 @@ use crate::{
     error::Error,
     provider::SuggestionProvider,
     rs::{
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
-        REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        AttachmentPayload, SuggestAttachment, SuggestRecord, SuggestRecordId,
+        SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
     schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -405,7 +405,7 @@ where
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.put_icon(icon_id, &data)?;
-                        dao.handle_ingested_record(record)
+                        dao.handle_ingested_record(record, false)
                     })?;
                 }
                 SuggestRecord::Amo => {
@@ -432,12 +432,15 @@ where
                     })?;
                 }
                 SuggestRecord::Weather(data) => {
-                    self.ingest_record(writer, record, |dao, record_id| {
-                        dao.insert_weather_data(record_id, &data)
-                    })?;
+                    self.ingest_record(
+                        writer,
+                        record,
+                        data.has_unknown_fields(),
+                        |dao, record_id| dao.insert_weather_data(record_id, &data),
+                    )?;
                 }
                 SuggestRecord::GlobalConfig(config) => {
-                    self.ingest_record(writer, record, |dao, _| {
+                    self.ingest_record(writer, record, config.has_unknown_fields(), |dao, _| {
                         dao.put_global_config(&SuggestGlobalConfig::from(&config))
                     })?;
                 }
@@ -450,6 +453,7 @@ where
         &self,
         writer: &SuggestDb,
         record: &RemoteSettingsRecord,
+        saw_unknown_fields: bool,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
     ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
@@ -464,7 +468,7 @@ where
             // Ingest (or re-ingest) all data in the record.
             ingestion_handler(dao, &record_id)?;
 
-            dao.handle_ingested_record(record)
+            dao.handle_ingested_record(record, saw_unknown_fields)
         })
     }
 
@@ -475,7 +479,7 @@ where
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
     ) -> Result<()>
     where
-        T: DeserializeOwned,
+        T: SuggestAttachment,
     {
         let Some(attachment) = record.attachment.as_ref() else {
             // This method should be called only when a record is expected to
@@ -486,10 +490,13 @@ where
         };
 
         let attachment_data = self.settings_client.get_attachment(&attachment.location)?;
-        match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
-            Ok(attachment) => self.ingest_record(writer, record, |dao, record_id| {
-                ingestion_handler(dao, record_id, attachment.suggestions())
-            }),
+        match serde_json::from_slice::<AttachmentPayload<T>>(&attachment_data) {
+            Ok(attachment_payload) => self.ingest_record(
+                writer,
+                record,
+                attachment_payload.has_unknown_fields(),
+                |dao, record_id| ingestion_handler(dao, record_id, attachment_payload.as_slice()),
+            ),
             Err(_) => writer.write(|dao| dao.handle_unparsable_record(record)),
         }
     }
@@ -4129,7 +4136,7 @@ mod tests {
 
     /// Tests that records with invalid attachments are ignored and marked as unparsable.
     #[test]
-    fn skip_over_invalid_records() -> anyhow::Result<()> {
+    fn skip_over_invalid_attachments() -> anyhow::Result<()> {
         before_each();
 
         let snapshot = Snapshot::with_records(json!([
@@ -4211,6 +4218,103 @@ mod tests {
         })?;
 
         // Test that the valid record was read
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            expect![[r#"
+                [
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        full_keyword: "los",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "lo".into(),
+                providers: vec![SuggestionProvider::Amp],
+                limit: None,
+            })?);
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests that records with attachments that has newer fields are both ingested and marked
+    /// unparsable
+    #[test]
+    fn flag_attachments_with_newer_fields() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([
+            {
+                "id": "attachment-with-newer-fields",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+        ]))?
+        // This attachment is has a `keywords2` field which we don't recognize.  This indicates
+        // the attachment has a newer schema that we don't fully understand.  We should both ingest
+        // it and mark it unparsable so that we reload it when the user upgrades next.
+        .with_data(
+            "data-1.json",
+            json!([{
+                    "id": 0,
+                    "advertiser": "Los Pollos Hermanos",
+                    "iab_category": "8 - Food & Drink",
+                    "title": "Los Pollos Hermanos - Albuquerque",
+                    "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                    "keywords2": {
+                        "high-confidence": ["los pollos hermanos"],
+                        "low-confidence": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                    },
+                    "url": "https://www.lph-nm.biz",
+                    "icon": "5678",
+                    "impression_url": "https://example.com/impression_url",
+                    "click_url": "https://example.com/click_url",
+                    "score": 0.3
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        // Test that the invalid record marked as unparsable
+        store.dbs()?.reader.read(|dao| {
+            expect![[r#"
+                Some(
+                    UnparsableRecords(
+                        {
+                            "attachment-with-newer-fields": UnparsableRecord {
+                                schema_version: 13,
+                            },
+                        },
+                    ),
+                )
+            "#]]
+            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
+            Ok(())
+        })?;
+
+        // Test that the valid record was ingested
         store.dbs()?.reader.read(|dao| {
             assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
             expect![[r#"

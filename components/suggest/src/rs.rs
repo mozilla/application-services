@@ -34,7 +34,7 @@
 use std::borrow::Cow;
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
-use serde::{Deserialize, Deserializer};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer};
 
 use crate::{provider::SuggestionProvider, Result};
 
@@ -100,27 +100,42 @@ pub(crate) enum SuggestRecord {
     GlobalConfig(DownloadedGlobalConfig),
 }
 
-/// Represents either a single value, or a list of values. This is used to
-/// deserialize downloaded attachments.
+/// Implemented by the various attachment types
+pub trait SuggestAttachment: DeserializeOwned + std::fmt::Debug {
+    /// Get fields that we saw when ingesting this attachment, but don't recognize
+    fn unknown_fields(&self) -> &serde_json::Map<String, serde_json::Value>;
+
+    fn has_unknown_fields(&self) -> bool {
+        !self.unknown_fields().is_empty()
+    }
+}
+
+/// The payload of a downloaded attachment.
+///
+/// This can either be a single value or a list of values.  Values can either be suggestions or
+/// provider configuration data.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-enum OneOrMany<T> {
+pub enum AttachmentPayload<T> {
     One(T),
     Many(Vec<T>),
 }
 
-/// A downloaded Remote Settings attachment that contains suggestions.
-#[derive(Clone, Debug, Deserialize)]
-#[serde(transparent)]
-pub(crate) struct SuggestAttachment<T>(OneOrMany<T>);
-
-impl<T> SuggestAttachment<T> {
-    /// Returns a slice of suggestions to ingest from the downloaded attachment.
-    pub fn suggestions(&self) -> &[T] {
-        match &self.0 {
-            OneOrMany::One(value) => std::slice::from_ref(value),
-            OneOrMany::Many(values) => values,
+impl<T> AttachmentPayload<T> {
+    pub fn as_slice(&self) -> &[T] {
+        match &self {
+            AttachmentPayload::One(value) => std::slice::from_ref(value),
+            AttachmentPayload::Many(values) => values,
         }
+    }
+}
+
+impl<T: SuggestAttachment> AttachmentPayload<T> {
+    /// Did any of the payloads (i.e. JSON values) in this attachment have an unknown field?
+    pub fn has_unknown_fields(&self) -> bool {
+        self.as_slice()
+            .iter()
+            .any(SuggestAttachment::has_unknown_fields)
     }
 }
 
@@ -175,6 +190,8 @@ pub(crate) struct DownloadedAmpSuggestion {
     pub impression_url: String,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A Wikipedia suggestion to ingest from an AMP-Wikipedia attachment.
@@ -184,6 +201,8 @@ pub(crate) struct DownloadedWikipediaSuggestion {
     pub common_details: DownloadedSuggestionCommonDetails,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A suggestion to ingest from an AMP-Wikipedia attachment downloaded from
@@ -263,6 +282,8 @@ pub(crate) struct DownloadedAmoSuggestion {
     pub title: String,
     pub keywords: Vec<String>,
     pub score: f64,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 /// A Pocket suggestion to ingest from a Pocket Suggestion Attachment
 #[derive(Clone, Debug, Deserialize)]
@@ -274,6 +295,8 @@ pub(crate) struct DownloadedPocketSuggestion {
     #[serde(rename = "highConfidenceKeywords")]
     pub high_confidence_keywords: Vec<String>,
     pub score: f64,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 /// A location sign for Yelp to ingest from a Yelp Attachment
 #[derive(Clone, Debug, Deserialize)]
@@ -296,6 +319,8 @@ pub(crate) struct DownloadedYelpSuggestion {
     pub yelp_modifiers: Vec<String>,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An MDN suggestion to ingest from an attachment
@@ -306,12 +331,16 @@ pub(crate) struct DownloadedMdnSuggestion {
     pub description: String,
     pub keywords: Vec<String>,
     pub score: f64,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Weather data to ingest from a weather record
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedWeatherData {
     pub weather: DownloadedWeatherDataInner,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedWeatherDataInner {
@@ -327,6 +356,8 @@ pub(crate) struct DownloadedWeatherDataInner {
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedGlobalConfig {
     pub configuration: DownloadedGlobalConfigInner,
+    #[serde(flatten)]
+    unknown_fields: serde_json::Map<String, serde_json::Value>,
 }
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedGlobalConfigInner {
@@ -341,3 +372,36 @@ where
 {
     String::deserialize(deserializer).map(|s| s.parse().ok())
 }
+
+impl SuggestAttachment for DownloadedAmpWikipediaSuggestion {
+    fn unknown_fields(&self) -> &serde_json::Map<String, serde_json::Value> {
+        match self {
+            Self::Amp(DownloadedAmpSuggestion { unknown_fields, .. }) => unknown_fields,
+            Self::Wikipedia(DownloadedWikipediaSuggestion { unknown_fields, .. }) => unknown_fields,
+        }
+    }
+}
+
+// Implement [SuggestAttachment] for the trivial cases
+macro_rules! impl_suggest_attachment {
+    (
+      $($t:ident,)* $(,)?
+    ) => {
+        $(
+          impl SuggestAttachment for $t {
+             fn unknown_fields(&self) -> &serde_json::Map<String, serde_json::Value> {
+                 &self.unknown_fields
+             }
+          }
+        )+
+    }
+}
+
+impl_suggest_attachment!(
+    DownloadedAmoSuggestion,
+    DownloadedPocketSuggestion,
+    DownloadedYelpSuggestion,
+    DownloadedMdnSuggestion,
+    DownloadedWeatherData,
+    DownloadedGlobalConfig,
+);
