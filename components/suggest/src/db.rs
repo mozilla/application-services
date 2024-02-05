@@ -7,6 +7,7 @@ use std::{collections::HashSet, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::Mutex;
+use remote_settings::RemoteSettingsRecord;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
@@ -127,6 +128,48 @@ impl<'a> SuggestDao<'a> {
     fn new(conn: &'a Connection, scope: SqlInterruptScope) -> Self {
         Self { conn, scope }
     }
+
+    // =============== High level API ===============
+    //
+    //  These methods combine several low-level calls into one logical operation.
+
+    pub fn handle_unparsable_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+        let record_id = SuggestRecordId::from(&record.id);
+        // Remember this record's ID so that we will try again later
+        self.put_unparsable_record_id(&record_id)?;
+        // Advance the last fetch time, so that we can resume
+        // fetching after this record if we're interrupted.
+        self.put_last_ingest_if_newer(record.last_modified)
+    }
+
+    pub fn handle_ingested_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+        let record_id = SuggestRecordId::from(&record.id);
+        // Remove this record's ID from the list of unparsable
+        // records, since we understand it now.
+        self.drop_unparsable_record_id(&record_id)?;
+        // Advance the last fetch time, so that we can resume
+        // fetching after this record if we're interrupted.
+        self.put_last_ingest_if_newer(record.last_modified)
+    }
+
+    pub fn handle_deleted_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+        let record_id = SuggestRecordId::from(&record.id);
+        // Drop either the icon or suggestions, records only contain one or the other
+        match record_id.as_icon_id() {
+            Some(icon_id) => self.drop_icon(icon_id)?,
+            None => self.drop_suggestions(&record_id)?,
+        };
+        // Remove this record's ID from the list of unparsable
+        // records, since we understand it now.
+        self.drop_unparsable_record_id(&record_id)?;
+        // Advance the last fetch time, so that we can resume
+        // fetching after this record if we're interrupted.
+        self.put_last_ingest_if_newer(record.last_modified)
+    }
+
+    // =============== Low level API ===============
+    //
+    //  These methods implement CRUD operations
 
     /// Fetches suggestions that match the given query from the database.
     pub fn fetch_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
