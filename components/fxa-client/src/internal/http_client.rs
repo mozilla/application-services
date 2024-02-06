@@ -59,9 +59,10 @@ const DEVICES_FILTER_DAYS: u64 = 21;
 #[allow(clippy::needless_lifetimes)]
 #[cfg_attr(test, mockall::automock)]
 pub(crate) trait FxAClient {
-    fn create_refresh_token_using_authorization_code(
+    fn create_refresh_token_using_authorization_code<'a>(
         &self,
         config: &Config,
+        session_token: Option<&'a str>,
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse>;
@@ -200,6 +201,7 @@ impl FxAClient for Client {
     fn create_refresh_token_using_authorization_code(
         &self,
         config: &Config,
+        session_token: Option<&str>,
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse> {
@@ -209,7 +211,11 @@ impl FxAClient for Client {
             code_verifier: code_verifier.to_string(),
             ttl: None,
         };
-        self.make_oauth_token_request(config, serde_json::to_value(req_body).unwrap())
+        self.make_oauth_token_request(
+            config,
+            session_token,
+            serde_json::to_value(req_body).unwrap(),
+        )
     }
 
     fn create_refresh_token_using_session_token(
@@ -247,7 +253,7 @@ impl FxAClient for Client {
             scope: Some(scopes.join(" ")),
             ttl,
         };
-        self.make_oauth_token_request(config, serde_json::to_value(req).unwrap())
+        self.make_oauth_token_request(config, None, serde_json::to_value(req).unwrap())
     }
 
     fn create_access_token_using_session_token(
@@ -479,10 +485,20 @@ impl Client {
     fn make_oauth_token_request(
         &self,
         config: &Config,
+        session_token: Option<&str>,
         body: serde_json::Value,
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        Ok(self.make_request(Request::post(url).json(&body))?.json()?)
+        if let Some(session_token) = session_token {
+            let key = derive_auth_key_from_session_token(session_token)?;
+            let request = HawkRequestBuilder::new(Method::Post, url, &key)
+                .body(body)
+                .build()?;
+
+            Ok(self.make_request(request)?.json()?)
+        } else {
+            Ok(self.make_request(Request::post(url).json(&body))?.json()?)
+        }
     }
 
     fn handle_too_many_requests(&self, resp: Response) -> Result<Response> {

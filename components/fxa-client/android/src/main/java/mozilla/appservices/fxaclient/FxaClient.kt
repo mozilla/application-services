@@ -140,6 +140,19 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
+     * Sets user data from the web content.
+     * NOTE: this is only useful for applications that are user agents
+     *       and require the user's session token
+     * @param userData: The user data including session token, email and uid
+     */
+    fun setUserData(
+        userData: UserData
+    ) {
+        this.inner.setUserData(userData)
+        tryPersistState()
+    }
+
+    /**
      * Authenticates the current account using the code and state parameters fetched from the
      * redirect URL reached after completing the sign in flow triggered by [beginOAuthFlow].
      *
