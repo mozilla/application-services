@@ -59,6 +59,7 @@ pub enum Suggestion {
         url: String,
         title: String,
         is_top_pick: bool,
+        geolocation_slot: Option<String>,
     },
     Mdn {
         title: String,

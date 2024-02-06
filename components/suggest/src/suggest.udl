@@ -73,7 +73,8 @@ interface Suggestion {
     Yelp(
         string url,
         string title,
-        boolean is_top_pick
+        boolean is_top_pick,
+        string? geolocation_slot
     );
     Mdn(
         string title,

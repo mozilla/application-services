@@ -50,6 +50,10 @@ const MAX_MODIFIER_WORDS_NUMBER: usize = 2;
 /// The threshold that enables prefix-match.
 const PREFIX_MATCH_THRESHOLD: usize = 6;
 
+/// Geolocation slot to be filled on the JS side.
+const GEOLOCATION_SLOT: &str = "__GEOLOCATION__";
+const GEOLOCATION_SIGN: &str = "in";
+
 impl<'a> SuggestDao<'a> {
     /// Inserts the suggestions for Yelp attachment into the database.
     pub fn insert_yelp_suggestions(
@@ -409,13 +413,22 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         .collect::<Vec<_>>()
         .join(" ");
 
+        // If no specific location, add dummy location that will be filled at JS side.
+        let location = match &builder.location {
+            Some(location) => location,
+            _ => GEOLOCATION_SLOT,
+        };
+        let location_sign = match (&builder.location_sign, location_modifier) {
+            (_, Some(location_modifier)) => location_modifier,
+            (Some(location_sign), _) => location_sign,
+            _ => GEOLOCATION_SIGN,
+        };
+
         // https://www.yelp.com/search?find_desc={description}&find_loc={location}
         let mut url = String::from("https://www.yelp.com/search?");
         let mut parameters = form_urlencoded::Serializer::new(String::new());
         parameters.append_pair("find_desc", &description);
-        if let (Some(location), true) = (&builder.location, builder.need_location) {
-            parameters.append_pair("find_loc", location);
-        }
+        parameters.append_pair("find_loc", location);
         url.push_str(&parameters.finish());
 
         let title = [
@@ -423,8 +436,8 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             builder.pre_modifier.as_deref(),
             Some(builder.subject),
             builder.post_modifier.as_deref(),
-            builder.location_sign.as_deref(),
-            builder.location.as_deref(),
+            Some(location_sign),
+            Some(location),
             builder.post_yelp_modifier.as_deref(),
         ]
         .iter()
@@ -437,6 +450,11 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             url,
             title,
             is_top_pick: builder.subject_exact_match,
+            geolocation_slot: if location == GEOLOCATION_SLOT {
+                Some(GEOLOCATION_SLOT.to_string())
+            } else {
+                None
+            },
         }
     }
 }
