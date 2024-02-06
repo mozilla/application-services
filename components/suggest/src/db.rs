@@ -15,6 +15,7 @@ use rusqlite::{
 use sql_support::{open_database::open_database_with_flags, ConnExt};
 
 use crate::{
+    config::{SuggestGlobalConfig, SuggestProviderConfig},
     keyword::full_keyword,
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
@@ -23,7 +24,7 @@ use crate::{
         DownloadedPocketSuggestion, DownloadedWeatherData, SuggestRecordId,
     },
     schema::{SuggestConnectionInitializer, VERSION},
-    store::{SuggestGlobalConfig, SuggestProviderConfig, UnparsableRecord, UnparsableRecords},
+    store::{UnparsableRecord, UnparsableRecords},
     suggestion::{cook_raw_suggestion_url, Suggestion},
     Result, SuggestionQuery,
 };
