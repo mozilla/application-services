@@ -138,6 +138,11 @@ interface FirefoxAccount {
   [Throws=FxaError]
   string to_json();
   
+  // Sets the users information based on the web content's login information
+  // This is intended to only be used by user agents (eg: Firefox) to set the users
+  // session token and tie it to the refresh token that will be issued at the end of the
+  // oauth flow.
+  void set_user_data(UserData user_data);
 
   // Initiate a web-based OAuth sign-in flow.
   //
@@ -1097,4 +1102,11 @@ interface FxaStateCheckerState {
   GetProfile();
   Complete(FxaState new_state);
   Cancel();
+};
+
+dictionary UserData {
+  string session_token;
+  string uid;
+  string email;
+  boolean verified;
 };

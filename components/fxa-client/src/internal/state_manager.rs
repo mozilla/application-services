@@ -175,7 +175,9 @@ impl StateManager {
             self.persisted_state.scoped_keys.insert(scope, key);
         }
         self.persisted_state.refresh_token = Some(refresh_token);
-        self.persisted_state.session_token = session_token;
+        if let Some(session_token) = session_token {
+            self.persisted_state.session_token = Some(session_token)
+        }
         self.persisted_state.logged_out_from_auth_issues = false;
         self.flow_store.clear();
     }
@@ -250,6 +252,9 @@ impl StateManager {
         self.persisted_state.refresh_token = None;
         self.persisted_state.access_token_cache.clear();
     }
+    pub fn set_session_token(&mut self, token: String) {
+        self.persisted_state.session_token = Some(token)
+    }
 }
 
 #[cfg(test)]
@@ -260,10 +265,6 @@ impl StateManager {
 
     pub fn force_refresh_token(&mut self, token: RefreshToken) {
         self.persisted_state.refresh_token = Some(token)
-    }
-
-    pub fn force_session_token(&mut self, token: String) {
-        self.persisted_state.session_token = Some(token)
     }
 
     pub fn force_current_device_id(&mut self, device_id: impl Into<String>) {

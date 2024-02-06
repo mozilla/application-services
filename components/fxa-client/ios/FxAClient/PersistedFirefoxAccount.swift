@@ -52,6 +52,11 @@ class PersistedFirefoxAccount {
         try inner.toJson()
     }
 
+    public func setUserData(userData: UserData) {
+        defer { tryPersistState() }
+        self.inner.setUserData(userData: userData)
+    }
+
     public func beginOAuthFlow(
         scopes: [String],
         entrypoint: String

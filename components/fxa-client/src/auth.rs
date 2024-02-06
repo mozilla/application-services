@@ -49,6 +49,13 @@ impl FirefoxAccount {
         self.internal.lock().get_auth_state()
     }
 
+    /// Sets the user data for a user agent
+    /// **Important**: This should only be used on user agents such as Firefox
+    /// that require the user's session token
+    pub fn set_user_data(&self, user_data: UserData) {
+        self.internal.lock().set_user_data(user_data)
+    }
+
     /// Initiate a web-based OAuth sign-in flow.
     ///
     /// This method initializes some internal state and then returns a URL at which the
@@ -290,4 +297,13 @@ pub enum FxaEvent {
     /// This is used for testing the auth/network retry code, since it hits the network and
     /// requires and auth token.
     CallGetProfile,
+}
+
+/// User data provided by the web content, meant to be consumed by user agents
+#[derive(Debug, Clone)]
+pub struct UserData {
+    pub(crate) session_token: String,
+    pub(crate) uid: String,
+    pub(crate) email: String,
+    pub(crate) verified: bool,
 }

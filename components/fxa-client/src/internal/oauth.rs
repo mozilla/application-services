@@ -11,6 +11,7 @@ use super::{
     scoped_keys::ScopedKeysFlow,
     util, FirefoxAccount,
 };
+use crate::auth::UserData;
 use crate::{AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
@@ -88,6 +89,14 @@ impl FirefoxAccount {
             .add_cached_access_token(scope, token_info.clone());
         token_info.check_missing_sync_scoped_key()?;
         Ok(token_info)
+    }
+
+    /// Sets the user data (session token, email, uid)
+    pub fn set_user_data(&mut self, user_data: UserData) {
+        // for now, we only have use for the session token
+        // if we'd like to implement a "Signed in but not verified" state
+        // we would also consume the other parts of the user data
+        self.state.set_session_token(user_data.session_token)
     }
 
     /// Retrieve the current session token from state
@@ -309,6 +318,7 @@ impl FirefoxAccount {
         };
         let resp = self.client.create_refresh_token_using_authorization_code(
             self.state.config(),
+            self.state.session_token(),
             code,
             &oauth_flow.code_verifier,
         )?;
@@ -589,7 +599,7 @@ mod tests {
         }
 
         pub fn set_session_token(&mut self, session_token: &str) {
-            self.state.force_session_token(session_token.to_owned());
+            self.state.set_session_token(session_token.to_owned());
         }
     }
 
