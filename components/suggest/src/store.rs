@@ -22,15 +22,15 @@ use rusqlite::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
+    config::{SuggestGlobalConfig, SuggestProviderConfig},
     db::{
         ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY,
     },
     error::Error,
     provider::SuggestionProvider,
     rs::{
-        DownloadedGlobalConfig, DownloadedWeatherData, SuggestAttachment, SuggestRecord,
-        SuggestRecordId, SuggestRemoteSettingsClient, REMOTE_SETTINGS_COLLECTION,
-        SUGGESTIONS_PER_ATTACHMENT,
+        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
+        REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
     },
     schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -238,34 +238,6 @@ pub struct SuggestIngestionConstraints {
     /// Because of how suggestions are partitioned in Remote Settings, this is a
     /// soft limit, and the store might ingest more than requested.
     pub max_suggestions: Option<u64>,
-}
-
-/// Global Suggest configuration data.
-#[derive(Clone, Default, Debug, Deserialize, Serialize)]
-pub struct SuggestGlobalConfig {
-    pub show_less_frequently_cap: i32,
-}
-
-impl From<&DownloadedGlobalConfig> for SuggestGlobalConfig {
-    fn from(config: &DownloadedGlobalConfig) -> Self {
-        Self {
-            show_less_frequently_cap: config.configuration.show_less_frequently_cap,
-        }
-    }
-}
-
-/// Per-provider configuration data.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum SuggestProviderConfig {
-    Weather { min_keyword_length: i32 },
-}
-
-impl From<&DownloadedWeatherData> for SuggestProviderConfig {
-    fn from(data: &DownloadedWeatherData) -> Self {
-        Self::Weather {
-            min_keyword_length: data.weather.min_keyword_length,
-        }
-    }
 }
 
 /// The implementation of the store. This is generic over the Remote Settings
