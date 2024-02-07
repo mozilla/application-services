@@ -116,6 +116,15 @@ impl<'a> SuggestDao<'a> {
             )?;
         }
 
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "INSERT INTO yelp_custom_details(record_id, icon_id) VALUES(:record_id, :icon_id)",
+            named_params! {
+                ":record_id": record_id.as_str(),
+                ":icon_id": suggestion.icon_id
+            },
+        )?;
+
         Ok(())
     }
 
@@ -134,6 +143,7 @@ impl<'a> SuggestDao<'a> {
             let Some((subject, subject_exact_match)) = self.find_subject(query_string)? else {
                 return Ok(vec![]);
             };
+            let icon = self.fetch_icon()?;
             let builder = SuggestionBuilder {
                 subject: &subject,
                 subject_exact_match,
@@ -144,6 +154,7 @@ impl<'a> SuggestDao<'a> {
                 need_location: false,
                 pre_yelp_modifier: None,
                 post_yelp_modifier: None,
+                icon,
             };
             return Ok(vec![builder.into()]);
         }
@@ -173,6 +184,8 @@ impl<'a> SuggestDao<'a> {
         let Some((subject, subject_exact_match)) = self.find_subject(&subject_candidate)? else {
             return Ok(vec![]);
         };
+
+        let icon = self.fetch_icon()?;
         let builder = SuggestionBuilder {
             subject: &subject,
             subject_exact_match,
@@ -183,8 +196,34 @@ impl<'a> SuggestDao<'a> {
             need_location,
             pre_yelp_modifier,
             post_yelp_modifier,
+            icon,
         };
         Ok(vec![builder.into()])
+    }
+
+    /// Fetch the icon for Yelp suggestions.
+    ///
+    /// Note that there should be only one record in `yelp_custom_details`
+    /// as all the Yelp assets are stored in the attachment of a single record
+    /// on Remote Settings. The following query will perform a table scan against
+    /// `yelp_custom_details` followed by an index search against `icons`, which
+    /// should be fine since there is only one record in the first table.
+    fn fetch_icon(&self) -> Result<Option<Vec<u8>>> {
+        Ok(self.conn.try_query_one(
+            r#"
+            SELECT
+              i.data
+            FROM
+              yelp_custom_details y
+            JOIN
+              icons i
+              ON y.icon_id = i.id
+            LIMIT
+              1
+            "#,
+            (),
+            true,
+        )?)
     }
 
     /// Find the location information from the given query string.
@@ -387,6 +426,7 @@ struct SuggestionBuilder<'a> {
     need_location: bool,
     pre_yelp_modifier: Option<String>,
     post_yelp_modifier: Option<String>,
+    icon: Option<Vec<u8>>,
 }
 
 impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
@@ -437,6 +477,7 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             url,
             title,
             is_top_pick: builder.subject_exact_match,
+            icon: builder.icon,
         }
     }
 }

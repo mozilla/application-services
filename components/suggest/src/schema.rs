@@ -92,6 +92,11 @@ pub const SQL: &str = "
         record_id TEXT NOT NULL
     ) WITHOUT ROWID;
 
+    CREATE TABLE yelp_custom_details(
+        icon_id TEXT PRIMARY KEY,
+        record_id TEXT NOT NULL
+    ) WITHOUT ROWID;
+
     CREATE TABLE mdn_custom_details(
         suggestion_id INTEGER PRIMARY KEY,
         description TEXT NOT NULL,

@@ -59,6 +59,7 @@ pub enum Suggestion {
         url: String,
         title: String,
         is_top_pick: bool,
+        icon: Option<Vec<u8>>,
     },
     Mdn {
         title: String,

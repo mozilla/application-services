@@ -1071,6 +1071,10 @@ impl<'a> SuggestDao<'a> {
             "DELETE FROM yelp_location_signs WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.conn.execute_cached(
+            "DELETE FROM yelp_custom_details WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
         Ok(())
     }
 
