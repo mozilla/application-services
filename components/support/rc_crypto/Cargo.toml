@@ -14,7 +14,7 @@ hex = "0.4"
 thiserror = "1.0"
 error-support = { path = "../error" }
 nss = { path = "nss" }
-hawk = { version = "4", default-features = false, optional = true }
+hawk = { version = "5", default-features = false, optional = true }
 ece = { version = "2.3", default-features = false, features = ["serializable-keys"], optional = true }
 
 [dev-dependencies]

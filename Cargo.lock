@@ -347,12 +347,6 @@ checksum = "d27c3610c36aee21ce8ac510e6224498de4228ad772a171ed65643a24693a5a8"
 
 [[package]]
 name = "base64"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
-
-[[package]]
-name = "base64"
 version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
@@ -1147,7 +1141,7 @@ version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2ea1d2f2cc974957a4e2575d8e5bb494549bab66338d6320c2789abcfff5746"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "byteorder",
  "hex",
  "once_cell",
@@ -1360,7 +1354,7 @@ name = "example-sync-pass"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.21.2",
+ "base64",
  "chrono",
  "clap 2.34.0",
  "cli-support",
@@ -1383,7 +1377,7 @@ name = "example-tabs-sync"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.21.2",
+ "base64",
  "chrono",
  "cli-support",
  "interrupt-support",
@@ -1599,7 +1593,7 @@ name = "fxa-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.21.2",
+ "base64",
  "error-support",
  "hex",
  "jwcrypto",
@@ -1786,12 +1780,12 @@ dependencies = [
 
 [[package]]
 name = "hawk"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f42afdd0e58859aa7b944db9125bdddb5437233161726c20578fbb73c776f440"
+checksum = "2ba86b7cbed4f24e509c720688eaf4963eac20d9341689bf69bcf5ee5e0f1cd2"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64",
  "log",
  "once_cell",
  "thiserror",
@@ -2123,7 +2117,7 @@ checksum = "2a071f4f7efc9a9118dfb627a0a94ef247986e1ab8606a4c806ae2b3aa3b6978"
 dependencies = [
  "ahash 0.8.7",
  "anyhow",
- "base64 0.21.2",
+ "base64",
  "bytecount",
  "fancy-regex",
  "fraction",
@@ -2147,7 +2141,7 @@ dependencies = [
 name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "error-support",
  "log",
  "rc_crypto",
@@ -2716,7 +2710,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 name = "nss"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "error-support",
  "nss_sys",
  "serde",
@@ -3373,7 +3367,7 @@ dependencies = [
 name = "push"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "bincode",
  "env_logger",
  "error-support",
@@ -3482,7 +3476,7 @@ dependencies = [
 name = "rc_crypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "ece",
  "error-support",
  "hawk",
@@ -3597,7 +3591,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cde824a14b7c14f85caff81225f411faacc04a2013f41670f41443742b1c1c55"
 dependencies = [
  "async-compression",
- "base64 0.21.2",
+ "base64",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -4132,7 +4126,7 @@ dependencies = [
 name = "sync-guid"
 version = "0.1.0"
 dependencies = [
- "base64 0.21.2",
+ "base64",
  "rand",
  "rusqlite",
  "serde",
@@ -4145,7 +4139,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base16",
- "base64 0.21.2",
+ "base64",
  "env_logger",
  "error-support",
  "ffi-support",
