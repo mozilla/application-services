@@ -210,25 +210,45 @@ impl<'a> SuggestDao<'a> {
     pub fn fetch_amp_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url, s.provider, s.score
-             FROM suggestions s
-             JOIN keywords k ON k.suggestion_id = s.id
-             WHERE s.provider = :provider AND
-             k.keyword = :keyword",
-             named_params! {
+            r#"
+            SELECT
+              s.id,
+              k.rank,
+              s.title,
+              s.url,
+              s.provider,
+              s.score
+            FROM
+              suggestions s
+            JOIN
+              keywords k
+              ON k.suggestion_id = s.id
+            WHERE
+              s.provider = :provider
+              AND k.keyword = :keyword
+            "#,
+            named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": SuggestionProvider::Amp
             },
-            |row| -> Result<Suggestion>{
+            |row| -> Result<Suggestion> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
                 let score = row.get::<_, f64>("score")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
-                    "SELECT keyword FROM keywords
-                     WHERE suggestion_id = :suggestion_id AND rank >= :rank
-                     ORDER BY rank ASC",
+                    r#"
+                    SELECT
+                        keyword
+                    FROM
+                        keywords
+                    WHERE
+                        suggestion_id = :suggestion_id
+                        AND rank >= :rank
+                    ORDER BY
+                        rank ASC
+                    "#,
                     named_params! {
                         ":suggestion_id": suggestion_id,
                         ":rank": row.get::<_, i64>("rank")?,
@@ -236,10 +256,19 @@ impl<'a> SuggestDao<'a> {
                     |row| row.get(0),
                 )?;
                 self.conn.query_row_and_then(
-                    "SELECT amp.advertiser, amp.block_id, amp.iab_category, amp.impression_url, amp.click_url,
-                            (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
-                     FROM amp_custom_details amp
-                     WHERE amp.suggestion_id = :suggestion_id",
+                    r#"
+                    SELECT
+                      amp.advertiser,
+                      amp.block_id,
+                      amp.iab_category,
+                      amp.impression_url,
+                      amp.click_url,
+                      (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
+                    FROM
+                      amp_custom_details amp
+                    WHERE
+                      amp.suggestion_id = :suggestion_id
+                    "#,
                     named_params! {
                         ":suggestion_id": suggestion_id
                     },
@@ -261,10 +290,10 @@ impl<'a> SuggestDao<'a> {
                             raw_click_url,
                             score,
                         })
-                    }
+                    },
                 )
-            }
-            )?;
+            },
+        )?;
         Ok(suggestions)
     }
 
@@ -272,11 +301,21 @@ impl<'a> SuggestDao<'a> {
     pub fn fetch_wikipedia_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, k.rank, s.title, s.url
-             FROM suggestions s
-             JOIN keywords k ON k.suggestion_id = s.id
-             WHERE s.provider = :provider AND
-             k.keyword = :keyword",
+            r#"
+            SELECT
+              s.id,
+              k.rank,
+              s.title,
+              s.url
+            FROM
+              suggestions s
+            JOIN
+              keywords k
+              ON k.suggestion_id = s.id
+            WHERE
+              s.provider = :provider
+              AND k.keyword = :keyword
+            "#,
             named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": SuggestionProvider::Wikipedia
@@ -322,51 +361,87 @@ impl<'a> SuggestDao<'a> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
         let suggestions_limit = &query.limit.unwrap_or(-1);
-        let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.keyword_suffix
-            FROM suggestions s
-            JOIN prefix_keywords k ON k.suggestion_id = s.id
-            WHERE k.keyword_prefix = :keyword_prefix AND
-                k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
-                s.provider = :provider
-            GROUP BY s.id
-            ORDER BY s.score DESC, rank DESC
-            LIMIT :suggestions_limit",
-             named_params! {
-                ":keyword_prefix": keyword_prefix,
-                ":keyword_suffix": keyword_suffix,
-                ":provider": SuggestionProvider::Amo,
-                ":suggestions_limit": suggestions_limit,
-            },
-            |row| -> Result<Option<Suggestion>>{
-                let suggestion_id: i64 = row.get("id")?;
-                let title = row.get("title")?;
-                let raw_url = row.get::<_, String>("url")?;
-                let score = row.get::<_, f64>("score")?;
+        let suggestions = self
+            .conn
+            .query_rows_and_then_cached(
+                r#"
+                SELECT
+                  s.id,
+                  MAX(k.rank) AS rank,
+                  s.title,
+                  s.url,
+                  s.provider,
+                  s.score,
+                  k.keyword_suffix
+                FROM
+                  suggestions s
+                JOIN
+                  prefix_keywords k
+                  ON k.suggestion_id = s.id
+                WHERE
+                  k.keyword_prefix = :keyword_prefix
+                  AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
+                  AND s.provider = :provider
+                GROUP BY
+                  s.id
+                ORDER BY
+                  s.score DESC,
+                  rank DESC
+                LIMIT
+                  :suggestions_limit
+                "#,
+                named_params! {
+                    ":keyword_prefix": keyword_prefix,
+                    ":keyword_suffix": keyword_suffix,
+                    ":provider": SuggestionProvider::Amo,
+                    ":suggestions_limit": suggestions_limit,
+                },
+                |row| -> Result<Option<Suggestion>> {
+                    let suggestion_id: i64 = row.get("id")?;
+                    let title = row.get("title")?;
+                    let raw_url = row.get::<_, String>("url")?;
+                    let score = row.get::<_, f64>("score")?;
 
-                let full_suffix = row.get::<_, String>("keyword_suffix")?;
-                full_suffix.starts_with(keyword_suffix).then(||
-                    self.conn.query_row_and_then(
-                        "SELECT amo.description, amo.guid, amo.rating, amo.icon_url, amo.number_of_ratings
-                        FROM amo_custom_details amo
-                        WHERE amo.suggestion_id = :suggestion_id",
-                    named_params! {
-                        ":suggestion_id": suggestion_id
-                    },
-                    |row| {
-                        Ok(Suggestion::Amo {
-                            title,
-                            url: raw_url,
-                            icon_url: row.get("icon_url")?,
-                            description: row.get("description")?,
-                            rating: row.get("rating")?,
-                            number_of_ratings: row.get("number_of_ratings")?,
-                            guid: row.get("guid")?,
-                            score,
+                    let full_suffix = row.get::<_, String>("keyword_suffix")?;
+                    full_suffix
+                        .starts_with(keyword_suffix)
+                        .then(|| {
+                            self.conn.query_row_and_then(
+                                r#"
+                                SELECT
+                                  amo.description,
+                                  amo.guid,
+                                  amo.rating,
+                                  amo.icon_url,
+                                  amo.number_of_ratings
+                                FROM
+                                  amo_custom_details amo
+                                WHERE
+                                  amo.suggestion_id = :suggestion_id
+                                "#,
+                                named_params! {
+                                    ":suggestion_id": suggestion_id
+                                },
+                                |row| {
+                                    Ok(Suggestion::Amo {
+                                        title,
+                                        url: raw_url,
+                                        icon_url: row.get("icon_url")?,
+                                        description: row.get("description")?,
+                                        rating: row.get("rating")?,
+                                        number_of_ratings: row.get("number_of_ratings")?,
+                                        guid: row.get("guid")?,
+                                        score,
+                                    })
+                                },
+                            )
                         })
-                    })).transpose()
-                }
-            )?.into_iter().flatten().collect();
+                        .transpose()
+                },
+            )?
+            .into_iter()
+            .flatten()
+            .collect();
         Ok(suggestions)
     }
 
@@ -374,49 +449,71 @@ impl<'a> SuggestDao<'a> {
     pub fn fetch_pocket_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
-        let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.confidence, 
-                k.keyword_suffix
-            FROM suggestions s
-            JOIN prefix_keywords k ON k.suggestion_id = s.id
-            WHERE k.keyword_prefix = :keyword_prefix AND
-                k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
-                s.provider = :provider
-            GROUP BY s.id, k.confidence
-            ORDER BY s.score DESC, rank DESC",
-             named_params! {
-                ":keyword_prefix": keyword_prefix,
-                ":keyword_suffix": keyword_suffix,
-                ":provider": SuggestionProvider::Pocket,
-            },
-            |row| -> Result<Option<Suggestion>>{
-                let title = row.get("title")?;
-                let raw_url = row.get::<_, String>("url")?;
-                let score = row.get::<_, f64>("score")?;
-                let confidence = row.get("confidence")?;
-                let full_suffix = row.get::<_, String>("keyword_suffix")?;
-                let suffixes_match = match confidence {
-                    KeywordConfidence::Low => full_suffix.starts_with(keyword_suffix),
-                    KeywordConfidence::High => full_suffix == keyword_suffix,
-                };
-                if suffixes_match {
-                    Ok(Some(Suggestion::Pocket {
-                        title,
-                        url: raw_url,
-                        score,
-                        is_top_pick: matches!(
-                        confidence,
-                        KeywordConfidence::High)
-                    }))
-                } else {
-                    Ok(None)
-                }
-            }
-            )?.into_iter().flatten().take(
-                query.limit.and_then(|limit|
-                    usize::try_from(limit).ok()
-                ).unwrap_or(usize::MAX)
-            ).collect();
+        let suggestions = self
+            .conn
+            .query_rows_and_then_cached(
+                r#"
+            SELECT
+              s.id,
+              MAX(k.rank) AS rank,
+              s.title,
+              s.url,
+              s.provider,
+              s.score,
+              k.confidence,
+              k.keyword_suffix
+            FROM
+              suggestions s
+            JOIN
+              prefix_keywords k
+              ON k.suggestion_id = s.id
+            WHERE
+              k.keyword_prefix = :keyword_prefix
+              AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
+              AND s.provider = :provider
+            GROUP BY
+              s.id,
+              k.confidence
+            ORDER BY
+              s.score DESC,
+              rank DESC
+            "#,
+                named_params! {
+                    ":keyword_prefix": keyword_prefix,
+                    ":keyword_suffix": keyword_suffix,
+                    ":provider": SuggestionProvider::Pocket,
+                },
+                |row| -> Result<Option<Suggestion>> {
+                    let title = row.get("title")?;
+                    let raw_url = row.get::<_, String>("url")?;
+                    let score = row.get::<_, f64>("score")?;
+                    let confidence = row.get("confidence")?;
+                    let full_suffix = row.get::<_, String>("keyword_suffix")?;
+                    let suffixes_match = match confidence {
+                        KeywordConfidence::Low => full_suffix.starts_with(keyword_suffix),
+                        KeywordConfidence::High => full_suffix == keyword_suffix,
+                    };
+                    if suffixes_match {
+                        Ok(Some(Suggestion::Pocket {
+                            title,
+                            url: raw_url,
+                            score,
+                            is_top_pick: matches!(confidence, KeywordConfidence::High),
+                        }))
+                    } else {
+                        Ok(None)
+                    }
+                },
+            )?
+            .into_iter()
+            .flatten()
+            .take(
+                query
+                    .limit
+                    .and_then(|limit| usize::try_from(limit).ok())
+                    .unwrap_or(usize::MAX),
+            )
+            .collect();
         Ok(suggestions)
     }
 
@@ -428,16 +525,32 @@ impl<'a> SuggestDao<'a> {
         let suggestions = self
             .conn
             .query_rows_and_then_cached(
-                "SELECT s.id, MAX(k.rank) AS rank, s.title, s.url, s.provider, s.score, k.keyword_suffix
-                FROM suggestions s
-                JOIN prefix_keywords k ON k.suggestion_id = s.id
-                WHERE k.keyword_prefix = :keyword_prefix AND
-                    k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF' AND
-                    s.provider = :provider
-                GROUP BY s.id
-                ORDER BY s.score DESC, rank DESC
-                LIMIT :suggestions_limit
-                ",
+                r#"
+                SELECT
+                  s.id,
+                  MAX(k.rank) AS rank,
+                  s.title,
+                  s.url,
+                  s.provider,
+                  s.score,
+                  k.keyword_suffix
+                FROM
+                  suggestions s
+                JOIN
+                  prefix_keywords k
+                  ON k.suggestion_id = s.id
+                WHERE
+                  k.keyword_prefix = :keyword_prefix
+                  AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
+                  AND s.provider = :provider
+                GROUP BY
+                  s.id
+                ORDER BY
+                  s.score DESC,
+                  rank DESC
+                LIMIT
+                  :suggestions_limit
+                "#,
                 named_params! {
                     ":keyword_prefix": keyword_prefix,
                     ":keyword_suffix": keyword_suffix,
@@ -497,10 +610,18 @@ impl<'a> SuggestDao<'a> {
 
         let keyword_lowercased = &query.keyword.trim().to_lowercase();
         let suggestions = self.conn.query_rows_and_then_cached(
-            "SELECT s.score
-             FROM suggestions s
-             JOIN keywords k ON k.suggestion_id = s.id
-             WHERE s.provider = :provider AND (k.keyword BETWEEN :keyword AND :keyword || X'FFFF')",
+            r#"
+            SELECT
+              s.score
+            FROM
+              suggestions s
+            JOIN
+              keywords k
+              ON k.suggestion_id = s.id
+            WHERE
+              s.provider = :provider
+              AND (k.keyword BETWEEN :keyword AND :keyword || X'FFFF')
+             "#,
             named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": SuggestionProvider::Weather
