@@ -99,6 +99,7 @@ dictionary SuggestionQuery {
 
 dictionary SuggestIngestionConstraints {
     u64? max_suggestions = null;
+    sequence<SuggestionProvider>? providers = null;
 };
 
 dictionary SuggestGlobalConfig {
