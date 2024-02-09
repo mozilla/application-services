@@ -152,15 +152,13 @@ impl<'a> SuggestDao<'a> {
                 location_sign: None,
                 location: None,
                 need_location: false,
-                pre_yelp_modifier: None,
-                post_yelp_modifier: None,
                 icon,
             };
             return Ok(vec![builder.into()]);
         }
 
         // Find the yelp keyword modifier and remove them from the query.
-        let (query_without_yelp_modifiers, pre_yelp_modifier, post_yelp_modifier) =
+        let (query_without_yelp_modifiers, _, _) =
             self.find_modifiers(query_string, Modifier::Yelp, Modifier::Yelp)?;
 
         // Find the location sign and the location.
@@ -194,8 +192,6 @@ impl<'a> SuggestDao<'a> {
             location_sign,
             location,
             need_location,
-            pre_yelp_modifier,
-            post_yelp_modifier,
             icon,
         };
         Ok(vec![builder.into()])
@@ -424,8 +420,6 @@ struct SuggestionBuilder<'a> {
     location_sign: Option<String>,
     location: Option<String>,
     need_location: bool,
-    pre_yelp_modifier: Option<String>,
-    post_yelp_modifier: Option<String>,
     icon: Option<Vec<u8>>,
 }
 
@@ -459,13 +453,11 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         url.push_str(&parameters.finish());
 
         let title = [
-            builder.pre_yelp_modifier.as_deref(),
             builder.pre_modifier.as_deref(),
             Some(builder.subject),
             builder.post_modifier.as_deref(),
             builder.location_sign.as_deref(),
             builder.location.as_deref(),
-            builder.post_yelp_modifier.as_deref(),
         ]
         .iter()
         .flatten()

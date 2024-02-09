@@ -3124,7 +3124,7 @@ mod tests {
                     [
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "yelp ramen",
+                            title: "ramen",
                             is_top_pick: true,
                             icon: Some(
                                 [
@@ -3154,7 +3154,7 @@ mod tests {
                     [
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "yelp keyword ramen",
+                            title: "ramen",
                             is_top_pick: true,
                             icon: Some(
                                 [
@@ -3184,7 +3184,7 @@ mod tests {
                     [
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen in tokyo yelp",
+                            title: "ramen in tokyo",
                             is_top_pick: true,
                             icon: Some(
                                 [
@@ -3214,7 +3214,7 @@ mod tests {
                     [
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen in tokyo yelp keyword",
+                            title: "ramen in tokyo",
                             is_top_pick: true,
                             icon: Some(
                                 [
@@ -3244,7 +3244,7 @@ mod tests {
                     [
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "yelp ramen yelp",
+                            title: "ramen",
                             is_top_pick: true,
                             icon: Some(
                                 [
