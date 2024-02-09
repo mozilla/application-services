@@ -58,7 +58,7 @@ pub enum Suggestion {
     Yelp {
         url: String,
         title: String,
-        is_top_pick: bool,
+        subject_exact_match: bool,
         icon: Option<Vec<u8>>,
     },
     Mdn {

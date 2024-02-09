@@ -1986,7 +1986,7 @@ mod tests {
         .with_data(
             "data-4.json",
             json!({
-                "subjects": ["ramen", "spicy ramen", "spicy random ramen", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
+                "subjects": ["ramen", "spicy ramen", "spicy random ramen", "rats", "raven", "raccoon", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
                 "preModifiers": ["best", "super best", "same_modifier"],
                 "postModifiers": ["delivery", "super delivery", "same_modifier"],
                 "locationSigns": [
@@ -2595,7 +2595,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=best+spicy+ramen+delivery&find_loc=tokyo",
                             title: "best spicy ramen delivery in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2625,7 +2625,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=BeSt+SpIcY+rAmEn+DeLiVeRy&find_loc=ToKyO",
                             title: "BeSt SpIcY rAmEn DeLiVeRy In ToKyO",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2655,7 +2655,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=best+ramen+delivery&find_loc=tokyo",
                             title: "best ramen delivery in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2707,7 +2707,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=super+best+ramen+delivery&find_loc=tokyo",
                             title: "super best ramen delivery in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2748,7 +2748,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen+delivery&find_loc=tokyo",
                             title: "ramen delivery in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2778,7 +2778,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen+super+delivery&find_loc=tokyo",
                             title: "ramen super delivery in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2819,7 +2819,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                             title: "ramen in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2849,7 +2849,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                             title: "ramen near tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2890,7 +2890,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=San+Francisco",
                             title: "ramen in San Francisco",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2920,7 +2920,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
                             title: "ramen in",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2950,7 +2950,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen+near+by",
                             title: "ramen near by",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -2980,7 +2980,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen+near+me",
                             title: "ramen near me",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3021,7 +3021,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
                             title: "ramen",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3051,7 +3051,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
                             title: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3125,7 +3125,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
                             title: "ramen",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3155,7 +3155,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
                             title: "ramen",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3185,7 +3185,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                             title: "ramen in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3215,7 +3215,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
                             title: "ramen in tokyo",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3245,7 +3245,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=ramen",
                             title: "ramen",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3286,7 +3286,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=Spicy+Ramen",
                             title: "Spicy Ramen",
-                            is_top_pick: false,
+                            subject_exact_match: false,
                             icon: Some(
                                 [
                                     121,
@@ -3316,7 +3316,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=BeSt+Ramen",
                             title: "BeSt Ramen",
-                            is_top_pick: true,
+                            subject_exact_match: true,
                             icon: Some(
                                 [
                                     121,
@@ -3346,7 +3346,7 @@ mod tests {
                         Yelp {
                             url: "https://www.yelp.com/search?find_desc=BeSt+Spicy+Ramen",
                             title: "BeSt Spicy Ramen",
-                            is_top_pick: false,
+                            subject_exact_match: false,
                             icon: Some(
                                 [
                                     121,
@@ -3373,6 +3373,148 @@ mod tests {
                 },
                 expect![[r#"
                 []
+                "#]],
+            ),
+            (
+                "keyword = `r`; Yelp only",
+                SuggestionQuery {
+                    keyword: "r".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                []
+                "#]],
+            ),
+            (
+                "keyword = `ra`; Yelp only",
+                SuggestionQuery {
+                    keyword: "ra".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=rats",
+                        title: "rats",
+                        subject_exact_match: false,
+                        icon: Some(
+                            [
+                                121,
+                                101,
+                                108,
+                                112,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `ram`; Yelp only",
+                SuggestionQuery {
+                    keyword: "ram".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=ramen",
+                        title: "ramen",
+                        subject_exact_match: false,
+                        icon: Some(
+                            [
+                                121,
+                                101,
+                                108,
+                                112,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `rac`; Yelp only",
+                SuggestionQuery {
+                    keyword: "rac".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=raccoon",
+                        title: "raccoon",
+                        subject_exact_match: false,
+                        icon: Some(
+                            [
+                                121,
+                                101,
+                                108,
+                                112,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `best r`; Yelp only",
+                SuggestionQuery {
+                    keyword: "best r".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                []
+                "#]],
+            ),
+            (
+                "keyword = `best ra`; Yelp only",
+                SuggestionQuery {
+                    keyword: "best ra".into(),
+                    providers: vec![SuggestionProvider::Yelp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=best+rats",
+                        title: "best rats",
+                        subject_exact_match: false,
+                        icon: Some(
+                            [
+                                121,
+                                101,
+                                108,
+                                112,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                    },
+                ]
                 "#]],
             ),
         ];
