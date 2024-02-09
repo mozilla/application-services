@@ -7,7 +7,7 @@ android {
 }
 
 dependencies {
-    api "org.mozilla.components:concept-fetch:$android_components_version"
+    api libs.mozilla.concept.fetch
 }
 
 ext.dependsOnTheMegazord()

@@ -83,7 +83,12 @@ cargo {
 }
 
 dependencies {
-    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
+    jnaForTest(libs.jna) {
+        artifact {
+            extension ="jar"
+            type = "jar"
+        }
+    }
 }
 
 afterEvaluate {

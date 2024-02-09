@@ -20,7 +20,7 @@ android {
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:$protobuf_version"
+        artifact = libs.protoc.get().toString() // https://github.com/google/protobuf-gradle-plugin/issues/563
     }
     generateProtoTasks {
         all().each { task ->
@@ -34,5 +34,5 @@ protobuf {
 }
 
 dependencies {
-    implementation "com.google.protobuf:protobuf-javalite:$protobuf_version"
+    implementation libs.protobuf
 }

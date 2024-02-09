@@ -1,5 +1,5 @@
 plugins {
-    id "com.jetbrains.python.envs" version "0.0.26"
+    alias libs.plugins.gradle.python.envs
 }
 
 apply from: "$rootDir/build-scripts/component-common.gradle"
@@ -18,11 +18,11 @@ dependencies {
     // Part of the public API.
     api project(':sync15')
 
-    implementation "org.mozilla.telemetry:glean:$glean_version"
+    implementation libs.mozilla.glean
 
-    testImplementation "androidx.test:core-ktx:$androidx_test_version"
-    testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
+    testImplementation libs.mozilla.glean.native.tests
+    testImplementation libs.test.core
+    testImplementation libs.test.work
     testImplementation project(":syncmanager")
 }
 

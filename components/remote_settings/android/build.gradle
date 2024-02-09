@@ -10,6 +10,6 @@ ext.dependsOnTheMegazord()
 ext.configurePublish()
 
 dependencies {
-    testImplementation("org.mozilla.components:concept-fetch:$android_components_version")
+    testImplementation libs.mozilla.concept.fetch
     testImplementation project(":httpconfig")
 }

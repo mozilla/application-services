@@ -1,5 +1,5 @@
 plugins {
-    id "com.jetbrains.python.envs" version "0.0.26"
+    alias libs.plugins.gradle.python.envs
 }
 
 apply from: "$rootDir/build-scripts/component-common.gradle"
@@ -14,18 +14,17 @@ android {
 }
 
 dependencies {
-    implementation "androidx.annotation:annotation:$androidx_annotation_version"
-
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
-
     api project(":remotesettings")
-    implementation "org.mozilla.telemetry:glean:$glean_version"
-    implementation "androidx.core:core-ktx:$androidx_core_version"
 
-    testImplementation "androidx.test:core-ktx:$androidx_test_version"
-    testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
-    testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
+    implementation libs.androidx.core
+    implementation libs.androidx.annotation
+    implementation libs.kotlinx.coroutines
+    implementation libs.mozilla.glean
+
+    testImplementation libs.mozilla.glean.native.tests
+    testImplementation libs.test.core
+    testImplementation libs.test.junit.ext
+    testImplementation libs.test.work
 }
 
 ext.configureUniFFIBindgen("../src/nimbus.udl")
