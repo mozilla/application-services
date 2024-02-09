@@ -47,8 +47,8 @@ const MAX_QUERY_LENGTH: usize = 150;
 /// "keyword=:modifier" (please see is_modifier()), define this how many words we should check.
 const MAX_MODIFIER_WORDS_NUMBER: usize = 2;
 
-/// The threshold that enables prefix-match.
-const PREFIX_MATCH_THRESHOLD: usize = 6;
+/// At least this many characters must be typed for a subject to be matched.
+const SUBJECT_PREFIX_MATCH_THRESHOLD: usize = 2;
 
 impl<'a> SuggestDao<'a> {
     /// Inserts the suggestions for Yelp attachment into the database.
@@ -347,9 +347,9 @@ impl<'a> SuggestDao<'a> {
             return Ok(None);
         }
 
-        // If the length of subject candidate is less than PREFIX_MATCH_THRESHOLD,
-        // should exact match.
-        if candidate.len() < PREFIX_MATCH_THRESHOLD {
+        // If the length of subject candidate is less than
+        // SUBJECT_PREFIX_MATCH_THRESHOLD, should exact match.
+        if candidate.len() < SUBJECT_PREFIX_MATCH_THRESHOLD {
             return Ok(if self.is_subject(candidate)? {
                 Some((candidate.to_string(), true))
             } else {
@@ -360,7 +360,11 @@ impl<'a> SuggestDao<'a> {
         // Otherwise, apply prefix-match.
         Ok(
             match self.conn.query_row_and_then_cachable(
-                "SELECT keyword FROM yelp_subjects WHERE keyword BETWEEN :candidate AND :candidate || x'FFFF' ORDER BY LENGTH(keyword) ASC LIMIT 1",
+                "SELECT keyword
+                 FROM yelp_subjects
+                 WHERE keyword BETWEEN :candidate AND :candidate || x'FFFF'
+                 ORDER BY LENGTH(keyword) ASC, keyword ASC
+                 LIMIT 1",
                 named_params! {
                     ":candidate": candidate.to_lowercase(),
                 },
@@ -369,10 +373,13 @@ impl<'a> SuggestDao<'a> {
             ) {
                 Ok(keyword) => {
                     debug_assert!(candidate.len() <= keyword.len());
-                    Some((format!("{}{}", candidate, &keyword[candidate.len()..]), candidate.len() == keyword.len()))
-                },
-                Err(_) => None
-            }
+                    Some((
+                        format!("{}{}", candidate, &keyword[candidate.len()..]),
+                        candidate.len() == keyword.len(),
+                    ))
+                }
+                Err(_) => None,
+            },
         )
     }
 
@@ -468,7 +475,7 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         Suggestion::Yelp {
             url,
             title,
-            is_top_pick: builder.subject_exact_match,
+            subject_exact_match: builder.subject_exact_match,
             icon: builder.icon,
         }
     }
