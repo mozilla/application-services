@@ -392,6 +392,11 @@ where
                         dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
                     })?;
                 }
+                SuggestRecord::AmpMobile => {
+                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
+                        dao.insert_amp_mobile_suggestions(record_id, suggestions)
+                    })?;
+                }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) =
                         (record_id.as_icon_id(), record.attachment.as_ref())
@@ -3999,6 +4004,251 @@ mod tests {
 
         Ok(())
     }
+
+    // Tests querying multiple suggestions with multiple keywords with same prefix keyword
+    #[test]
+    fn query_with_amp_mobile_provider() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "amp-mobile-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "data-2",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-2.json",
+                "mimetype": "application/json",
+                "location": "data-2.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "icon-3",
+            "type": "icon",
+            "last_modified": 25,
+            "attachment": {
+                "filename": "icon-3.png",
+                "mimetype": "image/png",
+                "location": "icon-3.png",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([
+               {
+                   "id": 0,
+                   "advertiser": "Good Place Eats",
+                   "iab_category": "8 - Food & Drink",
+                   "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                   "title": "Mobile - Lasagna Come Out Tomorrow",
+                   "url": "https://www.lasagna.restaurant",
+                   "icon": "3",
+                   "impression_url": "https://example.com/impression_url",
+                   "click_url": "https://example.com/click_url",
+                   "score": 0.3
+               }
+            ]),
+        )?
+        .with_data(
+            "data-2.json",
+            json!([
+              {
+                  "id": 0,
+                  "advertiser": "Good Place Eats",
+                  "iab_category": "8 - Food & Drink",
+                  "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                  "title": "Desktop - Lasagna Come Out Tomorrow",
+                  "url": "https://www.lasagna.restaurant",
+                  "icon": "3",
+                  "impression_url": "https://example.com/impression_url",
+                  "click_url": "https://example.com/click_url",
+                  "score": 0.2
+              }
+            ]),
+        )?
+        .with_icon("icon-3.png", "also-an-icon".as_bytes().into());
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "keyword = `las`; Amp Mobile",
+                SuggestionQuery {
+                    keyword: "las".into(),
+                    providers: vec![SuggestionProvider::AmpMobile],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Amp {
+                        title: "Mobile - Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        raw_url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                97,
+                                108,
+                                115,
+                                111,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `las`; Amp",
+                SuggestionQuery {
+                    keyword: "las".into(),
+                    providers: vec![SuggestionProvider::Amp],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Amp {
+                        title: "Desktop - Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        raw_url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                97,
+                                108,
+                                115,
+                                111,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.2,
+                    },
+                ]
+                "#]],
+            ),
+            (
+                "keyword = `las `; amp and amp mobile",
+                SuggestionQuery {
+                    keyword: "las".into(),
+                    providers: vec![SuggestionProvider::Amp, SuggestionProvider::AmpMobile],
+                    limit: None,
+                },
+                expect![[r#"
+                [
+                    Amp {
+                        title: "Mobile - Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        raw_url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                97,
+                                108,
+                                115,
+                                111,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                    Amp {
+                        title: "Desktop - Lasagna Come Out Tomorrow",
+                        url: "https://www.lasagna.restaurant",
+                        raw_url: "https://www.lasagna.restaurant",
+                        icon: Some(
+                            [
+                                97,
+                                108,
+                                115,
+                                111,
+                                45,
+                                97,
+                                110,
+                                45,
+                                105,
+                                99,
+                                111,
+                                110,
+                            ],
+                        ),
+                        full_keyword: "lasagna",
+                        block_id: 0,
+                        advertiser: "Good Place Eats",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.2,
+                    },
+                ]
+                "#]],
+            ),
+        ];
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
+
     /// Tests ingesting malformed Remote Settings records that we understand,
     /// but that are missing fields, or aren't in the format we expect.
     #[test]

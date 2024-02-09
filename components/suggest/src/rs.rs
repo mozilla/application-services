@@ -98,6 +98,8 @@ pub(crate) enum SuggestRecord {
     Weather(DownloadedWeatherData),
     #[serde(rename = "configuration")]
     GlobalConfig(DownloadedGlobalConfig),
+    #[serde(rename = "amp-mobile-suggestions")]
+    AmpMobile,
 }
 
 /// Represents either a single value, or a list of values. This is used to
