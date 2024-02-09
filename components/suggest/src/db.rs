@@ -21,12 +21,13 @@ use crate::{
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
     rs::{
-        DownloadedAmoSuggestion, DownloadedAmpWikipediaSuggestion, DownloadedMdnSuggestion,
-        DownloadedPocketSuggestion, DownloadedWeatherData, SuggestRecordId,
+        DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
+        DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
+        SuggestRecordId,
     },
     schema::{SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
-    suggestion::{cook_raw_suggestion_url, Suggestion},
+    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
     Result, SuggestionQuery,
 };
 
@@ -186,7 +187,12 @@ impl<'a> SuggestDao<'a> {
             .iter()
             .try_fold(vec![], |mut acc, provider| {
                 let suggestions = match provider {
-                    SuggestionProvider::Amp => self.fetch_amp_suggestions(query),
+                    SuggestionProvider::Amp => {
+                        self.fetch_amp_suggestions(query, AmpSuggestionType::Desktop)
+                    }
+                    SuggestionProvider::AmpMobile => {
+                        self.fetch_amp_suggestions(query, AmpSuggestionType::Mobile)
+                    }
                     SuggestionProvider::Wikipedia => self.fetch_wikipedia_suggestions(query),
                     SuggestionProvider::Amo => self.fetch_amo_suggestions(query),
                     SuggestionProvider::Pocket => self.fetch_pocket_suggestions(query),
@@ -207,8 +213,16 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Fetches Suggestions of type Amp provider that match the given query
-    pub fn fetch_amp_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+    pub fn fetch_amp_suggestions(
+        &self,
+        query: &SuggestionQuery,
+        suggestion_type: AmpSuggestionType,
+    ) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
+        let provider = match suggestion_type {
+            AmpSuggestionType::Mobile => SuggestionProvider::AmpMobile,
+            AmpSuggestionType::Desktop => SuggestionProvider::Amp,
+        };
         let suggestions = self.conn.query_rows_and_then_cached(
             r#"
             SELECT
@@ -229,7 +243,7 @@ impl<'a> SuggestDao<'a> {
             "#,
             named_params! {
                 ":keyword": keyword_lowercased,
-                ":provider": SuggestionProvider::Amp
+                ":provider": provider
             },
             |row| -> Result<Suggestion> {
                 let suggestion_id: i64 = row.get("id")?;
@@ -276,6 +290,7 @@ impl<'a> SuggestDao<'a> {
                         let cooked_url = cook_raw_suggestion_url(&raw_url);
                         let raw_click_url = row.get::<_, String>("click_url")?;
                         let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
+
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
@@ -736,6 +751,7 @@ impl<'a> SuggestDao<'a> {
             self.scope.err_if_interrupted()?;
             let common_details = suggestion.common_details();
             let provider = suggestion.provider();
+
             let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
                 &format!(
                     "INSERT INTO suggestions(
@@ -813,6 +829,97 @@ impl<'a> SuggestDao<'a> {
                     )?;
                 }
             }
+            for (index, keyword) in common_details.keywords.iter().enumerate() {
+                self.conn.execute(
+                    "INSERT INTO keywords(
+                         keyword,
+                         suggestion_id,
+                         rank
+                     )
+                     VALUES(
+                         :keyword,
+                         :suggestion_id,
+                         :rank
+                     )",
+                    named_params! {
+                        ":keyword": keyword,
+                        ":rank": index,
+                        ":suggestion_id": suggestion_id,
+                    },
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Inserts all suggestions from a downloaded AMP-Mobile attachment into
+    /// the database.
+    pub fn insert_amp_mobile_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedAmpSuggestion],
+    ) -> Result<()> {
+        for suggestion in suggestions {
+            self.scope.err_if_interrupted()?;
+            let common_details = &suggestion.common_details;
+            let suggestion_id: i64 = self.conn.query_row_and_then_cachable(
+                &format!(
+                    "INSERT INTO suggestions(
+                         record_id,
+                         provider,
+                         title,
+                         url,
+                         score
+                     )
+                     VALUES(
+                         :record_id,
+                         {},
+                         :title,
+                         :url,
+                         :score
+                     )
+                     RETURNING id",
+                    SuggestionProvider::AmpMobile as u8
+                ),
+                named_params! {
+                    ":record_id": record_id.as_str(),
+                    ":title": common_details.title,
+                    ":url": common_details.url,
+                    ":score": common_details.score.unwrap_or(DEFAULT_SUGGESTION_SCORE)
+                },
+                |row| row.get(0),
+                true,
+            )?;
+            self.conn.execute(
+                "INSERT INTO amp_custom_details(
+                     suggestion_id,
+                     advertiser,
+                     block_id,
+                     iab_category,
+                     impression_url,
+                     click_url,
+                     icon_id
+                 )
+                 VALUES(
+                     :suggestion_id,
+                     :advertiser,
+                     :block_id,
+                     :iab_category,
+                     :impression_url,
+                     :click_url,
+                     :icon_id
+                 )",
+                named_params! {
+                    ":suggestion_id": suggestion_id,
+                    ":advertiser": suggestion.advertiser,
+                    ":block_id": suggestion.block_id,
+                    ":iab_category": suggestion.iab_category,
+                    ":impression_url": suggestion.impression_url,
+                    ":click_url": suggestion.click_url,
+                    ":icon_id": suggestion.icon_id,
+                },
+            )?;
+
             for (index, keyword) in common_details.keywords.iter().enumerate() {
                 self.conn.execute(
                     "INSERT INTO keywords(
