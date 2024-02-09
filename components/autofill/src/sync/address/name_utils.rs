@@ -132,11 +132,11 @@ fn get_cjk_surname_length(name: &str) -> usize {
         COMMON_CJK_MULTI_CHAR_SURNAMES
     };
 
-    surnames
-        .iter()
-        .any(|&surname| name.starts_with(surname))
-        .then_some(2)
-        .unwrap_or(1)
+    if surnames.iter().any(|&surname| name.starts_with(surname)) {
+        2
+    } else {
+        1
+    }
 }
 
 fn split_cjk_name(name_tokens: &[&str]) -> Option<NameParts> {
