@@ -237,12 +237,22 @@ ext.dependsOnTheMegazord = {
         }
     }
     // Depend on the megazord and its support library, as well as the
-    // above-mentione JNA stuff for testing.
+    // above-mentioned JNA stuff for testing.
     dependencies {
         api project(":full-megazord")
         implementation project(":native-support")
-        jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
-        implementation "net.java.dev.jna:jna:$jna_version@aar"
+        jnaForTest(libs.jna) {
+            artifact {
+                extension ="jar"
+                type = "jar"
+            }
+        }
+        implementation(libs.jna) {
+            artifact {
+                extension ="aar"
+                type = "aar"
+            }
+        }
         // For reasons unknown, resolving the jnaForTest configuration directly
         // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
         // change attributes of configuration ':PROJECT:kapt' after it has been

@@ -1,5 +1,5 @@
 plugins {
-    id "com.jetbrains.python.envs" version "0.0.26"
+    alias libs.plugins.gradle.python.envs
 }
 
 apply from: "$rootDir/build-scripts/component-common.gradle"
@@ -15,9 +15,9 @@ android {
 dependencies {
     api project(':sync15')
 
-    implementation "org.mozilla.telemetry:glean:$glean_version"
+    implementation libs.mozilla.glean
 
-    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
+    testImplementation libs.mozilla.glean.native.tests
 }
 
 ext.configureUniFFIBindgen("../src/fxa_client.udl")

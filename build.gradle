@@ -1,34 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-
-    ext {
-        kotlin_version = '1.9.22'
-        kotlin_coroutines_version = '1.7.3'
-        jna_version = '5.14.0'
-        android_gradle_plugin_version = '8.0.2'
-        android_components_version = '122.0'
-        glean_version = '57.0.0'
-
-        // NOTE: AndroidX libraries should be synced with AC to avoid compatibility issues
-        androidx_annotation_version = '1.7.1'
-        androidx_core_version = '1.12.0'
-        androidx_test_version = '1.5.0'
-        androidx_test_junit_version = '1.1.5'
-        androidx_work_testing_version = '2.7.1'
-        espresso_core_version = '3.5.1'
-
-        detekt_version = '1.23.5'
-        ktlint_version = '0.50.0'
-        gradle_download_task_version = '5.2.1'
-        junit_version = '4.13.2'
-        mockito_core_version = '5.10.0'
-        robolectric_core_version = '4.11.1'
-        rust_android_gradle_version = '0.9.3'
-        protobuf_version = '3.21.10'
-        gradle_protobuf_version = '0.9.4'
-    }
-
     ext.build = [
         ndkVersion: "25.2.9519653", // Keep it in sync in TC Dockerfile.
 
@@ -56,35 +28,25 @@ buildscript {
     }
 
     dependencies {
-        classpath "com.android.tools.build:gradle:$android_gradle_plugin_version"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
 
-        classpath "org.mozilla.rust-android-gradle:plugin:$rust_android_gradle_version"
+        classpath libs.kotlin.gradle.plugin
+        classpath libs.mozilla.glean.gradle.plugin
+        classpath libs.mozilla.rust.android.gradle
+        classpath libs.tools.android.plugin
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
-        classpath "net.java.dev.jna:jna:$jna_version"
-
-        // Downloading libs/ archives from Taskcluster.
-        classpath "de.undercouch:gradle-download-task:$gradle_download_task_version"
-
-        classpath "com.google.protobuf:protobuf-gradle-plugin:$gradle_protobuf_version"
-
-        // Since the Glean version depends on the Android components version,
-        // it is very important to use a modern version of Glean and, ideally,
-        // let this come from the embedding product itself.
-        classpath "org.mozilla.telemetry:glean-gradle-plugin:$glean_version"
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        classpath libs.jna
     }
 }
 
 plugins {
-    id "io.gitlab.arturbosch.detekt" version "$detekt_version"
+    alias libs.plugins.detekt
+    alias libs.plugins.gradle.download.task  // Downloading libs/archives from Taskcluster.
+    alias libs.plugins.protobuf.gradle apply false
 }
-
-apply plugin: 'de.undercouch.download'
 
 allprojects {
     repositories {
@@ -293,7 +255,6 @@ ext.cargoExec = { spec, toolchain ->
 }
 
 detekt {
-    toolVersion = "$detekt_version"
     input = files(
         fileTree(dir: "${projectDir}/components", excludes: ["external", "**/generated", "**/templates"]),
         "${projectDir}/gradle-plugin",
@@ -315,7 +276,7 @@ configurations {
 }
 
 dependencies {
-    ktlint("com.pinterest:ktlint:$ktlint_version") {
+    ktlint(libs.ktlint) {
         attributes {
             attribute(Bundling.BUNDLING_ATTRIBUTE, getObjects().named(Bundling, Bundling.EXTERNAL))
         }
