@@ -47,6 +47,20 @@ pub(crate) const REMOTE_SETTINGS_COLLECTION: &str = "quicksuggest";
 /// `mozilla-services/quicksuggest-rs` repo.
 pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
+/// A list of default record types to download if nothing is specified.
+/// This currently defaults to all of the record types.
+pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
+    SuggestRecordType::Icon,
+    SuggestRecordType::AmpWikipedia,
+    SuggestRecordType::Amo,
+    SuggestRecordType::Pocket,
+    SuggestRecordType::Yelp,
+    SuggestRecordType::Mdn,
+    SuggestRecordType::Weather,
+    SuggestRecordType::GlobalConfig,
+    SuggestRecordType::AmpMobile,
+];
+
 /// A trait for a client that downloads suggestions from Remote Settings.
 ///
 /// This trait lets tests use a mock client.
@@ -100,6 +114,59 @@ pub(crate) enum SuggestRecord {
     GlobalConfig(DownloadedGlobalConfig),
     #[serde(rename = "amp-mobile-suggestions")]
     AmpMobile,
+}
+
+/// Enum for the different record types that can be consumed.
+/// Extracting this from the serialization enum so that we can
+/// extend it to get type metadata.
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+pub enum SuggestRecordType {
+    Icon,
+    AmpWikipedia,
+    Amo,
+    Pocket,
+    Yelp,
+    Mdn,
+    Weather,
+    GlobalConfig,
+    AmpMobile,
+}
+
+impl From<SuggestRecord> for SuggestRecordType {
+    fn from(suggest_record: SuggestRecord) -> Self {
+        match suggest_record {
+            SuggestRecord::Amo => Self::Amo,
+            SuggestRecord::AmpWikipedia => Self::AmpWikipedia,
+            SuggestRecord::Icon => Self::Icon,
+            SuggestRecord::Mdn => Self::Mdn,
+            SuggestRecord::Pocket => Self::Pocket,
+            SuggestRecord::Weather(_) => Self::Weather,
+            SuggestRecord::Yelp => Self::Yelp,
+            SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
+            SuggestRecord::AmpMobile => Self::AmpMobile,
+        }
+    }
+}
+
+impl SuggestRecordType {
+    pub fn get_rs_type(&self) -> &str {
+        match self {
+            Self::Icon => "icon",
+            Self::AmpWikipedia => "data",
+            Self::Amo => "amo-suggestions",
+            Self::Pocket => "pocket-suggestions",
+            Self::Yelp => "yelp-suggestions",
+            Self::Mdn => "mdn-suggestions",
+            Self::Weather => "weather",
+            Self::GlobalConfig => "configuration",
+            Self::AmpMobile => "amp-mobile-suggestions",
+        }
+    }
+
+    /// Return the meta key for the last ingested record.
+    pub fn last_ingest_meta_key(&self) -> String {
+        format!("last_quicksuggest_ingest_{}", self.get_rs_type())
+    }
 }
 
 /// Represents either a single value, or a list of values. This is used to

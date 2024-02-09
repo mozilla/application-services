@@ -24,13 +24,15 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     db::{
-        ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_KEY, UNPARSABLE_RECORDS_META_KEY,
+        ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_UNPARSABLE,
+        UNPARSABLE_RECORDS_META_KEY,
     },
     error::Error,
     provider::SuggestionProvider,
     rs::{
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRemoteSettingsClient,
-        REMOTE_SETTINGS_COLLECTION, SUGGESTIONS_PER_ATTACHMENT,
+        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRecordType,
+        SuggestRemoteSettingsClient, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
+        SUGGESTIONS_PER_ATTACHMENT,
     },
     schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -238,6 +240,7 @@ pub struct SuggestIngestionConstraints {
     /// Because of how suggestions are partitioned in Remote Settings, this is a
     /// soft limit, and the store might ingest more than requested.
     pub max_suggestions: Option<u64>,
+    pub providers: Option<Vec<SuggestionProvider>>,
 }
 
 /// The implementation of the store. This is generic over the Remote Settings
@@ -337,16 +340,45 @@ where
                     .get_records_with_options(&options)?
                     .records;
 
-                self.ingest_records(writer, &records_chunk)?;
+                self.ingest_records(LAST_INGEST_META_UNPARSABLE, writer, &records_chunk)?;
             }
         }
 
+        let mut ingest_record_types = if let Some(rt) = &constraints.providers {
+            rt.iter().flat_map(|x| x.records_for_provider()).collect()
+        } else {
+            DEFAULT_RECORDS_TYPES.to_vec()
+        };
+        ingest_record_types.sort_unstable();
+        ingest_record_types.dedup();
+
+        for ingest_record_type in ingest_record_types {
+            self.ingest_records_by_type(ingest_record_type, writer, &constraints)?;
+        }
+
+        Ok(())
+    }
+
+    fn ingest_records_by_type(
+        &self,
+        ingest_record_type: SuggestRecordType,
+        writer: &SuggestDb,
+        constraints: &SuggestIngestionConstraints,
+    ) -> Result<()> {
         let mut options = GetItemsOptions::new();
+
         // Remote Settings returns records in descending modification order
         // (newest first), but we want them in ascending order (oldest first),
         // so that we can eventually resume downloading where we left off.
         options.sort("last_modified", SortOrder::Ascending);
-        if let Some(last_ingest) = writer.read(|dao| dao.get_meta::<u64>(LAST_INGEST_META_KEY))? {
+
+        options.eq("type", ingest_record_type.get_rs_type());
+
+        // Get the last ingest value. This is the max of the last_ingest_keys
+        // that are in the database.
+        if let Some(last_ingest) = writer
+            .read(|dao| dao.get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str()))?
+        {
             // Only download changes since our last ingest. If our last ingest
             // was interrupted, we'll pick up where we left off.
             options.gt("last_modified", last_ingest.to_string());
@@ -363,18 +395,22 @@ where
             .settings_client
             .get_records_with_options(&options)?
             .records;
-        self.ingest_records(writer, &records)?;
-
+        self.ingest_records(&ingest_record_type.last_ingest_meta_key(), writer, &records)?;
         Ok(())
     }
 
-    fn ingest_records(&self, writer: &SuggestDb, records: &[RemoteSettingsRecord]) -> Result<()> {
+    fn ingest_records(
+        &self,
+        last_ingest_key: &str,
+        writer: &SuggestDb,
+        records: &[RemoteSettingsRecord],
+    ) -> Result<()> {
         for record in records {
             let record_id = SuggestRecordId::from(&record.id);
             if record.deleted {
                 // If the entire record was deleted, drop all its suggestions
                 // and advance the last ingest time.
-                writer.write(|dao| dao.handle_deleted_record(record))?;
+                writer.write(|dao| dao.handle_deleted_record(last_ingest_key, record))?;
                 continue;
             }
             let Ok(fields) =
@@ -388,14 +424,24 @@ where
 
             match fields {
                 SuggestRecord::AmpWikipedia => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
-                    })?;
+                    self.ingest_attachment(
+                        &SuggestRecordType::AmpWikipedia.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
                 SuggestRecord::AmpMobile => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        dao.insert_amp_mobile_suggestions(record_id, suggestions)
-                    })?;
+                    self.ingest_attachment(
+                        &SuggestRecordType::AmpMobile.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_amp_mobile_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) =
@@ -404,47 +450,79 @@ where
                         // An icon record should have an icon ID and an
                         // attachment. Icons that don't have these are
                         // malformed, so skip to the next record.
-                        writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
+                        writer.write(|dao| {
+                            dao.put_last_ingest_if_newer(
+                                &SuggestRecordType::Icon.last_ingest_meta_key(),
+                                record.last_modified,
+                            )
+                        })?;
                         continue;
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
                         dao.put_icon(icon_id, &data)?;
-                        dao.handle_ingested_record(record)
+                        dao.handle_ingested_record(
+                            &SuggestRecordType::Icon.last_ingest_meta_key(),
+                            record,
+                        )
                     })?;
                 }
                 SuggestRecord::Amo => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        dao.insert_amo_suggestions(record_id, suggestions)
-                    })?;
+                    self.ingest_attachment(
+                        &SuggestRecordType::Amo.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_amo_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
                 SuggestRecord::Pocket => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        dao.insert_pocket_suggestions(record_id, suggestions)
-                    })?;
+                    self.ingest_attachment(
+                        &SuggestRecordType::Pocket.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_pocket_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
                 SuggestRecord::Yelp => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        match suggestions.first() {
+                    self.ingest_attachment(
+                        &SuggestRecordType::Yelp.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| match suggestions.first() {
                             Some(suggestion) => dao.insert_yelp_suggestions(record_id, suggestion),
                             None => Ok(()),
-                        }
-                    })?;
+                        },
+                    )?;
                 }
                 SuggestRecord::Mdn => {
-                    self.ingest_attachment(writer, record, |dao, record_id, suggestions| {
-                        dao.insert_mdn_suggestions(record_id, suggestions)
-                    })?;
+                    self.ingest_attachment(
+                        &SuggestRecordType::Mdn.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_mdn_suggestions(record_id, suggestions)
+                        },
+                    )?;
                 }
                 SuggestRecord::Weather(data) => {
-                    self.ingest_record(writer, record, |dao, record_id| {
-                        dao.insert_weather_data(record_id, &data)
-                    })?;
+                    self.ingest_record(
+                        &SuggestRecordType::Weather.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id| dao.insert_weather_data(record_id, &data),
+                    )?;
                 }
                 SuggestRecord::GlobalConfig(config) => {
-                    self.ingest_record(writer, record, |dao, _| {
-                        dao.put_global_config(&SuggestGlobalConfig::from(&config))
-                    })?;
+                    self.ingest_record(
+                        &SuggestRecordType::GlobalConfig.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, _| dao.put_global_config(&SuggestGlobalConfig::from(&config)),
+                    )?;
                 }
             }
         }
@@ -453,6 +531,7 @@ where
 
     fn ingest_record(
         &self,
+        last_ingest_key: &str,
         writer: &SuggestDb,
         record: &RemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
@@ -469,12 +548,13 @@ where
             // Ingest (or re-ingest) all data in the record.
             ingestion_handler(dao, &record_id)?;
 
-            dao.handle_ingested_record(record)
+            dao.handle_ingested_record(last_ingest_key, record)
         })
     }
 
     fn ingest_attachment<T>(
         &self,
+        last_ingest_key: &str,
         writer: &SuggestDb,
         record: &RemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
@@ -486,15 +566,18 @@ where
             // This method should be called only when a record is expected to
             // have an attachment. If it doesn't have one, it's malformed, so
             // skip to the next record.
-            writer.write(|dao| dao.put_last_ingest_if_newer(record.last_modified))?;
+            writer
+                .write(|dao| dao.put_last_ingest_if_newer(last_ingest_key, record.last_modified))?;
             return Ok(());
         };
 
         let attachment_data = self.settings_client.get_attachment(&attachment.location)?;
         match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
-            Ok(attachment) => self.ingest_record(writer, record, |dao, record_id| {
-                ingestion_handler(dao, record_id, attachment.suggestions())
-            }),
+            Ok(attachment) => {
+                self.ingest_record(last_ingest_key, writer, record, |dao, record_id| {
+                    ingestion_handler(dao, record_id, attachment.suggestions())
+                })
+            }
             Err(_) => writer.write(|dao| dao.handle_unparsable_record(record)),
         }
     }
@@ -721,7 +804,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                Some(15)
+            );
             expect![[r#"
                 [
                     Amp {
@@ -1014,7 +1100,7 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(15u64));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15u64));
             expect![[r#"
                 [
                     Amp {
@@ -1085,7 +1171,7 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(30u64));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(30u64));
             assert!(dao
                 .fetch_suggestions(&SuggestionQuery {
                     keyword: "la".into(),
@@ -1219,7 +1305,7 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(25u64));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(25u64));
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -1259,7 +1345,7 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(35u64));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(35u64));
             expect![[r#"
                 [
                     Amp {
@@ -1422,7 +1508,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(15u64));
+            assert_eq!(
+                dao.get_meta("last_quicksuggest_ingest_amo-suggestions")?,
+                Some(15u64)
+            );
 
             expect![[r#"
                 [
@@ -1513,7 +1602,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta(LAST_INGEST_META_KEY)?, Some(30u64));
+            assert_eq!(
+                dao.get_meta("last_quicksuggest_ingest_amo-suggestions")?,
+                Some(30u64)
+            );
 
             expect![[r#"
                 [
@@ -1648,13 +1740,14 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(20));
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
                 1
             );
             assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 1);
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(20));
 
             Ok(())
         })?;
@@ -1674,14 +1767,13 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
                 0
             );
             assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
-
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(30));
             Ok(())
         })?;
 
@@ -1717,6 +1809,7 @@ mod tests {
         for (max_suggestions, expected_limit) in table {
             store.ingest(SuggestIngestionConstraints {
                 max_suggestions: Some(max_suggestions),
+                providers: Some(vec![SuggestionProvider::Amp]),
             })?;
             let actual_limit = store
                 .settings_client
@@ -1772,7 +1865,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                Some(15)
+            );
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -1789,7 +1885,7 @@ mod tests {
         store.clear()?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, None);
+            assert_eq!(dao.get_meta::<u64>("last_quicksuggest_ingest_data")?, None);
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -4365,7 +4461,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(45));
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_icon")?,
+                Some(45)
+            );
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -4400,7 +4499,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            assert_eq!(
+                dao.get_meta("last_quicksuggest_ingest_unparsable")?,
+                Some(30)
+            );
             expect![[r#"
                 Some(
                     UnparsableRecords(
@@ -4469,7 +4571,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            assert_eq!(
+                dao.get_meta("last_quicksuggest_ingest_unparsable")?,
+                Some(30)
+            );
             expect![[r#"
                 Some(
                     UnparsableRecords(
@@ -4505,13 +4610,87 @@ mod tests {
 
         let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
         store.dbs()?.writer.write(|dao| {
-            dao.put_meta(LAST_INGEST_META_KEY, 30)?;
+            dao.put_meta("last_quicksuggest_ingest_data", 30)?;
             Ok(())
         })?;
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(30));
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                Some(30)
+            );
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
+    /// Tests that we only ingest providers that we're concerned with.
+    #[test]
+    fn ingest_constraints_provider() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "data",
+            "last_modified": 15,
+        }, {
+            "id": "icon-1",
+            "type": "icon",
+            "last_modified": 30,
+        }]))?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.dbs()?.writer.write(|dao| {
+            // Check that existing data is updated properly.
+            dao.put_meta("last_quicksuggest_ingest_data", 10)?;
+            Ok(())
+        })?;
+
+        let constraints = SuggestIngestionConstraints {
+            max_suggestions: Some(100),
+            providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Pocket]),
+        };
+        store.ingest(constraints)?;
+
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                Some(15)
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_icon")?,
+                Some(30)
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_pocket-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_amo-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_yelp-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_mdn-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_amp-mobile-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_pocket-suggestions")?,
+                None
+            );
+            assert_eq!(
+                dao.get_meta::<u64>("last_quicksuggest_ingest_configuration")?,
+                None
+            );
             Ok(())
         })?;
 
@@ -4683,7 +4862,7 @@ mod tests {
 
         // Test that the valid record was read
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>(LAST_INGEST_META_KEY)?, Some(15));
+            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15));
             expect![[r#"
                 [
                     Amp {

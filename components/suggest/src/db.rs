@@ -31,9 +31,9 @@ use crate::{
     Result, SuggestionQuery,
 };
 
-/// The metadata key whose value is the timestamp of the last record ingested
-/// from the Suggest Remote Settings collection.
-pub const LAST_INGEST_META_KEY: &str = "last_quicksuggest_ingest";
+/// The metadata key prefix for the last ingested unparsable record. These are
+/// records that were not parsed properly, or were not of the "approved" types.
+pub const LAST_INGEST_META_UNPARSABLE: &str = "last_quicksuggest_ingest_unparsable";
 /// The metadata key whose value keeps track of records of suggestions
 /// that aren't parsable and which schema version it was first seen in.
 pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
@@ -148,20 +148,28 @@ impl<'a> SuggestDao<'a> {
         self.put_unparsable_record_id(&record_id)?;
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(record.last_modified)
+        self.put_last_ingest_if_newer(LAST_INGEST_META_UNPARSABLE, record.last_modified)
     }
 
-    pub fn handle_ingested_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+    pub fn handle_ingested_record(
+        &mut self,
+        last_ingest_key: &str,
+        record: &RemoteSettingsRecord,
+    ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
         // Remove this record's ID from the list of unparsable
         // records, since we understand it now.
         self.drop_unparsable_record_id(&record_id)?;
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(record.last_modified)
+        self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
     }
 
-    pub fn handle_deleted_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
+    pub fn handle_deleted_record(
+        &mut self,
+        last_ingest_key: &str,
+        record: &RemoteSettingsRecord,
+    ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
         // Drop either the icon or suggestions, records only contain one or the other
         match record_id.as_icon_id() {
@@ -173,7 +181,7 @@ impl<'a> SuggestDao<'a> {
         self.drop_unparsable_record_id(&record_id)?;
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(record.last_modified)
+        self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
     }
 
     // =============== Low level API ===============
@@ -1224,12 +1232,14 @@ impl<'a> SuggestDao<'a> {
 
     /// Updates the last ingest timestamp if the given last modified time is
     /// newer than the existing one recorded.
-    pub fn put_last_ingest_if_newer(&mut self, record_last_modified: u64) -> Result<()> {
-        let last_ingest = self
-            .get_meta::<u64>(LAST_INGEST_META_KEY)?
-            .unwrap_or_default();
+    pub fn put_last_ingest_if_newer(
+        &mut self,
+        last_ingest_key: &str,
+        record_last_modified: u64,
+    ) -> Result<()> {
+        let last_ingest = self.get_meta::<u64>(last_ingest_key)?.unwrap_or_default();
         if record_last_modified > last_ingest {
-            self.put_meta(LAST_INGEST_META_KEY, record_last_modified)?;
+            self.put_meta(last_ingest_key, record_last_modified)?;
         }
 
         Ok(())
