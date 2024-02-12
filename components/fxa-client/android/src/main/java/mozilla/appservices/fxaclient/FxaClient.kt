@@ -146,7 +146,7 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * @param userData: The user data including session token, email and uid
      */
     fun setUserData(
-        userData: UserData
+        userData: UserData,
     ) {
         this.inner.setUserData(userData)
         tryPersistState()
