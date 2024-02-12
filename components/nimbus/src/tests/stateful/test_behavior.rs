@@ -782,6 +782,8 @@ mod multi_interval_counter_tests {
 mod event_store_tests {
     use chrono::{Datelike, Duration};
 
+    use crate::NimbusTargetingHelper;
+
     use super::*;
 
     #[test]
@@ -1440,6 +1442,82 @@ mod event_store_tests {
             );
             now += one_day;
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_integration_smoke_test() -> Result<()> {
+        let mut store = EventStore::default();
+        let event_id = "dummy_event";
+
+        store.record_event(1, event_id, None)?;
+
+        let th = NimbusTargetingHelper::from(store);
+
+        assert!(th
+            .eval_jexl(format!("'{event_id}'|eventSum('Minutes') >= 0"))
+            .is_err());
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Minutes', 1) == 1"))?);
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Minutes', 1, 1) == 0"))?);
+
+        // This is one minute bucket 24h ago. We error out at zero.
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Minutes', 1, 24 * 60) == 0"))?);
+        // This is the last 24 hours of one minute buckets. This is the same as the first 60.
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Minutes', 24 * 60) == 1"))?);
+
+        assert!(th
+            .eval_jexl(format!("'{event_id}'|eventSum('Years') >= 0"))
+            .is_err());
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Years', 1) == 1"))?);
+        assert!(th.eval_jexl(format!("'{event_id}'|eventSum('Years', 1, 1) == 0"))?);
+
+        assert!(th
+            .eval_jexl(format!("'{event_id}'|eventCountNonZero('Minutes') >= 0"))
+            .is_err());
+        assert!(th.eval_jexl(format!("'{event_id}'|eventCountNonZero('Minutes', 1) == 1"))?);
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventCountNonZero('Minutes', 1, 1) == 0"
+        ))?);
+
+        assert!(th
+            .eval_jexl(format!(
+                "'{event_id}'|eventAveragePerInterval('Minutes') >= 0"
+            ))
+            .is_err());
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventAveragePerInterval('Minutes', 1) == 1"
+        ))?);
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventAveragePerInterval('Minutes', 1, 1) == 0"
+        ))?);
+
+        assert!(th
+            .eval_jexl(format!(
+                "'{event_id}'|eventAveragePerNonZeroInterval('Minutes') >= 0"
+            ))
+            .is_err());
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventAveragePerNonZeroInterval('Minutes', 1) >= 0"
+        ))?);
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventAveragePerNonZeroInterval('Minutes', 1, 1) >= 0"
+        ))?);
+
+        // When was this event last seen? It was seen zero minutes ago.
+        assert!(th.eval_jexl(format!("'{event_id}'|eventLastSeen('Minutes') == 0"))?);
+        // Before this last minute, when was this event last seen? It was at least 60 minutes ago, if ever
+        assert!(th.eval_jexl(format!("'{event_id}'|eventLastSeen('Minutes', 1) > 60"))?);
+        // LastSeen doesn't support a fourth argument.
+        assert!(th
+            .eval_jexl(format!("'{event_id}'|eventLastSeen('Minutes', 1, 1) >= 0"))
+            .is_err());
+
+        // Q: Before 24 hours ago, when did we last see this event?
+        // A: it was greater than 24h, but likely never.
+        assert!(th.eval_jexl(format!(
+            "'{event_id}'|eventLastSeen('Minutes', 24 * 60) > 24 * 60"
+        ))?);
 
         Ok(())
     }

@@ -262,6 +262,11 @@ fn test_event_transform_last_seen_parameters() {
                 .to_string()
         })
     );
+
+    assert_eq!(
+        targeting("'app_cycle.foreground1'|eventLastSeen('Days', 2) > 1", &th),
+        None
+    );
 }
 
 #[test]
