@@ -868,6 +868,10 @@ mod test {
 
     #[test]
     fn test_verify_no_local_uaid_ok() -> Result<()> {
+        let _m = get_lock(&MTX);
+        let ctx = MockConnection::connect_context();
+        ctx.expect().returning(|_| Default::default());
+
         let mut pm = get_test_manager()?;
         let channel_list = pm
             .verify_connection(true)
