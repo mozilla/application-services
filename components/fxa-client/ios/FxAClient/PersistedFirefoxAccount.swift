@@ -54,7 +54,7 @@ class PersistedFirefoxAccount {
 
     public func setUserData(userData: UserData) {
         defer { tryPersistState() }
-        self.inner.setUserData(userData: userData)
+        inner.setUserData(userData: userData)
     }
 
     public func beginOAuthFlow(
