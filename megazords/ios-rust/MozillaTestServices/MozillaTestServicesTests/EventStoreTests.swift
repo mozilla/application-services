@@ -77,4 +77,10 @@ final class EventStoreTests: XCTestCase {
             try helper.evalJexl(expression: "'\(eventId)'|eventLastSeen('Hours') == 48")
         )
     }
+
+    func testEventLastSeenRegression() async throws {
+        let jexl = try nimbus.createMessageHelper()
+        nimbus.events.recordEvent(eventId)
+        _ = try jexl.evalJexl(expression: "'\(eventId)'|eventLastSeen('Minutes', 1) == 1")
+    }
 }

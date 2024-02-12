@@ -406,7 +406,12 @@ impl EventQueryType {
             }
         } as usize;
 
-        Ok((event, interval, usize::MAX, starting_bucket))
+        Ok((
+            event,
+            interval,
+            usize::MAX - starting_bucket,
+            starting_bucket,
+        ))
     }
 
     pub fn validate_arguments(&self, args: &[Value]) -> Result<(String, Interval, usize, usize)> {
