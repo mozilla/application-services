@@ -1,5 +1,10 @@
 # v124.0 (In progress)
 
+## ✨ What's New ✨
+
+### FxA Client
+- Added a new API `setUserData` that sets the user's session token, to prevent session token duplication and allow User Agent applications to support a signed in, but not verified state. ([#6111](https://github.com/mozilla/application-services/pull/6111))
+
 ## 🦊 What's Changed 🦊
 
 ### Webext-Storage

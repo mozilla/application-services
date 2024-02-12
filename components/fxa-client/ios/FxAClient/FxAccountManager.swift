@@ -90,7 +90,6 @@ open class FxAccountManager {
         return state == .authenticationProblem
     }
 
-
     /// Set the user data before completing their authentication
     public func setUserData(userData: UserData, completion: @escaping () -> Void) {
         DispatchQueue.global().async {
@@ -112,7 +111,10 @@ open class FxAccountManager {
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         FxALog.info("beginAuthentication")
-        let scopes = if scopes.isEmpty { self.applicationScopes } else { scopes }
+        var scopes = scopes
+        if scopes.isEmpty {
+            scopes = self.applicationScopes
+        }
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in
                 try account.beginOAuthFlow(
@@ -139,7 +141,10 @@ open class FxAccountManager {
         scopes: [String] = [],
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
-        let scopes = if scopes.isEmpty { self.applicationScopes } else { scopes }
+        var scopes = scopes
+        if scopes.isEmpty {
+            scopes = self.applicationScopes
+        }
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in
                 try account.beginPairingFlow(

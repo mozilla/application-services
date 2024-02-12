@@ -904,7 +904,7 @@ mod tests {
         }
     }
 
-    use crate::internal::scopes;
+    use crate::internal::scopes::{self, OLD_SYNC};
 
     #[test]
     fn test_auth_code_pair_valid_not_allowed_scope() {
@@ -1054,5 +1054,69 @@ mod tests {
         } else {
             panic!("Should return an error that specifies the scope that is not in the state");
         }
+    }
+
+    #[test]
+    fn test_set_user_data_sets_session_token() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+        let user_data = UserData {
+            session_token: String::from("mock_session_token"),
+            uid: String::from("mock_uid_unused"),
+            email: String::from("mock_email_usued"),
+            verified: true,
+        };
+        fxa.set_user_data(user_data);
+        assert_eq!(fxa.get_session_token().unwrap(), "mock_session_token");
+    }
+
+    #[test]
+    fn test_oauth_request_sent_with_session_when_available() {
+        let config = Config::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "https://foo.bar",
+        );
+        let mut fxa = FirefoxAccount::with_config(config);
+        let url = fxa
+            .begin_oauth_flow(&[OLD_SYNC, "profile"], "test_entrypoint")
+            .unwrap();
+        let url = Url::parse(&url).unwrap();
+        let state = url.query_pairs().find(|(name, _)| name == "state").unwrap();
+        let user_data = UserData {
+            session_token: String::from("mock_session_token"),
+            uid: String::from("mock_uid_unused"),
+            email: String::from("mock_email_usued"),
+            verified: true,
+        };
+        let mut client = MockFxAClient::new();
+
+        client
+            .expect_create_refresh_token_using_authorization_code()
+            .withf(|_, session_token, code, _| {
+                matches!(session_token, Some("mock_session_token")) && code == "mock_code"
+            })
+            .times(1)
+            .returning(|_, _, _, _| {
+                Ok(OAuthTokenResponse {
+                    keys_jwe: None,
+                    refresh_token: Some("refresh_token".to_string()),
+                    session_token: None,
+                    expires_in: 1,
+                    scope: "profile".to_string(),
+                    access_token: "access_token".to_string(),
+                })
+            });
+        client
+            .expect_destroy_access_token()
+            .with(always(), always())
+            .times(1)
+            .returning(|_, _| Ok(()));
+        fxa.set_client(Arc::new(client));
+
+        fxa.set_user_data(user_data);
+
+        fxa.complete_oauth_flow("mock_code", state.1.as_ref())
+            .unwrap();
     }
 }
