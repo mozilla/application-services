@@ -113,7 +113,7 @@ open class FxAccountManager {
         FxALog.info("beginAuthentication")
         var scopes = scopes
         if scopes.isEmpty {
-            scopes = self.applicationScopes
+            scopes = applicationScopes
         }
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in
@@ -143,7 +143,7 @@ open class FxAccountManager {
     ) {
         var scopes = scopes
         if scopes.isEmpty {
-            scopes = self.applicationScopes
+            scopes = applicationScopes
         }
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in

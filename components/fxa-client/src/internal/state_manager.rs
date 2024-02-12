@@ -165,7 +165,7 @@ impl StateManager {
         &mut self,
         scoped_keys: Vec<(String, ScopedKey)>,
         refresh_token: RefreshToken,
-        session_token: Option<String>,
+        new_session_token: Option<String>,
     ) {
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
@@ -175,8 +175,10 @@ impl StateManager {
             self.persisted_state.scoped_keys.insert(scope, key);
         }
         self.persisted_state.refresh_token = Some(refresh_token);
-        if let Some(session_token) = session_token {
-            self.persisted_state.session_token = Some(session_token)
+        // We prioritize the existing session token if we already have one, because we might have
+        // acquired a session token before the oauth flow
+        if let (None, Some(new_session_token)) = (self.session_token(), new_session_token) {
+            self.set_session_token(new_session_token)
         }
         self.persisted_state.logged_out_from_auth_issues = false;
         self.flow_store.clear();
