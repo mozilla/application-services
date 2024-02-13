@@ -31,15 +31,10 @@ url = { version = "2.1", features = ["serde"] }
 [dev-dependencies]
 env_logger = { version = "0.10", default-features = false }
 tempfile = "3"
-# A *direct* dep on the -sys crate is required for our build.rs
-# to see the DEP_SQLITE3_LINK_TARGET env var that cargo sets
-# on its behalf.
-libsqlite3-sys = { workspace = true }
 sql-support = { path = "../support/sql" }
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
 
 [build-dependencies]
-nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
 uniffi = { workspace = true, features = ["build"] }

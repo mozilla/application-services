@@ -250,7 +250,6 @@ dependencies = [
  "lazy_static",
  "libsqlite3-sys",
  "log",
- "nss_build_common",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -1317,7 +1316,6 @@ dependencies = [
  "cli-support",
  "ctrlc",
  "error-support",
- "find-places-db",
  "fxa-client",
  "interrupt-support",
  "log",
@@ -4145,7 +4143,6 @@ name = "sql-support"
 version = "0.1.0"
 dependencies = [
  "env_logger",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
@@ -4299,7 +4296,6 @@ dependencies = [
  "base64",
  "env_logger",
  "error-support",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
@@ -5021,7 +5017,6 @@ dependencies = [
 name = "viaduct-reqwest"
 version = "0.2.0"
 dependencies = [
- "ffi-support",
  "log",
  "once_cell",
  "reqwest",
@@ -5237,9 +5232,7 @@ dependencies = [
  "ffi-support",
  "interrupt-support",
  "lazy_static",
- "libsqlite3-sys",
  "log",
- "nss_build_common",
  "parking_lot",
  "rusqlite",
  "serde",
