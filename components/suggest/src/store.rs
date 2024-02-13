@@ -998,6 +998,267 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn ingest_full_keywords() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "1",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "2",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-2.json",
+                "mimetype": "application/json",
+                "location": "data-2.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "3",
+            "type": "data",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-3.json",
+                "mimetype": "application/json",
+                "location": "data-3.json",
+                "hash": "",
+                "size": 0,
+            },
+        }, {
+            "id": "4",
+            "type": "amp-mobile-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-4.json",
+                "mimetype": "application/json",
+                "location": "data-4.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        // AMP attachment with full keyword data
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "full_keywords": [
+                    // Full keyword for the first 4 keywords
+                    ("los pollos", 4),
+                    // Full keyword for the next 2 keywords
+                    ("los pollos hermanos (restaurant)", 2),
+                ],
+                "title": "Los Pollos Hermanos - Albuquerque - 1",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
+            }]),
+        )?
+        // AMP attachment without a full keyword
+        .with_data(
+            "data-2.json",
+            json!([{
+                "id": 1,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque - 2",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
+            }]),
+        )?
+        // Wikipedia attachment with full keyword data.  We should ignore the full
+        // keyword data for Wikipedia suggestions
+        .with_data(
+            "data-3.json",
+            json!([{
+                "id": 2,
+                "advertiser": "Wikipedia",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "title": "Los Pollos Hermanos - Albuquerque - Wiki",
+                "full_keywords": [
+                    ("Los Pollos Hermanos - Albuquerque", 6),
+                ],
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "score": 0.3,
+            }]),
+        )?
+        // Amp mobile suggestion, this is essentially the same as 1, except for the SuggestionProvider
+        .with_data(
+            "data-4.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Los Pollos Hermanos",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                "full_keywords": [
+                    // Full keyword for the first 4 keywords
+                    ("los pollos", 4),
+                    // Full keyword for the next 2 keywords
+                    ("los pollos hermanos (restaurant)", 2),
+                ],
+                "title": "Los Pollos Hermanos - Albuquerque - 4",
+                "url": "https://www.lph-nm.biz",
+                "icon": "5678",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url",
+                "score": 0.3
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        store.dbs()?.reader.read(|dao| {
+            // This one should match the first full keyword for the first AMP item.
+            expect![[r#"
+                [
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque - 1",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los pollos",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque - 2",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los",
+                        block_id: 1,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "lo".into(),
+                providers: vec![SuggestionProvider::Amp],
+                limit: None,
+            })?);
+            // This one should match the second full keyword for the first AMP item.
+            expect![[r#"
+                [
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque - 1",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los pollos hermanos (restaurant)",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque - 2",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los pollos hermanos",
+                        block_id: 1,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "los pollos h".into(),
+                providers: vec![SuggestionProvider::Amp],
+                limit: None,
+            })?);
+            // This one matches a Wikipedia suggestion, so the full keyword should be ignored
+            expect![[r#"
+                [
+                    Wikipedia {
+                        title: "Los Pollos Hermanos - Albuquerque - Wiki",
+                        url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los",
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "los".into(),
+                providers: vec![SuggestionProvider::Wikipedia],
+                limit: None,
+            })?);
+            // This one matches a Wikipedia suggestion, so the full keyword should be ignored
+            expect![[r#"
+                [
+                    Amp {
+                        title: "Los Pollos Hermanos - Albuquerque - 4",
+                        url: "https://www.lph-nm.biz",
+                        raw_url: "https://www.lph-nm.biz",
+                        icon: None,
+                        icon_mimetype: None,
+                        full_keyword: "los pollos hermanos (restaurant)",
+                        block_id: 0,
+                        advertiser: "Los Pollos Hermanos",
+                        iab_category: "8 - Food & Drink",
+                        impression_url: "https://example.com/impression_url",
+                        click_url: "https://example.com/click_url",
+                        raw_click_url: "https://example.com/click_url",
+                        score: 0.3,
+                    },
+                ]
+            "#]]
+            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
+                keyword: "los pollos h".into(),
+                providers: vec![SuggestionProvider::AmpMobile],
+                limit: None,
+            })?);
+
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
     /// Tests ingesting a data attachment containing a single suggestion,
     /// instead of an array of suggestions.
     #[test]
@@ -4702,10 +4963,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                         },
                     ),
@@ -4774,10 +5035,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                         },
                     ),
@@ -4973,10 +5234,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                         },
                     ),
@@ -5062,7 +5323,7 @@ mod tests {
                     UnparsableRecords(
                         {
                             "invalid-attachment": UnparsableRecord {
-                                schema_version: 15,
+                                schema_version: 16,
                             },
                         },
                     ),

@@ -239,12 +239,16 @@ impl<'a> SuggestDao<'a> {
               s.title,
               s.url,
               s.provider,
-              s.score
+              s.score,
+              fk.full_keyword
             FROM
               suggestions s
             JOIN
               keywords k
               ON k.suggestion_id = s.id
+            LEFT JOIN
+              full_keywords fk
+              ON k.full_keyword_id = fk.id
             WHERE
               s.provider = :provider
               AND k.keyword = :keyword
@@ -256,8 +260,9 @@ impl<'a> SuggestDao<'a> {
             |row| -> Result<Suggestion> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
-                let raw_url = row.get::<_, String>("url")?;
-                let score = row.get::<_, f64>("score")?;
+                let raw_url: String = row.get("url")?;
+                let score: f64 = row.get("score")?;
+                let full_keyword_from_db: Option<String> = row.get("full_keyword")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
                     r#"
@@ -309,7 +314,8 @@ impl<'a> SuggestDao<'a> {
                             title,
                             url: cooked_url,
                             raw_url,
-                            full_keyword: full_keyword(keyword_lowercased, &keywords),
+                            full_keyword: full_keyword_from_db
+                                .unwrap_or_else(|| full_keyword(keyword_lowercased, &keywords)),
                             icon: row.get("icon")?,
                             icon_mimetype: row.get("icon_mimetype")?,
                             impression_url: row.get("impression_url")?,
@@ -853,22 +859,35 @@ impl<'a> SuggestDao<'a> {
                     )?;
                 }
             }
-            for (index, keyword) in common_details.keywords.iter().enumerate() {
+            let mut full_keyword_inserter = FullKeywordInserter::new(self.conn, suggestion_id);
+            for keyword in common_details.keywords() {
+                let full_keyword_id = match (suggestion, keyword.full_keyword) {
+                    // Try to associate full keyword data.  Only do this for AMP, we decided to
+                    // skip it for Wikipedia in https://bugzilla.mozilla.org/show_bug.cgi?id=1876217
+                    (DownloadedAmpWikipediaSuggestion::Amp(_), Some(full_keyword)) => {
+                        Some(full_keyword_inserter.maybe_insert(full_keyword)?)
+                    }
+                    _ => None,
+                };
+
                 self.conn.execute(
                     "INSERT INTO keywords(
                          keyword,
                          suggestion_id,
+                         full_keyword_id,
                          rank
                      )
                      VALUES(
                          :keyword,
                          :suggestion_id,
+                         :full_keyword_id,
                          :rank
                      )",
                     named_params! {
-                        ":keyword": keyword,
-                        ":rank": index,
+                        ":keyword": keyword.keyword,
+                        ":rank": keyword.rank,
                         ":suggestion_id": suggestion_id,
+                        ":full_keyword_id": full_keyword_id,
                     },
                 )?;
             }
@@ -944,21 +963,29 @@ impl<'a> SuggestDao<'a> {
                 },
             )?;
 
-            for (index, keyword) in common_details.keywords.iter().enumerate() {
+            let mut full_keyword_inserter = FullKeywordInserter::new(self.conn, suggestion_id);
+            for keyword in common_details.keywords() {
+                let full_keyword_id = keyword
+                    .full_keyword
+                    .map(|full_keyword| full_keyword_inserter.maybe_insert(full_keyword))
+                    .transpose()?;
                 self.conn.execute(
                     "INSERT INTO keywords(
                          keyword,
                          suggestion_id,
+                         full_keyword_id,
                          rank
                      )
                      VALUES(
                          :keyword,
                          :suggestion_id,
+                         :full_keyword_id,
                          :rank
                      )",
                     named_params! {
-                        ":keyword": keyword,
-                        ":rank": index,
+                        ":keyword": keyword.keyword,
+                        ":rank": keyword.rank,
+                        ":full_keyword_id": full_keyword_id,
                         ":suggestion_id": suggestion_id,
                     },
                 )?;
@@ -1336,6 +1363,53 @@ impl<'a> SuggestDao<'a> {
     ) -> Result<Option<SuggestProviderConfig>> {
         self.get_meta::<String>(&provider_config_meta_key(provider))?
             .map_or_else(|| Ok(None), |json| Ok(serde_json::from_str(&json)?))
+    }
+}
+
+/// Helper struct to get full_keyword_ids for a suggestion
+///
+/// `FullKeywordInserter` handles repeated full keywords efficiently.  The first instance will
+/// cause a row to be inserted into the database.  Subsequent instances will return the same
+/// full_keyword_id.
+struct FullKeywordInserter<'a> {
+    conn: &'a Connection,
+    suggestion_id: i64,
+    last_inserted: Option<(&'a str, i64)>,
+}
+
+impl<'a> FullKeywordInserter<'a> {
+    fn new(conn: &'a Connection, suggestion_id: i64) -> Self {
+        Self {
+            conn,
+            suggestion_id,
+            last_inserted: None,
+        }
+    }
+
+    fn maybe_insert(&mut self, full_keyword: &'a str) -> rusqlite::Result<i64> {
+        match self.last_inserted {
+            Some((s, id)) if s == full_keyword => Ok(id),
+            _ => {
+                let full_keyword_id = self.conn.query_row_and_then(
+                    "INSERT INTO full_keywords(
+                        suggestion_id,
+                        full_keyword
+                     )
+                     VALUES(
+                        :suggestion_id,
+                        :keyword
+                     )
+                     RETURNING id",
+                    named_params! {
+                        ":keyword": full_keyword,
+                        ":suggestion_id": self.suggestion_id,
+                    },
+                    |row| row.get(0),
+                )?;
+                self.last_inserted = Some((full_keyword, full_keyword_id));
+                Ok(full_keyword_id)
+            }
+        }
     }
 }
 
