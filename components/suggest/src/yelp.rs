@@ -52,7 +52,7 @@ const SUBJECT_PREFIX_MATCH_THRESHOLD: usize = 2;
 
 impl<'a> SuggestDao<'a> {
     /// Inserts the suggestions for Yelp attachment into the database.
-    pub fn insert_yelp_suggestions(
+    pub(crate) fn insert_yelp_suggestions(
         &mut self,
         record_id: &SuggestRecordId,
         suggestion: &DownloadedYelpSuggestion,
@@ -130,7 +130,10 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Fetch Yelp suggestion from given user's query.
-    pub fn fetch_yelp_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+    pub(crate) fn fetch_yelp_suggestions(
+        &self,
+        query: &SuggestionQuery,
+    ) -> Result<Vec<Suggestion>> {
         if !query.providers.contains(&SuggestionProvider::Yelp) {
             return Ok(vec![]);
         }
