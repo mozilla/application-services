@@ -225,16 +225,18 @@ where
 }
 
 /// Fields that are common to all downloaded suggestions.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct DownloadedSuggestionCommonDetails {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
     pub score: Option<f64>,
+    #[serde(default)]
+    pub full_keywords: Vec<(String, usize)>,
 }
 
 /// An AMP suggestion to ingest from an AMP-Wikipedia attachment.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct DownloadedAmpSuggestion {
     #[serde(flatten)]
     pub common_details: DownloadedSuggestionCommonDetails,
@@ -249,7 +251,7 @@ pub(crate) struct DownloadedAmpSuggestion {
 }
 
 /// A Wikipedia suggestion to ingest from an AMP-Wikipedia attachment.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct DownloadedWikipediaSuggestion {
     #[serde(flatten)]
     pub common_details: DownloadedSuggestionCommonDetails,
@@ -281,6 +283,34 @@ impl DownloadedAmpWikipediaSuggestion {
             DownloadedAmpWikipediaSuggestion::Wikipedia(_) => SuggestionProvider::Wikipedia,
         }
     }
+}
+
+impl DownloadedSuggestionCommonDetails {
+    /// Iterate over all keywords for this suggestion
+    pub fn keywords(&self) -> impl Iterator<Item = AmpKeyword<'_>> {
+        let full_keywords = self
+            .full_keywords
+            .iter()
+            .flat_map(|(full_keyword, repeat_for)| {
+                std::iter::repeat(Some(full_keyword.as_str())).take(*repeat_for)
+            })
+            .chain(std::iter::repeat(None)); // In case of insufficient full keywords, just fill in with infinite `None`s
+                                             //
+        self.keywords.iter().zip(full_keywords).enumerate().map(
+            move |(i, (keyword, full_keyword))| AmpKeyword {
+                rank: i,
+                keyword,
+                full_keyword,
+            },
+        )
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct AmpKeyword<'a> {
+    pub rank: usize,
+    pub keyword: &'a str,
+    pub full_keyword: Option<&'a str>,
 }
 
 impl<'de> Deserialize<'de> for DownloadedAmpWikipediaSuggestion {
@@ -412,4 +442,120 @@ where
     D: Deserializer<'de>,
 {
     String::deserialize(deserializer).map(|s| s.parse().ok())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_full_keywords() {
+        let suggestion = DownloadedAmpWikipediaSuggestion::Amp(DownloadedAmpSuggestion {
+            common_details: DownloadedSuggestionCommonDetails {
+                keywords: vec![
+                    String::from("f"),
+                    String::from("fo"),
+                    String::from("foo"),
+                    String::from("foo b"),
+                    String::from("foo ba"),
+                    String::from("foo bar"),
+                ],
+                full_keywords: vec![(String::from("foo"), 3), (String::from("foo bar"), 3)],
+                ..DownloadedSuggestionCommonDetails::default()
+            },
+            ..DownloadedAmpSuggestion::default()
+        });
+
+        assert_eq!(
+            Vec::from_iter(suggestion.common_details().keywords()),
+            vec![
+                AmpKeyword {
+                    rank: 0,
+                    keyword: "f",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 1,
+                    keyword: "fo",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 2,
+                    keyword: "foo",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 3,
+                    keyword: "foo b",
+                    full_keyword: Some("foo bar"),
+                },
+                AmpKeyword {
+                    rank: 4,
+                    keyword: "foo ba",
+                    full_keyword: Some("foo bar"),
+                },
+                AmpKeyword {
+                    rank: 5,
+                    keyword: "foo bar",
+                    full_keyword: Some("foo bar"),
+                },
+            ],
+        );
+    }
+
+    #[test]
+    fn test_missing_full_keywords() {
+        let suggestion = DownloadedAmpWikipediaSuggestion::Amp(DownloadedAmpSuggestion {
+            common_details: DownloadedSuggestionCommonDetails {
+                keywords: vec![
+                    String::from("f"),
+                    String::from("fo"),
+                    String::from("foo"),
+                    String::from("foo b"),
+                    String::from("foo ba"),
+                    String::from("foo bar"),
+                ],
+                // Only the first 3 keywords have full keywords associated with them
+                full_keywords: vec![(String::from("foo"), 3)],
+                ..DownloadedSuggestionCommonDetails::default()
+            },
+            ..DownloadedAmpSuggestion::default()
+        });
+
+        assert_eq!(
+            Vec::from_iter(suggestion.common_details().keywords()),
+            vec![
+                AmpKeyword {
+                    rank: 0,
+                    keyword: "f",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 1,
+                    keyword: "fo",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 2,
+                    keyword: "foo",
+                    full_keyword: Some("foo"),
+                },
+                AmpKeyword {
+                    rank: 3,
+                    keyword: "foo b",
+                    full_keyword: None,
+                },
+                AmpKeyword {
+                    rank: 4,
+                    keyword: "foo ba",
+                    full_keyword: None,
+                },
+                AmpKeyword {
+                    rank: 5,
+                    keyword: "foo bar",
+                    full_keyword: None,
+                },
+            ],
+        );
+    }
 }

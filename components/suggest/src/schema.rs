@@ -13,7 +13,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
 ///     [`SuggestConnectionInitializer::upgrade_from`].
-pub const VERSION: u32 = 15;
+pub const VERSION: u32 = 16;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -25,9 +25,18 @@ pub const SQL: &str = "
     CREATE TABLE keywords(
         keyword TEXT NOT NULL,
         suggestion_id INTEGER NOT NULL REFERENCES suggestions(id) ON DELETE CASCADE,
+        full_keyword_id INTEGER NULL REFERENCES full_keywords(id) ON DELETE SET NULL,
         rank INTEGER NOT NULL,
         PRIMARY KEY (keyword, suggestion_id)
     ) WITHOUT ROWID;
+
+    -- full keywords are what we display to the user when a (partial) keyword matches
+    -- The FK to suggestion_id makes it so full keywords get deleted when the parent suggestion is deleted.
+    CREATE TABLE full_keywords(
+        id INTEGER PRIMARY KEY,
+        suggestion_id INTEGER NOT NULL REFERENCES suggestions(id) ON DELETE CASCADE,
+        full_keyword TEXT NOT NULL
+    );
 
     CREATE TABLE prefix_keywords(
         keyword_prefix TEXT NOT NULL,
@@ -142,7 +151,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
 
     fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
-            1..=14 => {
+            1..=15 => {
                 // Treat databases with these older schema versions as corrupt,
                 // so that they'll be replaced by a fresh, empty database with
                 // the current schema.
