@@ -32,5 +32,4 @@ env_logger = { version = "0.10", default-features = false }
 libsqlite3-sys = { workspace = true }
 
 [build-dependencies]
-nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
 uniffi = { workspace = true, features = ["build"] }

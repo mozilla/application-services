@@ -49,7 +49,6 @@ anyhow = "1.0"
 base16 = { version = "0.2", optional = true }
 base64 = { version = "0.21", optional = true }
 error-support = { path = "../support/error" }
-ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 payload-support = { path = "../support/payload" }
 lazy_static = "1.4"
