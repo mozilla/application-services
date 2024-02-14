@@ -43,12 +43,7 @@ pub fn verify_address_removal(s: &AutofillStore) {
 }
 
 pub fn assert_address_equiv(a: &Address, b: &Address) {
-    assert_eq!(a.given_name, b.given_name, "given_name mismatch");
-    assert_eq!(
-        a.additional_name, b.additional_name,
-        "additional_name mismatch"
-    );
-    assert_eq!(a.family_name, b.family_name, "family_name mismatch");
+    assert_eq!(a.name, b.name, "name mismatch");
     assert_eq!(
         a.street_address, b.street_address,
         "street_address mismatch"
@@ -166,9 +161,7 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     let a1 = add_address(
         &c0.autofill_store,
         UpdatableAddressFields {
-            given_name: "jane".to_string(),
-            additional_name: "elliott".to_string(),
-            family_name: "doe".to_string(),
+            name: "jane elliott doe".to_string(),
             street_address: "123 Second Avenue".to_string(),
             address_level2: "Chicago, IL".to_string(),
             postal_code: "60007".to_string(),
@@ -181,9 +174,7 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     let a2 = add_address(
         &c0.autofill_store,
         UpdatableAddressFields {
-            given_name: "john".to_string(),
-            additional_name: "elliott".to_string(),
-            family_name: "doe".to_string(),
+            name: "john elliott doe".to_string(),
             street_address: "1300 Broadway".to_string(),
             address_level2: "New York, NY".to_string(),
             postal_code: "10001".to_string(),
