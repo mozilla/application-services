@@ -11,6 +11,7 @@ members = [
     "components/nimbus",
     "components/places",
     "components/push",
+    "components/relevancy",
     "components/remote_settings",
     "components/rc_log",
     "components/suggest",
