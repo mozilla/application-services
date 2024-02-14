@@ -80,6 +80,7 @@ struct PayloadEntry {
     pub name: String,
     // given_name, additional_name and family_name
     // should exist in PayloadEntry but not in InternalAddress
+    // This is needed to support old devices that still need these fields
     pub given_name: String,
     pub additional_name: String,
     pub family_name: String,
