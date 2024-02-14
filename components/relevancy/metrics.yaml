@@ -1,0 +1,41 @@
+# Metrics file.
+#
+# I think this would end up living in the consumer repos, since we can't record metrics directly
+# from Rust.
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+
+relevancy:
+
+  interest_score_max:
+    type: distribution
+    description: >
+      Maximum possible cosine similarity between the user's interest vector and all potential suggestion interest vectors.
+      Multiplied by 100 to make it an integer for Glean.
+    range_min: 0
+    range_max: 100
+    bucket_count: 50
+    histogram_type: linear
+
+  interest_score_max_single_topic:
+    type: distribution
+    description: >
+      Maximum possible cosine similarity between the user's interest vector single-entry interest vectors.
+      These are interest vectors with `1` for a single interest and `0` for all other elements.
+      Multiplied by 100 to make it an integer for Glean.
+    range_min: 0
+    range_max: 100
+    bucket_count: 50
+    histogram_type: linear
+
+  interest_score_non_inconclusive:
+    type: distribution
+    description: >
+      Interest score similarity between the user's interest vector and the "non-inconclusive" interest vector.
+      This is the vector with `1` for all elements, except `Inconclusive` which is 0.
+      Multiplied by 100 to make it an integer for Glean.
+    range_min: 0
+    range_max: 100
+    bucket_count: 50
+    histogram_type: linear
