@@ -19,6 +19,22 @@ use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 
+// When an incoming record lacks the `name` field but includes any `*_name` fields, we can
+// assume that the record originates from an older device.
+
+// If the record comes from an older device, we compare the `*_name` fields with those in
+// the corresponding local record. If the values of the `*_name`
+// fields differ, it indicates that the incoming record has updated these fields. If the
+// values are the same, we replace the name field of the incoming record with the local
+// name field to ensure the completeness of the name field when reconciling.
+//
+// Here is an example:
+// Assume the local record is {"name": "Mr. John Doe"}. If an updated incoming record
+// has {"given_name": "John", "family_name": "Doe"}, we will NOT join the `*_name` fields
+// and replace the local `name` field with "John Doe". This allows us to retain the complete
+// name - "Mr. John Doe".
+// However, if the updated incoming record has {"given_name": "Jane", "family_name": "Poe"},
+// we will rebuild it and replace the local `name` field with "Jane Poe".
 fn update_name(payload_content: &mut IncomingContent<AddressPayload>, local_name: String) {
     // Check if the kind is IncomingKind::Content and get a mutable reference to internal_address
     let internal_address =
@@ -30,7 +46,7 @@ fn update_name(payload_content: &mut IncomingContent<AddressPayload>, local_name
 
     let entry = &mut internal_address.entry;
 
-    // Return early if the name is not empty or all other name parts are empty
+    // Return early if the name is not empty or `*-name`` parts are empty
     if !entry.name.is_empty()
         || (entry.given_name.is_empty()
             && entry.additional_name.is_empty()
