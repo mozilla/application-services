@@ -28,9 +28,9 @@ impl InternalStateMachine for AuthenticatingStateMachine {
     fn next_state(&self, state: State, event: Event) -> Result<State> {
         Ok(match (state, event) {
             (CompleteOAuthFlow { .. }, CompleteOAuthFlowSuccess) => InitializeDevice,
-            (CompleteOAuthFlow { .. }, CallError) => Cancel,
+            (CompleteOAuthFlow { .. }, CallError) => Complete(FxaState::Disconnected),
             (InitializeDevice, InitializeDeviceSuccess) => Complete(FxaState::Connected),
-            (InitializeDevice, CallError) => Cancel,
+            (InitializeDevice, CallError) => Complete(FxaState::Disconnected),
             (state, event) => return invalid_transition(state, event),
         })
     }
@@ -57,11 +57,17 @@ mod test {
                 state: "test-state".to_owned(),
             }
         );
-        assert_eq!(tester.peek_next_state(CallError), Cancel);
+        assert_eq!(
+            tester.peek_next_state(CallError),
+            Complete(FxaState::Disconnected)
+        );
 
         tester.next_state(CompleteOAuthFlowSuccess);
         assert_eq!(tester.state, InitializeDevice);
-        assert_eq!(tester.peek_next_state(CallError), Cancel);
+        assert_eq!(
+            tester.peek_next_state(CallError),
+            Complete(FxaState::Disconnected)
+        );
         assert_eq!(
             tester.peek_next_state(InitializeDeviceSuccess),
             Complete(FxaState::Connected)
