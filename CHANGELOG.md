@@ -1,4 +1,8 @@
-# v124.0 (In progress)
+# v125.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v124.0 (_2024-02-15_)
 
 ## 🦊 What's Changed 🦊
 
@@ -21,7 +25,7 @@
 ## What's Fixed
 - It was possible for sync to apply a tombstone for places while a bookmark was still in the database. This would have resulted in foreign constraint SQLite error.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v123.0...v124.0)
 
 # v123.0 (_2024-01-22_)
 
