@@ -1,5 +1,10 @@
 # v125.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### Android
+- Upgraded NDK from r25c to r26c. ([#6134](https://github.com/mozilla/application-services/pull/6134))
+
 [Full Changelog](In progress)
 
 # v124.0 (_2024-02-15_)
