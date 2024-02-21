@@ -475,8 +475,10 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         Suggestion::Yelp {
             url,
             title,
-            subject_exact_match: builder.subject_exact_match,
             icon: builder.icon,
+            has_location_sign: location_modifier.is_none() && builder.location_sign.is_some(),
+            subject_exact_match: builder.subject_exact_match,
+            location_param: "find_loc".to_string(),
         }
     }
 }
