@@ -74,8 +74,10 @@ interface Suggestion {
     Yelp(
         string url,
         string title,
+        sequence<u8>? icon,
+        boolean has_location_sign,
         boolean subject_exact_match,
-        sequence<u8>? icon
+        string location_param
     );
     Mdn(
         string title,
