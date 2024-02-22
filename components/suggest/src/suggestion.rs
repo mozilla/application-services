@@ -64,6 +64,7 @@ pub enum Suggestion {
         url: String,
         title: String,
         icon: Option<Vec<u8>>,
+        score: f64,
         has_location_sign: bool,
         subject_exact_match: bool,
         location_param: String,

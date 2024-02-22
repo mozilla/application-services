@@ -75,6 +75,7 @@ interface Suggestion {
         string url,
         string title,
         sequence<u8>? icon,
+        f64 score,
         boolean has_location_sign,
         boolean subject_exact_match,
         string location_param
