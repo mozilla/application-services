@@ -3,19 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-// This is a "port" of the desktop xpcshell test named test_reconcile.js.
-// https://searchfox.org/mozilla-central/rev/896042a1a71066254ceb5291f016ca3dbca21cb7/browser/extensions/formautofill/test/unit/test_reconcile.js
-
-// NOTE: a guide to reading these test-cases:
-// "parent": What the local record looked like the last time we wrote the
-//         record to the Sync server (ie, what's in our "mirror")
-// "local":  What the local record looks like now. IOW, the differences between
-//         '"parent":' and 'local' are changes recently made which we wish to sync.
-// "remote": An incoming record we need to apply (ie, a record that was possibly
-//         changed on a remote device)
-//
-// To further help understanding this, a few of the testcases are annotated.
-
 use crate::db::addresses;
 use crate::db::schema::create_empty_sync_temp_tables;
 use crate::error::Result;
@@ -32,8 +19,26 @@ use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 
 lazy_static::lazy_static! {
+    // NOTE: a guide to reading these test-cases:
+    // "parent": What the local record looked like the last time we wrote the
+    //         record to the Sync server (ie, what's in our "mirror")
+    // "local":  What the local record looks like now. IOW, the differences between
+    //         '"parent":' and 'local' are changes recently made which we wish to sync.
+    // "remote": An incoming record we need to apply (ie, a record that was possibly
+    //         changed on a remote device)
+    //
+    // These test cases cover the following reconciliation scenarios for the name field:
+    // 1. Both local and remote record have no name.
+    // 2. Both local and remote record have name field in new format.
+    // 3. Local record has name in new format and remote in old.
+    // 4. Remote record has name in new format and local in old.
+    // 5. Remote and local records have name in different formats, but name parts match.
+    // 6. Remote and local records have name in different formats, but name parts are different.
+    //
+    // To further help understanding this, a few of the testcases are annotated.
+
     static ref ADDRESS_RECONCILE_TESTCASES: Value = json!([
-        // No Local
+        // No Local record, reconciled name should be the remote name.
         {
             "description": "Remote is old, no Local",
             "local": [
@@ -49,6 +54,7 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
+        // No local record, only remote record with new name format. Reconciled name should be remote name.
         {
             "description": "Remote is new, no Local",
             "local": [
@@ -63,6 +69,7 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
+        // No local record name, only remote record with new name format. Reconciled name should be remote name.
         {
             "description": "Remote record doesn't have name, no Local",
             "local": [
@@ -76,9 +83,9 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
-        // Remote change, same guid
+        // Both Local and remote records has name in new format. Reconciled name should be remote name.
         {
-            "description": "Remote change, new reocrd",
+            "description": "Remote is new, Local is old",
             "parent": {
                 "version": 1,
                 "name": "Mr. Mark Jones",
@@ -100,9 +107,33 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
-        // This fails now because split algorithm
+        // No local record, only remote record with new name format. Reconciled name should be remote name.
         {
-            "description": "Remote change, old reocrd, name is not updated",
+            "description": "Remote change, new record",
+            "parent": {
+                "version": 1,
+                "name": "Mr. Mark Jones",
+                "street-address": "32 Vassar Street",
+            },
+            "local": [
+                {
+                    "name": "Mr. Mark Jones",
+                    "street-address": "32 Vassar Street",
+                },
+            ],
+            "remote": {
+                "version": 1,
+                "name": "Mr. John Doe",
+                "street-address": "32 Vassar Street",
+            },
+            "reconciled": {
+                "name": "Mr. John Doe",
+                "street-address": "32 Vassar Street",
+            },
+        },
+        // Local record and remote name parts match, we use the local name as it has more information.
+        {
+            "description": "Remote change, old record, name is not updated",
             "parent": {
                 "version": 1,
                 "name": "Mr. Mark Jones",
@@ -125,8 +156,9 @@ lazy_static::lazy_static! {
                 "street-address": "I moved!",
             },
         },
+        // Local record and remote name parts don't match, we keep the remote name as is.
         {
-            "description": "Remote change, old reocrd, name is updated",
+            "description": "Remote change, old record, name is updated",
             "parent": {
                 "version": 1,
                 "name": "Mr. Mark Jones",
@@ -149,8 +181,9 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
+        // Remote record has name but not local, use remote name.
         {
-            "description": "Remote change, old reocrd adds name",
+            "description": "Remote change, old record adds name",
             "parent": {
                 "version": 1,
                 "street-address": "32 Vassar Street",
@@ -171,6 +204,7 @@ lazy_static::lazy_static! {
                 "street-address": "32 Vassar Street",
             },
         },
+        // No name in either records. Name should be "".
         {
             "description": "Remote change, remote record does not have name",
             "parent": {
