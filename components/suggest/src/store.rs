@@ -417,7 +417,7 @@ where
                 serde_json::from_value(serde_json::Value::Object(record.fields.clone()))
             else {
                 // We don't recognize this record's type, so we don't know how
-                // to ingest its suggestions. Record this in the meta table.
+                // to ingest its suggestions. Skip processing this record.
                 writer.write(|dao| dao.handle_unparsable_record(record))?;
                 continue;
             };
