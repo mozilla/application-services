@@ -96,9 +96,14 @@ impl FxaStateMachineChecker {
         inner.state_machine = make_state_machine(&inner.public_state);
         match inner.state_machine.initial_state(event.clone()) {
             Ok(state) => {
-                breadcrumb!("fxa-state-machine-checker: public transition start");
-                breadcrumb!("fxa-state-machine-checker: {event} -> {state}");
+                breadcrumb!(
+                    "fxa-state-machine-checker: public transition start ({event} -> {state})"
+                );
                 inner.internal_state = state;
+                if let InternalState::Complete(new_state) = &inner.internal_state {
+                    inner.public_state = new_state.clone();
+                    breadcrumb!("fxa-state-machine-checker: public transition end");
+                }
             }
             Err(e) => {
                 report_error!(
@@ -121,7 +126,7 @@ impl FxaStateMachineChecker {
             .next_state(inner.internal_state.clone(), event.clone())
         {
             Ok(state) => {
-                breadcrumb!("fxa-state-machine-checker: {event} -> {state}");
+                breadcrumb!("fxa-state-machine-checker: internal transition ({event} -> {state})");
                 match &state {
                     InternalState::Complete(new_state) => {
                         inner.public_state = new_state.clone();
