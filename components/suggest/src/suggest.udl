@@ -144,6 +144,7 @@ interface SuggestStoreBuilder {
     [Self=ByArc]
     SuggestStoreBuilder data_path(string path);
 
+    // Deprecated: this is no longer used by the suggest component.
     [Self=ByArc]
     SuggestStoreBuilder cache_path(string path);
 

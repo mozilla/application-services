@@ -50,7 +50,6 @@ pub struct SuggestStoreBuilder(Mutex<SuggestStoreBuilderInner>);
 #[derive(Default)]
 struct SuggestStoreBuilderInner {
     data_path: Option<String>,
-    cache_path: Option<String>,
     remote_settings_config: Option<RemoteSettingsConfig>,
 }
 
@@ -70,8 +69,8 @@ impl SuggestStoreBuilder {
         self
     }
 
-    pub fn cache_path(self: Arc<Self>, path: String) -> Arc<Self> {
-        self.0.lock().cache_path = Some(path);
+    pub fn cache_path(self: Arc<Self>, _path: String) -> Arc<Self> {
+        // We used to use this, but we're not using it anymore, just ignore the call
         self
     }
 
@@ -87,10 +86,6 @@ impl SuggestStoreBuilder {
             .data_path
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
-        let cache_path = inner
-            .cache_path
-            .clone()
-            .ok_or_else(|| Error::SuggestStoreBuilder("cache_path not specified".to_owned()))?;
         let settings_client =
             remote_settings::Client::new(inner.remote_settings_config.clone().unwrap_or_else(
                 || RemoteSettingsConfig {
@@ -100,7 +95,7 @@ impl SuggestStoreBuilder {
                 },
             ))?;
         Ok(Arc::new(SuggestStore {
-            inner: SuggestStoreInner::new(data_path, cache_path, settings_client),
+            inner: SuggestStoreInner::new(data_path, settings_client),
         }))
     }
 }
@@ -184,7 +179,7 @@ impl SuggestStore {
             )?)
         }()?;
         Ok(Self {
-            inner: SuggestStoreInner::new("".to_owned(), path.to_owned(), settings_client),
+            inner: SuggestStoreInner::new(path.to_owned(), settings_client),
         })
     }
 
@@ -253,23 +248,14 @@ pub(crate) struct SuggestStoreInner<S> {
     /// It's not currently used because not all consumers pass this in yet.
     #[allow(unused)]
     data_path: PathBuf,
-    /// Path to the temporary SQL database.
-    ///
-    /// This stores things that should be deleted when the user clears their cache.
-    cache_path: PathBuf,
     dbs: OnceCell<SuggestStoreDbs>,
     settings_client: S,
 }
 
 impl<S> SuggestStoreInner<S> {
-    fn new(
-        data_path: impl Into<PathBuf>,
-        cache_path: impl Into<PathBuf>,
-        settings_client: S,
-    ) -> Self {
+    fn new(data_path: impl Into<PathBuf>, settings_client: S) -> Self {
         Self {
             data_path: data_path.into(),
-            cache_path: cache_path.into(),
             dbs: OnceCell::new(),
             settings_client,
         }
@@ -279,7 +265,7 @@ impl<S> SuggestStoreInner<S> {
     /// they're not already open.
     fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
-            .get_or_try_init(|| SuggestStoreDbs::open(&self.cache_path))
+            .get_or_try_init(|| SuggestStoreDbs::open(&self.data_path))
     }
 
     fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
@@ -636,10 +622,6 @@ mod tests {
         SuggestStoreInner::new(
             format!(
                 "file:test_store_data_{}?mode=memory&cache=shared",
-                hex::encode(unique_suffix),
-            ),
-            format!(
-                "file:test_store_cache_{}?mode=memory&cache=shared",
                 hex::encode(unique_suffix),
             ),
             settings_client,
@@ -4963,10 +4945,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                         },
                     ),
@@ -5035,10 +5017,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                         },
                     ),
@@ -5234,10 +5216,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                         },
                     ),
@@ -5323,7 +5305,7 @@ mod tests {
                     UnparsableRecords(
                         {
                             "invalid-attachment": UnparsableRecord {
-                                schema_version: 16,
+                                schema_version: 17,
                             },
                         },
                     ),

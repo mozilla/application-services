@@ -15,6 +15,9 @@
 
 [Full Changelog](In progress)
 
+### Suggest
+- `SuggestStoreBuilder.cache_path` is now deprecated because we no longer use the cache path.
+
 # v124.0 (_2024-02-15_)
 
 ## 🦊 What's Changed 🦊

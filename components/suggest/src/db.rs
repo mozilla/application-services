@@ -25,7 +25,7 @@ use crate::{
         DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
         SuggestRecordId,
     },
-    schema::{SuggestConnectionInitializer, VERSION},
+    schema::{clear_database, SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
     Result, SuggestionQuery,
@@ -1250,12 +1250,7 @@ impl<'a> SuggestDao<'a> {
 
     /// Clears the database, removing all suggestions, icons, and metadata.
     pub fn clear(&mut self) -> Result<()> {
-        self.conn.execute_batch(
-            "DELETE FROM suggestions;
-             DELETE FROM icons;
-             DELETE FROM meta;",
-        )?;
-        Ok(())
+        Ok(clear_database(self.conn)?)
     }
 
     /// Returns the value associated with a metadata key.
