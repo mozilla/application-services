@@ -252,6 +252,7 @@ impl<'a> SuggestDao<'a> {
             WHERE
               s.provider = :provider
               AND k.keyword = :keyword
+            AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
             "#,
             named_params! {
                 ":keyword": keyword_lowercased,
@@ -348,6 +349,7 @@ impl<'a> SuggestDao<'a> {
             WHERE
               s.provider = :provider
               AND k.keyword = :keyword
+              AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
             "#,
             named_params! {
                 ":keyword": keyword_lowercased,
@@ -430,6 +432,7 @@ impl<'a> SuggestDao<'a> {
                   k.keyword_prefix = :keyword_prefix
                   AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
                   AND s.provider = :provider
+                  AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
                 GROUP BY
                   s.id
                 ORDER BY
@@ -529,6 +532,7 @@ impl<'a> SuggestDao<'a> {
               k.keyword_prefix = :keyword_prefix
               AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
               AND s.provider = :provider
+              AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
             GROUP BY
               s.id,
               k.confidence
@@ -1189,6 +1193,22 @@ impl<'a> SuggestDao<'a> {
                 ":mimetype": mimetype,
             },
         )?;
+        Ok(())
+    }
+
+    pub fn insert_dismissal(&self, url: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO dismissed_suggestions(url)
+             VALUES(:url)",
+            named_params! {
+                ":url": url,
+            },
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_dismissals(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM dismissed_suggestions", ())?;
         Ok(())
     }
 
