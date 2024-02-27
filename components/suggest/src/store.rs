@@ -4852,6 +4852,74 @@ mod tests {
     }
 
     #[test]
+    fn query_no_yelp_icon_data() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([{
+            "id": "data-1",
+            "type": "yelp-suggestions",
+            "last_modified": 15,
+            "attachment": {
+                "filename": "data-1.json",
+                "mimetype": "application/json",
+                "location": "data-1.json",
+                "hash": "",
+                "size": 0,
+            },
+        }]))?
+        .with_data(
+            "data-1.json",
+            json!([
+                {
+                    "subjects": ["ramen"],
+                    "preModifiers": [],
+                    "postModifiers": [],
+                    "locationSigns": [],
+                    "yelpModifiers": [],
+                    "icon": "yelp-favicon",
+                    "score": 0.5
+                },
+            ]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [(
+            "keyword = ramen; Yelp only",
+            SuggestionQuery {
+                keyword: "ramen".into(),
+                providers: vec![SuggestionProvider::Yelp],
+                limit: None,
+            },
+            expect![[r#"
+                [
+                    Yelp {
+                        url: "https://www.yelp.com/search?find_desc=ramen",
+                        title: "ramen",
+                        icon: None,
+                        score: 0.5,
+                        has_location_sign: false,
+                        subject_exact_match: true,
+                        location_param: "find_loc",
+                    },
+                ]
+            "#]],
+        )];
+
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn weather() -> anyhow::Result<()> {
         before_each();
 

@@ -219,7 +219,7 @@ impl<'a> SuggestDao<'a> {
               i.data, y.score
             FROM
               yelp_custom_details y
-            JOIN
+            LEFT JOIN
               icons i
               ON y.icon_id = i.id
             LIMIT
