@@ -34,10 +34,15 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             FROM credit_cards_data l
             LEFT JOIN credit_cards_mirror m
             ON l.guid = m.guid
-            WHERE sync_change_counter > 0
-                OR l.guid NOT IN (
-                    SELECT m.guid
-                    FROM credit_cards_mirror m
+            WHERE
+                l.cc_number_enc <> ''
+            AND
+                (
+                    sync_change_counter > 0 OR
+                    l.guid NOT IN (
+                        SELECT m.guid
+                        FROM credit_cards_mirror m
+                    )
                 )",
             common_cols = CREDIT_CARD_COMMON_COLS,
         );

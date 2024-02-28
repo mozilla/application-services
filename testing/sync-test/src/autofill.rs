@@ -13,7 +13,7 @@ use autofill::{
     encryption::{create_autofill_key, encrypt_string},
     error::ApiResult as AutofillResult,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 pub fn sync_addresses(client: &mut TestClient) -> Result<()> {
     client.sync(&["addresses".to_string()], HashMap::new())?;
@@ -71,6 +71,12 @@ pub fn add_credit_card(
 ) -> AutofillResult<CreditCard> {
     let id = s.add_credit_card(c)?.guid;
     Ok(s.get_credit_card(id).expect("Credit card has been added"))
+}
+
+pub fn scrub_credit_card(s: Arc<AutofillStore>) -> AutofillResult<()> {
+    AutofillStore::scrub_encrypted_data(s)
+        .expect("scrub_encrypted_data() to succeed");
+    Ok(())
 }
 
 pub fn delete_credit_card(s: &AutofillStore, c: CreditCard) -> AutofillResult<()> {
@@ -155,6 +161,39 @@ fn test_autofill_credit_cards_general(c0: &mut TestClient, c1: &mut TestClient) 
     verify_credit_card_removal(&c1.autofill_store);
 }
 
+fn test_autofill_credit_cards_with_scrubbed_cards(c0: &mut TestClient, c1: &mut TestClient) {
+    let key = create_autofill_key().expect("encryption key created");
+
+    log::info!("Add a credit card to client0");
+    let cc3 = add_credit_card(
+        &c0.autofill_store,
+        UpdatableCreditCardFields {
+            cc_name: "jane deer".to_string(),
+            cc_number_enc: encrypt_string(key.clone(), "88888888888888".to_string())
+                .expect("encrypted cc number for cc3"),
+            cc_number_last_4: "6789".to_string(),
+            cc_exp_month: 12,
+            cc_exp_year: 2027,
+            cc_type: "visa".to_string(),
+        },
+    )
+    .expect("add cc3");
+
+    log::info!("CC3 GUID: {}", cc3.clone().guid);
+
+    log::info!("Scrub the credit cards on client0");
+    let _ = scrub_credit_card(c0.autofill_store.clone());
+
+    log::info!("Syncing client0");
+    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+
+    // clear records
+    delete_credit_card(&c0.autofill_store, cc3.clone()).expect("cc3 to be deleted from c0");
+    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+    verify_credit_card_removal(&c0.autofill_store);
+    verify_credit_card_removal(&c1.autofill_store);
+}
+
 fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add some addresses to client0");
 
@@ -215,6 +254,10 @@ pub fn get_test_group() -> TestGroup {
             (
                 "test_autofill_credit_cards_general",
                 test_autofill_credit_cards_general,
+            ),
+            (
+                "test_autofill_credit_cards_with_scrubbed_cards",
+                test_autofill_credit_cards_with_scrubbed_cards
             ),
         ],
     )

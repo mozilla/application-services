@@ -29,6 +29,7 @@
 
 ### Autofill
 - Replace `*-name` fields with a single `name` field for addresses.
+- Prevented outgoing syncs of scrubbed credit card records ([#6143](https://github.com/mozilla/application-services/pull/6143)).
 
 ## What's Fixed
 - It was possible for sync to apply a tombstone for places while a bookmark was still in the database. This would have resulted in foreign constraint SQLite error.

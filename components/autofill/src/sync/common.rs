@@ -198,12 +198,18 @@ fn get_outgoing_records(
     sql: &str,
     record_from_data_row: &dyn Fn(&Row<'_>) -> Result<(OutgoingBso, i64)>,
 ) -> anyhow::Result<Vec<(OutgoingBso, i64)>> {
-    Ok(conn
-        .prepare(sql)?
-        .query_map([], |row| {
-            Ok(record_from_data_row(row).unwrap()) // XXX - this unwrap()!
-        })?
-        .collect::<std::result::Result<_, _>>()?)
+    conn.prepare(sql)?
+        .query_map([], |row| Ok(record_from_data_row(row)))?
+        .map(|r| {
+            r.unwrap().map_err(|e| {
+                log::error!(
+                    "Failed to retrieve a record from a row with the following error: {}",
+                    e
+                );
+                e.into()
+            })
+        })
+        .collect::<std::result::Result<Vec<_>, _>>()
 }
 
 pub(super) fn common_get_outgoing_records(
