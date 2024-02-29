@@ -344,13 +344,16 @@ where
             }
         }
 
-        let mut ingest_record_types = if let Some(rt) = &constraints.providers {
-            rt.iter().flat_map(|x| x.records_for_provider()).collect()
+        // use std::collections::BTreeSet;
+        let ingest_record_types = if let Some(rt) = &constraints.providers {
+            rt.iter()
+                .flat_map(|x| x.records_for_provider())
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect()
         } else {
             DEFAULT_RECORDS_TYPES.to_vec()
         };
-        ingest_record_types.sort_unstable();
-        ingest_record_types.dedup();
 
         for ingest_record_type in ingest_record_types {
             self.ingest_records_by_type(ingest_record_type, writer, &constraints)?;
