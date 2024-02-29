@@ -309,7 +309,7 @@ struct AttachmentsCapability {
 /// Options for requests to endpoints that return multiple items.
 #[derive(Clone, Debug, Default)]
 pub struct GetItemsOptions {
-    pub filters: Vec<Filter>,
+    filters: Vec<Filter>,
     sort: Vec<Sort>,
     fields: Vec<String>,
     limit: Option<u64>,
@@ -463,7 +463,7 @@ pub enum SortOrder {
 }
 
 #[derive(Clone, Debug)]
-pub enum Filter {
+enum Filter {
     Eq(String, String),
     Not(String, String),
     Contains(String, String),
