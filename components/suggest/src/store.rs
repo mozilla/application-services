@@ -4,7 +4,7 @@
  */
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -375,7 +375,7 @@ where
         // so that we can eventually resume downloading where we left off.
         options.sort("last_modified", SortOrder::Ascending);
 
-        options.eq("type", ingest_record_type.get_rs_type());
+        options.eq("type", ingest_record_type.to_string());
 
         // Get the last ingest value. This is the max of the last_ingest_keys
         // that are in the database.
@@ -428,6 +428,9 @@ where
             match fields {
                 SuggestRecord::AmpWikipedia => {
                     self.ingest_attachment(
+                        // TODO: Currently re-creating the last_ingest_key because using last_ingest_meta
+                        // breaks the tests (particularly the unparsable functionality). So, keeping
+                        // a direct reference until we remove the "unparsable" functionality.
                         &SuggestRecordType::AmpWikipedia.last_ingest_meta_key(),
                         writer,
                         record,
@@ -808,7 +811,11 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                dao.get_meta::<u64>(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
                 Some(15)
             );
             expect![[r#"
@@ -1103,7 +1110,14 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15u64));
+            assert_eq!(
+                dao.get_meta(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
+                Some(15u64)
+            );
             expect![[r#"
                 [
                     Amp {
@@ -1173,8 +1187,15 @@ mod tests {
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(30u64));
+        store.dbs()?.reader.read(|dao: &SuggestDao<'_>| {
+            assert_eq!(
+                dao.get_meta(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
+                Some(30u64)
+            );
             assert!(dao
                 .fetch_suggestions(&SuggestionQuery {
                     keyword: "la".into(),
@@ -1308,7 +1329,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(25u64));
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
+                Some(25u64)
+            );
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -1348,7 +1372,10 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(35u64));
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
+                Some(35u64)
+            );
             expect![[r#"
                 [
                     Amp {
@@ -1512,7 +1539,7 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta("last_quicksuggest_ingest_amo-suggestions")?,
+                dao.get_meta(SuggestRecordType::Amo.last_ingest_meta_key().as_str())?,
                 Some(15u64)
             );
 
@@ -1606,7 +1633,7 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta("last_quicksuggest_ingest_amo-suggestions")?,
+                dao.get_meta(SuggestRecordType::Amo.last_ingest_meta_key().as_str())?,
                 Some(30u64)
             );
 
@@ -1749,8 +1776,18 @@ mod tests {
                 1
             );
             assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 1);
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15));
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(20));
+            assert_eq!(
+                dao.get_meta(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
+                Some(15)
+            );
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
+                Some(20)
+            );
 
             Ok(())
         })?;
@@ -1776,7 +1813,10 @@ mod tests {
                 0
             );
             assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_icon")?, Some(30));
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
+                Some(30)
+            );
             Ok(())
         })?;
 
@@ -1869,7 +1909,11 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                dao.get_meta::<u64>(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
                 Some(15)
             );
             assert_eq!(
@@ -1888,7 +1932,14 @@ mod tests {
         store.clear()?;
 
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta::<u64>("last_quicksuggest_ingest_data")?, None);
+            assert_eq!(
+                dao.get_meta::<u64>(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
+                None
+            );
             assert_eq!(
                 dao.conn
                     .query_one::<i64>("SELECT count(*) FROM suggestions")?,
@@ -4465,7 +4516,7 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_icon")?,
+                dao.get_meta::<u64>(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
                 Some(45)
             );
             assert_eq!(
@@ -4613,14 +4664,23 @@ mod tests {
 
         let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
         store.dbs()?.writer.write(|dao| {
-            dao.put_meta("last_quicksuggest_ingest_data", 30)?;
+            dao.put_meta(
+                SuggestRecordType::AmpWikipedia
+                    .last_ingest_meta_key()
+                    .as_str(),
+                30,
+            )?;
             Ok(())
         })?;
         store.ingest(SuggestIngestionConstraints::default())?;
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                dao.get_meta::<u64>(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
                 Some(30)
             );
             Ok(())
@@ -4647,7 +4707,12 @@ mod tests {
         let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
         store.dbs()?.writer.write(|dao| {
             // Check that existing data is updated properly.
-            dao.put_meta("last_quicksuggest_ingest_data", 10)?;
+            dao.put_meta(
+                SuggestRecordType::AmpWikipedia
+                    .last_ingest_meta_key()
+                    .as_str(),
+                10,
+            )?;
             Ok(())
         })?;
 
@@ -4659,39 +4724,43 @@ mod tests {
 
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_data")?,
+                dao.get_meta::<u64>(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
                 Some(15)
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_icon")?,
+                dao.get_meta::<u64>(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
                 Some(30)
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_pocket-suggestions")?,
+                dao.get_meta::<u64>(SuggestRecordType::Pocket.last_ingest_meta_key().as_str())?,
                 None
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_amo-suggestions")?,
+                dao.get_meta::<u64>(SuggestRecordType::Amo.last_ingest_meta_key().as_str())?,
                 None
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_yelp-suggestions")?,
+                dao.get_meta::<u64>(SuggestRecordType::Yelp.last_ingest_meta_key().as_str())?,
                 None
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_mdn-suggestions")?,
+                dao.get_meta::<u64>(SuggestRecordType::Mdn.last_ingest_meta_key().as_str())?,
                 None
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_amp-mobile-suggestions")?,
+                dao.get_meta::<u64>(SuggestRecordType::AmpMobile.last_ingest_meta_key().as_str())?,
                 None
             );
             assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_pocket-suggestions")?,
-                None
-            );
-            assert_eq!(
-                dao.get_meta::<u64>("last_quicksuggest_ingest_configuration")?,
+                dao.get_meta::<u64>(
+                    SuggestRecordType::GlobalConfig
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
                 None
             );
             Ok(())
@@ -4865,7 +4934,14 @@ mod tests {
 
         // Test that the valid record was read
         store.dbs()?.reader.read(|dao| {
-            assert_eq!(dao.get_meta("last_quicksuggest_ingest_data")?, Some(15));
+            assert_eq!(
+                dao.get_meta(
+                    SuggestRecordType::AmpWikipedia
+                        .last_ingest_meta_key()
+                        .as_str()
+                )?,
+                Some(15)
+            );
             expect![[r#"
                 [
                     Amp {

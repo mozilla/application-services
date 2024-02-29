@@ -31,7 +31,7 @@
 //!     the new suggestion in their results, and return `Suggestion::T` variants
 //!     as needed.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 use remote_settings::{GetItemsOptions, RemoteSettingsResponse};
 use serde::{Deserialize, Deserializer};
@@ -148,24 +148,26 @@ impl From<SuggestRecord> for SuggestRecordType {
     }
 }
 
-impl SuggestRecordType {
-    pub fn get_rs_type(&self) -> &str {
+impl fmt::Display for SuggestRecordType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Icon => "icon",
-            Self::AmpWikipedia => "data",
-            Self::Amo => "amo-suggestions",
-            Self::Pocket => "pocket-suggestions",
-            Self::Yelp => "yelp-suggestions",
-            Self::Mdn => "mdn-suggestions",
-            Self::Weather => "weather",
-            Self::GlobalConfig => "configuration",
-            Self::AmpMobile => "amp-mobile-suggestions",
+            Self::Icon => write!(f, "icon"),
+            Self::AmpWikipedia => write!(f, "data"),
+            Self::Amo => write!(f, "amo-suggestions"),
+            Self::Pocket => write!(f, "pocket-suggestions"),
+            Self::Yelp => write!(f, "yelp-suggestions"),
+            Self::Mdn => write!(f, "mdn-suggestions"),
+            Self::Weather => write!(f, "weather"),
+            Self::GlobalConfig => write!(f, "configuration"),
+            Self::AmpMobile => write!(f, "amp-mobile-suggestions"),
         }
     }
+}
 
+impl SuggestRecordType {
     /// Return the meta key for the last ingested record.
     pub fn last_ingest_meta_key(&self) -> String {
-        format!("last_quicksuggest_ingest_{}", self.get_rs_type())
+        format!("last_quicksuggest_ingest_{}", self)
     }
 }
 
