@@ -466,7 +466,7 @@ where
                     };
                     let data = self.settings_client.get_attachment(&attachment.location)?;
                     writer.write(|dao| {
-                        dao.put_icon(icon_id, &data)?;
+                        dao.put_icon(icon_id, &data, &attachment.mimetype)?;
                         dao.handle_ingested_record(
                             &SuggestRecordType::Icon.last_ingest_meta_key(),
                             record,
@@ -825,6 +825,7 @@ mod tests {
                         url: "https://www.lph-nm.biz",
                         raw_url: "https://www.lph-nm.biz",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "los",
                         block_id: 0,
                         advertiser: "Los Pollos Hermanos",
@@ -930,6 +931,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/png",
+                        ),
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -967,6 +971,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/png",
                         ),
                         full_keyword: "penne",
                         block_id: 0,
@@ -1037,6 +1044,7 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -1125,6 +1133,7 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -1210,6 +1219,7 @@ mod tests {
                         url: "https://www.lph-nm.biz",
                         raw_url: "https://www.lph-nm.biz",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "los pollos",
                         block_id: 0,
                         advertiser: "Los Pollos Hermanos",
@@ -1233,6 +1243,7 @@ mod tests {
                         url: "https://penne.biz",
                         raw_url: "https://penne.biz",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "penne",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -1402,6 +1413,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/png",
+                        ),
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -1442,6 +1456,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/png",
                         ),
                         full_keyword: "los",
                         block_id: 0,
@@ -2230,6 +2247,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/png",
+                            ),
                             full_keyword: "lasagna",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -2293,6 +2313,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/png",
+                            ),
                             full_keyword: "multimatch",
                         },
                     ]
@@ -2348,6 +2371,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "multimatch",
                         },
@@ -2417,6 +2443,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "lasagna",
                             block_id: 0,
@@ -2499,6 +2528,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/png",
+                            ),
                             full_keyword: "california",
                         },
                         Wikipedia {
@@ -2519,6 +2551,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "california",
                         },
@@ -2552,6 +2587,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "california",
                         },
@@ -2764,6 +2802,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -2797,6 +2838,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -2829,6 +2873,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: true,
@@ -2885,6 +2932,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -2929,6 +2979,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -2961,6 +3014,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: true,
@@ -3006,6 +3062,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -3038,6 +3097,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: true,
@@ -3083,6 +3145,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -3115,6 +3180,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: true,
@@ -3149,6 +3217,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: false,
                             subject_exact_match: true,
@@ -3181,6 +3252,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: false,
@@ -3226,6 +3300,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: false,
                             subject_exact_match: true,
@@ -3258,6 +3335,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: false,
@@ -3336,6 +3416,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: false,
                             subject_exact_match: true,
@@ -3368,6 +3451,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: false,
@@ -3402,6 +3488,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -3435,6 +3524,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: true,
                             subject_exact_match: true,
@@ -3467,6 +3559,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: false,
@@ -3512,6 +3607,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: false,
                             subject_exact_match: false,
@@ -3545,6 +3643,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
+                            ),
                             score: 0.5,
                             has_location_sign: false,
                             subject_exact_match: true,
@@ -3577,6 +3678,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/svg+xml",
                             ),
                             score: 0.5,
                             has_location_sign: false,
@@ -3633,6 +3737,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/svg+xml",
+                        ),
                         score: 0.5,
                         has_location_sign: false,
                         subject_exact_match: false,
@@ -3666,6 +3773,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/svg+xml",
+                        ),
                         score: 0.5,
                         has_location_sign: false,
                         subject_exact_match: false,
@@ -3698,6 +3808,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/svg+xml",
                         ),
                         score: 0.5,
                         has_location_sign: false,
@@ -3742,6 +3855,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/svg+xml",
                         ),
                         score: 0.5,
                         has_location_sign: false,
@@ -3884,6 +4000,7 @@ mod tests {
                             url: "https://www.lasagna.restaurant",
                             raw_url: "https://www.lasagna.restaurant",
                             icon: None,
+                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -3912,6 +4029,9 @@ mod tests {
                                     110,
                                 ],
                             ),
+                            icon_mimetype: Some(
+                                "image/png",
+                            ),
                             full_keyword: "amp wiki match",
                         },
                         Amp {
@@ -3919,6 +4039,7 @@ mod tests {
                             url: "https://penne.biz",
                             raw_url: "https://penne.biz",
                             icon: None,
+                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -3951,6 +4072,7 @@ mod tests {
                             url: "https://www.lasagna.restaurant",
                             raw_url: "https://www.lasagna.restaurant",
                             icon: None,
+                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -3978,6 +4100,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "amp wiki match",
                         },
@@ -4022,6 +4147,9 @@ mod tests {
                                     111,
                                     110,
                                 ],
+                            ),
+                            icon_mimetype: Some(
+                                "image/png",
                             ),
                             full_keyword: "pocket wiki match",
                         },
@@ -4343,6 +4471,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/png",
+                        ),
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -4383,6 +4514,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/png",
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -4425,6 +4559,9 @@ mod tests {
                                 110,
                             ],
                         ),
+                        icon_mimetype: Some(
+                            "image/png",
+                        ),
                         full_keyword: "lasagna",
                         block_id: 0,
                         advertiser: "Good Place Eats",
@@ -4453,6 +4590,9 @@ mod tests {
                                 111,
                                 110,
                             ],
+                        ),
+                        icon_mimetype: Some(
+                            "image/png",
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -4562,10 +4702,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                         },
                     ),
@@ -4634,10 +4774,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                         },
                     ),
@@ -4833,10 +4973,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                         },
                     ),
@@ -4922,7 +5062,7 @@ mod tests {
                     UnparsableRecords(
                         {
                             "invalid-attachment": UnparsableRecord {
-                                schema_version: 14,
+                                schema_version: 15,
                             },
                         },
                     ),
@@ -4949,6 +5089,7 @@ mod tests {
                         url: "https://www.lph-nm.biz",
                         raw_url: "https://www.lph-nm.biz",
                         icon: None,
+                        icon_mimetype: None,
                         full_keyword: "los",
                         block_id: 0,
                         advertiser: "Los Pollos Hermanos",
@@ -5157,6 +5298,7 @@ mod tests {
                         url: "https://www.yelp.com/search?find_desc=ramen",
                         title: "ramen",
                         icon: None,
+                        icon_mimetype: None,
                         score: 0.5,
                         has_location_sign: false,
                         subject_exact_match: true,

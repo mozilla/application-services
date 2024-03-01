@@ -13,7 +13,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
 ///     [`SuggestConnectionInitializer::upgrade_from`].
-pub const VERSION: u32 = 14;
+pub const VERSION: u32 = 15;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -79,7 +79,8 @@ pub const SQL: &str = "
 
     CREATE TABLE icons(
         id TEXT PRIMARY KEY,
-        data BLOB NOT NULL
+        data BLOB NOT NULL,
+        mimetype TEXT NOT NULL
     ) WITHOUT ROWID;
 
     CREATE TABLE yelp_subjects(
@@ -141,7 +142,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
 
     fn upgrade_from(&self, _db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
-            1..=13 => {
+            1..=14 => {
                 // Treat databases with these older schema versions as corrupt,
                 // so that they'll be replaced by a fresh, empty database with
                 // the current schema.
