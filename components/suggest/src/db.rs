@@ -285,9 +285,12 @@ impl<'a> SuggestDao<'a> {
                       amp.iab_category,
                       amp.impression_url,
                       amp.click_url,
-                      (SELECT i.data FROM icons i WHERE i.id = amp.icon_id) AS icon
+                      i.data AS icon,
+                      i.mimetype AS icon_mimetype
                     FROM
                       amp_custom_details amp
+                    LEFT JOIN
+                      icons i ON amp.icon_id = i.id
                     WHERE
                       amp.suggestion_id = :suggestion_id
                     "#,
@@ -308,6 +311,7 @@ impl<'a> SuggestDao<'a> {
                             raw_url,
                             full_keyword: full_keyword(keyword_lowercased, &keywords),
                             icon: row.get("icon")?,
+                            icon_mimetype: row.get("icon_mimetype")?,
                             impression_url: row.get("impression_url")?,
                             click_url: cooked_click_url,
                             raw_click_url,
@@ -358,21 +362,33 @@ impl<'a> SuggestDao<'a> {
                     },
                     |row| row.get(0),
                 )?;
-                let icon = self.conn.try_query_one(
-                    "SELECT i.data
+                let (icon, icon_mimetype) = self
+                    .conn
+                    .try_query_row(
+                        "SELECT i.data, i.mimetype
                      FROM icons i
                      JOIN wikipedia_custom_details s ON s.icon_id = i.id
-                     WHERE s.suggestion_id = :suggestion_id",
-                    named_params! {
-                        ":suggestion_id": suggestion_id
-                    },
-                    true,
-                )?;
+                     WHERE s.suggestion_id = :suggestion_id
+                     LIMIT 1",
+                        named_params! {
+                            ":suggestion_id": suggestion_id
+                        },
+                        |row| -> Result<_> {
+                            Ok((
+                                row.get::<_, Option<Vec<u8>>>(0)?,
+                                row.get::<_, Option<String>>(1)?,
+                            ))
+                        },
+                        true,
+                    )?
+                    .unwrap_or((None, None));
+
                 Ok(Suggestion::Wikipedia {
                     title,
                     url: raw_url,
                     full_keyword: full_keyword(keyword_lowercased, &keywords),
                     icon,
+                    icon_mimetype,
                 })
             },
         )?;
@@ -1149,19 +1165,22 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Inserts or replaces an icon for a suggestion into the database.
-    pub fn put_icon(&mut self, icon_id: &str, data: &[u8]) -> Result<()> {
+    pub fn put_icon(&mut self, icon_id: &str, data: &[u8], mimetype: &str) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO icons(
                  id,
-                 data
+                 data,
+                 mimetype
              )
              VALUES(
                  :id,
-                 :data
+                 :data,
+                 :mimetype
              )",
             named_params! {
                 ":id": icon_id,
                 ":data": data,
+                ":mimetype": mimetype,
             },
         )?;
         Ok(())
