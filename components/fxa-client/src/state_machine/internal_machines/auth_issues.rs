@@ -18,6 +18,7 @@ impl InternalStateMachine for AuthIssuesStateMachine {
                 scopes: scopes.clone(),
                 entrypoint: entrypoint.clone(),
             }),
+            FxaEvent::Disconnect => Ok(Complete(FxaState::Disconnected)),
             e => Err(Error::InvalidStateTransition(format!("AuthIssues -> {e}"))),
         }
     }
@@ -64,5 +65,11 @@ mod test {
                 oauth_url: "http://example.com/oauth-start".to_owned(),
             })
         );
+    }
+
+    #[test]
+    fn test_disconnect() {
+        let tester = StateMachineTester::new(AuthIssuesStateMachine, FxaEvent::Disconnect);
+        assert_eq!(tester.state, Complete(FxaState::Disconnected));
     }
 }

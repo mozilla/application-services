@@ -86,7 +86,7 @@ impl FxaStateMachineChecker {
             internal_state => {
                 report_error!(
                     "fxa-state-machine-checker",
-                    "handle_public_event called with non-terminal internal state: {internal_state} ({event})",
+                    "handle_public_event called with non-terminal internal state (event: {event}, internal state: {internal_state})",
                  );
                 inner.reported_error = true;
                 return;
@@ -162,7 +162,7 @@ impl FxaStateMachineChecker {
             internal_state => {
                 report_error!(
                     "fxa-state-machine-checker",
-                    "check_public_state called with non-terminal internal state: {internal_state} ({state})",
+                    "check_public_state called with non-terminal internal state (expected: {state} actual internal state: {internal_state})"
                  );
                 inner.reported_error = true;
                 return;
@@ -192,7 +192,7 @@ impl FxaStateMachineChecker {
         if inner.internal_state != state {
             report_error!(
                 "fxa-state-machine-checker",
-                "Internal state mismatch: {} vs {state}",
+                "Internal state mismatch (expected: {state}, actual: {})",
                 inner.internal_state
             );
             inner.reported_error = true;
