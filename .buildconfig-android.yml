@@ -49,13 +49,6 @@ projects:
     - name: remotesettings
       type: aar
     description: A Remote Settings client intended for the application layer.
-  rustlog:
-    path: components/rc_log/android
-    artifactId: rustlog
-    publications:
-    - name: rustlog
-      type: aar
-    description: Android hook into the log crate.
   rust-log-forwarder:
     path: components/support/rust-log-forwarder/android
     artifactId: rust-log-forwarder

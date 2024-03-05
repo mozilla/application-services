@@ -2352,7 +2352,6 @@ dependencies = [
  "nimbus-sdk",
  "places",
  "push",
- "rc_log_ffi",
  "remote_settings",
  "rust-log-forwarder",
  "suggest",
@@ -2367,7 +2366,6 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "nimbus-sdk",
- "rc_log_ffi",
  "remote_settings",
  "rust-log-forwarder",
  "viaduct",
@@ -2387,7 +2385,6 @@ dependencies = [
  "nimbus-sdk",
  "places",
  "push",
- "rc_log_ffi",
  "remote_settings",
  "rust-log-forwarder",
  "suggest",
@@ -3482,16 +3479,6 @@ dependencies = [
  "hex",
  "nss",
  "thiserror",
-]
-
-[[package]]
-name = "rc_log_ffi"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "ffi-support",
- "lazy_static",
- "log",
 ]
 
 [[package]]

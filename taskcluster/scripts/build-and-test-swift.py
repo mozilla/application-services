@@ -44,14 +44,12 @@ SOURCE_TO_COPY = [
     "components/places/ios/Places",
     "components/sync15/ios/Sync15",
     "components/sync_manager/ios/SyncManager",
-    "components/rc_log/ios/*",
     "components/viaduct/ios/*",
 ]
 
 # List of udl_paths to generate bindings for
 FOCUS_SOURCE_TO_COPY = [
     "components/nimbus/ios/Nimbus",
-    "components/rc_log/ios/*",
     "components/viaduct/ios/*",
 ]
 
