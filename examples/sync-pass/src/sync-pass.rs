@@ -378,32 +378,32 @@ fn main() -> Result<()> {
     cli_support::init_trace_logging();
     viaduct_reqwest::use_reqwest_backend();
 
-    let matches = clap::App::new("sync_pass_sql")
+    let matches = clap::Command::new("sync_pass_sql")
         .about("CLI login syncing tool")
         .arg(
-            clap::Arg::with_name("database_path")
-                .short("d")
+            clap::Arg::new("database_path")
+                .short('d')
                 .long("database")
+                .default_value("./logins.db")
                 .value_name("LOGINS_DATABASE")
-                .takes_value(true)
+                .num_args(1)
                 .help("Path to the logins database (default: \"./logins.db\")"),
         )
         .arg(
-            clap::Arg::with_name("credential_file")
-                .short("c")
+            clap::Arg::new("credential_file")
+                .short('c')
                 .long("credentials")
+                .default_value("./credentials.json")
                 .value_name("CREDENTIAL_JSON")
-                .takes_value(true)
+                .num_args(1)
                 .help(
                     "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
                 ),
         )
         .get_matches();
 
-    let cred_file = matches
-        .value_of("credential_file")
-        .unwrap_or("./credentials.json");
-    let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
+    let cred_file = matches.get_one::<String>("credential_file").unwrap();
+    let db_path = matches.get_one::<String>("database_path").unwrap();
 
     log::debug!("credential file: {:?}", cred_file);
     log::debug!("db: {:?}", db_path);

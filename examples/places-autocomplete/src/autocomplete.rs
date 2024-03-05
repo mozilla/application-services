@@ -5,7 +5,6 @@
 #![warn(rust_2018_idioms)]
 
 use anyhow::Result;
-use clap::value_t;
 use places::{PlacesDb, VisitObservation, VisitType};
 use sql_support::ConnExt;
 use std::io::prelude::*;
@@ -728,42 +727,42 @@ mod autocomplete {
 }
 
 fn main() -> Result<()> {
-    let matches = clap::App::new("autocomplete-example")
-        .arg(clap::Arg::with_name("database_path")
+    let matches = clap::Command::new("autocomplete-example")
+        .arg(clap::Arg::new("database_path")
             .long("database")
-            .short("d")
-            .takes_value(true)
-            .help("Path to the database (with the *new* schema). Defaults to './new-places.db'"))
-        .arg(clap::Arg::with_name("import_places")
+            .short('d')
+            .default_value("./new-places.db")
+            .num_args(1)
+            .help(""))
+        .arg(clap::Arg::new("import_places")
             .long("import-places")
-            .short("p")
-            .takes_value(true)
+            .short('p')
+            .num_args(1)
             .value_name("'auto'|'path/to/places.sqlite'")
             .help("Source places db to import from, or 'auto' to import from the largest places.sqlite"))
-        .arg(clap::Arg::with_name("import_places_remote_weight")
+        .arg(clap::Arg::new("import_places_remote_weight")
             .long("import-places-remote-weight")
-            .takes_value(true)
+            .num_args(1)
             .value_name("WEIGHT")
             .help("Probability (between 0.0 and 1.0, default = 0.1) that a given visit from `places` should \
                    be considered `remote`. Ignored when --import-places is not passed"))
-        .arg(clap::Arg::with_name("no_interactive")
+        .arg(clap::Arg::new("no_interactive")
             .long("no-interactive")
-            .short("x")
+            .short('x')
             .help("Don't run the interactive demo after completion (if you just want to run an \
                    import and exit, for example)"))
         .get_matches();
 
-    let db_path = matches
-        .value_of("database_path")
-        .unwrap_or("./new-places.db");
+    let db_path = matches.get_one::<String>("database_path").unwrap();
 
     let api = places::PlacesApi::new(db_path)?;
     let mut conn = api.open_connection(places::ConnectionType::ReadWrite)?;
 
-    if let Some(import_places_arg) = matches.value_of("import_places") {
+    if let Some(import_places_arg) = matches.get_one::<String>("import_places") {
         let options = ImportPlacesOptions {
-            remote_probability: value_t!(matches, "import_places_remote_weight", f64)
-                .unwrap_or(0.1),
+            remote_probability: *matches
+                .get_one::<f64>("import_places_remote_weight")
+                .unwrap_or(&0.1),
         };
         let import_source = if import_places_arg == "auto" {
             log::info!("Automatically locating largest places DB in your profile(s)");
@@ -808,7 +807,7 @@ fn main() -> Result<()> {
     }
     // Close our connection before starting autocomplete.
     drop(conn);
-    if !matches.is_present("no_interactive") {
+    if !matches.contains_id("no_interactive") {
         #[cfg(not(windows))]
         {
             // Can't use cfg! macro, this module doesn't exist at all on windows
