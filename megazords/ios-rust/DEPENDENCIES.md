@@ -557,7 +557,6 @@ The following text applies to code linked from these dependencies:
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
-[time](https://github.com/time-rs/time),
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),

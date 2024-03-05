@@ -421,10 +421,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: time</name>
-    <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
-  </license>
-  <license>
     <name>Apache License 2.0: tinyvec</name>
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
@@ -477,15 +473,11 @@ the details of which are reproduced below.
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: winapi</name>
-    <url>https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: winapi-x86_64-pc-windows-gnu</name>
-    <url>https://github.com/retep998/winapi-rs/blob/0.3/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: windows-sys</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: windows-targets</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>
   <license>

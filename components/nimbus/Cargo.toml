@@ -47,5 +47,5 @@ glean-build = { path = "../external/glean/glean-core/build" }
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 env_logger = "0.10"
-clap = "2.33.3"
+clap = "2.34"
 tempfile = "3"
