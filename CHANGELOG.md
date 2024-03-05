@@ -2,6 +2,8 @@
 
 ## 🦊 What's Changed 🦊
 
+- The long-deprecated `rc_log` crate has been removed.
+
 ### Android
 - Upgraded NDK from r25c to r26c. ([#6134](https://github.com/mozilla/application-services/pull/6134))
 

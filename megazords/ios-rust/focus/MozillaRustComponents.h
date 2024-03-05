@@ -5,7 +5,6 @@
 // This is the "umbrella header" for our combined Rust code library.
 // It needs to import all of the individual headers.
 
-#import "RustLogFFI.h"
 #import "RustViaductFFI.h"
 #import "nimbusFFI.h"
 #import "errorFFI.h"

@@ -57,14 +57,11 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 # Rust Components
 
-[./components/](components) contains the source for each component, and its
-  FFI bindings.
-
-> Please note that we are in the process of moving away from hand-written ffi code and instead favouring the use of the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
+[./components/](components) contains the source for each component. Note that most components have their FFI generated
+by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
 * See [./components/places/](components/places) for an example, where you can
     find:
   * The shared [rust code](components/places/src).
-  * The mapping into a [C FFI](components/places/ffi).
   * The [Kotlin bindings](components/places/android) for use by Android
       applications.
   * The [Swift bindings](components/places/ios) for use by iOS applications.
@@ -85,8 +82,6 @@ The application-services library primary consumers are Fenix (Firefox on Android
   browsing history
 * [push](components/push) - for applications to receive real-time updates via
   WebPush
-* [rc_log](components/rc_log) - for connecting component log output to the
-  application's log stream
 * [support](components/support) - low-level utility libraries
   * [support/rc_crypto](components/rc_crypto) - handles cryptographic needs backed by Mozilla's
     [NSS](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS) library
@@ -100,3 +95,5 @@ The application-services library primary consumers are Fenix (Firefox on Android
 * [viaduct](components/viaduct) - an HTTP request library
 * [webext-storage](components/webext-storage) - powers an implementation of the
 chrome.storage.sync WebExtension API
+
+Note the above list is partial; see the actual list under the `components` directory.
