@@ -31,12 +31,7 @@ url = { version = "2.1", features = ["serde"] }
 [dev-dependencies]
 env_logger = { version = "0.10", default-features = false }
 tempfile = "3"
-# A *direct* dep on the -sys crate is required for our build.rs
-# to see the DEP_SQLITE3_LINK_TARGET env var that cargo sets
-# on its behalf.
-libsqlite3-sys = { workspace = true }
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]
-nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
 uniffi = { workspace = true, features = ["build"] }

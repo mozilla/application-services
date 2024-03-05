@@ -114,12 +114,3 @@ pub fn use_reqwest_backend() {
 pub extern "C" fn viaduct_use_reqwest_backend() {
     use_reqwest_backend();
 }
-
-/// A dummy symbol we include so that we can detect whether or not the reqwest
-/// backend got compiled in.
-#[no_mangle]
-pub extern "C" fn viaduct_detect_reqwest_backend() {
-    ffi_support::abort_on_panic::call_with_output(|| {
-        println!("Nothing to see here (reqwest backend available).");
-    });
-}

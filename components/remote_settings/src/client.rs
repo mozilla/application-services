@@ -724,15 +724,9 @@ mod test {
                             },
                         ),
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "jpg-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("jpg-attachment"),
                         },
                     },
                     RemoteSettingsRecord {
@@ -749,15 +743,9 @@ mod test {
                             },
                         ),
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "with-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("with-attachment"),
                         },
                     },
                     RemoteSettingsRecord {
@@ -766,15 +754,9 @@ mod test {
                         deleted: false,
                         attachment: None,
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "no-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("no-attachment"),
                         },
                     },
                     RemoteSettingsRecord {
@@ -869,15 +851,9 @@ mod test {
                             },
                         ),
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "jpg-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("jpg-attachment"),
                         },
                     },
                     RemoteSettingsRecord {
@@ -894,15 +870,9 @@ mod test {
                             },
                         ),
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "with-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("with-attachment"),
                         },
                     },
                     RemoteSettingsRecord {
@@ -911,15 +881,9 @@ mod test {
                         deleted: false,
                         attachment: None,
                         fields: {
-                            "content": String(
-                                "content",
-                            ),
-                            "schema": Number(
-                                1677694447771,
-                            ),
-                            "title": String(
-                                "no-attachment",
-                            ),
+                            "content": String("content"),
+                            "schema": Number(1677694447771),
+                            "title": String("no-attachment"),
                         },
                     },
                     RemoteSettingsRecord {

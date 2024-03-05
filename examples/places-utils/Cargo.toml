@@ -28,6 +28,5 @@ cli-support = { path = "../cli-support" }
 structopt = "0.3"
 fxa-client = { path = "../../components/fxa-client" }
 tempfile = "3"
-find-places-db = { path = "../../components/support/find-places-db" }
 anyhow = "1.0"
 ctrlc = "3.2.1"

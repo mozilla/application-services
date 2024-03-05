@@ -13,8 +13,6 @@ debug-tools = ["dep:prettytable-rs", "rusqlite/column_decltype"]
 [dependencies]
 log = "0.4"
 lazy_static = "1.4"
-interrupt-support = { path = "../interrupt" }
-ffi-support = "0.4"
 thiserror = "1.0"
 tempfile = "3.1.0"
 prettytable-rs = { version = "0.10", optional = true }
