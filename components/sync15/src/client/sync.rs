@@ -10,11 +10,12 @@ use crate::telemetry;
 use crate::KeyBundle;
 use crypto_traits::aead::Aead;
 use crypto_traits::aead::SyncAes256CBC;
+use crypto_traits::rand::Rand;
 use interrupt_support::Interruptee;
 
 #[allow(clippy::too_many_arguments)]
 pub fn synchronize_with_clients_engine<C>(
-    client: &Sync15StorageClient<C>,
+    client: &Sync15StorageClient,
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,
     clients: Option<&clients_engine::Engine<'_>>,
@@ -22,30 +23,27 @@ pub fn synchronize_with_clients_engine<C>(
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
+    crypto: &C,
 ) -> Result<(), Error>
 where
-    C: Aead<SyncAes256CBC>,
+    C: Aead<SyncAes256CBC> + Rand,
 {
     let collection = engine.collection_name();
     log::info!("Syncing collection {}", collection);
 
     // our global state machine is ready - get the collection machine going.
-    let coll_state = match LocalCollStateMachine::get_state(
-        engine,
-        global_state,
-        root_sync_key,
-        client.get_crypto(),
-    )? {
-        Some(coll_state) => coll_state,
-        None => {
-            // XXX - this is either "error" or "declined".
-            log::warn!(
-                "can't setup for the {} collection - hopefully it works later",
-                collection
-            );
-            return Ok(());
-        }
-    };
+    let coll_state =
+        match LocalCollStateMachine::get_state(engine, global_state, root_sync_key, crypto)? {
+            Some(coll_state) => coll_state,
+            None => {
+                // XXX - this is either "error" or "declined".
+                log::warn!(
+                    "can't setup for the {} collection - hopefully it works later",
+                    collection
+                );
+                return Ok(());
+            }
+        };
 
     if let Some(clients) = clients {
         engine.prepare_for_sync(&|| clients.get_client_data())?;
@@ -73,7 +71,7 @@ where
             //
             // For this reason, an engine can't really trust a server timestamp until the
             // very end when we know we've staged them all.
-            let incoming = super::fetch_incoming(client, &coll_state, collection_request)?;
+            let incoming = super::fetch_incoming(client, &coll_state, collection_request, crypto)?;
             log::info!("Downloaded {} remote changes", incoming.len());
             engine.stage_incoming(incoming, telem_engine)?;
             interruptee.err_if_interrupted()?;
@@ -100,6 +98,7 @@ where
         collection,
         outgoing,
         fully_atomic,
+        crypto,
     )?
     .upload()?;
     log::info!(

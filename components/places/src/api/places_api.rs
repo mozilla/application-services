@@ -123,7 +123,7 @@ lazy_static! {
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub struct SyncState {
-    pub mem_cached_state: Cell<MemoryCachedState<NSSCryptographer>>, // TODO:  Make the crypto generic!
+    pub mem_cached_state: Cell<MemoryCachedState>,
     pub disk_cached_state: Cell<Option<String>>,
 }
 
@@ -351,7 +351,7 @@ impl PlacesApi {
     where
         F: FnOnce(
             Arc<SharedPlacesDb>,
-            &mut MemoryCachedState<NSSCryptographer>,
+            &mut MemoryCachedState,
             &mut Option<String>,
         ) -> Result<SyncResult>,
     {

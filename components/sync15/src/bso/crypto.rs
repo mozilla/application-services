@@ -9,7 +9,10 @@ use super::{IncomingBso, IncomingEnvelope, OutgoingBso, OutgoingEnvelope};
 use crate::error;
 use crate::key_bundle::KeyBundle;
 use crate::EncryptedPayload;
-use crypto_traits::aead::{Aead, SyncAes256CBC};
+use crypto_traits::{
+    aead::{Aead, SyncAes256CBC},
+    rand::Rand,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 // The BSO implementation we use for encrypted payloads.
@@ -70,7 +73,7 @@ impl OutgoingBso {
         crypto: &C,
     ) -> error::Result<OutgoingEncryptedBso>
     where
-        C: Aead<SyncAes256CBC>,
+        C: Aead<SyncAes256CBC> + Rand,
     {
         Ok(OutgoingEncryptedBso {
             envelope: self.envelope,

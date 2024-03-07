@@ -11,3 +11,4 @@
 //! Each trait is split into its own module, for modularity but also so consumer can choose which cryptography functionality they would like
 //!
 pub mod aead;
+pub mod rand;

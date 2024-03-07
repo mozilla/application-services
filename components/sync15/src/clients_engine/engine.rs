@@ -13,6 +13,7 @@ use crate::client_types::{ClientData, RemoteClient};
 use crate::engine::CollectionRequest;
 use crate::{error::Result, Guid, KeyBundle};
 use crypto_traits::aead::{Aead, SyncAes256CBC};
+use crypto_traits::rand::Rand;
 use interrupt_support::Interruptee;
 
 use super::{
@@ -272,13 +273,14 @@ impl<'a> Engine<'a> {
     /// `sync15::Store`.
     pub fn sync<C>(
         &mut self,
-        storage_client: &Sync15StorageClient<C>,
+        storage_client: &Sync15StorageClient,
         global_state: &GlobalState,
         root_sync_key: &KeyBundle,
         should_refresh_client: bool,
+        crypto: &C,
     ) -> Result<()>
     where
-        C: Aead<SyncAes256CBC>,
+        C: Aead<SyncAes256CBC> + Rand,
     {
         log::info!("Syncing collection clients");
 
@@ -286,7 +288,7 @@ impl<'a> Engine<'a> {
             global_state.keys.clone(),
             global_state.keys_timestamp,
             root_sync_key,
-            storage_client.get_crypto(),
+            crypto,
         )?;
         let coll_state = CollState {
             config: global_state.config.clone(),
@@ -298,7 +300,7 @@ impl<'a> Engine<'a> {
             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
         };
 
-        let inbound = self.fetch_incoming(storage_client, &coll_state)?;
+        let inbound = self.fetch_incoming(storage_client, &coll_state, crypto)?;
 
         let mut driver = Driver::new(
             self.command_processor,
@@ -316,6 +318,7 @@ impl<'a> Engine<'a> {
             COLLECTION_NAME.into(),
             outgoing,
             true,
+            crypto,
         )?
         .upload()?;
 
@@ -331,11 +334,12 @@ impl<'a> Engine<'a> {
 
     fn fetch_incoming<C>(
         &self,
-        storage_client: &Sync15StorageClient<C>,
+        storage_client: &Sync15StorageClient,
         coll_state: &CollState,
+        crypto: &C,
     ) -> Result<Vec<IncomingBso>>
     where
-        C: Aead<SyncAes256CBC>,
+        C: Aead<SyncAes256CBC> + Rand,
     {
         // Note that, unlike other stores, we always fetch the full collection
         // on every sync, so `inbound` will return all clients, not just the
@@ -343,7 +347,8 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME.into()).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = crate::client::fetch_incoming(storage_client, coll_state, coll_request)?;
+        let inbound =
+            crate::client::fetch_incoming(storage_client, coll_state, coll_request, crypto)?;
 
         Ok(inbound)
     }

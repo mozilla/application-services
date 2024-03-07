@@ -140,7 +140,7 @@ impl PlacesApi {
         let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
         let ping = self.sync_history(
             &Sync15StorageClientInit {
-                crypto: NSSCryptographer::new(),
+                crypto: &NSSCryptographer::new(),
                 key_id,
                 access_token,
                 tokenserver_url,
@@ -161,7 +161,7 @@ impl PlacesApi {
         let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
         let ping = self.sync_bookmarks(
             &Sync15StorageClientInit {
-                crypto: NSSCryptographer::new(),
+                crypto: &NSSCryptographer::new(),
                 key_id,
                 access_token,
                 tokenserver_url,

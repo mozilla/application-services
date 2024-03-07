@@ -19,11 +19,21 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::error::*;
+use crypto_traits::rand::Rand;
+
+use crate::{error::*, NSSCryptographer};
 
 /// Fill a buffer with cryptographically secure pseudo-random data.
 pub fn fill(dest: &mut [u8]) -> Result<()> {
     Ok(nss::pk11::slot::generate_random(dest)?)
+}
+
+impl Rand for NSSCryptographer {
+    type Error = Error;
+
+    fn rand(&self, res: &mut [u8]) -> std::result::Result<(), Self::Error> {
+        Ok(nss::pk11::slot::generate_random(res)?)
+    }
 }
 
 #[cfg(test)]

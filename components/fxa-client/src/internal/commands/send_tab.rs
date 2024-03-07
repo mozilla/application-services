@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crypto_traits::aead::{Aead, SyncAes256CBC};
+use crypto_traits::{
+    aead::{Aead, SyncAes256CBC},
+    rand::Rand,
+};
 /// The Send Tab functionality is backed by Firefox Accounts device commands.
 /// A device shows it can handle "Send Tab" commands by advertising the "open-uri"
 /// command in its on own device record.
@@ -187,7 +190,7 @@ pub struct PublicSendTabKeys {
 impl PublicSendTabKeys {
     fn encrypt<C>(&self, scoped_key: &ScopedKey, crypto: &C) -> Result<SendTabKeysPayload>
     where
-        C: Aead<SyncAes256CBC>,
+        C: Aead<SyncAes256CBC> + Rand,
     {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         let key = KeyBundle::from_ksync_bytes(&ksync)?;
@@ -201,7 +204,7 @@ impl PublicSendTabKeys {
     }
     pub fn as_command_data<C>(&self, scoped_key: &ScopedKey, crypto: &C) -> Result<String>
     where
-        C: Aead<SyncAes256CBC>,
+        C: Aead<SyncAes256CBC> + Rand,
     {
         let encrypted_public_keys = self.encrypt(scoped_key, crypto)?;
         Ok(serde_json::to_string(&encrypted_public_keys)?)

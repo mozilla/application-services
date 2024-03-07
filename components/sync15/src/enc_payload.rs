@@ -4,7 +4,10 @@
 
 use crate::error;
 use crate::key_bundle::KeyBundle;
-use crypto_traits::aead::{Aead, SyncAes256CBC};
+use crypto_traits::{
+    aead::{Aead, SyncAes256CBC},
+    rand::Rand,
+};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +45,7 @@ impl EncryptedPayload {
     pub fn from_cleartext<C>(key: &KeyBundle, cleartext: String, crypto: &C) -> error::Result<Self>
     where
         C: Aead<SyncAes256CBC>,
+        C: Rand,
     {
         let (enc_base64, iv_base64, hmac_base16) =
             key.encrypt_bytes_rand_iv(cleartext.as_bytes(), crypto)?;
@@ -59,6 +63,7 @@ impl EncryptedPayload {
     ) -> error::Result<Self>
     where
         C: Aead<SyncAes256CBC>,
+        C: Rand,
     {
         Self::from_cleartext(key, serde_json::to_string(cleartext_payload)?, crypto)
     }
@@ -89,7 +94,7 @@ mod tests {
     #[test]
     fn test_roundtrip_crypt_record() {
         let crypto = NSSCryptographer::new();
-        let key = KeyBundle::new_random().unwrap();
+        let key = KeyBundle::new_random(&crypto).unwrap();
         let payload_json = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
         let payload = EncryptedPayload::from_cleartext(
             &key,
@@ -114,14 +119,14 @@ mod tests {
     fn test_record_bad_hmac() {
         let crypto = NSSCryptographer::new();
 
-        let key1 = KeyBundle::new_random().unwrap();
+        let key1 = KeyBundle::new_random(&crypto).unwrap();
         let json = json!({ "id": "aaaaaaaaaaaa", "deleted": true, });
 
         let payload =
             EncryptedPayload::from_cleartext(&key1, serde_json::to_string(&json).unwrap(), &crypto)
                 .unwrap();
 
-        let key2 = KeyBundle::new_random().unwrap();
+        let key2 = KeyBundle::new_random(&crypto).unwrap();
         let e = payload
             .decrypt(&key2, &crypto)
             .expect_err("Should fail because wrong keybundle");

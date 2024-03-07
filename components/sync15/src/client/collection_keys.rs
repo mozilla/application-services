@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crypto_traits::aead::{Aead, SyncAes256CBC};
+use crypto_traits::rand::Rand;
 
 use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
@@ -10,33 +11,36 @@ use crate::{EncryptedPayload, KeyBundle, ServerTimestamp};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CollectionKeys {
+pub struct CollectionKeys<'c, C> {
     pub timestamp: ServerTimestamp,
     pub default: KeyBundle,
     pub collections: HashMap<String, KeyBundle>,
+    pub crypto: &'c C,
 }
 
-impl CollectionKeys {
-    pub fn new_random() -> Result<CollectionKeys> {
-        let default = KeyBundle::new_random()?;
+impl<'c, C> CollectionKeys<'c, C>
+where
+    C: Aead<SyncAes256CBC> + Rand,
+{
+    pub fn new_random(crypto: &'c C) -> Result<Self> {
+        let default = KeyBundle::new_random(crypto)?;
         Ok(CollectionKeys {
+            crypto,
             timestamp: ServerTimestamp(0),
             default,
             collections: HashMap::new(),
         })
     }
 
-    pub fn from_encrypted_payload<C>(
+    pub fn from_encrypted_payload(
         record: EncryptedPayload,
         timestamp: ServerTimestamp,
         root_key: &KeyBundle,
-        crypto: &C,
-    ) -> Result<CollectionKeys>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
+        crypto: &'c C,
+    ) -> Result<Self> {
         let keys: CryptoKeysRecord = record.decrypt_into(root_key, crypto)?;
         Ok(CollectionKeys {
+            crypto,
             timestamp,
             default: KeyBundle::from_base64(&keys.default[0], &keys.default[1])?,
             collections: keys
@@ -47,14 +51,7 @@ impl CollectionKeys {
         })
     }
 
-    pub fn to_encrypted_payload<C>(
-        &self,
-        root_key: &KeyBundle,
-        crypto: &C,
-    ) -> Result<EncryptedPayload>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
+    pub fn to_encrypted_payload(&self, root_key: &KeyBundle) -> Result<EncryptedPayload> {
         let record = CryptoKeysRecord {
             id: "keys".into(),
             collection: "crypto".into(),
@@ -65,7 +62,7 @@ impl CollectionKeys {
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        EncryptedPayload::from_cleartext_payload(root_key, &record, crypto)
+        EncryptedPayload::from_cleartext_payload(root_key, &record, self.crypto)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

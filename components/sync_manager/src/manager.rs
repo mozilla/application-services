@@ -20,7 +20,7 @@ use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 
 #[derive(Default)]
 pub struct SyncManager {
-    mem_cached_state: Mutex<Option<MemoryCachedState<NSSCryptographer>>>,
+    mem_cached_state: Mutex<Option<MemoryCachedState>>,
 }
 
 impl SyncManager {
@@ -115,7 +115,7 @@ impl SyncManager {
     fn do_sync(
         &self,
         mut params: SyncParams,
-        state: &mut Option<MemoryCachedState<NSSCryptographer>>,
+        state: &mut Option<MemoryCachedState>,
         mut engines: Vec<Box<dyn SyncEngine>>,
     ) -> Result<SyncResult> {
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.auth_info.sync_key)?;
@@ -134,7 +134,7 @@ impl SyncManager {
         let engine_refs: Vec<&dyn SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = Sync15StorageClientInit {
-            crypto: NSSCryptographer::new(),
+            crypto: &NSSCryptographer::new(),
             key_id: params.auth_info.kid.clone(),
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,

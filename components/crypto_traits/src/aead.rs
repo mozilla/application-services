@@ -13,7 +13,7 @@ pub trait Aead<A>
 where
     A: AeadAlgorithm,
 {
-    type Error;
+    type Error: std::error::Error;
     /// [Authenticated Encryption](https://datatracker.ietf.org/doc/html/rfc5116#section-2.1)
     ///
     /// # Arguments

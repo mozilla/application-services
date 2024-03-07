@@ -7,8 +7,10 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
-use crypto_traits::aead::{Aead, AeadAlgorithm, SyncAes256CBC};
-use rc_crypto::rand;
+use crypto_traits::{
+    aead::{Aead, AeadAlgorithm, SyncAes256CBC},
+    rand::Rand,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyBundle {
@@ -48,9 +50,14 @@ impl KeyBundle {
         })
     }
 
-    pub fn new_random() -> Result<KeyBundle> {
+    pub fn new_random<C>(crypto: &C) -> Result<KeyBundle>
+    where
+        C: Rand,
+    {
         let mut buffer = [0u8; 64];
-        rand::fill(&mut buffer)?;
+        crypto
+            .rand(&mut buffer)
+            .map_err(|e| Error::CryptoError(e.to_string()))?;
         KeyBundle::from_ksync_bytes(&buffer)
     }
 
@@ -128,7 +135,7 @@ impl KeyBundle {
         let ciphertext_and_hmac = [ciphertext_bytes, decoded_hmac].concat();
         let cleartext_bytes = crypto
             .open(&key_bytes, Some(&iv), &ciphertext_and_hmac, &[])
-            .map_err(|e| Error::HmacMismatch)?; // TODO: Fix the error situation
+            .map_err(|e| Error::CryptoError(e.to_string()))?;
         let cleartext = String::from_utf8(cleartext_bytes)?;
         Ok(cleartext)
     }
@@ -150,8 +157,8 @@ impl KeyBundle {
         }
         let ciphertext_and_hmac = crypto
             .seal(&key_bytes, Some(&iv), cleartext_bytes, &[])
-            .map_err(|e| Error::HmacMismatch)?; // TODO: Errors
-        let ciphertext_len = ciphertext_and_hmac.len() - SyncAes256CBC::KEY_LEN;
+            .map_err(|e| Error::CryptoError(e.to_string()))?;
+        let ciphertext_len = ciphertext_and_hmac.len() - SyncAes256CBC::TAG_LEN;
         // Do the string conversions here so we don't have to split and copy to 2 vectors.
         let (ciphertext, hmac_signature) = ciphertext_and_hmac.split_at(ciphertext_len);
         let enc_base64 = STANDARD.encode(ciphertext);
@@ -168,9 +175,12 @@ impl KeyBundle {
     ) -> Result<(String, String, String)>
     where
         C: Aead<SyncAes256CBC>,
+        C: Rand,
     {
         let mut iv = [0u8; 16];
-        rand::fill(&mut iv)?;
+        crypto
+            .rand(&mut iv)
+            .map_err(|e| Error::CryptoError(e.to_string()))?;
         let (enc_base64, hmac_base16) = self.encrypt_bytes_with_iv(cleartext_bytes, &iv, crypto)?;
         let iv_base64 = STANDARD.encode(iv);
         Ok((enc_base64, iv_base64, hmac_base16))
@@ -195,6 +205,7 @@ impl KeyBundle {
     ) -> Result<(String, String, String)>
     where
         C: Aead<SyncAes256CBC>,
+        C: Rand,
     {
         self.encrypt_bytes_rand_iv(cleartext.as_bytes(), crypto)
     }
