@@ -401,15 +401,18 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    /// Fetches Suggestions of type Amo provider that match the given query
-    pub fn fetch_amo_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+    /// Query for suggestions using the keyword prefix and provider
+    fn map_prefix_keywords<T>(
+        &self,
+        query: &SuggestionQuery,
+        provider: &SuggestionProvider,
+        mut mapper: impl FnMut(&rusqlite::Row, &str) -> Result<T>,
+    ) -> Result<Vec<T>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
-        let suggestions_limit = &query.limit.unwrap_or(-1);
-        let suggestions = self
-            .conn
-            .query_rows_and_then_cached(
-                r#"
+        let suggestions_limit = query.limit.unwrap_or(-1);
+        self.conn.query_rows_and_then_cached(
+            r#"
                 SELECT
                   s.id,
                   MAX(k.rank) AS rank,
@@ -435,13 +438,23 @@ impl<'a> SuggestDao<'a> {
                 LIMIT
                   :suggestions_limit
                 "#,
-                named_params! {
-                    ":keyword_prefix": keyword_prefix,
-                    ":keyword_suffix": keyword_suffix,
-                    ":provider": SuggestionProvider::Amo,
-                    ":suggestions_limit": suggestions_limit,
-                },
-                |row| -> Result<Option<Suggestion>> {
+            &[
+                (":keyword_prefix", &keyword_prefix as &dyn ToSql),
+                (":keyword_suffix", &keyword_suffix as &dyn ToSql),
+                (":provider", provider as &dyn ToSql),
+                (":suggestions_limit", &suggestions_limit as &dyn ToSql),
+            ],
+            |row| mapper(row, keyword_suffix),
+        )
+    }
+
+    /// Fetches Suggestions of type Amo provider that match the given query
+    pub fn fetch_amo_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let suggestions = self
+            .map_prefix_keywords(
+                query,
+                &SuggestionProvider::Amo,
+                |row, keyword_suffix| -> Result<Option<Suggestion>> {
                     let suggestion_id: i64 = row.get("id")?;
                     let title = row.get("title")?;
                     let raw_url = row.get::<_, String>("url")?;
@@ -564,45 +577,11 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches suggestions for MDN
     pub fn fetch_mdn_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        let keyword_lowercased = &query.keyword.to_lowercase();
-        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
-        let suggestions_limit = &query.limit.unwrap_or(-1);
         let suggestions = self
-            .conn
-            .query_rows_and_then_cached(
-                r#"
-                SELECT
-                  s.id,
-                  MAX(k.rank) AS rank,
-                  s.title,
-                  s.url,
-                  s.provider,
-                  s.score,
-                  k.keyword_suffix
-                FROM
-                  suggestions s
-                JOIN
-                  prefix_keywords k
-                  ON k.suggestion_id = s.id
-                WHERE
-                  k.keyword_prefix = :keyword_prefix
-                  AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
-                  AND s.provider = :provider
-                GROUP BY
-                  s.id
-                ORDER BY
-                  s.score DESC,
-                  rank DESC
-                LIMIT
-                  :suggestions_limit
-                "#,
-                named_params! {
-                    ":keyword_prefix": keyword_prefix,
-                    ":keyword_suffix": keyword_suffix,
-                    ":provider": SuggestionProvider::Mdn,
-                    ":suggestions_limit": suggestions_limit,
-                },
-                |row| -> Result<Option<Suggestion>> {
+            .map_prefix_keywords(
+                query,
+                &SuggestionProvider::Mdn,
+                |row, keyword_suffix| -> Result<Option<Suggestion>> {
                     let suggestion_id: i64 = row.get("id")?;
                     let title = row.get("title")?;
                     let raw_url = row.get::<_, String>("url")?;
