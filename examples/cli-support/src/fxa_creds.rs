@@ -103,7 +103,11 @@ pub fn get_account_and_token(
     }
 }
 
-pub fn get_cli_fxa(config: FxaConfig, cred_file: &str) -> Result<CliFxa> {
+pub fn get_cli_fxa<'c>(
+    config: FxaConfig,
+    cred_file: &str,
+    crypto: &'c NSSCryptographer,
+) -> Result<CliFxa<'c>> {
     let (account, token_info) = match get_account_and_token(config, cred_file) {
         Ok(v) => v,
         Err(e) => anyhow::bail!("Failed to use saved credentials. {}", e),
@@ -111,7 +115,7 @@ pub fn get_cli_fxa(config: FxaConfig, cred_file: &str) -> Result<CliFxa> {
     let tokenserver_url = Url::parse(&account.get_token_server_endpoint_url()?)?;
 
     let client_init = Sync15StorageClientInit {
-        crypto: NSSCryptographer::new(),
+        crypto,
         key_id: token_info.key.as_ref().unwrap().kid.clone(),
         access_token: token_info.token.clone(),
         tokenserver_url: tokenserver_url.clone(),
@@ -125,14 +129,14 @@ pub fn get_cli_fxa(config: FxaConfig, cred_file: &str) -> Result<CliFxa> {
     })
 }
 
-pub struct CliFxa {
+pub struct CliFxa<'c> {
     pub account: FirefoxAccount,
-    pub client_init: Sync15StorageClientInit<NSSCryptographer>,
+    pub client_init: Sync15StorageClientInit<'c, NSSCryptographer>,
     pub tokenserver_url: Url,
     pub token_info: AccessTokenInfo,
 }
 
-impl CliFxa {
+impl<'c> CliFxa<'c> {
     // A helper for consumers who use this with the sync manager.
     pub fn as_auth_info(&self) -> sync_manager::SyncAuthInfo {
         let scoped_key = self.token_info.key.as_ref().unwrap();

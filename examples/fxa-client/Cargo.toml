@@ -8,9 +8,10 @@ publish = false
 
 [dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
-clap = {version = "4.2", features = ["derive"]}
+clap = { version = "4.2", features = ["derive"] }
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
 url = "2.2"
 sync15 = { path = "../../components/sync15" }
+rc_crypto = { path = "../../components/support/rc_crypto" }

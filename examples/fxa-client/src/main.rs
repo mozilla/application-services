@@ -16,6 +16,7 @@ static CLIENT_ID: &str = "a2270f727f45f648";
 static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
 
 use anyhow::Result;
+use rc_crypto::NSSCryptographer;
 
 #[derive(Parser)]
 #[command(about, long_about = None)]
@@ -68,6 +69,7 @@ fn main() -> Result<()> {
 }
 
 fn load_account(cli: &Cli) -> Result<FirefoxAccount> {
+    let crypto = NSSCryptographer::new();
     let config = FxaConfig {
         server: match cli.server {
             Server::Release => FxaServer::Release,
@@ -80,7 +82,7 @@ fn load_account(cli: &Cli) -> Result<FirefoxAccount> {
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };
-    get_cli_fxa(config, CREDENTIALS_PATH).map(|cli| cli.account)
+    get_cli_fxa(config, CREDENTIALS_PATH, &crypto).map(|cli| cli.account)
 }
 
 pub fn persist_fxa_state(acct: &FirefoxAccount) -> Result<()> {

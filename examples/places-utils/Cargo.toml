@@ -16,7 +16,9 @@ sync-guid = { path = "../../components/support/guid" }
 types = { path = "../../components/support/types" }
 error-support = { path = "../../components/support/error" }
 interrupt-support = { path = "../../components/support/interrupt" }
-sql-support = { path = "../../components/support/sql", features = ["debug-tools"] }
+sql-support = { path = "../../components/support/sql", features = [
+    "debug-tools",
+] }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 serde = "1"
@@ -31,3 +33,4 @@ tempfile = "3"
 find-places-db = { path = "../../components/support/find-places-db" }
 anyhow = "1.0"
 ctrlc = "3.2.1"
+rc_crypto = { path = "../../components/support/rc_crypto" }

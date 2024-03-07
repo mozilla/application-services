@@ -13,7 +13,8 @@ use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
-use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
+use interrupt_support::NeverInterrupts;
+use rc_crypto::NSSCryptographer; // XXX need a real interruptee!
 use std::sync::Arc;
 use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
@@ -356,11 +357,12 @@ fn run_sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
+    let crypto = NSSCryptographer::new();
     // XXX - need to add interrupts
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &crypto)?;
 
     if wipe_all {
-        Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
+        Sync15StorageClient::new(&cli_fxa.client_init)?.wipe_all_remote()?;
     }
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;

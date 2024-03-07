@@ -338,6 +338,7 @@ fn do_sync(
     sync_key: String,
     tokenserver_url: url::Url,
     local_encryption_key: String,
+    crypto: &NSSCryptographer,
 ) -> Result<String> {
     let mut engine = LoginsSyncEngine::new(Arc::clone(&store))?;
     engine
@@ -345,7 +346,7 @@ fn do_sync(
         .unwrap();
 
     let storage_init = &Sync15StorageClientInit {
-        crypto: NSSCryptographer::new(),
+        crypto,
         key_id,
         access_token,
         tokenserver_url,
@@ -379,6 +380,7 @@ fn do_sync(
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
     viaduct_reqwest::use_reqwest_backend();
+    let crypto = NSSCryptographer::new();
 
     let matches = clap::App::new("sync_pass_sql")
         .about("CLI login syncing tool")
@@ -482,7 +484,7 @@ fn main() -> Result<()> {
                     token_info.key.unwrap().key_bytes()?,
                 );
                 // TODO: allow users to use stage/etc.
-                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
+                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file, &crypto)?;
                 match do_sync(
                     Arc::clone(&store),
                     cli_fxa.client_init.key_id.clone(),
@@ -490,6 +492,7 @@ fn main() -> Result<()> {
                     sync_key,
                     cli_fxa.client_init.tokenserver_url.clone(),
                     encryption_key.clone(),
+                    &crypto
                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);

@@ -15,6 +15,7 @@ use places::storage::bookmarks::{
 };
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
+use rc_crypto::NSSCryptographer;
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -236,11 +237,12 @@ fn sync(
     wait: u64,
 ) -> Result<()> {
     use_reqwest_backend();
+    let crypto = NSSCryptographer::new();
 
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &crypto)?;
 
     if wipe_all {
-        Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
+        Sync15StorageClient::new(&cli_fxa.client_init)?.wipe_all_remote()?;
     }
     // phew - working with traits is making markh's brain melt!
     // Note also that PlacesApi::sync() exists and ultimately we should
