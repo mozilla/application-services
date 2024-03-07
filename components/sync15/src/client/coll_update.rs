@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crypto_traits::aead::{Aead, SyncAes256CBC};
+
 use super::{
     request::{NormalResponseHandler, UploadInfo},
     CollState, Sync15ClientResponse, Sync15StorageClient,
@@ -11,17 +13,27 @@ use crate::engine::CollectionRequest;
 use crate::error::{self, Error, Result};
 use crate::{CollectionName, KeyBundle, ServerTimestamp};
 
-fn encrypt_outgoing(o: Vec<OutgoingBso>, key: &KeyBundle) -> Result<Vec<OutgoingEncryptedBso>> {
+fn encrypt_outgoing<C>(
+    o: Vec<OutgoingBso>,
+    key: &KeyBundle,
+    crypto: &C,
+) -> Result<Vec<OutgoingEncryptedBso>>
+where
+    C: Aead<SyncAes256CBC>,
+{
     o.into_iter()
-        .map(|change| change.into_encrypted(key))
+        .map(|change| change.into_encrypted(key, crypto))
         .collect()
 }
 
-pub fn fetch_incoming(
-    client: &Sync15StorageClient,
+pub fn fetch_incoming<C>(
+    client: &Sync15StorageClient<C>,
     state: &CollState,
     collection_request: CollectionRequest,
-) -> Result<Vec<IncomingBso>> {
+) -> Result<Vec<IncomingBso>>
+where
+    C: Aead<SyncAes256CBC>,
+{
     let (records, _timestamp) = match client.get_encrypted_records(collection_request)? {
         Sync15ClientResponse::Success {
             record,
@@ -37,13 +49,13 @@ pub fn fetch_incoming(
         // That should cause us to re-read crypto/keys and things should
         // work (although if for some reason crypto/keys was updated but
         // not all storage was wiped we are probably screwed.)
-        result.push(record.into_decrypted(&state.key)?);
+        result.push(record.into_decrypted(&state.key, client.get_crypto())?);
     }
     Ok(result)
 }
 
-pub struct CollectionUpdate<'a> {
-    client: &'a Sync15StorageClient,
+pub struct CollectionUpdate<'a, C> {
+    client: &'a Sync15StorageClient<C>,
     state: &'a CollState,
     collection: CollectionName,
     xius: ServerTimestamp,
@@ -51,15 +63,18 @@ pub struct CollectionUpdate<'a> {
     fully_atomic: bool,
 }
 
-impl<'a> CollectionUpdate<'a> {
+impl<'a, C> CollectionUpdate<'a, C>
+where
+    C: Aead<SyncAes256CBC>,
+{
     pub fn new(
-        client: &'a Sync15StorageClient,
+        client: &'a Sync15StorageClient<C>,
         state: &'a CollState,
         collection: CollectionName,
         xius: ServerTimestamp,
         records: Vec<OutgoingEncryptedBso>,
         fully_atomic: bool,
-    ) -> CollectionUpdate<'a> {
+    ) -> CollectionUpdate<'a, C> {
         CollectionUpdate {
             client,
             state,
@@ -71,13 +86,13 @@ impl<'a> CollectionUpdate<'a> {
     }
 
     pub fn new_from_changeset(
-        client: &'a Sync15StorageClient,
+        client: &'a Sync15StorageClient<C>,
         state: &'a CollState,
         collection: CollectionName,
         changeset: Vec<OutgoingBso>,
         fully_atomic: bool,
-    ) -> Result<CollectionUpdate<'a>> {
-        let to_update = encrypt_outgoing(changeset, &state.key)?;
+    ) -> Result<CollectionUpdate<'a, C>> {
+        let to_update = encrypt_outgoing(changeset, &state.key, client.get_crypto())?;
         Ok(CollectionUpdate::new(
             client,
             state,

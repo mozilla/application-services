@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crypto_traits::aead::{Aead, SyncAes256CBC};
 /// The Send Tab functionality is backed by Firefox Accounts device commands.
 /// A device shows it can handle "Send Tab" commands by advertising the "open-uri"
 /// command in its on own device record.
@@ -155,7 +156,10 @@ pub(crate) struct SendTabKeysPayload {
 }
 
 impl SendTabKeysPayload {
-    pub(crate) fn decrypt(self, scoped_key: &ScopedKey) -> Result<PublicSendTabKeys> {
+    pub(crate) fn decrypt<C>(self, scoped_key: &ScopedKey, crypto: &C) -> Result<PublicSendTabKeys>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         if hex::decode(self.kid)? != kxcs {
             return Err(Error::MismatchedKeys);
@@ -166,7 +170,7 @@ impl SendTabKeysPayload {
             hmac: self.hmac,
             ciphertext: self.ciphertext,
         };
-        Ok(encrypted_payload.decrypt_into(&key)?)
+        Ok(encrypted_payload.decrypt_into(&key, crypto)?)
     }
 }
 
@@ -181,10 +185,13 @@ pub struct PublicSendTabKeys {
 }
 
 impl PublicSendTabKeys {
-    fn encrypt(&self, scoped_key: &ScopedKey) -> Result<SendTabKeysPayload> {
+    fn encrypt<C>(&self, scoped_key: &ScopedKey, crypto: &C) -> Result<SendTabKeysPayload>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         let key = KeyBundle::from_ksync_bytes(&ksync)?;
-        let encrypted_payload = EncryptedPayload::from_cleartext_payload(&key, &self)?;
+        let encrypted_payload = EncryptedPayload::from_cleartext_payload(&key, &self, crypto)?;
         Ok(SendTabKeysPayload {
             kid: hex::encode(kxcs),
             iv: encrypted_payload.iv,
@@ -192,8 +199,11 @@ impl PublicSendTabKeys {
             ciphertext: encrypted_payload.ciphertext,
         })
     }
-    pub fn as_command_data(&self, scoped_key: &ScopedKey) -> Result<String> {
-        let encrypted_public_keys = self.encrypt(scoped_key)?;
+    pub fn as_command_data<C>(&self, scoped_key: &ScopedKey, crypto: &C) -> Result<String>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
+        let encrypted_public_keys = self.encrypt(scoped_key, crypto)?;
         Ok(serde_json::to_string(&encrypted_public_keys)?)
     }
     pub(crate) fn public_key(&self) -> &str {
@@ -213,17 +223,21 @@ impl From<PrivateSendTabKeys> for PublicSendTabKeys {
     }
 }
 
-pub fn build_send_command(
+pub fn build_send_command<C>(
     scoped_key: &ScopedKey,
     target: &Device,
     send_tab_payload: &SendTabPayload,
-) -> Result<serde_json::Value> {
+    crypto: &C,
+) -> Result<serde_json::Value>
+where
+    C: Aead<SyncAes256CBC>,
+{
     let command = target
         .available_commands
         .get(COMMAND_NAME)
         .ok_or(Error::UnsupportedCommand(COMMAND_NAME))?;
     let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
-    let public_keys = bundle.decrypt(scoped_key)?;
+    let public_keys = bundle.decrypt(scoped_key, crypto)?;
     let encrypted_payload = send_tab_payload.encrypt(public_keys)?;
     Ok(serde_json::to_value(encrypted_payload)?)
 }

@@ -12,6 +12,7 @@ use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::EncryptedPayload;
 use crate::{Guid, KeyBundle, ServerTimestamp};
+use crypto_traits::aead::{Aead, SyncAes256CBC};
 use interrupt_support::Interruptee;
 use serde_derive::*;
 
@@ -295,7 +296,10 @@ impl<'a> SetupStateMachine<'a> {
         }
     }
 
-    fn advance(&mut self, from: SetupState) -> error::Result<SetupState> {
+    fn advance<C>(&mut self, from: SetupState, crypto: &C) -> error::Result<SetupState>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         match from {
             // Fetch `info/configuration` with current server limits, and
             // `info/collections` with collection last modified times.
@@ -509,7 +513,8 @@ impl<'a> SetupStateMachine<'a> {
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
                 // ...And a fresh `crypto/keys`.
-                let new_keys = CollectionKeys::new_random()?.to_encrypted_payload(self.root_key)?;
+                let new_keys =
+                    CollectionKeys::new_random()?.to_encrypted_payload(self.root_key, crypto)?;
                 let bso = OutgoingEncryptedBso::new(Guid::new("keys").into(), new_keys);
                 self.client
                     .put_crypto_keys(ServerTimestamp::default(), &bso)?;
@@ -524,7 +529,14 @@ impl<'a> SetupStateMachine<'a> {
     }
 
     /// Runs through the state machine to the ready state.
-    pub fn run_to_ready(&mut self, state: Option<GlobalState>) -> error::Result<GlobalState> {
+    pub fn run_to_ready<C>(
+        &mut self,
+        state: Option<GlobalState>,
+        crypto: &C,
+    ) -> error::Result<GlobalState>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         let mut s = match state {
             Some(old_state) => WithPreviousState { old_state },
             None => Initial,
@@ -554,7 +566,7 @@ impl<'a> SetupStateMachine<'a> {
                 }
             };
             self.sequence.push(label);
-            s = self.advance(s)?;
+            s = self.advance(s, crypto)?;
         }
     }
 }
@@ -618,6 +630,7 @@ mod tests {
 
     use crate::bso::{IncomingEncryptedBso, IncomingEnvelope};
     use interrupt_support::NeverInterrupts;
+    use rc_crypto::NSSCryptographer;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -736,8 +749,9 @@ mod tests {
         keys: CollectionKeys,
         root_key: &KeyBundle,
     ) -> error::Result<Sync15ClientResponse<IncomingEncryptedBso>> {
+        let crypto = NSSCryptographer::new();
         let timestamp = keys.timestamp;
-        let payload = keys.to_encrypted_payload(root_key).unwrap();
+        let payload = keys.to_encrypted_payload(root_key, &crypto).unwrap();
         let bso = IncomingEncryptedBso::new(
             IncomingEnvelope {
                 id: Guid::new("keys"),
@@ -757,6 +771,7 @@ mod tests {
 
     #[test]
     fn test_state_machine_ready_from_empty() {
+        let crypto = NSSCryptographer::new();
         let _ = env_logger::try_init();
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
@@ -796,7 +811,7 @@ mod tests {
         let mut state_machine =
             SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
         assert!(
-            state_machine.run_to_ready(None).is_ok(),
+            state_machine.run_to_ready(None, &crypto).is_ok(),
             "Should drive state machine to ready"
         );
         assert_eq!(
@@ -814,6 +829,7 @@ mod tests {
 
     #[test]
     fn test_from_previous_state_declined() {
+        let crypto = NSSCryptographer::new();
         let _ = env_logger::try_init();
         // The state-machine sequence where we didn't use the previous state
         // (ie, where the state machine restarted)
@@ -835,6 +851,7 @@ mod tests {
             engine_updates: Option<&HashMap<String, bool>>,
             old_state: GlobalState,
             expected_states: &[&str],
+            crypto: &NSSCryptographer,
         ) {
             let mut state_machine = SetupStateMachine::for_full_sync(
                 client,
@@ -844,7 +861,7 @@ mod tests {
                 &NeverInterrupts,
             );
             assert!(
-                state_machine.run_to_ready(Some(old_state)).is_ok(),
+                state_machine.run_to_ready(Some(old_state), crypto).is_ok(),
                 "Should drive state machine to ready"
             );
             assert_eq!(state_machine.sequence, expected_states);
@@ -898,7 +915,7 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_payload(&root_key)
+                    .to_encrypted_payload(&root_key, &crypto)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
             };
@@ -909,6 +926,7 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_used_previous,
+                &crypto,
             );
         }
 
@@ -922,7 +940,7 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(999_999),
                 keys: keys
-                    .to_encrypted_payload(&root_key)
+                    .to_encrypted_payload(&root_key, &crypto)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
             };
@@ -933,6 +951,7 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_restarted,
+                &crypto,
             );
         }
 
@@ -946,7 +965,7 @@ mod tests {
                 global: mg.clone(),
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_payload(&root_key)
+                    .to_encrypted_payload(&root_key, &crypto)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(999_999),
             };
@@ -957,6 +976,7 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_restarted,
+                &crypto,
             );
         }
 
@@ -970,7 +990,7 @@ mod tests {
                 global: mg,
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
-                    .to_encrypted_payload(&root_key)
+                    .to_encrypted_payload(&root_key, &crypto)
                     .expect("should always work in this test"),
                 keys_timestamp: ServerTimestamp(ts_keys),
             };
@@ -983,6 +1003,7 @@ mod tests {
                 Some(&engine_updates),
                 old_state,
                 &sm_seq_restarted,
+                &crypto,
             );
             let declined = match pgs {
                 PersistedGlobalState::V2 { declined: d } => d,

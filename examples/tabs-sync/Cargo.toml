@@ -11,6 +11,7 @@ name = "tabs-sync"
 path = "src/tabs-sync.rs"
 
 [dev-dependencies]
+rc_crypto = { path = "../../components/support/rc_crypto" }
 base64 = "0.21"
 tabs = { path = "../../components/tabs" }
 serde_json = "1"

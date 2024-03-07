@@ -12,7 +12,7 @@ default = []
 [dependencies]
 # TODO: we've enabled the "standalone-sync" feature - see the description
 # of this feature in sync15's Cargo.toml for what we should do instead.
-sync15 = { path = "../sync15", features=["standalone-sync"] }
+sync15 = { path = "../sync15", features = ["standalone-sync"] }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -22,7 +22,12 @@ lazy_static = "1.4"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1"
 caseless = "0.2"
-rusqlite = { workspace = true, features = ["functions", "window", "bundled", "unlock_notify"] }
+rusqlite = { workspace = true, features = [
+    "functions",
+    "window",
+    "bundled",
+    "unlock_notify",
+] }
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
 bitflags = "1.2"
@@ -31,15 +36,19 @@ memchr = "2.3"
 dogear = "0.5"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
-sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
+sync-guid = { path = "../support/guid", features = [
+    "rusqlite_support",
+    "random",
+] }
 thiserror = "1.0"
 anyhow = "1.0"
 uniffi = { workspace = true }
+rc_crypto = { path = "../support/rc_crypto" }
 
 [dev-dependencies]
 pretty_assertions = "0.6"
 tempfile = "3.1"
-env_logger = {version = "0.10", default-features = false}
+env_logger = { version = "0.10", default-features = false }
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]

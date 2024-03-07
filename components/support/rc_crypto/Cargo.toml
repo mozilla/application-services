@@ -12,10 +12,13 @@ crate-type = ["lib"]
 base64 = "0.21"
 hex = "0.4"
 thiserror = "1.0"
+crypto_traits = { path = "../../crypto_traits" }
 error-support = { path = "../error" }
 nss = { path = "nss" }
 hawk = { version = "5", default-features = false, optional = true }
-ece = { version = "2.3", default-features = false, features = ["serializable-keys"], optional = true }
+ece = { version = "2.3", default-features = false, features = [
+    "serializable-keys",
+], optional = true }
 
 [dev-dependencies]
 

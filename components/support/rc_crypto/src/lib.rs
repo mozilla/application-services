@@ -67,3 +67,13 @@ pub fn ensure_initialized() {
         });
     }
 }
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NSSCryptographer;
+
+impl NSSCryptographer {
+    pub fn new() -> Self {
+        crate::ensure_initialized();
+        Self {}
+    }
+}

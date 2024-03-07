@@ -8,11 +8,13 @@ use crate::engine::SyncEngine;
 use crate::error::Error;
 use crate::telemetry;
 use crate::KeyBundle;
+use crypto_traits::aead::Aead;
+use crypto_traits::aead::SyncAes256CBC;
 use interrupt_support::Interruptee;
 
 #[allow(clippy::too_many_arguments)]
-pub fn synchronize_with_clients_engine(
-    client: &Sync15StorageClient,
+pub fn synchronize_with_clients_engine<C>(
+    client: &Sync15StorageClient<C>,
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,
     clients: Option<&clients_engine::Engine<'_>>,
@@ -20,12 +22,20 @@ pub fn synchronize_with_clients_engine(
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    C: Aead<SyncAes256CBC>,
+{
     let collection = engine.collection_name();
     log::info!("Syncing collection {}", collection);
 
     // our global state machine is ready - get the collection machine going.
-    let coll_state = match LocalCollStateMachine::get_state(engine, global_state, root_sync_key)? {
+    let coll_state = match LocalCollStateMachine::get_state(
+        engine,
+        global_state,
+        root_sync_key,
+        client.get_crypto(),
+    )? {
         Some(coll_state) => coll_state,
         None => {
             // XXX - this is either "error" or "declined".
