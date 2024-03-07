@@ -11,6 +11,7 @@ name = "sync-pass"
 path = "src/sync-pass.rs"
 
 [dev-dependencies]
+rc_crypto = { path = "../../components/support/rc_crypto" }
 base64 = "0.21"
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }

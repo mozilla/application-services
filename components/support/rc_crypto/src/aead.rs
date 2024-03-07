@@ -22,10 +22,156 @@
 mod aes_cbc;
 mod aes_gcm;
 
-use crate::error::*;
+use crate::{digest, error::*, hmac, NSSCryptographer};
 pub use aes_cbc::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256;
 pub use aes_gcm::{AES_128_GCM, AES_256_GCM};
-use nss::aes;
+use base64::{engine::general_purpose::STANDARD, Engine};
+use crypto_traits::aead::{Aead, AeadAlgorithm, Aes128Gcm, Aes256Gcm, SyncAes256CBC};
+use nss::aes::{self, Operation};
+
+impl Aead<Aes128Gcm> for NSSCryptographer {
+    type Error = Error;
+    fn open(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        ciphertext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        Ok(nss::aes::aes_gcm_crypt(
+            key,
+            nonce.unwrap_or(&[]),
+            associated_data,
+            ciphertext,
+            Operation::Decrypt,
+        )?)
+    }
+
+    fn seal(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        plaintext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        Ok(nss::aes::aes_gcm_crypt(
+            key,
+            nonce.unwrap_or(&[]),
+            associated_data,
+            plaintext,
+            Operation::Encrypt,
+        )?)
+    }
+}
+
+impl Aead<Aes256Gcm> for NSSCryptographer {
+    type Error = Error;
+    fn open(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        ciphertext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        Ok(nss::aes::aes_gcm_crypt(
+            key,
+            nonce.unwrap_or(&[]),
+            associated_data,
+            ciphertext,
+            Operation::Decrypt,
+        )?)
+    }
+
+    fn seal(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        plaintext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        Ok(nss::aes::aes_gcm_crypt(
+            key,
+            nonce.unwrap_or(&[]),
+            associated_data,
+            plaintext,
+            Operation::Encrypt,
+        )?)
+    }
+}
+
+impl Aead<SyncAes256CBC> for NSSCryptographer {
+    type Error = Error;
+    fn open(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        ciphertext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        // Always split at 32 since we only do AES 256 w/ HMAC 256 tag.
+        let (aes_key, hmac_key_bytes) = key.split_at(32);
+        let ciphertext_len = ciphertext
+            .len()
+            .checked_sub(SyncAes256CBC::TAG_LEN)
+            .ok_or(ErrorKind::InternalError)?;
+        let (ciphertext, hmac_signature) = ciphertext.split_at(ciphertext_len);
+        let hmac_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key_bytes);
+        hmac::verify(
+            &hmac_key,
+            STANDARD.encode(ciphertext).as_bytes(),
+            hmac_signature,
+        )?;
+        aes_cbc(
+            aes_key,
+            nonce.unwrap_or_default(),
+            associated_data,
+            ciphertext,
+            Direction::Opening,
+        )
+    }
+
+    fn seal(
+        &self,
+        key: &[u8],
+        nonce: Option<&[u8]>,
+        plaintext: &[u8],
+        associated_data: &[u8],
+    ) -> std::result::Result<Vec<u8>, Self::Error> {
+        let (aes_key, hmac_key_bytes) = key.split_at(32);
+        // 1. Encryption.
+        let mut ciphertext = aes_cbc(
+            aes_key,
+            nonce.unwrap_or_default(),
+            associated_data,
+            plaintext,
+            Direction::Sealing,
+        )?;
+        // 2. Tag (HMAC signature) generation.
+        let hmac_key = hmac::SigningKey::new(&digest::SHA256, hmac_key_bytes);
+        let signature = hmac::sign(&hmac_key, STANDARD.encode(&ciphertext).as_bytes())?;
+        ciphertext.extend(&signature.0.value);
+        Ok(ciphertext)
+    }
+}
+
+fn aes_cbc(
+    key: &[u8],
+    nonce: &[u8],
+    aad: &[u8],
+    data: &[u8],
+    direction: Direction,
+) -> Result<Vec<u8>> {
+    if !aad.is_empty() {
+        // CBC mode does not support AAD.
+        return Err(ErrorKind::InternalError.into());
+    }
+    Ok(nss::aes::aes_cbc_crypt(
+        key,
+        nonce,
+        data,
+        direction.to_nss_operation(),
+    )?)
+}
 
 pub fn open(
     key: &OpeningKey,

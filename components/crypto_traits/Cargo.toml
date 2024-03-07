@@ -1,0 +1,13 @@
+[package]
+name = "crypto_traits"
+version = "0.1.0"
+edition = "2021"
+authors = ["Tarik Eshaq <teshaq@mozilla.com>"]
+description = "A Collection of crypto traits used in Application Services components"
+license = "MPL-2.0"
+exclude = []
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1.0"

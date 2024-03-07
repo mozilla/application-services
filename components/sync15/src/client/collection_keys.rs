@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crypto_traits::aead::{Aead, SyncAes256CBC};
+
 use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
 use crate::{EncryptedPayload, KeyBundle, ServerTimestamp};
@@ -24,12 +26,16 @@ impl CollectionKeys {
         })
     }
 
-    pub fn from_encrypted_payload(
+    pub fn from_encrypted_payload<C>(
         record: EncryptedPayload,
         timestamp: ServerTimestamp,
         root_key: &KeyBundle,
-    ) -> Result<CollectionKeys> {
-        let keys: CryptoKeysRecord = record.decrypt_into(root_key)?;
+        crypto: &C,
+    ) -> Result<CollectionKeys>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
+        let keys: CryptoKeysRecord = record.decrypt_into(root_key, crypto)?;
         Ok(CollectionKeys {
             timestamp,
             default: KeyBundle::from_base64(&keys.default[0], &keys.default[1])?,
@@ -41,7 +47,14 @@ impl CollectionKeys {
         })
     }
 
-    pub fn to_encrypted_payload(&self, root_key: &KeyBundle) -> Result<EncryptedPayload> {
+    pub fn to_encrypted_payload<C>(
+        &self,
+        root_key: &KeyBundle,
+        crypto: &C,
+    ) -> Result<EncryptedPayload>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         let record = CryptoKeysRecord {
             id: "keys".into(),
             collection: "crypto".into(),
@@ -52,7 +65,7 @@ impl CollectionKeys {
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        EncryptedPayload::from_cleartext_payload(root_key, &record)
+        EncryptedPayload::from_cleartext_payload(root_key, &record, crypto)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

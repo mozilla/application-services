@@ -2,7 +2,10 @@
 name = "cli-support"
 edition = "2021"
 version = "0.1.0"
-authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>", "Mark Hammond <mhammond@mozilla.com>"]
+authors = [
+    "Thom Chiovoloni <tchiovoloni@mozilla.com>",
+    "Mark Hammond <mhammond@mozilla.com>",
+]
 license = "MPL-2.0"
 
 [dependencies]
@@ -10,9 +13,10 @@ anyhow = "1.0"
 fxa-client = { path = "../../components/fxa-client" }
 sync_manager = { path = "../../components/sync_manager" }
 log = "0.4"
-sync15 = { path = "../../components/sync15", features=["sync-client"] }
+sync15 = { path = "../../components/sync15", features = ["sync-client"] }
 url = "2"
 webbrowser = "0.8"
+rc_crypto = { path = "../../components/support/rc_crypto" }
 # disable regex feature, as it's very costly for compile time and very rarely
 # used.
 

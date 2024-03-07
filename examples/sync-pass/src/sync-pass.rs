@@ -14,6 +14,7 @@ use logins::{
     ValidateAndFixup,
 };
 use prettytable::{row, Cell, Row, Table};
+use rc_crypto::NSSCryptographer;
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use sync15::{
@@ -344,6 +345,7 @@ fn do_sync(
         .unwrap();
 
     let storage_init = &Sync15StorageClientInit {
+        crypto: NSSCryptographer::new(),
         key_id,
         access_token,
         tokenserver_url,

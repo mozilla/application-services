@@ -8,6 +8,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
+use rc_crypto::NSSCryptographer;
 use std::path::Path;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -70,6 +71,7 @@ fn do_sync(
     *engine.local_id.write().unwrap() = local_id;
 
     let storage_init = &Sync15StorageClientInit {
+        crypto: NSSCryptographer::new(),
         key_id,
         access_token,
         tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,

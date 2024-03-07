@@ -120,7 +120,8 @@ impl<T> Sync15ClientResponse<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Sync15StorageClientInit {
+pub struct Sync15StorageClientInit<C> {
+    pub crypto: C,
     pub key_id: String,
     pub access_token: String,
     pub tokenserver_url: Url,
@@ -201,12 +202,13 @@ type IncMetaGlobalBso = IncomingBso;
 type OutMetaGlobalBso = OutgoingBso;
 
 #[derive(Debug)]
-pub struct Sync15StorageClient {
+pub struct Sync15StorageClient<C> {
+    crypto: C,
     tsc: token::TokenProvider,
     pub(crate) backoff: BackoffListener,
 }
 
-impl SetupStorageClient for Sync15StorageClient {
+impl<C> SetupStorageClient for Sync15StorageClient<C> {
     fn fetch_info_configuration(&self) -> error::Result<Sync15ClientResponse<InfoConfiguration>> {
         self.relative_storage_request(Method::Get, "info/configuration")
     }
@@ -277,18 +279,22 @@ impl SetupStorageClient for Sync15StorageClient {
     }
 }
 
-impl Sync15StorageClient {
-    pub fn new(init_params: Sync15StorageClientInit) -> error::Result<Sync15StorageClient> {
-        rc_crypto::ensure_initialized();
+impl<C> Sync15StorageClient<C> {
+    pub fn new(init_params: Sync15StorageClientInit<C>) -> error::Result<Sync15StorageClient<C>> {
         let tsc = token::TokenProvider::new(
             init_params.tokenserver_url,
             init_params.access_token,
             init_params.key_id,
         )?;
         Ok(Sync15StorageClient {
+            crypto: init_params.crypto,
             tsc,
             backoff: new_backoff_listener(),
         })
+    }
+
+    pub fn get_crypto(&self) -> &C {
+        &self.crypto
     }
 
     pub fn get_encrypted_records(
@@ -371,7 +377,7 @@ impl Sync15StorageClient {
         config: &InfoConfiguration,
         ts: ServerTimestamp,
         on_response: F,
-    ) -> error::Result<PostQueue<PostWrapper<'a>, F>> {
+    ) -> error::Result<PostQueue<PostWrapper<'a, C>, F>> {
         let pw = PostWrapper { client: self, coll };
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
@@ -421,12 +427,12 @@ impl Sync15StorageClient {
     }
 }
 
-pub struct PostWrapper<'a> {
-    client: &'a Sync15StorageClient,
+pub struct PostWrapper<'a, C> {
+    client: &'a Sync15StorageClient<C>,
     coll: &'a CollectionName,
 }
 
-impl<'a> BatchPoster for PostWrapper<'a> {
+impl<'a, C> BatchPoster for PostWrapper<'a, C> {
     fn post<T, O>(
         &self,
         bytes: Vec<u8>,
@@ -513,12 +519,14 @@ fn build_collection_post_url(mut base_url: Url, r: CollectionPost) -> error::Res
 
 #[cfg(test)]
 mod test {
+    use rc_crypto::NSSCryptographer;
+
     use super::*;
     #[test]
     fn test_send() {
         fn ensure_send<T: Send>() {}
         // Compile will fail if not send.
-        ensure_send::<Sync15StorageClient>();
+        ensure_send::<Sync15StorageClient<NSSCryptographer>>();
     }
 
     #[test]

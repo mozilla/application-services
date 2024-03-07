@@ -13,6 +13,7 @@ use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
 use crate::KeyBundle;
+use crypto_traits::aead::{Aead, SyncAes256CBC};
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::result;
@@ -21,15 +22,19 @@ use std::time::{Duration, SystemTime};
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
 #[derive(Debug)]
-struct ClientInfo {
+struct ClientInfo<C> {
     // the client_init used to create `client`.
-    client_init: Sync15StorageClientInit,
+    client_init: Sync15StorageClientInit<C>,
     // the client (our tokenserver state machine state, and our http library's state)
-    client: Sync15StorageClient,
+    client: Sync15StorageClient<C>,
 }
 
-impl ClientInfo {
-    fn new(ci: &Sync15StorageClientInit) -> Result<Self, Error> {
+impl<C> ClientInfo<C>
+where
+    C: Clone, // TODO: This is a hack to allow us to clone `Sync15StorageCLientInit`, it is better
+              // if ClientInfo takes a reference instead
+{
+    fn new(ci: &Sync15StorageClientInit<C>) -> Result<Self, Error> {
         Ok(Self {
             client_init: ci.clone(),
             client: Sync15StorageClient::new(ci.clone())?,
@@ -41,8 +46,8 @@ impl ClientInfo {
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
 #[derive(Debug, Default)]
-pub struct MemoryCachedState {
-    last_client_info: Option<ClientInfo>,
+pub struct MemoryCachedState<C> {
+    last_client_info: Option<ClientInfo<C>>,
     last_global_state: Option<GlobalState>,
     // These are just engined in memory, as persisting an invalid value far in the
     // future has the potential to break sync for good.
@@ -50,7 +55,7 @@ pub struct MemoryCachedState {
     next_client_refresh_after: Option<SystemTime>,
 }
 
-impl MemoryCachedState {
+impl<C> MemoryCachedState<C> {
     // Called we notice the cached state is stale.
     pub fn clear_sensitive_info(&mut self) {
         self.last_client_info = None;
@@ -90,15 +95,18 @@ impl MemoryCachedState {
 /// fails, the sync will continue on to other engines, but the error will be
 /// places in this map. The absence of a name in the map implies the engine
 /// succeeded.
-pub fn sync_multiple(
+pub fn sync_multiple<C>(
     engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
-    mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit,
+    mem_cached_state: &mut MemoryCachedState<C>,
+    storage_init: &Sync15StorageClientInit<C>,
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
-) -> SyncResult {
+) -> SyncResult
+where
+    C: Aead<SyncAes256CBC> + Clone + PartialEq + Default,
+{
     sync_multiple_with_command_processor(
         None,
         engines,
@@ -115,16 +123,19 @@ pub fn sync_multiple(
 /// commands from the clients collection. This function is called by the sync
 /// manager, which provides its own processor.
 #[allow(clippy::too_many_arguments)]
-pub fn sync_multiple_with_command_processor(
+pub fn sync_multiple_with_command_processor<C>(
     command_processor: Option<&dyn CommandProcessor>,
     engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
-    mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit,
+    mem_cached_state: &mut MemoryCachedState<C>,
+    storage_init: &Sync15StorageClientInit<C>,
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
-) -> SyncResult {
+) -> SyncResult
+where
+    C: Aead<SyncAes256CBC> + Clone + PartialEq + Default,
+{
     log::info!("Syncing {} engines", engines.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
@@ -184,22 +195,25 @@ pub struct SyncRequestInfo<'a> {
 }
 
 // The sync multiple driver
-struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
+struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs, C> {
     command_processor: Option<&'info dyn CommandProcessor>,
     engines: &'info [&'info dyn SyncEngine],
-    storage_init: &'info Sync15StorageClientInit,
+    storage_init: &'info Sync15StorageClientInit<C>,
     root_sync_key: &'info KeyBundle,
     interruptee: &'info dyn Interruptee,
     backoff: BackoffListener,
     engines_to_state_change: Option<&'info HashMap<String, bool>>,
     result: &'res mut SyncResult,
     persisted_global_state: &'pgs mut Option<String>,
-    mem_cached_state: &'mcs mut MemoryCachedState,
+    mem_cached_state: &'mcs mut MemoryCachedState<C>,
     ignore_soft_backoff: bool,
     saw_auth_error: bool,
 }
 
-impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
+impl<'info, 'res, 'pgs, 'mcs, C> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs, C>
+where
+    C: Aead<SyncAes256CBC> + Clone + PartialEq + Default,
+{
     /// The actual worker for sync_multiple.
     fn sync(mut self) -> result::Result<(), Error> {
         log::info!("Loading/initializing persisted state");
@@ -287,7 +301,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
     fn sync_engines(
         &mut self,
-        client_info: &ClientInfo,
+        client_info: &ClientInfo<C>,
         global_state: &mut GlobalState,
         clients: Option<&clients_engine::Engine<'_>>,
     ) -> telemetry::SyncTelemetry {
@@ -351,7 +365,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
     fn run_state_machine(
         &mut self,
-        client_info: &ClientInfo,
+        client_info: &ClientInfo<C>,
         pgs: &mut PersistedGlobalState,
     ) -> result::Result<GlobalState, Error> {
         let last_state = self.mem_cached_state.last_global_state.take();
@@ -365,7 +379,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         );
 
         log::info!("Advancing state machine to ready (full)");
-        let res = state_machine.run_to_ready(last_state);
+        let res = state_machine.run_to_ready(last_state, client_info.client.get_crypto());
         // Grab this now even though we don't need it until later to avoid a
         // lifetime issue
         let changes = state_machine.changes_needed.take();
@@ -400,7 +414,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     fn wipe_or_reset_engines(
         &mut self,
         changes: EngineChangesNeeded,
-        client: &Sync15StorageClient,
+        client: &Sync15StorageClient<C>,
     ) -> result::Result<(), Error> {
         if changes.local_resets.is_empty() && changes.remote_wipes.is_empty() {
             return Ok(());
@@ -421,7 +435,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         Ok(())
     }
 
-    fn prepare_client_info(&mut self) -> result::Result<ClientInfo, Error> {
+    fn prepare_client_info(&mut self) -> result::Result<ClientInfo<C>, Error> {
         let mut client_info = match self.mem_cached_state.last_client_info.take() {
             Some(client_info) => {
                 // if our storage_init has changed it probably means the user has

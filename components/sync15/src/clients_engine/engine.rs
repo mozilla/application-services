@@ -12,6 +12,7 @@ use crate::client::{
 use crate::client_types::{ClientData, RemoteClient};
 use crate::engine::CollectionRequest;
 use crate::{error::Result, Guid, KeyBundle};
+use crypto_traits::aead::{Aead, SyncAes256CBC};
 use interrupt_support::Interruptee;
 
 use super::{
@@ -269,19 +270,23 @@ impl<'a> Engine<'a> {
     /// For these reasons, we implement this engine directly in the `sync15`
     /// crate, and provide a specialized `sync` method instead of implementing
     /// `sync15::Store`.
-    pub fn sync(
+    pub fn sync<C>(
         &mut self,
-        storage_client: &Sync15StorageClient,
+        storage_client: &Sync15StorageClient<C>,
         global_state: &GlobalState,
         root_sync_key: &KeyBundle,
         should_refresh_client: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         log::info!("Syncing collection clients");
 
         let coll_keys = CollectionKeys::from_encrypted_payload(
             global_state.keys.clone(),
             global_state.keys_timestamp,
             root_sync_key,
+            storage_client.get_crypto(),
         )?;
         let coll_state = CollState {
             config: global_state.config.clone(),
@@ -324,11 +329,14 @@ impl<'a> Engine<'a> {
         Ok(())
     }
 
-    fn fetch_incoming(
+    fn fetch_incoming<C>(
         &self,
-        storage_client: &Sync15StorageClient,
+        storage_client: &Sync15StorageClient<C>,
         coll_state: &CollState,
-    ) -> Result<Vec<IncomingBso>> {
+    ) -> Result<Vec<IncomingBso>>
+    where
+        C: Aead<SyncAes256CBC>,
+    {
         // Note that, unlike other stores, we always fetch the full collection
         // on every sync, so `inbound` will return all clients, not just the
         // ones that changed since the last sync.

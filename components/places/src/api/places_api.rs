@@ -14,6 +14,7 @@ use error_support::handle_error;
 use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
+use rc_crypto::NSSCryptographer;
 use rusqlite::OpenFlags;
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -122,7 +123,7 @@ lazy_static! {
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub struct SyncState {
-    pub mem_cached_state: Cell<MemoryCachedState>,
+    pub mem_cached_state: Cell<MemoryCachedState<NSSCryptographer>>, // TODO:  Make the crypto generic!
     pub disk_cached_state: Cell<Option<String>>,
 }
 
@@ -300,7 +301,7 @@ impl PlacesApi {
     // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_history(
         &self,
-        client_init: &Sync15StorageClientInit,
+        client_init: &Sync15StorageClientInit<NSSCryptographer>,
         key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
@@ -322,7 +323,7 @@ impl PlacesApi {
 
     pub fn sync_bookmarks(
         &self,
-        client_init: &Sync15StorageClientInit,
+        client_init: &Sync15StorageClientInit<NSSCryptographer>,
         key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
@@ -350,7 +351,7 @@ impl PlacesApi {
     where
         F: FnOnce(
             Arc<SharedPlacesDb>,
-            &mut MemoryCachedState,
+            &mut MemoryCachedState<NSSCryptographer>,
             &mut Option<String>,
         ) -> Result<SyncResult>,
     {
@@ -394,7 +395,7 @@ impl PlacesApi {
     // we have a SyncResult, we must return it.
     pub fn sync(
         &self,
-        client_init: &Sync15StorageClientInit,
+        client_init: &Sync15StorageClientInit<NSSCryptographer>,
         key_bundle: &KeyBundle,
     ) -> Result<SyncResult> {
         let mut guard = self.sync_state.lock();
