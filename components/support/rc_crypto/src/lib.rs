@@ -40,6 +40,7 @@ pub mod pbkdf2;
 pub mod rand;
 pub mod signature;
 
+use crypto_traits::hawk::Hawk;
 // Expose `hawk` if the hawk feature is on. This avoids consumers needing to
 // configure this separately, which is more or less trivial to do incorrectly.
 #[cfg(feature = "hawk")]
@@ -73,7 +74,12 @@ pub struct NSSCryptographer;
 
 impl NSSCryptographer {
     pub fn new() -> Self {
-        crate::ensure_initialized();
-        Self {}
+        let res = Self {};
+        #[cfg(feature = "hawk")]
+        // This is ugly and is ripe for issues
+        // Unfortunately this is how the `hawk` crate set itself up, with a static cryptographer
+        // memory wise, it's OK, our cryptographer is zero-sized.
+        Box::leak(Box::new(res.clone())).set_cryptographer();
+        res
     }
 }

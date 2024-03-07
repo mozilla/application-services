@@ -47,7 +47,7 @@ pub enum Error {
 
     #[cfg(feature = "crypto")]
     #[error("HAWK error: {0}")]
-    HawkError(#[from] rc_crypto::hawk::Error),
+    HawkError(#[from] crypto_traits::hawk::Error),
 
     //
     // Errors specific to this module.

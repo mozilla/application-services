@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{digest, hmac, rand};
+use crate::{digest, hmac, rand, NSSCryptographer};
+use crypto_traits::hawk::Hawk;
 use hawk::crypto as hc;
 
 impl From<crate::Error> for hc::CryptoError {
@@ -11,8 +12,6 @@ impl From<crate::Error> for hc::CryptoError {
         hc::CryptoError::Other(e.into())
     }
 }
-
-pub(crate) struct RcCryptoCryptographer;
 
 impl hc::HmacKey for crate::hmac::SigningKey {
     fn sign(&self, data: &[u8]) -> Result<Vec<u8>, hc::CryptoError> {
@@ -42,7 +41,7 @@ impl hc::Hasher for NssHasher {
     }
 }
 
-impl hc::Cryptographer for RcCryptoCryptographer {
+impl hc::Cryptographer for NSSCryptographer {
     fn rand_bytes(&self, output: &mut [u8]) -> Result<(), hc::CryptoError> {
         rand::fill(output)?;
         Ok(())
@@ -72,6 +71,8 @@ impl hc::Cryptographer for RcCryptoCryptographer {
     }
 }
 
+impl Hawk for NSSCryptographer {}
+
 fn to_rc_crypto_algorithm(
     algorithm: hawk::DigestAlgorithm,
 ) -> Result<&'static digest::Algorithm, hc::CryptoError> {
@@ -83,7 +84,7 @@ fn to_rc_crypto_algorithm(
 
 // Note: this doesn't initialize NSS!
 pub(crate) fn init() {
-    hawk::crypto::set_cryptographer(&crate::hawk_crypto::RcCryptoCryptographer)
+    hawk::crypto::set_cryptographer(&crate::hawk_crypto::NSSCryptographer)
         .expect("Failed to initialize `hawk` cryptographer!")
 }
 

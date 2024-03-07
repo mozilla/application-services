@@ -912,6 +912,7 @@ dependencies = [
 name = "crypto_traits"
 version = "0.1.0"
 dependencies = [
+ "hawk",
  "thiserror",
 ]
 

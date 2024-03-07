@@ -11,3 +11,4 @@ exclude = []
 
 [dependencies]
 thiserror = "1.0"
+hawk = { version = "5", default-features = false }
