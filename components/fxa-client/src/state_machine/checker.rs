@@ -176,8 +176,9 @@ impl FxaStateMachineChecker {
                 inner.internal_state
             );
             inner.reported_error = true;
+        } else {
+            breadcrumb!("fxa-state-machine-checker: check_public_state successfull {state}");
         }
-        breadcrumb!("fxa-state-machine-checker: check_public_state successfull {state}");
     }
 
     /// Check the internal state
@@ -196,6 +197,8 @@ impl FxaStateMachineChecker {
                 inner.internal_state
             );
             inner.reported_error = true;
+        } else {
+            breadcrumb!("fxa-state-machine-checker: check_internal_state successfull {state}");
         }
     }
 }
