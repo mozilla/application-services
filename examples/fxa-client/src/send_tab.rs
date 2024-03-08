@@ -54,6 +54,7 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
                             None => println!("Tab received: {}", tab.url),
                         };
                     }
+                    IncomingDeviceCommand::TabsClosed { .. } => continue,
                 }
             }
         }
