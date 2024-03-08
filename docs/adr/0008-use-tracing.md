@@ -14,10 +14,10 @@
 
 Currently all Rust code in [app-services](https://github.com/mozilla/application-services/)
 uses the `log` crate for debugging and diagnostics.
-Log output is often captured during tests where it's just printed to stdout/stderr if the test
-fails. Further, both our mobile apps and Firefox Desktop have techniques for having this log
-output be sent across the FFI so it can be captured in whatever "native" logging system is
-in place (eg, logcat on Android, custom file logging on iOS, Log.sys.mjs/Console.sys.mjs logging on Desktop)
+Log output is valuable for working on the code, and for helping users troubleshoot.
+When working on the code, log output is often captured during tests, where it's just printed to stdout/stderr if the test fails.
+For helping users troubleshoot, log output is sent across the FFI so it can be captured in whatever "native" logging system is in place.
+Users or QA can then export and attach the logs to a bug.
 
 application-services also has an [error support crate](https://github.com/mozilla/application-services/tree/main/components/support/error),
 designed explicitly for error reporting for the applications.
@@ -31,14 +31,16 @@ and any changes proposed to this crate by this document are limited to just this
 
 The main problem with the `log` module is a design choice made by that crate,
 which is the concept of a [global "max level"](https://docs.rs/cli-log/latest/cli_log/fn.set_max_level.html)
+that's set for all crates.
 
-In Gecko, simply setting this max level to, say, `Trace` can cause performance regressions in other
-crates - eg, [see this desktop bug](https://bugzilla.mozilla.org/show_bug.cgi?id=1874215) for one example.
+The Gecko code has embraced this design choice and sets the global max level to Info for production builds.
+Changing this max level to, say, Trace can cause performance regressions in other crates - eg, see this desktop bug for one example.
+Changing all the existing code is a difficult, and probably unwelcome, task, and is only possible for crates we control.
 
 In practice, this means that we are unable to selectively get `Debug` or `Trace` logs for individual components,
 because the max level for the logger is, effectively, fixed at `Info`.
 
-### Problems with the error reporter
+#### Problems with the error reporter
 
 The error reporter actually works OK for mobile, but is not implemented at all for Desktop.
 However, the existing implementation is quite ad-hoc and not very "rich" in terms of data which
@@ -81,6 +83,11 @@ This document proposes that:
 
 * This same mechanism, and the same raw data, should be used on all platforms (ie, Android, iOS and Desktop).
 
+To be explicit, there would be no requirement for any other crates to move to tracing. However, we also
+believe there is nothing in this document which would prevent any crates from using tracing.
+Further, there's no reason that the use of `log` and `tracing` is mutually exclusive; crates are, and will remain, free
+to use either of these crates as they see fit.
+
 ## Implementation: Move to tracing for all app-services crates.
 
 This section describes the changes necessary to implement the above.
@@ -122,6 +129,7 @@ simply subscribe to the highest log level and perform additional filtering after
 This means that the "performance critical path" for this process is determining if we have a subscriber;
 once we have determined a subscriber matches an event, we can perform relatively expensive operations
 on the event because we assume action will be taken on the event.
+We believe this assumption is fine because we will own all such subscribers.
 
 An example of these "relatively expensive" operations is fetching event "fields", such as the message or other meta-data.
 
@@ -134,7 +142,9 @@ There are 3 main places which would change in the first instance, broken down by
 
 #### Mobile
 
-The existing [rust_log_forwarder](https://github.com/mozilla/application-services/tree/main/components/support/rust-log-forwarder) and [error-support](https://github.com/mozilla/application-services/tree/main/components/support/error) crates would change how they collect "events" to using `tracing-subscriber`. Initially we'd not change the API exposed to the mobile apps, but very soon after declaring success on Desktop we'd look to consolidate the APIs as seen by the applications.
+As described in the Application Services section, the existing crates used by mobile would keep the same public API
+in the first instance, meaning our mobile apps would not require changes; however, eventually we'd look at moving
+the mobile apps to the new mechanism, at which time we'd kill the 2 "legacy" app-services crates.
 
 #### Desktop
 
@@ -149,7 +159,7 @@ The [app-services-logger](https://searchfox.org/mozilla-central/source/services/
 
 #### Application Services
 
-* All crates move to `tracing` instead of `logging`
+* All crates move to `tracing` instead of `log`
 
 * A new crate would be added which defines the application callback interfaces (via UniFFI) and
   also the new tracing-subscriber implementation.
@@ -158,8 +168,3 @@ The [app-services-logger](https://searchfox.org/mozilla-central/source/services/
   but would have their internal implementation replaced with the subscriber. This is for backwards
   compatibility with mobile - eventually we'd expose the new callback interfaces to mobile and delete
   these crates entirely.
-
-#### Mobile
-
-Mobile would not require changes in the first version, although we'd move to the new mechanism within
-a month or 2, at which time we can kill the 2 "legacy" app-services crates.
