@@ -21,6 +21,7 @@ use url::Url;
 
 #[cfg(feature = "integration_test")]
 pub mod auth;
+mod close_tabs;
 mod commands;
 pub mod config;
 pub mod device;

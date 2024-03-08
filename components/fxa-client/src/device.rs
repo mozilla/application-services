@@ -239,11 +239,10 @@ pub struct Device {
 /// executing these commands are encapsulated as part of the FxA Client component,
 /// so consumers simply need to select which ones they want to support, and can
 /// use the variants of this enum to do so.
-///
-/// In practice, the only currently-supported command is the ability to receive a tab.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum DeviceCapability {
     SendTab,
+    CloseTabs,
 }
 
 /// A client connected to the user's account.

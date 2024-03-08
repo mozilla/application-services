@@ -6,11 +6,15 @@ use std::collections::{HashMap, HashSet};
 
 pub use super::http_client::{GetDeviceResponse as Device, PushSubscription};
 use super::{
-    commands::{self, IncomingDeviceCommand},
+    commands::{
+        self,
+        send_tab::{PrivateSendTabKeys, PublicSendTabKeys},
+        IncomingDeviceCommand,
+    },
     http_client::{
         DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand, UpdateDeviceResponse,
     },
-    telemetry, util, CachedResponse, FirefoxAccount,
+    scopes, telemetry, util, CachedResponse, FirefoxAccount,
 };
 use crate::{DeviceCapability, Error, LocalDevice, Result};
 use sync15::DeviceType;
@@ -68,17 +72,24 @@ impl FirefoxAccount {
         &mut self,
         capabilities: &[DeviceCapability],
     ) -> Result<HashMap<String, String>> {
-        let mut capabilities_set = HashSet::new();
         let mut commands = HashMap::new();
-        for capability in capabilities {
+        for capability in capabilities.iter().collect::<HashSet<_>>() {
             match capability {
                 DeviceCapability::SendTab => {
-                    let send_tab_command = self.generate_send_tab_command_data()?;
+                    let send_tab_command_data =
+                        self.generate_command_data(DeviceCapability::SendTab)?;
                     commands.insert(
                         commands::send_tab::COMMAND_NAME.to_owned(),
-                        send_tab_command.to_owned(),
+                        send_tab_command_data,
                     );
-                    capabilities_set.insert(DeviceCapability::SendTab);
+                }
+                DeviceCapability::CloseTabs => {
+                    let close_tabs_command_data =
+                        self.generate_command_data(DeviceCapability::CloseTabs)?;
+                    commands.insert(
+                        commands::close_tabs::COMMAND_NAME.to_owned(),
+                        close_tabs_command_data,
+                    );
                 }
             }
         }
@@ -250,6 +261,9 @@ impl FirefoxAccount {
             commands::send_tab::COMMAND_NAME => {
                 self.handle_send_tab_command(sender, command_data.payload, telem_reason)
             }
+            commands::close_tabs::COMMAND_NAME => {
+                self.handle_close_tabs_command(sender, command_data.payload)
+            }
             _ => Err(Error::UnknownCommand(command_data.command)),
         }
     }
@@ -325,6 +339,27 @@ impl FirefoxAccount {
             None => Err(Error::NoCurrentDeviceId),
         }
     }
+
+    /// Generate the command to be registered with the server for
+    /// the given capability.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    pub(crate) fn generate_command_data(&mut self, capability: DeviceCapability) -> Result<String> {
+        let own_keys = self.load_or_generate_command_keys(capability)?;
+        let public_keys: PublicSendTabKeys = own_keys.into();
+        let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
+        public_keys.as_command_data(oldsync_key)
+    }
+
+    fn load_or_generate_command_keys(
+        &mut self,
+        capability: DeviceCapability,
+    ) -> Result<PrivateSendTabKeys> {
+        match capability {
+            DeviceCapability::SendTab => self.load_or_generate_send_tab_keys(),
+            DeviceCapability::CloseTabs => self.load_or_generate_close_tabs_keys(),
+        }
+    }
 }
 
 impl TryFrom<String> for DeviceCapability {
@@ -333,6 +368,7 @@ impl TryFrom<String> for DeviceCapability {
     fn try_from(command: String) -> Result<Self> {
         match command.as_str() {
             commands::send_tab::COMMAND_NAME => Ok(DeviceCapability::SendTab),
+            commands::close_tabs::COMMAND_NAME => Ok(DeviceCapability::CloseTabs),
             _ => Err(Error::UnknownCommand(command)),
         }
     }
@@ -369,6 +405,7 @@ impl TryFrom<Device> for crate::Device {
             .keys()
             .filter_map(|k| match k.as_str() {
                 commands::send_tab::COMMAND_NAME => Some(DeviceCapability::SendTab),
+                commands::close_tabs::COMMAND_NAME => Some(DeviceCapability::CloseTabs),
                 _ => None,
             })
             .map(Into::into)

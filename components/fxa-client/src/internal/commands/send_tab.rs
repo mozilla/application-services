@@ -34,7 +34,7 @@ impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
         rc_crypto::ensure_initialized();
         let encrypted = URL_SAFE_NO_PAD.decode(self.encrypted)?;
-        let decrypted = ece::decrypt(&keys.p256key, &keys.auth_secret, &encrypted)?;
+        let decrypted = ece::decrypt(keys.p256key(), keys.auth_secret(), &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
     }
 }
@@ -76,8 +76,8 @@ impl SendTabPayload {
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
         rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
-        let public_key = URL_SAFE_NO_PAD.decode(&keys.public_key)?;
-        let auth_secret = URL_SAFE_NO_PAD.decode(&keys.auth_secret)?;
+        let public_key = URL_SAFE_NO_PAD.decode(keys.public_key())?;
+        let auth_secret = URL_SAFE_NO_PAD.decode(keys.auth_secret())?;
         let encrypted = ece::encrypt(&public_key, &auth_secret, &bytes)?;
         let encrypted = URL_SAFE_NO_PAD.encode(encrypted);
         Ok(EncryptedSendTabPayload { encrypted })
@@ -138,6 +138,14 @@ impl PrivateSendTabKeys {
             p256key: key_pair.raw_components()?,
             auth_secret: auth_secret.to_vec(),
         })
+    }
+
+    pub fn p256key(&self) -> &EcKeyComponents {
+        &self.p256key
+    }
+
+    pub fn auth_secret(&self) -> &[u8] {
+        &self.auth_secret
     }
 }
 
