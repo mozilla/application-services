@@ -528,7 +528,17 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   void send_single_tab([ByRef] string target_device_id, [ByRef] string title, [ByRef] string url );
-  
+
+
+  /// Use device commands to close one or more tabs on another device.
+  ///
+  /// **💾 This method alters the persisted account state.**
+  ///
+  /// If a device on the account has registered the [`CloseTabs`](DeviceCapability::CloseTabs)
+  /// capability, this method can be used to close its tabs.
+  [Throws=FxaError]
+  void close_tabs([ByRef] string target_device_id, sequence<string> urls);
+
 
   // Get the URL at which to access the user's sync data.
   //
@@ -886,6 +896,14 @@ dictionary SendTabPayload {
   string stream_id = "";
 };
 
+/// The payload sent when invoking a "close tabs" command.
+//
+dictionary CloseTabsPayload {
+
+  /// The URLs of the tabs to close.
+  sequence<string> urls;
+};
+
 // An individual entry in the navigation history of a sent tab.
 //
 dictionary TabHistoryEntry {
@@ -981,10 +999,9 @@ enum FxaRustAuthState {
 // so consumers simply need to select which ones they want to support, and can
 // use the variants of this enum to do so.
 //
-// In practice, the only currently-supported command is the ability to receive a tab.
-//
 enum DeviceCapability {
   "SendTab",
+  "CloseTabs",
 };
 
 
@@ -1058,6 +1075,9 @@ interface IncomingDeviceCommand {
 
   // Indicates that a tab has been sent to this device.
   TabReceived(Device? sender, SendTabPayload payload );
+
+  /// Indicates that the sender wants to close one or more tabs on this device.
+  TabsClosed(Device? sender, CloseTabsPayload payload);
 };
 
 // Machinery for dry-run testing of FxaAuthStateMachine

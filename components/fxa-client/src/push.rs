@@ -100,6 +100,17 @@ impl FirefoxAccount {
             .lock()
             .send_single_tab(target_device_id, title, url)
     }
+
+    /// Use device commands to close one or more tabs on another device.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    ///
+    /// If a device on the account has registered the [`CloseTabs`](DeviceCapability::CloseTabs)
+    /// capability, this method can be used to close its tabs.
+    #[handle_error(Error)]
+    pub fn close_tabs(&self, target_device_id: &str, urls: Vec<String>) -> ApiResult<()> {
+        self.internal.lock().close_tabs(target_device_id, &urls)
+    }
 }
 
 /// Details of a web-push subscription endpoint.
@@ -189,6 +200,10 @@ pub enum IncomingDeviceCommand {
         sender: Option<Device>,
         payload: SendTabPayload,
     },
+    TabsClosed {
+        sender: Option<Device>,
+        payload: CloseTabsPayload,
+    },
 }
 
 /// The payload sent when invoking a "send tab" command.
@@ -208,6 +223,12 @@ pub struct SendTabPayload {
     ///
     /// The application should treat this as opaque.
     pub stream_id: String,
+}
+
+/// The payload sent when invoking a "close tabs" command.
+#[derive(Debug)]
+pub struct CloseTabsPayload {
+    pub urls: Vec<String>,
 }
 
 /// An individual entry in the navigation history of a sent tab.

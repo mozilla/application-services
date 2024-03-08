@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub mod close_tabs;
 pub mod send_tab;
+
+pub use close_tabs::CloseTabsPayload;
 pub use send_tab::SendTabPayload;
 
 use super::device::Device;
@@ -15,6 +18,10 @@ pub enum IncomingDeviceCommand {
         sender: Option<Device>,
         payload: SendTabPayload,
     },
+    TabsClosed {
+        sender: Option<Device>,
+        payload: CloseTabsPayload,
+    },
 }
 
 impl TryFrom<IncomingDeviceCommand> for crate::IncomingDeviceCommand {
@@ -23,6 +30,12 @@ impl TryFrom<IncomingDeviceCommand> for crate::IncomingDeviceCommand {
         Ok(match cmd {
             IncomingDeviceCommand::TabReceived { sender, payload } => {
                 crate::IncomingDeviceCommand::TabReceived {
+                    sender: sender.map(crate::Device::try_from).transpose()?,
+                    payload: payload.into(),
+                }
+            }
+            IncomingDeviceCommand::TabsClosed { sender, payload } => {
+                crate::IncomingDeviceCommand::TabsClosed {
                     sender: sender.map(crate::Device::try_from).transpose()?,
                     payload: payload.into(),
                 }

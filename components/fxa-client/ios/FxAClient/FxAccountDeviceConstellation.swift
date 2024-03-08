@@ -94,6 +94,8 @@ public class DeviceConstellation {
                 case let .sendTab(title, url): do {
                         try self.account.sendSingleTab(targetDeviceId: targetDeviceId, title: title, url: url)
                     }
+                case let .closeTabs(urls):
+                    try self.account.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
                 }
             } catch {
                 FxALog.error("Error sending event to another device: \(error).")
@@ -162,4 +164,5 @@ public class DeviceConstellation {
 
 public enum DeviceEventOutgoing {
     case sendTab(title: String, url: String)
+    case closeTabs(urls: [String])
 }

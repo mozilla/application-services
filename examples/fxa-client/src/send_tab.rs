@@ -24,6 +24,11 @@ enum Command {
         title: String,
         url: String,
     },
+    /// Close an open tab on another device
+    Close {
+        device_id: String,
+        urls: Vec<String>,
+    },
 }
 
 pub fn run(account: &FirefoxAccount, args: SendTabArgs) -> Result<()> {
@@ -34,6 +39,7 @@ pub fn run(account: &FirefoxAccount, args: SendTabArgs) -> Result<()> {
             title,
             url,
         } => send(account, device_id, title, url),
+        Command::Close { device_id, urls } => close(account, device_id, urls),
     }
 }
 
@@ -54,6 +60,7 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
                             None => println!("Tab received: {}", tab.url),
                         };
                     }
+                    IncomingDeviceCommand::TabsClosed { .. } => continue,
                 }
             }
         }
@@ -63,5 +70,11 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
 fn send(account: &FirefoxAccount, device_id: String, title: String, url: String) -> Result<()> {
     account.send_single_tab(&device_id, &title, &url)?;
     println!("Tab sent!");
+    Ok(())
+}
+
+fn close(account: &FirefoxAccount, device_id: String, urls: Vec<String>) -> Result<()> {
+    account.close_tabs(&device_id, urls)?;
+    println!("Tabs closed!");
     Ok(())
 }
