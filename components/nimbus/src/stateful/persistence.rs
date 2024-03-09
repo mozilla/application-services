@@ -4,7 +4,7 @@
 
 //! Our storage abstraction, currently backed by Rkv.
 
-use crate::error::{NimbusError, Result};
+use crate::error::{debug, info, warn, NimbusError, Result};
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
 // it must be noted that the rkv documentation explicitly says "To use rkv in
@@ -221,11 +221,11 @@ impl SingleStore {
                         // If there is an error, we won't push this onto the
                         // result Vec, but we won't blow up the entire
                         // deserialization either.
-                        log::warn!(
+                        warn!(
                             "try_collect_all: discarded a record while deserializing with: {:?}",
                             e
                         );
-                        log::warn!(
+                        warn!(
                             "try_collect_all:   data that failed to deserialize: {:?}",
                             data
                         );
@@ -333,17 +333,17 @@ impl Database {
     }
 
     fn maybe_upgrade(&self) -> Result<()> {
-        log::debug!("entered maybe upgrade");
+        debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
-                log::info!("Already at version {}, no upgrade needed", DB_VERSION);
+                info!("Already at version {}, no upgrade needed", DB_VERSION);
                 return Ok(());
             }
             Some(1) => {
-                log::info!("Migrating database from v1 to v2");
+                info!("Migrating database from v1 to v2");
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
@@ -363,7 +363,7 @@ impl Database {
                 };
             }
             None => {
-                log::info!("maybe_upgrade: no version number; wiping most stores");
+                info!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
@@ -387,7 +387,7 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
-        log::debug!("maybe_upgrade: transaction committed");
+        debug!("maybe_upgrade: transaction committed");
         Ok(())
     }
 
@@ -413,7 +413,7 @@ impl Database {
     /// people from any existing enrollments and blowing away their experiment
     /// history, so that they don't get left in an inconsistent state.
     fn migrate_v1_to_v2(&self, writer: &mut Writer) -> Result<()> {
-        log::info!("Upgrading from version 1 to version 2");
+        info!("Upgrading from version 1 to version 2");
 
         // use try_collect_all to read everything except records that serde
         // returns deserialization errors on.  Some logging of those errors
@@ -441,10 +441,10 @@ impl Database {
                 let branch_with_empty_feature_ids =
                     e.branches.iter().find(|b| b.feature.is_none() || b.feature.as_ref().unwrap().feature_id.is_empty());
                 if branch_with_empty_feature_ids.is_some() {
-                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                    warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
                     Some(e.slug.to_owned())
                 } else if e.feature_ids.is_empty() || e.feature_ids.contains(&empty_string) {
-                    log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
+                    warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
                     Some(e.slug.to_owned())
                 } else {
                     None
@@ -458,14 +458,14 @@ impl Database {
             .into_iter()
             .filter(|e| !slugs_to_discard.contains(&e.slug))
             .collect();
-        log::debug!("updated experiments = {:?}", updated_experiments);
+        debug!("updated experiments = {:?}", updated_experiments);
 
         // filter out enrollments to be dropped
         let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
             .into_iter()
             .filter(|e| !slugs_to_discard.contains(&e.slug))
             .collect();
-        log::debug!("updated enrollments = {:?}", updated_enrollments);
+        debug!("updated enrollments = {:?}", updated_enrollments);
 
         // rewrite both stores
         self.experiment_store.clear(writer)?;
@@ -479,7 +479,7 @@ impl Database {
             self.enrollment_store
                 .put(writer, &enrollment.slug, &enrollment)?;
         }
-        log::debug!("exiting migrate_v1_to_v2");
+        debug!("exiting migrate_v1_to_v2");
 
         Ok(())
     }
@@ -498,7 +498,7 @@ impl Database {
 
     pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
         let path = std::path::Path::new(path.as_ref()).join("db");
-        log::debug!("open_rkv: path =  {:?}", path.display());
+        debug!("open_rkv: path =  {:?}", path.display());
         fs::create_dir_all(&path)?;
         let rkv = match rkv_new(&path) {
             Ok(rkv) => Ok(rkv),
@@ -510,7 +510,7 @@ impl Database {
                         // the other hand avoids us knowing about the
                         // underlying implementation (ie, how do we know what
                         // files might exist in all cases?)
-                        log::warn!(
+                        warn!(
                             "Database at '{}' appears corrupt - removing and recreating",
                             path.display()
                         );
@@ -525,7 +525,7 @@ impl Database {
                 }
             }
         }?;
-        log::debug!("Database initialized");
+        debug!("Database initialized");
         Ok(rkv)
     }
 

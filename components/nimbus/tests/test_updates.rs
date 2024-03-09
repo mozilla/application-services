@@ -16,7 +16,10 @@ mod test {
         no_test_experiments, two_valid_experiments,
     };
     #[cfg(feature = "rkv-safe-mode")]
-    use nimbus::{error::Result, NimbusClient};
+    use nimbus::{
+        error::{debug, Result},
+        NimbusClient,
+    };
 
     fn startup(client: &NimbusClient, first_run: bool) -> Result<()> {
         if first_run {
@@ -417,7 +420,7 @@ mod test {
     #[cfg(feature = "rkv-safe-mode")]
     #[test]
     fn test_startup_orphan_behavior() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
 
         // these enrollments should cause orphan experiments to be created
         let enrollments_for_missing_feature_id = vec![
@@ -469,7 +472,7 @@ mod test {
         let client = new_test_client_with_db(&tmp_dir)?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!("after db creation: experiments = {:?}", experiments);
+        debug!("after db creation: experiments = {:?}", experiments);
 
         assert_eq!(experiments.len(), 0); // all data should have been discarded
 
@@ -478,7 +481,7 @@ mod test {
         client.apply_pending_experiments()?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!(
+        debug!(
             "after 2nd apply and get_all: experiments = {:?}",
             experiments
         );
@@ -496,7 +499,7 @@ mod test {
     #[cfg(feature = "rkv-safe-mode")]
     #[test]
     fn test_experiments_without_enrollments_are_dropped() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
 
         let tmp_dir = tempfile::tempdir()?;
         let two_valid_experiments = &two_valid_experiments();
@@ -510,7 +513,7 @@ mod test {
         let client = new_test_client_with_db(&tmp_dir)?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!("after db creation: experiments = {:?}", experiments);
+        debug!("after db creation: experiments = {:?}", experiments);
 
         assert_eq!(
             experiments.len(),
@@ -523,7 +526,7 @@ mod test {
         client.apply_pending_experiments()?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!(
+        debug!(
             "after 2nd apply and get_all: experiments = {:?}",
             experiments
         );

@@ -74,7 +74,7 @@ impl<'a> IncomingApplicator<'a> {
                 }
             },
             IncomingKind::Malformed => {
-                log::trace!(
+                trace!(
                     "skipping malformed bookmark record: {}",
                     json_content.envelope.id
                 );
@@ -96,7 +96,7 @@ impl<'a> IncomingApplicator<'a> {
         let url = match self.maybe_store_href(b.url.as_deref()) {
             Ok(u) => Some(String::from(u)),
             Err(e) => {
-                log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
+                warn!("Incoming bookmark has an invalid URL: {:?}", e);
                 // The bookmark has an invalid URL, so we can't apply it.
                 set_replace(&mut validity);
                 None
@@ -298,7 +298,7 @@ impl<'a> IncomingApplicator<'a> {
         Ok(match self.maybe_store_url(maybe_url) {
             Ok(url) => Some(url),
             Err(e) => {
-                log::warn!("query {} has invalid URL: {:?}", record_id.as_guid(), e);
+                warn!("query {} has invalid URL: {:?}", record_id.as_guid(), e);
                 set_replace(validity);
                 None
             }
@@ -319,7 +319,7 @@ impl<'a> IncomingApplicator<'a> {
                 &mut validity,
             )?,
             None => {
-                log::warn!("query {} has invalid URL", &q.record_id.as_guid(),);
+                warn!("query {} has invalid URL", &q.record_id.as_guid(),);
                 set_replace(&mut validity);
                 None
             }
@@ -372,19 +372,19 @@ impl<'a> IncomingApplicator<'a> {
                     Ok(url) => {
                         let s = url.to_string();
                         if s.len() > URL_LENGTH_MAX {
-                            log::warn!("Livemark {} has a {} URL which is too long", &guid, what);
+                            warn!("Livemark {} has a {} URL which is too long", &guid, what);
                             None
                         } else {
                             Some(s)
                         }
                     }
                     Err(e) => {
-                        log::warn!("Livemark {} has an invalid {} URL: {:?}", &guid, what, e);
+                        warn!("Livemark {} has an invalid {} URL: {:?}", &guid, what, e);
                         None
                     }
                 },
                 None => {
-                    log::warn!("Livemark {} has no {} URL", &guid, what);
+                    warn!("Livemark {} has no {} URL", &guid, what);
                     None
                 }
             }
@@ -573,7 +573,7 @@ fn fixup_optional_tags(val: &mut JsonValue, validity: &mut SyncedBookmarkValidit
                 if let JsonValue::String(tag) = v {
                     let tag = match validate_tag(tag) {
                         ValidatedTag::Invalid(t) => {
-                            log::trace!("Incoming bookmark has invalid tag: {:?}", t);
+                            trace!("Incoming bookmark has invalid tag: {:?}", t);
                             set_reupload(validity);
                             continue;
                         }
@@ -584,11 +584,11 @@ fn fixup_optional_tags(val: &mut JsonValue, validity: &mut SyncedBookmarkValidit
                         ValidatedTag::Original(t) => t,
                     };
                     if !valid_tags.insert(tag) {
-                        log::trace!("Incoming bookmark has duplicate tag: {:?}", tag);
+                        trace!("Incoming bookmark has duplicate tag: {:?}", tag);
                         set_reupload(validity);
                     }
                 } else {
-                    log::trace!("Incoming bookmark has unexpected tag: {:?}", v);
+                    trace!("Incoming bookmark has unexpected tag: {:?}", v);
                     set_reupload(validity);
                 }
             }

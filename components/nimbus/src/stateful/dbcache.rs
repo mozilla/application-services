@@ -6,7 +6,7 @@ use crate::{
     enrollment::{
         map_features_by_feature_id, EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment,
     },
-    error::{NimbusError, Result},
+    error::{warn, NimbusError, Result},
     stateful::{
         enrollment::get_enrollments,
         persistence::{Database, StoreId, Writer},
@@ -112,9 +112,7 @@ impl DatabaseCache {
     {
         match *self.data.read().unwrap() {
             None => {
-                log::warn!(
-                    "DatabaseCache attempting to read data before initialization is completed"
-                );
+                warn!("DatabaseCache attempting to read data before initialization is completed");
                 Err(NimbusError::DatabaseNotReady)
             }
             Some(ref data) => Ok(func(data)),

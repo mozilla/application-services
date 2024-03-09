@@ -16,7 +16,7 @@ use nimbus::error::Result;
 fn test_before_open() -> Result<()> {
     use nimbus::error::NimbusError;
 
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let client = common::new_test_client("test_before_open")?;
     assert!(matches!(
         client.get_experiment_branch("foo".to_string()),
@@ -30,7 +30,7 @@ fn test_before_open() -> Result<()> {
 
 #[test]
 fn test_enrolled() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let client = common::new_test_client("test_enrolled")?;
     client.initialize()?;
     client.set_experiments_locally(common::experiments_testing_feature_ids())?;

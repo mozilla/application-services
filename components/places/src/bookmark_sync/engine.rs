@@ -74,14 +74,14 @@ fn stage_incoming(
         incoming_telemetry.applied(1);
         if tx.should_commit() {
             // Trigger frecency updates for all new origins.
-            log::debug!("Updating origins for new synced URLs since last commit");
+            debug!("Updating origins for new synced URLs since last commit");
             delete_pending_temp_tables(db)?;
         }
         tx.maybe_commit()?;
         scope.err_if_interrupted()?;
     }
 
-    log::debug!("Updating origins for new synced URLs in last chunk");
+    debug!("Updating origins for new synced URLs in last chunk");
     delete_pending_temp_tables(db)?;
 
     tx.commit()?;
@@ -136,7 +136,7 @@ fn update_local_items_in_places(
     ops: &CompletionOps<'_>,
 ) -> Result<()> {
     // Build a table of new and updated items.
-    log::debug!("Staging apply remote item ops");
+    debug!("Staging apply remote item ops");
     sql_support::each_sized_chunk(
         &ops.apply_remote_items,
         sql_support::default_max_variable_number() / 3,
@@ -205,7 +205,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Staging change GUID ops");
+    debug!("Staging change GUID ops");
     sql_support::each_sized_chunk(
         &ops.change_guids,
         sql_support::default_max_variable_number() / 2,
@@ -251,7 +251,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Staging apply new local structure ops");
+    debug!("Staging apply new local structure ops");
     sql_support::each_sized_chunk(
         &ops.apply_new_local_structure,
         sql_support::default_max_variable_number() / 2,
@@ -284,7 +284,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Removing tombstones for revived items");
+    debug!("Removing tombstones for revived items");
     sql_support::each_chunk_mapped(
         &ops.delete_local_tombstones,
         |op| op.guid().as_str(),
@@ -302,7 +302,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Inserting new tombstones for non-syncable and invalid items");
+    debug!("Inserting new tombstones for non-syncable and invalid items");
     sql_support::each_chunk_mapped(
         &ops.insert_local_tombstones,
         |op| op.remote_node().guid.as_str().to_owned(),
@@ -320,7 +320,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Flag frecencies for removed bookmark URLs as stale");
+    debug!("Flag frecencies for removed bookmark URLs as stale");
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -344,7 +344,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Removing deleted items from Places");
+    debug!("Removing deleted items from Places");
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -362,15 +362,15 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Changing GUIDs");
+    debug!("Changing GUIDs");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM changeGuidOps")?;
 
-    log::debug!("Applying remote items");
+    debug!("Applying remote items");
     apply_remote_items(db, scope, now)?;
 
     // Fires the `applyNewLocalStructure` trigger.
-    log::debug!("Applying new local structure");
+    debug!("Applying new local structure");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM applyNewLocalStructureOps")?;
 
@@ -395,7 +395,7 @@ fn update_local_items_in_places(
     )?;
 
     if orphaned_count > 0 {
-        log::warn!("Found {} orphaned bookmarks after sync", orphaned_count);
+        warn!("Found {} orphaned bookmarks after sync", orphaned_count);
         error_support::report_error!(
             "places-sync-bookmarks-orphaned",
             "found local orphaned bookmarks after we applied new local structure ops: {}",
@@ -403,7 +403,7 @@ fn update_local_items_in_places(
         );
     }
 
-    log::debug!("Resetting change counters for items that shouldn't be uploaded");
+    debug!("Resetting change counters for items that shouldn't be uploaded");
     sql_support::each_chunk_mapped(
         &ops.set_local_merged,
         |op| op.merged_node.guid.as_str(),
@@ -422,7 +422,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Bumping change counters for items that should be uploaded");
+    debug!("Bumping change counters for items that should be uploaded");
     sql_support::each_chunk_mapped(
         &ops.set_local_unmerged,
         |op| op.merged_node.guid.as_str(),
@@ -441,7 +441,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::debug!("Flagging applied remote items as merged");
+    debug!("Flagging applied remote items as merged");
     sql_support::each_chunk_mapped(
         &ops.set_remote_merged,
         |op| op.guid().as_str(),
@@ -468,7 +468,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     // from all existing URLs. The `NOT NULL` conditions are important; they
     // ensure that SQLite uses our partial indexes on `itemsToApply`,
     // instead of a table scan.
-    log::debug!("Removing old keywords");
+    debug!("Removing old keywords");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "DELETE FROM moz_keywords
@@ -480,7 +480,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
                            WHERE newKeyword NOT NULL)",
     )?;
 
-    log::debug!("Removing old tags");
+    debug!("Removing old tags");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "DELETE FROM moz_tags_relation
@@ -492,7 +492,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
 
     // Due to bug 1935797, we try to add additional logging on what exact
     // guids are colliding as it could shed light on what's going on
-    log::debug!("Checking for potential GUID collisions before upserting items");
+    debug!("Checking for potential GUID collisions before upserting items");
     let collision_check_sql = "
         SELECT ia.localId, ia.mergedGuid, ia.remoteGuid, b.id, b.guid
         FROM itemsToApply ia
@@ -555,7 +555,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     )?;
 
     if orphaned_count > 0 {
-        log::warn!("Found {} orphaned bookmarks during sync", orphaned_count);
+        warn!("Found {} orphaned bookmarks during sync", orphaned_count);
         error_support::breadcrumb!(
             "places-sync-bookmarks-orphaned: found local orphans before upsert {}",
             orphaned_count
@@ -567,7 +567,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     // when we apply the new local structure. This `INSERT` is a full table
     // scan on `itemsToApply`. The no-op `WHERE` clause is necessary to
     // avoid a parsing ambiguity.
-    log::debug!("Upserting new items");
+    debug!("Upserting new items");
     let upsert_sql = format!(
         "INSERT INTO moz_bookmarks(id, guid, parent,
                                    position, type, fk, title,
@@ -628,7 +628,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     // Return the original result
     result?;
 
-    log::debug!("Flagging frecencies for recalculation");
+    debug!("Flagging frecencies for recalculation");
     scope.err_if_interrupted()?;
     db.execute_batch(&format!(
         "REPLACE INTO moz_places_stale_frecencies(place_id, stale_at)
@@ -647,7 +647,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
         bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
     ))?;
 
-    log::debug!("Inserting new keywords for new URLs");
+    debug!("Inserting new keywords for new URLs");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "INSERT OR IGNORE INTO moz_keywords(keyword, place_id)
@@ -656,7 +656,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
          WHERE newKeyword NOT NULL",
     )?;
 
-    log::debug!("Inserting new tags for new URLs");
+    debug!("Inserting new tags for new URLs");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
@@ -683,14 +683,14 @@ fn stage_items_to_upload(
     upload_items: &[UploadItem<'_>],
     upload_tombstones: &[UploadTombstone<'_>],
 ) -> Result<()> {
-    log::debug!("Cleaning up staged items left from last sync");
+    debug!("Cleaning up staged items left from last sync");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM itemsToUpload")?;
 
     // Stage remotely changed items with older local creation dates. These are
     // tracked "weakly": if the upload is interrupted or fails, we won't
     // reupload the record on the next sync.
-    log::debug!("Staging items with older local dates added");
+    debug!("Staging items with older local dates added");
     scope.err_if_interrupted()?;
     db.execute_batch(&format!(
         "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
@@ -703,7 +703,7 @@ fn stage_items_to_upload(
         UploadItemsFragment("b")
     ))?;
 
-    log::debug!("Staging remaining locally changed items for upload");
+    debug!("Staging remaining locally changed items for upload");
     sql_support::each_chunk_mapped(
         upload_items,
         |op| op.merged_node.guid.as_str(),
@@ -727,7 +727,7 @@ fn stage_items_to_upload(
 
     // Record the child GUIDs of locally changed folders, which we use to
     // populate the `children` array in the record.
-    log::debug!("Staging structure to upload");
+    debug!("Staging structure to upload");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "INSERT INTO structureToUpload(guid, parentId, position)
@@ -737,7 +737,7 @@ fn stage_items_to_upload(
     )?;
 
     // Stage tags for outgoing bookmarks.
-    log::debug!("Staging tags to upload");
+    debug!("Staging tags to upload");
     scope.err_if_interrupted()?;
     db.execute_batch(
         "INSERT INTO tagsToUpload(id, tag)
@@ -748,7 +748,7 @@ fn stage_items_to_upload(
     )?;
 
     // Finally, stage tombstones for deleted items.
-    log::debug!("Staging tombstones to upload");
+    debug!("Staging tombstones to upload");
     sql_support::each_chunk_mapped(
         upload_tombstones,
         |op| op.guid().as_str(),
@@ -1270,7 +1270,7 @@ impl<'a> Merger<'a> {
         let driver = Driver::default();
         self.prepare()?;
         let result = self.merge_with_driver(&driver, &MergeInterruptee(self.scope));
-        log::debug!("merge completed: {:?}", result);
+        debug!("merge completed: {:?}", result);
 
         // Record telemetry in all cases, even if the merge fails.
         if let Some(ref mut telem) = self.telem {
@@ -1291,7 +1291,7 @@ impl<'a> Merger<'a> {
         // bookmarks that have different keywords for the same URL, or the same
         // keyword for different URLs, for reupload.
         self.scope.err_if_interrupted()?;
-        log::debug!("Flagging bookmarks with mismatched keywords for reupload");
+        debug!("Flagging bookmarks with mismatched keywords for reupload");
         let sql = format!(
             "UPDATE moz_bookmarks_synced SET
                validity = {reupload}
@@ -1342,7 +1342,7 @@ impl<'a> Merger<'a> {
         // its tag IDs in `tagsByItemId` won't match the sum in `tagsByPlaceId`,
         // and we'll flag the item for reupload.
         self.scope.err_if_interrupted()?;
-        log::debug!("Flagging bookmarks with mismatched tags for reupload");
+        debug!("Flagging bookmarks with mismatched tags for reupload");
         let sql = format!(
             "WITH
              tagsByPlaceId(placeId, tagIds) AS (
@@ -1652,17 +1652,17 @@ impl dogear::Store for Merger<'_> {
         // If the local tree has changed since we started the merge, we abort
         // in the expectation it will succeed next time.
         if self.global_change_tracker.changed() {
-            log::info!("Aborting update of local items as local tree changed while merging");
+            info!("Aborting update of local items as local tree changed while merging");
             if let Some(tx) = tx {
                 tx.rollback()?;
             }
             return Ok(());
         }
 
-        log::debug!("Updating local items in Places");
+        debug!("Updating local items in Places");
         update_local_items_in_places(self.db, self.scope, self.local_time, &ops)?;
 
-        log::debug!("Staging items to upload");
+        debug!("Staging items to upload");
         stage_items_to_upload(
             self.db,
             self.scope,
@@ -4433,15 +4433,6 @@ mod tests {
      */
     #[test]
     fn test_handle_unique_guid_violation() -> Result<()> {
-        use error_support::{
-            set_application_error_reporter, ArcReporterAdapter, TestErrorReporter,
-        };
-        // Use the test reporting apparatus to validate that we can capture reporting errors
-        let test_reporter = Arc::new(TestErrorReporter::new());
-        set_application_error_reporter(Box::new(ArcReporterAdapter::new(Arc::clone(
-            &test_reporter,
-        ))));
-
         let api = new_mem_api();
         let db = api.get_sync_connection().unwrap();
         let conn = db.lock();

@@ -24,6 +24,7 @@ pub use search;
 pub use suggest;
 pub use sync_manager;
 pub use tabs;
+pub use tracing_support;
 pub use viaduct;
 // TODO: Uncomment this code when webext-storage component is integrated in android
 // pub use webext_storage;

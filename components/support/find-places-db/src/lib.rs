@@ -9,7 +9,7 @@
 // would be happy to give us ownership of the crate.
 
 use anyhow::{bail, format_err, Result};
-use log::{debug, info, trace, warn};
+use error_support::{debug, info, trace, warn};
 use std::{fs, path::PathBuf, process};
 
 #[derive(Clone, Debug, PartialEq)]

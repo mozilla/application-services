@@ -4,7 +4,7 @@
 
 use crate::{
     enrollment::ExperimentEnrollment,
-    error::BehaviorError,
+    error::{warn, BehaviorError},
     json::JsonObject,
     stateful::behavior::{EventQueryType, EventStore},
     NimbusError, NimbusTargetingHelper, Result, TargetingAttributes,
@@ -70,7 +70,7 @@ impl dyn RecordedContext {
                     Ok(result) => match result.as_f64() {
                         Some(v) => Some((key.clone(), v)),
                         None => {
-                            log::warn!(
+                            warn!(
                                 "Value '{}' for query '{}' was not a string",
                                 result.to_string(),
                                 query
@@ -83,7 +83,7 @@ impl dyn RecordedContext {
                             "error during jexl evaluation for query '{}' — {}",
                             query, err
                         );
-                        log::warn!("{}", error_string);
+                        warn!("{}", error_string);
                         None
                     }
                 }

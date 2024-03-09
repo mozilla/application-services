@@ -2,7 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use nimbus::error::Result;
+#[allow(unused_imports)] // may be unused in some features.
+use nimbus::error::{info, Result};
 
 #[cfg(feature = "stateful")]
 fn main() -> Result<()> {
@@ -10,7 +11,6 @@ fn main() -> Result<()> {
     const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 
     use clap::{App, Arg, SubCommand};
-    use env_logger::Env;
     use nimbus::{
         metrics::{
             EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
     // To manually set the log level, you can set the `RUST_LOG` environment variable
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    error_support::init_for_tests_with_level(error_support::Level::Info);
     viaduct_reqwest::use_reqwest_backend();
 
     // Initiate the matches for the command line arguments
@@ -189,13 +189,13 @@ fn main() -> Result<()> {
             Some(v) => v.as_str().unwrap(),
             _ => DEFAULT_BASE_URL,
         });
-    log::info!("Server url is {}", server_url);
+    info!("Server url is {}", server_url);
 
     let client_id = config
         .get("client_id")
         .map(|v| v.to_string())
         .unwrap_or_else(|| "no-client-id-specified".to_string());
-    log::info!("Client ID is {}", client_id);
+    info!("Client ID is {}", client_id);
 
     let collection_name =
         matches
@@ -204,7 +204,7 @@ fn main() -> Result<()> {
                 Some(v) => v.as_str().unwrap(),
                 _ => DEFAULT_COLLECTION_NAME,
             });
-    log::info!("Collection name is {}", collection_name);
+    info!("Collection name is {}", collection_name);
 
     let temp_dir = std::env::temp_dir();
     let db_path_default = temp_dir.to_str().unwrap();
@@ -214,7 +214,7 @@ fn main() -> Result<()> {
             Some(v) => v.as_str().unwrap(),
             _ => db_path_default,
         });
-    log::info!("Database directory is {}", db_path);
+    info!("Database directory is {}", db_path);
 
     // initiate the optional config
     let config = RemoteSettingsConfig {
@@ -235,7 +235,7 @@ fn main() -> Result<()> {
         Some(config),
         Box::new(NoopMetricsHandler),
     )?;
-    log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
+    info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
     // Explicitly update experiments at least once for init purposes
     nimbus_client.fetch_experiments()?;

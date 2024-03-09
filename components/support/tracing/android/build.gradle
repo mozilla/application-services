@@ -1,0 +1,10 @@
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.tracing'
+}
+
+ext.configureUniFFIBindgen("tracing_support")
+ext.dependsOnTheMegazord()
+ext.configurePublish()

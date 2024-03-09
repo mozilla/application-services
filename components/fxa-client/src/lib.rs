@@ -58,6 +58,9 @@ pub use device::{
     AttachedClient, CloseTabsResult, Device, DeviceCapability, DeviceConfig, LocalDevice,
 };
 pub use error::{Error, FxaError};
+// reexport logging helpers.
+pub use error_support::{debug, error, info, trace, warn};
+
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{

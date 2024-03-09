@@ -191,7 +191,7 @@ pub use internal::config::{BridgeType, Protocol as PushHttpProtocol, PushConfigu
 use internal::crypto::Crypto;
 use internal::{communications::ConnectHttp, push_manager::DecryptResponse};
 
-pub use error::{ApiResult, PushApiError, PushError};
+pub use error::{debug, ApiResult, PushApiError, PushError};
 use internal::storage::Store;
 
 /// Object representing the PushManager used to manage subscriptions
@@ -221,10 +221,9 @@ impl PushManager {
     ///   - PushManager is unable to establish a connection to the autopush server
     #[handle_error(PushError)]
     pub fn new(config: PushConfiguration) -> ApiResult<Self> {
-        log::debug!(
+        debug!(
             "PushManager server_host: {}, http_protocol: {}",
-            config.server_host,
-            config.http_protocol
+            config.server_host, config.http_protocol
         );
         Ok(Self {
             internal: Mutex::new(internal::PushManager::new(config)?),

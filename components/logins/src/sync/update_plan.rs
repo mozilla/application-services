@@ -31,12 +31,12 @@ impl UpdatePlan {
     ) {
         match &local {
             LocalLogin::Tombstone { .. } => {
-                log::debug!("  ignoring local tombstone, inserting into mirror");
+                debug!("  ignoring local tombstone, inserting into mirror");
                 self.delete_local.push(upstream.0.guid());
                 self.plan_mirror_insert(upstream.0, upstream.1, false);
             }
             LocalLogin::Alive { login, .. } => {
-                log::debug!("  Conflicting record without shared parent, using newer");
+                debug!("  Conflicting record without shared parent, using newer");
                 let is_override = login.record.time_password_changed
                     > upstream.0.login.record.time_password_changed;
                 self.plan_mirror_insert(upstream.0, upstream.1, is_override);
@@ -161,7 +161,7 @@ impl UpdatePlan {
         let mut stmt = conn.prepare_cached(sql)?;
         for (upstream, timestamp) in &self.mirror_updates {
             let login = &upstream.login;
-            log::trace!("Updating mirror {:?}", login.guid_str());
+            trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute(named_params! {
                 ":server_modified": *timestamp,
                 ":enc_unknown_fields": upstream.unknown,
@@ -225,7 +225,7 @@ impl UpdatePlan {
 
         for (upstream, timestamp, is_overridden) in &self.mirror_inserts {
             let login = &upstream.login;
-            log::trace!("Inserting mirror {:?}", login.guid_str());
+            trace!("Inserting mirror {:?}", login.guid_str());
             stmt.execute(named_params! {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
@@ -269,7 +269,7 @@ impl UpdatePlan {
         // XXX OutgoingChangeset should no longer have timestamp.
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
-            log::trace!("Updating local {:?}", l.guid_str());
+            trace!("Updating local {:?}", l.guid_str());
             stmt.execute(named_params! {
                 ":local_modified": local_ms,
                 ":http_realm": l.login.fields.http_realm,
@@ -289,22 +289,22 @@ impl UpdatePlan {
     }
 
     pub fn execute(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
-        log::debug!(
+        debug!(
             "UpdatePlan: deleting {} records...",
             self.delete_local.len()
         );
         self.perform_deletes(conn, scope)?;
-        log::debug!(
+        debug!(
             "UpdatePlan: Updating {} existing mirror records...",
             self.mirror_updates.len()
         );
         self.perform_mirror_updates(conn, scope)?;
-        log::debug!(
+        debug!(
             "UpdatePlan: Inserting {} new mirror records...",
             self.mirror_inserts.len()
         );
         self.perform_mirror_inserts(conn, scope)?;
-        log::debug!(
+        debug!(
             "UpdatePlan: Updating {} reconciled local records...",
             self.local_updates.len()
         );

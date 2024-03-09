@@ -257,13 +257,11 @@ name = "autofill"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger",
  "error-support",
  "interrupt-support",
  "jwcrypto",
  "lazy_static",
  "libsqlite3-sys",
- "log",
  "nss",
  "rusqlite",
  "serde",
@@ -777,7 +775,6 @@ dependencies = [
  "chrono",
  "error-support",
  "lazy_static",
- "log",
  "mockito",
  "parking_lot",
  "serde",
@@ -1338,10 +1335,13 @@ name = "error-support"
 version = "0.1.0"
 dependencies = [
  "backtrace",
+ "env_logger",
  "error-support-macros",
  "lazy_static",
  "log",
  "parking_lot",
+ "tracing",
+ "tracing-support",
  "uniffi",
 ]
 
@@ -1389,7 +1389,6 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "interrupt-support",
- "log",
  "parking_lot",
  "rusqlite",
  "serde",
@@ -1660,7 +1659,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
- "log",
+ "error-support",
 ]
 
 [[package]]
@@ -2694,7 +2693,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.2",
  "error-support",
- "log",
  "nss",
  "rc_crypto",
  "serde",
@@ -2830,13 +2828,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "env_logger",
  "error-support",
  "futures",
  "interrupt-support",
  "jwcrypto",
  "lazy_static",
- "log",
  "more-asserts",
  "nss",
  "parking_lot",
@@ -2884,6 +2880,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "matchers"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+dependencies = [
+ "regex-automata 0.1.10",
+]
+
+[[package]]
 name = "matchit"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2920,6 +2925,7 @@ dependencies = [
  "suggest",
  "sync_manager",
  "tabs",
+ "tracing-support",
  "viaduct",
 ]
 
@@ -2956,6 +2962,7 @@ dependencies = [
  "sync15",
  "sync_manager",
  "tabs",
+ "tracing-support",
  "viaduct",
  "viaduct-reqwest",
 ]
@@ -2989,7 +2996,6 @@ name = "merino"
 version = "0.1.0"
 dependencies = [
  "error-support",
- "log",
  "serde",
  "serde_json",
  "thiserror 1.0.31",
@@ -3234,12 +3240,10 @@ dependencies = [
  "chrono",
  "clap 2.34.0",
  "ctor 0.2.8",
- "env_logger",
  "error-support",
  "firefox-versioning",
  "hex",
  "jexl-eval",
- "log",
  "once_cell",
  "regex",
  "remote_settings",
@@ -3680,12 +3684,10 @@ dependencies = [
  "bitflags 1.3.2",
  "caseless",
  "dogear",
- "env_logger",
  "error-support",
  "idna",
  "interrupt-support",
  "lazy_static",
- "log",
  "memchr",
  "parking_lot",
  "percent-encoding",
@@ -3958,11 +3960,9 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.2",
  "bincode",
- "env_logger",
  "error-support",
  "hex",
  "lazy_static",
- "log",
  "mockall",
  "mockito",
  "nss",
@@ -4132,7 +4132,7 @@ dependencies = [
  "aho-corasick",
  "memchr",
  "regex-automata 0.4.7",
- "regex-syntax",
+ "regex-syntax 0.8.4",
 ]
 
 [[package]]
@@ -4140,6 +4140,9 @@ name = "regex-automata"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
+dependencies = [
+ "regex-syntax 0.6.29",
+]
 
 [[package]]
 name = "regex-automata"
@@ -4149,8 +4152,14 @@ checksum = "38caf58cc5ef2fed281f89292ef23f6365465ed9a41b7a7754eb4e26496c92df"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-syntax",
+ "regex-syntax 0.8.4",
 ]
+
+[[package]]
+name = "regex-syntax"
+version = "0.6.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "regex-syntax"
@@ -4183,7 +4192,6 @@ dependencies = [
  "base64 0.21.2",
  "error-support",
  "interrupt-support",
- "log",
  "md-5",
  "parking_lot",
  "rand",
@@ -4210,7 +4218,6 @@ dependencies = [
  "expect-test",
  "firefox-versioning",
  "jexl-eval",
- "log",
  "mockall",
  "mockito",
  "nss",
@@ -4314,7 +4321,7 @@ dependencies = [
 name = "restmail-client"
 version = "0.1.0"
 dependencies = [
- "log",
+ "error-support",
  "serde_json",
  "thiserror 1.0.31",
  "url",
@@ -4448,8 +4455,10 @@ dependencies = [
 name = "rust-log-forwarder"
 version = "0.1.0"
 dependencies = [
- "log",
- "parking_lot",
+ "error-support",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-support",
  "uniffi",
 ]
 
@@ -4590,7 +4599,6 @@ dependencies = [
 name = "search"
 version = "0.1.0"
 dependencies = [
- "env_logger",
  "error-support",
  "firefox-versioning",
  "mockito",
@@ -4747,6 +4755,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharded-slab"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4867,10 +4884,9 @@ dependencies = [
 name = "sql-support"
 version = "0.1.0"
 dependencies = [
- "env_logger",
+ "error-support",
  "interrupt-support",
  "lazy_static",
- "log",
  "parking_lot",
  "rusqlite",
  "tempfile",
@@ -4952,13 +4968,11 @@ dependencies = [
  "anyhow",
  "chrono",
  "criterion",
- "env_logger",
  "error-support",
  "expect-test",
  "extend",
  "hex",
  "interrupt-support",
- "log",
  "once_cell",
  "parking_lot",
  "rc_crypto",
@@ -5053,11 +5067,9 @@ dependencies = [
  "anyhow",
  "base16",
  "base64 0.21.2",
- "env_logger",
  "error-support",
  "interrupt-support",
  "lazy_static",
- "log",
  "nss",
  "payload-support",
  "rc_crypto",
@@ -5081,7 +5093,6 @@ dependencies = [
  "error-support",
  "interrupt-support",
  "lazy_static",
- "log",
  "logins",
  "parking_lot",
  "places",
@@ -5148,11 +5159,9 @@ name = "tabs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger",
  "error-support",
  "interrupt-support",
  "lazy_static",
- "log",
  "payload-support",
  "rusqlite",
  "serde",
@@ -5296,6 +5305,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
+]
+
+[[package]]
+name = "thread_local"
+version = "1.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
+dependencies = [
+ "cfg-if 1.0.0",
+ "once_cell",
 ]
 
 [[package]]
@@ -5516,14 +5535,26 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.35"
+version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a400e31aa60b9d44a52a8ee0343b5b18566b03a8321e0d321f695cf56e940160"
+checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
  "cfg-if 1.0.0",
  "log",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5533,6 +5564,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0955b8137a1df6f1a2e9a37d8a6656291ff0297c1a97c24e0d8425fe2312f79a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+dependencies = [
+ "matchers",
+ "once_cell",
+ "regex",
+ "sharded-slab",
+ "thread_local",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-support"
+version = "0.1.0"
+dependencies = [
+ "parking_lot",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "uniffi",
 ]
 
 [[package]]
@@ -5832,8 +5889,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "ffi-support",
- "log",
  "once_cell",
  "parking_lot",
  "prost",
@@ -5847,7 +5904,7 @@ dependencies = [
 name = "viaduct-reqwest"
 version = "0.2.0"
 dependencies = [
- "log",
+ "error-support",
  "once_cell",
  "reqwest 0.11.18",
  "viaduct",
@@ -6079,12 +6136,10 @@ name = "webext-storage"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger",
  "error-support",
  "ffi-support",
  "interrupt-support",
  "lazy_static",
- "log",
  "parking_lot",
  "rusqlite",
  "serde",
@@ -6103,9 +6158,9 @@ dependencies = [
 name = "webext-storage-ffi"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "ffi-support",
  "lazy_static",
- "log",
  "serde_json",
  "webext-storage",
 ]

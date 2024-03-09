@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::PlacesDb;
-use crate::error::Result;
+use crate::error::{warn, Result};
 use crate::ffi::SearchResult as FfiSearchResult;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
 use rusqlite::Row;
@@ -27,7 +27,7 @@ where
     Ok(iter
         .inspect(|r| {
             if let Err(ref e) = *r {
-                log::warn!("Failed to perform a search: {}", e);
+                warn!("Failed to perform a search: {}", e);
                 if cfg!(debug_assertions) {
                     panic!("Failed to perform a search: {}", e);
                 }

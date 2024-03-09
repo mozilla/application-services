@@ -6,7 +6,7 @@ mod actions;
 
 use super::{fetch_page_info, new_page_info, PageInfo, RowId};
 use crate::db::PlacesDb;
-use crate::error::Result;
+use crate::error::{debug, trace, warn, Result};
 use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound, TopFrecentSiteInfo};
 use crate::frecency;
 use crate::hash;
@@ -1086,7 +1086,7 @@ pub mod history_sync {
         result.reserve(ts_rows.len());
         tombstone_ids.reserve(ts_rows.len());
         for guid in ts_rows {
-            log::trace!("outgoing tombstone {:?}", &guid);
+            trace!("outgoing tombstone {:?}", &guid);
             let envelope = OutgoingEnvelope {
                 id: guid.clone(),
                 ttl: Some(HISTORY_TTL),
@@ -1141,20 +1141,20 @@ pub mod history_sync {
             )?;
             if tombstone_ids.contains(&page.guid) {
                 // should be impossible!
-                log::warn!("Found {:?} in both tombstones and live records", &page.guid);
+                warn!("Found {:?} in both tombstones and live records", &page.guid);
                 continue;
             }
             if visits.is_empty() {
                 // This will be true for things like bookmarks which haven't
                 // had visits locally applied, and if we later prune old visits
                 // we'll also hit it, so don't make much log noise.
-                log::trace!(
+                trace!(
                     "Page {:?} is flagged to be uploaded, but has no visits - skipping",
                     &page.guid
                 );
                 continue;
             }
-            log::trace!("outgoing record {:?}", &page.guid);
+            trace!("outgoing record {:?}", &page.guid);
             ids_to_update.push(page.row_id);
             db.execute_cached(
                 insert_meta_sql,
@@ -1212,7 +1212,7 @@ pub mod history_sync {
         // we can't do chunking and building a literal string with the ids seems
         // wrong and likely to hit max sql length limits.
         // So we use a temp table.
-        log::debug!("Updating all synced rows");
+        debug!("Updating all synced rows");
         // XXX - is there a better way to express this SQL? Multi-selects
         // doesn't seem ideal...
         db.conn().execute_cached(
@@ -1225,7 +1225,7 @@ pub mod history_sync {
             [],
         )?;
 
-        log::debug!("Updating all non-synced rows");
+        debug!("Updating all non-synced rows");
         db.execute_all(&[
             &format!(
                 "UPDATE moz_places
@@ -1236,7 +1236,7 @@ pub mod history_sync {
             "DELETE FROM temp_sync_updated_meta",
         ])?;
 
-        log::debug!("Removing local tombstones");
+        debug!("Removing local tombstones");
         db.conn()
             .execute_cached("DELETE from moz_places_tombstones", [])?;
 
@@ -1673,7 +1673,7 @@ mod tests {
 
     #[test]
     fn test_visit_counts() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let url = Url::parse("https://www.example.com").expect("it's a valid url");
         let early_time = SystemTime::now() - Duration::new(60, 0);
@@ -1762,7 +1762,7 @@ mod tests {
 
     #[test]
     fn test_get_visited() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
 
         let unicode_in_path = "http://www.example.com/tëst😀abc";
@@ -1842,7 +1842,7 @@ mod tests {
 
     #[test]
     fn test_get_visited_into() {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
 
         let u0 = Url::parse("https://www.example.com/1").unwrap();
@@ -2009,7 +2009,7 @@ mod tests {
 
     #[test]
     fn test_change_counter() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         // A new observation with just a title (ie, no visit) should update it.
@@ -2044,7 +2044,7 @@ mod tests {
 
     #[test]
     fn test_status_columns() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         // A page with "normal" and a change counter.
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
@@ -2308,7 +2308,7 @@ mod tests {
 
     #[test]
     fn test_tombstones() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
@@ -2356,7 +2356,7 @@ mod tests {
             Ok(())
         }
 
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
 
         // Add Sync metadata keys, to ensure they're reset.
@@ -2423,7 +2423,7 @@ mod tests {
 
     #[test]
     fn test_fetch_visits() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(fetch_visits(&conn, &pi.url, 0).unwrap().unwrap().1.len(), 0);
@@ -2433,7 +2433,7 @@ mod tests {
 
     #[test]
     fn test_apply_synced_reconciliation() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
@@ -2449,7 +2449,7 @@ mod tests {
 
     #[test]
     fn test_apply_synced_deletion_new() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
@@ -2464,7 +2464,7 @@ mod tests {
 
     #[test]
     fn test_apply_synced_deletion_normal() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
@@ -2487,7 +2487,7 @@ mod tests {
 
     #[test]
     fn test_apply_synced_deletions_deletes_visits_but_not_page_if_bookmark_exists() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         let item = InsertableItem::Bookmark {
@@ -2529,7 +2529,7 @@ mod tests {
     #[test]
     fn test_visit_tombstones() {
         use url::Url;
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let now = Timestamp::now();
 
@@ -2641,7 +2641,7 @@ mod tests {
             self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
         };
         use url::Url;
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let ts = Timestamp::now().0 - 5_000_000;
         // Add a number of visits across a handful of origins.
@@ -2766,7 +2766,7 @@ mod tests {
             self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
         };
         use url::Url;
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let start = Timestamp::now();
 
@@ -3038,7 +3038,7 @@ mod tests {
 
     #[test]
     fn test_long_strings() {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let mut url = "http://www.example.com".to_string();
         while url.len() < crate::storage::URL_LENGTH_MAX {
@@ -3469,7 +3469,7 @@ mod tests {
 
     #[test]
     fn test_get_visit_count_for_host() {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let start_timestamp = Timestamp::now();
         let to_add = [

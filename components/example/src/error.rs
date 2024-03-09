@@ -13,6 +13,9 @@
 
 use error_support::{ErrorHandling, GetErrorHandling};
 
+/// reexport helpers for logging.
+pub use error_support::{error, trace};
+
 /// Result type for internal errors.  Since most code uses internal errors, we just call this one
 /// `Result`.
 pub type Result<T> = std::result::Result<T, Error>;

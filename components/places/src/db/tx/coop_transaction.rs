@@ -149,7 +149,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
         if self.should_commit() {
-            log::debug!("ChunkedCoopTransaction committing after taking allocated time");
+            debug!("ChunkedCoopTransaction committing after taking allocated time");
             self.commit_and_start_new_tx()?;
         }
         Ok(())
@@ -217,11 +217,11 @@ fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction
             // blocks for the default period, so we don't need to sleep
             // etc.
             let started_at = Instant::now();
-            log::warn!("Attempting to get a read lock failed - doing one retry");
+            warn!("Attempting to get a read lock failed - doing one retry");
             let tx = UncheckedTransaction::new(conn, behavior).inspect_err(|_err| {
-                log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
+                warn!("Retrying the lock failed after {:?}", started_at.elapsed());
             })?;
-            log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
+            info!("Retrying the lock worked after {:?}", started_at.elapsed());
             Ok(tx)
         }
         Err(e) => Err(e.into()),

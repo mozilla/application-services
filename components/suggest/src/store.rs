@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use error_support::{breadcrumb, handle_error};
+use error_support::{breadcrumb, handle_error, trace};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use remote_settings::{self, RemoteSettingsError, RemoteSettingsServer, RemoteSettingsService};
@@ -664,7 +664,7 @@ where
         context: &mut MetricsContext,
     ) -> Result<()> {
         for record in &changes.new {
-            log::trace!("Ingesting record ID: {}", record.id.as_str());
+            trace!("Ingesting record ID: {}", record.id.as_str());
             self.process_record(dao, record, constraints, context)?;
         }
         for record in &changes.updated {
@@ -672,20 +672,20 @@ where
             // Suggestions in particular don't have a stable identifier, and
             // determining which suggestions in the record actually changed is
             // more complicated than dropping and re-ingesting all of them.
-            log::trace!("Reingesting updated record ID: {}", record.id.as_str());
+            trace!("Reingesting updated record ID: {}", record.id.as_str());
             dao.delete_record_data(&record.id)?;
             self.process_record(dao, record, constraints, context)?;
         }
         for record in &changes.unchanged {
             if self.should_reprocess_record(dao, record, constraints)? {
-                log::trace!("Reingesting unchanged record ID: {}", record.id.as_str());
+                trace!("Reingesting unchanged record ID: {}", record.id.as_str());
                 self.process_record(dao, record, constraints, context)?;
             } else {
-                log::trace!("Skipping unchanged record ID: {}", record.id.as_str());
+                trace!("Skipping unchanged record ID: {}", record.id.as_str());
             }
         }
         for record in &changes.deleted {
-            log::trace!("Deleting record ID: {:?}", record.id);
+            trace!("Deleting record ID: {:?}", record.id);
             dao.delete_record_data(&record.id)?;
         }
         dao.update_ingested_records(

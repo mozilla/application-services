@@ -24,7 +24,7 @@ impl FirefoxAccount {
             Ok(res) => Ok(res),
             Err(e) => match e {
                 Error::RemoteError { code: 401, .. } => {
-                    log::warn!(
+                    crate::warn!(
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
                     self.clear_access_token_cache();

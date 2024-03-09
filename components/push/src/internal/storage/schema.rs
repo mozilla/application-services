@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use crate::error::warn;
 use rusqlite::Transaction;
 use sql_support::open_database;
 
@@ -50,7 +51,7 @@ impl open_database::ConnectionInitializer for PushConnectionInitializer {
                 db.execute_batch(&sql)?;
             }
             other => {
-                log::warn!(
+                warn!(
                     "Loaded future schema version {} (we only understand version {}). \
                     Optimistically ",
                     other,
@@ -81,7 +82,7 @@ mod test {
 
     #[test]
     fn test_migrate_v2_v3() {
-        env_logger::try_init().ok();
+        error_support::init_for_tests();
         let tempdir = tempfile::tempdir().unwrap();
         let path = tempdir.path().join("push_v2.sql");
 

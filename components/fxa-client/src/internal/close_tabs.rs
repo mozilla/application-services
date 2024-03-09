@@ -15,7 +15,7 @@ use super::{
     http_client::GetDeviceResponse,
     scopes, telemetry, FirefoxAccount,
 };
-use crate::{CloseTabsResult, Error, Result};
+use crate::{warn, CloseTabsResult, Error, Result};
 
 impl FirefoxAccount {
     pub fn close_tabs<T>(&mut self, target_device_id: &str, urls: Vec<T>) -> Result<CloseTabsResult>
@@ -119,7 +119,7 @@ impl FirefoxAccount {
                 Ok(IncomingDeviceCommand::TabsClosed { sender, payload })
             }
             Err(e) => {
-                log::warn!("Could not decrypt Close Remote Tabs payload. Diagnosing then resetting the Close Tabs keys.");
+                warn!("Could not decrypt Close Remote Tabs payload. Diagnosing then resetting the Close Tabs keys.");
                 self.clear_close_tabs_keys();
                 self.reregister_current_capabilities()?;
                 Err(e)

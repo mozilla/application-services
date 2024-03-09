@@ -5,7 +5,7 @@
 use crate::stateful::persistence::{Database, StoreId};
 use crate::{
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
-    error::Result,
+    error::{warn, Result},
     evaluator::split_locale,
     json::JsonObject,
     stateful::matcher::AppContext,
@@ -147,11 +147,11 @@ pub fn get_calculated_attributes(
                 days_since_update = Some((now - update_date).num_days() as i32);
             }
             Err(e) => {
-                log::warn!("{}", e);
+                warn!("{}", e);
             }
         },
         Err(e) => {
-            log::warn!("{}", e);
+            warn!("{}", e);
         }
     }
 

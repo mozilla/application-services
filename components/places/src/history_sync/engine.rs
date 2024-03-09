@@ -40,7 +40,7 @@ fn do_sync_finished(
     new_timestamp: ServerTimestamp,
     records_synced: Vec<Guid>,
 ) -> Result<()> {
-    log::info!(
+    info!(
         "sync completed after uploading {} records",
         records_synced.len()
     );

@@ -23,35 +23,14 @@ cfg_if::cfg_if! {
     }
 }
 
-use log::{Level, LevelFilter, Metadata, Record};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-struct TestLogger;
-
-impl log::Log for TestLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            println!("{} - {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: TestLogger = TestLogger;
-
 #[ctor::ctor]
 fn init() {
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(LevelFilter::Info))
-        .unwrap();
+    error_support::init_for_tests_with_level(error_support::Level::Info);
 }
 
 impl From<TargetingAttributes> for NimbusTargetingHelper {

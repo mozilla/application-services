@@ -196,7 +196,7 @@ impl<'a> CallErrorHandler<'a> {
         }
         // Report the error and convert it to `FxaError` which makes it easier to handle.
         // For example, multiple `Error` variants map to `FxaError::Authentication`.
-        log::warn!("handling error: {e}");
+        crate::warn!("handling error: {e}");
         match convert_log_report_error(e) {
             FxaError::Network => {
                 if self.network_retries < NETWORK_RETRY_LIMIT {
