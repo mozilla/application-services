@@ -14,7 +14,7 @@ fn test_null_client() -> Result<()> {
     use crate::NimbusClient;
 
     let metrics = TestMetrics::new();
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let tmp_dir = tempfile::tempdir()?;
 

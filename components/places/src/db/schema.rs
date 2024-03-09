@@ -4,6 +4,7 @@
 
 use crate::api::places_api::ConnectionType;
 use crate::bookmark_sync::engine::LAST_SYNC_META_KEY;
+use crate::error::debug;
 use crate::storage::bookmarks::{
     bookmark_sync::create_synced_bookmark_roots, create_bookmark_roots,
 };
@@ -72,7 +73,7 @@ fn update_origin_frecency_stats(op: &str) -> String {
 }
 
 pub fn init(conn: &Connection) -> rusqlite::Result<()> {
-    log::debug!("Initializing schema");
+    debug!("Initializing schema");
     conn.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
     create_bookmark_roots(conn)?;
     Ok(())
@@ -130,7 +131,7 @@ where
     F: FnOnce() -> rusqlite::Result<()>,
 {
     if cur_version == ours {
-        log::debug!("Upgrading schema from {} to {}", cur_version, ours);
+        debug!("Upgrading schema from {} to {}", cur_version, ours);
         for stmt in stmts {
             db.execute_batch(stmt)?;
         }
@@ -140,7 +141,7 @@ where
 }
 
 pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
-    log::debug!("Upgrading schema from {} to {}", from, VERSION);
+    debug!("Upgrading schema from {} to {}", from, VERSION);
 
     // Old-style migrations
 

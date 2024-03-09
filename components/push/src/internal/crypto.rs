@@ -154,7 +154,7 @@ pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
 /// equivalent.
 fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
     if !val.contains(&format!("{}=", target)) {
-        log::debug!("No sub-value found for {}", target);
+        error::debug!("No sub-value found for {}", target);
         return None;
     }
     let items = val.split([',', ';']);

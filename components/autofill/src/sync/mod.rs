@@ -10,6 +10,7 @@ pub mod engine;
 
 pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
+use error_support::{trace, warn};
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
 use sync15::bso::{IncomingBso, IncomingContent, IncomingEnvelope, IncomingKind, OutgoingBso};
@@ -238,7 +239,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
     tx: &Transaction<'_>,
     staged_info: IncomingState<T>,
 ) -> Result<IncomingAction<T>> {
-    log::trace!("plan_incoming: {:?}", staged_info);
+    trace!("plan_incoming: {:?}", staged_info);
     let IncomingState {
         incoming,
         local,
@@ -347,11 +348,11 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
             }
         }
         IncomingKind::Malformed => {
-            log::warn!("skipping incoming record: {}", incoming.envelope.id);
+            warn!("skipping incoming record: {}", incoming.envelope.id);
             IncomingAction::DoNothing
         }
     };
-    log::trace!("plan_incoming resulted in {:?}", state);
+    trace!("plan_incoming resulted in {:?}", state);
     Ok(state)
 }
 
@@ -361,7 +362,7 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
     tx: &Transaction<'_>,
     action: IncomingAction<T>,
 ) -> Result<()> {
-    log::trace!("applying action: {:?}", action);
+    trace!("applying action: {:?}", action);
     match action {
         IncomingAction::Update { record, was_merged } => {
             rec_impl.update_local_record(tx, record, was_merged)?;
@@ -413,7 +414,7 @@ pub mod test {
     use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db, AutofillDb};
 
     pub fn new_syncable_mem_db() -> AutofillDb {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = new_mem_db();
         create_empty_sync_temp_tables(&db).expect("should work");
         db

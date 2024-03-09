@@ -8,6 +8,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub type ApiResult<T> = std::result::Result<T, LoginsApiError>;
 
 pub use error_support::{breadcrumb, handle_error, report_error};
+pub use error_support::{debug, error, info, trace, warn};
+
 use error_support::{ErrorHandling, GetErrorHandling};
 use jwcrypto::EncryptorDecryptorError;
 use sync15::Error as Sync15Error;

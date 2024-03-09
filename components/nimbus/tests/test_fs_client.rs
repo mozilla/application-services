@@ -18,7 +18,7 @@ fn test_simple() -> Result<()> {
     use std::path::PathBuf;
     use url::Url;
 
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     dir.push("tests/experiments");

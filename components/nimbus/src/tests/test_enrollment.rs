@@ -8,7 +8,7 @@ use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_
 use crate::{
     defaults::Defaults,
     enrollment::*,
-    error::Result,
+    error::{debug, Result},
     tests::helpers::{
         get_multi_feature_experiment, get_single_feature_experiment, get_test_experiments,
         no_coenrolling_features,
@@ -1169,7 +1169,7 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
 
 #[test]
 fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
@@ -1324,7 +1324,7 @@ fn test_experiment_get_feature_ids() -> Result<()> {
 
 #[test]
 fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let mut test_experiments = get_test_experiments();
     test_experiments.push(get_conflicting_experiment());
@@ -1366,7 +1366,7 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         "exactly two enrollments should have Enrolled status"
     );
 
-    log::debug!("events: {:?}", events);
+    debug!("events: {:?}", events);
 
     assert_eq!(
         3,
@@ -1427,7 +1427,7 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
 
 #[test]
 fn test_evolver_feature_id_reuse() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let test_experiments = get_test_experiments();
     let (_, app_ctx, aru) = local_ctx();
@@ -1454,7 +1454,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         &enrollments,
     )?;
 
-    log::debug!("events = {:?}", events);
+    debug!("events = {:?}", events);
 
     assert_eq!(events.len(), 2);
 
@@ -1483,7 +1483,7 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
 
 #[test]
 fn test_evolver_multi_feature_experiments() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
@@ -2005,7 +2005,7 @@ fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()>
 
 #[test]
 fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = HashSet::from(["coenrolling"]);
@@ -2073,7 +2073,7 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
 
 #[test]
 fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = HashSet::from(["coenrolling"]);
@@ -2260,7 +2260,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         },
     }];
 
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
@@ -2312,7 +2312,7 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
 
 #[test]
 fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let (_, mut app_ctx, aru) = local_ctx();
     let mut th = app_ctx.clone().into();
     let ids = no_coenrolling_features();
@@ -3165,7 +3165,7 @@ fn test_sort_experiments_by_published_date() -> Result<()> {
 
 #[test]
 fn test_evolve_enrollments_ordering() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let (_, app_ctx, aru) = local_ctx();
     let mut th = app_ctx.into();
     let ids = HashSet::new();

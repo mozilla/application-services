@@ -8,6 +8,9 @@
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 
+// reexport logging helpers.
+pub use error_support::{debug, error, info, trace, warn};
+
 #[cfg(feature = "stateful")]
 use firefox_versioning::error::VersionParsingError;
 use std::num::{ParseIntError, TryFromIntError};

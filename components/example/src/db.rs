@@ -45,7 +45,7 @@ pub struct Databases {
 
 impl Databases {
     pub fn new(path: &str) -> Result<Self> {
-        log::trace!("Opening database: {path}");
+        crate::error::trace!("Opening database: {path}");
         // Open the write connection first, since it might need to run migrations
         let writer = DatabaseConnection::new_writer(path)?;
         let reader = DatabaseConnection::new_reader(path)?;

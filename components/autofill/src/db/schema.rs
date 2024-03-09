@@ -4,6 +4,7 @@
 
 use crate::db::sql_fns;
 use crate::sync::address::name_utils::{join_name_parts, NameParts};
+use error_support::debug;
 use rusqlite::{functions::FunctionFlags, Connection, Transaction};
 use sql_support::open_database::{ConnectionInitializer, Error, Result};
 
@@ -231,7 +232,7 @@ fn upgrade_from_v2(db: &Connection) -> Result<()> {
 }
 
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
-    log::debug!("Initializing sync temp tables");
+    debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
     Ok(())
 }

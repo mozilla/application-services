@@ -152,7 +152,7 @@ impl Drop for ExecuteOnDrop<'_> {
                 "Failed to clean up after import! {}",
                 e
             );
-            log::debug!("  Failed query: {}", &self.sql);
+            debug!("  Failed query: {}", &self.sql);
         }
     }
 }

@@ -99,6 +99,13 @@ projects:
     - name: tabs
       type: aar
     description: Sync 1.5 remote tabs implementation.
+  tracing:
+    path: components/support/tracing/android
+    artifactId: tracing
+    publications:
+    - name: tracing
+      type: aar
+    description: Support for logging and tracing.
   nimbus:
     path: components/nimbus/android
     artifactId: nimbus

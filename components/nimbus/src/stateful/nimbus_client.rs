@@ -10,7 +10,7 @@ use crate::{
         EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
         ExperimentEnrollment,
     },
-    error::BehaviorError,
+    error::{info, warn, BehaviorError},
     evaluator::{
         get_calculated_attributes, is_experiment_available, CalculatedAttributes,
         TargetingAttributes,
@@ -303,7 +303,7 @@ impl NimbusClient {
         if !self.is_fetch_enabled()? {
             return Ok(());
         }
-        log::info!("fetching experiments");
+        info!("fetching experiments");
         let settings_client = self.settings_client.lock().unwrap();
         let new_experiments = settings_client.fetch_experiments()?;
         let db = self.db()?;
@@ -405,7 +405,7 @@ impl NimbusClient {
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
-        log::info!("updating experiment list");
+        info!("updating experiment list");
         let db = self.db()?;
         let mut writer = db.write()?;
 
@@ -437,7 +437,7 @@ impl NimbusClient {
                 NaiveDateTime::from_timestamp_opt(context_installation_date / 1_000, 0).unwrap(),
                 Utc,
             );
-            log::info!("[Nimbus] Retrieved date from Context: {}", res);
+            info!("[Nimbus] Retrieved date from Context: {}", res);
             return Ok(res);
         }
         let store = db.get_store(StoreId::Meta);
@@ -450,7 +450,7 @@ impl NimbusClient {
                 let installation_date = match self.get_creation_date_from_path(home_directory) {
                     Ok(installation_date) => installation_date,
                     Err(e) => {
-                        log::warn!("[Nimbus] Unable to get installation date from path, defaulting to today: {:?}", e);
+                        warn!("[Nimbus] Unable to get installation date from path, defaulting to today: {:?}", e);
                         Utc::now()
                     }
                 };
@@ -500,11 +500,11 @@ impl NimbusClient {
 
     #[cfg(not(test))]
     fn get_creation_date_from_path<P: AsRef<Path>>(&self, path: P) -> Result<DateTime<Utc>> {
-        log::info!("[Nimbus] Getting creation date from path");
+        info!("[Nimbus] Getting creation date from path");
         let metadata = std::fs::metadata(path)?;
         let system_time_created = metadata.created()?;
         let date_time_created = DateTime::<Utc>::from(system_time_created);
-        log::info!(
+        info!(
             "[Nimbus] Creation date retrieved form path successfully: {}",
             date_time_created
         );
@@ -741,9 +741,9 @@ impl NimbusClient {
 
     pub fn dump_state_to_log(&self) -> Result<()> {
         let experiments = self.get_active_experiments()?;
-        log::info!("{0: <65}| {1: <30}| {2}", "Slug", "Features", "Branch");
+        info!("{0: <65}| {1: <30}| {2}", "Slug", "Features", "Branch");
         for exp in &experiments {
-            log::info!(
+            info!(
                 "{0: <65}| {1: <30}| {2}",
                 &exp.slug,
                 &exp.feature_ids.join(", "),

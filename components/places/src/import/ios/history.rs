@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use crate::error::Result;
+use crate::error::{info, Result};
 use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
     attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
@@ -55,13 +55,13 @@ fn do_import(
 
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
     let import_start = Instant::now();
-    log::info!("Attaching database {}", ios_db_file_url);
+    info!("Attaching database {}", ios_db_file_url);
     let auto_detach = attached_database(conn, &ios_db_file_url, "ios")?;
     let tx = conn.begin_transaction()?;
     let num_total = select_count(conn, &COUNT_IOS_HISTORY_VISITS)?;
-    log::info!("The number of visits is: {:?}", num_total);
+    info!("The number of visits is: {:?}", num_total);
 
-    log::info!("Creating and populating staging table");
+    info!("Creating and populating staging table");
 
     tx.execute_batch(&CREATE_TEMP_VISIT_TABLE)?;
     tx.execute_batch(&FILL_VISIT_TABLE)?;
@@ -69,19 +69,19 @@ fn do_import(
     tx.execute_batch(&FILL_STAGING)?;
     scope.err_if_interrupted()?;
 
-    log::info!("Updating old titles that may be missing, but now are available");
+    info!("Updating old titles that may be missing, but now are available");
     tx.execute_batch(&UPDATE_PLACES_TITLES)?;
     scope.err_if_interrupted()?;
 
-    log::info!("Populating missing entries in moz_places");
+    info!("Populating missing entries in moz_places");
     tx.execute_batch(&FILL_MOZ_PLACES)?;
     scope.err_if_interrupted()?;
 
-    log::info!("Inserting the history visits");
+    info!("Inserting the history visits");
     tx.execute_batch(&INSERT_HISTORY_VISITS)?;
     scope.err_if_interrupted()?;
 
-    log::info!("Insert all new entries into stale frecencies");
+    info!("Insert all new entries into stale frecencies");
     let now = Timestamp::now().as_millis();
     tx.execute(&ADD_TO_STALE_FRECENCIES, &[(":now", &now)])?;
     scope.err_if_interrupted()?;
@@ -91,9 +91,9 @@ fn do_import(
     put_meta(conn, LAST_SYNC_META_KEY, &last_sync_timestamp)?;
 
     tx.commit()?;
-    log::info!("Successfully imported history visits!");
+    info!("Successfully imported history visits!");
 
-    log::info!("Counting Places history visits");
+    info!("Counting Places history visits");
 
     let num_succeeded = select_count(conn, &COUNT_PLACES_HISTORY_VISITS)?;
     let num_failed = num_total.saturating_sub(num_succeeded);
@@ -102,9 +102,9 @@ fn do_import(
     // this is desired because we want reader connections to
     // read the migrated data and not have to wait for the
     // frecencies to be up to date
-    log::info!("Updating all frecencies");
+    info!("Updating all frecencies");
     update_all_frecencies_at_once(conn, &scope)?;
-    log::info!("Frecencies updated!");
+    info!("Frecencies updated!");
     auto_detach.execute_now()?;
 
     Ok(HistoryMigrationResult {

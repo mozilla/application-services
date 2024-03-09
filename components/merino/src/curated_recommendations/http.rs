@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::error::Error;
+use super::error::{trace, Error};
 use super::models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
 use url::Url;
 use viaduct::{header_names, Request, Response};
@@ -16,7 +16,7 @@ impl HttpClient {
         user_agent_header: &str,
         url: Url,
     ) -> Result<CuratedRecommendationsResponse, Error> {
-        log::trace!("making request: {url}");
+        trace!("making request: {url}");
         let response: Response = Request::post(url)
             .header(header_names::ACCEPT, "application/json")?
             .header(header_names::ACCEPT_ENCODING, "gzip")?
@@ -49,7 +49,7 @@ impl HttpClient {
         }
 
         let response_json: CuratedRecommendationsResponse = response.json()?;
-        log::trace!("response: {}", response.text());
+        trace!("response: {}", response.text());
         Ok(response_json)
     }
 }

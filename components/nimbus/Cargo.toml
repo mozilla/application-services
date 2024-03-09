@@ -24,7 +24,6 @@ anyhow = "1"
 serde = { version = "1", features=["derive"] }
 serde_derive = "1"
 serde_json = "1"
-log = "0.4"
 thiserror = "1"
 url = "2.5"
 rkv = { version = "0.19", optional = true }
@@ -46,8 +45,8 @@ firefox-versioning = { path = "../support/firefox-versioning", optional = true }
 uniffi = { version = "0.29.0", features = ["build"] }
 
 [dev-dependencies]
+error-support = { path = "../support/error", features = ["testing"] }
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-env_logger = "0.10"
 clap = "2.34"
 tempfile = "3"
 ctor = "0.2.2"

@@ -3,7 +3,10 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    enrollment::ExperimentEnrollment, error::Result, stateful::persistence::*, Experiment,
+    enrollment::ExperimentEnrollment,
+    error::{debug, Result},
+    stateful::persistence::*,
+    Experiment,
 };
 use rkv::StoreOptions;
 use serde_json::json;
@@ -523,7 +526,7 @@ fn create_old_database(
     experiments_json: &[serde_json::Value],
     enrollments_json: &[serde_json::Value],
 ) -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let rkv = Database::open_rkv(tmp_dir)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
@@ -537,7 +540,7 @@ fn create_old_database(
 
     // write out the experiments
     for experiment_json in experiments_json {
-        // log::debug!("experiment_json = {:?}", experiment_json);
+        // debug!("experiment_json = {:?}", experiment_json);
         experiment_store.put(
             &mut writer,
             experiment_json["slug"].as_str().unwrap(),
@@ -547,7 +550,7 @@ fn create_old_database(
 
     // write out the enrollments
     for enrollment_json in enrollments_json {
-        // log::debug!("enrollment_json = {:?}", enrollment_json);
+        // debug!("enrollment_json = {:?}", enrollment_json);
         enrollment_store.put(
             &mut writer,
             enrollment_json["slug"].as_str().unwrap(),
@@ -556,7 +559,7 @@ fn create_old_database(
     }
 
     writer.commit()?;
-    log::debug!("create_old_database committed");
+    debug!("create_old_database committed");
 
     Ok(())
 }
@@ -565,7 +568,7 @@ fn create_old_database(
 /// don't contain all the feature stuff they should and discarding.
 #[test]
 fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
 
     // write a bunch of invalid experiments
@@ -584,7 +587,7 @@ fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
     // All of the experiments with invalid FeatureConfig related stuff
     // should have been discarded during migration; leaving us with none.
     let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-    log::debug!("experiments = {:?}", experiments);
+    debug!("experiments = {:?}", experiments);
 
     assert_eq!(experiments.len(), 0);
 
@@ -593,7 +596,7 @@ fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
 
 #[test]
 fn test_migrate_db_v1_to_db_v2_round_tripping() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
 
     // write valid experiments & enrollments
@@ -739,7 +742,7 @@ fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
     );
 
     let tmp_dir = tempfile::tempdir()?;
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     create_old_database(
         &tmp_dir,
@@ -751,7 +754,7 @@ fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
     let db = Database::new(&tmp_dir)?;
 
     let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-    log::debug!("experiments = {:?}", experiments);
+    debug!("experiments = {:?}", experiments);
 
     // The experiment without features should have been discarded, leaving
     // us with only one.
@@ -760,7 +763,7 @@ fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
     let enrollments = db
         .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
         .unwrap();
-    log::debug!("enrollments = {:?}", enrollments);
+    debug!("enrollments = {:?}", enrollments);
 
     // The enrollment without features should have been discarded, leaving
     // us with only one.

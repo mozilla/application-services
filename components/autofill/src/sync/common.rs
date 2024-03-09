@@ -11,6 +11,7 @@
 // very similar.
 
 use crate::error::*;
+use error_support::{error, info, trace};
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row};
 use sync15::bso::OutgoingBso;
@@ -27,7 +28,7 @@ pub(super) fn common_stage_incoming_records(
     incoming: Vec<(Guid, String, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
-    log::info!(
+    info!(
         "staging {} incoming records into {}",
         incoming.len(),
         table_name
@@ -57,7 +58,7 @@ pub(super) fn common_stage_incoming_records(
             Ok(())
         },
     )?;
-    log::trace!("staged");
+    trace!("staged");
     Ok(())
 }
 
@@ -202,7 +203,7 @@ fn get_outgoing_records(
         .query_map([], |row| Ok(record_from_data_row(row)))?
         .map(|r| {
             r.unwrap().map_err(|e| {
-                log::error!(
+                error!(
                     "Failed to retrieve a record from a row with the following error: {}",
                     e
                 );

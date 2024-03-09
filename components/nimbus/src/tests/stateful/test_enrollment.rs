@@ -40,7 +40,7 @@ impl From<EventStore> for NimbusTargetingHelper {
 
 #[test]
 fn test_enrollments() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
@@ -123,7 +123,7 @@ fn test_enrollments() -> Result<()> {
 
 #[test]
 fn test_updates() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
@@ -170,7 +170,7 @@ fn test_updates() -> Result<()> {
 
 #[test]
 fn test_global_opt_out() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
@@ -290,7 +290,7 @@ fn test_global_opt_out() -> Result<()> {
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;

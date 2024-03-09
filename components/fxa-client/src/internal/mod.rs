@@ -231,7 +231,7 @@ impl FirefoxAccount {
                     .destroy_refresh_token(self.state.config(), &refresh_token.token),
             };
             if let Err(e) = destroy_result {
-                log::warn!("Error while destroying the device: {}", e);
+                crate::warn!("Error while destroying the device: {}", e);
             }
         }
         self.state.disconnect();
