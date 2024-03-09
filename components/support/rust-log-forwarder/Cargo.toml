@@ -10,6 +10,8 @@ exclude = ["/android", "/ios"]
 log = "0.4"
 parking_lot = ">=0.11,<=0.12"
 uniffi = { version = "0.29.0" }
+error-support = { path = "../error", default-features = false, features = ["tracing-logging"] }
+tracing-support = { path = "../tracing" }
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features=["build"]}

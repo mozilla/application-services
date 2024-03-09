@@ -18,7 +18,7 @@ fn test_reading_writing_and_removing_experiments() -> Result<()> {
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
 
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
 
     let test_experiment: Experiment = Default::default();
     let fetched = vec![test_experiment];

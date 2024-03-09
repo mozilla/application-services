@@ -12,7 +12,7 @@ default = []
 debug-tools = ["rusqlite/column_decltype"]
 
 [dependencies]
-log = "0.4"
+error-support = { path = "../error" }
 lazy_static = "1.4"
 interrupt-support = { path = "../interrupt" }
 thiserror = "1.0"
@@ -23,4 +23,4 @@ parking_lot = ">=0.11,<=0.12"
 rusqlite = { version = "0.33.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
 
 [dev-dependencies]
-env_logger = {version = "0.10", default-features = false}
+error-support = { path = "../error", features = ["testing"] }

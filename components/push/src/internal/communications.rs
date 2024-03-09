@@ -21,7 +21,7 @@ use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
 use crate::error::{
-    self,
+    self, info,
     PushError::{
         AlreadyRegisteredError, CommunicationError, CommunicationServerError,
         UAIDNotRecognizedError,
@@ -297,7 +297,7 @@ impl Connection for ConnectHttp {
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.auth_headers(auth)?)
             .send()?;
-        log::info!("unsubscribed from {}: {}", url, response.status);
+        info!("unsubscribed from {}: {}", url, response.status);
         self.check_response_error(&response)?;
         Ok(())
     }
@@ -307,7 +307,7 @@ impl Connection for ConnectHttp {
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.auth_headers(auth)?)
             .send()?;
-        log::info!("unsubscribed from all via {}: {}", url, response.status);
+        info!("unsubscribed from all via {}: {}", url, response.status);
         self.check_response_error(&response)?;
         Ok(())
     }
@@ -327,7 +327,7 @@ impl Connection for ConnectHttp {
             .json(&body)
             .headers(self.auth_headers(auth)?)
             .send()?;
-        log::info!("update via {}: {}", url, response.status);
+        info!("update via {}: {}", url, response.status);
         self.check_response_error(&response)?;
         Ok(())
     }

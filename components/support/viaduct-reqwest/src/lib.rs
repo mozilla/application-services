@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use error_support::{error, warn};
 use once_cell::sync::Lazy;
 use std::{io::Read, sync::Once};
 use viaduct::{settings::GLOBAL_SETTINGS, Backend};
@@ -73,7 +74,7 @@ impl Backend for ReqwestBackend {
         let url = resp.url().clone();
         let mut body = Vec::with_capacity(resp.content_length().unwrap_or_default() as usize);
         resp.read_to_end(&mut body).map_err(|e| {
-            log::error!("Failed to get body from response: {:?}", e);
+            error!("Failed to get body from response: {:?}", e);
             viaduct::Error::NetworkError(e.to_string())
         })?;
         let mut headers = viaduct::Headers::with_capacity(resp.headers().len());
@@ -83,7 +84,7 @@ impl Backend for ReqwestBackend {
                 Ok(name) => name,
                 Err(e) => {
                     // Ignore headers with invalid names, since nobody can look for them anyway.
-                    log::warn!("Server sent back invalid header name: '{}'", e);
+                    warn!("Server sent back invalid header name: '{}'", e);
                     continue;
                 }
             };

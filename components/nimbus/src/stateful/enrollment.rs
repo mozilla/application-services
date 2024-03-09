@@ -6,7 +6,7 @@ use crate::{
         map_enrollments, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
         ExperimentEnrollment,
     },
-    error::Result,
+    error::{debug, warn, Result},
     stateful::persistence::{Database, Readable, StoreId, Writer},
     EnrolledExperiment, EnrollmentStatus, Experiment,
 };
@@ -65,7 +65,7 @@ pub fn get_enrollments<'r>(
         db.get_store(StoreId::Enrollments).collect_all(reader)?;
     let mut result = Vec::with_capacity(enrollments.len());
     for enrollment in enrollments {
-        log::debug!("Have enrollment: {:?}", enrollment);
+        debug!("Have enrollment: {:?}", enrollment);
         if let EnrollmentStatus::Enrolled { branch, .. } = &enrollment.status {
             match db
                 .get_store(StoreId::Experiments)
@@ -81,7 +81,7 @@ pub fn get_enrollments<'r>(
                     });
                 }
                 _ => {
-                    log::warn!(
+                    warn!(
                         "Have enrollment {:?} but no matching experiment!",
                         enrollment
                     );

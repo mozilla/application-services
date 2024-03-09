@@ -186,7 +186,7 @@ pub fn visit_uri(
     // EMBED visits are session-persistent and should not go through the database.
     // They exist only to keep track of isVisited status during the session.
     if transition == VisitType::Embed {
-        log::warn!("Embed visit, but in-memory storage of these isn't done yet");
+        warn!("Embed visit, but in-memory storage of these isn't done yet");
         return Ok(());
     }
 

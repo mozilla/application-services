@@ -10,6 +10,7 @@
 //! * Turn arbitrary <T> objects with an `id` field into an OutgoingBso.
 
 use super::{IncomingBso, IncomingContent, IncomingKind, OutgoingBso, OutgoingEnvelope};
+use crate::error::{trace, warn};
 use crate::Guid;
 use error_support::report_error;
 use serde::Serialize;
@@ -65,7 +66,7 @@ impl IncomingBso {
             }
             Err(e) => {
                 // payload isn't valid json.
-                log::warn!("Invalid incoming cleartext {}: {}", self.envelope.id, e);
+                warn!("Invalid incoming cleartext {}: {}", self.envelope.id, e);
                 IncomingContent {
                     envelope: self.envelope,
                     kind: IncomingKind::Malformed,
@@ -140,7 +141,7 @@ where
             Some(serde_json::Value::String(content_id)) => {
                 // It exists in the payload! We treat a mismatch as malformed.
                 if content_id != id {
-                    log::trace!(
+                    trace!(
                         "malformed incoming record: envelope id: {} payload id: {}",
                         content_id,
                         id
@@ -152,7 +153,7 @@ where
                     return IncomingKind::Malformed;
                 }
                 if !id.is_valid_for_sync_server() {
-                    log::trace!("malformed incoming record: id is not valid: {}", id);
+                    trace!("malformed incoming record: id is not valid: {}", id);
                     report_error!(
                         "incoming-invalid-bad-payload-id",
                         "ID in the payload is invalid"
@@ -163,14 +164,14 @@ where
             Some(v) => {
                 // It exists in the payload but is not a string - they can't possibly be
                 // the same as the envelope uses a String, so must be malformed.
-                log::trace!("malformed incoming record: id is not a string: {}", v);
+                trace!("malformed incoming record: id is not a string: {}", v);
                 report_error!("incoming-invalid-wrong_type", "ID is not a string");
                 return IncomingKind::Malformed;
             }
             None => {
                 // Doesn't exist in the payload - add it before trying to deser a T.
                 if !id.is_valid_for_sync_server() {
-                    log::trace!("malformed incoming record: id is not valid: {}", id);
+                    trace!("malformed incoming record: id is not valid: {}", id);
                     report_error!(
                         "incoming-invalid-bad-envelope-id",
                         "ID in envelope is not valid"

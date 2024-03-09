@@ -53,6 +53,12 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
+pub fn forward_to_foreign_logger(r: crate::Record) {
+    if let Some(foreign_logger) = &*RUST_LOGGER.foreign_logger.read() {
+        foreign_logger.log(r)
+    }
+}
+
 pub fn set_foreign_logger(foreign_logger: Option<Box<dyn ForeignLogger>>) {
     INIT.call_once(|| {
         // This should be the only component that calls `log::set_logger()`.  If not, then

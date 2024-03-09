@@ -5,6 +5,7 @@
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
 use crate::error::*;
 use crate::Store;
+use error_support::warn;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
@@ -228,7 +229,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        log::warn!("not implemented as there isn't a valid use case for it");
+        warn!("not implemented as there isn't a valid use case for it");
         Ok(())
     }
 }
