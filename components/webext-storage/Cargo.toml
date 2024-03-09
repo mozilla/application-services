@@ -16,7 +16,6 @@ thiserror = "1.0"
 ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 lazy_static = "1.4"
-log = "0.4"
 parking_lot = ">=0.11,<=0.12"
 rusqlite = { version = "0.33.0", features = ["functions", "bundled", "serde_json", "unlock_notify"] }
 serde = "1"
@@ -29,7 +28,7 @@ uniffi = { version = "0.29.0" }
 url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
-env_logger = { version = "0.10", default-features = false }
+error-support = { path = "../support/error", features = ["testing"] }
 tempfile = "3"
 sql-support = { path = "../support/sql" }
 # We add the perserve_order feature to guarantee ordering of the keys in our

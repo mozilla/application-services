@@ -197,7 +197,7 @@ pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
-    log::warn!("user_version: {}", user_version);
+    warn!("user_version: {}", user_version);
     if user_version == 0 {
         return create(db);
     }
@@ -205,11 +205,10 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
         if user_version < VERSION {
             upgrade(db, user_version)?;
         } else {
-            log::warn!(
+            warn!(
                 "Loaded future schema version {} (we only understand version {}). \
                  Optimistically ",
-                user_version,
-                VERSION
+                user_version, VERSION
             )
         }
     }
@@ -219,7 +218,7 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
 // Allow the redundant Ok() here.  It will make more sense once we have an actual upgrade function.
 #[allow(clippy::unnecessary_wraps)]
 fn upgrade(db: &Connection, from: i64) -> Result<()> {
-    log::debug!("Upgrading schema from {} to {}", from, VERSION);
+    debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
     }
@@ -241,7 +240,7 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
 }
 
 pub(crate) fn create(db: &Connection) -> Result<()> {
-    log::debug!("Creating schema");
+    debug!("Creating schema");
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,

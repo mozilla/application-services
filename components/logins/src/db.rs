@@ -144,7 +144,7 @@ impl LoginDb {
             Ok(d) => d,
             Err(e) => {
                 // don't log the input string as it's PII.
-                log::warn!("get_by_base_domain was passed an invalid domain: {}", e);
+                warn!("get_by_base_domain was passed an invalid domain: {}", e);
                 return Ok(vec![]);
             }
         };
@@ -711,7 +711,7 @@ impl LoginDb {
             return Ok(());
         }
 
-        log::debug!("No overlay; cloning one for {:?}.", guid);
+        debug!("No overlay; cloning one for {:?}.", guid);
         let changed = self.clone_mirror_to_overlay(guid)?;
         if changed == 0 {
             report_error!(
@@ -728,7 +728,7 @@ impl LoginDb {
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        log::info!("Executing wipe_local on password engine!");
+        info!("Executing wipe_local on password engine!");
         let tx = self.unchecked_transaction()?;
         self.execute_all(&[
             "DELETE FROM loginsL",

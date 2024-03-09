@@ -5,7 +5,7 @@
 
 use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason},
-    error::{NimbusError, Result},
+    error::{debug, info, NimbusError, Result},
     sampling, AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper,
 };
 use serde_derive::*;
@@ -116,7 +116,7 @@ pub fn evaluate_enrollment(
                 None => {
                     // XXX: When we link in glean, it would be nice if we could emit
                     // a failure telemetry event here.
-                    log::info!(
+                    info!(
                         "Could not find a suitable randomization unit for {}. Skipping experiment.",
                         &exp.slug
                     );
@@ -153,7 +153,7 @@ pub fn is_experiment_available(
                 return false;
             }
         }
-        (_, _) => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
+        (_, _) => debug!("Experiment missing app_name, skipping it as a targeting parameter"),
     }
 
     if !is_release {
@@ -169,7 +169,7 @@ pub fn is_experiment_available(
                 return false;
             }
         }
-        (_, _) => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
+        (_, _) => debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
     true
 }

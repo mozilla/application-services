@@ -15,7 +15,7 @@ use super::{
     },
     scopes, telemetry, util, CachedResponse, FirefoxAccount,
 };
-use crate::{DeviceCapability, Error, LocalDevice, Result};
+use crate::{info, warn, DeviceCapability, Error, LocalDevice, Result};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -219,7 +219,7 @@ impl FirefoxAccount {
         if pending_commands.messages.is_empty() {
             return Ok(Vec::new());
         }
-        log::info!("Handling {} messages", pending_commands.messages.len());
+        info!("Handling {} messages", pending_commands.messages.len());
         let device_commands = self.parse_commands_messages(pending_commands.messages, reason)?;
         self.state
             .set_last_handled_command_index(pending_commands.index);
@@ -395,7 +395,7 @@ impl From<UpdateDeviceResponse> for LocalDevice {
                 .filter_map(|command| match command.try_into() {
                     Ok(capability) => Some(capability),
                     Err(e) => {
-                        log::warn!("While parsing UpdateDeviceResponse: {e}");
+                        warn!("While parsing UpdateDeviceResponse: {e}");
                         None
                     }
                 })

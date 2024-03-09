@@ -85,7 +85,7 @@ impl FirefoxAccount {
                 // It also seems like it might be possible to recover - ie, one
                 // of the reasons is that there are key mismatches. Doesn't that
                 // mean the "other" key might work?
-                log::warn!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
+                crate::warn!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
                 match self.diagnose_remote_keys(send_tab_key) {
                     Ok(_) => {
                         error_support::report_error!(

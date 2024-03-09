@@ -29,7 +29,7 @@ impl FromSql for DocumentType {
             1 => DocumentType::Media,
             other => {
                 // seems safe to ignore?
-                log::warn!("invalid DocumentType {}", other);
+                warn!("invalid DocumentType {}", other);
                 DocumentType::Regular
             }
         })

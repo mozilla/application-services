@@ -4,7 +4,7 @@
 
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
-    error::Result,
+    error::{info, Result},
     metrics::MalformedFeatureConfigExtraDef,
     stateful::{
         behavior::{
@@ -1730,7 +1730,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
     client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
     client.apply_pending_experiments()?;
 
-    log::info!(
+    info!(
         "{}",
         serde_json::to_string(&client.get_recorded_context().get_event_queries())?
     );

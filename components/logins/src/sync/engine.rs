@@ -51,18 +51,18 @@ impl LoginsSyncEngine {
 
         for mut record in records {
             self.scope.err_if_interrupted()?;
-            log::debug!("Processing remote change {}", record.guid());
+            debug!("Processing remote change {}", record.guid());
             let upstream = if let Some(inbound) = record.inbound.take() {
                 inbound
             } else {
-                log::debug!("Processing inbound deletion (always prefer)");
+                debug!("Processing inbound deletion (always prefer)");
                 plan.plan_delete(record.guid.clone());
                 continue;
             };
             let upstream_time = record.inbound_ts;
             match (record.mirror.take(), record.local.take()) {
                 (Some(mirror), Some(local)) => {
-                    log::debug!("  Conflict between remote and local, Resolving with 3WM");
+                    debug!("  Conflict between remote and local, Resolving with 3WM");
                     plan.plan_three_way_merge(
                         local,
                         mirror,
@@ -74,18 +74,18 @@ impl LoginsSyncEngine {
                     telem.reconciled(1);
                 }
                 (Some(_mirror), None) => {
-                    log::debug!("  Forwarding mirror to remote");
+                    debug!("  Forwarding mirror to remote");
                     plan.plan_mirror_update(upstream, upstream_time);
                     telem.applied(1);
                 }
                 (None, Some(local)) => {
-                    log::debug!("  Conflicting record without shared parent,  Resolving with 2WM");
+                    debug!("  Conflicting record without shared parent,  Resolving with 2WM");
                     plan.plan_two_way_merge(local, (upstream, upstream_time));
                     telem.reconciled(1);
                 }
                 (None, None) => {
                     if let Some(dupe) = self.find_dupe_login(&upstream.login)? {
-                        log::debug!(
+                        debug!(
                             "  Incoming record {} was is a dupe of local record {}",
                             upstream.guid(),
                             dupe.guid()
@@ -98,7 +98,7 @@ impl LoginsSyncEngine {
                         };
                         plan.plan_two_way_merge(local, (upstream, upstream_time));
                     } else {
-                        log::debug!("  No dupe found, inserting into mirror");
+                        debug!("  No dupe found, inserting into mirror");
                         plan.plan_mirror_insert(upstream, upstream_time, false);
                     }
                     telem.applied(1);
@@ -139,7 +139,7 @@ impl LoginsSyncEngine {
                             // This is a known error with Desktop logins (see #5233), just log it
                             // rather than reporting to sentry
                             Error::InvalidLogin(InvalidLogin::IllegalOrigin) => {
-                                log::warn!("logins-deserialize-error: {e}");
+                                warn!("logins-deserialize-error: {e}");
                             }
                             // For all other errors, report them to Sentry
                             _ => {
@@ -280,7 +280,7 @@ impl LoginsSyncEngine {
     }
 
     pub fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
-        log::debug!("Updating last sync to {}", last_sync);
+        debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis();
         db.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }
@@ -352,7 +352,7 @@ impl LoginsSyncEngine {
     // the store would not do that :) Then it can go back into the sync trait
     // and return an anyhow::Result
     pub fn do_reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
-        log::info!("Executing reset on password engine!");
+        info!("Executing reset on password engine!");
         let db = self.store.db.lock();
         let tx = db.unchecked_transaction()?;
         db.execute_all(&[

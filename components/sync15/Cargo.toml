@@ -52,7 +52,6 @@ error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 payload-support = { path = "../support/payload" }
 lazy_static = "1.4"
-log = "0.4"
 rc_crypto = { path = "../support/rc_crypto", features = ["hawk"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
@@ -65,7 +64,7 @@ url = { version = "2", optional = true }
 viaduct = { path = "../viaduct", optional = true }
 
 [dev-dependencies]
-env_logger = { version = "0.10", default-features = false }
+error-support = { path = "../support/error", features = ["testing"] }
 nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]

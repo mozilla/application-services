@@ -5,7 +5,7 @@
 use std::convert::TryInto;
 
 use super::FirefoxAccount;
-use crate::{AccountEvent, Error, Result};
+use crate::{info, AccountEvent, Error, Result};
 use serde_derive::Deserialize;
 
 impl FirefoxAccount {
@@ -73,12 +73,12 @@ impl FirefoxAccount {
                 Ok(if !status.active {
                     AccountEvent::AccountAuthStateChanged
                 } else {
-                    log::info!("Password change event, but no action required");
+                    info!("Password change event, but no action required");
                     AccountEvent::Unknown
                 })
             }
             PushPayload::Unknown => {
-                log::info!("Unknown Push command.");
+                info!("Unknown Push command.");
                 Ok(AccountEvent::Unknown)
             }
         }

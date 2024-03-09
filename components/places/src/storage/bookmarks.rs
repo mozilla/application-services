@@ -432,7 +432,7 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     let record = match get_raw_bookmark(db, guid)? {
         Some(r) => r,
         None => {
-            log::debug!("Can't delete bookmark '{:?}' as it doesn't exist", guid);
+            debug!("Can't delete bookmark '{:?}' as it doesn't exist", guid);
             return Ok(false);
         }
     };
@@ -778,7 +778,7 @@ pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Opt
             Ok(u) => Ok(Some(u)),
             Err(e) => {
                 // We don't have the guid to log and the keyword is PII...
-                log::warn!("ignoring invalid url: {:?}", e);
+                warn!("ignoring invalid url: {:?}", e);
                 Ok(None)
             }
         },
