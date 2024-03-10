@@ -40,7 +40,7 @@ pub mod pbkdf2;
 pub mod rand;
 pub mod signature;
 
-use crypto_traits::hawk::Hawk;
+use crypto_traits::Cryptographer;
 // Expose `hawk` if the hawk feature is on. This avoids consumers needing to
 // configure this separately, which is more or less trivial to do incorrectly.
 #[cfg(feature = "hawk")]
@@ -61,6 +61,9 @@ pub fn ensure_initialized() {
     {
         static INIT_ONCE: std::sync::Once = std::sync::Once::new();
         INIT_ONCE.call_once(|| {
+            let crypto = Box::new(NSSCryptographer::new());
+            crypto_traits::set_cryptographer(Box::leak(crypto))
+                .expect("Unable to set NSS cryptographer");
             #[cfg(feature = "hawk")]
             crate::hawk_crypto::init();
             #[cfg(feature = "ece")]
@@ -72,14 +75,10 @@ pub fn ensure_initialized() {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NSSCryptographer;
 
+impl Cryptographer for NSSCryptographer {}
+
 impl NSSCryptographer {
     pub fn new() -> Self {
-        let res = Self {};
-        #[cfg(feature = "hawk")]
-        // This is ugly and is ripe for issues
-        // Unfortunately this is how the `hawk` crate set itself up, with a static cryptographer
-        // memory wise, it's OK, our cryptographer is zero-sized.
-        Box::leak(Box::new(res.clone())).set_cryptographer();
-        res
+        Self {}
     }
 }

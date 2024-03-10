@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crypto_traits::{
-    aead::{Aead, SyncAes256CBC},
-    rand::Rand,
-};
-
 use super::{
     request::{NormalResponseHandler, UploadInfo},
     CollState, Sync15ClientResponse, Sync15StorageClient,
@@ -16,28 +11,17 @@ use crate::engine::CollectionRequest;
 use crate::error::{self, Error, Result};
 use crate::{CollectionName, KeyBundle, ServerTimestamp};
 
-fn encrypt_outgoing<C>(
-    o: Vec<OutgoingBso>,
-    key: &KeyBundle,
-    crypto: &C,
-) -> Result<Vec<OutgoingEncryptedBso>>
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+fn encrypt_outgoing(o: Vec<OutgoingBso>, key: &KeyBundle) -> Result<Vec<OutgoingEncryptedBso>> {
     o.into_iter()
-        .map(|change| change.into_encrypted(key, crypto))
+        .map(|change| change.into_encrypted(key))
         .collect()
 }
 
-pub fn fetch_incoming<C>(
+pub fn fetch_incoming(
     client: &Sync15StorageClient,
     state: &CollState,
     collection_request: CollectionRequest,
-    crypto: &C,
-) -> Result<Vec<IncomingBso>>
-where
-    C: Aead<SyncAes256CBC>,
-{
+) -> Result<Vec<IncomingBso>> {
     let (records, _timestamp) = match client.get_encrypted_records(collection_request)? {
         Sync15ClientResponse::Success {
             record,
@@ -53,7 +37,7 @@ where
         // That should cause us to re-read crypto/keys and things should
         // work (although if for some reason crypto/keys was updated but
         // not all storage was wiped we are probably screwed.)
-        result.push(record.into_decrypted(&state.key, crypto)?);
+        result.push(record.into_decrypted(&state.key)?);
     }
     Ok(result)
 }
@@ -86,18 +70,14 @@ impl<'a> CollectionUpdate<'a> {
         }
     }
 
-    pub fn new_from_changeset<C>(
+    pub fn new_from_changeset(
         client: &'a Sync15StorageClient,
         state: &'a CollState,
         collection: CollectionName,
         changeset: Vec<OutgoingBso>,
         fully_atomic: bool,
-        crypto: &C,
-    ) -> Result<CollectionUpdate<'a>>
-    where
-        C: Aead<SyncAes256CBC> + Rand,
-    {
-        let to_update = encrypt_outgoing(changeset, &state.key, crypto)?;
+    ) -> Result<CollectionUpdate<'a>> {
+        let to_update = encrypt_outgoing(changeset, &state.key)?;
         Ok(CollectionUpdate::new(
             client,
             state,

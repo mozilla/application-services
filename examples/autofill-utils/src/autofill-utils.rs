@@ -13,8 +13,7 @@ use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
-use interrupt_support::NeverInterrupts;
-use rc_crypto::NSSCryptographer; // XXX need a real interruptee!
+use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
 use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
@@ -357,10 +356,8 @@ fn run_sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    let crypto = NSSCryptographer::new();
     // XXX - need to add interrupts
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &crypto)?;
-
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
     if wipe_all {
         Sync15StorageClient::new(&cli_fxa.client_init)?.wipe_all_remote()?;
     }
@@ -493,6 +490,7 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
 
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
+    rc_crypto::ensure_initialized();
 
     let opts = Opts::from_args();
     if !opts.no_logging {

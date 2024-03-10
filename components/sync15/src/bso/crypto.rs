@@ -9,10 +9,6 @@ use super::{IncomingBso, IncomingEnvelope, OutgoingBso, OutgoingEnvelope};
 use crate::error;
 use crate::key_bundle::KeyBundle;
 use crate::EncryptedPayload;
-use crypto_traits::{
-    aead::{Aead, SyncAes256CBC},
-    rand::Rand,
-};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 // The BSO implementation we use for encrypted payloads.
@@ -36,14 +32,8 @@ impl IncomingEncryptedBso {
         Self { envelope, payload }
     }
     /// Decrypt a BSO, consuming it into a clear-text version.
-    pub fn into_decrypted<C>(self, key: &KeyBundle, crypto: &C) -> error::Result<IncomingBso>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
-        Ok(IncomingBso::new(
-            self.envelope,
-            self.payload.decrypt(key, crypto)?,
-        ))
+    pub fn into_decrypted(self, key: &KeyBundle) -> error::Result<IncomingBso> {
+        Ok(IncomingBso::new(self.envelope, self.payload.decrypt(key)?))
     }
 }
 
@@ -67,17 +57,10 @@ impl OutgoingEncryptedBso {
 }
 
 impl OutgoingBso {
-    pub fn into_encrypted<C>(
-        self,
-        key: &KeyBundle,
-        crypto: &C,
-    ) -> error::Result<OutgoingEncryptedBso>
-    where
-        C: Aead<SyncAes256CBC> + Rand,
-    {
+    pub fn into_encrypted(self, key: &KeyBundle) -> error::Result<OutgoingEncryptedBso> {
         Ok(OutgoingEncryptedBso {
             envelope: self.envelope,
-            payload: EncryptedPayload::from_cleartext(key, self.payload, crypto)?,
+            payload: EncryptedPayload::from_cleartext(key, self.payload)?,
         })
     }
 }

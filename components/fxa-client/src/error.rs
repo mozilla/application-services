@@ -146,6 +146,9 @@ pub enum Error {
     #[error("Crypto/NSS error: {0}")]
     CryptoError(#[from] rc_crypto::Error),
 
+    #[error("Crypto error: {0}")]
+    CryptoTError(#[from] crypto_traits::Error),
+
     #[error("http-ece encryption error: {0}")]
     EceError(#[from] rc_crypto::ece::Error),
 

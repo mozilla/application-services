@@ -2,30 +2,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crypto_traits::aead::{Aead, SyncAes256CBC};
-use crypto_traits::rand::Rand;
-
 use crate::error::Result;
 use crate::record_types::CryptoKeysRecord;
 use crate::{EncryptedPayload, KeyBundle, ServerTimestamp};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CollectionKeys<'c, C> {
+pub struct CollectionKeys {
     pub timestamp: ServerTimestamp,
     pub default: KeyBundle,
     pub collections: HashMap<String, KeyBundle>,
-    pub crypto: &'c C,
 }
 
-impl<'c, C> CollectionKeys<'c, C>
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
-    pub fn new_random(crypto: &'c C) -> Result<Self> {
-        let default = KeyBundle::new_random(crypto)?;
+impl CollectionKeys {
+    pub fn new_random() -> Result<Self> {
+        let default = KeyBundle::new_random()?;
         Ok(CollectionKeys {
-            crypto,
             timestamp: ServerTimestamp(0),
             default,
             collections: HashMap::new(),
@@ -36,11 +28,9 @@ where
         record: EncryptedPayload,
         timestamp: ServerTimestamp,
         root_key: &KeyBundle,
-        crypto: &'c C,
     ) -> Result<Self> {
-        let keys: CryptoKeysRecord = record.decrypt_into(root_key, crypto)?;
+        let keys: CryptoKeysRecord = record.decrypt_into(root_key)?;
         Ok(CollectionKeys {
-            crypto,
             timestamp,
             default: KeyBundle::from_base64(&keys.default[0], &keys.default[1])?,
             collections: keys
@@ -62,7 +52,7 @@ where
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        EncryptedPayload::from_cleartext_payload(root_key, &record, self.crypto)
+        EncryptedPayload::from_cleartext_payload(root_key, &record)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

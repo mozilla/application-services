@@ -12,8 +12,6 @@ use crate::error::{self, Error as ErrorKind, ErrorResponse};
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::EncryptedPayload;
 use crate::{Guid, KeyBundle, ServerTimestamp};
-use crypto_traits::aead::{Aead, SyncAes256CBC};
-use crypto_traits::rand::Rand;
 use interrupt_support::Interruptee;
 use serde_derive::*;
 
@@ -229,7 +227,7 @@ fn fixup_meta_global(global: &mut MetaGlobalRecord) -> bool {
     changed_any
 }
 
-pub struct SetupStateMachine<'a, 'c, C> {
+pub struct SetupStateMachine<'a> {
     client: &'a dyn SetupStorageClient,
     root_key: &'a KeyBundle,
     pgs: &'a mut PersistedGlobalState,
@@ -246,13 +244,9 @@ pub struct SetupStateMachine<'a, 'c, C> {
     engine_updates: Option<&'a HashMap<String, bool>>,
     interruptee: &'a dyn Interruptee,
     pub(crate) changes_needed: Option<EngineChangesNeeded>,
-    crypto: &'c C,
 }
 
-impl<'a, 'c, C> SetupStateMachine<'a, 'c, C>
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+impl<'a> SetupStateMachine<'a> {
     /// Creates a state machine for a "classic" Sync 1.5 client that supports
     /// all states, including uploading a fresh `meta/global` and `crypto/keys`
     /// after a node reassignment.
@@ -262,7 +256,6 @@ where
         pgs: &'a mut PersistedGlobalState,
         engine_updates: Option<&'a HashMap<String, bool>>,
         interruptee: &'a dyn Interruptee,
-        crypto: &'c C,
     ) -> Self {
         SetupStateMachine::with_allowed_states(
             client,
@@ -270,7 +263,6 @@ where
             pgs,
             interruptee,
             engine_updates,
-            crypto,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -289,7 +281,6 @@ where
         pgs: &'a mut PersistedGlobalState,
         interruptee: &'a dyn Interruptee,
         engine_updates: Option<&'a HashMap<String, bool>>,
-        crypto: &'c C,
         allowed_states: Vec<&'static str>,
     ) -> Self {
         SetupStateMachine {
@@ -301,7 +292,6 @@ where
             engine_updates,
             interruptee,
             changes_needed: None,
-            crypto,
         }
     }
 
@@ -519,8 +509,7 @@ where
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
                 // ...And a fresh `crypto/keys`.
-                let new_keys =
-                    CollectionKeys::new_random(self.crypto)?.to_encrypted_payload(self.root_key)?;
+                let new_keys = CollectionKeys::new_random()?.to_encrypted_payload(self.root_key)?;
                 let bso = OutgoingEncryptedBso::new(Guid::new("keys").into(), new_keys);
                 self.client
                     .put_crypto_keys(ServerTimestamp::default(), &bso)?;
@@ -629,7 +618,6 @@ mod tests {
 
     use crate::bso::{IncomingEncryptedBso, IncomingEnvelope};
     use interrupt_support::NeverInterrupts;
-    use rc_crypto::NSSCryptographer;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -745,7 +733,7 @@ mod tests {
     }
 
     fn mocked_success_keys(
-        keys: CollectionKeys<'_, NSSCryptographer>,
+        keys: CollectionKeys,
         root_key: &KeyBundle,
     ) -> error::Result<Sync15ClientResponse<IncomingEncryptedBso>> {
         let timestamp = keys.timestamp;
@@ -769,13 +757,12 @@ mod tests {
 
     #[test]
     fn test_state_machine_ready_from_empty() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
         let _ = env_logger::try_init();
-        let root_key = KeyBundle::new_random(&crypto).unwrap();
+        let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
-            crypto: &crypto,
             timestamp: ServerTimestamp(123_400),
-            default: KeyBundle::new_random(&crypto).unwrap(),
+            default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
         let mg = MetaGlobalRecord {
@@ -807,14 +794,8 @@ mod tests {
         };
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
-        let mut state_machine = SetupStateMachine::for_full_sync(
-            &client,
-            &root_key,
-            &mut pgs,
-            None,
-            &NeverInterrupts,
-            &crypto,
-        );
+        let mut state_machine =
+            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"
@@ -834,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_from_previous_state_declined() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
         let _ = env_logger::try_init();
         // The state-machine sequence where we didn't use the previous state
         // (ie, where the state machine restarted)
@@ -856,7 +837,6 @@ mod tests {
             engine_updates: Option<&HashMap<String, bool>>,
             old_state: GlobalState,
             expected_states: &[&str],
-            crypto: &NSSCryptographer,
         ) {
             let mut state_machine = SetupStateMachine::for_full_sync(
                 client,
@@ -864,7 +844,6 @@ mod tests {
                 pgs,
                 engine_updates,
                 &NeverInterrupts,
-                crypto,
             );
             assert!(
                 state_machine.run_to_ready(Some(old_state)).is_ok(),
@@ -876,11 +855,10 @@ mod tests {
         // and all the complicated setup...
         let ts_metaglobal = 123_456;
         let ts_keys = 145_000;
-        let root_key = KeyBundle::new_random(&crypto).unwrap();
+        let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
-            crypto: &crypto,
             timestamp: ServerTimestamp(ts_keys + 1),
-            default: KeyBundle::new_random(&crypto).unwrap(),
+            default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
         let mg = MetaGlobalRecord {
@@ -933,7 +911,6 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_used_previous,
-                &crypto,
             );
         }
 
@@ -958,7 +935,6 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_restarted,
-                &crypto,
             );
         }
 
@@ -983,7 +959,6 @@ mod tests {
                 None,
                 old_state,
                 &sm_seq_restarted,
-                &crypto,
             );
         }
 
@@ -1010,7 +985,6 @@ mod tests {
                 Some(&engine_updates),
                 old_state,
                 &sm_seq_restarted,
-                &crypto,
             );
             let declined = match pgs {
                 PersistedGlobalState::V2 { declined: d } => d,

@@ -120,8 +120,7 @@ impl<T> Sync15ClientResponse<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Sync15StorageClientInit<'c, C> {
-    pub crypto: &'c C,
+pub struct Sync15StorageClientInit {
     pub key_id: String,
     pub access_token: String,
     pub tokenserver_url: Url,
@@ -279,7 +278,7 @@ impl SetupStorageClient for Sync15StorageClient {
 }
 
 impl Sync15StorageClient {
-    pub fn new<C>(init_params: &Sync15StorageClientInit<'_, C>) -> error::Result<Self> {
+    pub fn new(init_params: &Sync15StorageClientInit) -> error::Result<Self> {
         let tsc = token::TokenProvider::new(
             init_params.tokenserver_url.to_owned(),
             init_params.access_token.to_owned(),

@@ -14,7 +14,6 @@ use error_support::handle_error;
 use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use rc_crypto::NSSCryptographer;
 use rusqlite::OpenFlags;
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -158,6 +157,7 @@ pub struct PlacesApi {
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
     pub fn new(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
+        rc_crypto::ensure_initialized();
         let db_name = normalize_path(db_name)?;
         Self::new_or_existing(db_name)
     }
@@ -173,6 +173,7 @@ impl PlacesApi {
         target: &mut HashMap<PathBuf, Weak<PlacesApi>>,
         db_name: PathBuf,
     ) -> Result<Arc<Self>> {
+        rc_crypto::ensure_initialized();
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match target.get(&db_name).and_then(Weak::upgrade) {
             Some(existing) => Ok(existing),
@@ -301,7 +302,7 @@ impl PlacesApi {
     // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_history(
         &self,
-        client_init: &Sync15StorageClientInit<NSSCryptographer>,
+        client_init: &Sync15StorageClientInit,
         key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
@@ -323,7 +324,7 @@ impl PlacesApi {
 
     pub fn sync_bookmarks(
         &self,
-        client_init: &Sync15StorageClientInit<NSSCryptographer>,
+        client_init: &Sync15StorageClientInit,
         key_bundle: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         self.do_sync_one(
@@ -395,7 +396,7 @@ impl PlacesApi {
     // we have a SyncResult, we must return it.
     pub fn sync(
         &self,
-        client_init: &Sync15StorageClientInit<NSSCryptographer>,
+        client_init: &Sync15StorageClientInit,
         key_bundle: &KeyBundle,
     ) -> Result<SyncResult> {
         let mut guard = self.sync_state.lock();

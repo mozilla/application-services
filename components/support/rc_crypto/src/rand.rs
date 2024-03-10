@@ -29,10 +29,9 @@ pub fn fill(dest: &mut [u8]) -> Result<()> {
 }
 
 impl Rand for NSSCryptographer {
-    type Error = Error;
-
-    fn rand(&self, res: &mut [u8]) -> std::result::Result<(), Self::Error> {
-        Ok(nss::pk11::slot::generate_random(res)?)
+    fn rand(&self, res: &mut [u8]) -> std::result::Result<(), crypto_traits::Error> {
+        nss::pk11::slot::generate_random(res)
+            .map_err(|e| crypto_traits::Error::RandError(e.to_string()))
     }
 }
 

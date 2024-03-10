@@ -12,8 +12,6 @@ use crate::client::{
 use crate::client_types::{ClientData, RemoteClient};
 use crate::engine::CollectionRequest;
 use crate::{error::Result, Guid, KeyBundle};
-use crypto_traits::aead::{Aead, SyncAes256CBC};
-use crypto_traits::rand::Rand;
 use interrupt_support::Interruptee;
 
 use super::{
@@ -271,24 +269,19 @@ impl<'a> Engine<'a> {
     /// For these reasons, we implement this engine directly in the `sync15`
     /// crate, and provide a specialized `sync` method instead of implementing
     /// `sync15::Store`.
-    pub fn sync<C>(
+    pub fn sync(
         &mut self,
         storage_client: &Sync15StorageClient,
         global_state: &GlobalState,
         root_sync_key: &KeyBundle,
         should_refresh_client: bool,
-        crypto: &C,
-    ) -> Result<()>
-    where
-        C: Aead<SyncAes256CBC> + Rand,
-    {
+    ) -> Result<()> {
         log::info!("Syncing collection clients");
 
         let coll_keys = CollectionKeys::from_encrypted_payload(
             global_state.keys.clone(),
             global_state.keys_timestamp,
             root_sync_key,
-            crypto,
         )?;
         let coll_state = CollState {
             config: global_state.config.clone(),
@@ -300,7 +293,7 @@ impl<'a> Engine<'a> {
             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
         };
 
-        let inbound = self.fetch_incoming(storage_client, &coll_state, crypto)?;
+        let inbound = self.fetch_incoming(storage_client, &coll_state)?;
 
         let mut driver = Driver::new(
             self.command_processor,
@@ -318,7 +311,6 @@ impl<'a> Engine<'a> {
             COLLECTION_NAME.into(),
             outgoing,
             true,
-            crypto,
         )?
         .upload()?;
 
@@ -332,23 +324,18 @@ impl<'a> Engine<'a> {
         Ok(())
     }
 
-    fn fetch_incoming<C>(
+    fn fetch_incoming(
         &self,
         storage_client: &Sync15StorageClient,
         coll_state: &CollState,
-        crypto: &C,
-    ) -> Result<Vec<IncomingBso>>
-    where
-        C: Aead<SyncAes256CBC> + Rand,
-    {
+    ) -> Result<Vec<IncomingBso>> {
         // Note that, unlike other stores, we always fetch the full collection
         // on every sync, so `inbound` will return all clients, not just the
         // ones that changed since the last sync.
         let coll_request = CollectionRequest::new(COLLECTION_NAME.into()).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound =
-            crate::client::fetch_incoming(storage_client, coll_state, coll_request, crypto)?;
+        let inbound = crate::client::fetch_incoming(storage_client, coll_state, coll_request)?;
 
         Ok(inbound)
     }

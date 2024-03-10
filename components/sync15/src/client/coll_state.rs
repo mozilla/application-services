@@ -8,8 +8,6 @@ use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 use crate::error;
 use crate::KeyBundle;
 use crate::ServerTimestamp;
-use crypto_traits::aead::{Aead, SyncAes256CBC};
-use crypto_traits::rand::Rand;
 
 /// Holds state for a collection necessary to perform a sync of it. Lives for the lifetime
 /// of a single sync.
@@ -44,16 +42,12 @@ pub enum LocalCollState {
     Ready { coll_state: CollState },
 }
 
-pub struct LocalCollStateMachine<'state, 'c, C> {
+pub struct LocalCollStateMachine<'state> {
     global_state: &'state GlobalState,
     root_key: &'state KeyBundle,
-    crypto: &'c C,
 }
 
-impl<'state, 'c, C> LocalCollStateMachine<'state, 'c, C>
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+impl<'state> LocalCollStateMachine<'state> {
     fn advance(
         &self,
         from: LocalCollState,
@@ -83,7 +77,6 @@ where
                                 self.global_state.keys.clone(),
                                 self.global_state.keys_timestamp,
                                 self.root_key,
-                                self.crypto,
                             )?;
                             let key = coll_keys.key_for_collection(name).clone();
                             let name = engine.collection_name();
@@ -161,10 +154,8 @@ where
         engine: &dyn SyncEngine,
         global_state: &'state GlobalState,
         root_key: &'state KeyBundle,
-        crypto: &'c C,
     ) -> error::Result<Option<CollState>> {
         let mut gingerbread_man = Self {
-            crypto,
             global_state,
             root_key,
         };
@@ -182,14 +173,13 @@ mod tests {
     use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
     use crate::{telemetry, CollectionName};
     use anyhow::Result;
-    use rc_crypto::NSSCryptographer;
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
     use sync_guid::Guid;
 
     fn get_global_state(root_key: &KeyBundle) -> GlobalState {
-        let crypto = NSSCryptographer::new();
-        let keys = CollectionKeys::new_random(&crypto)
+        rc_crypto::ensure_initialized();
+        let keys = CollectionKeys::new_random()
             .unwrap()
             .to_encrypted_payload(root_key)
             .unwrap();
@@ -289,25 +279,23 @@ mod tests {
 
     #[test]
     fn test_unknown() {
-        let crypto = NSSCryptographer::new();
-        let root_key = KeyBundle::new_random(&crypto).expect("should work");
+        rc_crypto::ensure_initialized();
+        let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
         let engine = TestSyncEngine::new("unknown", EngineSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key, &crypto)
-            .expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
         assert_eq!(engine.get_num_resets(), 0);
     }
 
     #[test]
     fn test_known_no_state() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
-        let root_key = KeyBundle::new_random(&crypto).expect("should work");
+        let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
         let engine = TestSyncEngine::new("bookmarks", EngineSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key, &crypto)
-            .expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
             engine.assoc.replace(EngineSyncAssociation::Disconnected),
@@ -321,9 +309,9 @@ mod tests {
 
     #[test]
     fn test_known_wrong_state() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
-        let root_key = KeyBundle::new_random(&crypto).expect("should work");
+        let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
         let engine = TestSyncEngine::new(
             "bookmarks",
@@ -332,8 +320,7 @@ mod tests {
                 coll: "syncIDYYYYYY".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key, &crypto)
-            .expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
             engine.assoc.replace(EngineSyncAssociation::Disconnected),
@@ -347,9 +334,9 @@ mod tests {
 
     #[test]
     fn test_known_good_state() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
-        let root_key = KeyBundle::new_random(&crypto).expect("should work");
+        let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
         let engine = TestSyncEngine::new(
             "bookmarks",
@@ -358,17 +345,16 @@ mod tests {
                 coll: "syncIDBBBBBB".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key, &crypto)
-            .expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(engine.get_num_resets(), 0);
     }
 
     #[test]
     fn test_declined() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
-        let root_key = KeyBundle::new_random(&crypto).expect("should work");
+        let root_key = KeyBundle::new_random().expect("should work");
         let mut gs = get_global_state(&root_key);
         gs.global.declined.push("bookmarks".to_string());
         let engine = TestSyncEngine::new(
@@ -378,8 +364,7 @@ mod tests {
                 coll: "syncIDBBBBBB".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key, &crypto)
-            .expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "declined collection can sync");
         assert_eq!(engine.get_num_resets(), 0);
     }

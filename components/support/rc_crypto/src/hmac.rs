@@ -19,13 +19,66 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::{constant_time, digest, error::*};
+use crypto_traits::{digest::HashAlgorithm, hmac::Hmac};
+
+use crate::{
+    constant_time,
+    digest::{self, to_internal_algorithm},
+    error::*,
+    NSSCryptographer,
+};
 
 /// A calculated signature value.
 /// This is a type-safe wrappper that discourages attempts at comparing signatures
 /// for equality, which might naively be done using a non-constant-time comparison.
 #[derive(Clone)]
 pub struct Signature(pub(crate) digest::Digest);
+impl Hmac for NSSCryptographer {
+    fn sign(
+        &self,
+        algorithm: HashAlgorithm,
+        key: &[u8],
+        data: &[u8],
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        self.hmac_sign(&to_internal_algorithm(algorithm), &key, data)
+            .map_err(|e| crypto_traits::Error::HmacError(e.to_string()))
+    }
+
+    fn verify(
+        &self,
+        algorithm: HashAlgorithm,
+        key: &[u8],
+        data: &[u8],
+        signature: &[u8],
+    ) -> std::result::Result<(), crypto_traits::Error> {
+        self.hmac_verify(&to_internal_algorithm(algorithm), key, data, signature)
+            .map_err(|e| crypto_traits::Error::HmacError(e.to_string()))
+    }
+}
+
+impl NSSCryptographer {
+    pub(crate) fn hmac_sign(
+        &self,
+        algorithm: &digest::Algorithm,
+        key: &[u8],
+        data: &[u8],
+    ) -> Result<Vec<u8>> {
+        Ok(nss::pk11::context::hmac_sign(algorithm, key, data)?)
+    }
+
+    fn hmac_verify(
+        &self,
+        algorithm: &digest::Algorithm,
+        key: &[u8],
+        data: &[u8],
+        signature: &[u8],
+    ) -> Result<()> {
+        constant_time::verify_slices_are_equal(
+            self.hmac_sign(algorithm, key, data)?.as_ref(),
+            signature,
+        )
+    }
+}
 
 impl AsRef<[u8]> for Signature {
     #[inline]

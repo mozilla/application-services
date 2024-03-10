@@ -33,7 +33,7 @@ pub enum Error {
 
     #[cfg(feature = "crypto")]
     #[error("Crypto/NSS error: {0}")]
-    CryptoError(String),
+    CryptoError(#[from] crypto_traits::Error),
 
     #[cfg(feature = "crypto")]
     #[error("Base64 decode error: {0}")]

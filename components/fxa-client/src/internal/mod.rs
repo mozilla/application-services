@@ -12,7 +12,6 @@ use self::{
     telemetry::FxaTelemetry,
 };
 use crate::{DeviceConfig, Error, FxaConfig, FxaRustAuthState, FxaState, Result};
-use rc_crypto::NSSCryptographer;
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -50,7 +49,6 @@ unsafe impl Sync for http_client::MockFxAClient {}
 // to be modified.
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
-    crypto: NSSCryptographer, // TODO: Lets make this generic
     state: StateManager,
     attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
@@ -68,7 +66,6 @@ impl FirefoxAccount {
         Self {
             client: Arc::new(http_client::Client::new()),
             state: StateManager::new(state),
-            crypto: NSSCryptographer::new(),
             attached_clients_cache: None,
             devices_cache: None,
             auth_circuit_breaker: Default::default(),

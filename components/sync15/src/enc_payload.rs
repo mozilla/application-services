@@ -4,10 +4,6 @@
 
 use crate::error;
 use crate::key_bundle::KeyBundle;
-use crypto_traits::{
-    aead::{Aead, SyncAes256CBC},
-    rand::Rand,
-};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -27,28 +23,20 @@ impl EncryptedPayload {
         (*EMPTY_ENCRYPTED_PAYLOAD_SIZE) + self.ciphertext.len() + self.hmac.len() + self.iv.len()
     }
 
-    pub fn decrypt<C>(&self, key: &KeyBundle, crypto: &C) -> error::Result<String>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
-        key.decrypt(&self.ciphertext, &self.iv, &self.hmac, crypto)
+    pub fn decrypt(&self, key: &KeyBundle) -> error::Result<String> {
+        key.decrypt(&self.ciphertext, &self.iv, &self.hmac)
     }
 
-    pub fn decrypt_into<T, C>(&self, key: &KeyBundle, crypto: &C) -> error::Result<T>
+    pub fn decrypt_into<T>(&self, key: &KeyBundle) -> error::Result<T>
     where
         for<'a> T: Deserialize<'a>,
-        C: Aead<SyncAes256CBC>,
     {
-        Ok(serde_json::from_str(&self.decrypt(key, crypto)?)?)
+        Ok(serde_json::from_str(&self.decrypt(key)?)?)
     }
 
-    pub fn from_cleartext<C>(key: &KeyBundle, cleartext: String, crypto: &C) -> error::Result<Self>
-    where
-        C: Aead<SyncAes256CBC>,
-        C: Rand,
-    {
+    pub fn from_cleartext(key: &KeyBundle, cleartext: String) -> error::Result<Self> {
         let (enc_base64, iv_base64, hmac_base16) =
-            key.encrypt_bytes_rand_iv(cleartext.as_bytes(), crypto)?;
+            key.encrypt_bytes_rand_iv(cleartext.as_bytes())?;
         Ok(EncryptedPayload {
             iv: iv_base64,
             hmac: hmac_base16,
@@ -56,16 +44,11 @@ impl EncryptedPayload {
         })
     }
 
-    pub fn from_cleartext_payload<T: Serialize, C>(
+    pub fn from_cleartext_payload<T: Serialize>(
         key: &KeyBundle,
         cleartext_payload: &T,
-        crypto: &C,
-    ) -> error::Result<Self>
-    where
-        C: Aead<SyncAes256CBC>,
-        C: Rand,
-    {
-        Self::from_cleartext(key, serde_json::to_string(cleartext_payload)?, crypto)
+    ) -> error::Result<Self> {
+        Self::from_cleartext(key, serde_json::to_string(cleartext_payload)?)
     }
 }
 
@@ -81,7 +64,6 @@ lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rc_crypto::NSSCryptographer;
     use serde_json::json;
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -93,19 +75,14 @@ mod tests {
 
     #[test]
     fn test_roundtrip_crypt_record() {
-        let crypto = NSSCryptographer::new();
-        let key = KeyBundle::new_random(&crypto).unwrap();
+        rc_crypto::ensure_initialized();
+        let key = KeyBundle::new_random().unwrap();
         let payload_json = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
-        let payload = EncryptedPayload::from_cleartext(
-            &key,
-            serde_json::to_string(&payload_json).unwrap(),
-            &crypto,
-        )
-        .unwrap();
+        let payload =
+            EncryptedPayload::from_cleartext(&key, serde_json::to_string(&payload_json).unwrap())
+                .unwrap();
 
-        let record = payload
-            .decrypt_into::<TestStruct, NSSCryptographer>(&key, &crypto)
-            .unwrap();
+        let record = payload.decrypt_into::<TestStruct>(&key).unwrap();
         assert_eq!(record.id, "aaaaaaaaaaaa");
         assert_eq!(record.age, 105);
         assert_eq!(record.meta, "data");
@@ -117,18 +94,17 @@ mod tests {
 
     #[test]
     fn test_record_bad_hmac() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
-        let key1 = KeyBundle::new_random(&crypto).unwrap();
+        let key1 = KeyBundle::new_random().unwrap();
         let json = json!({ "id": "aaaaaaaaaaaa", "deleted": true, });
 
         let payload =
-            EncryptedPayload::from_cleartext(&key1, serde_json::to_string(&json).unwrap(), &crypto)
-                .unwrap();
+            EncryptedPayload::from_cleartext(&key1, serde_json::to_string(&json).unwrap()).unwrap();
 
-        let key2 = KeyBundle::new_random(&crypto).unwrap();
+        let key2 = KeyBundle::new_random().unwrap();
         let e = payload
-            .decrypt(&key2, &crypto)
+            .decrypt(&key2)
             .expect_err("Should fail because wrong keybundle");
 
         // Note: ErrorKind isn't PartialEq, so.

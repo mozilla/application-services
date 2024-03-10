@@ -13,8 +13,6 @@ use crate::engine::{EngineSyncAssociation, SyncEngine};
 use crate::error::Error;
 use crate::telemetry;
 use crate::KeyBundle;
-use crypto_traits::aead::{Aead, SyncAes256CBC};
-use crypto_traits::rand::Rand;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::result;
@@ -41,7 +39,7 @@ impl PartialEq for ClientInfo {
 }
 
 impl ClientInfo {
-    fn new<C>(ci: &Sync15StorageClientInit<'_, C>) -> Result<Self, Error> {
+    fn new(ci: &Sync15StorageClientInit) -> Result<Self, Error> {
         Ok(Self {
             key_id: ci.key_id.to_owned(),
             access_token: ci.access_token.to_owned(),
@@ -104,18 +102,15 @@ impl MemoryCachedState {
 /// fails, the sync will continue on to other engines, but the error will be
 /// places in this map. The absence of a name in the map implies the engine
 /// succeeded.
-pub fn sync_multiple<'c, C>(
+pub fn sync_multiple(
     engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
     mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit<'c, C>,
+    storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
-) -> SyncResult
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+) -> SyncResult {
     sync_multiple_with_command_processor(
         None,
         engines,
@@ -132,19 +127,16 @@ where
 /// commands from the clients collection. This function is called by the sync
 /// manager, which provides its own processor.
 #[allow(clippy::too_many_arguments)]
-pub fn sync_multiple_with_command_processor<'c, C>(
+pub fn sync_multiple_with_command_processor(
     command_processor: Option<&dyn CommandProcessor>,
     engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
     mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit<'c, C>,
+    storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
-) -> SyncResult
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+) -> SyncResult {
     log::info!("Syncing {} engines", engines.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
@@ -204,10 +196,10 @@ pub struct SyncRequestInfo<'a> {
 }
 
 // The sync multiple driver
-struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs, 'c, C> {
+struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     command_processor: Option<&'info dyn CommandProcessor>,
     engines: &'info [&'info dyn SyncEngine],
-    storage_init: &'info Sync15StorageClientInit<'c, C>,
+    storage_init: &'info Sync15StorageClientInit,
     root_sync_key: &'info KeyBundle,
     interruptee: &'info dyn Interruptee,
     backoff: BackoffListener,
@@ -219,10 +211,7 @@ struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs, 'c, C> {
     saw_auth_error: bool,
 }
 
-impl<'info, 'res, 'pgs, 'mcs, 'c, C> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs, 'c, C>
-where
-    C: Aead<SyncAes256CBC> + Rand,
-{
+impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     /// The actual worker for sync_multiple.
     fn sync(mut self) -> result::Result<(), Error> {
         log::info!("Loading/initializing persisted state");
@@ -257,7 +246,6 @@ where
                 &global_state,
                 self.root_sync_key,
                 should_refresh,
-                self.storage_init.crypto,
             ) {
                 // Record telemetry with the error just in case...
                 let mut telem_sync = telemetry::SyncTelemetry::new();
@@ -342,7 +330,6 @@ where
                 true,
                 &mut telem_engine,
                 self.interruptee,
-                self.storage_init.crypto,
             );
 
             match result {
@@ -387,7 +374,6 @@ where
             pgs,
             self.engines_to_state_change,
             self.interruptee,
-            self.storage_init.crypto,
         );
 
         log::info!("Advancing state machine to ready (full)");

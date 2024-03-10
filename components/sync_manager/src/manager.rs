@@ -7,7 +7,6 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use rc_crypto::NSSCryptographer;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
@@ -25,6 +24,7 @@ pub struct SyncManager {
 
 impl SyncManager {
     pub fn new() -> Self {
+        rc_crypto::ensure_initialized();
         Self::default()
     }
 
@@ -134,7 +134,6 @@ impl SyncManager {
         let engine_refs: Vec<&dyn SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = Sync15StorageClientInit {
-            crypto: &NSSCryptographer::new(),
             key_id: params.auth_info.kid.clone(),
             access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,

@@ -19,7 +19,56 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::{error::*, hmac};
+use crypto_traits::{digest::HashAlgorithm, hkdf::Hkdf};
+
+use crate::digest::{to_internal_algorithm, Algorithm};
+use crate::{error::*, hmac, NSSCryptographer};
+
+impl Hkdf for NSSCryptographer {
+    fn extract(
+        &self,
+        algorithm: HashAlgorithm,
+        salt: &[u8],
+        secret: &[u8],
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        self.hkdf_extract(&to_internal_algorithm(algorithm), salt, secret)
+            .map_err(|e| crypto_traits::Error::HkdfError(e.to_string()))
+    }
+
+    fn expand(
+        &self,
+        algorithm: HashAlgorithm,
+        prk: &[u8],
+        info: &[u8],
+        out: &mut [u8],
+    ) -> std::result::Result<(), crypto_traits::Error> {
+        self.hkdf_expand(&to_internal_algorithm(algorithm), prk, info, out)
+            .map_err(|e| crypto_traits::Error::HkdfError(e.to_string()))
+    }
+}
+
+impl NSSCryptographer {
+    fn hkdf_extract(
+        &self,
+        algorithm: &Algorithm,
+        salt: &[u8],
+        secret: &[u8],
+    ) -> std::result::Result<Vec<u8>, Error> {
+        self.hmac_sign(algorithm, salt, secret)
+    }
+
+    fn hkdf_expand(
+        &self,
+        algorithm: &Algorithm,
+        prk: &[u8],
+        info: &[u8],
+        out: &mut [u8],
+    ) -> std::result::Result<(), Error> {
+        let mut derived = nss::pk11::sym_key::hkdf_expand(algorithm, prk, info, out.len())?;
+        out.swap_with_slice(&mut derived[0..out.len()]);
+        Ok(())
+    }
+}
 
 pub fn extract_and_expand(
     salt: &hmac::SigningKey,

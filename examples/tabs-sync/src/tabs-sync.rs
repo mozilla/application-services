@@ -8,7 +8,6 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
-use rc_crypto::NSSCryptographer;
 use std::path::Path;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -59,7 +58,6 @@ fn do_sync(
     sync_key: String,
     tokenserver_url: url::Url,
     local_id: String,
-    crypto: &NSSCryptographer,
 ) -> Result<String> {
     let mut mem_cached_state = MemoryCachedState::default();
     let engine = TabsEngine::new(Arc::clone(&store));
@@ -72,7 +70,6 @@ fn do_sync(
     *engine.local_id.write().unwrap() = local_id;
 
     let storage_init = &Sync15StorageClientInit {
-        crypto,
         key_id,
         access_token,
         tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
@@ -100,14 +97,14 @@ fn do_sync(
 
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
+    rc_crypto::ensure_initialized();
     cli_support::init_logging();
-    let crypto = NSSCryptographer::new();
     let opts = Opts::from_args();
 
     let (_, token_info) = get_account_and_token(get_default_fxa_config(), &opts.creds_file)?;
     let sync_key = URL_SAFE_NO_PAD.encode(token_info.key.unwrap().key_bytes()?);
 
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file, &crypto)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));
@@ -178,7 +175,6 @@ fn main() -> Result<()> {
                     sync_key.clone(),
                     cli_fxa.client_init.tokenserver_url.clone(),
                     device_id.clone(),
-                    &crypto,
                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);

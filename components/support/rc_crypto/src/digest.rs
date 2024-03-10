@@ -19,9 +19,17 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::error::*;
+use crate::{error::*, NSSCryptographer};
 
+use crypto_traits::digest::{Digest as DigestTrait, HashAlgorithm};
 pub use nss::pk11::context::HashAlgorithm::{self as Algorithm, *};
+
+pub(crate) fn to_internal_algorithm(algorithm: HashAlgorithm) -> Algorithm {
+    match algorithm {
+        HashAlgorithm::Sha256 => Algorithm::SHA256,
+        HashAlgorithm::Sha384 => Algorithm::SHA384,
+    }
+}
 
 /// A calculated digest value.
 #[derive(Clone)]
@@ -39,6 +47,17 @@ impl Digest {
 impl AsRef<[u8]> for Digest {
     fn as_ref(&self) -> &[u8] {
         self.value.as_ref()
+    }
+}
+
+impl DigestTrait for NSSCryptographer {
+    fn digest(
+        &self,
+        algorithm: HashAlgorithm,
+        value: &[u8],
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        nss::pk11::context::hash_buf(&to_internal_algorithm(algorithm), value)
+            .map_err(|e| crypto_traits::Error::DigestError(e.to_string()))
     }
 }
 

@@ -10,13 +10,9 @@
 
 use super::{config::Config, util};
 use crate::{Error, Result};
+use crypto_traits::hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
-use rc_crypto::{
-    digest,
-    hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
-    hkdf, hmac,
-};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
@@ -558,9 +554,15 @@ fn kw(name: &str) -> Vec<u8> {
 pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>> {
     let session_token_bytes = hex::decode(session_token)?;
     let context_info = kw("sessionToken");
-    let salt = hmac::SigningKey::new(&digest::SHA256, &HAWK_HKDF_SALT);
     let mut out = vec![0u8; HAWK_KEY_LENGTH * 2];
-    hkdf::extract_and_expand(&salt, &session_token_bytes, &context_info, &mut out)?;
+    let crypto = crypto_traits::get_cryptographer()?;
+    crypto.extract_and_expand(
+        crypto_traits::digest::HashAlgorithm::Sha256,
+        &HAWK_HKDF_SALT,
+        &session_token_bytes,
+        &context_info,
+        &mut out,
+    )?;
     Ok(out)
 }
 
@@ -963,6 +965,7 @@ mod tests {
     #[test]
     fn test_backoff() {
         viaduct_reqwest::use_reqwest_backend();
+        rc_crypto::ensure_initialized();
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1010,6 +1013,8 @@ mod tests {
     #[test]
     fn test_backoff_then_ok() {
         viaduct_reqwest::use_reqwest_backend();
+        rc_crypto::ensure_initialized();
+
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1059,6 +1064,8 @@ mod tests {
 
     #[test]
     fn test_backoff_per_path() {
+        rc_crypto::ensure_initialized();
+
         viaduct_reqwest::use_reqwest_backend();
         let m1 = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)

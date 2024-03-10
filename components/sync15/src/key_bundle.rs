@@ -7,10 +7,7 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
-use crypto_traits::{
-    aead::{Aead, AeadAlgorithm, SyncAes256CBC},
-    rand::Rand,
-};
+use crypto_traits::aead::AeadAlgorithm;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyBundle {
@@ -50,14 +47,10 @@ impl KeyBundle {
         })
     }
 
-    pub fn new_random<C>(crypto: &C) -> Result<KeyBundle>
-    where
-        C: Rand,
-    {
+    pub fn new_random() -> Result<KeyBundle> {
         let mut buffer = [0u8; 64];
-        crypto
-            .rand(&mut buffer)
-            .map_err(|e| Error::CryptoError(e.to_string()))?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        crypto.rand(&mut buffer)?;
         KeyBundle::from_ksync_bytes(&buffer)
     }
 
@@ -107,16 +100,7 @@ impl KeyBundle {
 
     /// Decrypt the provided ciphertext with the given iv, and decodes the
     /// result as a utf8 string.
-    pub fn decrypt<C>(
-        &self,
-        enc_base64: &str,
-        iv_base64: &str,
-        hmac_base16: &str,
-        crypto: &C,
-    ) -> Result<String>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
+    pub fn decrypt(&self, enc_base64: &str, iv_base64: &str, hmac_base16: &str) -> Result<String> {
         // Decode the expected_hmac into bytes to avoid issues if a client happens to encode
         // this as uppercase. This shouldn't happen in practice, but doing it this way is more
         // robust and avoids an allocation.
@@ -128,37 +112,43 @@ impl KeyBundle {
         let iv = STANDARD.decode(iv_base64)?;
         let ciphertext_bytes = STANDARD.decode(enc_base64)?;
         let key_bytes = [self.encryption_key(), self.hmac_key()].concat();
-        if iv.len() != SyncAes256CBC::NONCE_LEN {
+        if iv.len() != AeadAlgorithm::SyncAes256CBC.nonce_len() {
             // TODO: Make a concrete error for this
             return Err(Error::HmacMismatch);
         }
         let ciphertext_and_hmac = [ciphertext_bytes, decoded_hmac].concat();
-        let cleartext_bytes = crypto
-            .open(&key_bytes, Some(&iv), &ciphertext_and_hmac, &[])
-            .map_err(|e| Error::CryptoError(e.to_string()))?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        let cleartext_bytes = crypto.open(
+            AeadAlgorithm::SyncAes256CBC,
+            &key_bytes,
+            Some(&iv),
+            &ciphertext_and_hmac,
+            &[],
+        )?;
         let cleartext = String::from_utf8(cleartext_bytes)?;
         Ok(cleartext)
     }
 
     /// Encrypt using the provided IV.
-    pub fn encrypt_bytes_with_iv<C>(
+    pub fn encrypt_bytes_with_iv(
         &self,
         cleartext_bytes: &[u8],
         iv: &[u8],
-        crypto: &C,
-    ) -> Result<(String, String)>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
+    ) -> Result<(String, String)> {
         let key_bytes = [self.encryption_key(), self.hmac_key()].concat();
-        if iv.len() != SyncAes256CBC::NONCE_LEN {
+        if iv.len() != AeadAlgorithm::SyncAes256CBC.nonce_len() {
             // TODO: Make a concrete error for this
             return Err(Error::HmacMismatch);
         }
-        let ciphertext_and_hmac = crypto
-            .seal(&key_bytes, Some(&iv), cleartext_bytes, &[])
-            .map_err(|e| Error::CryptoError(e.to_string()))?;
-        let ciphertext_len = ciphertext_and_hmac.len() - SyncAes256CBC::TAG_LEN;
+        let crypto = crypto_traits::get_cryptographer()?;
+        let ciphertext_and_hmac = crypto.seal(
+            AeadAlgorithm::SyncAes256CBC,
+            &key_bytes,
+            Some(&iv),
+            cleartext_bytes,
+            &[],
+        )?;
+        let ciphertext_len = ciphertext_and_hmac.len() - AeadAlgorithm::SyncAes256CBC.tag_len();
         // Do the string conversions here so we don't have to split and copy to 2 vectors.
         let (ciphertext, hmac_signature) = ciphertext_and_hmac.split_at(ciphertext_len);
         let enc_base64 = STANDARD.encode(ciphertext);
@@ -168,53 +158,29 @@ impl KeyBundle {
 
     /// Generate a random iv and encrypt with it. Return both the encrypted bytes
     /// and the generated iv.
-    pub fn encrypt_bytes_rand_iv<C>(
+    pub fn encrypt_bytes_rand_iv(
         &self,
         cleartext_bytes: &[u8],
-        crypto: &C,
-    ) -> Result<(String, String, String)>
-    where
-        C: Aead<SyncAes256CBC>,
-        C: Rand,
-    {
+    ) -> Result<(String, String, String)> {
         let mut iv = [0u8; 16];
-        crypto
-            .rand(&mut iv)
-            .map_err(|e| Error::CryptoError(e.to_string()))?;
-        let (enc_base64, hmac_base16) = self.encrypt_bytes_with_iv(cleartext_bytes, &iv, crypto)?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        crypto.rand(&mut iv)?;
+        let (enc_base64, hmac_base16) = self.encrypt_bytes_with_iv(cleartext_bytes, &iv)?;
         let iv_base64 = STANDARD.encode(iv);
         Ok((enc_base64, iv_base64, hmac_base16))
     }
 
-    pub fn encrypt_with_iv<C>(
-        &self,
-        cleartext: &str,
-        iv: &[u8],
-        crypto: &C,
-    ) -> Result<(String, String)>
-    where
-        C: Aead<SyncAes256CBC>,
-    {
-        self.encrypt_bytes_with_iv(cleartext.as_bytes(), iv, crypto)
+    pub fn encrypt_with_iv<C>(&self, cleartext: &str, iv: &[u8]) -> Result<(String, String)> {
+        self.encrypt_bytes_with_iv(cleartext.as_bytes(), iv)
     }
 
-    pub fn encrypt_rand_iv<C>(
-        &self,
-        cleartext: &str,
-        crypto: &C,
-    ) -> Result<(String, String, String)>
-    where
-        C: Aead<SyncAes256CBC>,
-        C: Rand,
-    {
-        self.encrypt_bytes_rand_iv(cleartext.as_bytes(), crypto)
+    pub fn encrypt_rand_iv(&self, cleartext: &str) -> Result<(String, String, String)> {
+        self.encrypt_bytes_rand_iv(cleartext.as_bytes())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use rc_crypto::NSSCryptographer;
-
     use super::*;
 
     const HMAC_B16: &str = "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
@@ -243,13 +209,11 @@ mod test {
 
     #[test]
     fn test_decrypt() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
 
         let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
         let ciphertext = CIPHERTEXT_B64_PIECES.join("");
-        let s = key_bundle
-            .decrypt(&ciphertext, IV_B64, HMAC_B16, &crypto)
-            .unwrap();
+        let s = key_bundle.decrypt(&ciphertext, IV_B64, HMAC_B16).unwrap();
 
         let cleartext =
             String::from_utf8(STANDARD.decode(CLEARTEXT_B64_PIECES.join("")).unwrap()).unwrap();
@@ -258,26 +222,26 @@ mod test {
 
     #[test]
     fn test_encrypt() {
-        let crypto = NSSCryptographer::new();
+        rc_crypto::ensure_initialized();
+
         let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
         let iv = STANDARD.decode(IV_B64).unwrap();
 
         let cleartext_bytes = STANDARD.decode(CLEARTEXT_B64_PIECES.join("")).unwrap();
         let (enc_base64, _hmac_base16) = key_bundle
-            .encrypt_bytes_with_iv(&cleartext_bytes, &iv, &crypto)
+            .encrypt_bytes_with_iv(&cleartext_bytes, &iv)
             .unwrap();
 
         let expect_ciphertext = CIPHERTEXT_B64_PIECES.join("");
 
         assert_eq!(&enc_base64, &expect_ciphertext);
 
-        let (enc_base64_2, iv_base64_2, hmac_base16_2) = key_bundle
-            .encrypt_bytes_rand_iv(&cleartext_bytes, &crypto)
-            .unwrap();
+        let (enc_base64_2, iv_base64_2, hmac_base16_2) =
+            key_bundle.encrypt_bytes_rand_iv(&cleartext_bytes).unwrap();
         assert_ne!(&enc_base64_2, &expect_ciphertext);
 
         let s = key_bundle
-            .decrypt(&enc_base64_2, &iv_base64_2, &hmac_base16_2, &crypto)
+            .decrypt(&enc_base64_2, &iv_base64_2, &hmac_base16_2)
             .unwrap();
         assert_eq!(&cleartext_bytes, &s.as_bytes());
     }

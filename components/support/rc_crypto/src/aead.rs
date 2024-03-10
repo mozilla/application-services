@@ -26,131 +26,109 @@ use crate::{digest, error::*, hmac, NSSCryptographer};
 pub use aes_cbc::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256;
 pub use aes_gcm::{AES_128_GCM, AES_256_GCM};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use crypto_traits::aead::{Aead, AeadAlgorithm, Aes128Gcm, Aes256Gcm, SyncAes256CBC};
+use crypto_traits::aead::{Aead, AeadAlgorithm};
 use nss::aes::{self, Operation};
 
-impl Aead<Aes128Gcm> for NSSCryptographer {
-    type Error = Error;
+impl Aead for NSSCryptographer {
     fn open(
         &self,
+        algorithm: AeadAlgorithm,
         key: &[u8],
         nonce: Option<&[u8]>,
         ciphertext: &[u8],
         associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        Ok(nss::aes::aes_gcm_crypt(
-            key,
-            nonce.unwrap_or(&[]),
-            associated_data,
-            ciphertext,
-            Operation::Decrypt,
-        )?)
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        self.open_impl(algorithm, key, nonce, ciphertext, associated_data)
+            .map_err(|e| crypto_traits::Error::AeadError(e.to_string()))
     }
 
     fn seal(
         &self,
+        algorithm: AeadAlgorithm,
         key: &[u8],
         nonce: Option<&[u8]>,
         plaintext: &[u8],
         associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        Ok(nss::aes::aes_gcm_crypt(
-            key,
-            nonce.unwrap_or(&[]),
-            associated_data,
-            plaintext,
-            Operation::Encrypt,
-        )?)
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        self.seal_impl(algorithm, key, nonce, plaintext, associated_data)
+            .map_err(|e| crypto_traits::Error::AeadError(e.to_string()))
     }
 }
 
-impl Aead<Aes256Gcm> for NSSCryptographer {
-    type Error = Error;
-    fn open(
+impl NSSCryptographer {
+    fn open_impl(
         &self,
+        algorithm: AeadAlgorithm,
         key: &[u8],
         nonce: Option<&[u8]>,
         ciphertext: &[u8],
         associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        Ok(nss::aes::aes_gcm_crypt(
-            key,
-            nonce.unwrap_or(&[]),
-            associated_data,
-            ciphertext,
-            Operation::Decrypt,
-        )?)
+    ) -> Result<Vec<u8>> {
+        match algorithm {
+            AeadAlgorithm::Aes128Gcm | AeadAlgorithm::Aes256Gcm => Ok(nss::aes::aes_gcm_crypt(
+                key,
+                nonce.unwrap_or(&[]),
+                associated_data,
+                ciphertext,
+                Operation::Decrypt,
+            )?),
+            AeadAlgorithm::SyncAes256CBC => {
+                // Always split at 32 since we only do AES 256 w/ HMAC 256 tag.
+                let (aes_key, hmac_key_bytes) = key.split_at(32);
+                let ciphertext_len = ciphertext
+                    .len()
+                    .checked_sub(algorithm.tag_len())
+                    .ok_or(ErrorKind::InternalError)?;
+                let (ciphertext, hmac_signature) = ciphertext.split_at(ciphertext_len);
+                let hmac_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key_bytes);
+                hmac::verify(
+                    &hmac_key,
+                    STANDARD.encode(ciphertext).as_bytes(),
+                    hmac_signature,
+                )?;
+                aes_cbc(
+                    aes_key,
+                    nonce.unwrap_or_default(),
+                    associated_data,
+                    ciphertext,
+                    Direction::Opening,
+                )
+            }
+        }
     }
-
-    fn seal(
+    fn seal_impl(
         &self,
+        algorithm: AeadAlgorithm,
         key: &[u8],
         nonce: Option<&[u8]>,
         plaintext: &[u8],
         associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        Ok(nss::aes::aes_gcm_crypt(
-            key,
-            nonce.unwrap_or(&[]),
-            associated_data,
-            plaintext,
-            Operation::Encrypt,
-        )?)
-    }
-}
-
-impl Aead<SyncAes256CBC> for NSSCryptographer {
-    type Error = Error;
-    fn open(
-        &self,
-        key: &[u8],
-        nonce: Option<&[u8]>,
-        ciphertext: &[u8],
-        associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        // Always split at 32 since we only do AES 256 w/ HMAC 256 tag.
-        let (aes_key, hmac_key_bytes) = key.split_at(32);
-        let ciphertext_len = ciphertext
-            .len()
-            .checked_sub(SyncAes256CBC::TAG_LEN)
-            .ok_or(ErrorKind::InternalError)?;
-        let (ciphertext, hmac_signature) = ciphertext.split_at(ciphertext_len);
-        let hmac_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key_bytes);
-        hmac::verify(
-            &hmac_key,
-            STANDARD.encode(ciphertext).as_bytes(),
-            hmac_signature,
-        )?;
-        aes_cbc(
-            aes_key,
-            nonce.unwrap_or_default(),
-            associated_data,
-            ciphertext,
-            Direction::Opening,
-        )
-    }
-
-    fn seal(
-        &self,
-        key: &[u8],
-        nonce: Option<&[u8]>,
-        plaintext: &[u8],
-        associated_data: &[u8],
-    ) -> std::result::Result<Vec<u8>, Self::Error> {
-        let (aes_key, hmac_key_bytes) = key.split_at(32);
-        // 1. Encryption.
-        let mut ciphertext = aes_cbc(
-            aes_key,
-            nonce.unwrap_or_default(),
-            associated_data,
-            plaintext,
-            Direction::Sealing,
-        )?;
-        // 2. Tag (HMAC signature) generation.
-        let hmac_key = hmac::SigningKey::new(&digest::SHA256, hmac_key_bytes);
-        let signature = hmac::sign(&hmac_key, STANDARD.encode(&ciphertext).as_bytes())?;
-        ciphertext.extend(&signature.0.value);
-        Ok(ciphertext)
+    ) -> Result<Vec<u8>> {
+        match algorithm {
+            AeadAlgorithm::Aes128Gcm | AeadAlgorithm::Aes256Gcm => Ok(nss::aes::aes_gcm_crypt(
+                key,
+                nonce.unwrap_or(&[]),
+                associated_data,
+                plaintext,
+                Operation::Encrypt,
+            )?),
+            AeadAlgorithm::SyncAes256CBC => {
+                let (aes_key, hmac_key_bytes) = key.split_at(32);
+                // 1. Encryption.
+                let mut ciphertext = aes_cbc(
+                    aes_key,
+                    nonce.unwrap_or_default(),
+                    associated_data,
+                    plaintext,
+                    Direction::Sealing,
+                )?;
+                // 2. Tag (HMAC signature) generation.
+                let hmac_key = hmac::SigningKey::new(&digest::SHA256, hmac_key_bytes);
+                let signature = hmac::sign(&hmac_key, STANDARD.encode(&ciphertext).as_bytes())?;
+                ciphertext.extend(&signature.0.value);
+                Ok(ciphertext)
+            }
+        }
     }
 }
 
