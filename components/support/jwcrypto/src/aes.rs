@@ -11,7 +11,7 @@ use crate::{
     CompactJwe, EncryptionAlgorithm, JweHeader,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rc_crypto::{aead, rand};
+use crypto_traits::aead::AeadAlgorithm;
 
 /// Does the AES-encrypt heavy-lifting for the schemes supported by this crate.
 pub(crate) fn aes_gcm_encrypt(
@@ -19,12 +19,11 @@ pub(crate) fn aes_gcm_encrypt(
     protected_header: JweHeader,
     content_encryption_key: &[u8],
 ) -> Result<CompactJwe> {
+    let crypto = crypto_traits::get_cryptographer()?;
     assert_eq!(protected_header.enc, EncryptionAlgorithm::A256GCM);
-    let sealing_key = aead::SealingKey::new(&aead::AES_256_GCM, content_encryption_key)?;
     let additional_data = serde_json::to_string(&protected_header)?;
     let additional_data = URL_SAFE_NO_PAD.encode(additional_data.as_bytes());
     let additional_data = additional_data.as_bytes();
-    let aad = aead::Aad::from(additional_data);
     // Note that RFC7518 specifies an IV of 96 bits == 12 bytes - which means
     // that a random IV generally isn't safe with AESGCM due to the risk of
     // collisions in this many bits. However, for the use-cases supported by
@@ -32,11 +31,16 @@ pub(crate) fn aes_gcm_encrypt(
     // for the same key is expected to be low enough to not collide in
     // practice.
     let mut iv: Vec<u8> = vec![0; 12];
-    rand::fill(&mut iv)?;
-    let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_256_GCM, &iv)?;
-    let mut encrypted = aead::seal(&sealing_key, nonce, aad, data)?;
+    crypto.rand(&mut iv)?;
+    let mut encrypted = crypto.seal(
+        AeadAlgorithm::Aes256Gcm,
+        content_encryption_key,
+        Some(&iv),
+        data,
+        additional_data,
+    )?;
 
-    let tag_idx = encrypted.len() - aead::AES_256_GCM.tag_len();
+    let tag_idx = encrypted.len() - AeadAlgorithm::Aes256Gcm.tag_len();
     let auth_tag = encrypted.split_off(tag_idx);
     let ciphertext = encrypted;
 
@@ -58,7 +62,7 @@ pub(crate) fn aes_gcm_decrypt(jwe: &CompactJwe, content_encryption_key: &[u8]) -
     let auth_tag = jwe
         .auth_tag()?
         .ok_or(JwCryptoError::IllegalState("auth_tag must be present."))?;
-    if auth_tag.len() != aead::AES_256_GCM.tag_len() {
+    if auth_tag.len() != AeadAlgorithm::Aes256Gcm.tag_len() {
         return Err(JwCryptoError::IllegalState(
             "The auth tag length is incorrect",
         ));
@@ -66,10 +70,15 @@ pub(crate) fn aes_gcm_decrypt(jwe: &CompactJwe, content_encryption_key: &[u8]) -
     let iv = jwe
         .iv()?
         .ok_or(JwCryptoError::IllegalState("iv must be present."))?;
-    let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, content_encryption_key)?;
     let ciphertext_and_tag: Vec<u8> = [jwe.ciphertext()?, auth_tag].concat();
-    let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_256_GCM, &iv)?;
-    let aad = aead::Aad::from(jwe.protected_header_raw().as_bytes());
-    let plaintext = aead::open(&opening_key, nonce, aad, &ciphertext_and_tag)?;
+    let aad = jwe.protected_header_raw().as_bytes();
+    let crypto = crypto_traits::get_cryptographer()?;
+    let plaintext = crypto.open(
+        AeadAlgorithm::Aes256Gcm,
+        content_encryption_key,
+        Some(&iv),
+        &ciphertext_and_tag,
+        aad,
+    )?;
     Ok(String::from_utf8(plaintext.to_vec())?)
 }

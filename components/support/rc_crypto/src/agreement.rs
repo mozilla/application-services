@@ -19,13 +19,92 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::error::*;
+use crate::{error::*, NSSCryptographer};
 use core::marker::PhantomData;
-
+use crypto_traits::agreement::Agreement;
 pub use ec::{Curve, EcKey};
 use nss::{ec, ecdh};
 
 pub type EphemeralKeyPair = KeyPair<Ephemeral>;
+
+impl Agreement for NSSCryptographer {
+    fn generate_keypair(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+    ) -> std::result::Result<crypto_traits::agreement::KeyPair, crypto_traits::Error> {
+        self.impl_generate_keypair(curve)
+            .map_err(|e| crypto_traits::Error::AgreementError(e.to_string()))
+    }
+
+    fn agree(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+        key_pair: crypto_traits::agreement::KeyPair,
+        peer_public_key: &[u8],
+    ) -> std::result::Result<Vec<u8>, crypto_traits::Error> {
+        self.impl_agree(curve, key_pair, peer_public_key)
+            .map_err(|e| crypto_traits::Error::AgreementError(e.to_string()))
+    }
+
+    fn keypair_from_coordinates(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+        d: &[u8],
+        x: &[u8],
+        y: &[u8],
+    ) -> std::result::Result<crypto_traits::agreement::KeyPair, crypto_traits::Error> {
+        self.impl_keypair_from_coordinates(curve, d, x, y)
+            .map_err(|e| crypto_traits::Error::AgreementError(e.to_string()))
+    }
+}
+
+impl NSSCryptographer {
+    fn impl_generate_keypair(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+    ) -> Result<crypto_traits::agreement::KeyPair> {
+        let (prv_key, pub_key) = ec::generate_keypair(to_ec_curve(curve))?;
+        Ok(crypto_traits::agreement::KeyPair::new(
+            prv_key.private_value()?,
+            pub_key.to_bytes()?,
+        ))
+    }
+
+    fn impl_agree(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+        key_pair: crypto_traits::agreement::KeyPair,
+        peer_public_key: &[u8],
+    ) -> Result<Vec<u8>> {
+        let ec_curve = to_ec_curve(curve);
+        let key = EcKey::new(ec_curve, key_pair.private_key(), key_pair.public_key());
+        let priv_key = ec::PrivateKey::import(&key)?;
+        let pub_key = ec::PublicKey::from_bytes(ec_curve, peer_public_key)?;
+        Ok(ecdh::ecdh_agreement(&priv_key, &pub_key)?)
+    }
+
+    fn impl_keypair_from_coordinates(
+        &self,
+        curve: crypto_traits::agreement::Curve,
+        d: &[u8],
+        x: &[u8],
+        y: &[u8],
+    ) -> Result<crypto_traits::agreement::KeyPair> {
+        let ec_curve = to_ec_curve(curve);
+        let key = EcKey::from_coordinates(ec_curve, d, x, y)?;
+        Ok(crypto_traits::agreement::KeyPair::new(
+            key.private_key().to_vec(),
+            key.public_key().to_vec(),
+        ))
+    }
+}
+
+fn to_ec_curve(a_curve: crypto_traits::agreement::Curve) -> Curve {
+    match a_curve {
+        crypto_traits::agreement::Curve::P256 => Curve::P256,
+        crypto_traits::agreement::Curve::P384 => Curve::P384,
+    }
+}
 
 /// A key agreement algorithm.
 #[derive(PartialEq, Eq)]

@@ -399,6 +399,7 @@ mod tests {
     use std::sync::Arc;
 
     fn setup() -> FirefoxAccount {
+        rc_crypto::ensure_initialized();
         // I'd love to be able to configure a single mocked client here,
         // but can't work out how to do that within the typesystem.
         let config = Config::stable_dev("12345678", "https://foo.bar");

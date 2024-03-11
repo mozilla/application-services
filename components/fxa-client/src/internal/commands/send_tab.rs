@@ -16,7 +16,7 @@
 use serde_derive::*;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rc_crypto::ece::{self, EcKeyComponents};
+use crypto_traits::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
 use super::super::{device::Device, scopes, telemetry};
@@ -32,7 +32,6 @@ pub struct EncryptedSendTabPayload {
 
 impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
-        rc_crypto::ensure_initialized();
         let encrypted = URL_SAFE_NO_PAD.decode(self.encrypted)?;
         let decrypted = ece::decrypt(&keys.p256key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
@@ -74,7 +73,6 @@ impl SendTabPayload {
         )
     }
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
-        rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
         let public_key = URL_SAFE_NO_PAD.decode(&keys.public_key)?;
         let auth_secret = URL_SAFE_NO_PAD.decode(&keys.auth_secret)?;
@@ -132,7 +130,6 @@ impl PrivateSendTabKeys {
 
 impl PrivateSendTabKeys {
     pub fn from_random() -> Result<Self> {
-        rc_crypto::ensure_initialized();
         let (key_pair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
         Ok(Self {
             p256key: key_pair.raw_components()?,

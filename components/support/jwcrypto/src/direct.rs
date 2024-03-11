@@ -11,7 +11,6 @@ use crate::{
     Algorithm, CompactJwe, EncryptionAlgorithm, JweHeader, Jwk, JwkKeyParameters,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rc_crypto::rand;
 
 impl Jwk {
     /// Create a new random key suitable for `Direct` symmetric encryption.
@@ -19,7 +18,8 @@ impl Jwk {
     pub fn new_direct_key(kid: Option<String>) -> Result<Self> {
         // We only support AES256 which has a 32byte key.
         let mut bytes: Vec<u8> = vec![0; 32];
-        rand::fill(&mut bytes)?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        crypto.rand(&mut bytes)?;
         Ok(Jwk {
             kid,
             key_parameters: JwkKeyParameters::Direct {
@@ -242,12 +242,13 @@ fn test_bad_key_type() {
 
 #[test]
 fn test_bad_key_type_direct() {
-    use super::{EncryptionAlgorithm, EphemeralKeyPair};
-    use rc_crypto::agreement;
-
+    use super::EncryptionAlgorithm;
     use crate::error::JwCryptoError;
-
-    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
+    rc_crypto::ensure_initialized();
+    let crypto = crypto_traits::get_cryptographer().unwrap();
+    let key_pair = crypto
+        .generate_keypair(crypto_traits::agreement::Curve::P256)
+        .unwrap();
     let jwk = crate::ec::extract_pub_key_jwk(&key_pair).unwrap();
 
     let data = b"The big brown fox fell down";

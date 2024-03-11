@@ -12,12 +12,16 @@
 //!
 
 use aead::Aead;
+use agreement::Agreement;
 use digest::Digest;
+use ece::Ece;
 use hawk::Hawk;
 use hkdf::Hkdf;
 use hmac::Hmac;
 pub mod aead;
+pub mod agreement;
 pub mod digest;
+pub mod ece;
 pub mod error;
 pub mod hawk;
 pub mod hkdf;
@@ -26,7 +30,10 @@ pub mod rand;
 pub use error::Error;
 use rand::Rand;
 
-pub trait Cryptographer: Aead + Hkdf + Hmac + Digest + Hawk + Rand + Sync + Send {}
+pub trait Cryptographer:
+    Aead + Hkdf + Hmac + Digest + Hawk + Rand + Ece + Agreement + Sync + Send
+{
+}
 static CRYPTOGRAPHER: std::sync::OnceLock<&'static dyn Cryptographer> = std::sync::OnceLock::new();
 pub fn set_cryptographer(crypto: &'static dyn Cryptographer) -> error::Result<()> {
     CRYPTOGRAPHER

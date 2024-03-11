@@ -18,9 +18,9 @@
 // So now, this *is* our JWT library.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use crypto_traits::agreement::KeyPair;
 use error::Result;
 pub use error::{EncryptorDecryptorError, JwCryptoError};
-use rc_crypto::agreement::EphemeralKeyPair;
 use serde_derive::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -52,7 +52,7 @@ pub enum DecryptionParameters {
     // ECDH-ES in Direct Key Agreement mode.
     #[allow(non_camel_case_types)]
     ECDH_ES {
-        local_key_pair: EphemeralKeyPair,
+        local_key_pair: KeyPair,
     },
     // Direct with a shared symmetric key.
     Direct {

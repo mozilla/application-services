@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use jwcrypto::{self, DecryptionParameters, Jwk};
-use rc_crypto::{agreement, agreement::EphemeralKeyPair};
-
 use super::FirefoxAccount;
 use crate::{Error, Result, ScopedKey};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use crypto_traits::agreement::{Curve, KeyPair};
+use jwcrypto::{self, DecryptionParameters, Jwk};
 
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
@@ -34,20 +33,18 @@ impl std::fmt::Debug for ScopedKey {
 }
 
 pub struct ScopedKeysFlow {
-    key_pair: EphemeralKeyPair,
+    key_pair: KeyPair,
 }
 
 impl ScopedKeysFlow {
     pub fn with_random_key() -> Result<Self> {
-        let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256)?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        let key_pair = crypto.generate_keypair(Curve::P256)?;
         Ok(Self { key_pair })
     }
 
     #[cfg(test)]
-    pub fn from_static_key_pair(key_pair: agreement::KeyPair<agreement::Static>) -> Result<Self> {
-        let (private_key, _) = key_pair.split();
-        let ephemeral_prv_key = private_key._tests_only_dangerously_convert_to_ephemeral();
-        let key_pair = agreement::KeyPair::from_private_key(ephemeral_prv_key)?;
+    pub fn from_static_key_pair(key_pair: crypto_traits::agreement::KeyPair) -> Result<Self> {
         Ok(Self { key_pair })
     }
 
@@ -67,10 +64,10 @@ impl ScopedKeysFlow {
 mod tests {
     use super::*;
     use jwcrypto::JwkKeyParameters;
-    use rc_crypto::agreement::{KeyPair, PrivateKey};
 
     #[test]
     fn test_flow() {
+        rc_crypto::ensure_initialized();
         let x = URL_SAFE_NO_PAD
             .decode("ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU")
             .unwrap();
@@ -80,10 +77,11 @@ mod tests {
         let d = URL_SAFE_NO_PAD
             .decode("UayD4kn_4QHvLvLLSSaANfDUp9AcQndQu_TohQKoyn8")
             .unwrap();
-        let ec_key =
-            agreement::EcKey::from_coordinates(agreement::Curve::P256, &d, &x, &y).unwrap();
-        let private_key = PrivateKey::<rc_crypto::agreement::Static>::import(&ec_key).unwrap();
-        let key_pair = KeyPair::from(private_key).unwrap();
+        let crypto = crypto_traits::get_cryptographer().unwrap();
+
+        let key_pair = crypto
+            .keypair_from_coordinates(Curve::P256, &d, &x, &y)
+            .unwrap();
         let flow = ScopedKeysFlow::from_static_key_pair(key_pair).unwrap();
         let jwk = flow.get_public_key_jwk().unwrap();
         let ec_key_params = match jwk.key_parameters {

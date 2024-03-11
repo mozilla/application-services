@@ -5,8 +5,9 @@
 use crate::{
     aead,
     agreement::{self, Curve, EcKey, UnparsedPublicKey},
-    digest, hkdf, hmac, rand,
+    digest, hkdf, hmac, rand, NSSCryptographer,
 };
+use crypto_traits::ece::Ece;
 use ece::crypto::{Cryptographer, EcKeyComponents, LocalKeyPair, RemotePublicKey};
 
 impl From<crate::Error> for ece::Error {
@@ -89,9 +90,7 @@ impl RemotePublicKey for RcCryptoRemotePublicKey {
     }
 }
 
-pub(crate) struct RcCryptoCryptographer;
-
-impl Cryptographer for RcCryptoCryptographer {
+impl Cryptographer for NSSCryptographer {
     fn generate_ephemeral_keypair(&self) -> Result<Box<dyn LocalKeyPair>, ece::Error> {
         Ok(Box::new(RcCryptoLocalKeyPair::generate_random()?))
     }
@@ -168,10 +167,12 @@ impl Cryptographer for RcCryptoCryptographer {
     }
 }
 
+impl Ece for NSSCryptographer {}
+
 // Please call `rc_crypto::ensure_initialized()` instead of calling
 // this function directly.
 pub(crate) fn init() {
-    ece::crypto::set_cryptographer(&crate::ece_crypto::RcCryptoCryptographer)
+    ece::crypto::set_cryptographer(&crate::ece_crypto::NSSCryptographer)
         .expect("Failed to initialize `ece` cryptographer!")
 }
 
@@ -182,6 +183,6 @@ mod tests {
     #[test]
     fn test_cryptographer_backend() {
         crate::ensure_initialized();
-        ece::crypto::test_cryptographer(RcCryptoCryptographer);
+        ece::crypto::test_cryptographer(NSSCryptographer);
     }
 }

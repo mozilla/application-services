@@ -64,10 +64,14 @@ impl NSSCryptographer {
         ciphertext: &[u8],
         associated_data: &[u8],
     ) -> Result<Vec<u8>> {
+        let nonce = nonce.unwrap_or_default();
+        if nonce.len() != algorithm.nonce_len() {
+            return Err(ErrorKind::InternalError.into());
+        }
         match algorithm {
             AeadAlgorithm::Aes128Gcm | AeadAlgorithm::Aes256Gcm => Ok(nss::aes::aes_gcm_crypt(
                 key,
-                nonce.unwrap_or(&[]),
+                nonce,
                 associated_data,
                 ciphertext,
                 Operation::Decrypt,
@@ -88,7 +92,7 @@ impl NSSCryptographer {
                 )?;
                 aes_cbc(
                     aes_key,
-                    nonce.unwrap_or_default(),
+                    nonce,
                     associated_data,
                     ciphertext,
                     Direction::Opening,
@@ -104,10 +108,14 @@ impl NSSCryptographer {
         plaintext: &[u8],
         associated_data: &[u8],
     ) -> Result<Vec<u8>> {
+        let nonce = nonce.unwrap_or_default();
+        if nonce.len() != algorithm.nonce_len() {
+            return Err(ErrorKind::InternalError.into());
+        }
         match algorithm {
             AeadAlgorithm::Aes128Gcm | AeadAlgorithm::Aes256Gcm => Ok(nss::aes::aes_gcm_crypt(
                 key,
-                nonce.unwrap_or(&[]),
+                nonce,
                 associated_data,
                 plaintext,
                 Operation::Encrypt,
@@ -117,7 +125,7 @@ impl NSSCryptographer {
                 // 1. Encryption.
                 let mut ciphertext = aes_cbc(
                     aes_key,
-                    nonce.unwrap_or_default(),
+                    nonce,
                     associated_data,
                     plaintext,
                     Direction::Sealing,

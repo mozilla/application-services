@@ -13,9 +13,9 @@ use super::{
 };
 use crate::{AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use crypto_traits::digest::HashAlgorithm;
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
-use rc_crypto::digest;
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -263,7 +263,8 @@ impl FirefoxAccount {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, code_verifier.as_bytes())?;
+        let crypto = crypto_traits::get_cryptographer()?;
+        let code_challenge = crypto.digest(HashAlgorithm::Sha256, code_verifier.as_bytes())?;
         let code_challenge = URL_SAFE_NO_PAD.encode(code_challenge);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
         let jwk = scoped_keys_flow.get_public_key_jwk()?;
@@ -669,6 +670,7 @@ mod tests {
 
     #[test]
     fn test_force_auth_url() {
+        rc_crypto::ensure_initialized();
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         let email = "test@example.com";
@@ -708,6 +710,7 @@ mod tests {
 
     #[test]
     fn test_webchannel_pairing_context_url() {
+        rc_crypto::ensure_initialized();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
@@ -729,6 +732,7 @@ mod tests {
 
     #[test]
     fn test_pairing_flow_url() {
+        rc_crypto::ensure_initialized();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
         const EXPECTED_URL: &str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";

@@ -911,6 +911,7 @@ dependencies = [
 name = "crypto_traits"
 version = "0.1.0"
 dependencies = [
+ "ece",
  "hawk",
  "thiserror",
 ]
@@ -2156,6 +2157,7 @@ name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "crypto_traits",
  "error-support",
  "log",
  "rc_crypto",

@@ -4,7 +4,6 @@
 
 use crate::{Error, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rc_crypto::rand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // Gets the unix epoch in ms.
@@ -30,7 +29,8 @@ pub fn past_timestamp(days: u64) -> u64 {
 
 pub fn random_base64_url_string(len: usize) -> Result<String> {
     let mut out = vec![0u8; len];
-    rand::fill(&mut out)?;
+    let crypto = crypto_traits::get_cryptographer()?;
+    crypto.rand(&mut out)?;
     Ok(URL_SAFE_NO_PAD.encode(&out))
 }
 

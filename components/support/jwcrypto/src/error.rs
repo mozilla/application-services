@@ -26,6 +26,8 @@ pub enum JwCryptoError {
     InvalidKey,
     #[error("EmptyCyphertext")]
     EmptyCyphertext,
+    #[error("Crypto error: {0}")]
+    CryptoTError(#[from] crypto_traits::Error),
 }
 
 /// Error for the EncryptorDecryptor struct

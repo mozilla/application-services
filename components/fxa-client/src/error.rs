@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crypto_traits::hawk;
 use error_support::{ErrorHandling, GetErrorHandling};
-use rc_crypto::hawk;
 use std::string;
 
 /// Public error type thrown by many [`FirefoxAccount`] operations.
@@ -141,16 +141,11 @@ pub enum Error {
         message: String,
         info: String,
     },
-
-    // Basically reimplement error_chain's foreign_links. (Ugh, this sucks).
-    #[error("Crypto/NSS error: {0}")]
-    CryptoError(#[from] rc_crypto::Error),
-
     #[error("Crypto error: {0}")]
-    CryptoTError(#[from] crypto_traits::Error),
+    CryptoError(#[from] crypto_traits::Error),
 
     #[error("http-ece encryption error: {0}")]
-    EceError(#[from] rc_crypto::ece::Error),
+    EceError(#[from] crypto_traits::ece::Error),
 
     #[error("Hex decode error: {0}")]
     HexDecodeError(#[from] hex::FromHexError),

@@ -21,7 +21,6 @@ url = "2.2"
 viaduct = { path = "../viaduct" }
 jwcrypto = { path = "../support/jwcrypto" }
 crypto_traits = { path = "../crypto_traits" }
-rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
 thiserror = "1.0"
 anyhow = "1.0"
@@ -35,6 +34,7 @@ uniffi = { workspace = true, features = ["build"] }
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 mockall = "0.11"
 mockito = "0.31"
+rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 
 [features]
 default = []

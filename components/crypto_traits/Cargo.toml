@@ -11,4 +11,7 @@ exclude = []
 
 [dependencies]
 thiserror = "1.0"
+ece = { version = "2.3", default-features = false, features = [
+    "serializable-keys",
+] }
 hawk = { version = "5", default-features = false }

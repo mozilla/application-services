@@ -586,7 +586,6 @@ struct HawkRequestBuilder<'a> {
 
 impl<'a> HawkRequestBuilder<'a> {
     pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
-        rc_crypto::ensure_initialized();
         HawkRequestBuilder {
             url,
             method,

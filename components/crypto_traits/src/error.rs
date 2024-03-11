@@ -16,6 +16,8 @@ pub enum Error {
     CryptographerNotSet,
     #[error("Unable to set cryptographer")]
     UnableToSetCryptographer,
+    #[error("Error during Agreement operation: {0}")]
+    AgreementError(String),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

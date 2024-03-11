@@ -12,9 +12,9 @@ use crate::{
     Algorithm, CompactJwe, EncryptionAlgorithm, JweHeader, Jwk, JwkKeyParameters,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rc_crypto::{
-    agreement::{self, EphemeralKeyPair, InputKeyMaterial, UnparsedPublicKey},
-    digest,
+use crypto_traits::{
+    agreement::{Curve, KeyPair},
+    digest::HashAlgorithm,
 };
 use serde_derive::{Deserialize, Serialize};
 
@@ -33,7 +33,8 @@ pub(crate) fn encrypt_to_jwe(
     enc: EncryptionAlgorithm,
     peer_jwk: &Jwk,
 ) -> Result<CompactJwe> {
-    let local_key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256)?;
+    let crypto = crypto_traits::get_cryptographer()?;
+    let local_key_pair = crypto.generate_keypair(Curve::P256)?;
     let local_public_key = extract_pub_key_jwk(&local_key_pair)?;
     let ec_key_params = match peer_jwk.key_parameters {
         JwkKeyParameters::EC(ref params) => params,
@@ -58,7 +59,10 @@ pub(crate) fn encrypt_to_jwe(
 /// The ECDH helper that takes the ciphertext in the form of a CompactJwe,
 /// and the keys, creates the appropriate header, then calls the `aes` module to
 /// do the actual decrytion.
-pub(crate) fn decrypt_jwe(jwe: &CompactJwe, local_key_pair: EphemeralKeyPair) -> Result<String> {
+pub(crate) fn decrypt_jwe(
+    jwe: &CompactJwe,
+    local_key_pair: crypto_traits::agreement::KeyPair,
+) -> Result<String> {
     // Part 0: Validate inputs.
     let protected_header = jwe.protected_header()?.ok_or(JwCryptoError::IllegalState(
         "protected_header must be present.",
@@ -94,18 +98,17 @@ pub(crate) fn decrypt_jwe(jwe: &CompactJwe, local_key_pair: EphemeralKeyPair) ->
 
 fn derive_shared_secret(
     protected_header: &JweHeader,
-    local_key_pair: EphemeralKeyPair,
+    local_key_pair: KeyPair,
     peer_key: &ECKeysParameters,
-) -> Result<digest::Digest> {
-    let (private_key, _) = local_key_pair.split();
-    let peer_public_key_raw_bytes = public_key_from_ec_params(peer_key)?;
-    let peer_public_key = UnparsedPublicKey::new(&agreement::ECDH_P256, &peer_public_key_raw_bytes);
+) -> Result<Vec<u8>> {
+    let crypto = crypto_traits::get_cryptographer()?;
+    let peer_public_key = public_key_from_ec_params(peer_key)?;
     // Note: We don't support key-wrapping, but if we did `algorithm_id` would be `alg` instead.
     let algorithm_id = protected_header.enc.algorithm_id();
-    let ikm = private_key.agree(&peer_public_key)?;
+    let ikm = crypto.agree(Curve::P256, local_key_pair, &peer_public_key)?;
     let apu = protected_header.apu.as_deref().unwrap_or_default();
     let apv = protected_header.apv.as_deref().unwrap_or_default();
-    get_secret_from_ikm(ikm, apu, apv, algorithm_id)
+    get_secret_from_ikm(&ikm, apu, apv, algorithm_id)
 }
 
 fn public_key_from_ec_params(jwk: &ECKeysParameters) -> Result<Vec<u8>> {
@@ -128,34 +131,27 @@ fn public_key_from_ec_params(jwk: &ECKeysParameters) -> Result<Vec<u8>> {
     Ok(peer_pub_key)
 }
 
-fn get_secret_from_ikm(
-    ikm: InputKeyMaterial,
-    apu: &str,
-    apv: &str,
-    alg: &str,
-) -> Result<digest::Digest> {
-    let secret = ikm.derive(|z| {
-        let mut buf: Vec<u8> = vec![];
-        // ConcatKDF (1 iteration since keyLen <= hashLen).
-        // See rfc7518 section 4.6 for reference.
-        buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(z);
-        // otherinfo
-        buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
-        buf.extend_from_slice(alg.as_bytes());
-        buf.extend_from_slice(&(apu.len() as u32).to_be_bytes());
-        buf.extend_from_slice(apu.as_bytes());
-        buf.extend_from_slice(&(apv.len() as u32).to_be_bytes());
-        buf.extend_from_slice(apv.as_bytes());
-        buf.extend_from_slice(&256u32.to_be_bytes());
-        digest::digest(&digest::SHA256, &buf)
-    })?;
-    Ok(secret)
+fn get_secret_from_ikm(ikm: &[u8], apu: &str, apv: &str, alg: &str) -> Result<Vec<u8>> {
+    let mut buf: Vec<u8> = vec![];
+    // ConcatKDF (1 iteration since keyLen <= hashLen).
+    // See rfc7518 section 4.6 for reference.
+    buf.extend_from_slice(&1u32.to_be_bytes());
+    buf.extend_from_slice(ikm);
+    // otherinfo
+    buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
+    buf.extend_from_slice(alg.as_bytes());
+    buf.extend_from_slice(&(apu.len() as u32).to_be_bytes());
+    buf.extend_from_slice(apu.as_bytes());
+    buf.extend_from_slice(&(apv.len() as u32).to_be_bytes());
+    buf.extend_from_slice(apv.as_bytes());
+    buf.extend_from_slice(&256u32.to_be_bytes());
+    let crypto = crypto_traits::get_cryptographer()?;
+    Ok(crypto.digest(HashAlgorithm::Sha256, &buf)?)
 }
 
 /// Extracts the public key from an [EphemeralKeyPair] as a [Jwk].
-pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
-    let pub_key_bytes = key_pair.public_key().to_bytes()?;
+pub fn extract_pub_key_jwk(key_pair: &KeyPair) -> Result<Jwk> {
+    let pub_key_bytes = key_pair.public_key();
     // Uncompressed form (see SECG SEC1 section 2.3.3).
     // First byte is 4, then 32 bytes for x, and 32 bytes for y.
     assert_eq!(pub_key_bytes.len(), 1 + 32 + 32);
@@ -177,8 +173,9 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
 #[test]
 fn test_encrypt_decrypt_jwe_ecdh_es() {
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
-    use rc_crypto::agreement;
-    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
+    rc_crypto::ensure_initialized();
+    let crypto = crypto_traits::get_cryptographer().unwrap();
+    let key_pair = crypto.generate_keypair(Curve::P256).unwrap();
     let jwk = extract_pub_key_jwk(&key_pair).unwrap();
     let data = b"The big brown fox jumped over... What?";
     let encrypted = encrypt_to_jwe(
@@ -203,7 +200,10 @@ fn test_encrypt_decrypt_jwe_ecdh_es() {
 fn test_bad_key_type() {
     use super::{encrypt_to_jwe, EncryptionParameters};
     use crate::error::JwCryptoError;
-    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
+    rc_crypto::ensure_initialized();
+    let crypto = crypto_traits::get_cryptographer().unwrap();
+
+    let key_pair = crypto.generate_keypair(Curve::P256).unwrap();
     let jwk = extract_pub_key_jwk(&key_pair).unwrap();
     let data = b"The big brown fox fell down";
     assert!(matches!(
