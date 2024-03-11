@@ -53,7 +53,7 @@ impl FirefoxAccount {
         let (payload, sent_telemetry) = SendTabPayload::single_tab(title, url);
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(oldsync_key, target, &payload)?;
-        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)?;
+        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload, None)?;
         self.telemetry.record_command_sent(sent_telemetry);
         Ok(())
     }

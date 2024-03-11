@@ -159,6 +159,7 @@ impl FirefoxAccount {
         command: &str,
         target: &Device,
         payload: &serde_json::Value,
+        ttl: Option<u64>,
     ) -> Result<()> {
         let refresh_token = self.get_refresh_token()?;
         self.client.invoke_command(
@@ -167,6 +168,7 @@ impl FirefoxAccount {
             command,
             &target.id,
             payload,
+            ttl,
         )
     }
 
