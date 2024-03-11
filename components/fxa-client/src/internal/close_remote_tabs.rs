@@ -30,7 +30,12 @@ impl FirefoxAccount {
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload =
             close_remote_tabs::build_close_remote_tabs_command(oldsync_key, target, &payload)?;
-        self.invoke_command(close_remote_tabs::COMMAND_NAME, target, &command_payload)?;
+        self.invoke_command(
+            close_remote_tabs::COMMAND_NAME,
+            target,
+            &command_payload,
+            Some(close_remote_tabs::COMMAND_TTL),
+        )?;
         Ok(())
     }
 

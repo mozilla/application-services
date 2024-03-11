@@ -123,6 +123,7 @@ pub(crate) trait FxAClient {
         command: &str,
         target: &str,
         payload: &serde_json::Value,
+        ttl: Option<u64>,
     ) -> Result<()>;
     fn update_device_record<'a>(
         &self,
@@ -359,11 +360,13 @@ impl FxAClient for Client {
         command: &str,
         target: &str,
         payload: &serde_json::Value,
+        ttl: Option<u64>,
     ) -> Result<()> {
         let body = json!({
             "command": command,
             "target": target,
-            "payload": payload
+            "payload": payload,
+            "ttl": ttl,
         });
         let url = config.auth_url_path("v1/account/devices/invoke_command")?;
         let request = Request::post(url)
