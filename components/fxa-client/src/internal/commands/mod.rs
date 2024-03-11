@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub mod close_tabs;
+pub mod close_remote_tabs;
 pub mod send_tab;
 
-pub use close_tabs::CloseTabsPayload;
+pub use close_remote_tabs::CloseTabsPayload;
 pub use send_tab::SendTabPayload;
 
 use super::device::Device;

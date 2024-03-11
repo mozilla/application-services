@@ -83,12 +83,12 @@ impl FirefoxAccount {
                         send_tab_command_data,
                     );
                 }
-                DeviceCapability::CloseTabs => {
-                    let close_tabs_command_data =
-                        self.generate_command_data(DeviceCapability::CloseTabs)?;
+                DeviceCapability::CloseRemoteTabs => {
+                    let close_remote_tabs_command_data =
+                        self.generate_command_data(DeviceCapability::CloseRemoteTabs)?;
                     commands.insert(
-                        commands::close_tabs::COMMAND_NAME.to_owned(),
-                        close_tabs_command_data,
+                        commands::close_remote_tabs::COMMAND_NAME.to_owned(),
+                        close_remote_tabs_command_data,
                     );
                 }
             }
@@ -261,8 +261,8 @@ impl FirefoxAccount {
             commands::send_tab::COMMAND_NAME => {
                 self.handle_send_tab_command(sender, command_data.payload, telem_reason)
             }
-            commands::close_tabs::COMMAND_NAME => {
-                self.handle_close_tabs_command(sender, command_data.payload)
+            commands::close_remote_tabs::COMMAND_NAME => {
+                self.handle_close_remote_tabs_command(sender, command_data.payload)
             }
             _ => Err(Error::UnknownCommand(command_data.command)),
         }
@@ -356,7 +356,7 @@ impl FirefoxAccount {
     ) -> Result<PrivateSendTabKeys> {
         match capability {
             DeviceCapability::SendTab => self.load_or_generate_send_tab_keys(),
-            DeviceCapability::CloseTabs => self.load_or_generate_close_tabs_keys(),
+            DeviceCapability::CloseRemoteTabs => self.load_or_generate_close_remote_tabs_keys(),
         }
     }
 }
@@ -367,7 +367,7 @@ impl TryFrom<String> for DeviceCapability {
     fn try_from(command: String) -> Result<Self> {
         match command.as_str() {
             commands::send_tab::COMMAND_NAME => Ok(DeviceCapability::SendTab),
-            commands::close_tabs::COMMAND_NAME => Ok(DeviceCapability::CloseTabs),
+            commands::close_remote_tabs::COMMAND_NAME => Ok(DeviceCapability::CloseRemoteTabs),
             _ => Err(Error::UnknownCommand(command)),
         }
     }
@@ -404,7 +404,9 @@ impl TryFrom<Device> for crate::Device {
             .keys()
             .filter_map(|k| match k.as_str() {
                 commands::send_tab::COMMAND_NAME => Some(DeviceCapability::SendTab),
-                commands::close_tabs::COMMAND_NAME => Some(DeviceCapability::CloseTabs),
+                commands::close_remote_tabs::COMMAND_NAME => {
+                    Some(DeviceCapability::CloseRemoteTabs)
+                }
                 _ => None,
             })
             .map(Into::into)

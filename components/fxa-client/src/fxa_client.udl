@@ -532,7 +532,7 @@ interface FirefoxAccount {
 
   // ...
   [Throws=FxaError]
-  void close_tabs([ByRef] string target_device_id, sequence<string> urls );
+  void close_remote_tabs([ByRef] string target_device_id, sequence<string> urls );
 
 
   // Get the URL at which to access the user's sync data.
@@ -995,7 +995,7 @@ enum FxaRustAuthState {
 //
 enum DeviceCapability {
   "SendTab",
-  "CloseTabs",
+  "CloseRemoteTabs",
 };
 
 

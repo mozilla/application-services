@@ -53,10 +53,10 @@ impl CloseTabsPayload {
     }
 }
 
-pub fn build_close_tabs_command(
+pub fn build_close_remote_tabs_command(
     scoped_key: &ScopedKey,
     target: &Device,
-    close_tabs_payload: &CloseTabsPayload,
+    close_remote_tabs_payload: &CloseTabsPayload,
 ) -> Result<serde_json::Value> {
     let command = target
         .available_commands
@@ -64,6 +64,6 @@ pub fn build_close_tabs_command(
         .ok_or(Error::UnsupportedCommand(COMMAND_NAME))?;
     let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
     let public_keys = bundle.decrypt(scoped_key)?;
-    let encrypted_payload = close_tabs_payload.encrypt(public_keys)?;
+    let encrypted_payload = close_remote_tabs_payload.encrypt(public_keys)?;
     Ok(serde_json::to_value(encrypted_payload)?)
 }

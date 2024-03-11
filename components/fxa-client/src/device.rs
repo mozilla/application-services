@@ -242,7 +242,7 @@ pub struct Device {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum DeviceCapability {
     SendTab,
-    CloseTabs,
+    CloseRemoteTabs,
 }
 
 /// A client connected to the user's account.

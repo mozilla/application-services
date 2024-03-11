@@ -103,8 +103,10 @@ impl FirefoxAccount {
 
     /// ...
     #[handle_error(Error)]
-    pub fn close_tabs(&self, target_device_id: &str, urls: Vec<String>) -> ApiResult<()> {
-        self.internal.lock().close_tabs(target_device_id, &urls)
+    pub fn close_remote_tabs(&self, target_device_id: &str, urls: Vec<String>) -> ApiResult<()> {
+        self.internal
+            .lock()
+            .close_remote_tabs(target_device_id, &urls)
     }
 }
 
