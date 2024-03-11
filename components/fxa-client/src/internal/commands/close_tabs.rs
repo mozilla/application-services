@@ -14,6 +14,7 @@ use super::{
 };
 
 pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/close-uri/v1";
+pub const COMMAND_TTL: u64 = 2 * 24 * 3600;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncryptedCloseTabsPayload {
