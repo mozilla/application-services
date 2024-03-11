@@ -8,9 +8,11 @@
 mod error;
 mod interruptee;
 mod shutdown;
+#[cfg(feature = "sql")]
 mod sql;
 
 pub use error::Interrupted;
 pub use interruptee::*;
 pub use shutdown::*;
+#[cfg(feature = "sql")]
 pub use sql::*;

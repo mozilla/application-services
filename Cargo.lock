@@ -4145,6 +4145,7 @@ name = "sync-guid"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "getrandom",
  "rand",
  "rusqlite",
  "serde",

@@ -27,6 +27,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Weak;
 
+#[cfg(feature = "sql")]
 use crate::SqlInterruptHandle;
 
 // Bool that tracks if we're in shutdown mode or not.  We use Ordering::Relaxed to read/write to
@@ -34,11 +35,13 @@ use crate::SqlInterruptHandle;
 static IN_SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 // `SqlInterruptHandle` instances to interrupt when we shutdown
+#[cfg(feature = "sql")]
 lazy_static::lazy_static! {
    static ref REGISTERED_INTERRUPTS: Mutex<Vec<Weak<dyn AsRef<SqlInterruptHandle> + Send + Sync>>> = Mutex::new(Vec::new());
 }
 
 /// Initiate shutdown mode
+#[cfg(feature = "sql")]
 pub fn shutdown() {
     IN_SHUTDOWN.store(true, Ordering::Relaxed);
     for weak in REGISTERED_INTERRUPTS.lock().iter() {
@@ -57,6 +60,7 @@ pub fn in_shutdown() -> bool {
 ///
 /// Call this function to ensure that the `SqlInterruptHandle::interrupt()` method will be called
 /// at shutdown.
+#[cfg(feature = "sql")]
 pub fn register_interrupt(interrupt: Weak<dyn AsRef<SqlInterruptHandle> + Send + Sync>) {
     // Try to find an existing entry that's been dropped to replace.  This keeps the vector growth
     // in check

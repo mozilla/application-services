@@ -7,12 +7,14 @@ edition = "2021"
 
 [dependencies]
 rusqlite = { workspace = true, optional = true, features = ["bundled"] }
+getrandom = { version = "0.2", optional = true, features = ["js"] }
 serde = { version = "1", optional = true }
 rand = { version = "0.8", optional = true }
 base64 = { version = "0.21", optional = true }
 
 [features]
 random = ["rand", "base64"]
+randomjs = ["base64", "getrandom"]
 rusqlite_support = ["rusqlite"]
 serde_support = ["serde"]
 # By default we support serde, but not rusqlite.

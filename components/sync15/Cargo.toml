@@ -11,6 +11,8 @@ exclude = ["/android", "/ios"]
 # in m-c's top-level Cargo.toml to make updating easier, but you can't specify features there)
 default = ["sync-engine"]
 
+wasm = ["sync-guid/randomjs"]
+
 random-guid = ["sync-guid/random"]
 
 # Some consumers of this just need our encrypted payloads and no other sync functionality.
@@ -50,17 +52,17 @@ base16 = { version = "0.2", optional = true }
 base64 = { version = "0.21", optional = true }
 error-support = { path = "../support/error" }
 ffi-support = "0.4"
-interrupt-support = { path = "../support/interrupt" }
+interrupt-support = { path = "../support/interrupt", default-features = false }
 lazy_static = "1.4"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 serde_json = "1"
 serde_path_to_error = "0.1"
-sync-guid = { path = "../support/guid", features = ["random"] }
+sync-guid = { path = "../support/guid" }
 thiserror = "1.0"
 uniffi = { workspace = true }
-url = { version = "2.1", optional = true }                      # mozilla-central can't yet take 2.2 (see bug 1734538)
+url = { version = "2.1", optional = true }                                      # mozilla-central can't yet take 2.2 (see bug 1734538)
 viaduct = { path = "../viaduct", optional = true }
 crypto_traits = { path = "../crypto_traits" }
 

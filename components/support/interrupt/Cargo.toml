@@ -8,4 +8,13 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4"
 parking_lot = ">=0.11,<=0.12"
-rusqlite = { workspace = true, features = ["functions", "limits", "bundled", "unlock_notify"] }
+rusqlite = { workspace = true, features = [
+    "functions",
+    "limits",
+    "bundled",
+    "unlock_notify",
+], optional = true }
+
+[features]
+default = ["sql"]
+sql = ["rusqlite"]

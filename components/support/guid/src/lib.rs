@@ -19,7 +19,7 @@ use std::{
     ops, str,
 };
 
-#[cfg(feature = "random")]
+#[cfg(any(feature = "random", feature = "randomjs"))]
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 
 /// This is a type intended to be used to represent the guids used by sync. It
@@ -135,9 +135,32 @@ impl Guid {
 
     /// Create a random guid (of 12 base64url characters). Requires the `random`
     /// feature.
-    #[cfg(feature = "random")]
+    #[cfg(all(feature = "random", not(feature = "randomjs")))]
     pub fn random() -> Self {
         let bytes: [u8; 9] = rand::random();
+
+        // Note: only first 12 bytes are used, but remaining are required to
+        // build the FastGuid
+        let mut output = [0u8; MAX_FAST_GUID_LEN];
+
+        let bytes_written = URL_SAFE_NO_PAD
+            .encode_slice(bytes, &mut output[..12])
+            .expect("Output buffer too small");
+
+        debug_assert!(bytes_written == 12);
+
+        Guid(Repr::Fast(FastGuid {
+            len: 12,
+            data: output,
+        }))
+    }
+
+    /// Create a random guid (of 12 base64url characters). Requires the `random`
+    /// feature.
+    #[cfg(all(feature = "randomjs", not(feature = "random")))]
+    pub fn random() -> Self {
+        let mut bytes: [u8; 9] = [0u8; 9];
+        getrandom::getrandom(&mut bytes).unwrap();
 
         // Note: only first 12 bytes are used, but remaining are required to
         // build the FastGuid

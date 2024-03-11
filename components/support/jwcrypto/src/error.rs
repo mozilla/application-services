@@ -16,8 +16,6 @@ pub enum JwCryptoError {
     PartialImplementation(&'static str),
     #[error("Base64 decode error: {0}")]
     Base64Decode(#[from] base64::DecodeError),
-    #[error("Crypto error: {0}")]
-    CryptoError(#[from] rc_crypto::Error),
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
     #[error("UTF8 decode error: {0}")]
@@ -27,7 +25,7 @@ pub enum JwCryptoError {
     #[error("EmptyCyphertext")]
     EmptyCyphertext,
     #[error("Crypto error: {0}")]
-    CryptoTError(#[from] crypto_traits::Error),
+    CryptoError(#[from] crypto_traits::Error),
 }
 
 /// Error for the EncryptorDecryptor struct
