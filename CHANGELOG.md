@@ -8,7 +8,7 @@
 - Upgraded NDK from r25c to r26c. ([#6134](https://github.com/mozilla/application-services/pull/6134))
 
 ### Glean
-- Updated to v58.0.0 ([#6150](https://github.com/mozilla/application-services/pull/6150))
+- Updated to v58.1.0 ([#6150](https://github.com/mozilla/application-services/pull/6150)/[#6163](https://github.com/mozilla/application-services/pull/6163))
 
 ### Suggest
 - Improved full keyword display for AMP suggestions
