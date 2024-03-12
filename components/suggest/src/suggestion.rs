@@ -16,6 +16,12 @@ const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
 /// 2 bytes shorter than [`TIMESTAMP_TEMPLATE`].
 const TIMESTAMP_LENGTH: usize = 10;
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SuggestionIcon {
+    pub data: Vec<u8>,
+    pub mime_type: String,
+}
+
 /// Suggestion Types for Amp
 pub(crate) enum AmpSuggestionType {
     Mobile,
@@ -28,8 +34,7 @@ pub enum Suggestion {
         title: String,
         url: String,
         raw_url: String,
-        icon: Option<Vec<u8>>,
-        icon_mimetype: Option<String>,
+        icon: Option<SuggestionIcon>,
         full_keyword: String,
         block_id: i64,
         advertiser: String,
@@ -48,8 +53,7 @@ pub enum Suggestion {
     Wikipedia {
         title: String,
         url: String,
-        icon: Option<Vec<u8>>,
-        icon_mimetype: Option<String>,
+        icon: Option<SuggestionIcon>,
         full_keyword: String,
     },
     Amo {
@@ -65,8 +69,7 @@ pub enum Suggestion {
     Yelp {
         url: String,
         title: String,
-        icon: Option<Vec<u8>>,
-        icon_mimetype: Option<String>,
+        icon: Option<SuggestionIcon>,
         score: f64,
         has_location_sign: bool,
         subject_exact_match: bool,

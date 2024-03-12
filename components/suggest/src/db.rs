@@ -27,7 +27,7 @@ use crate::{
     },
     schema::{clear_database, SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
-    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
+    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion, SuggestionIcon},
     Result, SuggestionQuery,
 };
 
@@ -290,7 +290,7 @@ impl<'a> SuggestDao<'a> {
                       amp.iab_category,
                       amp.impression_url,
                       amp.click_url,
-                      i.data AS icon,
+                      i.data AS icon_data,
                       i.mimetype AS icon_mimetype
                     FROM
                       amp_custom_details amp
@@ -306,6 +306,12 @@ impl<'a> SuggestDao<'a> {
                         let cooked_url = cook_raw_suggestion_url(&raw_url);
                         let raw_click_url = row.get::<_, String>("click_url")?;
                         let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
+                        let icon_data = row.get::<_, Option<_>>("icon_data")?;
+                        let icon_mime_type = row.get::<_, Option<_>>("icon_mimetype")?;
+                        let icon = icon_data.map(|data| SuggestionIcon {
+                            data,
+                            mime_type: icon_mime_type.unwrap_or_default(),
+                        });
 
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
@@ -316,8 +322,7 @@ impl<'a> SuggestDao<'a> {
                             raw_url,
                             full_keyword: full_keyword_from_db
                                 .unwrap_or_else(|| full_keyword(keyword_lowercased, &keywords)),
-                            icon: row.get("icon")?,
-                            icon_mimetype: row.get("icon_mimetype")?,
+                            icon,
                             impression_url: row.get("impression_url")?,
                             click_url: cooked_click_url,
                             raw_click_url,
@@ -368,7 +373,7 @@ impl<'a> SuggestDao<'a> {
                     },
                     |row| row.get(0),
                 )?;
-                let (icon, icon_mimetype) = self
+                let icon = self
                     .conn
                     .try_query_row(
                         "SELECT i.data, i.mimetype
@@ -380,21 +385,20 @@ impl<'a> SuggestDao<'a> {
                             ":suggestion_id": suggestion_id
                         },
                         |row| -> Result<_> {
-                            Ok((
-                                row.get::<_, Option<Vec<u8>>>(0)?,
-                                row.get::<_, Option<String>>(1)?,
-                            ))
+                            Ok(Some(SuggestionIcon {
+                                data: row.get::<_, Vec<u8>>(0)?,
+                                mime_type: row.get::<_, String>(1)?,
+                            }))
                         },
                         true,
                     )?
-                    .unwrap_or((None, None));
+                    .unwrap_or(None);
 
                 Ok(Suggestion::Wikipedia {
                     title,
                     url: raw_url,
                     full_keyword: full_keyword(keyword_lowercased, &keywords),
                     icon,
-                    icon_mimetype,
                 })
             },
         )?;
@@ -1171,7 +1175,7 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Inserts or replaces an icon for a suggestion into the database.
-    pub fn put_icon(&mut self, icon_id: &str, data: &[u8], mimetype: &str) -> Result<()> {
+    pub fn put_icon(&mut self, icon_id: &str, data: &[u8], mime_type: &str) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO icons(
                  id,
@@ -1186,7 +1190,7 @@ impl<'a> SuggestDao<'a> {
             named_params! {
                 ":id": icon_id,
                 ":data": data,
-                ":mimetype": mimetype,
+                ":mimetype": mime_type,
             },
         )?;
         Ok(())
