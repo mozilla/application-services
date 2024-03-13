@@ -1565,3 +1565,52 @@ fn test_malformed_feature_events() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        Box::new(metrics),
+    )?;
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug_1 = "test-1";
+    let slug_2 = "test-2";
+    let slug_3 = "test-3";
+    let slug_4 = "test-4";
+
+    // Apply an initial experiment
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    let exp_2 = get_targeted_experiment(slug_2, &format!("'{}' in active_experiments", slug_1));
+    let exp_3 = get_targeted_experiment(slug_3, &format!("'{}' in enrollments", slug_1));
+    let exp_4 = get_targeted_experiment(
+        slug_4,
+        &format!("enrollments_map['{}'] == 'treatment'", slug_1),
+    );
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1, exp_2, exp_3, exp_4])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 4);
+
+    Ok(())
+}

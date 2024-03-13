@@ -10,15 +10,18 @@ use serde_json::{json, Value};
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use anyhow::anyhow;
-        use crate::stateful::behavior::{EventStore, EventQueryType, query_event_store};
+        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}};
         use std::sync::{Arc, Mutex};
     }
 }
 
+#[derive(Clone)]
 pub struct NimbusTargetingHelper {
     pub(crate) context: Value,
     #[cfg(feature = "stateful")]
     pub(crate) event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "stateful")]
+    pub(crate) targeting_attributes: Option<TargetingAttributes>,
 }
 
 impl NimbusTargetingHelper {
@@ -30,6 +33,8 @@ impl NimbusTargetingHelper {
             context: serde_json::to_value(context).unwrap(),
             #[cfg(feature = "stateful")]
             event_store,
+            #[cfg(feature = "stateful")]
+            targeting_attributes: None,
         }
     }
 
@@ -52,12 +57,12 @@ impl NimbusTargetingHelper {
             self.context.clone()
         };
 
-        #[cfg(feature = "stateful")]
-        let event_store = self.event_store.clone();
         Self {
             context,
             #[cfg(feature = "stateful")]
-            event_store,
+            event_store: self.event_store.clone(),
+            #[cfg(feature = "stateful")]
+            targeting_attributes: self.targeting_attributes.clone(),
         }
     }
 }

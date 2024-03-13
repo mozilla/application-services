@@ -2,7 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{evaluator::split_locale, stateful::matcher::AppContext};
+use crate::{
+    enrollment::{EnrollmentStatus, ExperimentEnrollment},
+    evaluator::split_locale,
+    stateful::matcher::AppContext,
+};
 use chrono::{DateTime, Utc};
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
@@ -52,5 +56,52 @@ impl TargetingAttributes {
         self.days_since_install = install_date.map(|then| (now - then).num_days() as i32);
         self.days_since_update = update_date.map(|then| (now - then).num_days() as i32);
         self.current_date = now;
+    }
+
+    pub(crate) fn update_enrollments(&mut self, enrollments: &[ExperimentEnrollment]) -> u32 {
+        let mut modified_count = 0;
+        for experiment_enrollment in enrollments {
+            if self.update_enrollment(experiment_enrollment) {
+                modified_count += 1;
+            }
+        }
+        modified_count
+    }
+
+    pub(crate) fn update_enrollment(&mut self, enrollment: &ExperimentEnrollment) -> bool {
+        match &enrollment.status {
+            EnrollmentStatus::Enrolled { branch, .. } => {
+                let inserted_active = self.active_experiments.insert(enrollment.slug.clone());
+                let inserted_enrollment = self.enrollments.insert(enrollment.slug.clone());
+                let updated_enrollment_map = self
+                    .enrollments_map
+                    .insert(enrollment.slug.clone(), branch.clone());
+
+                inserted_active
+                    || inserted_enrollment
+                    || (updated_enrollment_map.is_some()
+                        && &updated_enrollment_map.unwrap() != branch)
+            }
+            EnrollmentStatus::WasEnrolled { branch, .. }
+            | EnrollmentStatus::Disqualified { branch, .. } => {
+                let removed_active = self.active_experiments.remove(&enrollment.slug);
+                let inserted_enrollment = self.enrollments.insert(enrollment.slug.clone());
+                let updated_enrollments_map = self
+                    .enrollments_map
+                    .insert(enrollment.slug.clone(), branch.clone());
+
+                removed_active
+                    || inserted_enrollment
+                    || (updated_enrollments_map.is_some()
+                        && &updated_enrollments_map.unwrap() != branch)
+            }
+            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
+                let removed_active = self.active_experiments.remove(&enrollment.slug);
+                let removed_enrollment = self.enrollments.remove(&enrollment.slug);
+                let removed_from_enrollments_map = self.enrollments_map.remove(&enrollment.slug);
+
+                removed_active || removed_enrollment || removed_from_enrollments_map.is_some()
+            }
+        }
     }
 }

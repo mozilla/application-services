@@ -5,8 +5,8 @@
 use crate::{
     defaults::Defaults,
     enrollment::{
-        EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentStatus,
-        EnrollmentsEvolver, ExperimentEnrollment,
+        EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
+        ExperimentEnrollment,
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
@@ -35,7 +35,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
 use remote_settings::RemoteSettingsConfig;
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -342,28 +342,9 @@ impl NimbusClient {
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
 
-        let mut is_enrolled_set = HashSet::<String>::new();
-        let mut all_enrolled_set = HashSet::<String>::new();
-        let mut enrollments_map = HashMap::<String, String>::new();
-        for ee in prev_enrollments {
-            match ee.status {
-                EnrollmentStatus::Enrolled { branch, .. } => {
-                    is_enrolled_set.insert(ee.slug.clone());
-                    all_enrolled_set.insert(ee.slug.clone());
-                    enrollments_map.insert(ee.slug.clone(), branch.clone());
-                }
-                EnrollmentStatus::WasEnrolled { branch, .. }
-                | EnrollmentStatus::Disqualified { branch, .. } => {
-                    all_enrolled_set.insert(ee.slug.clone());
-                    enrollments_map.insert(ee.slug.clone(), branch.clone());
-                }
-                _ => {}
-            }
-        }
-
-        state.targeting_attributes.active_experiments = is_enrolled_set;
-        state.targeting_attributes.enrollments = all_enrolled_set;
-        state.targeting_attributes.enrollments_map = enrollments_map;
+        state
+            .targeting_attributes
+            .update_enrollments(&prev_enrollments);
 
         Ok(())
     }
@@ -375,16 +356,18 @@ impl NimbusClient {
         state: &mut InternalMutableState,
         experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let targeting_helper =
-            NimbusTargetingHelper::new(&state.targeting_attributes, self.event_store.clone());
+        let mut targeting_helper = NimbusTargetingHelper::with_targeting_attributes(
+            &state.targeting_attributes,
+            self.event_store.clone(),
+        );
         let coenrolling_feature_ids = self
             .coenrolling_feature_ids
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let evolver = EnrollmentsEvolver::new(
+        let mut evolver = EnrollmentsEvolver::new(
             &state.available_randomization_units,
-            &targeting_helper,
+            &mut targeting_helper,
             &coenrolling_feature_ids,
         );
         evolver.evolve_enrollments_in_db(db, writer, experiments)

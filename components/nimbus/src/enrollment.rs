@@ -534,14 +534,14 @@ pub(crate) trait ExperimentMetadata {
 
 pub(crate) struct EnrollmentsEvolver<'a> {
     available_randomization_units: &'a AvailableRandomizationUnits,
-    targeting_helper: &'a NimbusTargetingHelper,
+    targeting_helper: &'a mut NimbusTargetingHelper,
     coenrolling_feature_ids: &'a HashSet<&'a str>,
 }
 
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         available_randomization_units: &'a AvailableRandomizationUnits,
-        targeting_helper: &'a NimbusTargetingHelper,
+        targeting_helper: &'a mut NimbusTargetingHelper,
         coenrolling_feature_ids: &'a HashSet<&str>,
     ) -> Self {
         Self {
@@ -552,7 +552,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     }
 
     pub(crate) fn evolve_enrollments<E>(
-        &self,
+        &mut self,
         is_user_participating: bool,
         prev_experiments: &[E],
         next_experiments: &[Experiment],
@@ -613,7 +613,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
     pub(crate) fn evolve_enrollment_recipes<E>(
-        &self,
+        &mut self,
         is_user_participating: bool,
         prev_experiments: &[E],
         next_experiments: &[Experiment],
@@ -669,6 +669,15 @@ impl<'a> EnrollmentsEvolver<'a> {
                     None
                 }
             };
+
+            #[cfg(feature = "stateful")]
+            if let Some(ref enrollment) = next_enrollment.clone() {
+                if self.targeting_helper.update_enrollment(enrollment) {
+                    log::debug!("Enrollment updated for {}", enrollment.slug);
+                } else {
+                    log::debug!("Enrollment unchanged for {}", enrollment.slug);
+                }
+            }
 
             self.reserve_enrolled_features(
                 next_enrollment,
@@ -762,6 +771,15 @@ impl<'a> EnrollmentsEvolver<'a> {
                     }
                 };
 
+                #[cfg(feature = "stateful")]
+                if let Some(ref enrollment) = next_enrollment.clone() {
+                    if self.targeting_helper.update_enrollment(enrollment) {
+                        log::debug!("Enrollment updated for {}", enrollment.slug);
+                    } else {
+                        log::debug!("Enrollment unchanged for {}", enrollment.slug);
+                    }
+                }
+
                 self.reserve_enrolled_features(
                     next_enrollment,
                     &next_experiments_map,
@@ -827,7 +845,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     /// Returns an Option-wrapped version of the updated enrollment.  None
     /// means that the enrollment has been/should be discarded.
     pub(crate) fn evolve_enrollment<E>(
-        &self,
+        &mut self,
         is_user_participating: bool,
         prev_experiment: Option<&E>,
         next_experiment: Option<&Experiment>,
@@ -847,7 +865,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         // experimenter. Once https://github.com/mozilla/experimenter/issues/8661 is fixed, we can remove the calculation
         // for `is_already_enrolled` above, the `put` call here and the `put` method declaration, and replace it with
         // let th = self.targeting_helper;
-        let th = self
+        let targeting_helper = self
             .targeting_helper
             .put("is_already_enrolled", is_already_enrolled);
 
@@ -857,7 +875,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 is_user_participating,
                 self.available_randomization_units,
                 experiment,
-                &th,
+                &targeting_helper,
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
@@ -870,7 +888,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     is_user_participating,
                     self.available_randomization_units,
                     experiment,
-                    &th,
+                    &targeting_helper,
                     out_enrollment_events,
                 )?)
             }

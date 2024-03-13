@@ -18,7 +18,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
     /// enrollments and user participation from the database.
     pub(crate) fn evolve_enrollments_in_db(
-        &self,
+        &mut self,
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
