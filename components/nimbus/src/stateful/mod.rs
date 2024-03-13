@@ -10,4 +10,5 @@ pub mod evaluator;
 pub mod matcher;
 pub mod nimbus_client;
 pub mod persistence;
+pub mod targeting;
 pub mod updating;

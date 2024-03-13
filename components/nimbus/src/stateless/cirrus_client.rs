@@ -138,15 +138,19 @@ impl CirrusClient {
     ) -> Result<EnrollmentResponse> {
         let available_randomization_units =
             AvailableRandomizationUnits::with_user_id(user_id.as_str());
-        let ta = TargetingAttributes::new(self.app_context.clone(), request_context);
-        let th = NimbusTargetingHelper::new(ta);
+        let targeting_attributes =
+            TargetingAttributes::new(self.app_context.clone(), request_context);
+        let mut targeting_helper = NimbusTargetingHelper::new(targeting_attributes);
         let coenrolling_ids = self
             .coenrolling_feature_ids
             .iter()
             .map(|s| s.as_str())
             .collect();
-        let enrollments_evolver =
-            EnrollmentsEvolver::new(&available_randomization_units, &th, &coenrolling_ids);
+        let mut enrollments_evolver = EnrollmentsEvolver::new(
+            &available_randomization_units,
+            &mut targeting_helper,
+            &coenrolling_ids,
+        );
         let state = self.state.lock().unwrap();
 
         let (enrollments, events) = enrollments_evolver

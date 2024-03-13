@@ -404,7 +404,7 @@ fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
 }
 
 fn enrollment_evolver<'a>(
-    targeting_helper: &'a NimbusTargetingHelper,
+    targeting_helper: &'a mut NimbusTargetingHelper,
     aru: &'a AvailableRandomizationUnits,
     ids: &'a HashSet<&str>,
 ) -> EnrollmentsEvolver<'a> {
@@ -421,9 +421,9 @@ fn test_ios_rollout_experiment() -> Result<()> {
         channel: "release".to_string(),
         ..app_ctx
     };
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
@@ -440,9 +440,9 @@ fn test_ios_rollout_experiment() -> Result<()> {
 fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let exp = &get_test_experiments()[0];
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
@@ -462,9 +462,9 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     let mut exp = get_test_experiments()[0].clone();
     exp.bucket_config.count = 0; // Make the experiment bucketing fail.
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
@@ -483,9 +483,9 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
 fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(false, None, Some(&exp), None, &mut events)?
@@ -505,9 +505,9 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let mut exp = get_test_experiments()[0].clone();
     exp.is_enrollment_paused = true;
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
         .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
@@ -526,9 +526,9 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
 fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -555,9 +555,9 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
     let mut exp = get_test_experiments()[0].clone();
     exp.is_enrollment_paused = true;
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -584,9 +584,9 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
     let mut exp = get_test_experiments()[0].clone();
     exp.bucket_config.count = 0; // Make the experiment bucketing fail.
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -617,9 +617,9 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
 fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -653,9 +653,9 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
 fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -696,9 +696,9 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     let mut exp = get_test_experiments()[0].clone();
     exp.is_enrollment_paused = true;
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -736,9 +736,9 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
     let exp = get_test_experiments()[0].clone();
     let (_, mut app_ctx, aru) = local_ctx();
     app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -781,9 +781,9 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
 fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()> {
     let exp = get_bucketed_rollout("test-rollout", 0);
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -818,9 +818,9 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
 #[test]
 fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
     let slug = "my-rollout";
 
@@ -879,9 +879,9 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
 #[test]
 fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
     let slug = "my-rollout";
 
@@ -957,9 +957,9 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
 fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targeted() -> Result<()>
 {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
     let slug_1 = "my-experiment-1";
     let slug_2 = "my-experiment-2";
@@ -1023,9 +1023,9 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
         },
     ];
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1058,9 +1058,9 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
         features: None,
     }];
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1099,9 +1099,9 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
 fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1134,9 +1134,9 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
 fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -1164,9 +1164,9 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
     let _ = env_logger::try_init();
 
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     // Let's go from no experiments, to some experiments.
     let existing_experiments: Vec<Experiment> = vec![];
     let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
@@ -1324,9 +1324,9 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
     let mut test_experiments = get_test_experiments();
     test_experiments.push(get_conflicting_experiment());
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1386,9 +1386,9 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
     let mut test_experiments = get_test_experiments();
     test_experiments.push(get_experiment_with_different_features_same_branch());
     let (_, app_ctx, aru) = local_ctx();
-    let targeting_attributes = app_ctx.into();
+    let mut targeting_attributes = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &targeting_attributes, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1426,9 +1426,9 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
 
     let test_experiments = get_test_experiments();
     let (_, app_ctx, aru) = local_ctx();
-    let targeting_attributes = app_ctx.into();
+    let mut targeting_attributes = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &targeting_attributes, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
     let (enrollments, _) =
         evolver.evolve_enrollments::<Experiment>(true, &[], &test_experiments, &[])?;
 
@@ -1481,9 +1481,9 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let _ = env_logger::try_init();
 
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     let aboutwelcome_experiment = get_experiment_with_aboutwelcome_feature_branches();
     let newtab_experiment = get_experiment_with_newtab_feature_branches();
@@ -1781,9 +1781,9 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
 fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -2002,9 +2002,9 @@ fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()>
 fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
     let _ = env_logger::try_init();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = HashSet::from(["coenrolling"]);
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     let exp1 = get_single_feature_experiment("exp1", "colliding", json!({"x": 1 }));
     let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "a": 1, "b": 2 }));
@@ -2070,9 +2070,9 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
 fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
     let _ = env_logger::try_init();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = HashSet::from(["coenrolling"]);
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     let exp1 = get_multi_feature_experiment(
         "exp1",
@@ -2257,9 +2257,9 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
 
     let _ = env_logger::try_init();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     // test that evolve_enrollments correctly handles the case where a
     // record without a previous enrollment gets dropped
@@ -2309,9 +2309,9 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
 fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     let _ = env_logger::try_init();
     let (_, mut app_ctx, aru) = local_ctx();
-    let th = app_ctx.clone().into();
+    let mut th = app_ctx.clone().into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     // The targeting for this experiment is
     // "app_id == 'org.mozilla.fenix' || is_already_enrolled"
@@ -2332,9 +2332,9 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
     // we change the app_id so the targeting will only target
     // against the `is_already_enrolled`
     app_ctx.app_id = "org.mozilla.bobo".into();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     // The user should still be enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
     // and the 'is_already_enrolled'
@@ -2358,9 +2358,9 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
 fn test_evolver_experiment_update_error() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -2390,9 +2390,9 @@ fn test_evolver_experiment_update_error() -> Result<()> {
 fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -2426,9 +2426,9 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
 fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -2462,9 +2462,9 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
 fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: exp.slug.clone(),
@@ -2487,9 +2487,9 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
 #[test]
 fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
@@ -2513,9 +2513,9 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
 #[test]
 fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let existing_enrollment = ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
@@ -2547,9 +2547,9 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
         },
     };
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let res = evolver.evolve_enrollment::<Experiment>(
         true,
         None,
@@ -2564,9 +2564,9 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
 fn test_evolver_existing_experiment_has_no_enrollment() {
     let exp = get_test_experiments()[0].clone();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, &mut vec![]);
     assert!(res.is_err());
 }
@@ -2575,9 +2575,9 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
 #[should_panic]
 fn test_evolver_no_experiments_no_enrollment() {
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     evolver
         .evolve_enrollment::<Experiment>(true, None, None, None, &mut vec![])
         .unwrap();
@@ -2617,9 +2617,9 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
     let recipes = &[experiment, rollout];
 
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
     assert_eq!(enrollments.len(), 2);
@@ -2678,9 +2678,9 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
     let recipes = &[experiment, rollout, rollout2];
 
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let (enrollments, events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
     assert_eq!(enrollments.len(), 3);
@@ -2903,9 +2903,9 @@ fn test_rollouts_end_to_end() -> Result<()> {
     let recipes = &[rollout, experiment];
 
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
-    let evolver = enrollment_evolver(&th, &aru, &ids);
+    let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
     let (enrollments, _events) =
         evolver.evolve_enrollments::<Experiment>(true, &[], recipes, &[])?;
@@ -3162,9 +3162,9 @@ fn test_sort_experiments_by_published_date() -> Result<()> {
 fn test_evolve_enrollments_ordering() -> Result<()> {
     let _ = env_logger::try_init();
     let (_, app_ctx, aru) = local_ctx();
-    let th = app_ctx.into();
+    let mut th = app_ctx.into();
     let ids = HashSet::new();
-    let evolver = EnrollmentsEvolver::new(&aru, &th, &ids);
+    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
 
     let exp1 = get_single_feature_experiment("slug-1", "colliding-feature", json!({"x": 1 }))
         .patch(json!({"publishedDate": "2023-11-21T18:00:00Z"}));
