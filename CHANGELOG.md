@@ -1,4 +1,4 @@
-# v125.0 (In progress)
+# v125.0 (_2024-03-18_)
 
 ## 🦊 What's Changed 🦊
 
@@ -12,11 +12,9 @@
 
 ### Suggest
 - Improved full keyword display for AMP suggestions
-
-[Full Changelog](In progress)
-
-### Suggest
 - `SuggestStoreBuilder.cache_path` is now deprecated because we no longer use the cache path.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v124.0...v125.0)
 
 # v124.0 (_2024-02-15_)
 
