@@ -12,7 +12,7 @@ use crate::{
     db::SuggestDao,
     provider::SuggestionProvider,
     rs::{DownloadedYelpSuggestion, SuggestRecordId},
-    suggestion::Suggestion,
+    suggestion::{Suggestion, SuggestionIcon},
     Result, SuggestionQuery,
 };
 
@@ -147,7 +147,7 @@ impl<'a> SuggestDao<'a> {
             let Some((subject, subject_exact_match)) = self.find_subject(query_string)? else {
                 return Ok(vec![]);
             };
-            let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
+            let (icon, score) = self.fetch_custom_details()?;
             let builder = SuggestionBuilder {
                 subject: &subject,
                 subject_exact_match,
@@ -157,7 +157,6 @@ impl<'a> SuggestDao<'a> {
                 location: None,
                 need_location: false,
                 icon,
-                icon_mimetype,
                 score,
             };
             return Ok(vec![builder.into()]);
@@ -189,7 +188,7 @@ impl<'a> SuggestDao<'a> {
             return Ok(vec![]);
         };
 
-        let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
+        let (icon, score) = self.fetch_custom_details()?;
         let builder = SuggestionBuilder {
             subject: &subject,
             subject_exact_match,
@@ -199,7 +198,6 @@ impl<'a> SuggestDao<'a> {
             location,
             need_location,
             icon,
-            icon_mimetype,
             score,
         };
         Ok(vec![builder.into()])
@@ -208,8 +206,7 @@ impl<'a> SuggestDao<'a> {
     /// Fetch the custom details for Yelp suggestions.
     /// It returns the location tuple as follows:
     /// (
-    ///   Option<Vec<u8>>: Icon data. If not found, returns None.
-    ///   Option<String>: Mimetype of the icon data. If not found, returns None.
+    ///   Option<SuggestionIcon>: Icon data. If not found, returns None.
     ///   f64: Reflects score field in the yelp_custom_details table.
     /// )
     ///
@@ -218,8 +215,8 @@ impl<'a> SuggestDao<'a> {
     /// on Remote Settings. The following query will perform a table scan against
     /// `yelp_custom_details` followed by an index search against `icons`,
     /// which should be fine since there is only one record in the first table.
-    fn fetch_custom_details(&self) -> Result<(Option<Vec<u8>>, Option<String>, f64)> {
-        let result = self.conn.query_row_and_then_cachable(
+    fn fetch_custom_details(&self) -> Result<(Option<SuggestionIcon>, f64)> {
+        let (icon_data, icon_mime_type, score) = self.conn.query_row_and_then_cachable(
             r#"
             SELECT
               i.data, i.mimetype, y.score
@@ -242,7 +239,11 @@ impl<'a> SuggestDao<'a> {
             true,
         )?;
 
-        Ok(result)
+        let icon = icon_data.map(|data| SuggestionIcon {
+            data,
+            mime_type: icon_mime_type.unwrap_or_default(),
+        });
+        Ok((icon, score))
     }
 
     /// Find the location information from the given query string.
@@ -450,8 +451,7 @@ struct SuggestionBuilder<'a> {
     location_sign: Option<String>,
     location: Option<String>,
     need_location: bool,
-    icon: Option<Vec<u8>>,
-    icon_mimetype: Option<String>,
+    icon: Option<SuggestionIcon>,
     score: f64,
 }
 
@@ -501,7 +501,6 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             url,
             title,
             icon: builder.icon,
-            icon_mimetype: builder.icon_mimetype,
             score: builder.score,
             has_location_sign: location_modifier.is_none() && builder.location_sign.is_some(),
             subject_exact_match: builder.subject_exact_match,

@@ -12,6 +12,10 @@
 
 ### Suggest
 - Improved full keyword display for AMP suggestions
+- Introduced icon struct ([#6162](https://github.com/mozilla/application-services/pull/6162))
+
+#### ⚠️ Breaking Changes ⚠️
+  - Introduced `icon` struct and applied to suggestions needed.
 
 [Full Changelog](In progress)
 
