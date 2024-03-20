@@ -4101,6 +4101,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "criterion",
  "env_logger",
  "error-support",
  "expect-test",
@@ -4114,10 +4115,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sql-support",
+ "tempfile",
  "thiserror",
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]

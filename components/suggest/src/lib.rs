@@ -4,6 +4,8 @@
  */
 
 use remote_settings::RemoteSettingsConfig;
+#[cfg(feature = "benchmark_api")]
+pub mod benchmarks;
 mod config;
 mod db;
 mod error;

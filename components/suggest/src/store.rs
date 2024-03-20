@@ -269,7 +269,7 @@ pub(crate) struct SuggestStoreInner<S> {
 }
 
 impl<S> SuggestStoreInner<S> {
-    fn new(data_path: impl Into<PathBuf>, settings_client: S) -> Self {
+    pub fn new(data_path: impl Into<PathBuf>, settings_client: S) -> Self {
         Self {
             data_path: data_path.into(),
             dbs: OnceCell::new(),
@@ -331,7 +331,7 @@ impl<S> SuggestStoreInner<S>
 where
     S: SuggestRemoteSettingsClient,
 {
-    fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
+    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
 
         if let Some(unparsable_records) =
@@ -599,6 +599,29 @@ where
             }
             Err(_) => writer.write(|dao| dao.handle_unparsable_record(record)),
         }
+    }
+}
+
+#[cfg(feature = "benchmark_api")]
+impl<S> SuggestStoreInner<S>
+where
+    S: SuggestRemoteSettingsClient,
+{
+    pub fn into_settings_client(self) -> S {
+        self.settings_client
+    }
+
+    pub fn ensure_db_initialized(&self) {
+        self.dbs().unwrap();
+    }
+
+    pub fn benchmark_ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {
+        self.ingest_records_by_type(
+            ingest_record_type,
+            &self.dbs().unwrap().writer,
+            &SuggestIngestionConstraints::default(),
+        )
+        .unwrap()
     }
 }
 
