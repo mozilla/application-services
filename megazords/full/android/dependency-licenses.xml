@@ -178,7 +178,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: form_urlencoded</name>
-    <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fs-err</name>
@@ -218,7 +218,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: idna</name>
-    <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/rust-url/blob//main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: io-lifetimes</name>
@@ -294,7 +294,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: percent-encoding</name>
-    <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/rust-url/blob//main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: pkg-config</name>
@@ -394,7 +394,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: smallbitvec</name>
-    <url>https://github.com/servo/smallbitvec/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/smallbitvec/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: smallvec</name>
@@ -442,7 +442,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: unicode-bidi</name>
-    <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/unicode-bidi/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-ident</name>
@@ -458,7 +458,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: url</name>
-    <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: uuid</name>
