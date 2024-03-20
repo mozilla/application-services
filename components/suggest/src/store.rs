@@ -346,7 +346,7 @@ where
             for unparsable_ids in all_unparsable_ids.chunks(UNPARSABLE_IDS_PER_REQUEST) {
                 let mut options = GetItemsOptions::new();
                 for unparsable_id in unparsable_ids {
-                    options.eq("id", *unparsable_id);
+                    options.filter_eq("id", *unparsable_id);
                 }
                 let records_chunk = self
                     .settings_client
@@ -388,7 +388,7 @@ where
         // so that we can eventually resume downloading where we left off.
         options.sort("last_modified", SortOrder::Ascending);
 
-        options.eq("type", ingest_record_type.to_string());
+        options.filter_eq("type", ingest_record_type.to_string());
 
         // Get the last ingest value. This is the max of the last_ingest_keys
         // that are in the database.
@@ -397,7 +397,7 @@ where
         {
             // Only download changes since our last ingest. If our last ingest
             // was interrupted, we'll pick up where we left off.
-            options.gt("last_modified", last_ingest.to_string());
+            options.filter_gt("last_modified", last_ingest.to_string());
         }
 
         if let Some(max_suggestions) = constraints.max_suggestions {
