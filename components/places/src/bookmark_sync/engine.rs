@@ -460,6 +460,40 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
                             WHERE newPlaceId NOT NULL)",
     )?;
 
+    // We read the `itemsToApply` table to detect if we have any
+    // cases of bookmarks with no places ids, or non-bookmarks with places
+    // ids, this is temporary to help debug https://bugzilla.mozilla.org/show_bug.cgi?id=1876320
+    log::debug!("Checking for bad bookmark data");
+    scope.err_if_interrupted()?;
+    db.query_rows_and_then(
+        "SELECT newKind, newPlaceId
+                      FROM itemsToApply
+                      WHERE (newKind = 1 AND newPlaceId IS NULL) OR
+                            (newKind = 2 AND newPlaceId IS NULL) OR
+                            (newKind > 2 AND newPlaceId IS NOT NULL)",
+        [],
+        |row| -> Result<()> {
+            let bookmark_type = SyncedBookmarkKind::from_u8(row.get("newKind")?)?;
+            match bookmark_type {
+                SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
+                    error_support::report_error!(
+                        "places-sync-bookmarks",
+                        "bookmark type = {} seen with no places id",
+                        bookmark_type as u8
+                    );
+                }
+                _ => {
+                    error_support::report_error!(
+                        "places-sync-bookmarks",
+                        "bookmark type = {} with a places id",
+                        bookmark_type as u8
+                    );
+                }
+            };
+            Ok(())
+        },
+    )?;
+
     // Insert and update items, temporarily using the Places root for new
     // items' parent IDs, and -1 for positions. We'll fix these up later,
     // when we apply the new local structure. This `INSERT` is a full table
