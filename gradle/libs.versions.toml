@@ -11,7 +11,7 @@ android-plugin = "8.0.2"
 protobuf = "3.21.10"
 
 # Kotlin
-kotlin-compiler = "1.9.22"
+kotlin-compiler = "1.9.23"
 kotlin-dsl = "4.2.1"
 kotlinx-coroutines = "1.8.0"
 
