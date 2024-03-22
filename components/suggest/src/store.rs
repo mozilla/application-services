@@ -623,6 +623,32 @@ where
         )
         .unwrap()
     }
+
+    pub fn table_row_counts(&self) -> Vec<(String, u32)> {
+        use sql_support::ConnExt;
+
+        // Note: since this is just used for debugging, use unwrap to simplify the error handling.
+        let reader = &self.dbs().unwrap().reader;
+        let conn = reader.conn.lock();
+        let table_names: Vec<String> = conn
+            .query_rows_and_then(
+                "SELECT name FROM sqlite_master where type = 'table'",
+                (),
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut table_names_with_counts: Vec<(String, u32)> = table_names
+            .into_iter()
+            .map(|name| {
+                let count: u32 = conn
+                    .query_one(&format!("SELECT COUNT(*) FROM {name}"))
+                    .unwrap();
+                (name, count)
+            })
+            .collect();
+        table_names_with_counts.sort_by(|a, b| (b.1.cmp(&a.1)));
+        table_names_with_counts
+    }
 }
 
 /// Holds a store's open connections to the Suggest database.

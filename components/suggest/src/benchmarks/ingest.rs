@@ -9,6 +9,7 @@ use crate::{
     },
     rs::SuggestRecordType,
     store::SuggestStoreInner,
+    SuggestIngestionConstraints,
 };
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -82,4 +83,34 @@ pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
             IngestBenchmark::new(SuggestRecordType::AmpMobile),
         ),
     ]
+}
+
+pub fn print_debug_ingestion_sizes() {
+    viaduct_reqwest::use_reqwest_backend();
+    let store = SuggestStoreInner::new(
+        "file:debug_ingestion_sizes?mode=memory&cache=shared",
+        RemoteSettingsWarmUpClient::new(),
+    );
+    store
+        .ingest(SuggestIngestionConstraints::default())
+        .unwrap();
+    let table_row_counts = store.table_row_counts();
+    let client = store.into_settings_client();
+    let total_attachment_size: usize = client
+        .get_attachment_responses
+        .lock()
+        .values()
+        .map(|data| data.len())
+        .sum();
+
+    println!(
+        "Total attachment size: {}kb",
+        (total_attachment_size + 500) / 1000
+    );
+    println!();
+    println!("Database table row counts");
+    println!("-------------------------");
+    for (name, count) in table_row_counts {
+        println!("{name:30}: {count}");
+    }
 }

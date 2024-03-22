@@ -17,3 +17,12 @@ from these measurements.
 
 - Ingestion with synthetic data.  This would isolate the benchmark from changes to the RS database.
 - Fetching suggestions
+
+## cargo suggest-debug-ingestion-sizes
+
+Run this to get row counts for all database tables.  This can be very useful for improving
+benchmarks, since targeting the tables with the largest number of rows will usually lead to the
+largest improvements.
+
+The command also prints out the size of all remote-settings attachments, which can be good to
+optimize on its own since it represents the amount of data user's need to download.

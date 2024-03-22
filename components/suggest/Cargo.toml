@@ -20,6 +20,7 @@ serde_json = "1"
 error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
+viaduct-reqwest = { path = "../support/viaduct-reqwest", optional=true }
 tempfile = { version = "3.2.0", optional = true }
 thiserror = "1"
 uniffi = { workspace = true }
@@ -29,7 +30,6 @@ url = { version = "2.1", features = ["serde"] }
 criterion = "0.5"
 env_logger = { version = "0.10", default-features = false }
 expect-test = "1.4"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 hex = "0.4"
 rc_crypto = { path = "../support/rc_crypto" }
 
@@ -38,9 +38,13 @@ uniffi = { workspace = true, features = ["build"] }
 
 [features]
 # Required for the benchmarks to work, wasted bytes otherwise.
-benchmark_api = ["tempfile"]
+benchmark_api = ["tempfile", "viaduct-reqwest"]
 
 [[bench]]
 name = "benchmark_all"
 harness = false
+required-features = ["benchmark_api"]
+
+[[bin]]
+name = "debug_ingestion_sizes"
 required-features = ["benchmark_api"]
