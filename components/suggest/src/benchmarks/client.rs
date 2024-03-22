@@ -14,8 +14,8 @@ use std::collections::HashMap;
 /// [RemoteSettingsBenchmarkClient] implements [SuggestRemoteSettingsClient] by getting data from a HashMap rather than hitting the network.
 pub struct RemoteSettingsWarmUpClient {
     client: Client,
-    get_records_responses: Mutex<HashMap<GetItemsOptions, RemoteSettingsResponse>>,
-    get_attachment_responses: Mutex<HashMap<String, Vec<u8>>>,
+    pub get_records_responses: Mutex<HashMap<GetItemsOptions, RemoteSettingsResponse>>,
+    pub get_attachment_responses: Mutex<HashMap<String, Vec<u8>>>,
 }
 
 impl RemoteSettingsWarmUpClient {
