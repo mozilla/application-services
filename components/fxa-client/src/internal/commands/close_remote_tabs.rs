@@ -31,14 +31,14 @@ impl EncryptedCloseTabsPayload {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CloseTabsPayload {
-    pub uris: Vec<String>,
+    pub urls: Vec<String>,
 }
 
 impl From<CloseTabsPayload> for crate::CloseTabsPayload {
     fn from(payload: CloseTabsPayload) -> Self {
-        crate::CloseTabsPayload { urls: payload.uris }
+        crate::CloseTabsPayload { urls: payload.urls }
     }
 }
 
@@ -67,4 +67,33 @@ pub fn build_close_remote_tabs_command(
     let public_keys = bundle.decrypt(scoped_key)?;
     let encrypted_payload = close_remote_tabs_payload.encrypt(public_keys)?;
     Ok(serde_json::to_value(encrypted_payload)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::Result;
+
+    #[test]
+    fn test_empty_payload() -> Result<()> {
+        let empty = r#"{ "urls": []}"#;
+        let payload: CloseTabsPayload = serde_json::from_str(empty)?;
+        assert!(payload.urls.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_payload() -> Result<()> {
+        let payload = CloseTabsPayload {
+            urls: vec!["https://www.mozilla.org".into()],
+        };
+        let json = serde_json::to_string(&payload)?;
+        assert!(!json.is_empty());
+        let deserialized: CloseTabsPayload = serde_json::from_str(&json)?;
+        assert_eq!(deserialized, payload);
+
+        Ok(())
+    }
 }

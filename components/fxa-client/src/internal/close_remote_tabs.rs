@@ -17,7 +17,7 @@ impl FirefoxAccount {
     pub fn close_remote_tabs<T: AsRef<str>>(
         &mut self,
         target_device_id: &str,
-        uris: &[T],
+        urls: &[T],
     ) -> Result<()> {
         let devices = self.get_devices(false)?;
         let target = devices
@@ -25,7 +25,7 @@ impl FirefoxAccount {
             .find(|d| d.id == target_device_id)
             .ok_or_else(|| Error::UnknownTargetDevice(target_device_id.to_owned()))?;
         let payload = CloseTabsPayload {
-            uris: uris.iter().map(|uri| uri.as_ref().to_owned()).collect(),
+            urls: urls.iter().map(|url| url.as_ref().to_owned()).collect(),
         };
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload =
