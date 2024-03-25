@@ -119,9 +119,9 @@ impl WebExtStorageStore {
 
     /// Returns the bytes in use for the specified items (which can be null,
     /// a string, or an array)
-    pub fn get_bytes_in_use(&self, ext_id: &str, keys: JsonValue) -> Result<usize> {
+    pub fn get_bytes_in_use(&self, ext_id: &str, keys: JsonValue) -> Result<u64> {
         let db = self.db.lock();
-        api::get_bytes_in_use(&db, ext_id, keys)
+        Ok(api::get_bytes_in_use(&db, ext_id, keys)? as u64)
     }
 
     /// Returns a bridged sync engine for Desktop for this store.
