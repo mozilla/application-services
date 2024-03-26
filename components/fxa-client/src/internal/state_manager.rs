@@ -220,6 +220,19 @@ impl StateManager {
         self.flow_store.clear();
     }
 
+    /// Called when we begin an OAuth flow.
+    ///
+    /// This clears out tokens/keys set from the previous time we completed an oauth flow.  In
+    /// particular, it clears the session token to avoid
+    /// https://bugzilla.mozilla.org/show_bug.cgi?id=1887071.
+    pub fn on_begin_oauth(&mut self) {
+        self.persisted_state.refresh_token = None;
+        self.persisted_state.scoped_keys = HashMap::new();
+        self.persisted_state.commands_data = HashMap::new();
+        self.persisted_state.access_token_cache = HashMap::new();
+        self.persisted_state.session_token = None;
+    }
+
     pub fn get_auth_state(&self) -> FxaRustAuthState {
         if self.persisted_state.refresh_token.is_some() {
             FxaRustAuthState::Connected

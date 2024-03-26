@@ -155,6 +155,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - The entrypoint to be used for metrics
     /// * `metrics` - Optional metrics parameters
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], entrypoint: &str) -> Result<String> {
+        self.state.on_begin_oauth();
         let mut url = if self.state.last_seen_profile().is_some() {
             self.state.config().oauth_force_auth_url()?
         } else {
