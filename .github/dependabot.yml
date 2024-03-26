@@ -21,6 +21,11 @@ updates:
 
   # It's fine to keep tooling-related python dependencies updated though.
   - package-ecosystem: "pip"
+    directory: "/taskcluster"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pip"
     directory: "/tools"
     schedule:
       interval: "weekly"

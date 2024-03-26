@@ -1,0 +1,5 @@
+chardet
+deprecated
+pyjwt
+requests
+typing-extensions
