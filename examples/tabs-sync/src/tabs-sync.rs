@@ -5,7 +5,9 @@
 #![warn(rust_2018_idioms)]
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
+use cli_support::fxa_creds::{
+    get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
+};
 use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
 use std::path::Path;
@@ -100,10 +102,11 @@ fn main() -> Result<()> {
     cli_support::init_logging();
     let opts = Opts::from_args();
 
-    let (_, token_info) = get_account_and_token(get_default_fxa_config(), &opts.creds_file)?;
+    let (_, token_info) =
+        get_account_and_token(get_default_fxa_config(), &opts.creds_file, &[SYNC_SCOPE])?;
     let sync_key = URL_SAFE_NO_PAD.encode(token_info.key.unwrap().key_bytes()?);
 
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &opts.creds_file, &[SYNC_SCOPE])?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new(Path::new(&opts.db_path)));

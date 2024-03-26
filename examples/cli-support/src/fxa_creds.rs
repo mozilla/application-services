@@ -24,7 +24,8 @@ use crate::prompt::prompt_string;
 // working option.
 const CLIENT_ID: &str = "3c49430b43dfba77";
 const REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/3c49430b43dfba77";
-const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
+pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
+pub const SESSION_SCOPE: &str = "https://identity.mozilla.com/tokens/session";
 
 fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     let mut file = fs::File::open(path)?;
@@ -33,20 +34,25 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     Ok(FirefoxAccount::from_json(&s)?)
 }
 
-fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
+fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {
     load_fxa_creds(path).or_else(|e| {
         log::info!(
             "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
             path,
             e
         );
-        create_fxa_creds(path, cfg)
+        create_fxa_creds(path, cfg, scopes)
     })
 }
 
-fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
+fn create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {
     let acct = FirefoxAccount::new(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds")?;
+    handle_oauth_flow(path, &acct, scopes)?;
+    Ok(acct)
+}
+
+fn handle_oauth_flow(path: &str, acct: &FirefoxAccount, scopes: &[&str]) -> Result<()> {
+    let oauth_uri = acct.begin_oauth_flow(scopes, "fxa_creds")?;
 
     if webbrowser::open(oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");
@@ -68,7 +74,7 @@ fn create_fxa_creds(path: &str, cfg: FxaConfig) -> Result<FirefoxAccount> {
     let mut file = fs::File::create(path)?;
     write!(file, "{}", acct.to_json()?)?;
     file.flush()?;
-    Ok(acct)
+    Ok(())
 }
 
 // Our public functions. It would be awesome if we could somehow integrate
@@ -81,9 +87,10 @@ pub fn get_default_fxa_config() -> FxaConfig {
 pub fn get_account_and_token(
     config: FxaConfig,
     cred_file: &str,
+    scopes: &[&str],
 ) -> Result<(FirefoxAccount, AccessTokenInfo)> {
     // TODO: we should probably set a persist callback on acct?
-    let mut acct = load_or_create_fxa_creds(cred_file, config.clone())?;
+    let acct = load_or_create_fxa_creds(cred_file, config.clone(), scopes)?;
     // `scope` could be a param, but I can't see it changing.
     match acct.get_access_token(SYNC_SCOPE, None) {
         Ok(t) => Ok((acct, t)),
@@ -91,8 +98,9 @@ pub fn get_account_and_token(
             match e {
                 // We can retry an auth error.
                 FxaError::Authentication => {
-                    println!("Saw an auth error using stored credentials - recreating them...");
-                    acct = create_fxa_creds(cred_file, config)?;
+                    println!("Saw an auth error using stored credentials - attempting to re-authenticate");
+                    println!("If fails, consider deleting {cred_file} to start from scratch");
+                    handle_oauth_flow(cred_file, &acct, scopes)?;
                     let token = acct.get_access_token(SYNC_SCOPE, None)?;
                     Ok((acct, token))
                 }
@@ -102,8 +110,8 @@ pub fn get_account_and_token(
     }
 }
 
-pub fn get_cli_fxa(config: FxaConfig, cred_file: &str) -> Result<CliFxa> {
-    let (account, token_info) = match get_account_and_token(config, cred_file) {
+pub fn get_cli_fxa(config: FxaConfig, cred_file: &str, scopes: &[&str]) -> Result<CliFxa> {
+    let (account, token_info) = match get_account_and_token(config, cred_file, scopes) {
         Ok(v) => v,
         Err(e) => anyhow::bail!("Failed to use saved credentials. {}", e),
     };

@@ -8,6 +8,8 @@ publish = false
 
 [dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+log = "0.4"
+simple_logger = "4"
 clap = {version = "4.2", features = ["derive"]}
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
