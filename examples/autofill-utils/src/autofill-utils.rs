@@ -11,7 +11,7 @@ use autofill::db::{
 };
 use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
 use cli_support::prompt::{prompt_string, prompt_usize};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
@@ -357,7 +357,7 @@ fn run_sync(
     wait: u64,
 ) -> Result<()> {
     // XXX - need to add interrupts
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
 
     if wipe_all {
         Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;

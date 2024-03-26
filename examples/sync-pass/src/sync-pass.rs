@@ -6,7 +6,9 @@
 #![warn(rust_2018_idioms)]
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use cli_support::fxa_creds::{get_account_and_token, get_cli_fxa, get_default_fxa_config};
+use cli_support::fxa_creds::{
+    get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
+};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::{
@@ -475,12 +477,12 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file)?;
+                let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file, &[SYNC_SCOPE])?;
                 let sync_key = URL_SAFE_NO_PAD.encode(
                     token_info.key.unwrap().key_bytes()?,
                 );
                 // TODO: allow users to use stage/etc.
-                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
+                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file, &[SYNC_SCOPE])?;
                 match do_sync(
                     Arc::clone(&store),
                     cli_fxa.client_init.key_id.clone(),

@@ -4,7 +4,7 @@
 
 #![warn(rust_2018_idioms)]
 
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
 use interrupt_support::Interruptee;
 use places::storage::bookmarks::{
     json_tree::{
@@ -237,7 +237,7 @@ fn sync(
 ) -> Result<()> {
     use_reqwest_backend();
 
-    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
 
     if wipe_all {
         Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;

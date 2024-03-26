@@ -8,7 +8,7 @@ mod send_tab;
 use std::fs;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use cli_support::fxa_creds::get_cli_fxa;
+use cli_support::fxa_creds;
 use fxa_client::{FirefoxAccount, FxaConfig, FxaServer};
 
 static CREDENTIALS_PATH: &str = "credentials.json";
@@ -23,6 +23,22 @@ struct Cli {
     /// The FxA server to use
     #[arg(value_enum, default_value_t = Server::Release)]
     server: Server,
+
+    /// Request a session scope
+    #[clap(long, short, action)]
+    session_scope: bool,
+
+    /// Print out log to the console.  The default level is WARN
+    #[clap(long, short, action)]
+    log: bool,
+
+    /// Set the logging level to INFO
+    #[clap(long, short, action)]
+    info: bool,
+
+    /// Set the logging level to DEBUG
+    #[clap(long, short, action)]
+    debug: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -52,9 +68,24 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     viaduct_reqwest::use_reqwest_backend();
+    if cli.log {
+        if cli.debug {
+            simple_logger::init_with_level(log::Level::Debug).unwrap();
+        } else if cli.info {
+            simple_logger::init_with_level(log::Level::Info).unwrap();
+        } else {
+            simple_logger::init_with_level(log::Level::Warn).unwrap();
+        }
+    }
+
+    let scopes: &[&str] = if cli.session_scope {
+        &[fxa_creds::SYNC_SCOPE, fxa_creds::SESSION_SCOPE]
+    } else {
+        &[fxa_creds::SYNC_SCOPE]
+    };
 
     println!();
-    let account = load_account(&cli)?;
+    let account = load_account(&cli, scopes)?;
     match cli.command {
         Command::Devices(args) => devices::run(&account, args),
         Command::SendTab(args) => send_tab::run(&account, args),
@@ -67,7 +98,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn load_account(cli: &Cli) -> Result<FirefoxAccount> {
+fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
     let config = FxaConfig {
         server: match cli.server {
             Server::Release => FxaServer::Release,
@@ -80,7 +111,7 @@ fn load_account(cli: &Cli) -> Result<FirefoxAccount> {
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };
-    get_cli_fxa(config, CREDENTIALS_PATH).map(|cli| cli.account)
+    fxa_creds::get_cli_fxa(config, CREDENTIALS_PATH, scopes).map(|cli| cli.account)
 }
 
 pub fn persist_fxa_state(acct: &FirefoxAccount) -> Result<()> {
