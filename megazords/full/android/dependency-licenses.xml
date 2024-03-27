@@ -277,7 +277,7 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: oneshot</name>
+    <name>Apache License 2.0: oneshot-uniffi</name>
     <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
   </license>
   <license>
@@ -449,12 +449,20 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: unicode-linebreak</name>
+    <url>https://github.com/axelf4/unicode-linebreak/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-segmentation</name>
     <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: unicode-width</name>
+    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: url</name>
@@ -559,6 +567,14 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: scroll_derive</name>
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: smawk</name>
+    <url>https://github.com/mgeisler/smawk/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: textwrap</name>
+    <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: weedle2</name>
