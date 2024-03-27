@@ -5,7 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import org.json.JSONObject
-import org.mozilla.experiments.nimbus.internal.FFIObject
+import org.mozilla.experiments.nimbus.internal.Disposable
 import org.mozilla.experiments.nimbus.internal.NimbusStringHelperInterface
 import org.mozilla.experiments.nimbus.internal.NimbusTargetingHelperInterface
 
@@ -64,10 +64,10 @@ class NimbusMessagingHelper(
     override fun clearCache() = cache.clear()
 
     override fun destroy() {
-        if (targetingHelper is FFIObject) {
+        if (targetingHelper is Disposable) {
             targetingHelper.destroy()
         }
-        if (stringHelper is FFIObject) {
+        if (stringHelper is Disposable) {
             stringHelper.destroy()
         }
     }

@@ -19,6 +19,8 @@ the details of which are reproduced below.
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
+* [MIT License: smawk](#mit-license-smawk)
+* [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: weedle2](#mit-license-weedle2)
 * [MIT License: xshell-venv](#mit-license-xshell-venv)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
@@ -479,7 +481,7 @@ The following text applies to code linked from these dependencies:
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [num-traits](https://github.com/rust-num/num-traits),
 [once_cell](https://github.com/matklad/once_cell),
-[oneshot](https://github.com/faern/oneshot),
+[oneshot-uniffi](https://github.com/faern/oneshot),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
@@ -522,8 +524,10 @@ The following text applies to code linked from these dependencies:
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-ident](https://github.com/dtolnay/unicode-ident),
+[unicode-linebreak](https://github.com/axelf4/unicode-linebreak),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
+[unicode-width](https://github.com/unicode-rs/unicode-width),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
@@ -1120,6 +1124,66 @@ The following text applies to code linked from these dependencies:
 MIT License
 
 Copyright (c) 2017 
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: smawk
+
+The following text applies to code linked from these dependencies:
+[smawk](https://github.com/mgeisler/smawk)
+
+```
+MIT License
+
+Copyright (c) 2017 Martin Geisler
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: textwrap
+
+The following text applies to code linked from these dependencies:
+[textwrap](https://github.com/mgeisler/textwrap)
+
+```
+MIT License
+
+Copyright (c) 2016 Martin Geisler
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

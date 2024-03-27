@@ -353,7 +353,7 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         }
     },
-    "oneshot": {
+    "oneshot-uniffi": {
         "repository": {
             "check": "https://github.com/faern/oneshot",
         },
