@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["as_dir","build_dir","generated_src_dir","join","pkg_dir","sdk_dir"],"mod":["loaders"]};

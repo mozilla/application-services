@@ -1,0 +1,547 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>How to convert a Rust Component to Uniffi - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../shared/a-s.css">
+        <link rel="stylesheet" href="../shared/mermaid.css">
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Application Services Rust Components</a></li><li class="chapter-item expanded "><a href="../contributing.html"><strong aria-hidden="true">1.</strong> Contributing</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../building.html"><strong aria-hidden="true">1.1.</strong> Building</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-fenix.html"><strong aria-hidden="true">1.1.1.</strong> How to use the local development autopublish flow for Fenix</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-firefox-ios.html"><strong aria-hidden="true">1.1.2.</strong> How to use the local development autopublish flow for Firefox iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-focus-ios.html"><strong aria-hidden="true">1.1.3.</strong> How to use the local development flow for Focus for iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-building-jna.html"><strong aria-hidden="true">1.1.4.</strong> How to locally build JNA</a></li><li class="chapter-item expanded "><a href="../howtos/branch-builds.html"><strong aria-hidden="true">1.1.5.</strong> Branch builds</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/testing-a-rust-component.html"><strong aria-hidden="true">1.2.</strong> How to test Rust Components</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/smoke-testing-app-services.html"><strong aria-hidden="true">1.2.1.</strong> How to integration (smoke) test application-services</a></li><li class="chapter-item expanded "><a href="../design/test-faster.html"><strong aria-hidden="true">1.2.2.</strong> Writing efficient tests</a></li><li class="chapter-item expanded "><a href="../howtos/debug-sql.html"><strong aria-hidden="true">1.2.3.</strong> How to debug SQL/sqlite</a></li></ol></li><li class="chapter-item expanded "><a href="../dependency-management.html"><strong aria-hidden="true">1.3.</strong> Dependency management</a></li><li class="chapter-item expanded "><a href="../howtos/adding-a-new-component.html"><strong aria-hidden="true">1.4.</strong> How to add a new component</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/building-a-rust-component.html"><strong aria-hidden="true">1.4.1.</strong> How to build a new syncable component</a></li><li class="chapter-item expanded "><a href="../naming-conventions.html"><strong aria-hidden="true">1.4.2.</strong> Naming Conventions</a></li><li class="chapter-item expanded "><a href="../howtos/converting-a-component-to-uniffi.html" class="active"><strong aria-hidden="true">1.4.3.</strong> How to convert a Rust Component to Uniffi</a></li><li class="chapter-item expanded "><a href="../android-faqs.html"><strong aria-hidden="true">1.4.4.</strong> How to use Rust Components in Android</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/breaking-changes.html"><strong aria-hidden="true">1.5.</strong> Breaking API changes</a></li><li class="chapter-item expanded "><a href="../howtos/vendoring-into-mozilla-central.html"><strong aria-hidden="true">1.6.</strong> How to vendor application-services into mozilla-central</a></li><li class="chapter-item expanded "><a href="../logging.html"><strong aria-hidden="true">1.7.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../howtos/uniffi-object-destruction-on-kotlin.html"><strong aria-hidden="true">1.8.</strong> UniFFI Object Destruction on Kotlin</a></li></ol></li><li class="chapter-item expanded "><a href="../adr/index.html"><strong aria-hidden="true">2.</strong> Architectural Decision Records</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../adr/0000-use-markdown-architectural-decision-records.html"><strong aria-hidden="true">2.1.</strong> ADR-0000</a></li><li class="chapter-item expanded "><a href="../adr/0001-update-logins-api.html"><strong aria-hidden="true">2.2.</strong> ADR-0001</a></li><li class="chapter-item expanded "><a href="../adr/0002-database-corruption.html"><strong aria-hidden="true">2.3.</strong> ADR-0002</a></li><li class="chapter-item expanded "><a href="../adr/0003-swift-packaging.html"><strong aria-hidden="true">2.4.</strong> ADR-0003</a></li><li class="chapter-item expanded "><a href="../adr/0004-early-startup-experiments.html"><strong aria-hidden="true">2.5.</strong> ADR-0004</a></li><li class="chapter-item expanded "><a href="../adr/0005-remote-settings-client.html"><strong aria-hidden="true">2.6.</strong> ADR-0005</a></li><li class="chapter-item expanded "><a href="../adr/0007-limit-visits-migration-to-10000.html"><strong aria-hidden="true">2.7.</strong> ADR-0007</a></li></ol></li><li class="chapter-item expanded "><a href="../design/index.html"><strong aria-hidden="true">3.</strong> Design</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../design/megazords.html"><strong aria-hidden="true">3.1.</strong> Megazords</a></li><li class="chapter-item expanded "><a href="../design/sync-manager.html"><strong aria-hidden="true">3.2.</strong> Sync Manager</a></li><li class="chapter-item expanded "><a href="../design/sync-overview.html"><strong aria-hidden="true">3.3.</strong> Sync overview</a></li><li class="chapter-item expanded "><a href="../design/swift-package-manager.html"><strong aria-hidden="true">3.4.</strong> Shipping Rust Components as Swift Packages</a></li><li class="chapter-item expanded "><a href="../design/components-strategy.html"><strong aria-hidden="true">3.5.</strong> Rust Component's Strategy</a></li><li class="chapter-item expanded "><a href="../design/metrics.html"><strong aria-hidden="true">3.6.</strong> Metrics - (Glean Telemetry)</a></li><li class="chapter-item expanded "><a href="../design/rust-versions.html"><strong aria-hidden="true">3.7.</strong> Rust Version Policy</a></li><li class="chapter-item expanded "><a href="../design/db-pragmas.html"><strong aria-hidden="true">3.8.</strong> Sqlite Database Pragma Usage</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/releases.html"><strong aria-hidden="true">4.</strong> Releases</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../build-and-publish-pipeline.html"><strong aria-hidden="true">4.1.</strong> CI Publishing tools and flow</a></li><li class="chapter-item expanded "><a href="../howtos/upgrading-nss-guide.html"><strong aria-hidden="true">4.2.</strong> How to upgrade NSS</a></li></ol></li><li class="chapter-item expanded "><a href="../rust-docs/fxa_client/index.html"><strong aria-hidden="true">5.</strong> Rustdocs for components</a></li><li class="chapter-item expanded "><a href="../adding-docs.html"><strong aria-hidden="true">6.</strong> Adding to these documents</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mozilla/application-services" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="converting-an-existing-component-to-use-uniffi"><a class="header" href="#converting-an-existing-component-to-use-uniffi">Converting an existing Component to use UniFFI</a></h1>
+<p>When we started building the components in this repo, exposing Rust code to
+Kotlin and Swift was a manual process and each component had its own
+hand-written FFI layer and foreign-language bindings.</p>
+<p>As we've gained more experience with building components in this way, we've
+started to automate bindings generation and capture best practices in a
+tool called <a href="https://mozilla.github.io/uniffi-rs/">UniFFI</a>, which is the
+currently recommended approach when <a href="./adding-a-new-component.html">adding a new component from scratch</a>.</p>
+<p>We expect that existing components will gradually be ported over to use
+UniFFI, and this document is a guide to doing that port.</p>
+<h2 id="first-get-familiar-with-uniffi"><a class="header" href="#first-get-familiar-with-uniffi">First, get familiar with UniFFI</a></h2>
+<p>First, make sure you've perused the <a href="https://mozilla.github.io/uniffi-rs/">UniFFI guide</a>
+to understand the overall architecture of a UniFFI component, and take a look
+at the <a href="./adding-a-new-component.html">guide to adding a new component</a> to understand
+how such components fit in to this repo. The aim of porting will be to have a component
+that looks like it was added by the process described therein.</p>
+<h2 id="next-get-familiar-with-the-target-component"><a class="header" href="#next-get-familiar-with-the-target-component">Next, get familiar with the target component</a></h2>
+<p>Pre-UniFFI components typically consist of four main parts:</p>
+<ul>
+<li>A Rust crate implementing the core functionality of the component</li>
+<li>A separate Rust crate that exposes the core functionality over a C-style FFI.</li>
+<li>An Android package that imports the C-style FFI into idiomatic Kotlin.</li>
+<li>A Swift module that imports the C-style FFI into idiomatic Swift.</li>
+</ul>
+<p>The code for these parts will be laid out something like this:</p>
+<ul>
+<li><code>components/&lt;component_name&gt;/</code>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>src/</code>
+<ul>
+<li>Rust code for the core functionality of the component goes here.</li>
+</ul>
+</li>
+<li><code>ffi/</code>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>src/</code>
+<ul>
+<li>Rust code specifically for exposing the C-style FFI goes here.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>android/</code>
+<ul>
+<li><code>build.gradle</code></li>
+<li><code>src/</code>
+<ul>
+<li><code>main/</code>
+<ul>
+<li><code>AndroidManifest.xml</code></li>
+<li><code>java/mozilla/appservices/&lt;component_name&gt;/</code>
+<ul>
+<li><code>Lib&lt;ComponentName&gt;FFI.kt</code> (low-level bindings to the C-style FFI)</li>
+<li>Higher-level hand-written Kotlin that wraps the FFI.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>ios/</code>
+<ul>
+<li><code>&lt;component_name&gt;/</code>
+<ul>
+<li><code>Rust&lt;ComponentName&gt;API.h</code> (low-level bindings to the C-style FFI)</li>
+<li>Higher-level hand-written Swift that wraps the FFI.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>The goal here is to replace much of the hand-written wrapper layers with autogenerated
+code:</p>
+<ul>
+<li>The <code>./ffi/</code> crate will disappear entirely, its work is automated by UniFFI
+<ul>
+<li>If you still need some hand-written <code>pub extern "C"</code> functions, perhaps to
+implement features not currently supported by UniFFI, then they should move
+into <code>lib.rs</code> of the main component crate.</li>
+</ul>
+</li>
+<li>The low-level <code>Lib&lt;ComponentName&gt;FFI.kt</code> file will disappear entirely, as will some of the
+code that converts it back into nice high-level Kotlin classes and interfaces.
+<ul>
+<li>Some of the hand-written Kotlin code may remain, if it provides functionality that
+cannot be implemented in Rust.</li>
+</ul>
+</li>
+<li>The low-level <code>Rust&lt;ComponentName&gt;API.h</code> file will disappear entirely, as will some of the
+code that converts it back into nice high-level Swift classes and interfaces.
+<ul>
+<li>Some of the hand-written Swift code may remain, if it provides functionality that
+cannot be implemented in Rust.</li>
+</ul>
+</li>
+</ul>
+<p>You'll aim to end up with a simplified file structure that looks like this:</p>
+<ul>
+<li><code>components/&lt;component_name&gt;/</code>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>uniffi.toml</code></li>
+<li><code>src/</code>
+<ul>
+<li><code>&lt;component_name&gt;.udl</code> (abstract interface definition)</li>
+<li>Rust code here.</li>
+</ul>
+</li>
+<li><code>android/</code>
+<ul>
+<li><code>build.gradle</code></li>
+<li><code>src/</code>
+<ul>
+<li><code>main/</code>
+<ul>
+<li><code>AndroidManifest.xml</code></li>
+<li><code>java/mozilla/appservices/&lt;component_name&gt;/</code>
+<ul>
+<li>Optional hand-written Kotlin code here.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>ios/</code>
+<ul>
+<li><code>&lt;component_name&gt;/</code>
+<ul>
+<li>Optional hand-written Swift code here.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="write-a-first-draft-of-the-udl-file-for-the-components-interface"><a class="header" href="#write-a-first-draft-of-the-udl-file-for-the-components-interface">Write a first draft of the <code>.udl</code> file for the component's interface</a></h2>
+<p>Make sure you've got the <code>uniffi-bindgen</code> command available; <code>cargo install uniffi_bindgen</code> will
+ensure you have the latest version.</p>
+<p>Create <code>./src/&lt;component_name&gt;.udl</code> and try to describe the intended interface for the component
+using <a href="https://mozilla.github.io/uniffi-rs/udl_file_spec.html">UniFFI's interface definition language</a>.
+You'll probably need to reverse-engineer it a little bit from the existing hand-written Kotlin and/or
+Swift code.</p>
+<p>Don't spend too much time on trying to match every minute detail of the existing hand-written API.
+There are likely to be small differences between how UniFFI likes to do things and how the hand-written
+APIs were structured, and it's in everyone's best long-term interests to just push ahead and update
+consumers to accommodate any breaking API changes, rathern than e.g. trying to convince UniFFI to
+capitalize enum variant names in the same style that the hand-written code was using.</p>
+<p>To check whether the <code>.udl</code> file is syntactically valid, you can use <code>uniffi-bindgen</code> to generate
+the Rust FFI scaffolding like so:</p>
+<pre><code>uniffi-bindgen scaffolding ./src/&lt;component_name&gt;.udl
+</code></pre>
+<p>If this succeeds, it will generate a file <code>./src/&lt;component_name&gt;.uniffi.rs</code> with a bunch of
+thorny auto-generated Rust code. If it fails, it will likely fail with an inscrutable error message.
+Unfortunately the error reporting in UniFFI is currently a known pain point, and it can take a
+bit of trial-and-error to identify what part of the file is causing the issue. Sorry :-(</p>
+<p>The aim at this point is to ensure that the intended interface of the component can be expressed
+in terms that UniFFI understands. Most cases should be supported, but you may find some aspect of
+the existing component that is hard to express in UniFFI, perhaps even uncovering new functionality
+that needs to be added to UniFFI itself!</p>
+<p>The <code>.udl</code> file is definitely a first draft at this point. It is normal and expected to need
+to iterate on this file as you port over the underlying Rust code.</p>
+<h2 id="restructure-the-rust-code-to-introduce-uniffi"><a class="header" href="#restructure-the-rust-code-to-introduce-uniffi">Restructure the Rust code to introduce UniFFI</a></h2>
+<p>You will now restructure the existing Rust crate so that its public API surface
+and overall "shape" match what you defined in the <code>.udl</code> file.</p>
+<p>Start by deleting the <code>./ffi</code> sub-crate, because you're going to use UniFFI to generate
+all of that code. You'll also need to remove it from the workspace in the top-level
+<code>Cargo.toml</code> file, as well as change the crates under <code>/megazords</code> to import the core
+Rust crate for the component rather than importing the FFI sub-crate.</p>
+<p>Add UniFFI to the crate's dependencies and configure its <code>build.rs</code> script to invoke the
+UniFFI scaffolding generator, as described in <a href="adding-a-new-component.html">"adding a new component"</a>.</p>
+<p>Now, edit <code>./lib.rs</code> so that it matches the interface defined in the <code>.udl</code> file as closely
+as possible. If the <code>.udl</code> has an <code>interface Example</code> then <code>lib.rs</code> should contain a
+<code>pub struct Example</code>, if the <code>.udl</code> contains an <code>enum ExampleItem</code> then <code>lib.rs</code> should
+contain a <code>pub enum ExampleItem</code>, and so-on.</p>
+<p>The details of this step will depend heavily on the specific crate, but some tips include:</p>
+<ul>
+<li>
+<p>You may find it useful to move all of the existing code into a sub-module named <code>internal</code>,
+and then make a brand new <code>lib.rs</code> that imports or re-defines just the pieces it needs
+in order to implement the interface from the <code>.udl</code> file. The <code>fxa-client</code> crate is an
+example of a case where this worked out well, though of course your mileage may vary.</p>
+</li>
+<li>
+<p>If the existing crate contains a file named like <code>&lt;component_name&gt;_msg_types.proto</code>, then
+it was using Protocol Buffers to serialize data to pass over the FFI. The message types
+defined in the <code>.proto</code> file will need to be converted into <code>dictionary</code> or <code>enum</code> definitions
+in your <code>.udl</code> file. See the section below for more details.</p>
+</li>
+</ul>
+<p>As noted above, don't be afraid to accept some API churn during the conversion process.
+We're willing to accept some breaking API changes as the cost of getting bindings generated
+for free, as long as the core functionality and mental model of the component remain intact.</p>
+<p>At this point, in theory the crate should be buildable with UniFFI, although it's likely
+to require some iteration to get it all working! Run <code>cargo check</code> to check for any
+compilation errors without having to do a full build.</p>
+<h3 id="removing-protobuf-messages"><a class="header" href="#removing-protobuf-messages">Removing Protobuf Messages</a></h3>
+<p>Passing rich structured data over the FFI is the most complex part of our hand-written bindings,
+and was previously done by <a href="https://hacks.mozilla.org/2019/04/crossing-the-rust-ffi-frontier-with-protocol-buffers/">serializing data via Protocol Buffers</a>.
+This is something that UniFFI tries to make as simple as possible.</p>
+<p>Start by locating the <code>&lt;component_name&gt;_msg_types.proto</code> file for the component. This file defines
+the structured messages that can be passed over the FFI, and you should see that they correspond
+to various types of structured data that the component wants to receive from, or return to,
+the foreign-language code.</p>
+<p>Find the places in your <code>.udl</code> interface that correspond to these message types and make sure
+that you've got a similarly-shaped <code>dictionary</code> or <code>enum</code> for each one. You should find that
+representing this structured data in UDL is simpler than protobuf in many cases - for example
+many of our <code>.protobuf</code> files need to use a separate <code>ExampleStructs</code> message in order to
+pass a list of <code>ExampleStruct</code> messages over the FFI, but in UniFFI this is represented
+directly as <code>sequence&lt;ExampleStruct&gt;</code>.</p>
+<p>Find the places in the Rust code that are using these message types to return structured data.
+In simple cases, you may be able to directly replace uses of <code>msg_types::ExampleStruct</code> with
+the corresponding <code>crate::ExampleStruct</code> from your public API.
+For more complex cases, you may find it helpful to define an <code>Into</code> mapping between the
+UniFFI dictionary/enum in the crate's public interface, and a more complex struct designed
+for internal use.</p>
+<p>As noted above, don't be afraid to accept some API churn during this conversion process.</p>
+<p>Once you have replaced all uses of the <code>msg_types</code> structs in the Rust code:</p>
+<ul>
+<li>Delete <code>./src/&lt;component_name&gt;_msg_types.proto</code>.</li>
+<li>Delete <code>./src/mozilla.appservices.&lt;component_name&gt;.protobuf.rs</code>, which is generated from the <code>.proto</code> file.</li>
+<li>Remote <code>prost</code> and <code>prost-derive</code> from the crate's dependencies.</li>
+<li>Delete the crate from the list in <code>/tools/protobuf_files.toml</code>.</li>
+</ul>
+<p>If you happen to find that you've deleted the last crate from the list in <code>protobuf_files.toml</code>,
+congratulations! You've successfully removed protocol buffers from this repo entirely, and should
+file a bug to track the complete removal of protobuf from our tooling and dependency chain.</p>
+<h2 id="document-the-public-api-in-the-rust-code"><a class="header" href="#document-the-public-api-in-the-rust-code">Document the Public API in the Rust code</a></h2>
+<p>Write consumer-facing documentation on the public API in <code>lib.rs</code> using Rust's standard
+<a href="https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html">rustdoc</a> conventions
+and tools. The <code>fxa-client</code> crate may serve as a good example.</p>
+<p>You can view the generated documentation by running:</p>
+<pre><code>cargo doc --no-deps --open
+</code></pre>
+<p>In future, we intend to automatically extract documentation from the Rust code
+and make it easily available to consumers of the generated bindings.</p>
+<p>(In fact there is some work-in-progress code in <a href="https://github.com/mozilla/uniffi-rs/pull/416">uniffi-rs#416</a>
+that can read docs from the Rust code and write them back into the <code>.udl</code> file, which you're
+welcome to try out if you're feeling adventurous. But it's just a very hacky prototype.)</p>
+<h2 id="set-up-the-kotlin-wrapper"><a class="header" href="#set-up-the-kotlin-wrapper">Set up the Kotlin wrapper</a></h2>
+<p>It's easiest to start by removing all of the hand-written Kotlin code under <code>android/src/main/java</code>
+and then restoring parts of it later if necessary. Leave the <code>AndroidManifest.xml</code> file and any tests
+in place.</p>
+<p>Delete the <code>android/build.gradle</code> file and then follow the instructions for <a href="adding-a-new-component.html#the-kotlin-bindings">adding Kotlin bindings
+for a new component</a> to create a new <code>build.gradle</code>
+file and a corresponding <code>uniffi.toml</code>.</p>
+<p>This should be all that's required to set up UniFFI to build the Kotlin bindings. Try building
+the Android package to confirm:</p>
+<ul>
+<li><code>./gradlew &lt;component_name&gt;:assembleDebug</code></li>
+</ul>
+<p>The UniFFI-generated Kotlin code will be under <code>./android/build/generated/source/uniffi/</code> and
+may be useful for debugging.</p>
+<p>If there are existing Kotlin tests for the component, the next step is to get those passing:</p>
+<ul>
+<li><code>./gradlew &lt;component_name&gt;:test</code></li>
+</ul>
+<p>As noted above, it is normal and expected for the autogenerated bindings to be subtly different
+from the previous hand-written ones. For example, UniFFI insists on using SHOUTY_SNAKE_CASE
+variant names in Kotlin enums while the hand-written code may have used CamelCase. Some components
+also have small naming differences between the Rust code and the hand-written Kotlin bindings,
+which UniFFI will not allow.</p>
+<p>If the component had functionality in its Kotlin layer that was not part of the Rust API,
+then you'll need to add some hand-written Kotlin code under <code>android/src/main/java</code> to
+implement it. The <code>fxa-client</code> component may be a good example here: its Rust layer exposes
+a <code>FirefoxAccount</code> struct that the Kotlin code wraps into a <code>PersistedFirefoxAccount</code> class,
+adding the ability to set a persistence callback.</p>
+<p>Finally, you will need to try out the new bindings with a consuming app. For Kotlin code you should
+<a href="locally-published-components-in-fenix.html">make a local build of android-components and Fenix</a>,
+updating them to accomodate any changes in the component's public API.</p>
+<h2 id="set-up-the-swift-wrapper"><a class="header" href="#set-up-the-swift-wrapper">Set up the Swift wrapper</a></h2>
+<p>It's easiest to start by removing all of the hand-written Swift code under <code>./ios</code> and then
+restoring parts of it later if necessary.</p>
+<p>Edit <code>/megazords/ios-rust/MozillaTestServices.h</code> to remove any references to <code>Rust&lt;ComponentName&gt;API.h</code>,
+replacing them with the UniFFI-generated header file name <code>&lt;component_name&gt;FFI.h</code>.</p>
+<p>Open <code>/megazords/ios-rust/MozillaTestServices.xcodeproj</code> in Xcode and follow the instructions for
+<a href="adding-a-new-component.html#the-swift-bindings">adding Swift bindings for a new component</a> to
+configure Xcode to build your UniFFI-generated bindings.</p>
+<p>While you are in the Xcode Project Navigator, you should also delete any references to
+<code>Rust&lt;ComponentName&gt;API.h</code> or to the old hand-written Swift wrappers. (They should be highlighted
+in red in the Project Navigator, because the files will be missing from disk after you
+deleted them above).</p>
+<p>This should be all that's required to set up UniFFI to build the Swift bindings. Try building
+the project in Xcode to confirm.</p>
+<p>The UniFFI-generated Swift code will be under <code>ios/Generated</code> and may be useful for debugging.</p>
+<p>If there are existing Swift tests for the component, the next step is to get those passing:</p>
+<ul>
+<li><code>./automation/run_ios_tests.sh</code></li>
+<li>(or run them from the Xcode GUI)</li>
+</ul>
+<p>As noted above, it is normal and expected for the autogenerated bindings to be subtly different
+from the previous hand-written ones. Many existing components have small naming differences
+between the Rust code and the hand-written Swift bindings, which UniFFI will not allow.</p>
+<p>If the component had functionality in its Swift layer that was not part of the Rust API,
+then you'll need to add some hand-written Swift code under <code>./ios/&lt;ComponentName&gt;</code> to
+implement it. The <code>fxa-client</code> component may be a good example here: its Rust layer exposes
+a <code>FirefoxAccount</code> struct that the Swift code wraps into a <code>PersistedFirefoxAccount</code> class,
+adding the ability to set a persistence callback.</p>
+<p>You will need to add any such file to the "Compile Sources" list in Xcode, in the same way
+that you added the <code>.udl</code> file.</p>
+<p>Finally, you will need to try out the new bindings with a consuming app. For Swift code you should make a local build of Firefox iOS, you can do that by following the steps in <a href="./locally-published-components-in-firefox-ios.html">this document</a></p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/howtos/converting-a-component-to-uniffi.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../naming-conventions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../android-faqs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../naming-conventions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../android-faqs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../shared/tabs.js"></script>
+        <script src="../shared/mermaid.min.js"></script>
+        <script src="../shared/mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>

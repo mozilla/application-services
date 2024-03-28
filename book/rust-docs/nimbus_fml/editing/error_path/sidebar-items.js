@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["append","append1","append_quoted","collect_path","find_index","line_col_from_lines"],"struct":["ErrorPath"]};

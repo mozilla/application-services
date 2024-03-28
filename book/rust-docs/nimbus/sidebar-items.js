@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EnrollmentStatus"],"fn":["evaluate_enrollment"],"mod":["error","metrics","schema","stateful","versioning"],"struct":["EnrolledFeature","NimbusTargetingHelper","RemoteSettingsConfig"]};

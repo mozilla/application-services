@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["API_GITHUB_DOTCOM","GITHUB_USER_CONTENT_DOTCOM"],"enum":["FilePath"],"fn":["is_dir"],"static":["USER_AGENT"],"struct":["FileLoader","GitHubRepoFilePath","LoaderConfig"]};

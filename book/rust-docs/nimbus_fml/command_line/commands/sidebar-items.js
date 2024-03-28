@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CliCmd"],"struct":["GenerateExperimenterManifestCmd","GenerateSingleFileManifestCmd","GenerateStructCmd","PrintChannelsCmd","PrintInfoCmd","ValidateCmd"]};

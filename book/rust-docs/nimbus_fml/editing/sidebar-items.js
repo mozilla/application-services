@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cursor_position","error_converter","error_kind","error_path","values_finder"],"struct":["CorrectionCandidate","FeatureValidationError","FmlEditorError"]};

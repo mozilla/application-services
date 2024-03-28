@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_registered_sync_engine"],"mod":["error"],"struct":["ClientRemoteTabs","TabsBridgedEngine","TabsEngine","TabsStore"],"type":["RemoteTabRecord","TabsDeviceType"]};

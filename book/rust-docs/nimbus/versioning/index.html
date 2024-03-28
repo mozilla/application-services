@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Nimbus SDK App Version Comparison"><title>nimbus::versioning - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="nimbus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../nimbus/index.html">nimbus</a><span class="version">0.10.0</span></h2></div><h2 class="location"><a href="#">Module versioning</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In crate nimbus</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">nimbus</a>::<wbr><a class="mod" href="#">versioning</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/nimbus/versioning.rs.html#5-298">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h3 id="nimbus-sdk-app-version-comparison"><a href="#nimbus-sdk-app-version-comparison">Nimbus SDK App Version Comparison</a></h3>
+<p>The Nimbus SDK supports comparing app versions that follow the Firefox versioning scheme.
+This module was ported from the Firefox Desktop implementation. You can find the Desktop implementation
+in <a href="https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsVersionComparator.cpp">this C++ file</a>
+There’s also some more documentation in the <a href="https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31">IDL</a></p>
+<h3 id="how-versioning-works"><a href="#how-versioning-works">How versioning works</a></h3>
+<p>This module defines one main struct, the <a href="struct.Version.html" title="struct nimbus::versioning::Version"><code>Version</code></a> struct. A version is represented by a list of
+dot separated <strong>Version Parts</strong>s. When comparing two versions, we compare each version part in order.
+If one of the versions has a version part, but the other has run out (i.e we have reached the end of the list of version parts)
+we compare the existing version part with the default version part, which is the <code>0</code>. For example,
+<code>1.0</code> is equivalent to <code>1.0.0.0</code>.</p>
+<p>For information what version parts are composed of, and how they are compared, read the <a href="#the-version-part">next section</a>.</p>
+<h4 id="example-versions"><a href="#example-versions">Example Versions</a></h4>
+<p>The following are all valid versions:</p>
+<ul>
+<li><code>1</code> (one version part, representing the <code>1</code>)</li>
+<li>`` (one version part, representing the empty string, which is equal to <code>0</code>)</li>
+<li><code>12+</code> (one version part, representing <code>12+</code> which is equal to <code>13pre</code>)</li>
+<li><code>98.1</code> (two version parts, one representing <code>98</code> and another <code>1</code>)</li>
+<li><code>98.2pre1.0-beta</code> (three version parts, one for <code>98</code>, one for <code>2pre1</code> and one for <code>0-beta</code>)</li>
+</ul>
+<h3 id="the-version-part"><a href="#the-version-part">The Version Part</a></h3>
+<p>A version part is made from 4 elements that directly follow each other:</p>
+<ul>
+<li><code>num_a</code>: A 32-bit base-10 formatted number that is at the start of the part</li>
+<li><code>str_b</code>: A non-numeric ascii-encoded string that starts after <code>num_a</code></li>
+<li><code>num_c</code>: Another 32-bit base-10 formatted number that follows <code>str_b</code></li>
+<li><code>extra_d</code>: The rest of the version part as an ascii-encoded string</li>
+</ul>
+<p>When two version parts are compared, each of <code>num_a</code>, <code>str_b</code>, <code>num_c</code> and <code>extra_d</code> are compared
+in order. <code>num_a</code> and <code>num_c</code> are compared by normal integer comparison, <code>str_b</code> and <code>extra_b</code> are compared
+by normal byte string comparison.</p>
+<h4 id="special-values-and-cases"><a href="#special-values-and-cases">Special values and cases</a></h4>
+<p>There two special characters that can be used in version parts:</p>
+<ol>
+<li>The <code>*</code>. This can be used to represent the whole version part. If used, it will set the <code>num_a</code> to be
+the maximum value possible (<a href="https://doc.rust-lang.org/1.75.0/std/primitive.i32.html#associatedconstant.MAX" title="associated constant i32::MAX"><code>i32::MAX</code></a>). This can only be used as the whole version part string. It will parsed
+normally as the <code>*</code> ascii character if it is preceded or followed by any other characters.</li>
+<li>The <code>+</code>. This can be used as the <code>str_b</code>. Whenever a <code>+</code> is used as a <code>str_b</code>, it increments the <code>num_a</code> by 1 and sets
+the <code>str_b</code> to be equal to <code>pre</code>. For example, <code>2+</code> is the same as <code>3pre</code></li>
+<li>An empty <code>str_b</code> is always <strong>greater</strong> than a <code>str_b</code> with a value. For example, <code>93</code> &gt; <code>93pre</code></li>
+</ol>
+<h3 id="example-version-comparisons"><a href="#example-version-comparisons">Example version comparisons</a></h3>
+<p>The following comparisons are taken directly from <a href="https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31">the brief documentation in Mozilla-Central</a></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>nimbus::versioning::Version;
+<span class="kw">let </span>v1 = Version::try_from(<span class="string">&quot;1.0pre1&quot;</span>).unwrap();
+<span class="kw">let </span>v2 = Version::try_from(<span class="string">&quot;1.0pre2&quot;</span>).unwrap();
+<span class="kw">let </span>v3 = Version::try_from(<span class="string">&quot;1.0&quot;</span>).unwrap();
+<span class="kw">let </span>v4 = Version::try_from(<span class="string">&quot;1.0.0&quot;</span>).unwrap();
+<span class="kw">let </span>v5 = Version::try_from(<span class="string">&quot;1.0.0.0&quot;</span>).unwrap();
+<span class="kw">let </span>v6 = Version::try_from(<span class="string">&quot;1.1pre&quot;</span>).unwrap();
+<span class="kw">let </span>v7 = Version::try_from(<span class="string">&quot;1.1pre0&quot;</span>).unwrap();
+<span class="kw">let </span>v8 = Version::try_from(<span class="string">&quot;1.0+&quot;</span>).unwrap();
+<span class="kw">let </span>v9 = Version::try_from(<span class="string">&quot;1.1pre1a&quot;</span>).unwrap();
+<span class="kw">let </span>v10 = Version::try_from(<span class="string">&quot;1.1pre1&quot;</span>).unwrap();
+<span class="kw">let </span>v11 = Version::try_from(<span class="string">&quot;1.1pre10a&quot;</span>).unwrap();
+<span class="kw">let </span>v12 = Version::try_from(<span class="string">&quot;1.1pre10&quot;</span>).unwrap();
+<span class="macro">assert!</span>(v1 &lt; v2);
+<span class="macro">assert!</span>(v2 &lt; v3);
+<span class="macro">assert!</span>(v3 == v4);
+<span class="macro">assert!</span>(v4 == v5);
+<span class="macro">assert!</span>(v5 &lt; v6);
+<span class="macro">assert!</span>(v6 == v7);
+<span class="macro">assert!</span>(v7 == v8);
+<span class="macro">assert!</span>(v8 &lt; v9);
+<span class="macro">assert!</span>(v9 &lt; v10);
+<span class="macro">assert!</span>(v10 &lt; v11);
+<span class="macro">assert!</span>(v11 &lt; v12);</code></pre></div>
+<p>What the above is comparing is:
+1.0pre1
+&lt; 1.0pre2
+&lt; 1.0 == 1.0.0 == 1.0.0.0
+&lt; 1.1pre == 1.1pre0 == 1.0+
+&lt; 1.1pre1a
+&lt; 1.1pre1
+&lt; 1.1pre10a
+&lt; 1.1pre10</p>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Version.html" title="struct nimbus::versioning::Version">Version</a></div></li></ul></section></div></main></body></html>

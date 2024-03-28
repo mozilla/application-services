@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["class_name","comment","defaults_type_label","enum_variant_name","literal","preference_getter","property","quoted","to_json","type_label","var_name"]};
