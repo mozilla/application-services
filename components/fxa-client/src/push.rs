@@ -100,6 +100,14 @@ impl FirefoxAccount {
             .lock()
             .send_single_tab(target_device_id, title, url)
     }
+
+    /// ...
+    #[handle_error(Error)]
+    pub fn close_remote_tabs(&self, target_device_id: &str, urls: Vec<String>) -> ApiResult<()> {
+        self.internal
+            .lock()
+            .close_remote_tabs(target_device_id, &urls)
+    }
 }
 
 /// Details of a web-push subscription endpoint.
@@ -189,6 +197,10 @@ pub enum IncomingDeviceCommand {
         sender: Option<Device>,
         payload: SendTabPayload,
     },
+    TabsClosed {
+        sender: Option<Device>,
+        payload: CloseTabsPayload,
+    },
 }
 
 /// The payload sent when invoking a "send tab" command.
@@ -208,6 +220,12 @@ pub struct SendTabPayload {
     ///
     /// The application should treat this as opaque.
     pub stream_id: String,
+}
+
+/// The payload sent when invoking a "close tabs" command.
+#[derive(Debug)]
+pub struct CloseTabsPayload {
+    pub urls: Vec<String>,
 }
 
 /// An individual entry in the navigation history of a sent tab.

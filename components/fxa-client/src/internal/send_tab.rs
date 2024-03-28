@@ -16,17 +16,7 @@ use super::{
 use crate::{Error, Result};
 
 impl FirefoxAccount {
-    /// Generate the Send Tab command to be registered with the server.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub(crate) fn generate_send_tab_command_data(&mut self) -> Result<String> {
-        let own_keys = self.load_or_generate_keys()?;
-        let public_keys: PublicSendTabKeys = own_keys.into();
-        let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
-        public_keys.as_command_data(oldsync_key)
-    }
-
-    fn load_or_generate_keys(&mut self) -> Result<PrivateSendTabKeys> {
+    pub(crate) fn load_or_generate_send_tab_keys(&mut self) -> Result<PrivateSendTabKeys> {
         if let Some(s) = self.send_tab_key() {
             match PrivateSendTabKeys::deserialize(s) {
                 Ok(keys) => return Ok(keys),
@@ -63,7 +53,7 @@ impl FirefoxAccount {
         let (payload, sent_telemetry) = SendTabPayload::single_tab(title, url);
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(oldsync_key, target, &payload)?;
-        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)?;
+        self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload, None)?;
         self.telemetry.record_tab_sent(sent_telemetry);
         Ok(())
     }

@@ -509,6 +509,12 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
         }
     }
 
+    fun closeRemoteTabs(targetDeviceId: String, urls: List<String>) {
+        withMetrics {
+            this.inner.closeRemoteTabs(targetDeviceId, urls)
+        }
+    }
+
     /**
      * Gather any telemetry which has been collected internally and return
      * the result as a JSON string.

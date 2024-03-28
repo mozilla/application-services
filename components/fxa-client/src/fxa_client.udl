@@ -528,7 +528,12 @@ interface FirefoxAccount {
   //
   [Throws=FxaError]
   void send_single_tab([ByRef] string target_device_id, [ByRef] string title, [ByRef] string url );
-  
+
+
+  // ...
+  [Throws=FxaError]
+  void close_remote_tabs([ByRef] string target_device_id, sequence<string> urls );
+
 
   // Get the URL at which to access the user's sync data.
   //
@@ -886,6 +891,13 @@ dictionary SendTabPayload {
   string stream_id;
 };
 
+// ...
+//
+dictionary CloseTabsPayload {
+  // ...
+  sequence<string> urls;
+};
+
 // An individual entry in the navigation history of a sent tab.
 //
 dictionary TabHistoryEntry {
@@ -981,10 +993,9 @@ enum FxaRustAuthState {
 // so consumers simply need to select which ones they want to support, and can
 // use the variants of this enum to do so.
 //
-// In practice, the only currently-supported command is the ability to receive a tab.
-//
 enum DeviceCapability {
   "SendTab",
+  "CloseRemoteTabs",
 };
 
 
@@ -1058,6 +1069,9 @@ interface IncomingDeviceCommand {
 
   // Indicates that a tab has been sent to this device.
   TabReceived(Device? sender, SendTabPayload payload );
+
+  // ...
+  TabsClosed(Device? sender, CloseTabsPayload payload);
 };
 
 // Machinery for dry-run testing of FxaAuthStateMachine

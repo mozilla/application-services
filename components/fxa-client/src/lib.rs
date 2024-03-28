@@ -59,7 +59,8 @@ pub use error::{Error, FxaError};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{
-    AccountEvent, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload, TabHistoryEntry,
+    AccountEvent, CloseTabsPayload, DevicePushSubscription, IncomingDeviceCommand, SendTabPayload,
+    TabHistoryEntry,
 };
 pub use token::{AccessTokenInfo, AuthorizationParameters, ScopedKey};
 
