@@ -16,11 +16,21 @@ mod populate_interests;
 mod schema;
 pub mod url_hash;
 
+use std::collections::HashMap;
+
 pub use db::RelevancyDb;
 pub use error::{ApiResult, Error, RelevancyApiError, Result};
 pub use interest::{Interest, InterestVector};
 
 use error_support::handle_error;
+use url_hash::UrlHash;
+
+use crate::url_hash::hash_url;
+
+pub struct URLInterest {
+    url: Option<UrlHash>,
+    interest: Interest,
+}
 
 pub struct RelevancyStore {
     db: RelevancyDb,
@@ -47,9 +57,53 @@ impl RelevancyStore {
     ///
     ///  This method may execute for a long time and should only be called from a worker thread.
     #[handle_error(Error)]
-    pub fn ingest(&self, _top_urls_by_frecency: Vec<String>) -> ApiResult<()> {
+    pub fn ingest(&self, top_urls_by_frecency: Vec<String>) -> ApiResult<HashMap<Interest, u32>> {
         populate_interests::ensure_interest_data_populated(&self.db)?;
-        todo!()
+        let mut interest_counter: HashMap<Interest, u32> = HashMap::new();
+
+        let hashed_top_urls: Vec<UrlHash> = top_urls_by_frecency
+            .into_iter()
+            .filter_map(|url| hash_url(&url))
+            .collect();
+
+        let classified_urls = RelevancyStore::get_url_interest_data();
+        for classified_url in classified_urls {
+            if let Some(url) = &classified_url.url {
+                match hashed_top_urls.contains(url) {
+                    true => {
+                        *interest_counter.entry(classified_url.interest).or_insert(0) += 1;
+                    }
+                    false => {
+                        *interest_counter.entry(Interest::Inconclusive).or_insert(0) += 1;
+                    }
+                }
+            } else {
+                *interest_counter.entry(Interest::Inconclusive).or_insert(0) += 1;
+            }
+        }
+        Ok(interest_counter)
+    }
+
+    /// Temp method until we actually retrieve data from RS
+    pub fn get_url_interest_data() -> Vec<URLInterest> {
+        vec![
+            URLInterest {
+                url: hash_url("https://pasta.com"),
+                interest: Interest::Food,
+            },
+            URLInterest {
+                url: hash_url("https://food.com"),
+                interest: Interest::Food,
+            },
+            URLInterest {
+                url: hash_url("https://dog.com"),
+                interest: Interest::Animals,
+            },
+            URLInterest {
+                url: hash_url("https://cat.com"),
+                interest: Interest::Animals,
+            },
+        ]
     }
 
     /// Calculate metrics for the validation phase
@@ -79,3 +133,26 @@ pub struct InterestMetrics {
 }
 
 uniffi::include_scaffolding!("relevancy");
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ingest() {
+        let top_urls = vec![
+            "https://food.com/".to_string(),
+            "https://hello.com".to_string(),
+            "https://pasta.com".to_string(),
+            "https://dog.com".to_string(),
+        ];
+        let relevancy_store =
+            RelevancyStore::new("file:test_store_data?mode=memory&cache=shared".to_owned())
+                .unwrap();
+        let mut result: HashMap<Interest, u32> = HashMap::new();
+        result.insert(Interest::Food, 2);
+        result.insert(Interest::Inconclusive, 1);
+        result.insert(Interest::Animals, 1);
+        assert_eq!(relevancy_store.ingest(top_urls).unwrap(), result);
+    }
+}
