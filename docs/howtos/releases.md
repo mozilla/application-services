@@ -144,14 +144,18 @@ index 8cd923873..6482018e0 100644
 If you want to uplift changes into a previous release:
 
 * Make sure the changes are present in `main` and have been thoroughly tested
-* Checkout the `release-vXXX` branch, where `XXX` is the major version number
-* Create a PR to bump the version in `version.txt` from [release_version].0 to [release_version].0.1 on the release branch
-* Cherry-pick any commits that you want to uplift into a PR or ensure all the needed PRs are merged into the release branch
-* Once the PRs are approved, merged, and CI has completed, Create a new Application Services release in Ship-It for the release branch. Promote & ship the release
-* Tag the release in the Application Services repo
-* Inform the Application Services team in case there is a need to cut a new release of [rust-components-swift](https://github.com/mozilla/rust-components-swift)
-* Update consumer applications 
-
+* Find the PR for the changes and add this comment: `@mergify backport release-vXXX`
+* Find the Bugzilla bug with the changes and add an uplift request
+    * Find the attacment corresponding to new PR created from the `@mergify` comment.
+    * Click the "details" link
+    * Set `approval-mozilla-beta` or `approval-mozilla-release` to `?`
+    * Save the form
+* Release management will then:
+  * Arrange for the backport to be merged
+  * Create a new Application Services release in Ship-It for the release branch. Promote & ship the release
+  * Tag the release in the Application Services repo
+* Notify the Application Services team in case there is a need to cut a new release of [rust-components-swift](https://github.com/mozilla/rust-components-swift)
+* Notify any affected consumer applications teams.
 
 # What gets built in a release?
 
