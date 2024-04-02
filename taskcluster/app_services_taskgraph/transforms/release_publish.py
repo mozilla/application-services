@@ -16,6 +16,7 @@ def setup_command(config, tasks):
     nightly = "-nightly" if config.params.get("preview-build") else ""
     maven_channel = f"maven{nightly}-{instance}"
     release_type = config.params.get('release-type', 'nightly')
+    head_rev = config.params["head_rev"]
 
     for task in tasks:
         task["run"]["commands"] = [
@@ -37,6 +38,7 @@ def setup_command(config, tasks):
             task["routes"] = [
                 f"index.project.application-services.v2.{release_type}.latest",
                 f"index.project.application-services.v2.{release_type}.{version}",
+                f"index.project.application-services.v2.{release_type}.revision.{head_rev}",
             ]
         yield task
 
