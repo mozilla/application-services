@@ -23,6 +23,8 @@ interface TabsStore {
 
     void set_local_tabs(sequence<RemoteTabRecord> remote_tabs);
 
+    void add_pending_remote_tab_closure(sequence<TabsRequestedClose> tabs_requested_closed);
+
     [Self=ByArc]
     void register_with_sync_manager();
 
@@ -47,6 +49,11 @@ dictionary ClientRemoteTabs {
     // Number of ms since the unix epoch (as reported by the server's clock)
     i64 last_modified;
     sequence<RemoteTabRecord> remote_tabs;
+};
+
+dictionary TabsRequestedClose {
+    string client_id;
+    sequence<string> urls;
 };
 
 // Note the canonical docs for this are in https://searchfox.org/mozilla-central/source/services/interfaces/mozIBridgedSyncEngine.idl

@@ -31,6 +31,15 @@ const CREATE_META_TABLE_SQL: &str = "
     )
 ";
 
+const CREATE_PENDING_REMOTE_DELETE_TABLE_SQL: &str = "
+    CREATE TABLE IF NOT EXISTS pending_remote_tab_closures (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id               TEXT NOT NULL,
+        url                     TEXT NOT NULL,
+        time_requested_close    INTEGER NOT NULL
+    );
+";
+
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
 pub(crate) static GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "tabs_sync_id";
@@ -43,7 +52,7 @@ pub struct TabsMigrationLogic;
 
 impl MigrationLogic for TabsMigrationLogic {
     const NAME: &'static str = "tabs storage db";
-    const END_VERSION: u32 = 2;
+    const END_VERSION: u32 = 3;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> MigrationResult<()> {
         let initial_pragmas = "
@@ -62,16 +71,31 @@ impl MigrationLogic for TabsMigrationLogic {
 
     fn init(&self, db: &Transaction<'_>) -> MigrationResult<()> {
         log::debug!("Creating schemas");
-        db.execute_all(&[CREATE_SCHEMA_SQL, CREATE_META_TABLE_SQL])?;
+        db.execute_all(&[
+            CREATE_SCHEMA_SQL,
+            CREATE_META_TABLE_SQL,
+            CREATE_PENDING_REMOTE_DELETE_TABLE_SQL,
+        ])?;
         Ok(())
     }
 
     fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
         match version {
+            2 => upgrade_from_v2(db),
             1 => upgrade_from_v1(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),
         }
     }
+}
+
+fn upgrade_from_v2(db: &Connection) -> MigrationResult<()> {
+    // Recreate the world
+    db.execute_all(&[
+        CREATE_SCHEMA_SQL,
+        CREATE_META_TABLE_SQL,
+        CREATE_PENDING_REMOTE_DELETE_TABLE_SQL,
+    ])?;
+    Ok(())
 }
 
 fn upgrade_from_v1(db: &Connection) -> MigrationResult<()> {
@@ -79,7 +103,11 @@ fn upgrade_from_v1(db: &Connection) -> MigrationResult<()> {
     // and cleared on each sync -- it's fine to just drop it
     db.execute_batch("DROP TABLE tabs;")?;
     // Recreate the world
-    db.execute_all(&[CREATE_SCHEMA_SQL, CREATE_META_TABLE_SQL])?;
+    db.execute_all(&[
+        CREATE_SCHEMA_SQL,
+        CREATE_META_TABLE_SQL,
+        CREATE_PENDING_REMOTE_DELETE_TABLE_SQL,
+    ])?;
     Ok(())
 }
 
