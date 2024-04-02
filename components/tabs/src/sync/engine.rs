@@ -188,9 +188,10 @@ impl SyncEngine for TabsEngine {
         // In desktop we might end up here with zero records when doing a quick-write, in
         // which case we don't want to wipe the DB.
         if !remote_tabs.is_empty() {
-            storage.replace_remote_tabs(remote_tabs)?;
+            storage.replace_remote_tabs(&remote_tabs)?;
         }
         storage.remove_stale_clients()?;
+        storage.remove_old_pending_closures(&remote_tabs)?;
         Ok(())
     }
 

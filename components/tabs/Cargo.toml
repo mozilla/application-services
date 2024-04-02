@@ -22,6 +22,7 @@ sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 uniffi = { workspace = true }
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
+types = { path = "../support/types" }
 
 [dev-dependencies]
 env_logger = { version = "0.10.0", default-features = false, features = ["humantime"] }

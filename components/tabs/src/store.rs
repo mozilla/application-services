@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::storage::{ClientRemoteTabs, RemoteTab, TabsStorage};
+use crate::storage::{ClientRemoteTabs, RemoteTab, TabsRequestedClose, TabsStorage};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -33,6 +33,14 @@ impl TabsStore {
             Some(list) => list,
             None => vec![],
         }
+    }
+
+    pub fn add_pending_remote_tab_closure(&self, tabs_requested_closed: Vec<TabsRequestedClose>) {
+        let _ = self
+            .storage
+            .lock()
+            .unwrap()
+            .add_remote_tab_closures(tabs_requested_closed);
     }
 
     pub fn remote_tabs(&self) -> Option<Vec<ClientRemoteTabs>> {
