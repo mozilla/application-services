@@ -14,7 +14,7 @@ uniffi-bindings = ["client-lib", "dep:uniffi"]
 name = "nimbus_fml"
 
 [dependencies]
-clap = {version = "2.34.0", features = ["yaml"]}
+clap = {version = "3", features = ["yaml"]}
 anyhow = "1.0.44"
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.8.21"

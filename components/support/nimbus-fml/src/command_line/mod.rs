@@ -57,26 +57,29 @@ where
     let matches = App::from_yaml(yaml).get_matches_from(args);
 
     Ok(match matches.subcommand() {
-        ("generate", Some(matches)) => {
-            CliCmd::Generate(create_generate_command_from_cli(matches, cwd)?)
-        }
-        ("generate-experimenter", Some(matches)) => CliCmd::GenerateExperimenter(
-            create_generate_command_experimenter_from_cli(matches, cwd)?,
-        ),
-        ("fetch", Some(matches)) => {
-            CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
-        }
-        ("single-file", Some(matches)) => {
-            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(matches, cwd)?)
-        }
-        ("validate", Some(matches)) => {
-            CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
-        }
-        ("channels", Some(matches)) => {
-            CliCmd::PrintChannels(create_print_channels_from_cli(matches, cwd)?)
-        }
-        ("info", Some(matches)) => CliCmd::PrintInfo(create_print_info_from_cli(matches, cwd)?),
-        (word, _) => unimplemented!("Command {} not implemented", word),
+        Some(subcommand) => match subcommand {
+            ("generate", matches) => {
+                CliCmd::Generate(create_generate_command_from_cli(matches, cwd)?)
+            }
+            ("generate-experimenter", matches) => CliCmd::GenerateExperimenter(
+                create_generate_command_experimenter_from_cli(matches, cwd)?,
+            ),
+            ("fetch", matches) => {
+                CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
+            }
+            ("single-file", matches) => {
+                CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(matches, cwd)?)
+            }
+            ("validate", matches) => {
+                CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
+            }
+            ("channels", matches) => {
+                CliCmd::PrintChannels(create_print_channels_from_cli(matches, cwd)?)
+            }
+            ("info", matches) => CliCmd::PrintInfo(create_print_info_from_cli(matches, cwd)?),
+            (word, _) => unimplemented!("Command {} not implemented", word),
+        },
+        None => panic!("No subcommand given"),
     })
 }
 
