@@ -241,7 +241,7 @@ fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
 // our other crates.
 pub mod test_utils {
     use super::*;
-    use std::path::PathBuf;
+    use std::{collections::HashSet, path::PathBuf};
     use tempfile::TempDir;
 
     // Database file that we can programatically run upgrades on
@@ -306,9 +306,52 @@ pub mod test_utils {
             }
         }
 
+        pub fn assert_schema_matches_new_database(&self) {
+            let db = self.open();
+            let new_db = open_memory_database(&self.connection_initializer).unwrap();
+            let table_names = get_table_names(&db);
+            let new_db_table_names = get_table_names(&new_db);
+            let extra_tables = Vec::from_iter(table_names.difference(&new_db_table_names));
+            if !extra_tables.is_empty() {
+                panic!("Extra tables not present in new database: {extra_tables:?}");
+            }
+            let new_db_extra_tables = Vec::from_iter(new_db_table_names.difference(&table_names));
+            if !new_db_extra_tables.is_empty() {
+                panic!("Extra tables only present in new database: {new_db_extra_tables:?}");
+            }
+
+            for table_name in table_names {
+                assert_eq!(
+                    get_table_sql(&db, &table_name),
+                    get_table_sql(&new_db, &table_name),
+                    "sql differs for table: {table_name}",
+                );
+            }
+        }
+
         pub fn open(&self) -> Connection {
             Connection::open(&self.path).unwrap()
         }
+    }
+
+    fn get_table_names(conn: &Connection) -> HashSet<String> {
+        conn.query_rows_and_then(
+            "SELECT name FROM sqlite_master WHERE type='table'",
+            (),
+            |row| row.get(0),
+        )
+        .unwrap()
+        .into_iter()
+        .collect()
+    }
+
+    fn get_table_sql(conn: &Connection, table_name: &str) -> String {
+        conn.query_row_and_then(
+            "SELECT sql FROM sqlite_master WHERE name = ? AND type='table'",
+            (&table_name,),
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap()
     }
 }
 

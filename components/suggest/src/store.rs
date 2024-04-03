@@ -5021,10 +5021,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                         },
                     ),
@@ -5093,10 +5093,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                         },
                     ),
@@ -5292,10 +5292,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                         },
                     ),
@@ -5381,7 +5381,7 @@ mod tests {
                     UnparsableRecords(
                         {
                             "invalid-attachment": UnparsableRecord {
-                                schema_version: 18,
+                                schema_version: 19,
                             },
                         },
                     ),
