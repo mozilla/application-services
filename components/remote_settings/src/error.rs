@@ -22,7 +22,7 @@ pub enum RemoteSettingsError {
     ResponseError(String),
     #[error("This server doesn't support attachments")]
     AttachmentsUnsupportedError,
-    #[error("...")]
+    #[error("Error configuring client: {0}")]
     ConfigError(String),
 }
 
