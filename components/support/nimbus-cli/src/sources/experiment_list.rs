@@ -219,7 +219,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use remote_settings::{Client, RemoteSettingsConfig};
+                use remote_settings::{Client, RemoteSettingsConfig, RemoteSettingsServer};
                 viaduct_reqwest::use_reqwest_backend();
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
@@ -227,7 +227,10 @@ impl TryFrom<&ExperimentListSource> for Value {
                     "nimbus-mobile-experiments".to_string()
                 };
                 let config = RemoteSettingsConfig {
-                    server_url: Some(endpoint.clone()),
+                    server: Some(RemoteSettingsServer::Custom {
+                        url: endpoint.clone(),
+                    }),
+                    server_url: None,
                     bucket_name: None,
                     collection_name,
                 };

@@ -6,6 +6,9 @@
 [External="remote_settings"]
 typedef extern RemoteSettingsConfig;
 
+[External="remote_settings"]
+typedef extern RemoteSettingsServer;
+
 namespace suggest {
 
 boolean raw_suggestion_url_matches([ByRef] string raw_url, [ByRef] string url);

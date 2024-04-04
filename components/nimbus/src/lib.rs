@@ -31,7 +31,7 @@ cfg_if::cfg_if! {
 
         pub use stateful::nimbus_client::*;
         pub use stateful::matcher::AppContext;
-        pub use remote_settings::RemoteSettingsConfig;
+        pub use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer};
     } else {
         pub mod stateless;
 
