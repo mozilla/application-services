@@ -17,7 +17,7 @@ fn main() -> Result<()> {
             MetricsHandler,
         },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-        NimbusTargetingHelper, RemoteSettingsConfig,
+        NimbusTargetingHelper, RemoteSettingsConfig, RemoteSettingsServer,
     };
     use std::collections::HashMap;
     use std::io::prelude::*;
@@ -218,7 +218,10 @@ fn main() -> Result<()> {
 
     // initiate the optional config
     let config = RemoteSettingsConfig {
-        server_url: Some(server_url.to_string()),
+        server: Some(RemoteSettingsServer::Custom {
+            url: server_url.to_string(),
+        }),
+        server_url: None,
         bucket_name: None,
         collection_name: collection_name.to_string(),
     };

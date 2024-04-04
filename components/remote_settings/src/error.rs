@@ -22,6 +22,8 @@ pub enum RemoteSettingsError {
     ResponseError(String),
     #[error("This server doesn't support attachments")]
     AttachmentsUnsupportedError,
+    #[error("...")]
+    ConfigError(String),
 }
 
 pub type Result<T, E = RemoteSettingsError> = std::result::Result<T, E>;

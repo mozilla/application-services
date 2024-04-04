@@ -14,7 +14,7 @@ mod common;
 #[test]
 fn test_simple() -> Result<()> {
     use common::NoopMetricsHandler;
-    use nimbus::{NimbusClient, RemoteSettingsConfig};
+    use nimbus::{NimbusClient, RemoteSettingsConfig, RemoteSettingsServer};
     use std::path::PathBuf;
     use url::Url;
 
@@ -26,7 +26,10 @@ fn test_simple() -> Result<()> {
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
     let config = RemoteSettingsConfig {
-        server_url: Some(url.as_str().to_string()),
+        server: Some(RemoteSettingsServer::Custom {
+            url: url.as_str().to_string(),
+        }),
+        server_url: None,
         bucket_name: None,
         collection_name: "doesn't matter".to_string(),
     };

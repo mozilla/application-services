@@ -10,7 +10,7 @@ use rkv::StoreOptions;
 use nimbus::{
     error::Result,
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    AppContext, NimbusClient, RemoteSettingsConfig,
+    AppContext, NimbusClient, RemoteSettingsConfig, RemoteSettingsServer,
 };
 
 pub struct NoopMetricsHandler;
@@ -58,7 +58,10 @@ fn new_test_client_internal(
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
     let config = RemoteSettingsConfig {
-        server_url: Some(url.as_str().to_string()),
+        server: Some(RemoteSettingsServer::Custom {
+            url: url.as_str().to_string(),
+        }),
+        server_url: None,
         bucket_name: None,
         collection_name: "doesn't matter".to_string(),
     };

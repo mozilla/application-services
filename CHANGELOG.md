@@ -18,6 +18,10 @@
 - Improved full keyword display for AMP suggestions
 - `SuggestStoreBuilder.cache_path` is now deprecated because we no longer use the cache path.
 
+### Remote Settings
+- `RemoteSettingsConfig.server_url` is deprecated in favor of `server`, which is a `RemoteSettingsServer` instead of a string.
+- The new `RemoteSettingsServer` type specifies the Remote Settings server to use.
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v124.0...v125.0)
 
 # v124.0 (_2024-02-15_)

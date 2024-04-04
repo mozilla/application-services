@@ -11,19 +11,17 @@ use fs_client::FileSystemClient;
 use null_client::NullClient;
 use remote_settings::Client;
 use remote_settings::RemoteSettingsConfig;
-use url::Url;
 
 pub(crate) fn create_client(
     config: Option<RemoteSettingsConfig>,
 ) -> Result<Box<dyn SettingsClient + Send>> {
     Ok(match config {
         Some(config) => {
-            // XXX - double-parsing the URL here if it's not a file:// URL - ideally
-            // config would already be holding a Url and we wouldn't parse here at all.
-            let url = match &config.server_url {
-                Some(server_url) => Url::parse(server_url)?,
-                None => return Ok(Box::new(Client::new(config)?)),
+            assert!(config.server_url.is_none());
+            let Some(remote_settings_server) = config.server.as_ref() else {
+                return Ok(Box::new(Client::new(config)?));
             };
+            let url = remote_settings_server.url()?;
             if url.scheme() == "file" {
                 // Everything in `config` other than the url/path is ignored for the
                 // file-system - we could insist on a sub-directory, but that doesn't
