@@ -11,39 +11,49 @@ use crate::{
 use parking_lot::Mutex;
 use rusqlite::{Connection, OpenFlags};
 use sql_support::{open_database::open_database_with_flags, ConnExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A thread-safe wrapper around an SQLite connection to the Relevancy database
 pub struct RelevancyDb {
-    pub conn: Mutex<Connection>,
+    inner: Mutex<RelevancyDbInner>,
+}
+
+struct RelevancyDbInner {
+    db_path: PathBuf,
+    reader: Option<Connection>,
+    writer: Option<Connection>,
 }
 
 impl RelevancyDb {
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let conn = open_database_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_URI
-                | OpenFlags::SQLITE_OPEN_NO_MUTEX
-                | OpenFlags::SQLITE_OPEN_CREATE
-                | OpenFlags::SQLITE_OPEN_READ_WRITE,
-            &RelevancyConnectionInitializer,
-        )?;
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
-            conn: Mutex::new(conn),
+            inner: Mutex::new(RelevancyDbInner {
+                db_path: path.as_ref().to_owned(),
+                reader: None,
+                writer: None,
+            }),
         })
     }
 
+    pub fn close(&self) {
+        let mut inner = self.inner.lock();
+        // This causes any open databases to be dropped, closing the connection.
+        inner.writer = None;
+        inner.reader = None;
+    }
+
     #[cfg(test)]
-    pub fn open_for_test() -> Self {
+    pub fn new_for_test() -> Self {
         use std::sync::atomic::{AtomicU32, Ordering};
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         let count = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self::open(format!("file:test{count}.sqlite?mode=memory&cache=shared")).unwrap()
+        Self::new(format!("file:test{count}.sqlite?mode=memory&cache=shared")).unwrap()
     }
 
     /// Accesses the Suggest database in a transaction for reading.
     pub fn read<T>(&self, op: impl FnOnce(&RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut conn = self.conn.lock();
+        let mut inner = self.inner.lock();
+        let conn = inner.read_connection()?;
         let tx = conn.transaction()?;
         let dao = RelevancyDao::new(&tx);
         op(&dao)
@@ -51,12 +61,46 @@ impl RelevancyDb {
 
     /// Accesses the Suggest database in a transaction for reading and writing.
     pub fn read_write<T>(&self, op: impl FnOnce(&mut RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut conn = self.conn.lock();
+        let mut inner = self.inner.lock();
+        let conn = inner.write_connection()?;
         let tx = conn.transaction()?;
         let mut dao = RelevancyDao::new(&tx);
         let result = op(&mut dao)?;
         tx.commit()?;
         Ok(result)
+    }
+}
+
+impl RelevancyDbInner {
+    pub fn read_connection(&mut self) -> Result<&mut Connection> {
+        if self.reader.is_none() {
+            self.reader = Some(self.open_database()?);
+        }
+        Ok(self.reader.as_mut().unwrap())
+    }
+
+    pub fn write_connection(&mut self) -> Result<&mut Connection> {
+        if self.writer.is_none() {
+            self.writer = Some(self.open_database()?);
+        }
+        Ok(self.writer.as_mut().unwrap())
+    }
+
+    fn open_database(&self) -> Result<Connection> {
+        // Note: use `SQLITE_OPEN_READ_WRITE` for both read and write connections.
+        // Even if we're opening a read connection, we may need to do a write as part of the
+        // initialization process.
+        //
+        // The read-only nature of the connection is enforced by the fact that [RelevancyDb::read] uses a
+        // shared ref to the `RelevancyDao`.
+        Ok(open_database_with_flags(
+            &self.db_path,
+            OpenFlags::SQLITE_OPEN_URI
+                | OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | OpenFlags::SQLITE_OPEN_CREATE
+                | OpenFlags::SQLITE_OPEN_READ_WRITE,
+            &RelevancyConnectionInitializer,
+        )?)
     }
 }
 

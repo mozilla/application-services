@@ -53,7 +53,7 @@ mod test {
 
     #[test]
     fn test_interest_vectors() {
-        let db = RelevancyDb::open_for_test();
+        let db = RelevancyDb::new_for_test();
         ensure_interest_data_populated(&db).unwrap();
         db.read(|dao| {
             // Test that the interest data matches the values we started from in
@@ -115,7 +115,7 @@ mod test {
 
     #[test]
     fn test_variations_on_the_url() {
-        let db = RelevancyDb::open_for_test();
+        let db = RelevancyDb::new_for_test();
         ensure_interest_data_populated(&db).unwrap();
         db.read(|dao| {
             // Different paths/queries should work

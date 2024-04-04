@@ -8,8 +8,13 @@ interface RelevancyApiError {
 // Top-level class for the Relevancy component
 interface RelevancyStore {
     // Construct a new RelevancyStore
+    //
+    // This is non-blocking since databases and other resources are lazily opened.
     [Throws=RelevancyApiError]
     constructor(string dbpath);
+
+    // Close any open resources (for example databases)
+    void close();
 
     // Ingest the top URLs by frequency to build up the user's interest vector
     [Throws=RelevancyApiError]
