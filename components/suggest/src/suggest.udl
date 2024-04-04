@@ -158,6 +158,10 @@ interface SuggestStoreBuilder {
     SuggestStoreBuilder cache_path(string path);
 
     [Self=ByArc]
+    SuggestStoreBuilder remote_settings_server(RemoteSettingsServer server);
+
+    // Deprecated: Use `remote_settings_server()` instead.
+    [Self=ByArc]
     SuggestStoreBuilder remote_settings_config(RemoteSettingsConfig config);
 
     [Throws=SuggestApiError]

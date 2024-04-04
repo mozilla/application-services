@@ -17,6 +17,7 @@
 ### Suggest
 - Improved full keyword display for AMP suggestions
 - `SuggestStoreBuilder.cache_path` is now deprecated because we no longer use the cache path.
+- `SuggestStoreBuilder.remote_settings_config` is deprecated in favor of `remote_settings_server`, because `remote_settings_config` forced consumers that wanted to override the Remote Settings server to also specify the bucket and collection names.
 
 ### Remote Settings
 - `RemoteSettingsConfig.server_url` is deprecated in favor of `server`, which is a `RemoteSettingsServer` instead of a string.
