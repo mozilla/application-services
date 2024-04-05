@@ -15,31 +15,24 @@ use std::path::{Path, PathBuf};
 
 /// A thread-safe wrapper around an SQLite connection to the Relevancy database
 pub struct RelevancyDb {
-    inner: Mutex<RelevancyDbInner>,
-}
-
-struct RelevancyDbInner {
     db_path: PathBuf,
-    reader: Option<Connection>,
-    writer: Option<Connection>,
+    reader: Mutex<Option<Connection>>,
+    writer: Mutex<Option<Connection>>,
 }
 
 impl RelevancyDb {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
-            inner: Mutex::new(RelevancyDbInner {
-                db_path: path.as_ref().to_owned(),
-                reader: None,
-                writer: None,
-            }),
+            db_path: path.as_ref().to_owned(),
+            reader: Mutex::new(None),
+            writer: Mutex::new(None),
         })
     }
 
     pub fn close(&self) {
-        let mut inner = self.inner.lock();
         // This causes any open databases to be dropped, closing the connection.
-        inner.writer = None;
-        inner.reader = None;
+        *self.reader.lock() = None;
+        *self.writer.lock() = None;
     }
 
     #[cfg(test)]
@@ -52,38 +45,28 @@ impl RelevancyDb {
 
     /// Accesses the Suggest database in a transaction for reading.
     pub fn read<T>(&self, op: impl FnOnce(&RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut inner = self.inner.lock();
-        let conn = inner.read_connection()?;
-        let tx = conn.transaction()?;
+        let mut reader_option = self.reader.lock();
+        let reader = match reader_option.as_mut() {
+            Some(reader) => reader,
+            None => reader_option.insert(self.open_database()?),
+        };
+        let tx = reader.transaction()?;
         let dao = RelevancyDao::new(&tx);
         op(&dao)
     }
 
     /// Accesses the Suggest database in a transaction for reading and writing.
     pub fn read_write<T>(&self, op: impl FnOnce(&mut RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut inner = self.inner.lock();
-        let conn = inner.write_connection()?;
-        let tx = conn.transaction()?;
+        let mut writer_option = self.writer.lock();
+        let writer = match writer_option.as_mut() {
+            Some(writer) => writer,
+            None => writer_option.insert(self.open_database()?),
+        };
+        let tx = writer.transaction()?;
         let mut dao = RelevancyDao::new(&tx);
         let result = op(&mut dao)?;
         tx.commit()?;
         Ok(result)
-    }
-}
-
-impl RelevancyDbInner {
-    pub fn read_connection(&mut self) -> Result<&mut Connection> {
-        if self.reader.is_none() {
-            self.reader = Some(self.open_database()?);
-        }
-        Ok(self.reader.as_mut().unwrap())
-    }
-
-    pub fn write_connection(&mut self) -> Result<&mut Connection> {
-        if self.writer.is_none() {
-            self.writer = Some(self.open_database()?);
-        }
-        Ok(self.writer.as_mut().unwrap())
     }
 
     fn open_database(&self) -> Result<Connection> {
