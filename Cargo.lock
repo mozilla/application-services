@@ -1993,6 +1993,7 @@ dependencies = [
  "lazy_static",
  "parking_lot",
  "rusqlite",
+ "uniffi",
 ]
 
 [[package]]
