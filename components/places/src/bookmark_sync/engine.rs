@@ -460,39 +460,35 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
                             WHERE newPlaceId NOT NULL)",
     )?;
 
-    // We read the `itemsToApply` table to detect if we have any
-    // cases of bookmarks with no places ids, or non-bookmarks with places
-    // ids, this is temporary to help debug https://bugzilla.mozilla.org/show_bug.cgi?id=1876320
-    log::debug!("Checking for bad bookmark data");
+    // We read the `itemsToApply` table to detect we have incoming bookmarks with a different
+    // type than the existing bookmarks with the same id
+    // This is temporary to help debug https://bugzilla.mozilla.org/show_bug.cgi?id=1876320
+    log::debug!("Checking for incoming data that has a different type than existing data.");
     scope.err_if_interrupted()?;
-    db.query_rows_and_then(
-        "SELECT newKind, newPlaceId
-                      FROM itemsToApply
-                      WHERE (newKind = 1 AND newPlaceId IS NULL) OR
-                            (newKind = 2 AND newPlaceId IS NULL) OR
-                            (newKind > 2 AND newPlaceId IS NOT NULL)",
+    db.query_row(
+        &format!(
+            "SELECT b.type as oldtype, it.newPlaceId as newFk
+                FROM itemsToApply it
+                JOIN moz_bookmarks b
+                ON it.localId = b.id
+                WHERE {type_fragment} != b.type
+            ",
+            type_fragment = ItemTypeFragment("it.newKind")
+        ),
         [],
-        |row| -> Result<()> {
-            let bookmark_type = SyncedBookmarkKind::from_u8(row.get("newKind")?)?;
-            match bookmark_type {
-                SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
-                    error_support::report_error!(
-                        "places-sync-bookmarks",
-                        "bookmark type = {} seen with no places id",
-                        bookmark_type as u8
-                    );
-                }
-                _ => {
-                    error_support::report_error!(
-                        "places-sync-bookmarks",
-                        "bookmark type = {} with a places id",
-                        bookmark_type as u8
-                    );
-                }
-            };
-            Ok(())
-        },
-    )?;
+        |row| -> std::result::Result<(), rusqlite::Error> {
+            let fk = row.get::<_, Option<u64>>("newFk")?;
+            let typ = row.get::<_, u8>("oldtype")?;
+            error_support::report_error!(
+                "places-sync-bookmarks",
+                "Incoming bookmark item with type {typ} has a different type than the one persisted. fk is {fk_val}",
+                fk_val = match fk {
+                    Some(_) => "non null",
+                    None => "null"
+                });
+                Ok(())
+        }
+    ).ok(); // We ignore the error because it's expected, users should not have entries with the same id that have different types
 
     // Insert and update items, temporarily using the Places root for new
     // items' parent IDs, and -1 for positions. We'll fix these up later,
