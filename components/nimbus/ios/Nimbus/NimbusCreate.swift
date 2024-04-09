@@ -94,7 +94,7 @@ public extension Nimbus {
         let remoteSettings = server.map { server -> RemoteSettingsConfig in
             RemoteSettingsConfig(
                 collectionName: server.collection,
-                serverUrl: server.url.absoluteString
+                server: .custom(url: server.url.absoluteString)
             )
         }
         let nimbusClient = try NimbusClient(
