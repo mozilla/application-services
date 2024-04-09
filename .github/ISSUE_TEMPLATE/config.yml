@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: We are now using Bugzilla for issue tracking!
+    url: https://bugzilla.mozilla.org/enter_bug.cgi?product=Application+Services
+    about: Please file your ticket there, and select the corresponding component from the list.
