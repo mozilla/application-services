@@ -14,7 +14,12 @@ interface RelevancyStore {
     constructor(string dbpath);
 
     // Close any open resources (for example databases)
+    //
+    // Calling `close` will interrupt any in-progress queries on other threads.
     void close();
+
+    // Interrupt any current database queries
+    void interrupt();
 
     // Ingest the top URLs by frequency to build up the user's interest vector
     [Throws=RelevancyApiError]
