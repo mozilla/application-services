@@ -17,6 +17,7 @@ interrupt-support = { path = "../interrupt" }
 ffi-support = "0.4"
 thiserror = "1.0"
 tempfile = "3.1.0"
+parking_lot = ">=0.11,<=0.12"
 prettytable-rs = { version = "0.10", optional = true }
 rusqlite = { workspace = true, features = ["functions", "limits", "bundled", "unlock_notify"] }
 

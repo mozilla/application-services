@@ -46,6 +46,8 @@ pub enum Error {
     SqlError(rusqlite::Error),
     #[error("Failed to recover a corrupt database due to an error deleting the file: {0}")]
     RecoveryError(std::io::Error),
+    #[error("In shutdown mode")]
+    Shutdown,
 }
 
 impl From<rusqlite::Error> for Error {
@@ -241,8 +243,120 @@ fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
 // our other crates.
 pub mod test_utils {
     use super::*;
-    use std::{collections::HashSet, path::PathBuf};
+    use std::{cell::RefCell, collections::HashSet, path::PathBuf};
     use tempfile::TempDir;
+
+    pub struct TestConnectionInitializer {
+        pub calls: RefCell<Vec<&'static str>>,
+        pub buggy_v3_upgrade: bool,
+    }
+
+    impl Default for TestConnectionInitializer {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl TestConnectionInitializer {
+        pub fn new() -> Self {
+            Self {
+                calls: RefCell::new(Vec::new()),
+                buggy_v3_upgrade: false,
+            }
+        }
+        pub fn new_with_buggy_logic() -> Self {
+            Self {
+                calls: RefCell::new(Vec::new()),
+                buggy_v3_upgrade: true,
+            }
+        }
+
+        pub fn clear_calls(&self) {
+            self.calls.borrow_mut().clear();
+        }
+
+        pub fn push_call(&self, call: &'static str) {
+            self.calls.borrow_mut().push(call);
+        }
+
+        pub fn check_calls(&self, expected: Vec<&'static str>) {
+            assert_eq!(*self.calls.borrow(), expected);
+        }
+    }
+
+    impl ConnectionInitializer for TestConnectionInitializer {
+        const NAME: &'static str = "test db";
+        const END_VERSION: u32 = 4;
+
+        fn prepare(&self, conn: &Connection, _: bool) -> Result<()> {
+            self.push_call("prep");
+            conn.execute_batch(
+                "
+                PRAGMA journal_mode = wal;
+                ",
+            )?;
+            Ok(())
+        }
+
+        fn init(&self, conn: &Transaction<'_>) -> Result<()> {
+            self.push_call("init");
+            conn.execute_batch(
+                "
+                CREATE TABLE prep_table(col);
+                INSERT INTO prep_table(col) VALUES ('correct-value');
+                CREATE TABLE my_table(col);
+                ",
+            )
+            .map_err(|e| e.into())
+        }
+
+        fn upgrade_from(&self, conn: &Transaction<'_>, version: u32) -> Result<()> {
+            match version {
+                // This upgrade forces the database to be replaced by returning
+                // `Error::Corrupt`.
+                1 => {
+                    self.push_call("upgrade_from_v1");
+                    Err(Error::Corrupt)
+                }
+                2 => {
+                    self.push_call("upgrade_from_v2");
+                    conn.execute_batch(
+                        "
+                        ALTER TABLE my_old_table_name RENAME TO my_table;
+                        ",
+                    )?;
+                    Ok(())
+                }
+                3 => {
+                    self.push_call("upgrade_from_v3");
+
+                    if self.buggy_v3_upgrade {
+                        conn.execute_batch("ILLEGAL_SQL_CODE")?;
+                    }
+
+                    conn.execute_batch(
+                        "
+                        ALTER TABLE my_table RENAME COLUMN old_col to col;
+                        ",
+                    )?;
+                    Ok(())
+                }
+                _ => {
+                    panic!("Unexpected version: {}", version);
+                }
+            }
+        }
+
+        fn finish(&self, conn: &Connection) -> Result<()> {
+            self.push_call("finish");
+            conn.execute_batch(
+                "
+                INSERT INTO my_table(col) SELECT col FROM prep_table;
+                ",
+            )?;
+            Ok(())
+        }
+    }
 
     // Database file that we can programatically run upgrades on
     //
@@ -357,118 +471,9 @@ pub mod test_utils {
 
 #[cfg(test)]
 mod test {
-    use super::test_utils::MigratedDatabaseFile;
+    use super::test_utils::{MigratedDatabaseFile, TestConnectionInitializer};
     use super::*;
-    use std::cell::RefCell;
     use std::io::Write;
-
-    struct TestConnectionInitializer {
-        pub calls: RefCell<Vec<&'static str>>,
-        pub buggy_v3_upgrade: bool,
-    }
-
-    impl TestConnectionInitializer {
-        pub fn new() -> Self {
-            let _ = env_logger::try_init();
-            Self {
-                calls: RefCell::new(Vec::new()),
-                buggy_v3_upgrade: false,
-            }
-        }
-        pub fn new_with_buggy_logic() -> Self {
-            let _ = env_logger::try_init();
-            Self {
-                calls: RefCell::new(Vec::new()),
-                buggy_v3_upgrade: true,
-            }
-        }
-
-        pub fn clear_calls(&self) {
-            self.calls.borrow_mut().clear();
-        }
-
-        pub fn push_call(&self, call: &'static str) {
-            self.calls.borrow_mut().push(call);
-        }
-
-        pub fn check_calls(&self, expected: Vec<&'static str>) {
-            assert_eq!(*self.calls.borrow(), expected);
-        }
-    }
-
-    impl ConnectionInitializer for TestConnectionInitializer {
-        const NAME: &'static str = "test db";
-        const END_VERSION: u32 = 4;
-
-        fn prepare(&self, conn: &Connection, _: bool) -> Result<()> {
-            self.push_call("prep");
-            conn.execute_batch(
-                "
-                PRAGMA journal_mode = wal;
-                ",
-            )?;
-            Ok(())
-        }
-
-        fn init(&self, conn: &Transaction<'_>) -> Result<()> {
-            self.push_call("init");
-            conn.execute_batch(
-                "
-                CREATE TABLE prep_table(col);
-                INSERT INTO prep_table(col) VALUES ('correct-value');
-                CREATE TABLE my_table(col);
-                ",
-            )
-            .map_err(|e| e.into())
-        }
-
-        fn upgrade_from(&self, conn: &Transaction<'_>, version: u32) -> Result<()> {
-            match version {
-                // This upgrade forces the database to be replaced by returning
-                // `Error::Corrupt`.
-                1 => {
-                    self.push_call("upgrade_from_v1");
-                    Err(Error::Corrupt)
-                }
-                2 => {
-                    self.push_call("upgrade_from_v2");
-                    conn.execute_batch(
-                        "
-                        ALTER TABLE my_old_table_name RENAME TO my_table;
-                        ",
-                    )?;
-                    Ok(())
-                }
-                3 => {
-                    self.push_call("upgrade_from_v3");
-
-                    if self.buggy_v3_upgrade {
-                        conn.execute_batch("ILLEGAL_SQL_CODE")?;
-                    }
-
-                    conn.execute_batch(
-                        "
-                        ALTER TABLE my_table RENAME COLUMN old_col to col;
-                        ",
-                    )?;
-                    Ok(())
-                }
-                _ => {
-                    panic!("Unexpected version: {}", version);
-                }
-            }
-        }
-
-        fn finish(&self, conn: &Connection) -> Result<()> {
-            self.push_call("finish");
-            conn.execute_batch(
-                "
-                INSERT INTO my_table(col) SELECT col FROM prep_table;
-                ",
-            )?;
-            Ok(())
-        }
-    }
 
     // A special schema used to test the upgrade that forces the database to be
     // replaced.

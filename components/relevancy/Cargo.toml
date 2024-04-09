@@ -9,6 +9,7 @@ exclude = ["/android", "/ios"]
 
 [dependencies]
 error-support = { path = "../support/error" }
+interrupt-support = { path = "../support/interrupt" }
 sql-support = { path = "../support/sql" }
 log = "0.4"
 md-5 = "0.10"

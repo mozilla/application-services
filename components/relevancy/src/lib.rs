@@ -39,6 +39,10 @@ impl RelevancyStore {
         self.db.close()
     }
 
+    pub fn interrupt(&self) {
+        self.db.interrupt()
+    }
+
     /// Ingest top URLs to build the user's interest vector.
     ///
     /// Consumer should pass a list of the user's top URLs by frecency to this method.  It will

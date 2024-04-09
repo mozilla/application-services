@@ -8,31 +8,43 @@ use crate::{
     url_hash::{hash_url, UrlHash},
     Interest, InterestVector, Result,
 };
-use parking_lot::Mutex;
+use interrupt_support::SqlInterruptScope;
 use rusqlite::{Connection, OpenFlags};
-use sql_support::{open_database::open_database_with_flags, ConnExt};
-use std::path::{Path, PathBuf};
+use sql_support::{ConnExt, LazyDb};
+use std::path::Path;
 
 /// A thread-safe wrapper around an SQLite connection to the Relevancy database
 pub struct RelevancyDb {
-    db_path: PathBuf,
-    reader: Mutex<Option<Connection>>,
-    writer: Mutex<Option<Connection>>,
+    reader: LazyDb<RelevancyConnectionInitializer>,
+    writer: LazyDb<RelevancyConnectionInitializer>,
 }
 
 impl RelevancyDb {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        // Note: use `SQLITE_OPEN_READ_WRITE` for both read and write connections.
+        // Even if we're opening a read connection, we may need to do a write as part of the
+        // initialization process.
+        //
+        // The read-only nature of the connection is enforced by the fact that [RelevancyDb::read] uses a
+        // shared ref to the `RelevancyDao`.
+        let db_open_flags = OpenFlags::SQLITE_OPEN_URI
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_READ_WRITE;
         Ok(Self {
-            db_path: path.as_ref().to_owned(),
-            reader: Mutex::new(None),
-            writer: Mutex::new(None),
+            reader: LazyDb::new(path.as_ref(), db_open_flags, RelevancyConnectionInitializer),
+            writer: LazyDb::new(path.as_ref(), db_open_flags, RelevancyConnectionInitializer),
         })
     }
 
     pub fn close(&self) {
-        // This causes any open databases to be dropped, closing the connection.
-        *self.reader.lock() = None;
-        *self.writer.lock() = None;
+        self.reader.close(true);
+        self.writer.close(true);
+    }
+
+    pub fn interrupt(&self) {
+        self.reader.interrupt();
+        self.writer.interrupt();
     }
 
     #[cfg(test)]
@@ -45,45 +57,20 @@ impl RelevancyDb {
 
     /// Accesses the Suggest database in a transaction for reading.
     pub fn read<T>(&self, op: impl FnOnce(&RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut reader_option = self.reader.lock();
-        let reader = match reader_option.as_mut() {
-            Some(reader) => reader,
-            None => reader_option.insert(self.open_database()?),
-        };
-        let tx = reader.transaction()?;
-        let dao = RelevancyDao::new(&tx);
+        let (mut conn, scope) = self.reader.lock()?;
+        let tx = conn.transaction()?;
+        let dao = RelevancyDao::new(&tx, scope);
         op(&dao)
     }
 
     /// Accesses the Suggest database in a transaction for reading and writing.
     pub fn read_write<T>(&self, op: impl FnOnce(&mut RelevancyDao) -> Result<T>) -> Result<T> {
-        let mut writer_option = self.writer.lock();
-        let writer = match writer_option.as_mut() {
-            Some(writer) => writer,
-            None => writer_option.insert(self.open_database()?),
-        };
-        let tx = writer.transaction()?;
-        let mut dao = RelevancyDao::new(&tx);
+        let (mut conn, scope) = self.writer.lock()?;
+        let tx = conn.transaction()?;
+        let mut dao = RelevancyDao::new(&tx, scope);
         let result = op(&mut dao)?;
         tx.commit()?;
         Ok(result)
-    }
-
-    fn open_database(&self) -> Result<Connection> {
-        // Note: use `SQLITE_OPEN_READ_WRITE` for both read and write connections.
-        // Even if we're opening a read connection, we may need to do a write as part of the
-        // initialization process.
-        //
-        // The read-only nature of the connection is enforced by the fact that [RelevancyDb::read] uses a
-        // shared ref to the `RelevancyDao`.
-        Ok(open_database_with_flags(
-            &self.db_path,
-            OpenFlags::SQLITE_OPEN_URI
-                | OpenFlags::SQLITE_OPEN_NO_MUTEX
-                | OpenFlags::SQLITE_OPEN_CREATE
-                | OpenFlags::SQLITE_OPEN_READ_WRITE,
-            &RelevancyConnectionInitializer,
-        )?)
     }
 }
 
@@ -94,11 +81,17 @@ impl RelevancyDb {
 /// reference (`&mut self`).
 pub struct RelevancyDao<'a> {
     pub conn: &'a Connection,
+    pub scope: SqlInterruptScope,
 }
 
 impl<'a> RelevancyDao<'a> {
-    fn new(conn: &'a Connection) -> Self {
-        Self { conn }
+    fn new(conn: &'a Connection, scope: SqlInterruptScope) -> Self {
+        Self { conn, scope }
+    }
+
+    /// Return Err(Interrupted) if we were interrupted
+    pub fn err_if_interrupted(&self) -> Result<()> {
+        Ok(self.scope.err_if_interrupted()?)
     }
 
     /// Associate a URL with an interest
