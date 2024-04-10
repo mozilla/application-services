@@ -11,7 +11,7 @@ pub use client::{
     RsJsonObject, SortOrder,
 };
 pub mod config;
-pub use config::{RemoteSettingsConfig, RemoteSettingsServer};
+pub use config::{remote_settings_server_url, RemoteSettingsConfig, RemoteSettingsServer};
 
 uniffi::include_scaffolding!("remote_settings");
 

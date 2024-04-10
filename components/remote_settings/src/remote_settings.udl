@@ -5,7 +5,12 @@
 [Custom]
 typedef string RsJsonObject;
 
-namespace remote_settings {};
+namespace remote_settings {
+
+[Throws=RemoteSettingsError]
+string remote_settings_server_url(RemoteSettingsServer server);
+
+};
 
 [Enum]
 interface RemoteSettingsServer {

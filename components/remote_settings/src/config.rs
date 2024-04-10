@@ -12,6 +12,11 @@ use url::Url;
 
 use crate::Result;
 
+/// Returns the URL of the Remote Settings server as a string.
+pub fn remote_settings_server_url(server: RemoteSettingsServer) -> Result<String> {
+    server.url().map(|url| url.into())
+}
+
 /// Custom configuration for the client.
 /// Currently includes the following:
 /// - `server`: The Remote Settings server to use. If not specified, defaults to the production server (`RemoteSettingsServer::Prod`).
@@ -43,5 +48,39 @@ impl RemoteSettingsServer {
             Self::Dev => Url::parse("https://remote-settings-dev.allizom.org").unwrap(),
             Self::Custom { url } => Url::parse(url)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_server_url() -> Result<()> {
+        assert_eq!(
+            remote_settings_server_url(RemoteSettingsServer::Prod)?,
+            "https://firefox.settings.services.mozilla.com/"
+        );
+        assert_eq!(
+            remote_settings_server_url(RemoteSettingsServer::Stage)?,
+            "https://firefox.settings.services.allizom.org/"
+        );
+        assert_eq!(
+            remote_settings_server_url(RemoteSettingsServer::Dev)?,
+            "https://remote-settings-dev.allizom.org/"
+        );
+        assert_eq!(
+            remote_settings_server_url(RemoteSettingsServer::Custom {
+                url: "http://localhost:8000".into()
+            })?,
+            "http://localhost:8000/"
+        );
+
+        assert!(remote_settings_server_url(RemoteSettingsServer::Custom {
+            url: "http://1.23.+45.67".into()
+        })
+        .is_err());
+
+        Ok(())
     }
 }
