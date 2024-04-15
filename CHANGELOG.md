@@ -1,6 +1,6 @@
-# v126.0 (In progress)
+# v126.0 (_2024-04-15_)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v125.0...v126.0)
 
 # v125.0 (_2024-03-18_)
 
