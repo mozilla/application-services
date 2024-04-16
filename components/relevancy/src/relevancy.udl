@@ -49,7 +49,7 @@ enum Interest {
     "Finance",
     "Food",
     "Government",
-    "Health",
+    // "Health",
     "Hobbies",
     "Home",
     "News",
@@ -103,7 +103,7 @@ dictionary InterestVector {
     u32 finance;
     u32 food;
     u32 government;
-    u32 health;
+    // u32 health;
     u32 hobbies;
     u32 home;
     u32 news;
