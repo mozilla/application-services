@@ -134,7 +134,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: core-foundation-sys</name>
-    <url>https://github.com/servo/core-foundation-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/servo/core-foundation-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cpufeatures</name>
