@@ -34,6 +34,7 @@ enum SuggestionProvider {
     "Mdn",
     "Weather",
     "AmpMobile",
+    "Phantom",
 };
 
 [Enum]
@@ -95,12 +96,18 @@ interface Suggestion {
     Weather(
         f64 score
     );
+    Phantom(
+        string phantom_type,
+        string matched_keyword,
+        f64 score
+    );
 };
 
 dictionary SuggestionQuery {
     string keyword;
     sequence<SuggestionProvider> providers;
     i32? limit = null;
+    string? phantom_suggestion_type;
 };
 
 dictionary SuggestIngestionConstraints {

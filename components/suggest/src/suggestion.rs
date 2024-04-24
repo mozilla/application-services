@@ -81,6 +81,11 @@ pub enum Suggestion {
     Weather {
         score: f64,
     },
+    Phantom {
+        phantom_type: String,
+        matched_keyword: String,
+        score: f64,
+    },
 }
 
 impl PartialOrd for Suggestion {
@@ -91,20 +96,9 @@ impl PartialOrd for Suggestion {
 
 impl Ord for Suggestion {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let a_score = match self {
-            Suggestion::Amp { score, .. }
-            | Suggestion::Pocket { score, .. }
-            | Suggestion::Amo { score, .. } => score,
-            _ => &DEFAULT_SUGGESTION_SCORE,
-        };
-        let b_score = match other {
-            Suggestion::Amp { score, .. }
-            | Suggestion::Pocket { score, .. }
-            | Suggestion::Amo { score, .. } => score,
-            _ => &DEFAULT_SUGGESTION_SCORE,
-        };
-        b_score
-            .partial_cmp(a_score)
+        other
+            .score()
+            .partial_cmp(&self.score())
             .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
@@ -136,6 +130,20 @@ impl Suggestion {
             | Self::Yelp { url, .. }
             | Self::Mdn { url, .. } => Some(url),
             _ => None,
+        }
+    }
+
+    /// Get the score for this suggestion.
+    pub fn score(&self) -> f64 {
+        match self {
+            Self::Amp { score, .. }
+            | Self::Pocket { score, .. }
+            | Self::Amo { score, .. }
+            | Self::Yelp { score, .. }
+            | Self::Mdn { score, .. }
+            | Self::Weather { score, .. }
+            | Self::Phantom { score, .. } => *score,
+            Self::Wikipedia { .. } => DEFAULT_SUGGESTION_SCORE,
         }
     }
 }

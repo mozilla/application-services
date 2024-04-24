@@ -22,6 +22,7 @@ pub enum SuggestionProvider {
     Mdn = 6,
     Weather = 7,
     AmpMobile = 8,
+    Phantom = 9,
 }
 
 impl FromSql for SuggestionProvider {
@@ -45,6 +46,7 @@ impl SuggestionProvider {
             5 => Some(SuggestionProvider::Yelp),
             6 => Some(SuggestionProvider::Mdn),
             7 => Some(SuggestionProvider::Weather),
+            9 => Some(SuggestionProvider::Phantom),
             _ => None,
         }
     }
@@ -91,6 +93,9 @@ impl SuggestionProvider {
                     SuggestRecordType::Icon,
                     SuggestRecordType::GlobalConfig,
                 ]
+            }
+            SuggestionProvider::Phantom => {
+                vec![SuggestRecordType::Phantom, SuggestRecordType::GlobalConfig]
             }
         }
     }

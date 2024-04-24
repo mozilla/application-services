@@ -22,8 +22,8 @@ use crate::{
     provider::SuggestionProvider,
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
-        DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
-        DownloadedWikipediaSuggestion, SuggestRecordId,
+        DownloadedMdnSuggestion, DownloadedPhantomSuggestion, DownloadedPocketSuggestion,
+        DownloadedWeatherData, DownloadedWikipediaSuggestion, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer, VERSION},
     store::{UnparsableRecord, UnparsableRecords},
@@ -207,6 +207,7 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
                     SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
                     SuggestionProvider::Weather => self.fetch_weather_suggestions(query),
+                    SuggestionProvider::Phantom => self.fetch_phantom_suggestions(query),
                 }?;
                 acc.extend(suggestions);
                 Ok(acc)
@@ -663,6 +664,57 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
+    /// Fetches phantom suggestions
+    pub fn fetch_phantom_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        // A single phantom suggestion type can be spread across multiple remote
+        // settings records, for example if it has very many keywords. On ingest
+        // we will insert one row in `phantom_custom_details` and one row in
+        // `suggestions` per record, but that's only an implementation detail.
+        // For consumers, there's only ever at most one phantom suggestion of a
+        // given type.
+        //
+        // Why insert one row in those tables per record? It's how other
+        // suggestions work, and it lets us perform relational operations on
+        // suggestions, records, and keywords. For example, when a record is
+        // deleted we can look up its ID in `suggestions`, join the appropriate
+        // keywords table on the suggestion ID, and delete the keywords that
+        // were added by that record.
+
+        // TODO: Decide on a keywords strategy and look up `query.keyword` in
+        // the appropriate table. For now we return the phantom suggestion whose
+        // type is `query.phantom_suggestion_type` and set `matched_keyword` to
+        // `query.keyword`.
+
+        if let Some(phantom_type) = &query.phantom_suggestion_type {
+            if self.conn.exists(
+                r#"
+                SELECT
+                  s.id
+                FROM
+                  suggestions s
+                JOIN
+                  phantom_custom_details d
+                  ON d.suggestion_id = s.id
+                WHERE
+                  s.provider = :provider
+                  AND d.type = :type
+                "#,
+                named_params! {
+                    ":provider": SuggestionProvider::Phantom,
+                    ":type": phantom_type,
+                },
+            )? {
+                return Ok(vec![Suggestion::Phantom {
+                    phantom_type: phantom_type.clone(),
+                    matched_keyword: query.keyword.clone(),
+                    score: 1.0,
+                }]);
+            }
+        }
+
+        Ok(vec![])
+    }
+
     /// Inserts all suggestions from a downloaded AMO attachment into
     /// the database.
     pub fn insert_amo_suggestions(
@@ -974,6 +1026,42 @@ impl<'a> SuggestDao<'a> {
             SuggestionProvider::Weather,
             &SuggestProviderConfig::from(data),
         )?;
+        Ok(())
+    }
+
+    /// Inserts phantom suggestion records data into the database.
+    pub fn insert_phantom_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedPhantomSuggestion],
+    ) -> Result<()> {
+        let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
+        for suggestion in suggestions {
+            self.scope.err_if_interrupted()?;
+            let suggestion_id = suggestion_insert.execute(
+                record_id,
+                "",
+                "",
+                DEFAULT_SUGGESTION_SCORE,
+                SuggestionProvider::Phantom,
+            )?;
+            self.conn.execute_cached(
+                "INSERT INTO phantom_custom_details(
+                     suggestion_id,
+                     type
+                 )
+                 VALUES(
+                     :suggestion_id,
+                     :type
+                 )",
+                named_params! {
+                    ":suggestion_id": suggestion_id,
+                    ":type": suggestion.phantom_type,
+                },
+            )?;
+            // TODO: Decide on a keywords strategy and insert
+            // `suggestion.keywords` into the appropriate table.
+        }
         Ok(())
     }
 
