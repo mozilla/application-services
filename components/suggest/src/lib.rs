@@ -33,6 +33,7 @@ pub struct SuggestionQuery {
     pub keyword: String,
     pub providers: Vec<SuggestionProvider>,
     pub limit: Option<i32>,
+    pub phantom_suggestion_type: Option<String>,
 }
 
 uniffi::include_scaffolding!("suggest");

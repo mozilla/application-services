@@ -15,7 +15,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
-pub const VERSION: u32 = 19;
+pub const VERSION: u32 = 20;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -124,6 +124,14 @@ CREATE TABLE mdn_custom_details(
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE phantom_custom_details(
+    suggestion_id INTEGER PRIMARY KEY,
+    type TEXT NOT NULL,
+    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX phantom_custom_details_type ON phantom_custom_details(type);
+
 CREATE TABLE dismissed_suggestions (
     url TEXT PRIMARY KEY
 ) WITHOUT ROWID;
@@ -190,6 +198,19 @@ CREATE TABLE dismissed_suggestions (
 CREATE TABLE IF NOT EXISTS dismissed_suggestions (
     url TEXT PRIMARY KEY
 ) WITHOUT ROWID;",
+                )?;
+                Ok(())
+            }
+            19 => {
+                tx.execute(
+                    "
+CREATE TABLE phantom_custom_details(
+    suggestion_id INTEGER PRIMARY KEY,
+    type TEXT NOT NULL,
+    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+);
+CREATE INDEX phantom_custom_details_type ON phantom_custom_details(type);",
+                    (),
                 )?;
                 Ok(())
             }

@@ -558,6 +558,14 @@ where
                         |dao, record_id| dao.insert_weather_data(record_id, &data),
                     )?;
                 }
+                SuggestRecord::Phantom => {
+                    self.ingest_attachment(
+                        &SuggestRecordType::Phantom.last_ingest_meta_key(),
+                        writer,
+                        record,
+                        |dao, record_id, data| dao.insert_phantom_suggestions(record_id, data),
+                    )?;
+                }
                 SuggestRecord::GlobalConfig(config) => {
                     self.ingest_record(
                         &SuggestRecordType::GlobalConfig.last_ingest_meta_key(),
@@ -707,6 +715,60 @@ mod tests {
     use sql_support::ConnExt;
 
     use crate::SuggestionProvider;
+
+    /// Builder for `SuggestionQuery` to avoid breaking existing tests when it's
+    /// modified. See also the query macros below.
+    pub(crate) struct SuggestionQueryBuilder {
+        keyword: String,
+        providers: Vec<SuggestionProvider>,
+        limit: Option<i32>,
+        phantom_suggestion_type: Option<String>,
+    }
+
+    impl SuggestionQueryBuilder {
+        pub fn new(keyword: String, providers: Vec<SuggestionProvider>) -> SuggestionQueryBuilder {
+            Self {
+                keyword,
+                providers,
+                limit: None,
+                phantom_suggestion_type: None,
+            }
+        }
+
+        pub fn limit(&mut self, limit: i32) -> &Self {
+            self.limit = Some(limit);
+            self
+        }
+
+        pub fn phantom_suggestion_type(&mut self, phantom_type: String) -> &Self {
+            self.phantom_suggestion_type = Some(phantom_type);
+            self
+        }
+
+        pub fn build(&self) -> Result<SuggestionQuery> {
+            Ok(SuggestionQuery {
+                keyword: self.keyword.clone(),
+                providers: self.providers.clone(),
+                limit: self.limit,
+                phantom_suggestion_type: self.phantom_suggestion_type.clone(),
+            })
+        }
+    }
+
+    /// Example:
+    /// query_builder!("literal search string", vec![SuggestionProvider::Amp]).limit(1).build()?
+    macro_rules! query_builder {
+        ($keyword_str:literal, $providers_vec:expr $(,)?) => {
+            SuggestionQueryBuilder::new($keyword_str.into(), $providers_vec)
+        };
+    }
+
+    /// Example: query!("literal search string", vec![SuggestionProvider::Amp])
+    macro_rules! query {
+        ($keyword_str:literal, $providers_vec:expr $(,)?) => {
+            query_builder!($keyword_str, $providers_vec).build()?
+        };
+    }
 
     /// Creates a unique in-memory Suggest store.
     fn unique_test_store<S>(settings_client: S) -> SuggestStoreInner<S>
@@ -918,12 +980,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("lo", vec![SuggestionProvider::Amp]))?);
             Ok(())
         })?;
 
@@ -1026,11 +1083,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("la", vec![SuggestionProvider::Amp]))?);
             expect![[r#"
                 [
                     Amp {
@@ -1067,11 +1120,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "pe".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("pe", vec![SuggestionProvider::Amp]))?);
 
             Ok(())
         })?;
@@ -1246,11 +1295,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("lo", vec![SuggestionProvider::Amp]))?);
             // This one should match the second full keyword for the first AMP item.
             expect![[r#"
                 [
@@ -1286,11 +1331,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los pollos h".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("los pollos h", vec![SuggestionProvider::Amp]))?,
+            );
             // This one matches a Wikipedia suggestion, so the full keyword should be ignored
             expect![[r#"
                 [
@@ -1303,11 +1346,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los".into(),
-                providers: vec![SuggestionProvider::Wikipedia],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("los", vec![SuggestionProvider::Wikipedia]))?,
+            );
             // This one matches a Wikipedia suggestion, so the full keyword should be ignored
             expect![[r#"
                 [
@@ -1328,11 +1369,12 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los pollos h".into(),
-                providers: vec![SuggestionProvider::AmpMobile],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!(
+                    "los pollos h",
+                    vec![SuggestionProvider::AmpMobile],
+                ))?,
+            );
 
             Ok(())
         })?;
@@ -1398,11 +1440,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("la", vec![SuggestionProvider::Amp]))?);
 
             Ok(())
         })?;
@@ -1487,11 +1525,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("la", vec![SuggestionProvider::Amp]))?);
             Ok(())
         })?;
 
@@ -1548,11 +1582,7 @@ mod tests {
                 Some(30u64)
             );
             assert!(dao
-                .fetch_suggestions(&SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![SuggestionProvider::Amp],
-                    limit: None,
-                })?
+                .fetch_suggestions(&query!("la", vec![SuggestionProvider::Amp]))?
                 .is_empty());
             expect![[r#"
                 [
@@ -1573,11 +1603,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los ".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("los ", vec![SuggestionProvider::Amp]))?,
+            );
             expect![[r#"
                 [
                     Amp {
@@ -1597,11 +1625,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "pe".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("pe", vec![SuggestionProvider::Amp]))?);
             Ok(())
         })?;
 
@@ -1769,11 +1793,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("la", vec![SuggestionProvider::Amp]))?);
             expect![[r#"
                 [
                     Amp {
@@ -1813,11 +1833,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("lo", vec![SuggestionProvider::Amp]))?);
             Ok(())
         })?;
 
@@ -1918,11 +1934,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "masking e".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("masking e", vec![SuggestionProvider::Amo]))?,
+            );
 
             expect![[r#"
                 [
@@ -1940,11 +1954,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "night".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("night", vec![SuggestionProvider::Amo]))?,
+            );
 
             Ok(())
         })?;
@@ -2012,20 +2024,16 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "masking e".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("masking e", vec![SuggestionProvider::Amo]))?,
+            );
 
             expect![[r#"
                 []
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "dark t".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("dark t", vec![SuggestionProvider::Amo]))?,
+            );
 
             expect![[r#"
                 [
@@ -2043,11 +2051,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "night".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("night", vec![SuggestionProvider::Amo]))?,
+            );
 
             expect![[r#"
                 [
@@ -2065,11 +2071,9 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "image search".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
+            .assert_debug_eq(
+                &dao.fetch_suggestions(&query!("image search", vec![SuggestionProvider::Amo]))?,
+            );
 
             Ok(())
         })?;
@@ -2537,36 +2541,32 @@ mod tests {
         let table = [
             (
                 "empty keyword; all providers",
-                SuggestionQuery {
-                    keyword: String::new(),
-                    providers: vec![
+                query!(
+                    "",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
                         SuggestionProvider::Weather,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `la`; all providers",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![
+                query!(
+                    "la",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
                         SuggestionProvider::Weather,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     [
                         Amp {
@@ -2606,16 +2606,14 @@ mod tests {
             ),
             (
                 "multimatch; all providers",
-                SuggestionQuery {
-                    keyword: "multimatch".into(),
-                    providers: vec![
+                query!(
+                    "multimatch",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     [
                         Pocket {
@@ -2665,16 +2663,14 @@ mod tests {
             ),
             (
                 "MultiMatch; all providers, mixed case",
-                SuggestionQuery {
-                    keyword: "MultiMatch".into(),
-                    providers: vec![
+                query!(
+                    "MultiMatch",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     [
                         Pocket {
@@ -2724,16 +2720,14 @@ mod tests {
             ),
             (
                 "multimatch; all providers, limit 2",
-                SuggestionQuery {
-                    keyword: "multimatch".into(),
-                    providers: vec![
+                query_builder!(
+                    "multimatch",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
-                    ],
-                    limit: Some(2),
-                },
+                    ]).limit(2).build()?,
                 expect![[r#"
                     [
                         Pocket {
@@ -2759,11 +2753,9 @@ mod tests {
             ),
             (
                 "keyword = `la`; AMP only",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![SuggestionProvider::Amp],
-                    limit: None,
-                },
+                query!(
+                    "la",
+                    vec![SuggestionProvider::Amp]),
                 expect![[r#"
                     [
                         Amp {
@@ -2803,52 +2795,44 @@ mod tests {
             ),
             (
                 "keyword = `la`; Wikipedia, AMO, and Pocket",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![
+                query!(
+                    "la",
+                    vec![
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `la`; no providers",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![],
-                    limit: None,
-                },
+                query!(
+                    "la",
+                    vec![]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `cal`; AMP, AMO, and Pocket",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![
+                query!(
+                    "cal",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
+                    ]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `cal`; Wikipedia only",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![SuggestionProvider::Wikipedia],
-                    limit: None,
-                },
+                query!(
+                    "cal",
+                    vec![SuggestionProvider::Wikipedia]),
                 expect![[r#"
                     [
                         Wikipedia {
@@ -2904,11 +2888,9 @@ mod tests {
             ),
             (
                 "keyword = `cal`; Wikipedia with limit 1",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![SuggestionProvider::Wikipedia],
-                    limit: Some(1),
-                },
+                query_builder!(
+                    "cal",
+                    vec![SuggestionProvider::Wikipedia]).limit(1).build()?,
                 expect![[r#"
                     [
                         Wikipedia {
@@ -2940,22 +2922,18 @@ mod tests {
             ),
             (
                 "keyword = `cal`; no providers",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![],
-                    limit: None,
-                },
+                query!(
+                    "cal",
+                    vec![]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `spam`; AMO only",
-                SuggestionQuery {
-                    keyword: "spam".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
+                query!(
+                    "spam",
+                    vec![SuggestionProvider::Amo]),
                 expect![[r#"
                 [
                     Amo {
@@ -2975,11 +2953,9 @@ mod tests {
             ),
             (
                 "keyword = `masking`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
+                query!(
+                    "masking",
+                    vec![SuggestionProvider::Amo]),
                 expect![[r#"
                 [
                     Amo {
@@ -2999,11 +2975,9 @@ mod tests {
             ),
             (
                 "keyword = `masking e`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking e".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
+                query!(
+                    "masking e",
+                    vec![SuggestionProvider::Amo]),
                 expect![[r#"
                 [
                     Amo {
@@ -3023,33 +2997,27 @@ mod tests {
             ),
             (
                 "keyword = `masking s`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking s".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
+                query!(
+                    "masking s",
+                    vec![SuggestionProvider::Amo]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `soft`; AMP and Wikipedia",
-                SuggestionQuery {
-                    keyword: "soft".into(),
-                    providers: vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia],
-                    limit: None,
-                },
+                query!(
+                    "soft",
+                    vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `soft`; Pocket only",
-                SuggestionQuery {
-                    keyword: "soft".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!(
+                    "soft",
+                    vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                 [
                     Pocket {
@@ -3063,11 +3031,9 @@ mod tests {
             ),
             (
                 "keyword = `soft l`; Pocket only",
-                SuggestionQuery {
-                    keyword: "soft l".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!(
+                    "soft l",
+                    vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                 [
                     Pocket {
@@ -3081,22 +3047,18 @@ mod tests {
             ),
             (
                 "keyword = `sof`; Pocket only",
-                SuggestionQuery {
-                    keyword: "sof".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!(
+                    "sof",
+                    vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = `burnout women`; Pocket only",
-                SuggestionQuery {
-                    keyword: "burnout women".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!(
+                    "burnout women",
+                    vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                 [
                     Pocket {
@@ -3110,22 +3072,18 @@ mod tests {
             ),
             (
                 "keyword = `burnout person`; Pocket only",
-                SuggestionQuery {
-                    keyword: "burnout person".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!(
+                    "burnout person",
+                    vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `best spicy ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best spicy ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best spicy ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3157,11 +3115,9 @@ mod tests {
             ),
             (
                 "keyword = `BeSt SpIcY rAmEn DeLiVeRy In ToKyO`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt SpIcY rAmEn DeLiVeRy In ToKyO".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "BeSt SpIcY rAmEn DeLiVeRy In ToKyO",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3193,11 +3149,9 @@ mod tests {
             ),
             (
                 "keyword = `best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3229,33 +3183,27 @@ mod tests {
             ),
             (
                 "keyword = `best invalid_ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best invalid_ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best invalid_ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `best delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `super best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "super best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "super best ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3287,22 +3235,18 @@ mod tests {
             ),
             (
                 "keyword = `invalid_best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "invalid_best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "invalid_best ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3334,11 +3278,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen super delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen super delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen super delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3370,22 +3312,18 @@ mod tests {
             ),
             (
                 "keyword = `ramen invalid_delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen invalid_delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen invalid_delivery in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `ramen in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3417,11 +3355,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen near tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen near tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3453,22 +3389,18 @@ mod tests {
             ),
             (
                 "keyword = `ramen invalid_in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen invalid_in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen invalid_in tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `ramen in San Francisco`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in San Francisco".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen in San Francisco",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3500,11 +3432,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen in`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen in",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3536,11 +3466,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen near by`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near by".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen near by",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3572,11 +3500,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen near me`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near me".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen near me",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3608,22 +3534,18 @@ mod tests {
             ),
             (
                 "keyword = `ramen near by tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near by tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen near by tokyo",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3655,11 +3577,9 @@ mod tests {
             ),
             (
                 "keyword = maximum chars; Yelp only",
-                SuggestionQuery {
-                    keyword: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3691,55 +3611,45 @@ mod tests {
             ),
             (
                 "keyword = over chars; Yelp only",
-                SuggestionQuery {
-                    keyword: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `best delivery`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best delivery".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best delivery",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `same_modifier same_modifier`; Yelp only",
-                SuggestionQuery {
-                    keyword: "same_modifier same_modifier".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "same_modifier same_modifier",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `same_modifier `; Yelp only",
-                SuggestionQuery {
-                    keyword: "same_modifier ".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "same_modifier ",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `yelp ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "yelp ramen",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3771,11 +3681,9 @@ mod tests {
             ),
             (
                 "keyword = `yelp keyword ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp keyword ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "yelp keyword ramen",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3807,11 +3715,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen in tokyo yelp`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo yelp".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen in tokyo yelp",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3843,11 +3749,9 @@ mod tests {
             ),
             (
                 "keyword = `ramen in tokyo yelp keyword`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo yelp keyword".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ramen in tokyo yelp keyword",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3879,11 +3783,9 @@ mod tests {
             ),
             (
                 "keyword = `yelp ramen yelp`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp ramen yelp".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "yelp ramen yelp",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3915,22 +3817,18 @@ mod tests {
             ),
             (
                 "keyword = `best yelp ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best yelp ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best yelp ramen",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `Spicy R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "Spicy R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "Spicy R",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3962,11 +3860,9 @@ mod tests {
             ),
             (
                 "keyword = `BeSt             Ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             Ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "BeSt             Ramen",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -3998,11 +3894,9 @@ mod tests {
             ),
             (
                 "keyword = `BeSt             Spicy R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             Spicy R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "BeSt             Spicy R",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                     [
                         Yelp {
@@ -4034,33 +3928,27 @@ mod tests {
             ),
             (
                 "keyword = `BeSt             R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "BeSt             R",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `r`; Yelp only",
-                SuggestionQuery {
-                    keyword: "r".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "r",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `ra`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ra".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ra",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 [
                     Yelp {
@@ -4092,11 +3980,9 @@ mod tests {
             ),
             (
                 "keyword = `ram`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ram".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "ram",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 [
                     Yelp {
@@ -4128,11 +4014,9 @@ mod tests {
             ),
             (
                 "keyword = `rac`; Yelp only",
-                SuggestionQuery {
-                    keyword: "rac".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "rac",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 [
                     Yelp {
@@ -4164,22 +4048,19 @@ mod tests {
             ),
             (
                 "keyword = `best r`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best r".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best r",
+                    vec![SuggestionProvider::Yelp]),
                 expect![[r#"
                 []
                 "#]],
             ),
             (
                 "keyword = `best ra`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best ra".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
+                query!(
+                    "best ra",
+                    vec![SuggestionProvider::Yelp]
+                    ),
                 expect![[r#"
                 [
                     Yelp {
@@ -4324,17 +4205,16 @@ mod tests {
         let table = [
             (
                 "keyword = `amp wiki match`; all providers",
-                SuggestionQuery {
-                    keyword: "amp wiki match".into(),
-                    providers: vec![
+                query!(
+                    "amp wiki match",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
                     ],
-                    limit: None,
-                },
+                ),
                 expect![[r#"
                     [
                         Amp {
@@ -4396,17 +4276,18 @@ mod tests {
             ),
             (
                 "keyword = `amp wiki match`; all providers, limit 2",
-                SuggestionQuery {
-                    keyword: "amp wiki match".into(),
-                    providers: vec![
+                query_builder!(
+                    "amp wiki match",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                         SuggestionProvider::Yelp,
                     ],
-                    limit: Some(2),
-                },
+                )
+                .limit(2)
+                .build()?,
                 expect![[r#"
                     [
                         Amp {
@@ -4453,16 +4334,15 @@ mod tests {
             ),
             (
                 "pocket wiki match; all providers",
-                SuggestionQuery {
-                    keyword: "pocket wiki match".into(),
-                    providers: vec![
+                query!(
+                    "pocket wiki match",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
-                    limit: None,
-                },
+                ),
                 expect![[r#"
                     [
                         Pocket {
@@ -4506,16 +4386,17 @@ mod tests {
             ),
             (
                 "pocket wiki match; all providers limit 1",
-                SuggestionQuery {
-                    keyword: "pocket wiki match".into(),
-                    providers: vec![
+                query_builder!(
+                    "pocket wiki match",
+                    vec![
                         SuggestionProvider::Amp,
                         SuggestionProvider::Wikipedia,
                         SuggestionProvider::Amo,
                         SuggestionProvider::Pocket,
                     ],
-                    limit: Some(1),
-                },
+                )
+                .limit(1)
+                .build()?,
                 expect![[r#"
                     [
                         Pocket {
@@ -4529,11 +4410,12 @@ mod tests {
             ),
             (
                 "work-life balance; duplicate providers",
-                SuggestionQuery {
-                    keyword: "work-life balance".into(),
-                    providers: vec![SuggestionProvider::Pocket, SuggestionProvider::Pocket],
-                    limit: Some(-1),
-                },
+                query_builder!(
+                    "work-life balance",
+                    vec![SuggestionProvider::Pocket, SuggestionProvider::Pocket],
+                )
+                .limit(-1)
+                .build()?,
                 expect![[r#"
                     [
                         Pocket {
@@ -4634,11 +4516,7 @@ mod tests {
         let table = [
             (
                 "keyword = `soft li`; pocket",
-                SuggestionQuery {
-                    keyword: "soft li".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!("soft li", vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                     [
                         Pocket {
@@ -4652,11 +4530,7 @@ mod tests {
             ),
             (
                 "keyword = `soft lives`; pocket",
-                SuggestionQuery {
-                    keyword: "soft lives".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
+                query!("soft lives", vec![SuggestionProvider::Pocket]),
                 expect![[r#"
                     [
                         Pocket {
@@ -4670,11 +4544,7 @@ mod tests {
             ),
             (
                 "keyword = `masking `; amo provider",
-                SuggestionQuery {
-                    keyword: "masking ".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
+                query!("masking ", vec![SuggestionProvider::Amo]),
                 expect![[r#"
                     [
                         Amo {
@@ -4786,11 +4656,7 @@ mod tests {
         let table = [
             (
                 "keyword = `las`; Amp Mobile",
-                SuggestionQuery {
-                    keyword: "las".into(),
-                    providers: vec![SuggestionProvider::AmpMobile],
-                    limit: None,
-                },
+                query!("las", vec![SuggestionProvider::AmpMobile]),
                 expect![[r#"
                 [
                     Amp {
@@ -4830,11 +4696,7 @@ mod tests {
             ),
             (
                 "keyword = `las`; Amp",
-                SuggestionQuery {
-                    keyword: "las".into(),
-                    providers: vec![SuggestionProvider::Amp],
-                    limit: None,
-                },
+                query!("las", vec![SuggestionProvider::Amp]),
                 expect![[r#"
                 [
                     Amp {
@@ -4874,11 +4736,10 @@ mod tests {
             ),
             (
                 "keyword = `las `; amp and amp mobile",
-                SuggestionQuery {
-                    keyword: "las".into(),
-                    providers: vec![SuggestionProvider::Amp, SuggestionProvider::AmpMobile],
-                    limit: None,
-                },
+                query!(
+                    "las",
+                    vec![SuggestionProvider::Amp, SuggestionProvider::AmpMobile],
+                ),
                 expect![[r#"
                 [
                     Amp {
@@ -5044,10 +4905,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                         },
                     ),
@@ -5116,10 +4977,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                         },
                     ),
@@ -5315,10 +5176,10 @@ mod tests {
                     UnparsableRecords(
                         {
                             "clippy-2": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                             "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                         },
                     ),
@@ -5404,7 +5265,7 @@ mod tests {
                     UnparsableRecords(
                         {
                             "invalid-attachment": UnparsableRecord {
-                                schema_version: 19,
+                                schema_version: 20,
                             },
                         },
                     ),
@@ -5443,11 +5304,7 @@ mod tests {
                     },
                 ]
             "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
+            .assert_debug_eq(&dao.fetch_suggestions(&query!("lo", vec![SuggestionProvider::Amp]))?);
 
             Ok(())
         })?;
@@ -5498,11 +5355,7 @@ mod tests {
         let table = [
             (
                 "keyword = prefix; MDN only",
-                SuggestionQuery {
-                    keyword: "array".into(),
-                    providers: vec![SuggestionProvider::Mdn],
-                    limit: None,
-                },
+                query!("array", vec![SuggestionProvider::Mdn]),
                 expect![[r#"
                     [
                         Mdn {
@@ -5516,11 +5369,7 @@ mod tests {
             ),
             (
                 "keyword = prefix + partial suffix; MDN only",
-                SuggestionQuery {
-                    keyword: "array java".into(),
-                    providers: vec![SuggestionProvider::Mdn],
-                    limit: None,
-                },
+                query!("array java", vec![SuggestionProvider::Mdn]),
                 expect![[r#"
                     [
                         Mdn {
@@ -5534,11 +5383,7 @@ mod tests {
             ),
             (
                 "keyword = prefix + entire suffix; MDN only",
-                SuggestionQuery {
-                    keyword: "javascript array".into(),
-                    providers: vec![SuggestionProvider::Mdn],
-                    limit: None,
-                },
+                query!("javascript array", vec![SuggestionProvider::Mdn]),
                 expect![[r#"
                     [
                         Mdn {
@@ -5552,22 +5397,14 @@ mod tests {
             ),
             (
                 "keyword = `partial prefix word`; MDN only",
-                SuggestionQuery {
-                    keyword: "wild".into(),
-                    providers: vec![SuggestionProvider::Mdn],
-                    limit: None,
-                },
+                query!("wild", vec![SuggestionProvider::Mdn]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = single word; MDN only",
-                SuggestionQuery {
-                    keyword: "wildcard".into(),
-                    providers: vec![SuggestionProvider::Mdn],
-                    limit: None,
-                },
+                query!("wildcard", vec![SuggestionProvider::Mdn]),
                 expect![[r#"
                     [
                         Mdn {
@@ -5629,11 +5466,7 @@ mod tests {
 
         let table = [(
             "keyword = ramen; Yelp only",
-            SuggestionQuery {
-                keyword: "ramen".into(),
-                providers: vec![SuggestionProvider::Yelp],
-                limit: None,
-            },
+            query!("ramen", vec![SuggestionProvider::Yelp]),
             expect![[r#"
                 [
                     Yelp {
@@ -5682,55 +5515,35 @@ mod tests {
         let table = [
             (
                 "keyword = 'ab'; Weather only, no match since query is too short",
-                SuggestionQuery {
-                    keyword: "ab".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("ab", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xab'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "xab".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xab", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'abx'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "abx".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("abx", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xy'; Weather only, no match since query is too short",
-                SuggestionQuery {
-                    keyword: "xy".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xy", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xyz'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "xyz".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xyz", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5741,44 +5554,28 @@ mod tests {
             ),
             (
                 "keyword = 'xxyz'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "xxyz".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xxyz", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xyzx'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "xyzx".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xyzx", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'we'; Weather only, no match since query is too short",
-                SuggestionQuery {
-                    keyword: "we".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("we", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'wea'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "wea".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("wea", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5789,11 +5586,7 @@ mod tests {
             ),
             (
                 "keyword = 'weat'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "weat".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("weat", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5804,11 +5597,7 @@ mod tests {
             ),
             (
                 "keyword = 'weath'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "weath".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("weath", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5819,11 +5608,7 @@ mod tests {
             ),
             (
                 "keyword = 'weathe'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "weathe".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("weathe", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5834,11 +5619,7 @@ mod tests {
             ),
             (
                 "keyword = 'weather'; Weather only, match",
-                SuggestionQuery {
-                    keyword: "weather".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("weather", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5849,44 +5630,28 @@ mod tests {
             ),
             (
                 "keyword = 'weatherx'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "weatherx".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("weatherx", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xweather'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "xweather".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xweather", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = 'xwea'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "xwea".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("xwea", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = '   weather  '; Weather only, match",
-                SuggestionQuery {
-                    keyword: "   weather  ".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("   weather  ", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     [
                         Weather {
@@ -5897,22 +5662,14 @@ mod tests {
             ),
             (
                 "keyword = 'x   weather  '; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "x   weather  ".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("x   weather  ", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
             ),
             (
                 "keyword = '   weather  x'; Weather only, no matching keyword",
-                SuggestionQuery {
-                    keyword: "   weather  x".into(),
-                    providers: vec![SuggestionProvider::Weather],
-                    limit: None,
-                },
+                query!("   weather  x", vec![SuggestionProvider::Weather]),
                 expect![[r#"
                     []
                 "#]],
@@ -6227,9 +5984,9 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::default())?;
 
         // A query for cats should return all suggestions
-        let query = SuggestionQuery {
-            keyword: "cats".into(),
-            providers: vec![
+        let query = query!(
+            "cats",
+            vec![
                 SuggestionProvider::Amp,
                 SuggestionProvider::Wikipedia,
                 SuggestionProvider::Amo,
@@ -6237,8 +5994,7 @@ mod tests {
                 SuggestionProvider::Mdn,
                 SuggestionProvider::AmpMobile,
             ],
-            limit: None,
-        };
+        );
         let results = store.query(query.clone())?;
         assert_eq!(results.len(), 6);
 
@@ -6252,6 +6008,512 @@ mod tests {
         // Clearing the dismissals should cause them to be returned again
         store.clear_dismissed_suggestions()?;
         assert_eq!(store.query(query.clone())?.len(), 6);
+
+        Ok(())
+    }
+
+    // Tests queries for phantom suggestions.
+    #[test]
+    fn phantom_query() -> anyhow::Result<()> {
+        before_each();
+
+        let snapshot = Snapshot::with_records(json!([
+            {
+                "id": "phantom-1",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-1.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-2",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-2.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-2.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-3",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-3.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-3.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "data-1",
+                "type": "data",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "data-1.json",
+                    "mimetype": "application/json",
+                    "location": "data-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+        ]))?
+        .with_data(
+            // This JSON has two different phantom types
+            "phantom-1.json",
+            json!([
+                {
+                    "type": "phantom-type-1",
+                    "keywords": [],
+                },
+                {
+                    "type": "phantom-type-2",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has part of phantom-type-3
+            "phantom-2.json",
+            json!([
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has another part of phantom-type-3
+            "phantom-3.json",
+            json!([
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            "data-1.json",
+            json!([{
+                "id": 0,
+                "advertiser": "Good Place Eats",
+                "iab_category": "8 - Food & Drink",
+                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
+                "title": "Lasagna Come Out Tomorrow",
+                "url": "https://www.lasagna.restaurant",
+                "icon": "2",
+                "impression_url": "https://example.com/impression_url",
+                "click_url": "https://example.com/click_url"
+            }]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        let table = [
+            (
+                "No phantom type specified in query",
+                query!("todo", vec![SuggestionProvider::Phantom]),
+                expect![[r#"
+                    []
+                "#]],
+            ),
+            (
+                "Phantom type 1 specified in query",
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-1".into())
+                    .build()?,
+                expect![[r#"
+                    [
+                        Phantom {
+                            phantom_type: "phantom-type-1",
+                            matched_keyword: "todo",
+                            score: 1.0,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "Phantom type 2 specified in query",
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-2".into())
+                    .build()?,
+                expect![[r#"
+                    [
+                        Phantom {
+                            phantom_type: "phantom-type-2",
+                            matched_keyword: "todo",
+                            score: 1.0,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "Phantom type 3 specified in query",
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-3".into())
+                    .build()?,
+                expect![[r#"
+                    [
+                        Phantom {
+                            phantom_type: "phantom-type-3",
+                            matched_keyword: "todo",
+                            score: 1.0,
+                        },
+                    ]
+                "#]],
+            ),
+            (
+                "AMP query with phantom type also specified",
+                query_builder!(
+                    "lasagna",
+                    vec![SuggestionProvider::Phantom, SuggestionProvider::Amp],
+                )
+                .phantom_suggestion_type("phantom-type-2".into())
+                .build()?,
+                expect![[r#"
+                    [
+                        Phantom {
+                            phantom_type: "phantom-type-2",
+                            matched_keyword: "lasagna",
+                            score: 1.0,
+                        },
+                        Amp {
+                            title: "Lasagna Come Out Tomorrow",
+                            url: "https://www.lasagna.restaurant",
+                            raw_url: "https://www.lasagna.restaurant",
+                            icon: None,
+                            icon_mimetype: None,
+                            full_keyword: "lasagna",
+                            block_id: 0,
+                            advertiser: "Good Place Eats",
+                            iab_category: "8 - Food & Drink",
+                            impression_url: "https://example.com/impression_url",
+                            click_url: "https://example.com/click_url",
+                            raw_click_url: "https://example.com/click_url",
+                            score: 0.2,
+                        },
+                    ]
+                "#]],
+            ),
+        ];
+
+        for (what, query, expect) in table {
+            expect.assert_debug_eq(
+                &store
+                    .query(query)
+                    .with_context(|| format!("Couldn't query store for {}", what))?,
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Tests re-ingesting phantom suggestions.
+    #[test]
+    fn phantom_reingest() -> anyhow::Result<()> {
+        before_each();
+
+        // Ingest suggestions from the initial snapshot.
+        let initial_snapshot = Snapshot::with_records(json!([
+            {
+                "id": "phantom-1",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-1.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-2",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-2.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-2.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-3",
+                "type": "phantom-suggestions",
+                "last_modified": 15,
+                "attachment": {
+                    "filename": "phantom-3.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-3.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+        ]))?
+        .with_data(
+            // This JSON has two different phantom types
+            "phantom-1.json",
+            json!([
+                {
+                    "type": "phantom-type-1",
+                    "keywords": [],
+                },
+                {
+                    "type": "phantom-type-2",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has part of phantom-type-3
+            "phantom-2.json",
+            json!([
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has another part of phantom-type-3
+            "phantom-3.json",
+            json!([
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?;
+
+        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        // Verify the last ingest time.
+        store.dbs()?.reader.read(|dao| {
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Phantom.last_ingest_meta_key().as_str())?,
+                Some(15u64)
+            );
+            Ok(())
+        })?;
+
+        // Verify a query for phantom-type-1 returns suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-1",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-1".into())
+                    .build()?,
+            )?,
+        );
+
+        // Verify a query for phantom-type-2 returns suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-2",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-2".into())
+                    .build()?,
+            )?,
+        );
+
+        // Verify a query for phantom-type-3 returns suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-3",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-3".into())
+                    .build()?,
+            )?,
+        );
+
+        // Update the snapshot with new suggestions: drop phantom-type-1,
+        // update phantom-type-2 and phantom-type-3, and add phantom-type-4.
+        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([
+            {
+                "id": "phantom-1",
+                "type": "phantom-suggestions",
+                "last_modified": 30,
+                "attachment": {
+                    "filename": "phantom-1-1.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-1-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-2",
+                "type": "phantom-suggestions",
+                "last_modified": 30,
+                "attachment": {
+                    "filename": "phantom-2-1.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-2-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+            {
+                "id": "phantom-3",
+                "type": "phantom-suggestions",
+                "last_modified": 30,
+                "attachment": {
+                    "filename": "phantom-3-1.json",
+                    "mimetype": "application/json",
+                    "location": "phantom-3-1.json",
+                    "hash": "",
+                    "size": 0,
+                },
+            },
+        ]))?
+        .with_data(
+            // This JSON has two different phantom types including part of phantom-type-3
+            "phantom-1-1.json",
+            json!([
+                {
+                    "type": "phantom-type-2",
+                    "keywords": [],
+                },
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has another part of phantom-type-3
+            "phantom-2-1.json",
+            json!([
+                {
+                    "type": "phantom-type-3",
+                    "keywords": [],
+                },
+            ]),
+        )?
+        .with_data(
+            // This JSON has one phantom type
+            "phantom-3-1.json",
+            json!([
+                {
+                    "type": "phantom-type-4",
+                    "keywords": [],
+                },
+            ]),
+        )?;
+
+        store.ingest(SuggestIngestionConstraints::default())?;
+
+        // Verify the new last-ingest time.
+        store.dbs()?.reader.read(|dao: &SuggestDao<'_>| {
+            assert_eq!(
+                dao.get_meta(SuggestRecordType::Phantom.last_ingest_meta_key().as_str())?,
+                Some(30u64)
+            );
+            Ok(())
+        })?;
+
+        // Verify a query for phantom-type-1 doesn't return amy suggestions.
+        expect![[r#"
+            []
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-1".into())
+                    .build()?,
+            )?,
+        );
+
+        // Verify a query for phantom-type-2 return suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-2",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-2".into())
+                    .build()?,
+            )?,
+        );
+
+        // Verify a query for phantom-type-3 return suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-3",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-3".into())
+                    .build()?,
+            )?,
+        );
+
+        // Verify a query for phantom-type-4 return suggestions.
+        expect![[r#"
+            [
+                Phantom {
+                    phantom_type: "phantom-type-4",
+                    matched_keyword: "todo",
+                    score: 1.0,
+                },
+            ]
+        "#]]
+        .assert_debug_eq(
+            &store.query(
+                query_builder!("todo", vec![SuggestionProvider::Phantom])
+                    .phantom_suggestion_type("phantom-type-4".into())
+                    .build()?,
+            )?,
+        );
 
         Ok(())
     }

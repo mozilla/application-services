@@ -49,7 +49,7 @@ pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
 /// A list of default record types to download if nothing is specified.
 /// This currently defaults to all of the record types.
-pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
+pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 10] = [
     SuggestRecordType::Icon,
     SuggestRecordType::AmpWikipedia,
     SuggestRecordType::Amo,
@@ -59,6 +59,7 @@ pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
     SuggestRecordType::Weather,
     SuggestRecordType::GlobalConfig,
     SuggestRecordType::AmpMobile,
+    SuggestRecordType::Phantom,
 ];
 
 /// A trait for a client that downloads suggestions from Remote Settings.
@@ -114,6 +115,8 @@ pub(crate) enum SuggestRecord {
     GlobalConfig(DownloadedGlobalConfig),
     #[serde(rename = "amp-mobile-suggestions")]
     AmpMobile,
+    #[serde(rename = "phantom-suggestions")]
+    Phantom,
 }
 
 /// Enum for the different record types that can be consumed.
@@ -130,6 +133,7 @@ pub enum SuggestRecordType {
     Weather,
     GlobalConfig,
     AmpMobile,
+    Phantom,
 }
 
 impl From<SuggestRecord> for SuggestRecordType {
@@ -144,6 +148,7 @@ impl From<SuggestRecord> for SuggestRecordType {
             SuggestRecord::Yelp => Self::Yelp,
             SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
             SuggestRecord::AmpMobile => Self::AmpMobile,
+            SuggestRecord::Phantom => Self::Phantom,
         }
     }
 }
@@ -160,6 +165,7 @@ impl fmt::Display for SuggestRecordType {
             Self::Weather => write!(f, "weather"),
             Self::GlobalConfig => write!(f, "configuration"),
             Self::AmpMobile => write!(f, "amp-mobile-suggestions"),
+            Self::Phantom => write!(f, "phantom-suggestions"),
         }
     }
 }
@@ -408,6 +414,16 @@ pub(crate) struct DownloadedMdnSuggestion {
     pub description: String,
     pub keywords: Vec<String>,
     pub score: f64,
+}
+
+/// A phantom suggestion to ingest from an attachment
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DownloadedPhantomSuggestion {
+    #[serde(rename = "type")]
+    pub phantom_type: String,
+    // TODO: Decide on a keywords strategy, see db.rs.
+    #[allow(dead_code)]
+    pub keywords: Vec<String>,
 }
 
 /// Weather data to ingest from a weather record
