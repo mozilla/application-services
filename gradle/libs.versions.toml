@@ -28,7 +28,7 @@ androidx-core = "1.12.0"
 jna = "5.14.0"
 
 # Linting and Static Analysis
-detekt = "1.23.5"
+detekt = "1.23.6"
 ktlint = "0.50.0"
 
 # AndroidX Testing
