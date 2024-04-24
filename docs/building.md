@@ -83,6 +83,8 @@ a number of hours to complete.
     1. Install system build tools: `sudo apt install build-essential`
     1. Install zlib: `sudo apt-get install zlib1g-dev`
     1. Install tcl: `sudo apt install tcl-dev`
+
+4. [Build the required NSS libraries](https://github.com/mozilla/application-services/blob/main/libs/README.md).
 4. Check dependencies and environment variables by running: `./libs/verify-desktop-environment.sh`
   > Note that this script might instruct you to set some environment variables, set those by adding them to your
   `.zshrc` or `.bashrc` so they are set by default on your terminal. If it does so instruct you, you must
