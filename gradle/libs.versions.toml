@@ -16,7 +16,7 @@ kotlin-dsl = "4.3.0"
 kotlinx-coroutines = "1.8.0"
 
 # Mozilla
-android-components = "124.1.0"
+android-components = "125.2.0"
 glean = "60.0.0"
 rust-android-gradle = "0.9.4"
 
