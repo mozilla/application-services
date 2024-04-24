@@ -91,8 +91,11 @@ For example, you might end up with something like:
 ```
 # application-services overrides to make updating them all simpler.
 interrupt-support = { path = "../application-services/components/support/interrupt" }
+relevancy = { path = "../application-services/components/relevancy" }
+suggest = { path = "../application-services/components/suggest" }
 sql-support = { path = "../application-services/components/support/sql" }
-sync15-traits = { path = "../application-services/components/support/sync15-traits" }
+sync15 = { path = "../application-services/components/sync15" }
+tabs = { path = "../application-services/components/tabs" }
 viaduct = { path = "../application-services/components/viaduct" }
 webext-storage = { path = "../application-services/components/webext-storage" }
 ```
