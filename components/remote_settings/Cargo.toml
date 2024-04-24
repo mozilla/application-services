@@ -26,3 +26,6 @@ uniffi = { workspace = true, features = ["build"] }
 expect-test = "1.4"
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 mockito = "0.31"
+# We add the perserve_order feature to guarantee ordering of the keys in our
+# JSON objects as they get serialized/deserialized.
+serde_json = { version = "1", features = ["preserve_order"] }

@@ -1205,9 +1205,6 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         json!({ "text": "OK then", "number": 42})
     );
 
-    let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
-    assert_eq!(string, "{\"number\":42,\"text\":\"OK then\"}");
-
     // Now let's keep the same number of experiments.
     // We should get the same results as before.
     // This time we're testing with a non-empty starting condition.
