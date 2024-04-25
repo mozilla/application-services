@@ -575,7 +575,8 @@ The following text applies to code linked from these dependencies:
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
 [xshell-macros](https://github.com/matklad/xshell),
-[xshell](https://github.com/matklad/xshell)
+[xshell](https://github.com/matklad/xshell),
+[zerocopy](https://github.com/google/zerocopy)
 
 ```
                               Apache License

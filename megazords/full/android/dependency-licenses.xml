@@ -505,6 +505,10 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/xshell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: zerocopy</name>
+    <url>https://github.com/google/zerocopy/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>MIT License: aho-corasick</name>
     <url>https://github.com/BurntSushi/aho-corasick/blob/master/LICENSE-MIT</url>
   </license>

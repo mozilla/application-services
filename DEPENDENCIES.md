@@ -596,7 +596,8 @@ The following text applies to code linked from these dependencies:
 [windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
 [windows_x86_64_msvc](https://github.com/microsoft/windows-rs),
 [xshell-macros](https://github.com/matklad/xshell),
-[xshell](https://github.com/matklad/xshell)
+[xshell](https://github.com/matklad/xshell),
+[zerocopy](https://github.com/google/zerocopy)
 
 ```
                               Apache License
