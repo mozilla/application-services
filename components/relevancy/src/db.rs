@@ -118,7 +118,7 @@ impl<'a> RelevancyDao<'a> {
         ",
         )?;
         let interests = stmt.query_and_then((hash,), |row| -> Result<Interest> {
-            Ok(row.get::<_, u32>(0)?.into())
+            row.get::<_, u32>(0)?.try_into()
         })?;
 
         let mut interest_vec = InterestVector::default();

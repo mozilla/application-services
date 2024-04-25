@@ -26,6 +26,9 @@ pub enum Error {
 
     #[error("Interrupted")]
     Interrupted(#[from] interrupt_support::Interrupted),
+
+    #[error("Invalid interest code: {0}")]
+    InvalidInterestCode(u32),
 }
 
 /// Result enum for the public API
