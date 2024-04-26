@@ -11,8 +11,9 @@
 
 mod db;
 mod error;
+mod ingest;
 mod interest;
-mod populate_interests;
+mod rs;
 mod schema;
 pub mod url_hash;
 
@@ -55,8 +56,7 @@ impl RelevancyStore {
     ///  This method may execute for a long time and should only be called from a worker thread.
     #[handle_error(Error)]
     pub fn ingest(&self, _top_urls_by_frecency: Vec<String>) -> ApiResult<()> {
-        populate_interests::ensure_interest_data_populated(&self.db)?;
-        todo!()
+        ingest::ensure_interest_data_populated(&self.db)
     }
 
     /// Calculate metrics for the validation phase
