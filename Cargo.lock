@@ -3537,16 +3537,22 @@ checksum = "dbb5fb1acd8a1a18b3dd5be62d25485eb770e05afb408a9627d14d451bae12da"
 name = "relevancy"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "base64",
  "error-support",
  "interrupt-support",
  "log",
  "md-5",
  "parking_lot",
+ "remote_settings",
  "rusqlite",
+ "serde",
+ "serde_json",
  "sql-support",
  "thiserror",
  "uniffi",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
