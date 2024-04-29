@@ -28,11 +28,10 @@ pub struct RelevancyStore {
 
 /// Top-level API for the Relevancy component
 impl RelevancyStore {
-    #[handle_error(Error)]
-    pub fn new(db_path: String) -> ApiResult<Self> {
-        Ok(Self {
-            db: RelevancyDb::new(db_path)?,
-        })
+    pub fn new(db_path: String) -> Self {
+        Self {
+            db: RelevancyDb::new(db_path),
+        }
     }
 
     pub fn close(&self) {
