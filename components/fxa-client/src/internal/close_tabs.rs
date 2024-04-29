@@ -9,7 +9,7 @@ use super::{
         IncomingDeviceCommand,
     },
     http_client::GetDeviceResponse,
-    scopes, FirefoxAccount,
+    scopes, telemetry, FirefoxAccount,
 };
 use crate::{Error, Result};
 
@@ -20,9 +20,8 @@ impl FirefoxAccount {
             .iter()
             .find(|d| d.id == target_device_id)
             .ok_or_else(|| Error::UnknownTargetDevice(target_device_id.to_owned()))?;
-        let payload = CloseTabsPayload {
-            urls: urls.iter().map(|url| url.as_ref().to_owned()).collect(),
-        };
+        let (payload, sent_telemetry) =
+            CloseTabsPayload::with_urls(urls.iter().map(|url| url.as_ref().to_owned()).collect());
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = close_tabs::build_close_tabs_command(oldsync_key, target, &payload)?;
         self.invoke_command(
@@ -31,6 +30,7 @@ impl FirefoxAccount {
             &command_payload,
             Some(close_tabs::COMMAND_TTL),
         )?;
+        self.telemetry.record_command_sent(sent_telemetry);
         Ok(())
     }
 
@@ -38,6 +38,7 @@ impl FirefoxAccount {
         &mut self,
         sender: Option<GetDeviceResponse>,
         payload: serde_json::Value,
+        reason: telemetry::ReceivedReason,
     ) -> Result<IncomingDeviceCommand> {
         let send_tab_key: PrivateSendTabKeys = match self.close_tabs_key() {
             Some(s) => PrivateSendTabKeys::deserialize(s)?,
@@ -49,7 +50,11 @@ impl FirefoxAccount {
         };
         let encrypted_payload: EncryptedCloseTabsPayload = serde_json::from_value(payload)?;
         match encrypted_payload.decrypt(&send_tab_key) {
-            Ok(payload) => Ok(IncomingDeviceCommand::TabsClosed { sender, payload }),
+            Ok(payload) => {
+                let recd_telemetry = telemetry::ReceivedCommand::for_close_tabs(&payload, reason);
+                self.telemetry.record_command_received(recd_telemetry);
+                Ok(IncomingDeviceCommand::TabsClosed { sender, payload })
+            }
             Err(e) => {
                 log::warn!("Could not decrypt Close Remote Tabs payload. Diagnosing then resetting the Close Tabs keys.");
                 self.clear_close_tabs_keys();

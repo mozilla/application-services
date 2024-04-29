@@ -453,6 +453,7 @@ object SyncTelemetry {
                         )
                         FxaTab.sent.record(extras)
                     }
+                    "close_tabs" -> Unit
                     else -> errors.add(InvalidTelemetryException.UnknownEvent(command))
                 }
             }
@@ -474,6 +475,7 @@ object SyncTelemetry {
                         )
                         FxaTab.received.record(extras)
                     }
+                    "close_tabs" -> Unit
                     else -> errors.add(InvalidTelemetryException.UnknownEvent(command))
                 }
             }
