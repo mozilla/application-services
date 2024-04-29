@@ -6,7 +6,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rc_crypto::ece;
 use serde_derive::*;
 
-use crate::{Error, Result, ScopedKey};
+use crate::{internal::telemetry, Error, Result, ScopedKey};
 
 use super::{
     super::device::Device,
@@ -34,6 +34,10 @@ impl EncryptedCloseTabsPayload {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CloseTabsPayload {
     pub urls: Vec<String>,
+    #[serde(rename = "flowID", default)]
+    pub flow_id: String,
+    #[serde(rename = "streamID", default)]
+    pub stream_id: String,
 }
 
 impl From<CloseTabsPayload> for crate::CloseTabsPayload {
@@ -43,6 +47,18 @@ impl From<CloseTabsPayload> for crate::CloseTabsPayload {
 }
 
 impl CloseTabsPayload {
+    pub fn with_urls(urls: Vec<String>) -> (Self, telemetry::SentCommand) {
+        let sent_telemetry: telemetry::SentCommand = telemetry::SentCommand::for_close_tabs();
+        (
+            CloseTabsPayload {
+                urls,
+                flow_id: sent_telemetry.flow_id.clone(),
+                stream_id: sent_telemetry.stream_id.clone(),
+            },
+            sent_telemetry,
+        )
+    }
+
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedCloseTabsPayload> {
         rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
@@ -86,11 +102,13 @@ mod tests {
 
     #[test]
     fn test_payload() -> Result<()> {
-        let payload = CloseTabsPayload {
-            urls: vec!["https://www.mozilla.org".into()],
-        };
+        let (payload, telem) = CloseTabsPayload::with_urls(vec!["https://www.mozilla.org".into()]);
         let json = serde_json::to_string(&payload)?;
         assert!(!json.is_empty());
+        assert_eq!(telem.flow_id.len(), 12);
+        assert_eq!(telem.stream_id.len(), 12);
+        assert_ne!(telem.flow_id, telem.stream_id);
+
         let deserialized: CloseTabsPayload = serde_json::from_str(&json)?;
         assert_eq!(deserialized, payload);
 

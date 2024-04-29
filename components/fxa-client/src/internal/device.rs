@@ -264,7 +264,7 @@ impl FirefoxAccount {
                 self.handle_send_tab_command(sender, command_data.payload, telem_reason)
             }
             commands::close_tabs::COMMAND_NAME => {
-                self.handle_close_tabs_command(sender, command_data.payload)
+                self.handle_close_tabs_command(sender, command_data.payload, telem_reason)
             }
             _ => Err(Error::UnknownCommand(command_data.command)),
         }

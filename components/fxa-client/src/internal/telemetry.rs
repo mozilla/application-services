@@ -48,6 +48,8 @@ pub enum ReceivedReason {
 pub enum Command {
     #[serde(rename = "send_tab")]
     SendTab,
+    #[serde(rename = "close_tabs")]
+    CloseTabs,
 }
 
 #[derive(Debug, Serialize)]
@@ -60,6 +62,10 @@ pub struct SentCommand {
 impl SentCommand {
     pub fn for_send_tab() -> Self {
         Self::new(Command::SendTab)
+    }
+
+    pub fn for_close_tabs() -> Self {
+        Self::new(Command::CloseTabs)
     }
 
     fn new(command: Command) -> Self {
@@ -81,6 +87,15 @@ pub struct ReceivedCommand {
 
 impl ReceivedCommand {
     pub fn for_send_tab(payload: &commands::SendTabPayload, reason: ReceivedReason) -> Self {
+        Self {
+            command: Command::SendTab,
+            flow_id: payload.flow_id.clone(),
+            stream_id: payload.stream_id.clone(),
+            reason,
+        }
+    }
+
+    pub fn for_close_tabs(payload: &commands::CloseTabsPayload, reason: ReceivedReason) -> Self {
         Self {
             command: Command::SendTab,
             flow_id: payload.flow_id.clone(),
