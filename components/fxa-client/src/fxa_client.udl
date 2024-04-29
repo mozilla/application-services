@@ -674,11 +674,11 @@ interface FirefoxAccount {
   // It ensures that the expired token is removed and a fresh one generated.
   //
   void clear_access_token_cache();
-  
 
-  // Collect and return telemetry about send-tab attempts.
+
+  // Collect and return telemetry about incoming and outgoing device commands.
   //
-  // Applications that register the [`SendTab`](DeviceCapability::SendTab) capability
+  // Applications that have registered one or more [`DeviceCapability`]s
   // should also arrange to submit "sync ping" telemetry. Calling this method will
   // return a JSON string of telemetry data that can be incorporated into that ping.
   //
@@ -878,12 +878,12 @@ dictionary SendTabPayload {
   // A unique identifier to be included in send-tab metrics.
   //
   // The application should treat this as opaque.
-  string flow_id;
+  string flow_id = "";
 
   // A unique identifier to be included in send-tab metrics.
   //
   // The application should treat this as opaque.
-  string stream_id;
+  string stream_id = "";
 };
 
 // An individual entry in the navigation history of a sent tab.

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::FirefoxAccount;
+use super::{commands, FirefoxAccount};
 use crate::Result;
 use serde_derive::*;
 use sync_guid::Guid;
@@ -33,7 +33,7 @@ impl FirefoxAccount {
 // apps will submit it directly after an operation that generated telememtry)
 
 /// The reason a tab/command was received.
-#[derive(Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ReceivedReason {
     /// A push notification for the command was received.
@@ -44,15 +44,27 @@ pub enum ReceivedReason {
     Poll,
 }
 
+#[derive(Copy, Clone, Debug, Serialize)]
+pub enum Command {
+    #[serde(rename = "send_tab")]
+    SendTab,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SentCommand {
+    pub command: Command,
     pub flow_id: String,
     pub stream_id: String,
 }
 
-impl Default for SentCommand {
-    fn default() -> Self {
+impl SentCommand {
+    pub fn for_send_tab() -> Self {
+        Self::new(Command::SendTab)
+    }
+
+    fn new(command: Command) -> Self {
         Self {
+            command,
             flow_id: Guid::random().to_string(),
             stream_id: Guid::random().to_string(),
         }
@@ -61,9 +73,21 @@ impl Default for SentCommand {
 
 #[derive(Debug, Serialize)]
 pub struct ReceivedCommand {
+    pub command: Command,
     pub flow_id: String,
     pub stream_id: String,
     pub reason: ReceivedReason,
+}
+
+impl ReceivedCommand {
+    pub fn for_send_tab(payload: &commands::SendTabPayload, reason: ReceivedReason) -> Self {
+        Self {
+            command: Command::SendTab,
+            flow_id: payload.flow_id.clone(),
+            stream_id: payload.stream_id.clone(),
+            reason,
+        }
+    }
 }
 
 // We have a naive strategy to avoid unbounded memory growth - the intention
@@ -85,13 +109,13 @@ impl FxaTelemetry {
         }
     }
 
-    pub fn record_tab_sent(&mut self, sent: SentCommand) {
+    pub fn record_command_sent(&mut self, sent: SentCommand) {
         if self.commands_sent.len() < MAX_TAB_EVENTS {
             self.commands_sent.push(sent);
         }
     }
 
-    pub fn record_tab_received(&mut self, recd: ReceivedCommand) {
+    pub fn record_command_received(&mut self, recd: ReceivedCommand) {
         if self.commands_received.len() < MAX_TAB_EVENTS {
             self.commands_received.push(recd);
         }
