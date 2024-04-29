@@ -10,7 +10,6 @@ interface RelevancyStore {
     // Construct a new RelevancyStore
     //
     // This is non-blocking since databases and other resources are lazily opened.
-    [Throws=RelevancyApiError]
     constructor(string dbpath);
 
     // Close any open resources (for example databases)
