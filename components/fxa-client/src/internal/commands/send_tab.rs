@@ -60,7 +60,7 @@ impl From<SendTabPayload> for crate::SendTabPayload {
 
 impl SendTabPayload {
     pub fn single_tab(title: &str, url: &str) -> (Self, telemetry::SentCommand) {
-        let sent_telemetry: telemetry::SentCommand = Default::default();
+        let sent_telemetry: telemetry::SentCommand = telemetry::SentCommand::for_send_tab();
         (
             SendTabPayload {
                 entries: vec![TabHistoryEntry {

@@ -25,12 +25,18 @@ import org.mozilla.appservices.syncmanager.GleanMetrics.TabsSyncV2 as TabsSync
 const val MAX_FAILURE_REASON_LENGTH = 100
 
 // The exceptions we report to the crash reporter, but otherwise don't escape this module.
-sealed class InvalidTelemetryException(cause: Exception) : Exception(cause) {
+sealed class InvalidTelemetryException : Exception {
+    constructor(cause: Throwable) : super(cause)
+    constructor(message: String) : super(message)
+
     // The top-level data passed in is invalid.
     class InvalidData(cause: JSONException) : InvalidTelemetryException(cause)
 
-    // The sent or received tabs data is invalid.
+    // The sent or received command data is invalid.
     class InvalidEvents(cause: JSONException) : InvalidTelemetryException(cause)
+
+    // The sent or received command doesn't correspond to an event.
+    class UnknownEvent(command: String) : InvalidTelemetryException("No event for command $command")
 }
 
 /**
@@ -438,11 +444,17 @@ object SyncTelemetry {
             val sent = json.getJSONArray("commands_sent")
             for (i in 0..sent.length() - 1) {
                 val one = sent.getJSONObject(i)
-                val extras = FxaTab.SentExtra(
-                    flowId = one.getString("flow_id"),
-                    streamId = one.getString("stream_id"),
-                )
-                FxaTab.sent.record(extras)
+                val command = one.getString("command")
+                when (command) {
+                    "send_tab" -> {
+                        val extras = FxaTab.SentExtra(
+                            flowId = one.getString("flow_id"),
+                            streamId = one.getString("stream_id"),
+                        )
+                        FxaTab.sent.record(extras)
+                    }
+                    else -> errors.add(InvalidTelemetryException.UnknownEvent(command))
+                }
             }
             // logger.info("Reported telemetry for ${sent.length()} sent commands")
         } catch (e: JSONException) {
@@ -452,12 +464,18 @@ object SyncTelemetry {
             val recd = json.getJSONArray("commands_received")
             for (i in 0..recd.length() - 1) {
                 val one = recd.getJSONObject(i)
-                val extras = FxaTab.ReceivedExtra(
-                    flowId = one.getString("flow_id"),
-                    streamId = one.getString("stream_id"),
-                    reason = one.getString("reason"),
-                )
-                FxaTab.received.record(extras)
+                val command = one.getString("command")
+                when (command) {
+                    "send_tab" -> {
+                        val extras = FxaTab.ReceivedExtra(
+                            flowId = one.getString("flow_id"),
+                            streamId = one.getString("stream_id"),
+                            reason = one.getString("reason"),
+                        )
+                        FxaTab.received.record(extras)
+                    }
+                    else -> errors.add(InvalidTelemetryException.UnknownEvent(command))
+                }
             }
             // logger.info("Reported telemetry for ${recd.length()} received commands")
         } catch (e: JSONException) {

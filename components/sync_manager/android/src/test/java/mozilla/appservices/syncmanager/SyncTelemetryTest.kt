@@ -1154,6 +1154,7 @@ class SyncTelemetryTest {
         val json = """
             {
                 "commands_sent":[{
+                    "command":"send_tab",
                     "flow_id":"test-flow-id",
                     "stream_id":"test-stream-id"
                 }],
@@ -1174,6 +1175,7 @@ class SyncTelemetryTest {
         val json = """
             {
                 "commands_received":[{
+                    "command":"send_tab",
                     "flow_id":"test-flow-id",
                     "stream_id":"test-stream-id",
                     "reason":"test-reason"
@@ -1196,17 +1198,19 @@ class SyncTelemetryTest {
         val json = """
             {
                 "commands_sent":[{
+                    "command":"send_tab",
                     "flow_id":"test-flow-id"
                 }],
                 "commands_received":[{
+                    "command":"send_tab",
                     "flow_id":"test-flow-id",
                     "stream_id":"test-stream-id"
                 }]
             }
         """
-        val sendRecieveExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(json)
+        val sendReceiveExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(json)
         // one exception for each of 'send' and 'received'
-        assertEquals(sendRecieveExceptions.count(), 2)
+        assertEquals(sendReceiveExceptions.count(), 2)
 
         // completely invalid json
         val topLevelExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(""" foo bar """)
@@ -1214,6 +1218,31 @@ class SyncTelemetryTest {
         assertNull(FxaTab.received.testGetValue())
         // processFxaTelemetry should report only one error
         assertEquals(topLevelExceptions.count(), 1)
+    }
+
+    @Test
+    fun `checks telemetry for unknown commands doesn't record anything and doesn't crash`() {
+        val json = """
+            {
+                "commands_sent":[{
+                    "command":"test-unknown-command",
+                    "flow_id":"test-flow-id",
+                    "stream_id":"test-stream-id"
+                }],
+                "commands_received":[{
+                    "command":"test-unknown-command",
+                    "flow_id":"test-flow-id",
+                    "stream_id":"test-stream-id",
+                    "reason":"test-reason"
+                }]
+            }
+        """
+        val sendReceiveExceptions: List<Throwable> = SyncTelemetry.processFxaTelemetry(json)
+
+        // one exception for each of 'send' and 'received'
+        assertEquals(sendReceiveExceptions.count(), 2)
+        assertNull(FxaTab.sent.testGetValue())
+        assertNull(FxaTab.received.testGetValue())
     }
 
     private fun MutableMap<String, Int>.incrementForKey(key: String) {

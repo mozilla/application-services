@@ -64,7 +64,7 @@ impl FirefoxAccount {
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(oldsync_key, target, &payload)?;
         self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)?;
-        self.telemetry.record_tab_sent(sent_telemetry);
+        self.telemetry.record_command_sent(sent_telemetry);
         Ok(())
     }
 
@@ -86,12 +86,8 @@ impl FirefoxAccount {
         match encrypted_payload.decrypt(&send_tab_key) {
             Ok(payload) => {
                 // It's an incoming tab, which we record telemetry for.
-                let recd_telemetry = telemetry::ReceivedCommand {
-                    flow_id: payload.flow_id.clone(),
-                    stream_id: payload.stream_id.clone(),
-                    reason,
-                };
-                self.telemetry.record_tab_received(recd_telemetry);
+                let recd_telemetry = telemetry::ReceivedCommand::for_send_tab(&payload, reason);
+                self.telemetry.record_command_received(recd_telemetry);
                 // The telemetry IDs escape to the consumer, but that's OK...
                 Ok(IncomingDeviceCommand::TabReceived { sender, payload })
             }
