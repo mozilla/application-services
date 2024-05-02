@@ -27,9 +27,9 @@ abstract class NimbusPluginExtension {
      */
     abstract Property<String> getManifestFile()
 
-    String getManifestFileActual(Project project) {
+    File getManifestFileActual(Project project) {
         var filename = this.manifestFile.getOrNull() ?: "nimbus.fml.yaml"
-        return [project.projectDir, filename].join(File.separator)
+        return project.file(filename)
     }
 
     /**
@@ -55,9 +55,9 @@ abstract class NimbusPluginExtension {
      */
     abstract Property<String> getExperimenterManifest()
 
-    String getExperimenterManifestActual(Project project) {
+    File getExperimenterManifestActual(Project project) {
         var filename = this.experimenterManifest.getOrNull() ?: ".experimenter.json"
-        return [project.projectDir, filename].join(File.separator)
+        return project.file(filename)
     }
 
     /**
@@ -69,9 +69,9 @@ abstract class NimbusPluginExtension {
      */
     abstract Property<String> getOutputDir()
 
-    String getOutputDirActual(Object variant, Project project) {
-        var outputDir = this.outputDir.getOrNull() ?: ["generated", "source", "nimbus", variant.name, "kotlin"].join(File.separator)
-        return [project.buildDir, outputDir].join(File.separator)
+    File getOutputDirActual(Object variant, Project project) {
+        var outputDir = this.outputDir.getOrNull() ?: "generated/source/nimbus/${variant.name}/kotlin"
+        return project.layout.buildDirectory.dir(outputDir).get().asFile
     }
 
     /**
@@ -83,10 +83,10 @@ abstract class NimbusPluginExtension {
      */
     abstract ListProperty<String> getRepoFiles()
 
-    List<String> getRepoFilesActual(Project project) {
-        var repoFiles = this.repoFiles.getOrNull() ?: new ArrayList<String>()
+    List<File> getRepoFilesActual(Project project) {
+        var repoFiles = this.repoFiles.getOrNull() ?: new ArrayList<File>()
         return repoFiles.stream().map(filename -> {
-            [project.projectDir, filename].join(File.separator)
+            project.file(filename)
         }).collect(Collectors.toList())
     }
 
@@ -99,11 +99,9 @@ abstract class NimbusPluginExtension {
      */
     abstract Property<String> getCacheDir()
 
-    String getCacheDirActual(Project project) {
-        var cacheDir = this.cacheDir.getOrNull()
-        if (cacheDir == null)
-            cacheDir = "nimbus-cache"
-        return [project.rootProject.buildDir, cacheDir].join(File.separator)
+    File getCacheDirActual(Project project) {
+        var cacheDir = this.cacheDir.getOrNull() ?: "nimbus-cache"
+        return project.rootProject.layout.buildDirectory.dir(cacheDir).get().asFile
     }
 
     /**
@@ -116,8 +114,9 @@ abstract class NimbusPluginExtension {
      */
     abstract Property<String> getApplicationServicesDir()
 
-    String getApplicationServicesDirActual() {
-        return this.getApplicationServicesDir().getOrNull()
+    File getApplicationServicesDirActual(Project project) {
+        var applicationServicesDir = this.applicationServicesDir.getOrNull()
+        return applicationServicesDir ? project.file(applicationServicesDir) : null
     }
 }
 
@@ -154,7 +153,7 @@ class NimbusPlugin implements Plugin<Project> {
             group "Nimbus"
             description "Fetch the Nimbus FML tools from Application Services"
             doLast {
-                if (extension.getApplicationServicesDirActual() == null) {
+                if (extension.getApplicationServicesDirActual(project) == null) {
                     fetchNimbusBinaries(project)
                 } else {
                     println("Using local application services")
@@ -185,14 +184,14 @@ class NimbusPlugin implements Plugin<Project> {
     def fetchNimbusBinaries(Project project) {
         def asVersion = getProjectVersion()
 
-        def fmlPath = new File(getFMLPath(project, asVersion))
+        def fmlPath = getFMLFile(project, asVersion)
         println("Checking fml binaries in $fmlPath")
         if (fmlPath.exists()) {
             println("nimbus-fml already exists at $fmlPath")
             return
         }
 
-        def rootDirectory = new File(getFMLRoot(project, asVersion))
+        def rootDirectory = getFMLRoot(project, asVersion)
         def archive = new File(rootDirectory, "nimbus-fml.zip")
         ensureDirExists(rootDirectory)
 
@@ -245,8 +244,8 @@ class NimbusPlugin implements Plugin<Project> {
      * @param version
      * @return
      */
-    static def getFMLRoot(Project project, String version) {
-        return [project.getRootProject().buildDir, "bin", "nimbus", version].join(File.separator)
+    static File getFMLRoot(Project project, String version) {
+        return project.layout.buildDirectory.dir("bin/nimbus/$version").get().asFile
     }
 
     static def getArchOs() {
@@ -277,13 +276,17 @@ class NimbusPlugin implements Plugin<Project> {
         return "${archPart}-${osPart}"
     }
 
-    static def getFMLPath(Project project, String version) {
+    static File getFMLFile(Project project, String version) {
         String os = System.getProperty("os.name").toLowerCase()
         String binaryName = "nimbus-fml"
         if (os.contains("win")) {
             binaryName = "nimbus-fml.exe"
         }
-        return [getFMLRoot(project, version), binaryName].join(File.separator)
+        return new File(getFMLRoot(project, version), binaryName)
+    }
+
+    static String getFMLPath(Project project, String version) {
+        return getFMLFile(project, version).getPath()
     }
 
     String getProjectVersion() {
@@ -319,23 +322,23 @@ class NimbusPlugin implements Plugin<Project> {
 
     def setupNimbusFeatureTasks(variant, project, extension) {
         String channel = extension.getChannelActual(variant)
-        String inputFile = extension.getManifestFileActual(project)
-        String outputDir = extension.getOutputDirActual(variant, project)
-        String cacheDir = extension.getCacheDirActual(project)
-        List<String> repoFiles = extension.getRepoFilesActual(project)
+        File inputFile = extension.getManifestFileActual(project)
+        File outputDir = extension.getOutputDirActual(variant, project)
+        File cacheDir = extension.getCacheDirActual(project)
+        List<File> repoFiles = extension.getRepoFilesActual(project)
 
         var generateTask = project.task("nimbusFeatures${variant.name.capitalize()}", type: Exec) {
             description = "Generate Kotlin data classes for Nimbus enabled features"
             group = "Nimbus"
 
             doFirst {
-                ensureDirExists(new File(outputDir))
+                ensureDirExists(outputDir)
                 if (cacheDir != null)
-                    ensureDirExists(new File(cacheDir))
+                    ensureDirExists(cacheDir)
                 println("Nimbus FML generating Kotlin")
                 println("manifest        $inputFile")
                 println("cache dir       $cacheDir")
-                println("repo file(s)     ${repoFiles.join(", ")}")
+                println("repo file(s)    ${repoFiles.join(", ")}")
                 println("channel         $channel")
             }
 
@@ -343,12 +346,12 @@ class NimbusPlugin implements Plugin<Project> {
                 println("outputFile    $outputDir")
             }
 
-            def localAppServices = extension.getApplicationServicesDirActual()
+            def localAppServices = extension.getApplicationServicesDirActual(project)
             if (localAppServices == null) {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = new File(localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml")
 
                 commandLine "cargo"
                 args "run"
@@ -360,7 +363,7 @@ class NimbusPlugin implements Plugin<Project> {
             args "--channel", channel
             if (cacheDir != null)
                 args "--cache-dir", cacheDir
-            for (String file : repoFiles) {
+            for (File file : repoFiles) {
                 args "--repo-file", file
             }
 
@@ -371,7 +374,7 @@ class NimbusPlugin implements Plugin<Project> {
         }
 
         if(variant.metaClass.respondsTo(variant, 'registerJavaGeneratingTask', Task, File)) {
-            variant.registerJavaGeneratingTask(generateTask, new File(outputDir))
+            variant.registerJavaGeneratingTask(generateTask, outputDir)
         }
 
         def generateSourcesTask = project.tasks.findByName("generate${variant.name.capitalize()}Sources")
@@ -391,9 +394,9 @@ class NimbusPlugin implements Plugin<Project> {
     }
 
     def setupValidateTask(project, extension) {
-        String inputFile = extension.getManifestFileActual(project)
-        String cacheDir = extension.getCacheDirActual(project)
-        List<String> repoFiles = extension.getRepoFilesActual(project)
+        File inputFile = extension.getManifestFileActual(project)
+        File cacheDir = extension.getCacheDirActual(project)
+        List<File> repoFiles = extension.getRepoFilesActual(project)
 
         return project.task("nimbusValidate", type: Exec) {
             description = "Validate the Nimbus feature manifest for the app"
@@ -401,19 +404,19 @@ class NimbusPlugin implements Plugin<Project> {
 
             doFirst {
                 if (cacheDir != null)
-                    ensureDirExists(new File(cacheDir))
+                    ensureDirExists(cacheDir)
                 println("Nimbus FML: validating manifest")
                 println("manifest             $inputFile")
                 println("cache dir            $cacheDir")
                 println("repo file(s)         ${repoFiles.join()}")
             }
 
-            def localAppServices = extension.getApplicationServicesDirActual()
+            def localAppServices = extension.getApplicationServicesDirActual(project)
             if (localAppServices == null) {
                 workingDir project.rootDir
                 commandLine getFMLPath(project, getProjectVersion())
             } else {
-                def cargoManifest = [project.rootDir, localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml"].join(File.separator)
+                def cargoManifest = new File(localAppServices, "$APPSERVICES_FML_HOME/Cargo.toml")
 
                 commandLine "cargo"
                 args "run"
@@ -423,7 +426,7 @@ class NimbusPlugin implements Plugin<Project> {
             args "validate"
             if (cacheDir != null)
                 args "--cache-dir", cacheDir
-            for (String file : repoFiles) {
+            for (File file : repoFiles) {
                 args "--repo-file", file
             }
 
