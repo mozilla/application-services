@@ -93,7 +93,7 @@ abstract class NimbusPluginExtension {
     /**
      * The directory where downloaded files are or where they should be cached.
      *
-     * This defaults to `null`, in which case no cache directory will be used.
+     * If missing, this defaults to the Nimbus cache folder in the build directory.
      *
      * @return
      */
@@ -333,8 +333,7 @@ class NimbusPlugin implements Plugin<Project> {
 
             doFirst {
                 ensureDirExists(outputDir)
-                if (cacheDir != null)
-                    ensureDirExists(cacheDir)
+                ensureDirExists(cacheDir)
                 println("Nimbus FML generating Kotlin")
                 println("manifest        $inputFile")
                 println("cache dir       $cacheDir")
@@ -361,8 +360,7 @@ class NimbusPlugin implements Plugin<Project> {
             args "generate"
             args "--language", "kotlin"
             args "--channel", channel
-            if (cacheDir != null)
-                args "--cache-dir", cacheDir
+            args "--cache-dir", cacheDir
             for (File file : repoFiles) {
                 args "--repo-file", file
             }
@@ -403,8 +401,7 @@ class NimbusPlugin implements Plugin<Project> {
             group = "Nimbus"
 
             doFirst {
-                if (cacheDir != null)
-                    ensureDirExists(cacheDir)
+                ensureDirExists(cacheDir)
                 println("Nimbus FML: validating manifest")
                 println("manifest             $inputFile")
                 println("cache dir            $cacheDir")
@@ -424,8 +421,7 @@ class NimbusPlugin implements Plugin<Project> {
                 args "--"
             }
             args "validate"
-            if (cacheDir != null)
-                args "--cache-dir", cacheDir
+            args "--cache-dir", cacheDir
             for (File file : repoFiles) {
                 args "--repo-file", file
             }
