@@ -228,9 +228,9 @@ class NimbusPlugin implements Plugin<Project> {
             return !entry.directory && entry.name.contains(archOs)
         }.each { entry ->
             fmlPath.withOutputStream { out ->
-                def from = zipFile.getInputStream(entry)
-                out << from
-                from.close()
+                zipFile.getInputStream(entry).withStream { from ->
+                    out << from
+                }
             }
 
             fmlPath.setExecutable(true)
@@ -292,7 +292,7 @@ class NimbusPlugin implements Plugin<Project> {
     String getProjectVersion() {
         Properties props = new Properties()
         def stream = getClass().getResourceAsStream("/nimbus-gradle-plugin.properties")
-        props.load(stream)
+        stream.withStream { props.load(it) }
         return props.get("version")
     }
 
