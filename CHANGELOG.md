@@ -5,6 +5,11 @@
 ### Suggest
 - Removed the deprecated `remote_settings_config` method.  No consumers were using this.
 
+### Webext-Storage
+- Exposed the bridged engine logic for use in desktop ([#6180](https://github.com/mozilla/application-services/pull/6180)).
+  - This updates the signature of the `bridged_engine` function technically making this a breaking change though the
+    references to function with the old signature are being removed in a desktop patch.
+
 ## ✨ What's New ✨
 
 ### Suggest
@@ -4260,7 +4265,7 @@ call `PushManager.unsubscribeAll()`.
 
 ### What's Fixed
 
-- Megazords and requests should work again. ([#946](https://github.com/mozilla/application-services/pull/946))
+- Megazords and requests should work again. ([#946](https://github.com/mozilla/application-services/pull/946))
 - The vestigial `reqwest` backend is no longer compiled into the megazords ([#937](https://github.com/mozilla/application-services/pull/937)).
     - Note that prior to this it was present, but unused.
 
@@ -4740,7 +4745,7 @@ and working around subtle build issues.
 
 - In most cases, opaque integer handles are now used to pass data over the FFI ([#567](https://github.com/mozilla/application-services/issues/567)). This should be more robust, and allow detection of many types of errors that would previously cause silent memory corruption.
 
-  This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the Rust code panicked (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
+  This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the Rust code panicked (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
 
   This may seem inconvenient, but it should be an improvement over the previous version, where we instead would simply carry on despite potentially having corrupted internal state.
 
