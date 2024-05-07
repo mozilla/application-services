@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
 
 sync_v2:
@@ -53,6 +52,23 @@ sync_v2:
     notification_emails:
       - sync-team@mozilla.com
       - skhamis@mozilla.com
+    expires: never
+    lifetime: ping
+  uid:
+    type: string
+    description: >
+      The user's raw Firefox Account ID.
+    send_in_pings:
+      - sync
+    bugs: 
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1893727
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1893727
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - sync-team@mozilla.com
+      - teshaq@mozilla.com
     expires: never
     lifetime: ping
 

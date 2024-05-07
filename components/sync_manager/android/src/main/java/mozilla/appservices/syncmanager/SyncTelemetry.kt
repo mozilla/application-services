@@ -47,7 +47,12 @@ object SyncTelemetry {
     @Suppress("LongParameterList")
     fun processSyncTelemetry(
         syncTelemetry: SyncTelemetryPing,
-
+        // Given our architecture, the uid has to come from the outside
+        // and can't be inside SyncTelemetryPing, because the sync manager does not
+        // know what the uid is.
+        // The default value is to prevent a breaking change and will be removed
+        // once downstream consumers pass the value in.
+        uid: String? = null,
         // The following are present to make this function testable. In tests, we need to "intercept"
         // values set in singleton ping objects before they're reset by a 'submit' call.
         submitGlobalPing: () -> Unit = { Pings.sync.submit() },
@@ -56,8 +61,11 @@ object SyncTelemetry {
         submitLoginsPing: () -> Unit = { Pings.loginsSync.submit() },
         submitCreditCardsPing: () -> Unit = { Pings.creditcardsSync.submit() },
         submitAddressesPing: () -> Unit = { Pings.addressesSync.submit() },
-        submitTabsPing: () -> Unit = { Pings.tabsSync.submit() },
+        submitTabsPing: () -> Unit = { Pings.tabsSync.submit()},
     ) {
+        uid?.let {
+            Sync.uid.set(it)
+        }
         syncTelemetry.syncs.forEach { syncInfo ->
             // Note that `syncUuid` is configured to be submitted in all of the sync pings (it's set
             // once, and will be attached by glean to history-sync, bookmarks-sync, and logins-sync pings).

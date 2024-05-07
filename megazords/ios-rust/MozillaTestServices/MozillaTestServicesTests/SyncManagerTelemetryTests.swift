@@ -54,6 +54,7 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                                                 message: "Synergies not aligned"))])
 
         func submitGlobalPing(_: NoReasonCodes?) {
+            XCTAssertEqual(SyncMetrics.uid.testGetValue(), "uid")
             XCTAssertEqual("Synergies not aligned", SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
             XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
@@ -94,6 +95,7 @@ class SyncManagerTelemetryTests: XCTestCase {
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
+                                  uid: "uid",
                                   submitGlobalPing: submitGlobalPing,
                                   submitHistoryPing: submitHistoryPing,
                                   submitLoginsPing: submitLoginsPing)
@@ -116,6 +118,7 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
+            XCTAssertEqual(SyncMetrics.uid.testGetValue(), "uid")
             XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
             XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
@@ -139,6 +142,7 @@ class SyncManagerTelemetryTests: XCTestCase {
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
+                                  uid: "uid",
                                   submitGlobalPing: submitGlobalPing,
                                   submitHistoryPing: submitHistoryPing)
     }
@@ -165,6 +169,7 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
+            XCTAssertEqual(SyncMetrics.uid.testGetValue(), "uid")
             XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
             XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
@@ -188,6 +193,7 @@ class SyncManagerTelemetryTests: XCTestCase {
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
+                                  uid: "uid",
                                   submitGlobalPing: submitGlobalPing,
                                   submitBookmarksPing: submitBookmarksPing)
     }
@@ -219,6 +225,7 @@ class SyncManagerTelemetryTests: XCTestCase {
                                                                    failureReason: nil)])
 
         func submitGlobalPing(_: NoReasonCodes?) {
+            XCTAssertEqual(SyncMetrics.uid.testGetValue(), "uid")
             XCTAssertNil(SyncMetrics.failureReason["other"].testGetValue())
             XCTAssertNotNil(globalSyncUuid)
             XCTAssertEqual(globalSyncUuid, SyncMetrics.syncUuid.testGetValue("sync"))
@@ -258,8 +265,28 @@ class SyncManagerTelemetryTests: XCTestCase {
         }
 
         try! processSyncTelemetry(syncTelemetry: syncTelemetry,
+                                  uid: "uid",
                                   submitGlobalPing: submitGlobalPing,
                                   submitCreditCardsPing: submitCreditCardsPing,
                                   submitTabsPing: submitTabsPing)
     }
+    
+    func testUidNotProvidedOK() {
+        let globalSyncUuid = UUID()
+        let syncTelemetry = RustSyncTelemetryPing(version: 1,
+                                                  uid: "abc123",
+                                                  events: [],
+                                                  syncs: [SyncInfo(at: now + 30,
+                                                                   took: 10000,
+                                                                   engines: [],
+                                                                   failureReason: nil)])
+
+        func submitGlobalPing(_: NoReasonCodes?) {
+            XCTAssertNil(SyncMetrics.uid.testGetValue())
+            XCTAssertNotNil(globalSyncUuid)
+        }
+        try! processSyncTelemetry(syncTelemetry: syncTelemetry,
+                                  submitGlobalPing: submitGlobalPing)
+    }
+    
 }
