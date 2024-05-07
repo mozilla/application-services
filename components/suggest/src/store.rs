@@ -4,7 +4,7 @@
  */
 
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -16,18 +16,12 @@ use remote_settings::{
     self, GetItemsOptions, RemoteSettingsConfig, RemoteSettingsRecord, RemoteSettingsServer,
     SortOrder,
 };
-use rusqlite::{
-    types::{FromSql, ToSqlOutput},
-    ToSql,
-};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use serde::de::DeserializeOwned;
 
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
-    db::{
-        ConnectionType, SuggestDao, SuggestDb, LAST_INGEST_META_UNPARSABLE,
-        UNPARSABLE_RECORDS_META_KEY,
-    },
+    db::{ConnectionType, SuggestDao, SuggestDb},
     error::Error,
     provider::SuggestionProvider,
     rs::{
@@ -35,12 +29,8 @@ use crate::{
         SuggestRemoteSettingsClient, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
         SUGGESTIONS_PER_ATTACHMENT,
     },
-    schema::VERSION,
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
-
-/// The chunk size used to request unparsable records.
-pub const UNPARSABLE_IDS_PER_REQUEST: usize = 150;
 
 /// Builder for [SuggestStore]
 ///
@@ -152,36 +142,6 @@ impl SuggestStoreBuilder {
 ///    on the first launch.
 pub struct SuggestStore {
     inner: SuggestStoreInner<remote_settings::Client>,
-}
-
-/// For records that aren't currently parsable,
-/// the record ID and the schema version it's first seen in
-/// is recorded in the meta table using `UNPARSABLE_RECORDS_META_KEY` as its key.
-/// On the first ingest after an upgrade, re-request those records from Remote Settings,
-/// and try to ingest them again.
-#[derive(Deserialize, Serialize, Default, Debug)]
-#[serde(transparent)]
-pub(crate) struct UnparsableRecords(pub BTreeMap<String, UnparsableRecord>);
-
-impl FromSql for UnparsableRecords {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        serde_json::from_str(value.as_str()?)
-            .map_err(|err| rusqlite::types::FromSqlError::Other(Box::new(err)))
-    }
-}
-
-impl ToSql for UnparsableRecords {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::from(serde_json::to_string(self).map_err(
-            |err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)),
-        )?))
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub(crate) struct UnparsableRecord {
-    #[serde(rename = "v")]
-    pub schema_version: u32,
 }
 
 impl SuggestStore {
@@ -363,29 +323,6 @@ where
             return Ok(());
         }
 
-        if let Some(unparsable_records) =
-            writer.read(|dao| dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY))?
-        {
-            let all_unparsable_ids = unparsable_records
-                .0
-                .iter()
-                .filter(|(_, unparsable_record)| unparsable_record.schema_version < VERSION)
-                .map(|(record_id, _)| record_id)
-                .collect::<Vec<_>>();
-            for unparsable_ids in all_unparsable_ids.chunks(UNPARSABLE_IDS_PER_REQUEST) {
-                let mut options = GetItemsOptions::new();
-                for unparsable_id in unparsable_ids {
-                    options.filter_eq("id", *unparsable_id);
-                }
-                let records_chunk = self
-                    .settings_client
-                    .get_records_with_options(&options)?
-                    .records;
-
-                self.ingest_records(LAST_INGEST_META_UNPARSABLE, writer, &records_chunk)?;
-            }
-        }
-
         // use std::collections::BTreeSet;
         let ingest_record_types = if let Some(rt) = &constraints.providers {
             rt.iter()
@@ -463,7 +400,6 @@ where
             else {
                 // We don't recognize this record's type, so we don't know how
                 // to ingest its suggestions. Skip processing this record.
-                writer.write(|dao| dao.handle_unparsable_record(record))?;
                 continue;
             };
 
@@ -626,7 +562,10 @@ where
                     ingestion_handler(dao, record_id, attachment.suggestions())
                 })
             }
-            Err(_) => writer.write(|dao| dao.handle_unparsable_record(record)),
+            // If the attachment doesn't match our expected schema, just skip it.  It's possible
+            // that we're using an older version.  If so, we'll get the data when we re-ingest
+            // after updating the schema.
+            Err(_) => Ok(()),
         }
     }
 }
@@ -5174,163 +5113,6 @@ mod tests {
         Ok(())
     }
 
-    /// Tests unparsable Remote Settings records, which we don't know how to
-    /// ingest at all.
-    #[test]
-    fn ingest_unparsable() -> anyhow::Result<()> {
-        before_each();
-
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "fancy-new-suggestions-1",
-            "type": "fancy-new-suggestions",
-            "last_modified": 15,
-        }, {
-            "id": "clippy-2",
-            "type": "clippy",
-            "last_modified": 30,
-        }]))?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta("last_quicksuggest_ingest_unparsable")?,
-                Some(30)
-            );
-            expect![[r#"
-                Some(
-                    UnparsableRecords(
-                        {
-                            "clippy-2": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                            "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                        },
-                    ),
-                )
-            "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn ingest_mixed_parsable_unparsable_records() -> anyhow::Result<()> {
-        before_each();
-
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "fancy-new-suggestions-1",
-            "type": "fancy-new-suggestions",
-            "last_modified": 15,
-        },
-        {
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        },
-        {
-            "id": "clippy-2",
-            "type": "clippy",
-            "last_modified": 30,
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3,
-            }]),
-        )?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta("last_quicksuggest_ingest_unparsable")?,
-                Some(30)
-            );
-            expect![[r#"
-                Some(
-                    UnparsableRecords(
-                        {
-                            "clippy-2": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                            "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                        },
-                    ),
-                )
-            "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
-    /// Tests meta update field isn't updated for old unparsable Remote Settings
-    /// records.
-    #[test]
-    fn ingest_unparsable_and_meta_update_stays_the_same() -> anyhow::Result<()> {
-        before_each();
-
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "fancy-new-suggestions-1",
-            "type": "fancy-new-suggestions",
-            "last_modified": 15,
-        }]))?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-        store.dbs()?.writer.write(|dao| {
-            dao.put_meta(
-                SuggestRecordType::AmpWikipedia
-                    .last_ingest_meta_key()
-                    .as_str(),
-                30,
-            )?;
-            Ok(())
-        })?;
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta::<u64>(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(30)
-            );
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
     /// Tests that we only ingest providers that we're concerned with.
     #[test]
     fn ingest_constraints_provider() -> anyhow::Result<()> {
@@ -5412,87 +5194,7 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn remove_known_records_out_of_meta_table() -> anyhow::Result<()> {
-        before_each();
-
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "fancy-new-suggestions-1",
-            "type": "fancy-new-suggestions",
-            "last_modified": 15,
-        },
-        {
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        },
-        {
-            "id": "clippy-2",
-            "type": "clippy",
-            "last_modified": 15,
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-        let mut initial_data = UnparsableRecords::default();
-        initial_data
-            .0
-            .insert("data-1".to_string(), UnparsableRecord { schema_version: 1 });
-        initial_data.0.insert(
-            "clippy-2".to_string(),
-            UnparsableRecord { schema_version: 1 },
-        );
-        store.dbs()?.writer.write(|dao| {
-            dao.put_meta(UNPARSABLE_RECORDS_META_KEY, initial_data)?;
-            Ok(())
-        })?;
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                Some(
-                    UnparsableRecords(
-                        {
-                            "clippy-2": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                            "fancy-new-suggestions-1": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                        },
-                    ),
-                )
-            "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
-    /// Tests that records with invalid attachments are ignored and marked as unparsable.
+    /// Tests that records with invalid attachments are ignored
     #[test]
     fn skip_over_invalid_records() -> anyhow::Result<()> {
         before_each();
@@ -5558,23 +5260,6 @@ mod tests {
 
         store.ingest(SuggestIngestionConstraints::default())?;
 
-        // Test that the invalid record marked as unparsable
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                Some(
-                    UnparsableRecords(
-                        {
-                            "invalid-attachment": UnparsableRecord {
-                                schema_version: 19,
-                            },
-                        },
-                    ),
-                )
-            "#]]
-            .assert_debug_eq(&dao.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?);
-            Ok(())
-        })?;
-
         // Test that the valid record was read
         store.dbs()?.reader.read(|dao| {
             assert_eq!(
@@ -5613,13 +5298,6 @@ mod tests {
             Ok(())
         })?;
 
-        Ok(())
-    }
-
-    #[test]
-    fn unparsable_record_serialized_correctly() -> anyhow::Result<()> {
-        let unparseable_record = UnparsableRecord { schema_version: 1 };
-        assert_eq!(serde_json::to_value(unparseable_record)?, json!({ "v": 1 }),);
         Ok(())
     }
 

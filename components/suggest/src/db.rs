@@ -25,18 +25,11 @@ use crate::{
         DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
         DownloadedWikipediaSuggestion, SuggestRecordId,
     },
-    schema::{clear_database, SuggestConnectionInitializer, VERSION},
-    store::{UnparsableRecord, UnparsableRecords},
+    schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
     Result, SuggestionQuery,
 };
 
-/// The metadata key prefix for the last ingested unparsable record. These are
-/// records that were not parsed properly, or were not of the "approved" types.
-pub const LAST_INGEST_META_UNPARSABLE: &str = "last_quicksuggest_ingest_unparsable";
-/// The metadata key whose value keeps track of records of suggestions
-/// that aren't parsable and which schema version it was first seen in.
-pub const UNPARSABLE_RECORDS_META_KEY: &str = "unparsable_records";
 /// The metadata key whose value is a JSON string encoding a
 /// `SuggestGlobalConfig`, which contains global Suggest configuration data.
 pub const GLOBAL_CONFIG_META_KEY: &str = "global_config";
@@ -142,24 +135,11 @@ impl<'a> SuggestDao<'a> {
     //
     //  These methods combine several low-level calls into one logical operation.
 
-    pub fn handle_unparsable_record(&mut self, record: &RemoteSettingsRecord) -> Result<()> {
-        let record_id = SuggestRecordId::from(&record.id);
-        // Remember this record's ID so that we will try again later
-        self.put_unparsable_record_id(&record_id)?;
-        // Advance the last fetch time, so that we can resume
-        // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(LAST_INGEST_META_UNPARSABLE, record.last_modified)
-    }
-
     pub fn handle_ingested_record(
         &mut self,
         last_ingest_key: &str,
         record: &RemoteSettingsRecord,
     ) -> Result<()> {
-        let record_id = SuggestRecordId::from(&record.id);
-        // Remove this record's ID from the list of unparsable
-        // records, since we understand it now.
-        self.drop_unparsable_record_id(&record_id)?;
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
         self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
@@ -176,9 +156,6 @@ impl<'a> SuggestDao<'a> {
             Some(icon_id) => self.drop_icon(icon_id)?,
             None => self.drop_suggestions(&record_id)?,
         };
-        // Remove this record's ID from the list of unparsable
-        // records, since we understand it now.
-        self.drop_unparsable_record_id(&record_id)?;
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
         self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
@@ -1092,43 +1069,6 @@ impl<'a> SuggestDao<'a> {
         }
 
         Ok(())
-    }
-
-    /// Adds an entry for a Suggest Remote Settings record to the list of
-    /// unparsable records.
-    ///
-    /// This is used to note records that we don't understand how to parse and
-    /// ingest yet.
-    pub fn put_unparsable_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
-        let mut unparsable_records = self
-            .get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?
-            .unwrap_or_default();
-        unparsable_records.0.insert(
-            record_id.as_str().to_string(),
-            UnparsableRecord {
-                schema_version: VERSION,
-            },
-        );
-        self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)?;
-        Ok(())
-    }
-
-    /// Removes an entry for a Suggest Remote Settings record from the list of
-    /// unparsable records. Does nothing if the record was not previously marked
-    /// as unparsable.
-    ///
-    /// This indicates that we now understand how to parse and ingest the
-    /// record, or that the record was deleted.
-    pub fn drop_unparsable_record_id(&mut self, record_id: &SuggestRecordId) -> Result<()> {
-        let Some(mut unparsable_records) =
-            self.get_meta::<UnparsableRecords>(UNPARSABLE_RECORDS_META_KEY)?
-        else {
-            return Ok(());
-        };
-        if unparsable_records.0.remove(record_id.as_str()).is_none() {
-            return Ok(());
-        };
-        self.put_meta(UNPARSABLE_RECORDS_META_KEY, unparsable_records)
     }
 
     /// Stores global Suggest configuration data.
