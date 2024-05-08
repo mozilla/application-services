@@ -586,7 +586,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>
-    <url>https://github.com/thomcc/rust-base16/blob/master/LICENSE-CC0</url>
+    <url>https://github.com/thomcc/rust-base16/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>ISC License: ring</name>
