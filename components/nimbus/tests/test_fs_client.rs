@@ -38,6 +38,7 @@ fn test_simple() -> Result<()> {
     let client = NimbusClient::new(
         Default::default(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         Some(config),
         Box::new(NoopMetricsHandler),

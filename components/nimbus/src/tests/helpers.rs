@@ -9,8 +9,16 @@ use crate::{
     TargetingAttributes,
 };
 
-#[cfg(feature = "stateful")]
-use crate::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::{
+            metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
+            json::JsonObject,
+            targeting::RecordedContext
+        };
+        use serde_json::Map;
+    }
+}
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -51,6 +59,59 @@ impl Default for NimbusTargetingHelper {
     }
 }
 
+#[cfg(feature = "stateful")]
+#[derive(Default)]
+struct RecordedContextState {
+    context: Map<String, Value>,
+    record_calls: u64,
+}
+
+#[cfg(feature = "stateful")]
+#[derive(Clone, Default)]
+pub struct TestRecordedContext {
+    state: Arc<Mutex<RecordedContextState>>,
+}
+
+#[cfg(feature = "stateful")]
+impl TestRecordedContext {
+    pub fn new() -> Self {
+        TestRecordedContext {
+            state: Default::default(),
+        }
+    }
+
+    pub fn get_record_calls(&self) -> u64 {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .record_calls
+    }
+
+    pub fn set_context(&self, context: Value) {
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.context = context
+            .as_object()
+            .expect("value for `context` is not an object")
+            .clone();
+    }
+}
+
+#[cfg(feature = "stateful")]
+impl RecordedContext for TestRecordedContext {
+    fn to_json(&self) -> JsonObject {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .context
+            .clone()
+    }
+
+    fn record(&self) {
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.record_calls += 1;
+    }
+}
+
 #[derive(Default)]
 struct MetricState {
     enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
@@ -66,7 +127,7 @@ struct MetricState {
 /// Used to test recording of Glean metrics across the FFI within Rust
 ///
 /// *NOTE: Use this struct's `new` method when instantiating it to lock the Glean store*
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TestMetrics {
     state: Arc<Mutex<MetricState>>,
 }

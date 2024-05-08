@@ -10,6 +10,7 @@ use crate::{
     },
     error::BehaviorError,
     evaluator::{is_experiment_available, TargetingAttributes},
+    json::JsonObject,
     metrics::{
         EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
         MetricsHandler,
@@ -28,18 +29,22 @@ use crate::{
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
     },
     strings::fmt_with_map,
+    targeting::RecordedContext,
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
     ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
 use remote_settings::RemoteSettingsConfig;
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use uuid::Uuid;
+
+#[cfg(test)]
+use crate::tests::helpers::{TestMetrics, TestRecordedContext};
 
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
@@ -81,6 +86,7 @@ pub struct NimbusClient {
     db_path: PathBuf,
     coenrolling_feature_ids: Vec<String>,
     event_store: Arc<Mutex<EventStore>>,
+    recorded_context: Option<Arc<dyn RecordedContext>>,
     metrics_handler: Arc<Box<dyn MetricsHandler>>,
 }
 
@@ -89,6 +95,7 @@ impl NimbusClient {
     // thread in the gecko Javascript stack, hence the use of OnceCell for the db.
     pub fn new<P: Into<PathBuf>>(
         app_context: AppContext,
+        recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
         config: Option<RemoteSettingsConfig>,
@@ -96,9 +103,13 @@ impl NimbusClient {
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
+        let mut targeting_attributes: TargetingAttributes = app_context.clone().into();
+        if let Some(ref context) = recorded_context {
+            targeting_attributes.set_recorded_context(&**context);
+        }
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units: Default::default(),
-            targeting_attributes: app_context.clone().into(),
+            targeting_attributes,
             install_date: Default::default(),
             update_date: Default::default(),
         });
@@ -112,6 +123,7 @@ impl NimbusClient {
             coenrolling_feature_ids,
             db: OnceCell::default(),
             event_store: Arc::default(),
+            recorded_context,
             metrics_handler: Arc::new(metrics_handler),
         })
     }
@@ -360,6 +372,9 @@ impl NimbusClient {
             &state.targeting_attributes,
             self.event_store.clone(),
         );
+        if let Some(ref recorded_context) = self.recorded_context {
+            recorded_context.record();
+        }
         let coenrolling_feature_ids = self
             .coenrolling_feature_ids
             .iter()
@@ -704,6 +719,32 @@ impl NimbusClient {
         }
         Ok(())
     }
+
+    #[cfg(test)]
+    pub fn get_metrics_handler(&self) -> &&TestMetrics {
+        let metrics = &**self.metrics_handler;
+        // SAFETY: The cast to TestMetrics is safe because the Rust instance is guaranteed to be
+        // a TestMetrics instance. TestMetrics is the only Rust-implemented version of
+        // MetricsHandler, and, like this method, is only used in tests.
+        unsafe { std::mem::transmute::<&&dyn MetricsHandler, &&TestMetrics>(&metrics) }
+    }
+
+    #[cfg(test)]
+    pub fn get_recorded_context(&self) -> &&TestRecordedContext {
+        self.recorded_context
+            .clone()
+            .map(|ref recorded_context|
+                // SAFETY: The cast to TestRecordedContext is safe because the Rust instance is
+                // guaranteed to be a TestRecordedContext instance. TestRecordedContext is the only
+                // Rust-implemented version of RecordedContext, and, like this method,  is only
+                // used in tests.
+                unsafe {
+                    std::mem::transmute::<&&dyn RecordedContext, &&TestRecordedContext>(
+                        &&**recorded_context,
+                    )
+                })
+            .expect("failed to unwrap RecordedContext object")
+    }
 }
 
 impl NimbusClient {
@@ -829,8 +870,6 @@ impl NimbusStringHelper {
         }
     }
 }
-
-type JsonObject = Map<String, Value>;
 
 #[cfg(feature = "stateful-uniffi-bindings")]
 impl UniffiCustomTypeConverter for JsonObject {

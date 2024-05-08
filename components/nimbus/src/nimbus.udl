@@ -106,10 +106,21 @@ enum NimbusError {
     "ParseIntError", "TransformParameterError", "ClientError", "UniFFICallbackError",
 };
 
+[Custom]
+typedef string JsonObject;
+
+[Trait, WithForeign]
+interface RecordedContext {
+    JsonObject to_json();
+
+    void record();
+};
+
 interface NimbusClient {
     [Throws=NimbusError]
     constructor(
         AppContext app_ctx,
+        RecordedContext? recorded_context,
         sequence<string> coenrolling_feature_ids,
         string dbpath,
         RemoteSettingsConfig? remote_settings_config,
@@ -273,9 +284,6 @@ interface NimbusClient {
     [Throws=NimbusError]
     void dump_state_to_log();
 };
-
-[Custom]
-typedef string JsonObject;
 
 interface NimbusTargetingHelper {
     // Execute the given jexl expression and evaluate against the existing targeting parameters and context passed to

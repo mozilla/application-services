@@ -75,6 +75,7 @@ fn new_test_client_internal(
     NimbusClient::new(
         ctx,
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         Some(config),
         Box::new(NoopMetricsHandler),

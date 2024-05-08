@@ -15,6 +15,10 @@
 
 # v126.0 (_2024-04-15_)
 
+### Nimbus SDK ⛅️🔬🔭
+
+- Added `RecordedContext` extendable trait and define its usage in the Kotlin/Swift files ([#6207](https://github.com/mozilla/application-services/pull/6207)).
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v125.0...v126.0)
 
 # v125.0 (_2024-03-18_)

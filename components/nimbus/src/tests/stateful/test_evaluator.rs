@@ -9,10 +9,13 @@ use crate::{
         EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
         SingleIntervalCounter,
     },
+    tests::helpers::TestRecordedContext,
     AppContext, EnrollmentStatus, TargetingAttributes,
 };
 use chrono::Utc;
+use serde_json::json;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 #[test]
 fn test_event_sum_transform() {
@@ -492,4 +495,23 @@ fn test_bucket_sample() {
 
         assert_eq!(result, expected);
     }
+}
+
+#[test]
+fn test_multiple_contexts_flatten() -> crate::Result<()> {
+    let recorded_context = Arc::new(TestRecordedContext::new());
+    recorded_context.set_context(json!({
+        "locale": "de-CA",
+        "language": "de",
+    }));
+    let mut targeting_attributes =
+        crate::tests::test_evaluator::ta_with_locale("en-US".to_string());
+    targeting_attributes.set_recorded_context(&*recorded_context);
+
+    let value = serde_json::to_value(targeting_attributes).unwrap();
+
+    assert_eq!(value.get("locale").unwrap(), "de-CA");
+    assert_eq!(value.get("language").unwrap(), "de");
+
+    Ok(())
 }
