@@ -293,7 +293,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/thomcc/rust-base16/master/LICENSE-CC0",
+            "fixup": "https://raw.githubusercontent.com/thomcc/rust-base16/master/LICENSE-APACHE",
         }
     },
     "bitvec": {
