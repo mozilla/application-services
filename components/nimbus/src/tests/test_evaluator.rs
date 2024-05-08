@@ -12,7 +12,7 @@ use crate::{
 };
 use serde_json::{json, Map, Value};
 
-fn ta_with_locale(locale: String) -> TargetingAttributes {
+pub fn ta_with_locale(locale: String) -> TargetingAttributes {
     let app_ctx = AppContext {
         #[cfg(feature = "stateful")]
         locale: Some(locale),

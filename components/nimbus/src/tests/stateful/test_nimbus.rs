@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use crate::tests::helpers::TestRecordedContext;
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
@@ -24,6 +25,7 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::path::Path;
+use std::sync::Arc;
 use std::{io::Write, str::FromStr};
 use tempfile::TempDir;
 use uuid::Uuid;
@@ -37,6 +39,7 @@ fn test_telemetry_reset() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -130,6 +133,7 @@ fn test_installation_date() -> Result<()> {
     let client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
@@ -164,6 +168,7 @@ fn test_installation_date() -> Result<()> {
     let client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
@@ -184,6 +189,7 @@ fn test_installation_date() -> Result<()> {
     // we wipe any non-persistent memory
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -213,6 +219,7 @@ fn test_installation_date() -> Result<()> {
     // Step 4: We test that if the storage is clear, we will fallback to the
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -244,6 +251,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     let client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
@@ -270,6 +278,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     let client = NimbusClient::new(
         app_context,
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics),
@@ -289,6 +298,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     let client = NimbusClient::new(
         AppContext::default(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
@@ -307,6 +317,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     };
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -333,6 +344,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     // the update_date should not change
     let client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -365,6 +377,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     app_context.app_version = Some("v94.0.1".into()); // A different version
     let client = NimbusClient::new(
         app_context,
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -405,6 +418,7 @@ fn test_days_since_install() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -475,6 +489,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
     let mut client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         temp_dir.path(),
         None,
         Box::new(metrics),
@@ -542,6 +557,7 @@ fn test_days_since_update() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -611,6 +627,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -692,6 +709,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -813,6 +831,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     let mut client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         temp_dir.path(),
         None,
         Box::new(metrics),
@@ -911,6 +930,7 @@ fn test_ios_rollout() -> Result<()> {
     let client = NimbusClient::new(
         ctx,
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics),
@@ -945,6 +965,7 @@ fn test_fetch_enabled() -> Result<()> {
     let client = NimbusClient::new(
         ctx.clone(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
@@ -956,6 +977,7 @@ fn test_fetch_enabled() -> Result<()> {
 
     let client = NimbusClient::new(
         ctx,
+        Default::default(),
         Default::default(),
         tmp_dir.path(),
         None,
@@ -979,6 +1001,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -1042,6 +1065,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     };
     let mut client = NimbusClient::new(
         app_context.clone(),
+        Default::default(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -1185,6 +1209,7 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
     let mut client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         temp_dir.path(),
         None,
         Box::new(metrics),
@@ -1242,7 +1267,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     client.apply_pending_experiments()?;
 
-    let metric_records = metrics.get_enrollment_statuses();
+    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
     assert_eq!(metric_records[0].slug(), slug_1);
@@ -1271,7 +1296,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    let metric_records = metrics.get_enrollment_statuses();
+    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
 
     assert_eq!(metric_records[3].slug(), slug_2);
@@ -1310,45 +1335,6 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
     let mut client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
-        temp_dir.path(),
-        None,
-        Box::new(metrics.clone()),
-    )?;
-    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
-
-    let targeting_attributes = TargetingAttributes {
-        app_context,
-        ..Default::default()
-    };
-    client.with_targeting_attributes(targeting_attributes);
-    client.initialize()?;
-
-    let slug_1 = "experiment-1";
-    let exp_1 = get_targeted_experiment(slug_1, "true");
-    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
-
-    client.apply_pending_experiments()?;
-
-    let metric_records = metrics.get_enrollment_statuses();
-    assert_eq!(metric_records.len(), 0);
-
-    Ok(())
-}
-
-#[test]
-fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> {
-    let metrics = TestMetrics::new();
-    let temp_dir = tempfile::tempdir()?;
-
-    let app_context = AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "random-channel".to_string(),
-        ..Default::default()
-    };
-
-    let mut client = NimbusClient::new(
-        app_context.clone(),
         Default::default(),
         temp_dir.path(),
         None,
@@ -1369,7 +1355,48 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     client.apply_pending_experiments()?;
 
-    let metric_records = metrics.get_enrollment_statuses();
+    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    assert_eq!(metric_records.len(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "random-channel".to_string(),
+        ..Default::default()
+    };
+
+    let mut client = NimbusClient::new(
+        app_context.clone(),
+        Default::default(),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        Box::new(metrics.clone()),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
+
+    let targeting_attributes = TargetingAttributes {
+        app_context,
+        ..Default::default()
+    };
+    client.with_targeting_attributes(targeting_attributes);
+    client.initialize()?;
+
+    let slug_1 = "experiment-1";
+    let exp_1 = get_targeted_experiment(slug_1, "true");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
+
+    client.apply_pending_experiments()?;
+
+    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
     Ok(())
 }
@@ -1386,6 +1413,7 @@ fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<Nimb
 
     NimbusClient::new(
         app_context,
+        Default::default(),
         vec![coenrolling_feature.to_string()],
         temp_dir.path(),
         None,
@@ -1412,7 +1440,7 @@ fn test_feature_activation_events() -> Result<()> {
     client.set_experiments_locally(to_local_experiments_string(&[rec_exp, rec_coenr, rec_ro])?)?;
     client.apply_pending_experiments()?;
 
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(activations.is_empty());
 
     // Assert that all the experiments are active.
@@ -1431,17 +1459,17 @@ fn test_feature_activation_events() -> Result<()> {
 
     // A feature involved in a rollout doesn't fire activation events.
     let _ = client.get_feature_config_variables(feature_ro.to_string());
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(activations.is_empty());
 
     // Coenrolled features don't fire activation events.
     let _ = client.get_feature_config_variables(feature_coenr.to_string());
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(activations.is_empty());
 
     // But features involved in a experiment does!
     let _ = client.get_feature_config_variables(feature_exp.to_string());
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(!activations.is_empty());
     assert_eq!(1, activations.len());
     let ev = &activations[0];
@@ -1464,12 +1492,12 @@ fn test_feature_activation_events() -> Result<()> {
 
     // Prove to ourselves that activations haven't been sent until feature_config_variables is
     // called.
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(activations.is_empty());
 
     // Now ask for this feature. Recall it's used in both an experiment and a rollout.
     let _ = client.get_feature_config_variables(feature_exp.to_string());
-    let activations = metrics.get_activations();
+    let activations = client.get_metrics_handler().get_activations();
     assert!(!activations.is_empty());
     assert_eq!(1, activations.len());
     let ev = &activations[0];
@@ -1507,14 +1535,14 @@ fn test_malformed_feature_events() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    assert!(metrics.get_malformeds().is_empty());
+    assert!(client.get_metrics_handler().get_malformeds().is_empty());
 
     let part = "my-part";
 
     // Experiments!
     client.record_malformed_feature_config(feature_exp.to_string(), part.to_string());
 
-    let events = metrics.get_malformeds();
+    let events = client.get_metrics_handler().get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1531,7 +1559,7 @@ fn test_malformed_feature_events() -> Result<()> {
 
     // Rollouts!
     client.record_malformed_feature_config(feature_ro.to_string(), part.to_string());
-    let events = metrics.get_malformeds();
+    let events = client.get_metrics_handler().get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1548,7 +1576,7 @@ fn test_malformed_feature_events() -> Result<()> {
 
     // Coenrolling features!
     client.record_malformed_feature_config(feature_coenr.to_string(), part.to_string());
-    let events = metrics.get_malformeds();
+    let events = client.get_metrics_handler().get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1581,6 +1609,7 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     let mut client = NimbusClient::new(
         app_context.clone(),
         Default::default(),
+        Default::default(),
         temp_dir.path(),
         None,
         Box::new(metrics),
@@ -1611,6 +1640,49 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
 
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 4);
+
+    Ok(())
+}
+
+#[test]
+fn test_recorded_context_recorded() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+    recorded_context.set_context(json!({
+        "app_version": "125.0.0",
+        "other": "stuff",
+    }));
+    let client = NimbusClient::new(
+        app_context.clone(),
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        Box::new(metrics),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug_1 = "test-1";
+
+    // Apply an initial experiment
+    let exp_1 = get_targeted_experiment(slug_1, "app_version|versionCompare('125.!') >= 0");
+    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
 
     Ok(())
 }

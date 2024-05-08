@@ -41,6 +41,7 @@ import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
+import org.mozilla.experiments.nimbus.internal.RecordedContext
 import java.io.File
 import java.io.IOException
 
@@ -70,6 +71,7 @@ open class Nimbus(
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate,
+    private val recordedContext: RecordedContext? = null,
 ) : NimbusInterface {
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = delegate.dbScope
@@ -166,6 +168,7 @@ open class Nimbus(
 
         nimbusClient = NimbusClient(
             experimentContext,
+            recordedContext,
             coenrollingFeatureIds,
             dataDir.path,
             remoteSettingsConfig,
@@ -492,6 +495,7 @@ open class Nimbus(
                         ),
                     )
                 }
+
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
                     NimbusEvents.disqualification.record(
                         NimbusEvents.DisqualificationExtra(
@@ -500,6 +504,7 @@ open class Nimbus(
                         ),
                     )
                 }
+
                 EnrollmentChangeEventType.UNENROLLMENT -> {
                     NimbusEvents.unenrollment.record(
                         NimbusEvents.UnenrollmentExtra(
@@ -508,6 +513,7 @@ open class Nimbus(
                         ),
                     )
                 }
+
                 EnrollmentChangeEventType.ENROLL_FAILED -> {
                     NimbusEvents.enrollFailed.record(
                         NimbusEvents.EnrollFailedExtra(
@@ -517,6 +523,7 @@ open class Nimbus(
                         ),
                     )
                 }
+
                 EnrollmentChangeEventType.UNENROLL_FAILED -> {
                     NimbusEvents.unenrollFailed.record(
                         NimbusEvents.UnenrollFailedExtra(
@@ -534,20 +541,26 @@ open class Nimbus(
     // If the experiment slug is known, then use that to look up the enrollment.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
-    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) = withCatchAll("recordFeatureExposure") {
-        nimbusClient.recordFeatureExposure(featureId, experimentSlug)
-    }
+    internal fun recordExposureOnThisThread(featureId: String, experimentSlug: String? = null) =
+        withCatchAll("recordFeatureExposure") {
+            nimbusClient.recordFeatureExposure(featureId, experimentSlug)
+        }
 
     // The malformed feature event is recorded by app developers, if the configuration is
     // _semantically_ invalid or malformed.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @AnyThread
-    internal fun recordMalformedConfigurationOnThisThread(featureId: String, partId: String) = withCatchAll("recordMalformedConfiguration") {
-        nimbusClient.recordMalformedFeatureConfig(featureId, partId)
-    }
+    internal fun recordMalformedConfigurationOnThisThread(featureId: String, partId: String) =
+        withCatchAll("recordMalformedConfiguration") {
+            nimbusClient.recordMalformedFeatureConfig(featureId, partId)
+        }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun buildExperimentContext(context: Context, appInfo: NimbusAppInfo, deviceInfo: NimbusDeviceInfo): AppContext {
+    internal fun buildExperimentContext(
+        context: Context,
+        appInfo: NimbusAppInfo,
+        deviceInfo: NimbusDeviceInfo,
+    ): AppContext {
         val packageInfo: PackageInfo? = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))

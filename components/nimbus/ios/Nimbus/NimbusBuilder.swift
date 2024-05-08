@@ -164,6 +164,20 @@ public class NimbusBuilder {
 
     var commandLineArgs: [String]?
 
+    /**
+     * An optional RecordedContext object.
+     *
+     * When provided, its JSON contents will be added to the Nimbus targeting context, and its value will be published
+     * to Glean.
+     */
+    @discardableResult
+    public func with(recordedContext: RecordedContext?) -> Self {
+        self.recordedContext = recordedContext
+        return self
+    }
+
+    var recordedContext: RecordedContext?
+
     // swiftlint:disable function_body_length
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppSettings]. Instances built with this method
@@ -252,7 +266,8 @@ public class NimbusBuilder {
                           dbPath: dbFilePath,
                           resourceBundles: resourceBundles,
                           userDefaults: userDefaults,
-                          errorReporter: errorReporter)
+                          errorReporter: errorReporter,
+                          recordedContext: recordedContext)
     }
 
     func newNimbusDisabled() -> NimbusInterface {

@@ -507,6 +507,30 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual(nil, enrolledExtra["error_string"], "errorString must match")
         XCTAssertEqual(nil, enrolledExtra["conflict_slug"], "conflictSlug must match")
     }
+
+    func testNimbusRecordsRecordedContextObject() throws {
+        class TestRecordedContext: RecordedContext {
+            var recordedCount = 0
+
+            func toJson() -> MozillaTestServices.JsonObject {
+                let json = "{\"enabled\": true}"
+                return json
+            }
+
+            func record() {
+                recordedCount += 1
+            }
+        }
+
+        let recordedContext = TestRecordedContext()
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), recordedContext: recordedContext) as! Nimbus
+
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        XCTAssertEqual(1, recordedContext.recordedCount)
+    }
 }
 
 private extension Device {

@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
+import org.mozilla.experiments.nimbus.internal.RecordedContext
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
 
@@ -88,6 +89,11 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * The shared preferences used to configure the app.
      */
     var sharedPreferences: SharedPreferences? = null
+
+    /**
+     * Additional targeting context that will be recorded to Glean.
+     */
+    var recordedContext: RecordedContext? = null
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppInfo]. Instances built with this method
@@ -222,6 +228,7 @@ class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInter
             deviceInfo = createDeviceInfo(),
             delegate = createDelegate(),
             observer = createObserver(),
+            recordedContext = recordedContext,
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)

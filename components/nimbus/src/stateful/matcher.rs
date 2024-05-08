@@ -35,7 +35,6 @@ use serde_json::{Map, Value};
 /// - `installation_date`: The date the application installed the app
 /// - `home_directory`: The application's home directory
 /// - `custom_targeting_attributes`: Contains attributes specific to the application, derived by the application
-#[cfg(feature = "stateful")]
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AppContext {
     pub app_name: String,

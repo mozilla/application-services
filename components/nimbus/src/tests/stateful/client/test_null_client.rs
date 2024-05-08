@@ -21,6 +21,7 @@ fn test_null_client() -> Result<()> {
     let client = NimbusClient::new(
         Default::default(),
         Default::default(),
+        Default::default(),
         tmp_dir.path(),
         None,
         Box::new(metrics),

@@ -230,6 +230,7 @@ fn main() -> Result<()> {
     let nimbus_client = NimbusClient::new(
         context.clone(),
         Default::default(),
+        Default::default(),
         db_path,
         Some(config),
         Box::new(NoopMetricsHandler),

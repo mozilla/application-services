@@ -19,6 +19,7 @@ import mozilla.telemetry.glean.config.Configuration
 import mozilla.telemetry.glean.net.HttpStatus
 import mozilla.telemetry.glean.net.PingUploader
 import mozilla.telemetry.glean.testing.GleanTestRule
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -35,6 +36,8 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.JsonObject
+import org.mozilla.experiments.nimbus.internal.RecordedContext
 import org.robolectric.RobolectricTestRunner
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -63,9 +66,12 @@ class NimbusTests {
         errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
     )
 
-    private val nimbus = createNimbus()
+    private var nimbus = createNimbus()
 
-    private fun createNimbus(coenrollingFeatureIds: List<String> = listOf()) = Nimbus(
+    private fun createNimbus(
+        coenrollingFeatureIds: List<String> = listOf(),
+        recordedContext: RecordedContext? = null,
+    ) = Nimbus(
         context = context,
         appInfo = appInfo,
         coenrollingFeatureIds = coenrollingFeatureIds,
@@ -73,6 +79,7 @@ class NimbusTests {
         deviceInfo = deviceInfo,
         observer = null,
         delegate = nimbusDelegate,
+        recordedContext = recordedContext,
     )
 
     @get:Rule
@@ -80,6 +87,7 @@ class NimbusTests {
 
     @Before
     fun setupGlean() {
+        nimbus = createNimbus()
         val buildInfo = BuildInfo(versionCode = "0.0.1", versionName = "0.0.1", buildDate = Calendar.getInstance())
 
         // Glean needs to be initialized for the experiments API to accept enrollment events, so we
@@ -191,9 +199,15 @@ class NimbusTests {
         )
     }
 
-    @Ignore // until the activation event is enabled by default.
     @Test
     fun `getFeatureVariables records activation telemetry`() {
+        Glean.applyServerKnobsConfig(
+            """{
+                "metrics_enabled": {
+                    "nimbus_events.activation": true
+                }
+            }""",
+        )
         // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
         // because recordExposure checks for active experiments before recording.
         nimbus.setUpTestExperiments(packageName, appInfo)
@@ -718,6 +732,36 @@ class NimbusTests {
         nimbus.recordIsReady(2)
         isReadyEvents = NimbusEvents.isReady.testGetValue()!!
         assertEquals("Event count must match", isReadyEvents.count(), 3)
+    }
+
+    @Test
+    fun `Nimbus records context if it's passed in`() {
+        class TestRecordedContext : RecordedContext {
+            var recordCount = 0
+
+            override fun record() {
+                recordCount++
+            }
+
+            override fun toJson(): JsonObject {
+                val contextToRecord = JSONObject()
+                contextToRecord.put("enabled", true)
+                return contextToRecord
+            }
+        }
+        val context = TestRecordedContext()
+        val nimbus = createNimbus(recordedContext = context)
+
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(context.recordCount, 1)
     }
 }
 

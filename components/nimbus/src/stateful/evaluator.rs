@@ -5,7 +5,9 @@
 use crate::{
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
     evaluator::split_locale,
+    json::JsonObject,
     stateful::matcher::AppContext,
+    targeting::RecordedContext,
 };
 use chrono::{DateTime, Utc};
 use serde_derive::*;
@@ -17,6 +19,8 @@ pub struct TargetingAttributes {
     pub app_context: AppContext,
     pub language: Option<String>,
     pub region: Option<String>,
+    #[serde(flatten)]
+    pub recorded_context: Option<JsonObject>,
     pub is_already_enrolled: bool,
     pub days_since_install: Option<i32>,
     pub days_since_update: Option<i32>,
@@ -28,7 +32,6 @@ pub struct TargetingAttributes {
     pub nimbus_id: Option<String>,
 }
 
-#[cfg(feature = "stateful")]
 impl From<AppContext> for TargetingAttributes {
     fn from(app_context: AppContext) -> Self {
         let (language, region) = app_context
@@ -47,6 +50,10 @@ impl From<AppContext> for TargetingAttributes {
 }
 
 impl TargetingAttributes {
+    pub(crate) fn set_recorded_context(&mut self, recorded_context: &dyn RecordedContext) {
+        self.recorded_context = Some(recorded_context.to_json());
+    }
+
     pub(crate) fn update_time_to_now(
         &mut self,
         now: DateTime<Utc>,

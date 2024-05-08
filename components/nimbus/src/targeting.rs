@@ -10,9 +10,22 @@ use serde_json::{json, Value};
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use anyhow::anyhow;
-        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}};
+        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}, json::JsonObject};
         use std::sync::{Arc, Mutex};
     }
+}
+
+#[cfg(feature = "stateful")]
+pub trait RecordedContext: Send + Sync {
+    /// Returns a JSON representation of the context object
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn to_json(&self) -> JsonObject;
+
+    /// Records the context object to Glean
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn record(&self);
 }
 
 #[derive(Clone)]
