@@ -362,17 +362,17 @@ impl FxAClient for Client {
         payload: &serde_json::Value,
         ttl: Option<u64>,
     ) -> Result<()> {
-        let body = json!({
-            "command": command,
-            "target": target,
-            "payload": payload,
-            "ttl": ttl,
-        });
+        let body = serde_json::to_string(&InvokeCommandRequest {
+            command,
+            target,
+            payload,
+            ttl,
+        })?;
         let url = config.auth_url_path("v1/account/devices/invoke_command")?;
         let request = Request::post(url)
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
-            .body(body.to_string());
+            .body(body);
         self.make_request(request)?;
         Ok(())
     }
@@ -955,6 +955,15 @@ pub struct DuplicateTokenResponse {
     pub auth_at: u64,
 }
 
+#[derive(Serialize)]
+struct InvokeCommandRequest<'a> {
+    pub command: &'a str,
+    pub target: &'a str,
+    pub payload: &'a serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl: Option<u64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -977,6 +986,50 @@ mod tests {
             ttl: Some(123),
         };
         assert_eq!("{\"grant_type\":\"refresh_token\",\"client_id\":\"bar\",\"refresh_token\":\"foo\",\"scope\":\"bobo\",\"ttl\":123}", serde_json::to_string(&using_code).unwrap());
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn check_InvokeCommandRequest_serialization() -> Result<()> {
+        let payload = json!({
+            "a": "b",
+        });
+        let with_ttl = InvokeCommandRequest {
+            command: "with_ttl",
+            target: "a",
+            payload: &payload,
+            ttl: Some(30),
+        };
+        assert_eq!(
+            serde_json::to_value(with_ttl)?,
+            json!({
+                "command": "with_ttl",
+                "target": "a",
+                "payload": {
+                    "a": "b",
+                },
+                "ttl": 30,
+            })
+        );
+
+        let without_ttl = InvokeCommandRequest {
+            command: "without_ttl",
+            target: "b",
+            payload: &payload,
+            ttl: None,
+        };
+        assert_eq!(
+            serde_json::to_value(without_ttl)?,
+            json!({
+                "command": "without_ttl",
+                "target": "b",
+                "payload": {
+                    "a": "b",
+                },
+            })
+        );
+
+        Ok(())
     }
 
     #[test]
