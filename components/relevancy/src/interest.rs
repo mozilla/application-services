@@ -136,6 +136,34 @@ pub struct InterestVector {
     pub travel: u32,
 }
 
+impl std::ops::Add for InterestVector {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            inconclusive: self.inconclusive + other.inconclusive,
+            animals: self.animals + other.animals,
+            arts: self.arts + other.arts,
+            autos: self.autos + other.autos,
+            business: self.business + other.business,
+            career: self.career + other.career,
+            education: self.education + other.education,
+            fashion: self.fashion + other.fashion,
+            finance: self.finance + other.finance,
+            food: self.food + other.food,
+            government: self.government + other.government,
+            hobbies: self.hobbies + other.hobbies,
+            home: self.home + other.home,
+            news: self.news + other.news,
+            real_estate: self.real_estate + other.real_estate,
+            society: self.society + other.society,
+            sports: self.sports + other.sports,
+            tech: self.tech + other.tech,
+            travel: self.travel + other.travel,
+        }
+    }
+}
+
 impl std::ops::Index<Interest> for InterestVector {
     type Output = u32;
 
