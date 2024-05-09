@@ -280,11 +280,8 @@ mod test {
         let db = RelevancyDb::new_for_test();
         db.read_write(|dao| {
             dao.add_url_interest(hash_url("https://espn.com").unwrap(), Interest::Sports)?;
-            dao.add_url_interest(hash_url("https://www.nascar.com").unwrap(), Interest::Autos)?;
-            dao.add_url_interest(
-                hash_url("https://www.nascar.com").unwrap(),
-                Interest::Sports,
-            )?;
+            dao.add_url_interest(hash_url("https://nascar.com").unwrap(), Interest::Autos)?;
+            dao.add_url_interest(hash_url("https://nascar.com").unwrap(), Interest::Sports)?;
 
             // Different paths/queries should work
             assert_eq!(
@@ -305,12 +302,12 @@ mod test {
             );
             // But changes to the domain shouldn't
             assert_eq!(
-                dao.get_url_interest_vector("http://www.espn.com/").unwrap(),
+                dao.get_url_interest_vector("http://espn2.com/").unwrap(),
                 InterestVector::default()
             );
-            // However, extra components past the 3rd one in the domain are ignored
+            // However, extra components past the 2nd one in the domain are ignored
             assert_eq!(
-                dao.get_url_interest_vector("https://foo.www.nascar.com/")
+                dao.get_url_interest_vector("https://www.nascar.com/")
                     .unwrap(),
                 InterestVector {
                     autos: 1,
