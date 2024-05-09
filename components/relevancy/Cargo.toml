@@ -22,7 +22,6 @@ thiserror = "1.0"
 uniffi = { workspace = true }
 url = "2.5"
 remote_settings = { path = "../remote_settings"}
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 base64 = "0.21.2"
 
 [build-dependencies]

@@ -3552,7 +3552,6 @@ dependencies = [
  "thiserror",
  "uniffi",
  "url",
- "viaduct-reqwest",
 ]
 
 [[package]]
