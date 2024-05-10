@@ -7,7 +7,6 @@ use std::{collections::HashSet, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::Mutex;
-use remote_settings::RemoteSettingsRecord;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
@@ -23,7 +22,7 @@ use crate::{
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
         DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
-        DownloadedWikipediaSuggestion, SuggestRecordId,
+        DownloadedWikipediaSuggestion, SuggestRecordId, SuggestRemoteSettingsRecord,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
@@ -138,7 +137,7 @@ impl<'a> SuggestDao<'a> {
     pub fn handle_ingested_record(
         &mut self,
         last_ingest_key: &str,
-        record: &RemoteSettingsRecord,
+        record: &SuggestRemoteSettingsRecord,
     ) -> Result<()> {
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
@@ -148,7 +147,7 @@ impl<'a> SuggestDao<'a> {
     pub fn handle_deleted_record(
         &mut self,
         last_ingest_key: &str,
-        record: &RemoteSettingsRecord,
+        record: &SuggestRemoteSettingsRecord,
     ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
         // Drop either the icon or suggestions, records only contain one or the other

@@ -12,10 +12,7 @@ use std::{
 use error_support::handle_error;
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{
-    self, GetItemsOptions, RemoteSettingsConfig, RemoteSettingsRecord, RemoteSettingsServer,
-    SortOrder,
-};
+use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
 
 use serde::de::DeserializeOwned;
 
@@ -26,8 +23,8 @@ use crate::{
     provider::SuggestionProvider,
     rs::{
         SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRecordType,
-        SuggestRemoteSettingsClient, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
-        SUGGESTIONS_PER_ATTACHMENT,
+        SuggestRemoteSettingsClient, SuggestRemoteSettingsRecord,
+        SuggestRemoteSettingsRecordRequest, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -347,36 +344,15 @@ where
         writer: &SuggestDb,
         constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
-        let mut options = GetItemsOptions::new();
+        let request = SuggestRemoteSettingsRecordRequest {
+            record_type: Some(ingest_record_type.to_string()),
+            last_modified: writer.read(|dao| {
+                dao.get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())
+            })?,
+            limit: constraints.max_suggestions,
+        };
 
-        // Remote Settings returns records in descending modification order
-        // (newest first), but we want them in ascending order (oldest first),
-        // so that we can eventually resume downloading where we left off.
-        options.sort("last_modified", SortOrder::Ascending);
-
-        options.filter_eq("type", ingest_record_type.to_string());
-
-        // Get the last ingest value. This is the max of the last_ingest_keys
-        // that are in the database.
-        if let Some(last_ingest) = writer
-            .read(|dao| dao.get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str()))?
-        {
-            // Only download changes since our last ingest. If our last ingest
-            // was interrupted, we'll pick up where we left off.
-            options.filter_gt("last_modified", last_ingest.to_string());
-        }
-
-        if let Some(max_suggestions) = constraints.max_suggestions {
-            // Each record's attachment has 200 suggestions, so download enough
-            // records to cover the requested maximum.
-            let max_records = (max_suggestions.saturating_sub(1) / SUGGESTIONS_PER_ATTACHMENT) + 1;
-            options.limit(max_records);
-        }
-
-        let records = self
-            .settings_client
-            .get_records_with_options(&options)?
-            .records;
+        let records = self.settings_client.get_records(request)?;
         self.ingest_records(&ingest_record_type.last_ingest_meta_key(), writer, &records)?;
         Ok(())
     }
@@ -385,7 +361,7 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        records: &[RemoteSettingsRecord],
+        records: &[SuggestRemoteSettingsRecord],
     ) -> Result<()> {
         for record in records {
             let record_id = SuggestRecordId::from(&record.id);
@@ -442,9 +418,9 @@ where
                         })?;
                         continue;
                     };
-                    let data = self.settings_client.get_attachment(&attachment.location)?;
+                    let data = record.require_attachment_data()?;
                     writer.write(|dao| {
-                        dao.put_icon(icon_id, &data, &attachment.mimetype)?;
+                        dao.put_icon(icon_id, data, &attachment.mimetype)?;
                         dao.handle_ingested_record(
                             &SuggestRecordType::Icon.last_ingest_meta_key(),
                             record,
@@ -517,7 +493,7 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        record: &RemoteSettingsRecord,
+        record: &SuggestRemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
     ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
@@ -540,13 +516,13 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        record: &RemoteSettingsRecord,
+        record: &SuggestRemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
     ) -> Result<()>
     where
         T: DeserializeOwned,
     {
-        let Some(attachment) = record.attachment.as_ref() else {
+        if record.attachment.is_none() {
             // This method should be called only when a record is expected to
             // have an attachment. If it doesn't have one, it's malformed, so
             // skip to the next record.
@@ -555,8 +531,8 @@ where
             return Ok(());
         };
 
-        let attachment_data = self.settings_client.get_attachment(&attachment.location)?;
-        match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
+        let attachment_data = record.require_attachment_data()?;
+        match serde_json::from_slice::<SuggestAttachment<T>>(attachment_data) {
             Ok(attachment) => {
                 self.ingest_record(last_ingest_key, writer, record, |dao, record_id| {
                     ingestion_handler(dao, record_id, attachment.suggestions())
@@ -643,11 +619,11 @@ mod tests {
 
     use std::{cell::RefCell, collections::HashMap};
 
-    use anyhow::{anyhow, Context};
+    use anyhow::Context;
     use expect_test::expect;
     use parking_lot::Once;
     use rc_crypto::rand;
-    use remote_settings::{RemoteSettingsRecord, RemoteSettingsResponse};
+    use remote_settings::RemoteSettingsRecord;
     use serde_json::json;
     use sql_support::ConnExt;
 
@@ -722,10 +698,6 @@ mod tests {
         /// The current snapshot. You can modify it using
         /// [`RefCell::borrow_mut()`] to simulate remote updates in tests.
         snapshot: RefCell<Snapshot>,
-
-        /// The options passed to the last [`Self::get_records_with_options()`]
-        /// call.
-        last_get_records_options: RefCell<Option<GetItemsOptions>>,
     }
 
     impl SnapshotSettingsClient {
@@ -733,51 +705,35 @@ mod tests {
         fn with_snapshot(snapshot: Snapshot) -> Self {
             Self {
                 snapshot: RefCell::new(snapshot),
-                last_get_records_options: RefCell::default(),
             }
-        }
-
-        /// Returns the most recent value of an option passed to
-        /// [`Self::get_records_with_options()`].
-        fn last_get_records_option(&self, option: &str) -> Option<String> {
-            self.last_get_records_options
-                .borrow()
-                .as_ref()
-                .and_then(|options| {
-                    options
-                        .iter_query_pairs()
-                        .find(|(key, _)| key == option)
-                        .map(|(_, value)| value.into())
-                })
         }
     }
 
     impl SuggestRemoteSettingsClient for SnapshotSettingsClient {
-        fn get_records_with_options(
+        fn get_records(
             &self,
-            options: &GetItemsOptions,
-        ) -> Result<RemoteSettingsResponse> {
-            *self.last_get_records_options.borrow_mut() = Some(options.clone());
-            let records = self.snapshot.borrow().records.clone();
-            let last_modified = records
+            _request: SuggestRemoteSettingsRecordRequest,
+        ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
+            let snapshot = self.snapshot.borrow();
+            snapshot
+                .records
                 .iter()
-                .map(|record| record.last_modified)
-                .max()
-                .unwrap_or(0);
-            Ok(RemoteSettingsResponse {
-                records,
-                last_modified,
-            })
-        }
+                .map(|r| {
+                    let attachment = r
+                        .attachment
+                        .as_ref()
+                        .map(|a| {
+                            snapshot
+                                .attachments
+                                .get(&*a.location)
+                                .ok_or_else(|| Error::MissingAttachment(r.id.clone()))
+                        })
+                        .transpose()?
+                        .cloned();
 
-        fn get_attachment(&self, location: &str) -> Result<Vec<u8>> {
-            Ok(self
-                .snapshot
-                .borrow()
-                .attachments
-                .get(location)
-                .unwrap_or_else(|| unreachable!("Unexpected request for attachment `{}`", location))
-                .clone())
+                    Ok(SuggestRemoteSettingsRecord::new(r.clone(), attachment))
+                })
+                .collect()
         }
     }
 
@@ -2276,54 +2232,6 @@ mod tests {
             );
             Ok(())
         })?;
-
-        Ok(())
-    }
-
-    /// Tests ingesting suggestions with constraints.
-    #[test]
-    fn ingest_with_constraints() -> anyhow::Result<()> {
-        before_each();
-
-        let snapshot = Snapshot::with_records(json!([]))?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-        assert_eq!(
-            store.settings_client.last_get_records_option("_limit"),
-            None,
-        );
-
-        // 200 suggestions per record, so test with numbers around that
-        // boundary.
-        let table = [
-            (0, "1"),
-            (199, "1"),
-            (200, "1"),
-            (201, "2"),
-            (300, "2"),
-            (400, "2"),
-            (401, "3"),
-        ];
-        for (max_suggestions, expected_limit) in table {
-            store.ingest(SuggestIngestionConstraints {
-                max_suggestions: Some(max_suggestions),
-                providers: Some(vec![SuggestionProvider::Amp]),
-                ..SuggestIngestionConstraints::default()
-            })?;
-            let actual_limit = store
-                .settings_client
-                .last_get_records_option("_limit")
-                .ok_or_else(|| {
-                    anyhow!("Want limit = {} for {}", expected_limit, max_suggestions)
-                })?;
-            assert_eq!(
-                actual_limit, expected_limit,
-                "Want limit = {} for {}; got limit = {}",
-                expected_limit, max_suggestions, actual_limit
-            );
-        }
 
         Ok(())
     }
