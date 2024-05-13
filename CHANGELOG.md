@@ -1,6 +1,7 @@
-# v127.0 (In progress)
-
+# v128.0 (In progress)
 [Full Changelog](In progress)
+
+# v127.0 (_2024-05-13_)
 
 ## 🦊 What's Changed 🦊
 
@@ -8,7 +9,9 @@
 - Updated minimum Python version to 3.8 ([#5961](https://github.com/mozilla/application-services/pull/5961)).
 
 ### Glean
-- Updated to v60.0.0 ([#](https://github.com/mozilla/application-services/pull/)
+- Updated to v60.0.0 ([#6209](https://github.com/mozilla/application-services/pull/6209))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v126.0...v127.0)
 
 # v126.0 (_2024-04-15_)
 
