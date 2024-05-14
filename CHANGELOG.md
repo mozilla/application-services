@@ -1,4 +1,8 @@
 # v128.0 (In progress)
+
+### Glean
+- Updated to v60.1.0 ([#6241](https://github.com/mozilla/application-services/pull/6241))
+
 [Full Changelog](In progress)
 
 # v127.0 (_2024-05-13_)
