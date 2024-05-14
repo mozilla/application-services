@@ -617,7 +617,11 @@ impl SuggestStoreDbs {
 mod tests {
     use super::*;
 
-    use std::{cell::RefCell, collections::HashMap};
+    use std::{
+        cell::RefCell,
+        collections::HashMap,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     use anyhow::Context;
     use expect_test::expect;
@@ -627,7 +631,52 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
 
-    use crate::SuggestionProvider;
+    use crate::{testing::*, SuggestionProvider};
+
+    /// In-memory Suggest store for testing
+    struct TestStore {
+        pub inner: SuggestStoreInner<MockRemoteSettingsClient>,
+    }
+
+    impl TestStore {
+        fn new(client: MockRemoteSettingsClient) -> Self {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let db_path = format!(
+                "file:test_store_data_{}?mode=memory&cache=shared",
+                COUNTER.fetch_add(1, Ordering::Relaxed),
+            );
+            Self {
+                inner: SuggestStoreInner::new(db_path, client),
+            }
+        }
+
+        pub fn replace_client(&mut self, client: MockRemoteSettingsClient) {
+            self.inner.settings_client = client;
+        }
+
+        pub fn read<T>(&self, op: impl FnOnce(&SuggestDao) -> Result<T>) -> Result<T> {
+            self.inner.dbs().unwrap().reader.read(op)
+        }
+
+        pub fn count_rows(&self, table_name: &str) -> u64 {
+            let sql = format!("SELECT count(*) FROM {table_name}");
+            self.read(|dao| Ok(dao.conn.query_one(&sql)?))
+                .unwrap_or_else(|e| panic!("SQL error in count: {e}"))
+        }
+
+        fn ingest(&self, constraints: SuggestIngestionConstraints) {
+            self.inner.ingest(constraints).unwrap();
+        }
+
+        fn fetch_suggestions(&self, query: SuggestionQuery) -> Vec<Suggestion> {
+            self.inner
+                .dbs()
+                .unwrap()
+                .reader
+                .read(|dao| Ok(dao.fetch_suggestions(&query).unwrap()))
+                .unwrap()
+        }
+    }
 
     /// Creates a unique in-memory Suggest store.
     fn unique_test_store<S>(settings_client: S) -> SuggestStoreInner<S>
@@ -759,87 +808,16 @@ mod tests {
     fn ingest_suggestions() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "1234",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        // suggestions_table_empty returns true before the ingestion is complete
-        assert!(store
-            .dbs()?
-            .reader
-            .read(|dao| dao.suggestions_table_empty())?);
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta::<u64>(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(15)
-            );
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
-
-        // suggestions_table_empty returns false after the ingestion is complete
-        assert!(!store
-            .dbs()?
-            .reader
-            .read(|dao| dao.suggestions_table_empty())?);
-
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("data", "1234", json![los_pollos_amp()])
+                .with_icon(los_pollos_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")),
+            vec![los_pollos_suggestion("los")],
+        );
         Ok(())
     }
 
@@ -848,287 +826,64 @@ mod tests {
     fn ingest_empty_only() -> anyhow::Result<()> {
         before_each();
 
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "data",
+            "1234",
+            json![los_pollos_amp()],
+        ));
+        // suggestions_table_empty returns true before the ingestion is complete
+        assert!(store.read(|dao| dao.suggestions_table_empty())?);
         // This ingestion should run, since the DB is empty
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "1234",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
-        let mut store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
         store.ingest(SuggestIngestionConstraints {
             empty_only: true,
             ..SuggestIngestionConstraints::default()
-        })?;
+        });
+        // suggestions_table_empty returns false after the ingestion is complete
+        assert!(!store.read(|dao| dao.suggestions_table_empty())?);
 
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
-
-        // ingestion should run with SuggestIngestionConstraints::empty_only = true, since the DB
-        // is empty
-        store.settings_client = SnapshotSettingsClient::with_snapshot(Snapshot::with_records(json!([{
-            "id": "1234",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "12345",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-2.json",
-                "mimetype": "application/json",
-                "location": "data-2.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }])
-        )?
-        .with_data("data-2.json", json!([{
-                "id": 1,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
-            }]),
-        )?);
+        // This ingestion should not run since the DB is no longer empty
+        store.replace_client(MockRemoteSettingsClient::default().with_record(
+            "data",
+            "1234",
+            json!([los_pollos_amp(), good_place_eats_amp()]),
+        ));
         store.ingest(SuggestIngestionConstraints {
             empty_only: true,
             ..SuggestIngestionConstraints::default()
-        })?;
-
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                []
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
+        });
+        // "la" should not match the good place eats suggestion, since that should not have been
+        // ingested.
+        assert_eq!(store.fetch_suggestions(SuggestionQuery::amp("la")), vec![]);
 
         Ok(())
     }
 
     /// Tests ingesting suggestions with icons.
     #[test]
-    fn ingest_icons() -> anyhow::Result<()> {
+    fn ingest_amp_icons() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-2",
-            "type": "icon",
-            "last_modified": 20,
-            "attachment": {
-                "filename": "icon-2.png",
-                "mimetype": "image/png",
-                "location": "icon-2.png",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url"
-            }, {
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["pe", "pen", "penne", "penne for your thoughts"],
-                "title": "Penne for Your Thoughts",
-                "url": "https://penne.biz",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?
-        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "data",
+                    "1234",
+                    json!([los_pollos_amp(), good_place_eats_amp()]),
+                )
+                .with_icon(los_pollos_icon())
+                .with_icon(good_place_eats_icon()),
+        );
+        // This ingestion should run, since the DB is empty
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Lasagna Come Out Tomorrow",
-                        url: "https://www.lasagna.restaurant",
-                        raw_url: "https://www.lasagna.restaurant",
-                        icon: Some(
-                            [
-                                105,
-                                45,
-                                97,
-                                109,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
-                        ),
-                        full_keyword: "lasagna",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.2,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Penne for Your Thoughts",
-                        url: "https://penne.biz",
-                        raw_url: "https://penne.biz",
-                        icon: Some(
-                            [
-                                105,
-                                45,
-                                97,
-                                109,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
-                        ),
-                        full_keyword: "penne",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "pe".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")),
+            vec![los_pollos_suggestion("los")]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")),
+            vec![good_place_eats_suggestion("lasagna")]
+        );
 
         Ok(())
     }
@@ -1137,259 +892,69 @@ mod tests {
     fn ingest_full_keywords() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "2",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-2.json",
-                "mimetype": "application/json",
-                "location": "data-2.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "3",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-3.json",
-                "mimetype": "application/json",
-                "location": "data-3.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "4",
-            "type": "amp-mobile-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-4.json",
-                "mimetype": "application/json",
-                "location": "data-4.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        // AMP attachment with full keyword data
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "full_keywords": [
-                    // Full keyword for the first 4 keywords
-                    ("los pollos", 4),
-                    // Full keyword for the next 2 keywords
-                    ("los pollos hermanos (restaurant)", 2),
-                ],
-                "title": "Los Pollos Hermanos - Albuquerque - 1",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?
-        // AMP attachment without a full keyword
-        .with_data(
-            "data-2.json",
-            json!([{
-                "id": 1,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque - 2",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?
-        // Wikipedia attachment with full keyword data.  We should ignore the full
-        // keyword data for Wikipedia suggestions
-        .with_data(
-            "data-3.json",
-            json!([{
-                "id": 2,
-                "advertiser": "Wikipedia",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque - Wiki",
-                "full_keywords": [
-                    ("Los Pollos Hermanos - Albuquerque", 6),
-                ],
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "score": 0.3,
-            }]),
-        )?
-        // Amp mobile suggestion, this is essentially the same as 1, except for the SuggestionProvider
-        .with_data(
-            "data-4.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "full_keywords": [
-                    // Full keyword for the first 4 keywords
-                    ("los pollos", 4),
-                    // Full keyword for the next 2 keywords
-                    ("los pollos hermanos (restaurant)", 2),
-                ],
-                "title": "Los Pollos Hermanos - Albuquerque - 4",
-                "url": "https://www.lph-nm.biz",
-                "icon": "5678",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
+        let store = TestStore::new(MockRemoteSettingsClient::default()
+            .with_record("data", "1234", json!([
+                // AMP attachment with full keyword data
+                los_pollos_amp().merge(json!({
+                    "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
+                    "full_keywords": [
+                        // Full keyword for the first 4 keywords
+                        ("los pollos", 4),
+                        // Full keyword for the next 2 keywords
+                        ("los pollos hermanos (restaurant)", 2),
+                    ],
+                })),
+                // AMP attachment without full keyword data
+                good_place_eats_amp(),
+                // Wikipedia attachment with full keyword data.  We should ignore the full
+                // keyword data for Wikipedia suggestions
+                california_wiki(),
+                // california_wiki().merge(json!({
+                //     "keywords": ["cal", "cali", "california"],
+                //     "full_keywords": [("california institute of technology", 3)],
+                // })),
+            ]))
+            .with_record("amp-mobile-suggestions", "2468", json!([
+                // Amp mobile attachment with full keyword data
+                a1a_amp_mobile().merge(json!({
+                    "keywords": ["a1a", "ca", "car", "car wash"],
+                    "full_keywords": [
+                        ("A1A Car Wash", 1),
+                        ("car wash", 3),
+                    ],
+                })),
+            ]))
+            .with_icon(los_pollos_icon())
+            .with_icon(good_place_eats_icon())
+            .with_icon(california_icon())
+        );
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")),
+            // This keyword comes from the provided full_keywords list
+            vec![los_pollos_suggestion("los pollos")],
+        );
 
-        store.ingest(SuggestIngestionConstraints::default())?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")),
+            // Good place eats did not have full keywords, so this one is calculated with the
+            // keywords.rs code
+            vec![good_place_eats_suggestion("lasagna")],
+        );
 
-        store.dbs()?.reader.read(|dao| {
-            // This one should match the first full keyword for the first AMP item.
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque - 1",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los pollos",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque - 2",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los",
-                        block_id: 1,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            // This one should match the second full keyword for the first AMP item.
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque - 1",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los pollos hermanos (restaurant)",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque - 2",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los pollos hermanos",
-                        block_id: 1,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los pollos h".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            // This one matches a Wikipedia suggestion, so the full keyword should be ignored
-            expect![[r#"
-                [
-                    Wikipedia {
-                        title: "Los Pollos Hermanos - Albuquerque - Wiki",
-                        url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los",
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los".into(),
-                providers: vec![SuggestionProvider::Wikipedia],
-                limit: None,
-            })?);
-            // This one matches a Wikipedia suggestion, so the full keyword should be ignored
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque - 4",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los pollos hermanos (restaurant)",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los pollos h".into(),
-                providers: vec![SuggestionProvider::AmpMobile],
-                limit: None,
-            })?);
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("cal")),
+            // Even though this had a full_keywords field, we should ignore it since it's a
+            // wikipedia suggestion and use the keywords.rs code instead
+            vec![california_suggestion("california")],
+        );
 
-            Ok(())
-        })?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp_mobile("a1a")),
+            // This keyword comes from the provided full_keywords list.
+            vec![a1a_suggestion("A1A Car Wash")],
+        );
 
         Ok(())
     }
@@ -1400,66 +965,17 @@ mod tests {
     fn ingest_one_suggestion_in_data_attachment() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!({
-                "id": 0,
-                 "advertiser": "Good Place Eats",
-                 "iab_category": "8 - Food & Drink",
-                 "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                 "title": "Lasagna Come Out Tomorrow",
-                 "url": "https://www.lasagna.restaurant",
-                 "icon": "2",
-                 "impression_url": "https://example.com/impression_url",
-                 "click_url": "https://example.com/click_url",
-                 "score": 0.3
-            }),
-        )?;
-
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Lasagna Come Out Tomorrow",
-                        url: "https://www.lasagna.restaurant",
-                        raw_url: "https://www.lasagna.restaurant",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "lasagna",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                // This record contains just one JSON object, rather than an array of them
+                .with_record("data", "1234", los_pollos_amp())
+                .with_icon(los_pollos_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")),
+            vec![los_pollos_suggestion("los")],
+        );
 
         Ok(())
     }
@@ -1469,195 +985,41 @@ mod tests {
     fn reingest_amp_suggestions() -> anyhow::Result<()> {
         before_each();
 
-        // Ingest suggestions from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "1",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }, {
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los p", "los pollos h"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "data",
+            "1234",
+            json!([los_pollos_amp(), good_place_eats_amp()]),
+        ));
+        // Ingest once
+        store.ingest(SuggestIngestionConstraints::default());
+        // Update the snapshot with new suggestions: Los pollos has a new name and Good place eats
+        // is now serving Penne
+        store.replace_client(MockRemoteSettingsClient::default().with_record(
+            "data",
+            "1234",
+            json!([
+                los_pollos_amp().merge(json!({
+                    "title": "Los Pollos Hermanos - Now Serving at 14 Locations!",
+                })),
+                good_place_eats_amp().merge(json!({
+                    "keywords": ["pe", "pen", "penne", "penne for your thoughts"],
+                    "title": "Penne for Your Thoughts",
+                    "url": "https://penne.biz",
+                }))
+            ]),
+        ));
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")).as_slice(),
+            [ Suggestion::Amp { title, .. } ] if title == "Los Pollos Hermanos - Now Serving at 14 Locations!",
+        ));
 
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(15u64)
-            );
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Lasagna Come Out Tomorrow",
-                        url: "https://www.lasagna.restaurant",
-                        raw_url: "https://www.lasagna.restaurant",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "lasagna",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            Ok(())
-        })?;
-
-        // Update the snapshot with new suggestions: drop Lasagna, update Los
-        // Pollos, and add Penne.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 30,
-            "attachment": {
-                "filename": "data-1-1.json",
-                "mimetype": "application/json",
-                "location": "data-1-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["los ", "los pollos", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Now Serving at 14 Locations!",
-                "url": "https://www.lph-nm.biz",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }, {
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["pe", "pen", "penne", "penne for your thoughts"],
-                "title": "Penne for Your Thoughts",
-                "url": "https://penne.biz",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?;
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao: &SuggestDao<'_>| {
-            assert_eq!(
-                dao.get_meta(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(30u64)
-            );
-            assert!(dao
-                .fetch_suggestions(&SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![SuggestionProvider::Amp],
-                    limit: None,
-                })?
-                .is_empty());
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Now Serving at 14 Locations!",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "los pollos",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "los ".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Penne for Your Thoughts",
-                        url: "https://penne.biz",
-                        raw_url: "https://penne.biz",
-                        icon: None,
-                        icon_mimetype: None,
-                        full_keyword: "penne",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "pe".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            Ok(())
-        })?;
+        assert_eq!(store.fetch_suggestions(SuggestionQuery::amp("la")), vec![]);
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amp("pe")).as_slice(),
+            [ Suggestion::Amp { title, url, .. } ] if title == "Penne for Your Thoughts" && url == "https://penne.biz"
+        ));
 
         Ok(())
     }
@@ -1667,213 +1029,53 @@ mod tests {
     fn reingest_icons() -> anyhow::Result<()> {
         before_each();
 
-        // Ingest suggestions and icons from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-2",
-            "type": "icon",
-            "last_modified": 20,
-            "attachment": {
-                "filename": "icon-2.png",
-                "mimetype": "image/png",
-                "location": "icon-2.png",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-3",
-            "type": "icon",
-            "last_modified": 25,
-            "attachment": {
-                "filename": "icon-3.png",
-                "mimetype": "image/png",
-                "location": "icon-3.png",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }, {
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los pollos", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "3",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?
-        .with_icon("icon-2.png", "lasagna-icon".as_bytes().into())
-        .with_icon("icon-3.png", "pollos-icon".as_bytes().into());
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "data",
+                    "1234",
+                    json!([los_pollos_amp(), good_place_eats_amp()]),
+                )
+                .with_icon(los_pollos_icon())
+                .with_icon(good_place_eats_icon()),
+        );
+        // This ingestion should run, since the DB is empty
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
+        // Reingest with updated icon data
+        //  - Los pollos gets new data and a new id
+        //  - Good place eats gets new data only
+        store.replace_client(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "data",
+                    "1234",
+                    json!([
+                        los_pollos_amp().merge(json!({"icon": "1000"})),
+                        good_place_eats_amp()
+                    ]),
+                )
+                .with_icon(MockIcon {
+                    id: "1000",
+                    data: "new-los-pollos-icon",
+                    ..los_pollos_icon()
+                })
+                .with_icon(MockIcon {
+                    data: "new-good-place-eats-icon",
+                    ..good_place_eats_icon()
+                }),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
 
-        store.ingest(SuggestIngestionConstraints::default())?;
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")).as_slice(),
+            [ Suggestion::Amp { icon, .. } ] if *icon == Some("new-los-pollos-icon".as_bytes().to_vec())
+        ));
 
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
-                Some(25u64)
-            );
-            assert_eq!(
-                dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
-                2
-            );
-            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 2);
-            Ok(())
-        })?;
-
-        // Update the snapshot with new icons.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
-            "id": "icon-2",
-            "type": "icon",
-            "last_modified": 30,
-            "attachment": {
-                "filename": "icon-2.png",
-                "mimetype": "image/png",
-                "location": "icon-2.png",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-3",
-            "type": "icon",
-            "last_modified": 35,
-            "attachment": {
-                "filename": "icon-3.png",
-                "mimetype": "image/png",
-                "location": "icon-3.png",
-                "hash": "",
-                "size": 0,
-            }
-        }]))?
-        .with_icon("icon-2.png", "new-lasagna-icon".as_bytes().into())
-        .with_icon("icon-3.png", "new-pollos-icon".as_bytes().into());
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
-                Some(35u64)
-            );
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Lasagna Come Out Tomorrow",
-                        url: "https://www.lasagna.restaurant",
-                        raw_url: "https://www.lasagna.restaurant",
-                        icon: Some(
-                            [
-                                110,
-                                101,
-                                119,
-                                45,
-                                108,
-                                97,
-                                115,
-                                97,
-                                103,
-                                110,
-                                97,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
-                        ),
-                        full_keyword: "lasagna",
-                        block_id: 0,
-                        advertiser: "Good Place Eats",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "la".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            expect![[r#"
-                [
-                    Amp {
-                        title: "Los Pollos Hermanos - Albuquerque",
-                        url: "https://www.lph-nm.biz",
-                        raw_url: "https://www.lph-nm.biz",
-                        icon: Some(
-                            [
-                                110,
-                                101,
-                                119,
-                                45,
-                                112,
-                                111,
-                                108,
-                                108,
-                                111,
-                                115,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
-                        ),
-                        full_keyword: "los",
-                        block_id: 0,
-                        advertiser: "Los Pollos Hermanos",
-                        iab_category: "8 - Food & Drink",
-                        impression_url: "https://example.com/impression_url",
-                        click_url: "https://example.com/click_url",
-                        raw_click_url: "https://example.com/click_url",
-                        score: 0.3,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "lo".into(),
-                providers: vec![SuggestionProvider::Amp],
-                limit: None,
-            })?);
-            Ok(())
-        })?;
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")).as_slice(),
+            [ Suggestion::Amp { icon, .. } ] if *icon == Some("new-good-place-eats-icon".as_bytes().to_vec())
+        ));
 
         Ok(())
     }
@@ -1883,250 +1085,63 @@ mod tests {
     fn reingest_amo_suggestions() -> anyhow::Result<()> {
         before_each();
 
-        // Ingest suggestions from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "amo-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "data-2",
-            "type": "amo-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-2.json",
-                "mimetype": "application/json",
-                "location": "data-2.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!({
-                "description": "First suggestion",
-                "url": "https://example.org/amo-suggestion-1",
-                "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                "keywords": ["relay", "spam", "masking email", "alias"],
-                "title": "AMO suggestion",
-                "icon": "https://example.org/amo-suggestion-1/icon.png",
-                "rating": "4.9",
-                "number_of_ratings": 800,
-                "score": 0.25
-            }),
-        )?
-        .with_data(
-            "data-2.json",
-            json!([{
-                "description": "Second suggestion",
-                "url": "https://example.org/amo-suggestion-2",
-                "guid": "{6d24e3b8-1400-4d37-9440-c798f9b79b1a}",
-                "keywords": ["dark mode", "dark theme", "night mode"],
-                "title": "Another AMO suggestion",
-                "icon": "https://example.org/amo-suggestion-2/icon.png",
-                "rating": "4.6",
-                "number_of_ratings": 750,
-                "score": 0.25
-            }, {
-                "description": "Third suggestion",
-                "url": "https://example.org/amo-suggestion-3",
-                "guid": "{1e9d493b-0498-48bb-9b9a-8b45a44df146}",
-                "keywords": ["grammar", "spelling", "edit"],
-                "title": "Yet another AMO suggestion",
-                "icon": "https://example.org/amo-suggestion-3/icon.png",
-                "rating": "4.8",
-                "number_of_ratings": 900,
-                "score": 0.25
-            }]),
-        )?;
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("amo-suggestions", "data-1", json!([relay_amo()]))
+                .with_record(
+                    "amo-suggestions",
+                    "data-2",
+                    json!([dark_mode_amo(), foxy_guestures_amo()]),
+                ),
+        );
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
+        store.ingest(SuggestIngestionConstraints::default());
 
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Amo.last_ingest_meta_key().as_str())?,
-                Some(15u64)
-            );
-
-            expect![[r#"
-                [
-                    Amo {
-                        title: "AMO suggestion",
-                        url: "https://example.org/amo-suggestion-1",
-                        icon_url: "https://example.org/amo-suggestion-1/icon.png",
-                        description: "First suggestion",
-                        rating: Some(
-                            "4.9",
-                        ),
-                        number_of_ratings: 800,
-                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        score: 0.25,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "masking e".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            expect![[r#"
-                [
-                    Amo {
-                        title: "Another AMO suggestion",
-                        url: "https://example.org/amo-suggestion-2",
-                        icon_url: "https://example.org/amo-suggestion-2/icon.png",
-                        description: "Second suggestion",
-                        rating: Some(
-                            "4.6",
-                        ),
-                        number_of_ratings: 750,
-                        guid: "{6d24e3b8-1400-4d37-9440-c798f9b79b1a}",
-                        score: 0.25,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "night".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("masking e")),
+            vec![relay_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("night")),
+            vec![dark_mode_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("grammar")),
+            vec![foxy_guestures_suggestion()],
+        );
 
         // Update the snapshot with new suggestions: update the second, drop the
         // third, and add the fourth.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
-            "id": "data-2",
-            "type": "amo-suggestions",
-            "last_modified": 30,
-            "attachment": {
-                "filename": "data-2-1.json",
-                "mimetype": "application/json",
-                "location": "data-2-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-2-1.json",
-            json!([{
-                "description": "Updated second suggestion",
-                "url": "https://example.org/amo-suggestion-2",
-                "guid": "{6d24e3b8-1400-4d37-9440-c798f9b79b1a}",
-                "keywords": ["dark mode", "night mode"],
-                "title": "Another AMO suggestion",
-                "icon": "https://example.org/amo-suggestion-2/icon.png",
-                "rating": "4.7",
-                "number_of_ratings": 775,
-                "score": 0.25
-            }, {
-                "description": "Fourth suggestion",
-                "url": "https://example.org/amo-suggestion-4",
-                "guid": "{1ea82ebd-a1ba-4f57-b8bb-3824ead837bd}",
-                "keywords": ["image search", "visual search"],
-                "title": "New AMO suggestion",
-                "icon": "https://example.org/amo-suggestion-4/icon.png",
-                "rating": "5.0",
-                "number_of_ratings": 100,
-                "score": 0.25
-            }]),
-        )?;
+        store.replace_client(
+            MockRemoteSettingsClient::default()
+                .with_record("amo-suggestions", "data-1", json!([relay_amo()]))
+                .with_record(
+                    "amo-suggestions",
+                    "data-2",
+                    json!([
+                        dark_mode_amo().merge(json!({"title": "Updated second suggestion"})),
+                        new_tab_override_amo(),
+                    ]),
+                ),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
 
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Amo.last_ingest_meta_key().as_str())?,
-                Some(30u64)
-            );
-
-            expect![[r#"
-                [
-                    Amo {
-                        title: "AMO suggestion",
-                        url: "https://example.org/amo-suggestion-1",
-                        icon_url: "https://example.org/amo-suggestion-1/icon.png",
-                        description: "First suggestion",
-                        rating: Some(
-                            "4.9",
-                        ),
-                        number_of_ratings: 800,
-                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        score: 0.25,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "masking e".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            expect![[r#"
-                []
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "dark t".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            expect![[r#"
-                [
-                    Amo {
-                        title: "Another AMO suggestion",
-                        url: "https://example.org/amo-suggestion-2",
-                        icon_url: "https://example.org/amo-suggestion-2/icon.png",
-                        description: "Updated second suggestion",
-                        rating: Some(
-                            "4.7",
-                        ),
-                        number_of_ratings: 775,
-                        guid: "{6d24e3b8-1400-4d37-9440-c798f9b79b1a}",
-                        score: 0.25,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "night".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            expect![[r#"
-                [
-                    Amo {
-                        title: "New AMO suggestion",
-                        url: "https://example.org/amo-suggestion-4",
-                        icon_url: "https://example.org/amo-suggestion-4/icon.png",
-                        description: "Fourth suggestion",
-                        rating: Some(
-                            "5.0",
-                        ),
-                        number_of_ratings: 100,
-                        guid: "{1ea82ebd-a1ba-4f57-b8bb-3824ead837bd}",
-                        score: 0.25,
-                    },
-                ]
-            "#]]
-            .assert_debug_eq(&dao.fetch_suggestions(&SuggestionQuery {
-                keyword: "image search".into(),
-                providers: vec![SuggestionProvider::Amo],
-                limit: None,
-            })?);
-
-            Ok(())
-        })?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("masking e")),
+            vec![relay_suggestion()],
+        );
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amo("night")).as_slice(),
+            [Suggestion::Amo { title, .. } ] if title == "Updated second suggestion"
+        ));
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("grammar")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("image search")),
+            vec![new_tab_override_suggestion()],
+        );
 
         Ok(())
     }
@@ -2137,102 +1152,41 @@ mod tests {
     fn ingest_tombstones() -> anyhow::Result<()> {
         before_each();
 
-        // Ingest suggestions and icons from the initial snapshot.
-        let initial_snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-2",
-            "type": "icon",
-            "last_modified": 20,
-            "attachment": {
-                "filename": "icon-2.png",
-                "mimetype": "image/png",
-                "location": "icon-2.png",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }]),
-        )?
-        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into());
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("data", "data-1", json!([los_pollos_amp()]))
+                .with_record("data", "data-2", json!([good_place_eats_amp()]))
+                .with_icon(los_pollos_icon())
+                .with_icon(good_place_eats_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("lo")),
+            vec![los_pollos_suggestion("los")],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")),
+            vec![good_place_eats_suggestion("lasagna")],
+        );
+        // Re-ingest with:
+        //   - Los pollos replaced with a tombstone
+        //   - Good place eat's icon replaced with a tombstone
+        store.replace_client(
+            MockRemoteSettingsClient::default()
+                .with_tombstone("data", "data-1")
+                .with_record("data", "data-2", json!([good_place_eats_amp()]))
+                .with_icon_tombstone(los_pollos_icon())
+                .with_icon_tombstone(good_place_eats_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(initial_snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
-                1
-            );
-            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 1);
-            assert_eq!(
-                dao.get_meta(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(15)
-            );
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
-                Some(20)
-            );
-
-            Ok(())
-        })?;
-
-        // Replace the records with tombstones. Ingesting these should remove
-        // all their suggestions and icons.
-        *store.settings_client.snapshot.borrow_mut() = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "last_modified": 25,
-            "deleted": true,
-        }, {
-            "id": "icon-2",
-            "last_modified": 30,
-            "deleted": true,
-        }]))?;
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
-                0
-            );
-            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
-            assert_eq!(
-                dao.get_meta(SuggestRecordType::Icon.last_ingest_meta_key().as_str())?,
-                Some(30)
-            );
-            Ok(())
-        })?;
-
+        assert_eq!(store.fetch_suggestions(SuggestionQuery::amp("lo")), vec![]);
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")).as_slice(),
+            [
+                Suggestion::Amp { icon, icon_mimetype, .. }
+            ] if icon.is_none() && icon_mimetype.is_none(),
+        ));
         Ok(())
     }
 
@@ -2241,83 +1195,22 @@ mod tests {
     fn clear() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Los Pollos Hermanos",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["lo", "los", "los p", "los pollos", "los pollos h", "los pollos hermanos"],
-                "title": "Los Pollos Hermanos - Albuquerque",
-                "url": "https://www.lph-nm.biz",
-                "icon": "2",
-                "impression_url": "https://example.com",
-                "click_url": "https://example.com",
-                "score": 0.3
-            }]),
-        )?;
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("data", "data-1", json!([los_pollos_amp()]))
+                .with_record("data", "data-2", json!([good_place_eats_amp()]))
+                .with_icon(los_pollos_icon())
+                .with_icon(good_place_eats_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::default());
+        assert!(store.count_rows("suggestions") > 0);
+        assert!(store.count_rows("keywords") > 0);
+        assert!(store.count_rows("icons") > 0);
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta::<u64>(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                Some(15)
-            );
-            assert_eq!(
-                dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
-                1
-            );
-            assert_eq!(
-                dao.conn.query_one::<i64>("SELECT count(*) FROM keywords")?,
-                6
-            );
-
-            Ok(())
-        })?;
-
-        store.clear()?;
-
-        store.dbs()?.reader.read(|dao| {
-            assert_eq!(
-                dao.get_meta::<u64>(
-                    SuggestRecordType::AmpWikipedia
-                        .last_ingest_meta_key()
-                        .as_str()
-                )?,
-                None
-            );
-            assert_eq!(
-                dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
-                0
-            );
-            assert_eq!(
-                dao.conn.query_one::<i64>("SELECT count(*) FROM keywords")?,
-                0
-            );
-
-            Ok(())
-        })?;
+        store.inner.clear()?;
+        assert!(store.count_rows("suggestions") == 0);
+        assert!(store.count_rows("keywords") == 0);
+        assert!(store.count_rows("icons") == 0);
 
         Ok(())
     }
@@ -2327,1903 +1220,409 @@ mod tests {
     fn query() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "data",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "data",
+                    "data-1",
+                    json!([
+                        good_place_eats_amp(),
+                        california_wiki(),
+                        caltech_wiki(),
+                        multimatch_wiki(),
+                    ]),
+                )
+                .with_record(
+                    "amo-suggestions",
+                    "data-2",
+                    json!([relay_amo(), multimatch_amo(),]),
+                )
+                .with_record(
+                    "pocket-suggestions",
+                    "data-3",
+                    json!([burnout_pocket(), multimatch_pocket(),]),
+                )
+                .with_record("yelp-suggestions", "data-4", json!([ramen_yelp(),]))
+                .with_record("yeld-suggestions", "data-4", json!([ramen_yelp(),]))
+                .with_record("mdn-suggestions", "data-5", json!([array_mdn(),]))
+                .with_icon(good_place_eats_icon())
+                .with_icon(california_icon())
+                .with_icon(caltech_icon())
+                .with_icon(yelp_favicon())
+                .with_icon(multimatch_wiki_icon()),
+        );
 
-        }, {
-            "id": "data-2",
-            "type": "amo-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-2.json",
-                "mimetype": "application/json",
-                "location": "data-2.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "data-3",
-            "type": "pocket-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-3.json",
-                "mimetype": "application/json",
-                "location": "data-3.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "data-4",
-            "type": "yelp-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-4.json",
-                "mimetype": "application/json",
-                "location": "data-4.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "data-5",
-            "type": "mdn-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-5.json",
-                "mimetype": "application/json",
-                "location": "data-5.json",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-2",
-            "type": "icon",
-            "last_modified": 20,
-            "attachment": {
-                "filename": "icon-2.png",
-                "mimetype": "image/png",
-                "location": "icon-2.png",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-3",
-            "type": "icon",
-            "last_modified": 25,
-            "attachment": {
-                "filename": "icon-3.png",
-                "mimetype": "image/png",
-                "location": "icon-3.png",
-                "hash": "",
-                "size": 0,
-            },
-        }, {
-            "id": "icon-yelp-favicon",
-            "type": "icon",
-            "last_modified": 25,
-            "attachment": {
-                "filename": "yelp-favicon.svg",
-                "mimetype": "image/svg+xml",
-                "location": "yelp-favicon.svg",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([{
-                "id": 0,
-                "advertiser": "Good Place Eats",
-                "iab_category": "8 - Food & Drink",
-                "keywords": ["la", "las", "lasa", "lasagna", "lasagna come out tomorrow"],
-                "title": "Lasagna Come Out Tomorrow",
-                "url": "https://www.lasagna.restaurant",
-                "icon": "2",
-                "impression_url": "https://example.com/impression_url",
-                "click_url": "https://example.com/click_url",
-                "score": 0.3
-            }, {
-                "id": 0,
-                "advertiser": "Wikipedia",
-                "iab_category": "5 - Education",
-                "keywords": ["cal", "cali", "california"],
-                "title": "California",
-                "url": "https://wikipedia.org/California",
-                "icon": "3"
-            }, {
-                "id": 0,
-                "advertiser": "Wikipedia",
-                "iab_category": "5 - Education",
-                "keywords": ["cal", "cali", "california", "institute", "technology"],
-                "title": "California Institute of Technology",
-                "url": "https://wikipedia.org/California_Institute_of_Technology",
-                "icon": "3"
-            },{
-                "id": 0,
-                "advertiser": "Wikipedia",
-                "iab_category": "5 - Education",
-                "keywords": ["multimatch"],
-                "title": "Multimatch",
-                "url": "https://wikipedia.org/Multimatch",
-                "icon": "3"
-            }]),
-        )?
-            .with_data(
-                "data-2.json",
-                json!([
-                    {
-                        "description": "amo suggestion",
-                        "url": "https://addons.mozilla.org/en-US/firefox/addon/example",
-                        "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        "keywords": ["relay", "spam", "masking email", "alias"],
-                        "title": "Firefox Relay",
-                        "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                        "rating": "4.9",
-                        "number_of_ratings": 888,
-                        "score": 0.25
-                    },
-                    {
-                        "description": "amo suggestion multi-match",
-                        "url": "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                        "guid": "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        "keywords": ["multimatch"],
-                        "title": "Firefox Multimatch",
-                        "icon": "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                        "rating": "4.9",
-                        "number_of_ratings": 888,
-                        "score": 0.25
-                    },
-                ]),
-        )?
-            .with_data(
-            "data-3.json",
-            json!([
-                {
-                    "description": "pocket suggestion",
-                    "url": "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                    "lowConfidenceKeywords": ["soft life", "workaholism", "toxic work culture", "work-life balance"],
-                    "highConfidenceKeywords": ["burnout women", "grind culture", "women burnout"],
-                    "title": "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                    "score": 0.25
-                },
-                {
-                    "description": "pocket suggestion multi-match",
-                    "url": "https://getpocket.com/collections/multimatch",
-                    "lowConfidenceKeywords": [],
-                    "highConfidenceKeywords": ["multimatch"],
-                    "title": "Multimatching",
-                    "score": 0.88
-                },
-            ]),
-        )?
-        .with_data(
-            "data-4.json",
-            json!({
-                "subjects": ["ramen", "spicy ramen", "spicy random ramen", "rats", "raven", "raccoon", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
-                "preModifiers": ["best", "super best", "same_modifier"],
-                "postModifiers": ["delivery", "super delivery", "same_modifier"],
-                "locationSigns": [
-                    { "keyword": "in", "needLocation": true },
-                    { "keyword": "near", "needLocation": true },
-                    { "keyword": "near by", "needLocation": false },
-                    { "keyword": "near me", "needLocation": false },
-                ],
-                "yelpModifiers": ["yelp", "yelp keyword"],
-                "icon": "yelp-favicon",
-                "score": 0.5
-            }),
-        )?
-        .with_data(
-            "data-5.json",
-            json!([
-                {
-                    "description": "Javascript Array",
-                    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
-                    "keywords": ["array javascript", "javascript array", "wildcard"],
-                    "title": "Array",
-                    "score": 0.24
-                },
-            ]),
-        )?
-        .with_icon("icon-2.png", "i-am-an-icon".as_bytes().into())
-        .with_icon("icon-3.png", "also-an-icon".as_bytes().into())
-        .with_icon("yelp-favicon.svg", "yelp-icon".as_bytes().into());
+        store.ingest(SuggestIngestionConstraints::default());
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
-
-        store.ingest(SuggestIngestionConstraints::default())?;
-
-        let table = [
-            (
-                "empty keyword; all providers",
-                SuggestionQuery {
-                    keyword: String::new(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                        SuggestionProvider::Yelp,
-                        SuggestionProvider::Weather,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `la`; all providers",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                        SuggestionProvider::Yelp,
-                        SuggestionProvider::Weather,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Amp {
-                            title: "Lasagna Come Out Tomorrow",
-                            url: "https://www.lasagna.restaurant",
-                            raw_url: "https://www.lasagna.restaurant",
-                            icon: Some(
-                                [
-                                    105,
-                                    45,
-                                    97,
-                                    109,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "lasagna",
-                            block_id: 0,
-                            advertiser: "Good Place Eats",
-                            iab_category: "8 - Food & Drink",
-                            impression_url: "https://example.com/impression_url",
-                            click_url: "https://example.com/click_url",
-                            raw_click_url: "https://example.com/click_url",
-                            score: 0.3,
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "multimatch; all providers",
-                SuggestionQuery {
-                    keyword: "multimatch".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Pocket {
-                            title: "Multimatching",
-                            url: "https://getpocket.com/collections/multimatch",
-                            score: 0.88,
-                            is_top_pick: true,
-                        },
-                        Amo {
-                            title: "Firefox Multimatch",
-                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                            description: "amo suggestion multi-match",
-                            rating: Some(
-                                "4.9",
-                            ),
-                            number_of_ratings: 888,
-                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                            score: 0.25,
-                        },
-                        Wikipedia {
-                            title: "Multimatch",
-                            url: "https://wikipedia.org/Multimatch",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "multimatch",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "MultiMatch; all providers, mixed case",
-                SuggestionQuery {
-                    keyword: "MultiMatch".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Pocket {
-                            title: "Multimatching",
-                            url: "https://getpocket.com/collections/multimatch",
-                            score: 0.88,
-                            is_top_pick: true,
-                        },
-                        Amo {
-                            title: "Firefox Multimatch",
-                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                            description: "amo suggestion multi-match",
-                            rating: Some(
-                                "4.9",
-                            ),
-                            number_of_ratings: 888,
-                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                            score: 0.25,
-                        },
-                        Wikipedia {
-                            title: "Multimatch",
-                            url: "https://wikipedia.org/Multimatch",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "multimatch",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "multimatch; all providers, limit 2",
-                SuggestionQuery {
-                    keyword: "multimatch".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                    ],
-                    limit: Some(2),
-                },
-                expect![[r#"
-                    [
-                        Pocket {
-                            title: "Multimatching",
-                            url: "https://getpocket.com/collections/multimatch",
-                            score: 0.88,
-                            is_top_pick: true,
-                        },
-                        Amo {
-                            title: "Firefox Multimatch",
-                            url: "https://addons.mozilla.org/en-US/firefox/addon/multimatch",
-                            icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                            description: "amo suggestion multi-match",
-                            rating: Some(
-                                "4.9",
-                            ),
-                            number_of_ratings: 888,
-                            guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                            score: 0.25,
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `la`; AMP only",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![SuggestionProvider::Amp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Amp {
-                            title: "Lasagna Come Out Tomorrow",
-                            url: "https://www.lasagna.restaurant",
-                            raw_url: "https://www.lasagna.restaurant",
-                            icon: Some(
-                                [
-                                    105,
-                                    45,
-                                    97,
-                                    109,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "lasagna",
-                            block_id: 0,
-                            advertiser: "Good Place Eats",
-                            iab_category: "8 - Food & Drink",
-                            impression_url: "https://example.com/impression_url",
-                            click_url: "https://example.com/click_url",
-                            raw_click_url: "https://example.com/click_url",
-                            score: 0.3,
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `la`; Wikipedia, AMO, and Pocket",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![
-                        SuggestionProvider::Wikipedia,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `la`; no providers",
-                SuggestionQuery {
-                    keyword: "la".into(),
-                    providers: vec![],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `cal`; AMP, AMO, and Pocket",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![
-                        SuggestionProvider::Amp,
-                        SuggestionProvider::Amo,
-                        SuggestionProvider::Pocket,
-                    ],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `cal`; Wikipedia only",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![SuggestionProvider::Wikipedia],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Wikipedia {
-                            title: "California",
-                            url: "https://wikipedia.org/California",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "california",
-                        },
-                        Wikipedia {
-                            title: "California Institute of Technology",
-                            url: "https://wikipedia.org/California_Institute_of_Technology",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "california",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `cal`; Wikipedia with limit 1",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![SuggestionProvider::Wikipedia],
-                    limit: Some(1),
-                },
-                expect![[r#"
-                    [
-                        Wikipedia {
-                            title: "California",
-                            url: "https://wikipedia.org/California",
-                            icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
-                            ),
-                            full_keyword: "california",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `cal`; no providers",
-                SuggestionQuery {
-                    keyword: "cal".into(),
-                    providers: vec![],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `spam`; AMO only",
-                SuggestionQuery {
-                    keyword: "spam".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Amo {
-                        title: "Firefox Relay",
-                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
-                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                        description: "amo suggestion",
-                        rating: Some(
-                            "4.9",
-                        ),
-                        number_of_ratings: 888,
-                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        score: 0.25,
-                    },
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers("")),
+            vec![]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers("la")),
+            vec![good_place_eats_suggestion("lasagna"),]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers("multimatch")),
+            vec![
+                multimatch_pocket_suggestion(),
+                multimatch_amo_suggestion(),
+                multimatch_wiki_suggestion(),
+            ]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers("MultiMatch")),
+            vec![
+                multimatch_pocket_suggestion(),
+                multimatch_amo_suggestion(),
+                multimatch_wiki_suggestion(),
+            ]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers("multimatch").limit(2)),
+            vec![multimatch_pocket_suggestion(), multimatch_amo_suggestion(),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("la")),
+            vec![good_place_eats_suggestion("lasagna")],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::all_providers_except(
+                "la",
+                SuggestionProvider::Amp
+            )),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::with_providers("la", vec![])),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::with_providers(
+                "cal",
+                vec![
+                    SuggestionProvider::Amp,
+                    SuggestionProvider::Amo,
+                    SuggestionProvider::Pocket,
                 ]
-                "#]],
-            ),
-            (
-                "keyword = `masking`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Amo {
-                        title: "Firefox Relay",
-                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
-                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                        description: "amo suggestion",
-                        rating: Some(
-                            "4.9",
-                        ),
-                        number_of_ratings: 888,
-                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        score: 0.25,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `masking e`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking e".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Amo {
-                        title: "Firefox Relay",
-                        url: "https://addons.mozilla.org/en-US/firefox/addon/example",
-                        icon_url: "https://addons.mozilla.org/user-media/addon_icons/2633/2633704-64.png?modified=2c11a80b",
-                        description: "amo suggestion",
-                        rating: Some(
-                            "4.9",
-                        ),
-                        number_of_ratings: 888,
-                        guid: "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}",
-                        score: 0.25,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `masking s`; AMO only",
-                SuggestionQuery {
-                    keyword: "masking s".into(),
-                    providers: vec![SuggestionProvider::Amo],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `soft`; AMP and Wikipedia",
-                SuggestionQuery {
-                    keyword: "soft".into(),
-                    providers: vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `soft`; Pocket only",
-                SuggestionQuery {
-                    keyword: "soft".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Pocket {
-                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                        score: 0.25,
-                        is_top_pick: false,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `soft l`; Pocket only",
-                SuggestionQuery {
-                    keyword: "soft l".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Pocket {
-                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                        score: 0.25,
-                        is_top_pick: false,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `sof`; Pocket only",
-                SuggestionQuery {
-                    keyword: "sof".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
-                expect![[r#"
-                    []
-                "#]],
-            ),
-            (
-                "keyword = `burnout women`; Pocket only",
-                SuggestionQuery {
-                    keyword: "burnout women".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Pocket {
-                        title: "‘It’s Not Just Burnout:’ How Grind Culture Fails Women",
-                        url: "https://getpocket.com/collections/its-not-just-burnout-how-grind-culture-failed-women",
-                        score: 0.25,
-                        is_top_pick: true,
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `burnout person`; Pocket only",
-                SuggestionQuery {
-                    keyword: "burnout person".into(),
-                    providers: vec![SuggestionProvider::Pocket],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `best spicy ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best spicy ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=best+spicy+ramen+delivery&find_loc=tokyo",
-                            title: "best spicy ramen delivery in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `BeSt SpIcY rAmEn DeLiVeRy In ToKyO`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt SpIcY rAmEn DeLiVeRy In ToKyO".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=BeSt+SpIcY+rAmEn+DeLiVeRy&find_loc=ToKyO",
-                            title: "BeSt SpIcY rAmEn DeLiVeRy In ToKyO",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=best+ramen+delivery&find_loc=tokyo",
-                            title: "best ramen delivery in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `best invalid_ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best invalid_ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `best delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `super best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "super best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=super+best+ramen+delivery&find_loc=tokyo",
-                            title: "super best ramen delivery in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `invalid_best ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "invalid_best ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `ramen delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen+delivery&find_loc=tokyo",
-                            title: "ramen delivery in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen super delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen super delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen+super+delivery&find_loc=tokyo",
-                            title: "ramen super delivery in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen invalid_delivery in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen invalid_delivery in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `ramen in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen near tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen near tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen invalid_in tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen invalid_in tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `ramen in San Francisco`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in San Francisco".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen&find_loc=San+Francisco",
-                            title: "ramen in San Francisco",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen in`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "ramen in",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen near by`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near by".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen+near+by",
-                            title: "ramen near by",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen near me`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near me".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen+near+me",
-                            title: "ramen near me",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen near by tokyo`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen near by tokyo".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = maximum chars; Yelp only",
-                SuggestionQuery {
-                    keyword: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
-                            title: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = over chars; Yelp only",
-                SuggestionQuery {
-                    keyword: "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `best delivery`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best delivery".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `same_modifier same_modifier`; Yelp only",
-                SuggestionQuery {
-                    keyword: "same_modifier same_modifier".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `same_modifier `; Yelp only",
-                SuggestionQuery {
-                    keyword: "same_modifier ".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `yelp ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `yelp keyword ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp keyword ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen in tokyo yelp`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo yelp".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `ramen in tokyo yelp keyword`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ramen in tokyo yelp keyword".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo",
-                            title: "ramen in tokyo",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: true,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `yelp ramen yelp`; Yelp only",
-                SuggestionQuery {
-                    keyword: "yelp ramen yelp".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=ramen",
-                            title: "ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `best yelp ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best yelp ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `Spicy R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "Spicy R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=Spicy+Ramen",
-                            title: "Spicy Ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: false,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `BeSt             Ramen`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             Ramen".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=BeSt+Ramen",
-                            title: "BeSt Ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: true,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `BeSt             Spicy R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             Spicy R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                    [
-                        Yelp {
-                            url: "https://www.yelp.com/search?find_desc=BeSt+Spicy+Ramen",
-                            title: "BeSt Spicy Ramen",
-                            icon: Some(
-                                [
-                                    121,
-                                    101,
-                                    108,
-                                    112,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/svg+xml",
-                            ),
-                            score: 0.5,
-                            has_location_sign: false,
-                            subject_exact_match: false,
-                            location_param: "find_loc",
-                        },
-                    ]
-                "#]],
-            ),
-            (
-                "keyword = `BeSt             R`; Yelp only",
-                SuggestionQuery {
-                    keyword: "BeSt             R".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `r`; Yelp only",
-                SuggestionQuery {
-                    keyword: "r".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `ra`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ra".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Yelp {
-                        url: "https://www.yelp.com/search?find_desc=rats",
-                        title: "rats",
-                        icon: Some(
-                            [
-                                121,
-                                101,
-                                108,
-                                112,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/svg+xml",
-                        ),
-                        score: 0.5,
-                        has_location_sign: false,
-                        subject_exact_match: false,
-                        location_param: "find_loc",
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `ram`; Yelp only",
-                SuggestionQuery {
-                    keyword: "ram".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Yelp {
-                        url: "https://www.yelp.com/search?find_desc=ramen",
-                        title: "ramen",
-                        icon: Some(
-                            [
-                                121,
-                                101,
-                                108,
-                                112,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/svg+xml",
-                        ),
-                        score: 0.5,
-                        has_location_sign: false,
-                        subject_exact_match: false,
-                        location_param: "find_loc",
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `rac`; Yelp only",
-                SuggestionQuery {
-                    keyword: "rac".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Yelp {
-                        url: "https://www.yelp.com/search?find_desc=raccoon",
-                        title: "raccoon",
-                        icon: Some(
-                            [
-                                121,
-                                101,
-                                108,
-                                112,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/svg+xml",
-                        ),
-                        score: 0.5,
-                        has_location_sign: false,
-                        subject_exact_match: false,
-                        location_param: "find_loc",
-                    },
-                ]
-                "#]],
-            ),
-            (
-                "keyword = `best r`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best r".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                []
-                "#]],
-            ),
-            (
-                "keyword = `best ra`; Yelp only",
-                SuggestionQuery {
-                    keyword: "best ra".into(),
-                    providers: vec![SuggestionProvider::Yelp],
-                    limit: None,
-                },
-                expect![[r#"
-                [
-                    Yelp {
-                        url: "https://www.yelp.com/search?find_desc=best+rats",
-                        title: "best rats",
-                        icon: Some(
-                            [
-                                121,
-                                101,
-                                108,
-                                112,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/svg+xml",
-                        ),
-                        score: 0.5,
-                        has_location_sign: false,
-                        subject_exact_match: false,
-                        location_param: "find_loc",
-                    },
-                ]
-                "#]],
-            ),
-        ];
-        for (what, query, expect) in table {
-            expect.assert_debug_eq(
-                &store
-                    .query(query)
-                    .with_context(|| format!("Couldn't query store for {}", what))?,
-            );
-        }
+            )),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("cal")),
+            vec![
+                california_suggestion("california"),
+                caltech_suggestion("california"),
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("cal").limit(1)),
+            vec![california_suggestion("california"),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::with_providers("cal", vec![])),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("spam")),
+            vec![relay_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("masking")),
+            vec![relay_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("masking e")),
+            vec![relay_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amo("masking s")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::with_providers(
+                "soft",
+                vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia]
+            )),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::pocket("soft")),
+            vec![burnout_suggestion(false),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::pocket("soft l")),
+            vec![burnout_suggestion(false),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::pocket("sof")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::pocket("burnout women")),
+            vec![burnout_suggestion(true),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::pocket("burnout person")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best spicy ramen delivery in tokyo")),
+            vec![ramen_suggestion(
+                "best spicy ramen delivery in tokyo",
+                "https://www.yelp.com/search?find_desc=best+spicy+ramen+delivery&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("BeSt SpIcY rAmEn DeLiVeRy In ToKyO")),
+            vec![ramen_suggestion(
+                "BeSt SpIcY rAmEn DeLiVeRy In ToKyO",
+                "https://www.yelp.com/search?find_desc=BeSt+SpIcY+rAmEn+DeLiVeRy&find_loc=ToKyO"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best ramen delivery in tokyo")),
+            vec![ramen_suggestion(
+                "best ramen delivery in tokyo",
+                "https://www.yelp.com/search?find_desc=best+ramen+delivery&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp(
+                "best invalid_ramen delivery in tokyo"
+            )),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best in tokyo")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("super best ramen in tokyo")),
+            vec![ramen_suggestion(
+                "super best ramen in tokyo",
+                "https://www.yelp.com/search?find_desc=super+best+ramen&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("invalid_best ramen in tokyo")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen delivery in tokyo")),
+            vec![ramen_suggestion(
+                "ramen delivery in tokyo",
+                "https://www.yelp.com/search?find_desc=ramen+delivery&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen super delivery in tokyo")),
+            vec![ramen_suggestion(
+                "ramen super delivery in tokyo",
+                "https://www.yelp.com/search?find_desc=ramen+super+delivery&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen invalid_delivery in tokyo")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen in tokyo")),
+            vec![ramen_suggestion(
+                "ramen in tokyo",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen near tokyo")),
+            vec![ramen_suggestion(
+                "ramen near tokyo",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen invalid_in tokyo")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen in San Francisco")),
+            vec![ramen_suggestion(
+                "ramen in San Francisco",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=San+Francisco"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen in")),
+            vec![ramen_suggestion(
+                "ramen in",
+                "https://www.yelp.com/search?find_desc=ramen"
+            ),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen near by")),
+            vec![ramen_suggestion(
+                "ramen near by",
+                "https://www.yelp.com/search?find_desc=ramen+near+by"
+            )
+            .has_location_sign(false),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen near me")),
+            vec![ramen_suggestion(
+                "ramen near me",
+                "https://www.yelp.com/search?find_desc=ramen+near+me"
+            )
+            .has_location_sign(false),],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen near by tokyo")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false),
+            ],
+        );
+        // Test an extremely long yelp query
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp(
+                "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+            )),
+            vec![
+                ramen_suggestion(
+                    "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+                    "https://www.yelp.com/search?find_desc=012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+                ).has_location_sign(false),
+            ],
+        );
+        // This query is over the limit and no suggestions should be returned
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp(
+                "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"
+            )),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best delivery")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("same_modifier same_modifier")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("same_modifier ")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("yelp ramen")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false),
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("yelp keyword ramen")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false),
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen in tokyo yelp")),
+            vec![ramen_suggestion(
+                "ramen in tokyo",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo"
+            )],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen in tokyo yelp keyword")),
+            vec![ramen_suggestion(
+                "ramen in tokyo",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo"
+            )],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("yelp ramen yelp")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false)
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best yelp ramen")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("Spicy R")),
+            vec![ramen_suggestion(
+                "Spicy Ramen",
+                "https://www.yelp.com/search?find_desc=Spicy+Ramen"
+            )
+            .has_location_sign(false)
+            .subject_exact_match(false)],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("BeSt             Ramen")),
+            vec![ramen_suggestion(
+                "BeSt Ramen",
+                "https://www.yelp.com/search?find_desc=BeSt+Ramen"
+            )
+            .has_location_sign(false)],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("BeSt             Spicy R")),
+            vec![ramen_suggestion(
+                "BeSt Spicy Ramen",
+                "https://www.yelp.com/search?find_desc=BeSt+Spicy+Ramen"
+            )
+            .has_location_sign(false)
+            .subject_exact_match(false)],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("BeSt             R")),
+            vec![],
+        );
+        assert_eq!(store.fetch_suggestions(SuggestionQuery::yelp("r")), vec![],);
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ra")),
+            vec![
+                ramen_suggestion("rats", "https://www.yelp.com/search?find_desc=rats")
+                    .has_location_sign(false)
+                    .subject_exact_match(false)
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ram")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false)
+                    .subject_exact_match(false)
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("rac")),
+            vec![
+                ramen_suggestion("raccoon", "https://www.yelp.com/search?find_desc=raccoon")
+                    .has_location_sign(false)
+                    .subject_exact_match(false)
+            ],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best r")),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("best ra")),
+            vec![ramen_suggestion(
+                "best rats",
+                "https://www.yelp.com/search?find_desc=best+rats"
+            )
+            .has_location_sign(false)
+            .subject_exact_match(false)],
+        );
 
         Ok(())
     }
