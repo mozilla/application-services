@@ -4,6 +4,7 @@ import argparse
 import pathlib
 import re
 import subprocess
+import sys
 
 APP_SERVICES_DEPENDENCY_RE = re.compile(
     r'([\w-]+).*{\s*git\s*=\s*"https://github.com/mozilla/application-services"'
@@ -15,8 +16,8 @@ def main():
     moz_central_root = pathlib.Path(args.moz_central_dir)
     app_services_rev = get_app_services_rev()
     update_cargo_toml(moz_central_root / "Cargo.toml", app_services_rev)
-    subprocess.run(["./mach", "vendor", "rust"], cwd=moz_central_root)
-    subprocess.run(["./mach", "uniffi", "generate"], cwd=moz_central_root)
+    run_process(["./mach", "vendor", "rust"], cwd=moz_central_root)
+    run_process(["./mach", "uniffi", "generate"], cwd=moz_central_root)
 
     print("The vendoring was successful")
     print(" - If you saw a warning saying `There are 2 different versions of crate X`, then "
@@ -25,6 +26,12 @@ def main():
     print(" - Commit any changes and submit a phabricator patch")
     print()
     print("Details here: https://github.com/mozilla/application-services/blob/main/docs/howtos/vendoring-into-mozilla-central.md")
+
+def run_process(command, cwd):
+    result = subprocess.run(command, cwd=cwd)
+    if result.returncode != 0:
+        print("Vendoring failed, please see above errors", file=sys.stderr)
+        sys.exit(1)
 
 def parse_args():
     parser = argparse.ArgumentParser()
