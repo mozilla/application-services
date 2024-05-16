@@ -102,6 +102,46 @@ impl MockRemoteSettingsClient {
     pub fn with_icon_tombstone(self, icon: MockIcon) -> Self {
         self.with_tombstone("icon", &format!("icon-{}", icon.id))
     }
+
+    /// Add a record without attachment data
+    pub fn with_record_but_no_attachment(mut self, record_type: &str, record_id: &str) -> Self {
+        let records = self.records.entry(record_type.to_string()).or_default();
+        records.push(Record {
+            id: record_id.to_string(),
+            last_modified: self.last_modified_timestamp,
+            deleted: false,
+            attachment: None,
+            fields: json!({"type": record_type}).into_map(),
+            attachment_data: None,
+        });
+        self
+    }
+
+    /// Add a record to the mock data, with data stored inline rather than in an attachment
+    ///
+    /// Use this for record types like weather where the data it stored in the record itself rather
+    /// than in an attachment.
+    pub fn with_inline_record(
+        mut self,
+        record_type: &str,
+        record_id: &str,
+        inline_data: JsonValue,
+    ) -> Self {
+        let records = self.records.entry(record_type.to_string()).or_default();
+        records.push(Record {
+            id: record_id.to_string(),
+            last_modified: self.last_modified_timestamp,
+            deleted: false,
+            fields: json!({
+                "type": record_type,
+                record_type: inline_data,
+            })
+            .into_map(),
+            attachment: None,
+            attachment_data: None,
+        });
+        self
+    }
 }
 
 pub struct MockIcon {

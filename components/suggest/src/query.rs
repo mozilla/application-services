@@ -87,6 +87,22 @@ impl SuggestionQuery {
         }
     }
 
+    pub fn mdn(keyword: &str) -> Self {
+        Self {
+            keyword: keyword.into(),
+            providers: vec![SuggestionProvider::Mdn],
+            limit: None,
+        }
+    }
+
+    pub fn weather(keyword: &str) -> Self {
+        Self {
+            keyword: keyword.into(),
+            providers: vec![SuggestionProvider::Weather],
+            limit: None,
+        }
+    }
+
     pub fn limit(self, limit: i32) -> Self {
         Self {
             limit: Some(limit),

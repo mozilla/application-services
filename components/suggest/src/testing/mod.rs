@@ -41,6 +41,20 @@ impl JsonExt for JsonValue {
 
 /// Extra methods for testing
 impl Suggestion {
+    pub fn with_score(mut self, score: f64) -> Self {
+        let current_score = match &mut self {
+            Self::Amp { score, .. } => score,
+            Self::Pocket { score, .. } => score,
+            Self::Amo { score, .. } => score,
+            Self::Yelp { score, .. } => score,
+            Self::Mdn { score, .. } => score,
+            Self::Weather { score, .. } => score,
+            Self::Wikipedia { .. } => panic!("with_score not valid for wikipedia suggestions"),
+        };
+        *current_score = score;
+        self
+    }
+
     pub fn has_location_sign(self, has_location_sign: bool) -> Self {
         match self {
             Self::Yelp {
