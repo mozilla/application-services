@@ -118,10 +118,11 @@ impl<'a> SuggestDao<'a> {
 
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
-            "INSERT INTO yelp_custom_details(record_id, icon_id, score) VALUES(:record_id, :icon_id, :score)",
+            "INSERT INTO yelp_custom_details(record_id, icon_light_theme_id, icon_dark_theme_id, score) VALUES(:record_id, :icon_light_theme_id, :icon_dark_theme_id, :score)",
             named_params! {
                 ":record_id": record_id.as_str(),
-                ":icon_id": suggestion.icon_id,
+                ":icon_light_theme_id": suggestion.icon_light_theme_id,
+                ":icon_dark_theme_id": suggestion.icon_dark_theme_id,
                 ":score": suggestion.score,
             },
         )?;
@@ -147,7 +148,13 @@ impl<'a> SuggestDao<'a> {
             let Some((subject, subject_exact_match)) = self.find_subject(query_string)? else {
                 return Ok(vec![]);
             };
-            let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
+            let (
+                icon_light_theme,
+                icon_light_theme_mimetype,
+                icon_dark_theme,
+                icon_dark_theme_mimetype,
+                score,
+            ) = self.fetch_custom_details()?;
             let builder = SuggestionBuilder {
                 subject: &subject,
                 subject_exact_match,
@@ -156,8 +163,10 @@ impl<'a> SuggestDao<'a> {
                 location_sign: None,
                 location: None,
                 need_location: false,
-                icon,
-                icon_mimetype,
+                icon_light_theme,
+                icon_light_theme_mimetype,
+                icon_dark_theme,
+                icon_dark_theme_mimetype,
                 score,
             };
             return Ok(vec![builder.into()]);
@@ -189,7 +198,13 @@ impl<'a> SuggestDao<'a> {
             return Ok(vec![]);
         };
 
-        let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
+        let (
+            icon_light_theme,
+            icon_light_theme_mimetype,
+            icon_dark_theme,
+            icon_dark_theme_mimetype,
+            score,
+        ) = self.fetch_custom_details()?;
         let builder = SuggestionBuilder {
             subject: &subject,
             subject_exact_match,
@@ -198,8 +213,10 @@ impl<'a> SuggestDao<'a> {
             location_sign,
             location,
             need_location,
-            icon,
-            icon_mimetype,
+            icon_light_theme,
+            icon_light_theme_mimetype,
+            icon_dark_theme,
+            icon_dark_theme_mimetype,
             score,
         };
         Ok(vec![builder.into()])
@@ -208,8 +225,10 @@ impl<'a> SuggestDao<'a> {
     /// Fetch the custom details for Yelp suggestions.
     /// It returns the location tuple as follows:
     /// (
-    ///   Option<Vec<u8>>: Icon data. If not found, returns None.
-    ///   Option<String>: Mimetype of the icon data. If not found, returns None.
+    ///   Option<Vec<u8>>: Icon data for light theme. If not found, returns None.
+    ///   Option<String>: Mimetype of the icon data for light theme. If not found, returns None.
+    ///   Option<Vec<u8>>: Icon data for dark theme. If not found, returns None.
+    ///   Option<String>: Mimetype of the icon data for dark theme. If not found, returns None.
     ///   f64: Reflects score field in the yelp_custom_details table.
     /// )
     ///
@@ -218,16 +237,27 @@ impl<'a> SuggestDao<'a> {
     /// on Remote Settings. The following query will perform a table scan against
     /// `yelp_custom_details` followed by an index search against `icons`,
     /// which should be fine since there is only one record in the first table.
-    fn fetch_custom_details(&self) -> Result<(Option<Vec<u8>>, Option<String>, f64)> {
+    fn fetch_custom_details(
+        &self,
+    ) -> Result<(
+        Option<Vec<u8>>,
+        Option<String>,
+        Option<Vec<u8>>,
+        Option<String>,
+        f64,
+    )> {
         let result = self.conn.query_row_and_then_cachable(
             r#"
             SELECT
-              i.data, i.mimetype, y.score
+              light.data, light.mimetype, dark.data, dark.mimetype, y.score
             FROM
               yelp_custom_details y
             LEFT JOIN
-              icons i
-              ON y.icon_id = i.id
+              icons light
+              ON y.icon_light_theme_id = light.id
+            LEFT JOIN
+              icons dark
+              ON y.icon_dark_theme_id = dark.id
             LIMIT
               1
             "#,
@@ -236,7 +266,9 @@ impl<'a> SuggestDao<'a> {
                 Ok((
                     row.get::<_, Option<Vec<u8>>>(0)?,
                     row.get::<_, Option<String>>(1)?,
-                    row.get::<_, f64>(2)?,
+                    row.get::<_, Option<Vec<u8>>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, f64>(4)?,
                 ))
             },
             true,
@@ -450,8 +482,10 @@ struct SuggestionBuilder<'a> {
     location_sign: Option<String>,
     location: Option<String>,
     need_location: bool,
-    icon: Option<Vec<u8>>,
-    icon_mimetype: Option<String>,
+    icon_light_theme: Option<Vec<u8>>,
+    icon_light_theme_mimetype: Option<String>,
+    icon_dark_theme: Option<Vec<u8>>,
+    icon_dark_theme_mimetype: Option<String>,
     score: f64,
 }
 
@@ -500,8 +534,10 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         Suggestion::Yelp {
             url,
             title,
-            icon: builder.icon,
-            icon_mimetype: builder.icon_mimetype,
+            icon_light_theme: builder.icon_light_theme,
+            icon_light_theme_mimetype: builder.icon_light_theme_mimetype,
+            icon_dark_theme: builder.icon_dark_theme,
+            icon_dark_theme_mimetype: builder.icon_dark_theme_mimetype,
             score: builder.score,
             has_location_sign: location_modifier.is_none() && builder.location_sign.is_some(),
             subject_exact_match: builder.subject_exact_match,

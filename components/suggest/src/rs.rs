@@ -461,8 +461,10 @@ pub(crate) struct DownloadedYelpSuggestion {
     pub location_signs: Vec<DownloadedYelpLocationSign>,
     #[serde(rename = "yelpModifiers")]
     pub yelp_modifiers: Vec<String>,
-    #[serde(rename = "icon")]
-    pub icon_id: String,
+    #[serde(rename = "iconLightTheme")]
+    pub icon_light_theme_id: String,
+    #[serde(rename = "iconDarkTheme")]
+    pub icon_dark_theme_id: String,
     pub score: f64,
 }
 

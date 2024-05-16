@@ -326,7 +326,8 @@ pub fn ramen_yelp() -> JsonValue {
             { "keyword": "near me", "needLocation": false },
         ],
         "yelpModifiers": ["yelp", "yelp keyword"],
-        "icon": "yelp-favicon",
+        "iconLightTheme": "yelp-light-theme-icon",
+        "iconDarkTheme": "yelp-dark-theme-icon",
         "score": 0.5
     })
 }
@@ -335,8 +336,10 @@ pub fn ramen_suggestion(title: &str, url: &str) -> Suggestion {
     Suggestion::Yelp {
         title: title.into(),
         url: url.into(),
-        icon: Some("yelp-favicon-data".into()),
-        icon_mimetype: Some("image/svg+xml".into()),
+        icon_light_theme: Some("yelp-light-theme-icon-data".into()),
+        icon_light_theme_mimetype: Some("image/svg+xml".into()),
+        icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
+        icon_dark_theme_mimetype: Some("image/svg+xml".into()),
         score: 0.5,
         has_location_sign: true,
         subject_exact_match: true,
@@ -348,6 +351,22 @@ pub fn yelp_favicon() -> MockIcon {
     MockIcon {
         id: "yelp-favicon",
         data: "yelp-favicon-data",
+        mimetype: "image/svg+xml",
+    }
+}
+
+pub fn yelp_light_theme_icon() -> MockIcon {
+    MockIcon {
+        id: "yelp-light-theme-icon",
+        data: "yelp-light-theme-icon-data",
+        mimetype: "image/svg+xml",
+    }
+}
+
+pub fn yelp_dark_theme_icon() -> MockIcon {
+    MockIcon {
+        id: "yelp-dark-theme-icon",
+        data: "yelp-dark-theme-icon-data",
         mimetype: "image/svg+xml",
     }
 }

@@ -113,9 +113,11 @@ CREATE TABLE yelp_location_signs(
 ) WITHOUT ROWID;
 
 CREATE TABLE yelp_custom_details(
-    icon_id TEXT PRIMARY KEY,
+    icon_light_theme_id TEXT NOT NULL,
+    icon_dark_theme_id TEXT NOT NULL,
     score REAL NOT NULL,
-    record_id TEXT NOT NULL
+    record_id TEXT NOT NULL,
+    PRIMARY KEY (icon_light_theme_id, icon_dark_theme_id)
 ) WITHOUT ROWID;
 
 CREATE TABLE mdn_custom_details(

@@ -65,8 +65,10 @@ pub enum Suggestion {
     Yelp {
         url: String,
         title: String,
-        icon: Option<Vec<u8>>,
-        icon_mimetype: Option<String>,
+        icon_light_theme: Option<Vec<u8>>,
+        icon_light_theme_mimetype: Option<String>,
+        icon_dark_theme: Option<Vec<u8>>,
+        icon_dark_theme_mimetype: Option<String>,
         score: f64,
         has_location_sign: bool,
         subject_exact_match: bool,

@@ -79,8 +79,10 @@ interface Suggestion {
     Yelp(
         string url,
         string title,
-        sequence<u8>? icon,
-        string? icon_mimetype,
+        sequence<u8>? icon_light_theme,
+        string? icon_light_theme_mimetype,
+        sequence<u8>? icon_dark_theme,
+        string? icon_dark_theme_mimetype,
         f64 score,
         boolean has_location_sign,
         boolean subject_exact_match,

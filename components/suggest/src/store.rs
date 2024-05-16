@@ -1259,12 +1259,12 @@ mod tests {
                     json!([burnout_pocket(), multimatch_pocket(),]),
                 )
                 .with_record("yelp-suggestions", "data-4", json!([ramen_yelp(),]))
-                .with_record("yeld-suggestions", "data-4", json!([ramen_yelp(),]))
                 .with_record("mdn-suggestions", "data-5", json!([array_mdn(),]))
                 .with_icon(good_place_eats_icon())
                 .with_icon(california_icon())
                 .with_icon(caltech_icon())
-                .with_icon(yelp_favicon())
+                .with_icon(yelp_light_theme_icon())
+                .with_icon(yelp_dark_theme_icon())
                 .with_icon(multimatch_wiki_icon()),
         );
 
@@ -2758,68 +2758,165 @@ mod tests {
     fn query_no_yelp_icon_data() -> anyhow::Result<()> {
         before_each();
 
-        let snapshot = Snapshot::with_records(json!([{
-            "id": "data-1",
-            "type": "yelp-suggestions",
-            "last_modified": 15,
-            "attachment": {
-                "filename": "data-1.json",
-                "mimetype": "application/json",
-                "location": "data-1.json",
-                "hash": "",
-                "size": 0,
-            },
-        }]))?
-        .with_data(
-            "data-1.json",
-            json!([
-                {
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("yelp-suggestions", "data-1", json!([{
+                    "subjects": ["ramen"],
+                    "preModifiers": [],
+                    "postModifiers": [],
+                    "locationSigns": [],
+                    "yelpModifiers": [],
+                    "iconLightTheme": "yelp-light-theme-icon",
+                    "iconDarkTheme": "yelp-dark-theme-icon",
+                    "score": 0.5
+                }]))
+        );
+
+        store.ingest(SuggestIngestionConstraints::default());
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
+            vec![
+                Suggestion::Yelp {
+                    title: "ramen".into(),
+                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                    icon_light_theme: None,
+                    icon_light_theme_mimetype: None,
+                    icon_dark_theme: None,
+                    icon_dark_theme_mimetype: None,
+                    score: 0.5,
+                    has_location_sign: false,
+                    subject_exact_match: true,
+                    location_param: "find_loc".into(),
+                }
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn query_full_yelp_icon_data() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("yelp-suggestions", "data-1", json!([{
                     "subjects": ["ramen"],
                     "preModifiers": [],
                     "postModifiers": [],
                     "locationSigns": [],
                     "yelpModifiers": [],
                     "icon": "yelp-favicon",
+                    "iconLightTheme": "yelp-light-theme-icon",
+                    "iconDarkTheme": "yelp-dark-theme-icon",
                     "score": 0.5
-                },
-            ]),
-        )?;
+                }]))
+                .with_icon(yelp_favicon())
+                .with_icon(yelp_light_theme_icon())
+                .with_icon(yelp_dark_theme_icon())
+        );
 
-        let store = unique_test_store(SnapshotSettingsClient::with_snapshot(snapshot));
+        store.ingest(SuggestIngestionConstraints::default());
 
-        store.ingest(SuggestIngestionConstraints::default())?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
+            vec![
+                Suggestion::Yelp {
+                    title: "ramen".into(),
+                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                    icon_light_theme: Some("yelp-light-theme-icon-data".into()),
+                    icon_light_theme_mimetype: Some("image/svg+xml".into()),
+                    icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
+                    icon_dark_theme_mimetype: Some("image/svg+xml".into()),
+                    score: 0.5,
+                    has_location_sign: false,
+                    subject_exact_match: true,
+                    location_param: "find_loc".into(),
+                }
+            ],
+        );
+        Ok(())
+    }
 
-        let table = [(
-            "keyword = ramen; Yelp only",
-            SuggestionQuery {
-                keyword: "ramen".into(),
-                providers: vec![SuggestionProvider::Yelp],
-                limit: None,
-            },
-            expect![[r#"
-                [
-                    Yelp {
-                        url: "https://www.yelp.com/search?find_desc=ramen",
-                        title: "ramen",
-                        icon: None,
-                        icon_mimetype: None,
-                        score: 0.5,
-                        has_location_sign: false,
-                        subject_exact_match: true,
-                        location_param: "find_loc",
-                    },
-                ]
-            "#]],
-        )];
+    #[test]
+    fn query_only_light_theme_yelp_icon_data() -> anyhow::Result<()> {
+        before_each();
 
-        for (what, query, expect) in table {
-            expect.assert_debug_eq(
-                &store
-                    .query(query)
-                    .with_context(|| format!("Couldn't query store for {}", what))?,
-            );
-        }
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("yelp-suggestions", "data-1", json!([{
+                    "subjects": ["ramen"],
+                    "preModifiers": [],
+                    "postModifiers": [],
+                    "locationSigns": [],
+                    "yelpModifiers": [],
+                    "iconLightTheme": "yelp-light-theme-icon",
+                    "iconDarkTheme": "yelp-dark-theme-icon",
+                    "score": 0.5
+                }]))
+                .with_icon(yelp_light_theme_icon())
+        );
 
+        store.ingest(SuggestIngestionConstraints::default());
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
+            vec![
+                Suggestion::Yelp {
+                    title: "ramen".into(),
+                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                    icon_light_theme: Some("yelp-light-theme-icon-data".into()),
+                    icon_light_theme_mimetype: Some("image/svg+xml".into()),
+                    icon_dark_theme: None,
+                    icon_dark_theme_mimetype: None,
+                    score: 0.5,
+                    has_location_sign: false,
+                    subject_exact_match: true,
+                    location_param: "find_loc".into(),
+                }
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn query_only_dark_theme_yelp_icon_data() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("yelp-suggestions", "data-1", json!([{
+                    "subjects": ["ramen"],
+                    "preModifiers": [],
+                    "postModifiers": [],
+                    "locationSigns": [],
+                    "yelpModifiers": [],
+                    "iconLightTheme": "yelp-light-theme-icon",
+                    "iconDarkTheme": "yelp-dark-theme-icon",
+                    "score": 0.5
+                }]))
+                .with_icon(yelp_dark_theme_icon())
+        );
+
+        store.ingest(SuggestIngestionConstraints::default());
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
+            vec![
+                Suggestion::Yelp {
+                    title: "ramen".into(),
+                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                    icon_light_theme: None,
+                    icon_light_theme_mimetype: None,
+                    icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
+                    icon_dark_theme_mimetype: Some("image/svg+xml".into()),
+                    score: 0.5,
+                    has_location_sign: false,
+                    subject_exact_match: true,
+                    location_param: "find_loc".into(),
+                }
+            ],
+        );
         Ok(())
     }
 
