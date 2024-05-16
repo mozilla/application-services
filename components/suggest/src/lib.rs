@@ -21,7 +21,7 @@ mod yelp;
 pub use config::{SuggestGlobalConfig, SuggestProviderConfig};
 pub use error::SuggestApiError;
 pub use provider::SuggestionProvider;
-pub use store::{SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder};
+pub use store::{InterruptKind, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder};
 pub use suggestion::{raw_suggestion_url_matches, Suggestion};
 
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;

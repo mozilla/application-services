@@ -109,6 +109,18 @@ impl SuggestStoreBuilder {
     }
 }
 
+/// What should be interrupted when [SuggestStore::interrupt] is called?
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum InterruptKind {
+    /// Interrupt read operations like [SuggestStore::query]
+    Read,
+    /// Interrupt write operations.  This mostly means [SuggestStore::ingest], but
+    /// [SuggestStore::dismiss_suggestion] may also be interrupted.
+    Write,
+    /// Interrupt both read and write operations,
+    ReadWrite,
+}
+
 /// The store is the entry point to the Suggest component. It incrementally
 /// downloads suggestions from the Remote Settings service, stores them in a
 /// local database, and returns them in response to user queries.
@@ -190,8 +202,8 @@ impl SuggestStore {
     /// This should be called when the user types new input into the address
     /// bar, to ensure that they see fresh suggestions as they type. This
     /// method does not interrupt any ongoing ingests.
-    pub fn interrupt(&self) {
-        self.inner.interrupt()
+    pub fn interrupt(&self, kind: Option<InterruptKind>) {
+        self.inner.interrupt(kind)
     }
 
     /// Ingests new suggestions from Remote Settings.
@@ -284,10 +296,21 @@ impl<S> SuggestStoreInner<S> {
         Ok(())
     }
 
-    fn interrupt(&self) {
+    fn interrupt(&self, kind: Option<InterruptKind>) {
         if let Some(dbs) = self.dbs.get() {
             // Only interrupt if the databases are already open.
-            dbs.reader.interrupt_handle.interrupt();
+            match kind.unwrap_or(InterruptKind::Read) {
+                InterruptKind::Read => {
+                    dbs.reader.interrupt_handle.interrupt();
+                }
+                InterruptKind::Write => {
+                    dbs.writer.interrupt_handle.interrupt();
+                }
+                InterruptKind::ReadWrite => {
+                    dbs.reader.interrupt_handle.interrupt();
+                    dbs.writer.interrupt_handle.interrupt();
+                }
+            }
         }
     }
 
@@ -315,7 +338,6 @@ where
 {
     pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
-
         if constraints.empty_only && !writer.read(|dao| dao.suggestions_table_empty())? {
             return Ok(());
         }
@@ -331,8 +353,12 @@ where
             DEFAULT_RECORDS_TYPES.to_vec()
         };
 
+        // Handle ingestion inside single write scope
+        let mut write_scope = writer.write_scope()?;
         for ingest_record_type in ingest_record_types {
-            self.ingest_records_by_type(ingest_record_type, writer, &constraints)?;
+            write_scope
+                .write(|dao| self.ingest_records_by_type(ingest_record_type, dao, &constraints))?;
+            write_scope.err_if_interrupted()?;
         }
 
         Ok(())
@@ -341,26 +367,25 @@ where
     fn ingest_records_by_type(
         &self,
         ingest_record_type: SuggestRecordType,
-        writer: &SuggestDb,
+        dao: &mut SuggestDao,
         constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
         let request = SuggestRemoteSettingsRecordRequest {
             record_type: Some(ingest_record_type.to_string()),
-            last_modified: writer.read(|dao| {
-                dao.get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())
-            })?,
+            last_modified: dao
+                .get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())?,
             limit: constraints.max_suggestions,
         };
 
         let records = self.settings_client.get_records(request)?;
-        self.ingest_records(&ingest_record_type.last_ingest_meta_key(), writer, &records)?;
+        self.ingest_records(&ingest_record_type.last_ingest_meta_key(), dao, &records)?;
         Ok(())
     }
 
     fn ingest_records(
         &self,
         last_ingest_key: &str,
-        writer: &SuggestDb,
+        dao: &mut SuggestDao,
         records: &[SuggestRemoteSettingsRecord],
     ) -> Result<()> {
         for record in records {
@@ -368,7 +393,7 @@ where
             if record.deleted {
                 // If the entire record was deleted, drop all its suggestions
                 // and advance the last ingest time.
-                writer.write(|dao| dao.handle_deleted_record(last_ingest_key, record))?;
+                dao.handle_deleted_record(last_ingest_key, record)?;
                 continue;
             }
             let Ok(fields) =
@@ -386,7 +411,7 @@ where
                         // breaks the tests (particularly the unparsable functionality). So, keeping
                         // a direct reference until we remove the "unparsable" functionality.
                         &SuggestRecordType::AmpWikipedia.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| {
                             dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
@@ -396,7 +421,7 @@ where
                 SuggestRecord::AmpMobile => {
                     self.ingest_attachment(
                         &SuggestRecordType::AmpMobile.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| {
                             dao.insert_amp_mobile_suggestions(record_id, suggestions)
@@ -410,27 +435,23 @@ where
                         // An icon record should have an icon ID and an
                         // attachment. Icons that don't have these are
                         // malformed, so skip to the next record.
-                        writer.write(|dao| {
-                            dao.put_last_ingest_if_newer(
-                                &SuggestRecordType::Icon.last_ingest_meta_key(),
-                                record.last_modified,
-                            )
-                        })?;
+                        dao.put_last_ingest_if_newer(
+                            &SuggestRecordType::Icon.last_ingest_meta_key(),
+                            record.last_modified,
+                        )?;
                         continue;
                     };
                     let data = record.require_attachment_data()?;
-                    writer.write(|dao| {
-                        dao.put_icon(icon_id, data, &attachment.mimetype)?;
-                        dao.handle_ingested_record(
-                            &SuggestRecordType::Icon.last_ingest_meta_key(),
-                            record,
-                        )
-                    })?;
+                    dao.put_icon(icon_id, data, &attachment.mimetype)?;
+                    dao.handle_ingested_record(
+                        &SuggestRecordType::Icon.last_ingest_meta_key(),
+                        record,
+                    )?;
                 }
                 SuggestRecord::Amo => {
                     self.ingest_attachment(
                         &SuggestRecordType::Amo.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| {
                             dao.insert_amo_suggestions(record_id, suggestions)
@@ -440,7 +461,7 @@ where
                 SuggestRecord::Pocket => {
                     self.ingest_attachment(
                         &SuggestRecordType::Pocket.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| {
                             dao.insert_pocket_suggestions(record_id, suggestions)
@@ -450,7 +471,7 @@ where
                 SuggestRecord::Yelp => {
                     self.ingest_attachment(
                         &SuggestRecordType::Yelp.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| match suggestions.first() {
                             Some(suggestion) => dao.insert_yelp_suggestions(record_id, suggestion),
@@ -461,7 +482,7 @@ where
                 SuggestRecord::Mdn => {
                     self.ingest_attachment(
                         &SuggestRecordType::Mdn.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id, suggestions| {
                             dao.insert_mdn_suggestions(record_id, suggestions)
@@ -471,7 +492,7 @@ where
                 SuggestRecord::Weather(data) => {
                     self.ingest_record(
                         &SuggestRecordType::Weather.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, record_id| dao.insert_weather_data(record_id, &data),
                     )?;
@@ -479,7 +500,7 @@ where
                 SuggestRecord::GlobalConfig(config) => {
                     self.ingest_record(
                         &SuggestRecordType::GlobalConfig.last_ingest_meta_key(),
-                        writer,
+                        dao,
                         record,
                         |dao, _| dao.put_global_config(&SuggestGlobalConfig::from(&config)),
                     )?;
@@ -492,30 +513,28 @@ where
     fn ingest_record(
         &self,
         last_ingest_key: &str,
-        writer: &SuggestDb,
+        dao: &mut SuggestDao,
         record: &SuggestRemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
     ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
 
-        writer.write(|dao| {
-            // Drop any data that we previously ingested from this record.
-            // Suggestions in particular don't have a stable identifier, and
-            // determining which suggestions in the record actually changed is
-            // more complicated than dropping and re-ingesting all of them.
-            dao.drop_suggestions(&record_id)?;
+        // Drop any data that we previously ingested from this record.
+        // Suggestions in particular don't have a stable identifier, and
+        // determining which suggestions in the record actually changed is
+        // more complicated than dropping and re-ingesting all of them.
+        dao.drop_suggestions(&record_id)?;
 
-            // Ingest (or re-ingest) all data in the record.
-            ingestion_handler(dao, &record_id)?;
+        // Ingest (or re-ingest) all data in the record.
+        ingestion_handler(dao, &record_id)?;
 
-            dao.handle_ingested_record(last_ingest_key, record)
-        })
+        dao.handle_ingested_record(last_ingest_key, record)
     }
 
     fn ingest_attachment<T>(
         &self,
         last_ingest_key: &str,
-        writer: &SuggestDb,
+        dao: &mut SuggestDao,
         record: &SuggestRemoteSettingsRecord,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
     ) -> Result<()>
@@ -526,18 +545,15 @@ where
             // This method should be called only when a record is expected to
             // have an attachment. If it doesn't have one, it's malformed, so
             // skip to the next record.
-            writer
-                .write(|dao| dao.put_last_ingest_if_newer(last_ingest_key, record.last_modified))?;
+            dao.put_last_ingest_if_newer(last_ingest_key, record.last_modified)?;
             return Ok(());
         };
 
         let attachment_data = record.require_attachment_data()?;
         match serde_json::from_slice::<SuggestAttachment<T>>(attachment_data) {
-            Ok(attachment) => {
-                self.ingest_record(last_ingest_key, writer, record, |dao, record_id| {
-                    ingestion_handler(dao, record_id, attachment.suggestions())
-                })
-            }
+            Ok(attachment) => self.ingest_record(last_ingest_key, dao, record, |dao, record_id| {
+                ingestion_handler(dao, record_id, attachment.suggestions())
+            }),
             // If the attachment doesn't match our expected schema, just skip it.  It's possible
             // that we're using an older version.  If so, we'll get the data when we re-ingest
             // after updating the schema.
@@ -560,12 +576,16 @@ where
     }
 
     pub fn benchmark_ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {
-        self.ingest_records_by_type(
-            ingest_record_type,
-            &self.dbs().unwrap().writer,
-            &SuggestIngestionConstraints::default(),
-        )
-        .unwrap()
+        let writer = &self.dbs().unwrap().writer;
+        writer
+            .write(|dao| {
+                self.ingest_records_by_type(
+                    ingest_record_type,
+                    dao,
+                    &SuggestIngestionConstraints::default(),
+                )
+            })
+            .unwrap()
     }
 
     pub fn table_row_counts(&self) -> Vec<(String, u32)> {

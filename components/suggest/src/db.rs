@@ -6,7 +6,7 @@
 use std::{collections::HashSet, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
@@ -98,7 +98,7 @@ impl SuggestDb {
     pub fn read<T>(&self, op: impl FnOnce(&SuggestDao) -> Result<T>) -> Result<T> {
         let conn = self.conn.lock();
         let scope = self.interrupt_handle.begin_interrupt_scope()?;
-        let dao = SuggestDao::new(&conn, scope);
+        let dao = SuggestDao::new(&conn, &scope);
         op(&dao)
     }
 
@@ -107,10 +107,44 @@ impl SuggestDb {
         let mut conn = self.conn.lock();
         let scope = self.interrupt_handle.begin_interrupt_scope()?;
         let tx = conn.transaction()?;
-        let mut dao = SuggestDao::new(&tx, scope);
+        let mut dao = SuggestDao::new(&tx, &scope);
         let result = op(&mut dao)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    /// Create a new write scope.
+    ///
+    /// This enables performing multiple `write()` calls with the same shared interrupt scope.
+    /// This is important for things like ingestion, where you want the operation to be interrupted
+    /// if [Self::interrupt_handle::interrupt] is called after the operation starts.  Calling
+    /// [Self::write] multiple times during the operation risks missing a call that happens after
+    /// between those calls.
+    pub fn write_scope(&self) -> Result<WriteScope> {
+        Ok(WriteScope {
+            conn: self.conn.lock(),
+            scope: self.interrupt_handle.begin_interrupt_scope()?,
+        })
+    }
+}
+
+pub(crate) struct WriteScope<'a> {
+    pub conn: MutexGuard<'a, Connection>,
+    pub scope: SqlInterruptScope,
+}
+
+impl WriteScope<'_> {
+    /// Accesses the Suggest database in a transaction for reading and writing.
+    pub fn write<T>(&mut self, op: impl FnOnce(&mut SuggestDao) -> Result<T>) -> Result<T> {
+        let tx = self.conn.transaction()?;
+        let mut dao = SuggestDao::new(&tx, &self.scope);
+        let result = op(&mut dao)?;
+        tx.commit()?;
+        Ok(result)
+    }
+
+    pub fn err_if_interrupted(&self) -> Result<()> {
+        Ok(self.scope.err_if_interrupted()?)
     }
 }
 
@@ -122,11 +156,11 @@ impl SuggestDb {
 /// reference (`&mut self`).
 pub(crate) struct SuggestDao<'a> {
     pub conn: &'a Connection,
-    pub scope: SqlInterruptScope,
+    pub scope: &'a SqlInterruptScope,
 }
 
 impl<'a> SuggestDao<'a> {
-    fn new(conn: &'a Connection, scope: SqlInterruptScope) -> Self {
+    fn new(conn: &'a Connection, scope: &'a SqlInterruptScope) -> Self {
         Self { conn, scope }
     }
 
