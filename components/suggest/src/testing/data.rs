@@ -362,6 +362,17 @@ pub fn array_mdn() -> JsonValue {
     })
 }
 
+pub fn array_suggestion() -> Suggestion {
+    Suggestion::Mdn {
+        title: "Array".into(),
+        url:
+            "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array"
+                .into(),
+        description: "Javascript Array".into(),
+        score: 0.24,
+    }
+}
+
 pub fn multimatch_wiki() -> JsonValue {
     json!({
         "id": 0,
@@ -407,12 +418,12 @@ pub fn multimatch_wiki_icon() -> MockIcon {
     }
 }
 
-pub fn multimatch_pocket_suggestion() -> Suggestion {
+pub fn multimatch_pocket_suggestion(is_top_pick: bool) -> Suggestion {
     Suggestion::Pocket {
         title: "Multimatching".into(),
         url: "https://getpocket.com/collections/multimatch".into(),
         score: 0.88,
-        is_top_pick: true,
+        is_top_pick,
     }
 }
 
