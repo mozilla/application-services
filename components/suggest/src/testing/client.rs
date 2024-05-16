@@ -9,10 +9,7 @@ use serde_json::json;
 use serde_json::Value as JsonValue;
 
 use crate::{
-    rs::{
-        SuggestRemoteSettingsClient, SuggestRemoteSettingsRecord,
-        SuggestRemoteSettingsRecordRequest,
-    },
+    rs::{Client, Record, RecordRequest},
     testing::JsonExt,
     Result,
 };
@@ -22,7 +19,7 @@ use crate::{
 /// MockRemoteSettingsClient uses the builder pattern for its API: most methods input `self` and
 /// return a modified version of it.
 pub struct MockRemoteSettingsClient {
-    pub records: HashMap<String, Vec<SuggestRemoteSettingsRecord>>,
+    pub records: HashMap<String, Vec<Record>>,
     pub last_modified_timestamp: u64,
 }
 
@@ -43,7 +40,7 @@ impl MockRemoteSettingsClient {
     pub fn with_record(mut self, record_type: &str, record_id: &str, items: JsonValue) -> Self {
         let location = format!("{record_type}-{record_id}.json");
         let records = self.records.entry(record_type.to_string()).or_default();
-        records.push(SuggestRemoteSettingsRecord {
+        records.push(Record {
             id: record_id.to_string(),
             last_modified: self.last_modified_timestamp,
             deleted: false,
@@ -67,7 +64,7 @@ impl MockRemoteSettingsClient {
     /// This is used by remote settings to indicated a deleted record
     pub fn with_tombstone(mut self, record_type: &str, record_id: &str) -> Self {
         let records = self.records.entry(record_type.to_string()).or_default();
-        records.push(SuggestRemoteSettingsRecord {
+        records.push(Record {
             id: record_id.to_string(),
             last_modified: self.last_modified_timestamp,
             deleted: true,
@@ -84,7 +81,7 @@ impl MockRemoteSettingsClient {
         let record_id = format!("icon-{icon_id}");
         let location = format!("icon-{icon_id}.png");
         let records = self.records.entry("icon".to_string()).or_default();
-        records.push(SuggestRemoteSettingsRecord {
+        records.push(Record {
             id: record_id.to_string(),
             last_modified: self.last_modified_timestamp,
             deleted: false,
@@ -113,11 +110,8 @@ pub struct MockIcon {
     pub mimetype: &'static str,
 }
 
-impl SuggestRemoteSettingsClient for MockRemoteSettingsClient {
-    fn get_records(
-        &self,
-        request: SuggestRemoteSettingsRecordRequest,
-    ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
+impl Client for MockRemoteSettingsClient {
+    fn get_records(&self, request: RecordRequest) -> Result<Vec<Record>> {
         let record_type = request.record_type.unwrap_or_else(|| {
             panic!("MockRemoteSettingsClient.get_records: record_type required ")
         });

@@ -22,7 +22,7 @@ use crate::{
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
         DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
-        DownloadedWikipediaSuggestion, SuggestRecordId, SuggestRemoteSettingsRecord,
+        DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
@@ -134,21 +134,13 @@ impl<'a> SuggestDao<'a> {
     //
     //  These methods combine several low-level calls into one logical operation.
 
-    pub fn handle_ingested_record(
-        &mut self,
-        last_ingest_key: &str,
-        record: &SuggestRemoteSettingsRecord,
-    ) -> Result<()> {
+    pub fn handle_ingested_record(&mut self, last_ingest_key: &str, record: &Record) -> Result<()> {
         // Advance the last fetch time, so that we can resume
         // fetching after this record if we're interrupted.
         self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
     }
 
-    pub fn handle_deleted_record(
-        &mut self,
-        last_ingest_key: &str,
-        record: &SuggestRemoteSettingsRecord,
-    ) -> Result<()> {
+    pub fn handle_deleted_record(&mut self, last_ingest_key: &str, record: &Record) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
         // Drop either the icon or suggestions, records only contain one or the other
         match record_id.as_icon_id() {

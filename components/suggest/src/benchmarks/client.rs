@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    rs::{
-        SuggestRemoteSettingsClient, SuggestRemoteSettingsRecord,
-        SuggestRemoteSettingsRecordRequest,
-    },
-    Result,
-};
+use crate::{rs, Result};
 use parking_lot::Mutex;
 use remote_settings::{Client, RemoteSettingsConfig};
 use std::collections::HashMap;
@@ -17,11 +11,10 @@ use std::collections::HashMap;
 ///
 /// This should be used to run a full ingestion.
 /// Then it can be converted into a [RemoteSettingsBenchmarkClient], which allows benchmark code to exclude the network request time.
-/// [RemoteSettingsBenchmarkClient] implements [SuggestRemoteSettingsClient] by getting data from a HashMap rather than hitting the network.
+/// [RemoteSettingsBenchmarkClient] implements [rs::Client] by getting data from a HashMap rather than hitting the network.
 pub struct RemoteSettingsWarmUpClient {
     client: Client,
-    pub get_records_responses:
-        Mutex<HashMap<SuggestRemoteSettingsRecordRequest, Vec<SuggestRemoteSettingsRecord>>>,
+    pub get_records_responses: Mutex<HashMap<rs::RecordRequest, Vec<rs::Record>>>,
 }
 
 impl RemoteSettingsWarmUpClient {
@@ -45,13 +38,9 @@ impl Default for RemoteSettingsWarmUpClient {
     }
 }
 
-impl SuggestRemoteSettingsClient for RemoteSettingsWarmUpClient {
-    fn get_records(
-        &self,
-        request: SuggestRemoteSettingsRecordRequest,
-    ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
-        let response =
-            <Client as SuggestRemoteSettingsClient>::get_records(&self.client, request.clone())?;
+impl rs::Client for RemoteSettingsWarmUpClient {
+    fn get_records(&self, request: rs::RecordRequest) -> Result<Vec<rs::Record>> {
+        let response = <Client as rs::Client>::get_records(&self.client, request.clone())?;
         self.get_records_responses
             .lock()
             .insert(request, response.clone());
@@ -61,15 +50,11 @@ impl SuggestRemoteSettingsClient for RemoteSettingsWarmUpClient {
 
 #[derive(Clone)]
 pub struct RemoteSettingsBenchmarkClient {
-    pub get_records_responses:
-        HashMap<SuggestRemoteSettingsRecordRequest, Vec<SuggestRemoteSettingsRecord>>,
+    pub get_records_responses: HashMap<rs::RecordRequest, Vec<rs::Record>>,
 }
 
-impl SuggestRemoteSettingsClient for RemoteSettingsBenchmarkClient {
-    fn get_records(
-        &self,
-        request: SuggestRemoteSettingsRecordRequest,
-    ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
+impl rs::Client for RemoteSettingsBenchmarkClient {
+    fn get_records(&self, request: rs::RecordRequest) -> Result<Vec<rs::Record>> {
         Ok(self
             .get_records_responses
             .get(&request)
