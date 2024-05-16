@@ -64,19 +64,13 @@ pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
 /// A trait for a client that downloads suggestions from Remote Settings.
 ///
 /// This trait lets tests use a mock client.
-pub(crate) trait SuggestRemoteSettingsClient {
+pub(crate) trait Client {
     /// Fetch a list of records and attachment data
-    fn get_records(
-        &self,
-        request: SuggestRemoteSettingsRecordRequest,
-    ) -> Result<Vec<SuggestRemoteSettingsRecord>>;
+    fn get_records(&self, request: RecordRequest) -> Result<Vec<Record>>;
 }
 
-impl SuggestRemoteSettingsClient for remote_settings::Client {
-    fn get_records(
-        &self,
-        request: SuggestRemoteSettingsRecordRequest,
-    ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
+impl Client for remote_settings::Client {
+    fn get_records(&self, request: RecordRequest) -> Result<Vec<Record>> {
         let options = request.into();
         self.get_records_with_options(&options)?
             .records
@@ -87,21 +81,21 @@ impl SuggestRemoteSettingsClient for remote_settings::Client {
                     .as_ref()
                     .map(|a| self.get_attachment(&a.location))
                     .transpose()?;
-                Ok(SuggestRemoteSettingsRecord::new(record, attachment_data))
+                Ok(Record::new(record, attachment_data))
             })
             .collect()
     }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct SuggestRemoteSettingsRecordRequest {
+pub struct RecordRequest {
     pub record_type: Option<String>,
     pub last_modified: Option<u64>,
     pub limit: Option<u64>,
 }
 
-impl From<SuggestRemoteSettingsRecordRequest> for GetItemsOptions {
-    fn from(value: SuggestRemoteSettingsRecordRequest) -> Self {
+impl From<RecordRequest> for GetItemsOptions {
+    fn from(value: RecordRequest) -> Self {
         let mut options = GetItemsOptions::new();
 
         // Remote Settings returns records in descending modification order
@@ -130,7 +124,7 @@ impl From<SuggestRemoteSettingsRecordRequest> for GetItemsOptions {
 ///
 /// This is `remote_settings::RemoteSettingsRecord`, plus the downloaded attachment data.
 #[derive(Clone, Debug, Default)]
-pub struct SuggestRemoteSettingsRecord {
+pub struct Record {
     pub id: String,
     pub last_modified: u64,
     pub deleted: bool,
@@ -139,7 +133,7 @@ pub struct SuggestRemoteSettingsRecord {
     pub attachment_data: Option<Vec<u8>>,
 }
 
-impl SuggestRemoteSettingsRecord {
+impl Record {
     pub fn new(record: RemoteSettingsRecord, attachment_data: Option<Vec<u8>>) -> Self {
         Self {
             id: record.id,
@@ -634,9 +628,9 @@ mod test {
     #[test]
     fn test_remote_settings_limits() {
         fn check_limit(suggestion_limit: Option<u64>, expected_record_limit: Option<&str>) {
-            let request = SuggestRemoteSettingsRecordRequest {
+            let request = RecordRequest {
                 limit: suggestion_limit,
-                ..SuggestRemoteSettingsRecordRequest::default()
+                ..RecordRequest::default()
             };
             let options: GetItemsOptions = request.into();
             let actual_record_limit = options

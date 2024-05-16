@@ -22,9 +22,8 @@ use crate::{
     error::Error,
     provider::SuggestionProvider,
     rs::{
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRecordType,
-        SuggestRemoteSettingsClient, SuggestRemoteSettingsRecord,
-        SuggestRemoteSettingsRecordRequest, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
+        Client, Record, RecordRequest, SuggestAttachment, SuggestRecord, SuggestRecordId,
+        SuggestRecordType, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -311,7 +310,7 @@ impl<S> SuggestStoreInner<S> {
 
 impl<S> SuggestStoreInner<S>
 where
-    S: SuggestRemoteSettingsClient,
+    S: Client,
 {
     pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
         let writer = &self.dbs()?.writer;
@@ -344,7 +343,7 @@ where
         writer: &SuggestDb,
         constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
-        let request = SuggestRemoteSettingsRecordRequest {
+        let request = RecordRequest {
             record_type: Some(ingest_record_type.to_string()),
             last_modified: writer.read(|dao| {
                 dao.get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())
@@ -361,7 +360,7 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        records: &[SuggestRemoteSettingsRecord],
+        records: &[Record],
     ) -> Result<()> {
         for record in records {
             let record_id = SuggestRecordId::from(&record.id);
@@ -493,7 +492,7 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        record: &SuggestRemoteSettingsRecord,
+        record: &Record,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
     ) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
@@ -516,7 +515,7 @@ where
         &self,
         last_ingest_key: &str,
         writer: &SuggestDb,
-        record: &SuggestRemoteSettingsRecord,
+        record: &Record,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
     ) -> Result<()>
     where
@@ -549,7 +548,7 @@ where
 #[cfg(feature = "benchmark_api")]
 impl<S> SuggestStoreInner<S>
 where
-    S: SuggestRemoteSettingsClient,
+    S: Client,
 {
     pub fn into_settings_client(self) -> S {
         self.settings_client
@@ -681,7 +680,7 @@ mod tests {
     /// Creates a unique in-memory Suggest store.
     fn unique_test_store<S>(settings_client: S) -> SuggestStoreInner<S>
     where
-        S: SuggestRemoteSettingsClient,
+        S: Client,
     {
         let mut unique_suffix = [0u8; 8];
         rand::fill(&mut unique_suffix).expect("Failed to generate unique suffix for test store");
@@ -758,11 +757,8 @@ mod tests {
         }
     }
 
-    impl SuggestRemoteSettingsClient for SnapshotSettingsClient {
-        fn get_records(
-            &self,
-            _request: SuggestRemoteSettingsRecordRequest,
-        ) -> Result<Vec<SuggestRemoteSettingsRecord>> {
+    impl Client for SnapshotSettingsClient {
+        fn get_records(&self, _request: RecordRequest) -> Result<Vec<Record>> {
             let snapshot = self.snapshot.borrow();
             snapshot
                 .records
@@ -780,7 +776,7 @@ mod tests {
                         .transpose()?
                         .cloned();
 
-                    Ok(SuggestRemoteSettingsRecord::new(r.clone(), attachment))
+                    Ok(Record::new(r.clone(), attachment))
                 })
                 .collect()
         }
