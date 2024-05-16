@@ -117,6 +117,10 @@ abstract class NimbusAssembleToolsTask extends DefaultTask {
             }
         }
 
+        if (visitedFilePaths.empty) {
+            throw new GradleException("Couldn't find any files in archive matching unzip spec: (${unzipSpec.includePatterns.get().collect { "`$it`" }.join(' | ')})")
+        }
+
         if (visitedFilePaths.size() > 1) {
             throw new GradleException("Ambiguous unzip spec matched ${visitedFilePaths.size()} files in archive: ${visitedFilePaths.collect { "`$it`" }.join(', ')}")
         }
