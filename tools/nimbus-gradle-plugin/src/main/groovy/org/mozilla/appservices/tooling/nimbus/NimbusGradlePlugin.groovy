@@ -161,7 +161,7 @@ class NimbusPlugin implements Plugin<Project> {
             }
 
             unzip {
-                include "${getArchOs()}/release/nimbus-fml*"
+                include "${getArchOs()}*/release/nimbus-fml*"
             }
 
             onlyIf('`applicationServicesDir` == null') {
