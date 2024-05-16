@@ -4,7 +4,7 @@
 
 //! Test data that we use in many tests
 
-use crate::{testing::MockIcon, Suggestion};
+use crate::{testing::MockIcon, Suggestion, SuggestionIcon};
 use serde_json::json;
 use serde_json::Value as JsonValue;
 
@@ -36,8 +36,10 @@ pub fn los_pollos_suggestion(full_keyword: &str) -> Suggestion {
         title: "Los Pollos Hermanos - Albuquerque".into(),
         url: "https://www.lph-nm.biz".into(),
         raw_url: "https://www.lph-nm.biz".into(),
-        icon: Some("los-pollos-icon-data".as_bytes().to_vec()),
-        icon_mimetype: Some("image/png".into()),
+        icon: Some(SuggestionIcon {
+            data: "los-pollos-icon-data".into(),
+            mime_type: "image/png".into(),
+        }),
         block_id: 100,
         advertiser: "Los Pollos Hermanos".into(),
         iab_category: "8 - Food & Drink".into(),
@@ -76,8 +78,10 @@ pub fn good_place_eats_suggestion(full_keyword: &str) -> Suggestion {
         title: "Lasagna Come Out Tomorrow".into(),
         url: "https://www.lasagna.restaurant".into(),
         raw_url: "https://www.lasagna.restaurant".into(),
-        icon: Some("good-place-eats-icon-data".as_bytes().to_vec()),
-        icon_mimetype: Some("image/gif".into()),
+        icon: Some(SuggestionIcon {
+            data: "good-place-eats-icon-data".into(),
+            mime_type: "image/gif".into(),
+        }),
         full_keyword: full_keyword.into(),
         block_id: 101,
         advertiser: "Good Place Eats".into(),
@@ -113,8 +117,10 @@ pub fn california_suggestion(full_keyword: &str) -> Suggestion {
     Suggestion::Wikipedia {
         title: "California".into(),
         url: "https://wikipedia.org/California".into(),
-        icon: Some("california-icon-data".as_bytes().to_vec()),
-        icon_mimetype: Some("image/png".into()),
+        icon: Some(SuggestionIcon {
+            data: "california-icon-data".into(),
+            mime_type: "image/png".into(),
+        }),
         full_keyword: full_keyword.into(),
     }
 }
@@ -143,8 +149,10 @@ pub fn caltech_suggestion(full_keyword: &str) -> Suggestion {
     Suggestion::Wikipedia {
         title: "California Institute of Technology".into(),
         url: "https://wikipedia.org/California_Institute_of_Technology".into(),
-        icon: Some("caltech-icon-data".as_bytes().to_vec()),
-        icon_mimetype: Some("image/png".into()),
+        icon: Some(SuggestionIcon {
+            data: "caltech-icon-data".into(),
+            mime_type: "image/png".into(),
+        }),
         full_keyword: full_keyword.into(),
     }
 }
@@ -170,7 +178,6 @@ pub fn a1a_suggestion(full_keyword: &str) -> Suggestion {
         url: "https://www.a1a-wash.biz".into(),
         raw_url: "https://www.a1a-wash.biz".into(),
         icon: None,
-        icon_mimetype: None,
         block_id: 300,
         advertiser: "A1A Car Wash".into(),
         iab_category: "2 - Auto".into(),
@@ -336,10 +343,14 @@ pub fn ramen_suggestion(title: &str, url: &str) -> Suggestion {
     Suggestion::Yelp {
         title: title.into(),
         url: url.into(),
-        icon_light_theme: Some("yelp-light-theme-icon-data".into()),
-        icon_light_theme_mimetype: Some("image/svg+xml".into()),
-        icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
-        icon_dark_theme_mimetype: Some("image/svg+xml".into()),
+        icon_light_theme: Some(SuggestionIcon {
+            data: "yelp-light-theme-icon-data".into(),
+            mime_type: "image/svg+xml".into(),
+        }),
+        icon_dark_theme: Some(SuggestionIcon {
+            data: "yelp-dark-theme-icon-data".into(),
+            mime_type: "image/svg+xml".into(),
+        }),
         score: 0.5,
         has_location_sign: true,
         subject_exact_match: true,
@@ -452,8 +463,10 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
     Suggestion::Wikipedia {
         title: "Multimatch".into(),
         url: "https://wikipedia.org/Multimatch".into(),
-        icon: Some("multimatch-wiki-icon-data".as_bytes().to_vec()),
-        icon_mimetype: Some("image/png".into()),
+        icon: Some(SuggestionIcon {
+            data: "multimatch-wiki-icon-data".into(),
+            mime_type: "image/png".into(),
+        }),
         full_keyword: "multimatch".into(),
     }
 }

@@ -25,7 +25,7 @@ use crate::{
         Client, Record, RecordRequest, SuggestAttachment, SuggestRecord, SuggestRecordId,
         SuggestRecordType, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
     },
-    Result, SuggestApiResult, Suggestion, SuggestionQuery,
+    Result, SuggestApiResult, Suggestion, SuggestionIcon, SuggestionQuery,
 };
 
 /// Builder for [SuggestStore]
@@ -1085,12 +1085,12 @@ mod tests {
 
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")).as_slice(),
-            [ Suggestion::Amp { icon, .. } ] if *icon == Some("new-los-pollos-icon".as_bytes().to_vec())
+            [ Suggestion::Amp { icon, .. } ] if *icon == Some(SuggestionIcon{data:"new-los-pollos-icon".into(), mime_type: "image/png".into()})
         ));
 
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::amp("la")).as_slice(),
-            [ Suggestion::Amp { icon, .. } ] if *icon == Some("new-good-place-eats-icon".as_bytes().to_vec())
+            [ Suggestion::Amp { icon, .. } ] if *icon == Some(SuggestionIcon{data:"new-good-place-eats-icon".into(), mime_type: "image/gif".into()})
         ));
 
         Ok(())
@@ -1200,8 +1200,9 @@ mod tests {
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::amp("la")).as_slice(),
             [
-                Suggestion::Amp { icon, icon_mimetype, .. }
-            ] if icon.is_none() && icon_mimetype.is_none(),
+                Suggestion::Amp { icon , .. }
+            ] if icon.is_none()
+
         ));
         Ok(())
     }
@@ -1764,7 +1765,6 @@ mod tests {
                             url: "https://www.lasagna.restaurant",
                             raw_url: "https://www.lasagna.restaurant",
                             icon: None,
-                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -1778,23 +1778,23 @@ mod tests {
                             title: "Multimatch",
                             url: "https://wikipedia.org/Multimatch",
                             icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
+                                SuggestionIcon {
+                                    data: [
+                                        97,
+                                        108,
+                                        115,
+                                        111,
+                                        45,
+                                        97,
+                                        110,
+                                        45,
+                                        105,
+                                        99,
+                                        111,
+                                        110,
+                                    ],
+                                    mime_type: "image/png",
+                                },
                             ),
                             full_keyword: "amp wiki match",
                         },
@@ -1803,7 +1803,6 @@ mod tests {
                             url: "https://penne.biz",
                             raw_url: "https://penne.biz",
                             icon: None,
-                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -1836,7 +1835,6 @@ mod tests {
                             url: "https://www.lasagna.restaurant",
                             raw_url: "https://www.lasagna.restaurant",
                             icon: None,
-                            icon_mimetype: None,
                             full_keyword: "amp wiki match",
                             block_id: 0,
                             advertiser: "Good Place Eats",
@@ -1850,23 +1848,23 @@ mod tests {
                             title: "Multimatch",
                             url: "https://wikipedia.org/Multimatch",
                             icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
+                                SuggestionIcon {
+                                    data: [
+                                        97,
+                                        108,
+                                        115,
+                                        111,
+                                        45,
+                                        97,
+                                        110,
+                                        45,
+                                        105,
+                                        99,
+                                        111,
+                                        110,
+                                    ],
+                                    mime_type: "image/png",
+                                },
                             ),
                             full_keyword: "amp wiki match",
                         },
@@ -1897,23 +1895,23 @@ mod tests {
                             title: "Multimatch",
                             url: "https://wikipedia.org/Multimatch",
                             icon: Some(
-                                [
-                                    97,
-                                    108,
-                                    115,
-                                    111,
-                                    45,
-                                    97,
-                                    110,
-                                    45,
-                                    105,
-                                    99,
-                                    111,
-                                    110,
-                                ],
-                            ),
-                            icon_mimetype: Some(
-                                "image/png",
+                                SuggestionIcon {
+                                    data: [
+                                        97,
+                                        108,
+                                        115,
+                                        111,
+                                        45,
+                                        97,
+                                        110,
+                                        45,
+                                        105,
+                                        99,
+                                        111,
+                                        110,
+                                    ],
+                                    mime_type: "image/png",
+                                },
                             ),
                             full_keyword: "pocket wiki match",
                         },
@@ -2220,23 +2218,23 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: Some(
-                            [
-                                97,
-                                108,
-                                115,
-                                111,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
+                            SuggestionIcon {
+                                data: [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                                mime_type: "image/png",
+                            },
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -2264,23 +2262,23 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: Some(
-                            [
-                                97,
-                                108,
-                                115,
-                                111,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
+                            SuggestionIcon {
+                                data: [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                                mime_type: "image/png",
+                            },
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -2308,23 +2306,23 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: Some(
-                            [
-                                97,
-                                108,
-                                115,
-                                111,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
+                            SuggestionIcon {
+                                data: [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                                mime_type: "image/png",
+                            },
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -2340,23 +2338,23 @@ mod tests {
                         url: "https://www.lasagna.restaurant",
                         raw_url: "https://www.lasagna.restaurant",
                         icon: Some(
-                            [
-                                97,
-                                108,
-                                115,
-                                111,
-                                45,
-                                97,
-                                110,
-                                45,
-                                105,
-                                99,
-                                111,
-                                110,
-                            ],
-                        ),
-                        icon_mimetype: Some(
-                            "image/png",
+                            SuggestionIcon {
+                                data: [
+                                    97,
+                                    108,
+                                    115,
+                                    111,
+                                    45,
+                                    97,
+                                    110,
+                                    45,
+                                    105,
+                                    99,
+                                    111,
+                                    110,
+                                ],
+                                mime_type: "image/png",
+                            },
                         ),
                         full_keyword: "lasagna",
                         block_id: 0,
@@ -2600,7 +2598,6 @@ mod tests {
                         url: "https://www.lph-nm.biz",
                         raw_url: "https://www.lph-nm.biz",
                         icon: None,
-                        icon_mimetype: None,
                         full_keyword: "los",
                         block_id: 0,
                         advertiser: "Los Pollos Hermanos",
@@ -2758,38 +2755,35 @@ mod tests {
     fn query_no_yelp_icon_data() -> anyhow::Result<()> {
         before_each();
 
-        let store = TestStore::new(
-            MockRemoteSettingsClient::default()
-                .with_record("yelp-suggestions", "data-1", json!([{
-                    "subjects": ["ramen"],
-                    "preModifiers": [],
-                    "postModifiers": [],
-                    "locationSigns": [],
-                    "yelpModifiers": [],
-                    "iconLightTheme": "yelp-light-theme-icon",
-                    "iconDarkTheme": "yelp-dark-theme-icon",
-                    "score": 0.5
-                }]))
-        );
+        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "yelp-suggestions",
+            "data-1",
+            json!([{
+                "subjects": ["ramen"],
+                "preModifiers": [],
+                "postModifiers": [],
+                "locationSigns": [],
+                "yelpModifiers": [],
+                "iconLightTheme": "yelp-light-theme-icon",
+                "iconDarkTheme": "yelp-dark-theme-icon",
+                "score": 0.5
+            }]),
+        ));
 
         store.ingest(SuggestIngestionConstraints::default());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
-            vec![
-                Suggestion::Yelp {
-                    title: "ramen".into(),
-                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
-                    icon_light_theme: None,
-                    icon_light_theme_mimetype: None,
-                    icon_dark_theme: None,
-                    icon_dark_theme_mimetype: None,
-                    score: 0.5,
-                    has_location_sign: false,
-                    subject_exact_match: true,
-                    location_param: "find_loc".into(),
-                }
-            ],
+            vec![Suggestion::Yelp {
+                title: "ramen".into(),
+                url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                icon_light_theme: None,
+                icon_dark_theme: None,
+                score: 0.5,
+                has_location_sign: false,
+                subject_exact_match: true,
+                location_param: "find_loc".into(),
+            }],
         );
         Ok(())
     }
@@ -2800,40 +2794,46 @@ mod tests {
 
         let store = TestStore::new(
             MockRemoteSettingsClient::default()
-                .with_record("yelp-suggestions", "data-1", json!([{
-                    "subjects": ["ramen"],
-                    "preModifiers": [],
-                    "postModifiers": [],
-                    "locationSigns": [],
-                    "yelpModifiers": [],
-                    "icon": "yelp-favicon",
-                    "iconLightTheme": "yelp-light-theme-icon",
-                    "iconDarkTheme": "yelp-dark-theme-icon",
-                    "score": 0.5
-                }]))
+                .with_record(
+                    "yelp-suggestions",
+                    "data-1",
+                    json!([{
+                        "subjects": ["ramen"],
+                        "preModifiers": [],
+                        "postModifiers": [],
+                        "locationSigns": [],
+                        "yelpModifiers": [],
+                        "icon": "yelp-favicon",
+                        "iconLightTheme": "yelp-light-theme-icon",
+                        "iconDarkTheme": "yelp-dark-theme-icon",
+                        "score": 0.5
+                    }]),
+                )
                 .with_icon(yelp_favicon())
                 .with_icon(yelp_light_theme_icon())
-                .with_icon(yelp_dark_theme_icon())
+                .with_icon(yelp_dark_theme_icon()),
         );
 
         store.ingest(SuggestIngestionConstraints::default());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
-            vec![
-                Suggestion::Yelp {
-                    title: "ramen".into(),
-                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
-                    icon_light_theme: Some("yelp-light-theme-icon-data".into()),
-                    icon_light_theme_mimetype: Some("image/svg+xml".into()),
-                    icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
-                    icon_dark_theme_mimetype: Some("image/svg+xml".into()),
-                    score: 0.5,
-                    has_location_sign: false,
-                    subject_exact_match: true,
-                    location_param: "find_loc".into(),
-                }
-            ],
+            vec![Suggestion::Yelp {
+                title: "ramen".into(),
+                url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                icon_light_theme: Some(SuggestionIcon {
+                    data: "yelp-light-theme-icon-data".into(),
+                    mime_type: "image/svg+xml".into(),
+                }),
+                icon_dark_theme: Some(SuggestionIcon {
+                    data: "yelp-dark-theme-icon-data".into(),
+                    mime_type: "image/svg+xml".into(),
+                }),
+                score: 0.5,
+                has_location_sign: false,
+                subject_exact_match: true,
+                location_param: "find_loc".into(),
+            }],
         );
         Ok(())
     }
@@ -2844,37 +2844,40 @@ mod tests {
 
         let store = TestStore::new(
             MockRemoteSettingsClient::default()
-                .with_record("yelp-suggestions", "data-1", json!([{
-                    "subjects": ["ramen"],
-                    "preModifiers": [],
-                    "postModifiers": [],
-                    "locationSigns": [],
-                    "yelpModifiers": [],
-                    "iconLightTheme": "yelp-light-theme-icon",
-                    "iconDarkTheme": "yelp-dark-theme-icon",
-                    "score": 0.5
-                }]))
-                .with_icon(yelp_light_theme_icon())
+                .with_record(
+                    "yelp-suggestions",
+                    "data-1",
+                    json!([{
+                        "subjects": ["ramen"],
+                        "preModifiers": [],
+                        "postModifiers": [],
+                        "locationSigns": [],
+                        "yelpModifiers": [],
+                        "iconLightTheme": "yelp-light-theme-icon",
+                        "iconDarkTheme": "yelp-dark-theme-icon",
+                        "score": 0.5
+                    }]),
+                )
+                .with_icon(yelp_light_theme_icon()),
         );
 
         store.ingest(SuggestIngestionConstraints::default());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
-            vec![
-                Suggestion::Yelp {
-                    title: "ramen".into(),
-                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
-                    icon_light_theme: Some("yelp-light-theme-icon-data".into()),
-                    icon_light_theme_mimetype: Some("image/svg+xml".into()),
-                    icon_dark_theme: None,
-                    icon_dark_theme_mimetype: None,
-                    score: 0.5,
-                    has_location_sign: false,
-                    subject_exact_match: true,
-                    location_param: "find_loc".into(),
-                }
-            ],
+            vec![Suggestion::Yelp {
+                title: "ramen".into(),
+                url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                icon_light_theme: Some(SuggestionIcon {
+                    data: "yelp-light-theme-icon-data".into(),
+                    mime_type: "image/svg+xml".into(),
+                }),
+                icon_dark_theme: None,
+                score: 0.5,
+                has_location_sign: false,
+                subject_exact_match: true,
+                location_param: "find_loc".into(),
+            }],
         );
         Ok(())
     }
@@ -2885,37 +2888,40 @@ mod tests {
 
         let store = TestStore::new(
             MockRemoteSettingsClient::default()
-                .with_record("yelp-suggestions", "data-1", json!([{
-                    "subjects": ["ramen"],
-                    "preModifiers": [],
-                    "postModifiers": [],
-                    "locationSigns": [],
-                    "yelpModifiers": [],
-                    "iconLightTheme": "yelp-light-theme-icon",
-                    "iconDarkTheme": "yelp-dark-theme-icon",
-                    "score": 0.5
-                }]))
-                .with_icon(yelp_dark_theme_icon())
+                .with_record(
+                    "yelp-suggestions",
+                    "data-1",
+                    json!([{
+                        "subjects": ["ramen"],
+                        "preModifiers": [],
+                        "postModifiers": [],
+                        "locationSigns": [],
+                        "yelpModifiers": [],
+                        "iconLightTheme": "yelp-light-theme-icon",
+                        "iconDarkTheme": "yelp-dark-theme-icon",
+                        "score": 0.5
+                    }]),
+                )
+                .with_icon(yelp_dark_theme_icon()),
         );
 
         store.ingest(SuggestIngestionConstraints::default());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
-            vec![
-                Suggestion::Yelp {
-                    title: "ramen".into(),
-                    url: "https://www.yelp.com/search?find_desc=ramen".into(),
-                    icon_light_theme: None,
-                    icon_light_theme_mimetype: None,
-                    icon_dark_theme: Some("yelp-dark-theme-icon-data".into()),
-                    icon_dark_theme_mimetype: Some("image/svg+xml".into()),
-                    score: 0.5,
-                    has_location_sign: false,
-                    subject_exact_match: true,
-                    location_param: "find_loc".into(),
-                }
-            ],
+            vec![Suggestion::Yelp {
+                title: "ramen".into(),
+                url: "https://www.yelp.com/search?find_desc=ramen".into(),
+                icon_light_theme: None,
+                icon_dark_theme: Some(SuggestionIcon {
+                    data: "yelp-dark-theme-icon-data".into(),
+                    mime_type: "image/svg+xml".into(),
+                }),
+                score: 0.5,
+                has_location_sign: false,
+                subject_exact_match: true,
+                location_param: "find_loc".into(),
+            }],
         );
         Ok(())
     }

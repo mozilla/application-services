@@ -25,6 +25,11 @@ interface SuggestApiError {
     Other(string reason);
 };
 
+dictionary SuggestionIcon {
+    sequence<u8> data;
+    string mime_type;
+};
+
 enum SuggestionProvider {
     "Amp",
     "Pocket",
@@ -42,8 +47,7 @@ interface Suggestion {
         string title,
         string url,
         string raw_url,
-        sequence<u8>? icon,
-        string? icon_mimetype,
+        SuggestionIcon? icon,
         string full_keyword,
         i64 block_id,
         string advertiser,
@@ -62,8 +66,7 @@ interface Suggestion {
     Wikipedia(
         string title,
         string url,
-        sequence<u8>? icon,
-        string? icon_mimetype,
+        SuggestionIcon? icon,
         string full_keyword
     );
     Amo(
@@ -79,10 +82,8 @@ interface Suggestion {
     Yelp(
         string url,
         string title,
-        sequence<u8>? icon_light_theme,
-        string? icon_light_theme_mimetype,
-        sequence<u8>? icon_dark_theme,
-        string? icon_dark_theme_mimetype,
+        SuggestionIcon? icon_light_theme,
+        SuggestionIcon? icon_dark_theme,
         f64 score,
         boolean has_location_sign,
         boolean subject_exact_match,

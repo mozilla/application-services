@@ -15,7 +15,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
-pub const VERSION: u32 = 19;
+pub const VERSION: u32 = 20;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -195,6 +195,34 @@ CREATE TABLE IF NOT EXISTS dismissed_suggestions (
                 )?;
                 Ok(())
             }
+            19 => {
+                let result = tx.query_row_and_then(
+                    "SELECT icon_id FROM yelp_custom_details LIMIT 1",
+                    (),
+                    |row| row.get::<_, String>(0),
+                );
+
+                if let Ok(_) = result {
+                    // As still old table, we chnage to new.
+                    tx.execute_batch(
+                        "
+ALTER TABLE yelp_custom_details RENAME TO old_yelp_custom_details;
+CREATE TABLE yelp_custom_details(
+    icon_light_theme_id TEXT NOT NULL,
+    icon_dark_theme_id TEXT NOT NULL,
+    score REAL NOT NULL,
+    record_id TEXT NOT NULL,
+    PRIMARY KEY (icon_light_theme_id, icon_dark_theme_id)
+) WITHOUT ROWID;
+INSERT INTO yelp_custom_details (icon_light_theme_id, icon_dark_theme_id, score, record_id)
+SELECT icon_id, icon_id, score, record_id FROM old_yelp_custom_details;
+DROP TABLE old_yelp_custom_details;
+                    ",
+                    )?;
+                }
+
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
@@ -322,6 +350,8 @@ CREATE TABLE yelp_custom_details(
     record_id TEXT NOT NULL
 ) WITHOUT ROWID;
 
+INSERT INTO yelp_custom_details(icon_id, score, record_id) VALUES ('yelp-icon', 0.5, 'yelp-record');
+
 CREATE TABLE mdn_custom_details(
     suggestion_id INTEGER PRIMARY KEY,
     description TEXT NOT NULL,
@@ -340,5 +370,27 @@ PRAGMA user_version=16;
         let db_file = MigratedDatabaseFile::new(SuggestConnectionInitializer, V16_SCHEMA);
         db_file.run_all_upgrades();
         db_file.assert_schema_matches_new_database();
+
+        // Test wether yelp_custom_details data inherits to new table.
+        let connection = db_file.open();
+        let result: Result<(String, String, f64, String), crate::error::Error> = connection.query_row_and_then(
+            "SELECT icon_light_theme_id, icon_dark_theme_id, score, record_id FROM yelp_custom_details LIMIT 1",
+            (),
+            |row| Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, String>(3)?
+            ))
+        );
+
+        if let Ok((icon_light_theme_id, icon_dark_theme_id, score, record_id)) = result {
+            assert_eq!(icon_light_theme_id, "yelp-icon");
+            assert_eq!(icon_dark_theme_id, "yelp-icon");
+            assert_eq!(score, 0.5);
+            assert_eq!(record_id, "yelp-record");
+        } else {
+            assert!(false);
+        }
     }
 }

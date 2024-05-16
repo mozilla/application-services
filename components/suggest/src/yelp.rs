@@ -12,7 +12,7 @@ use crate::{
     db::SuggestDao,
     provider::SuggestionProvider,
     rs::{DownloadedYelpSuggestion, SuggestRecordId},
-    suggestion::Suggestion,
+    suggestion::{Suggestion, SuggestionIcon},
     Result, SuggestionQuery,
 };
 
@@ -148,13 +148,7 @@ impl<'a> SuggestDao<'a> {
             let Some((subject, subject_exact_match)) = self.find_subject(query_string)? else {
                 return Ok(vec![]);
             };
-            let (
-                icon_light_theme,
-                icon_light_theme_mimetype,
-                icon_dark_theme,
-                icon_dark_theme_mimetype,
-                score,
-            ) = self.fetch_custom_details()?;
+            let (icon_light_theme, icon_dark_theme, score) = self.fetch_custom_details()?;
             let builder = SuggestionBuilder {
                 subject: &subject,
                 subject_exact_match,
@@ -164,9 +158,7 @@ impl<'a> SuggestDao<'a> {
                 location: None,
                 need_location: false,
                 icon_light_theme,
-                icon_light_theme_mimetype,
                 icon_dark_theme,
-                icon_dark_theme_mimetype,
                 score,
             };
             return Ok(vec![builder.into()]);
@@ -198,13 +190,7 @@ impl<'a> SuggestDao<'a> {
             return Ok(vec![]);
         };
 
-        let (
-            icon_light_theme,
-            icon_light_theme_mimetype,
-            icon_dark_theme,
-            icon_dark_theme_mimetype,
-            score,
-        ) = self.fetch_custom_details()?;
+        let (icon_light_theme, icon_dark_theme, score) = self.fetch_custom_details()?;
         let builder = SuggestionBuilder {
             subject: &subject,
             subject_exact_match,
@@ -214,9 +200,7 @@ impl<'a> SuggestDao<'a> {
             location,
             need_location,
             icon_light_theme,
-            icon_light_theme_mimetype,
             icon_dark_theme,
-            icon_dark_theme_mimetype,
             score,
         };
         Ok(vec![builder.into()])
@@ -225,10 +209,8 @@ impl<'a> SuggestDao<'a> {
     /// Fetch the custom details for Yelp suggestions.
     /// It returns the location tuple as follows:
     /// (
-    ///   Option<Vec<u8>>: Icon data for light theme. If not found, returns None.
-    ///   Option<String>: Mimetype of the icon data for light theme. If not found, returns None.
-    ///   Option<Vec<u8>>: Icon data for dark theme. If not found, returns None.
-    ///   Option<String>: Mimetype of the icon data for dark theme. If not found, returns None.
+    ///   Option<SuggestionIcon>: Icon for light theme. If not found, returns None.
+    ///   Option<SuggestionIcon>: Icon for dark theme. If not found, returns None.
     ///   f64: Reflects score field in the yelp_custom_details table.
     /// )
     ///
@@ -239,13 +221,7 @@ impl<'a> SuggestDao<'a> {
     /// which should be fine since there is only one record in the first table.
     fn fetch_custom_details(
         &self,
-    ) -> Result<(
-        Option<Vec<u8>>,
-        Option<String>,
-        Option<Vec<u8>>,
-        Option<String>,
-        f64,
-    )> {
+    ) -> Result<(Option<SuggestionIcon>, Option<SuggestionIcon>, f64)> {
         let result = self.conn.query_row_and_then_cachable(
             r#"
             SELECT
@@ -263,13 +239,19 @@ impl<'a> SuggestDao<'a> {
             "#,
             (),
             |row| -> Result<_> {
-                Ok((
-                    row.get::<_, Option<Vec<u8>>>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                    row.get::<_, Option<Vec<u8>>>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                    row.get::<_, f64>(4)?,
-                ))
+                let icon_data_light_theme = row.get::<_, Option<Vec<u8>>>(0)?;
+                let icon_mime_type_light_theme = row.get::<_, Option<String>>(1)?;
+                let icon_light_theme = icon_data_light_theme.map(|data| SuggestionIcon {
+                    data,
+                    mime_type: icon_mime_type_light_theme.unwrap_or_default(),
+                });
+                let icon_data_dark_theme = row.get::<_, Option<Vec<u8>>>(2)?;
+                let icon_mime_type_dark_theme = row.get::<_, Option<String>>(3)?;
+                let icon_dark_theme = icon_data_dark_theme.map(|data| SuggestionIcon {
+                    data,
+                    mime_type: icon_mime_type_dark_theme.unwrap_or_default(),
+                });
+                Ok((icon_light_theme, icon_dark_theme, row.get::<_, f64>(4)?))
             },
             true,
         )?;
@@ -482,10 +464,8 @@ struct SuggestionBuilder<'a> {
     location_sign: Option<String>,
     location: Option<String>,
     need_location: bool,
-    icon_light_theme: Option<Vec<u8>>,
-    icon_light_theme_mimetype: Option<String>,
-    icon_dark_theme: Option<Vec<u8>>,
-    icon_dark_theme_mimetype: Option<String>,
+    icon_light_theme: Option<SuggestionIcon>,
+    icon_dark_theme: Option<SuggestionIcon>,
     score: f64,
 }
 
@@ -535,9 +515,7 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             url,
             title,
             icon_light_theme: builder.icon_light_theme,
-            icon_light_theme_mimetype: builder.icon_light_theme_mimetype,
             icon_dark_theme: builder.icon_dark_theme,
-            icon_dark_theme_mimetype: builder.icon_dark_theme_mimetype,
             score: builder.score,
             has_location_sign: location_modifier.is_none() && builder.location_sign.is_some(),
             subject_exact_match: builder.subject_exact_match,
