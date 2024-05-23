@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use error_support::handle_error;
+use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
 use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
@@ -336,6 +336,7 @@ where
     S: Client,
 {
     pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
+        breadcrumb!("Ingestion starting");
         let writer = &self.dbs()?.writer;
         if constraints.empty_only && !writer.read(|dao| dao.suggestions_table_empty())? {
             return Ok(());
@@ -355,10 +356,12 @@ where
         // Handle ingestion inside single write scope
         let mut write_scope = writer.write_scope()?;
         for ingest_record_type in ingest_record_types {
+            breadcrumb!("Ingesting {ingest_record_type}");
             write_scope
                 .write(|dao| self.ingest_records_by_type(ingest_record_type, dao, &constraints))?;
             write_scope.err_if_interrupted()?;
         }
+        breadcrumb!("Ingestion complete");
 
         Ok(())
     }
