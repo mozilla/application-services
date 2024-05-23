@@ -537,6 +537,10 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: extend</name>
+    <url>https://github.com/davidpdrsn/extend/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: generic-array</name>
     <url>https://github.com/fizyk20/generic-array/blob/master/LICENSE</url>
   </license>
