@@ -573,7 +573,7 @@ pub fn fetch_tree(
                             .into(),
                         },
                         // This is double-extra-invalid because various
-                        // constaints in the schema should prevent it (but we
+                        // constraints in the schema should prevent it (but we
                         // know from desktop's experience that on-disk
                         // corruption can cause it, so it's possible) - but
                         // we treat it as an `error` rather than just a `warn`

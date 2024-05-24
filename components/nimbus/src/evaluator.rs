@@ -53,7 +53,7 @@ pub fn split_locale(locale: String) -> (Option<String>, Option<String>) {
 /// Determine the enrolment status for an experiment.
 ///
 /// # Arguments:
-/// - `available_randomization_units` The app provded available randomization units
+/// - `available_randomization_units` The app provided available randomization units
 /// - `targeting_attributes` The attributes to use when evaluating targeting
 /// - `exp` The `Experiment` to evaluate.
 ///

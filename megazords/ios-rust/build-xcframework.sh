@@ -7,7 +7,7 @@ FRAMEWORK_NAME="MozillaRustComponents"
 IS_FOCUS=
 # FRAMEWORK_FILENAME exist purely because we would like to ship
 # multiple frameworks that have the same swift code
-# namely for focus. However, componenets that use
+# namely for focus. However, components that use
 # uniffi, can only declare a single framework name.
 #
 # So we keep the framework the same, but store them
@@ -64,7 +64,7 @@ case $BUILD_PROFILE in
   debug) ;;
   release)
     BUILD_ARGS=("${BUILD_ARGS[@]}" --release)
-    # With debuginfo, the zipped artifact quickly baloons to many
+    # With debuginfo, the zipped artifact quickly balloons to many
     # hundred megabytes in size. Ideally we'd find a way to keep
     # the debug info but in a separate artifact.
     DEFAULT_RUSTFLAGS="-C debuginfo=0"

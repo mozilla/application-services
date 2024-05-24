@@ -33,7 +33,7 @@ pub struct InvalidBookmarkIds {
 
 // Append a bookmark with an invalid URL to the specified parent. Note that it's
 // currently impossible to append a bookmark with NULL as there is a CHECK
-// contraint in the schema.
+// constraint in the schema.
 pub fn append_invalid_bookmark(
     db: &PlacesDb,
     parent_guid: &SyncGuid,

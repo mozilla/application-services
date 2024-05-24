@@ -34,7 +34,7 @@ def resolve_keys(config, tasks):
             "tasks-for": config.params["tasks_for"]
         })
         # TODO: Bug 1637695 - temp solution to unblock local building of
-        # appplication-services. Once we switch to new indexes, we should clean this up
+        # application-services. Once we switch to new indexes, we should clean this up
         if task['name'] in TOOLCHAIN_OLD_INDEX.keys() and config.params["level"] == "3":
             sha = git_sha_for_directory("libs")
             routes = task['routes']

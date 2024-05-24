@@ -1,5 +1,5 @@
 ---
-# This file contribues pocket related menu items to the app-menu feature
+# This file contributes pocket related menu items to the app-menu feature
 # that is imported from ./ui.fml.yaml
 imports:
   - path: ./ui.fml.yaml

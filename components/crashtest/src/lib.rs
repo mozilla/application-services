@@ -32,7 +32,7 @@ pub fn trigger_rust_abort() {
 
 /// Trigger a panic inside the Rust code.
 ///
-/// This function simulates the occurence of an unexpected state inside
+/// This function simulates the occurrence of an unexpected state inside
 /// the Rust code that causes it to panic. We build our Rust components to
 /// unwind on panic, so after calling this function through the foreign
 /// language bindings, you should expect it to intercept the panic translate
@@ -48,7 +48,7 @@ pub fn trigger_rust_panic() {
 
 /// Trigger an error inside the Rust code.
 ///
-/// This function simulates the occurence of an expected error inside
+/// This function simulates the occurrence of an expected error inside
 /// the Rust code. You should expect calling this function to throw the
 /// foreign-language representation of the [`CrashTestError`] class.
 ///

@@ -63,7 +63,7 @@ impl Defaults for Map<String, Value> {
                     map.remove(k);
                 }
                 Some(existing) => {
-                    // JSON merging shoudln't error, so there'll be
+                    // JSON merging should't error, so there'll be
                     // nothing to propagate.
                     map[k] = existing.defaults(fb)?;
                 }

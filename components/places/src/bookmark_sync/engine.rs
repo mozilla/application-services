@@ -1839,7 +1839,7 @@ mod tests {
             .expect("Should apply")
     }
 
-    // Applys the incoming records, and also "finishes" the sync by pretending
+    // Applies the incoming records, and also "finishes" the sync by pretending
     // we uploaded the outgoing items and marks them as uploaded.
     // Returns the GUIDs of the outgoing items.
     fn apply_incoming(

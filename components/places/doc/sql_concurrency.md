@@ -6,7 +6,7 @@ Note that multiple writers will only cause `SQLITE_BUSY` after some timeout peri
 
 So there are 2 sane options:
 
-* Ensure there's only ever one writer at a time (eg, via a dedicated writer thread) - `SQLITE_BUSY` will never happen, although writing will be queued - a single writer which takes many seconds will block all other writes. This may cause UX issues (eg, visited links not being immediately correct) and given mobile constraints, may never be writen at all (eg, aggressive app termination)
+* Ensure there's only ever one writer at a time (eg, via a dedicated writer thread) - `SQLITE_BUSY` will never happen, although writing will be queued - a single writer which takes many seconds will block all other writes. This may cause UX issues (eg, visited links not being immediately correct) and given mobile constraints, may never be written at all (eg, aggressive app termination)
 
 * Allow multiple writers. If you keep the writes short and fast, you should never hit the timeout period and everything should be fine. However, this scenario *does* allow for `SQLITE_BUSY` errors.
 

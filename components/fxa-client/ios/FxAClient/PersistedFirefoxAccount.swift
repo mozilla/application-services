@@ -32,14 +32,14 @@ class PersistedFirefoxAccount {
         self.init(inner: FirefoxAccount(config: config))
     }
 
-    /// Registers a persistance callback. The callback will get called every time
+    /// Registers a persistence callback. The callback will get called every time
     /// the `FxAccounts` state needs to be saved. The callback must
     /// persist the passed string in a secure location (like the keychain).
     public func registerPersistCallback(_ cb: PersistCallback) {
         persistCallback = cb
     }
 
-    /// Unregisters a persistance callback.
+    /// Unregisters a persistence callback.
     public func unregisterPersistCallback() {
         persistCallback = nil
     }

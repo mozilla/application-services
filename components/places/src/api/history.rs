@@ -164,7 +164,7 @@ pub fn visit_uri(
     // Do not save a reloaded uri if we have visited the same URI recently.
     // (Note that desktop implies `reload` based of the "is it the same as last
     // and is it recent" check below) - but here we are asking for the
-    // VisitType to be passed in, which explicity has a value for reload.
+    // VisitType to be passed in, which explicitly has a value for reload.
     // Note clear if we should try and unify these.
     // (and note that if we can, we can drop the recently_visited cache)
     if let Some(ref last) = last_url {

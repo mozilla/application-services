@@ -13,7 +13,7 @@ set -e
 #
 # CircleCI then stores this as an artifact, and pushes it to Github on each release.
 #
-# This will be downloaded and unzipped as part of the buid processes for iOS and Android.
+# This will be downloaded and unzipped as part of the build processes for iOS and Android.
 TARGETS="aarch64-apple-darwin x86_64-unknown-linux-musl x86_64-apple-darwin x86_64-pc-windows-gnu"
 DRY_RUN=false
 DIRTY=false

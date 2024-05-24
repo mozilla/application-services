@@ -38,7 +38,7 @@ open class FxAccountManager {
     var constellation: DeviceConstellation?
     var latestOAuthStateParam: String?
 
-    /// Instanciate the account manager.
+    /// Instantiate the account manager.
     /// This class is intended to be long-lived within your app.
     /// `keychainAccessGroup` is especially important if you are
     /// using the manager in iOS App Extensions.
@@ -378,7 +378,7 @@ open class FxAccountManager {
                         profile = nil
                         constellation = nil
                         accountStorage.clear()
-                        // If we cannot instanciate FxA something is *really* wrong, crashing is a valid option.
+                        // If we cannot instantiate FxA something is *really* wrong, crashing is a valid option.
                         account = createAccount()
                         DispatchQueue.main.async {
                             NotificationCenter.default.post(

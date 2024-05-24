@@ -93,7 +93,7 @@ $ cd firefox-ios
 $  ./rust_components_local.sh ../rust-components-swift   
 ```
 alternatively, you can specify `file:///path/to/rust-components-swift` as the git repo.
-    * (You'll have to remove any existing depdency on https://github.com/mozilla/rust-components-swift first)
+    * (You'll have to remove any existing dependency on https://github.com/mozilla/rust-components-swift first)
 
 Note that your changes *must* be committed. You can import them either as a local git tag or by choosing the branch of `rust-components-swift`. 
 

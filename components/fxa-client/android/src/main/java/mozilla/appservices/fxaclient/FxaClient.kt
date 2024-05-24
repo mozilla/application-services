@@ -411,7 +411,7 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
-     * Disconnect from the account and optionaly destroy our device record.
+     * Disconnect from the account and optionally destroy our device record.
      * `beginOAuthFlow` will need to be called to reconnect.
      *
      * This performs network requests, and should not be used on the main thread.

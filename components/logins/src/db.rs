@@ -721,7 +721,7 @@ pub mod test_utils {
 
     // Insert a login into the local and/or mirror tables.
     //
-    // local_login and mirror_login are specifed as Some(password_string)
+    // local_login and mirror_login are specified as Some(password_string)
     pub fn insert_login(
         db: &LoginDb,
         guid: &str,

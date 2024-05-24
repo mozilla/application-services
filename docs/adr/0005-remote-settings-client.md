@@ -114,7 +114,7 @@ This is a very high-level view of the tasks required here.
 
 * Identify which parts of Nimbus should be factored out into a shared component (depicted as `rs-client` in the diagram below) and move that functionality to the new shared component. Of note:
     * This component probably will not have a UniFFI .udl file, but is just for consumption by the new component above and the existing nimbus component.
-    * There is still some uncertaintly here - if it is a requirement that nimbus and the new component share some configuration or initialization code, we might need to do something more complex here. This seems unlikely, but possible, so is included here for completeness.
+    * There is still some uncertainty here - if it is a requirement that nimbus and the new component share some configuration or initialization code, we might need to do something more complex here. This seems unlikely, but possible, so is included here for completeness.
 * Identify which of the nimbus tests should move to the new client and move them.
 * Update Nimbus to take a dependency on the new component and use it, including tests.
 * Flesh out the API of the new top-level component using the new shared component (ie, replace the `todo!()` macros with real code.)

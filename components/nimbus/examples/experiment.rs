@@ -305,7 +305,7 @@ fn main() -> Result<()> {
             }
         }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
-        // experiments, optionally settting the generated ID in the database.
+        // experiments, optionally setting the generated ID in the database.
         ("gen-uuid", Some(matches)) => {
             let num = matches
                 .value_of("number")

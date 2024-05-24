@@ -16,7 +16,7 @@ around that crate, but there's other "global functionality" managed by this
 crate that doesn't fit well in any other place. For example, each application
 should have a single "device record" which describes the app and not individual
 stores. There's also the concept of "commands" which are sent to a device, and
-then delgated to the correct store - those concepts are implemented in this
+then delegated to the correct store - those concepts are implemented in this
 crate.
 
 ## Other notes:

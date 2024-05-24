@@ -214,7 +214,7 @@ pub(crate) enum CliCommand {
 
         /// By default, the app is terminated before sending the a deeplink.
         ///
-        /// If this flag is set, then do not terminate the app if it is already runnning.
+        /// If this flag is set, then do not terminate the app if it is already running.
         #[arg(long, default_value = "false")]
         no_clobber: bool,
     },

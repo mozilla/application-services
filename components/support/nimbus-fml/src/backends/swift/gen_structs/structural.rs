@@ -55,13 +55,13 @@ impl CodeType for OptionalCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
         oracle.find(&self.inner).create_transform(oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, oracle: &dyn CodeOracle) -> VariablesType {
         oracle.find(&self.inner).variables_type(oracle)
     }
@@ -104,7 +104,7 @@ impl CodeType for OptionalCodeType {
 
     /// Implement these in different code types, and call recursively from different code types.
     fn as_json_transform(&self, oracle: &dyn CodeOracle, prop: &dyn Display) -> Option<String> {
-        // We want to return None if the inner's json trasform is none,
+        // We want to return None if the inner's json transform is none,
         // but if it's not, then use `prop?` as the new prop
         let prop = format!("{}?", prop);
         oracle.find(&self.inner).as_json_transform(oracle, &prop)
@@ -243,7 +243,7 @@ impl CodeType for MapCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Variables
     }
@@ -397,7 +397,7 @@ impl CodeType for ListCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         // Our current implementation of Variables doesn't have a getListList() or getListMap().
         // We do allow getVariablesList and getVariablesMap, but not an vars.asList().

@@ -8,6 +8,6 @@ if ! [[ -x "$(command -v rustc)" ]]; then
 fi
 
 # Print the rustc version (we don't update it because our CI and official
-# builds we will often be pinned on an ealier rust version, but should still
+# builds we will often be pinned on an earlier rust version, but should still
 # work OK with later ones.)
 rustc --version

@@ -141,7 +141,7 @@ fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> R
     Ok(out)
 }
 
-fn quick_strech_pwd(email: &str, pwd: &str) -> Result<Vec<u8>> {
+fn quick_stretch_pwd(email: &str, pwd: &str) -> Result<Vec<u8>> {
     let salt = kwe("quickStretch", email);
     let mut out = [0u8; 32];
     pbkdf2::derive(
@@ -155,10 +155,10 @@ fn quick_strech_pwd(email: &str, pwd: &str) -> Result<Vec<u8>> {
 }
 
 pub fn auth_pwd(email: &str, pwd: &str) -> Result<String> {
-    let streched = quick_strech_pwd(email, pwd)?;
+    let stretched = quick_stretch_pwd(email, pwd)?;
     let salt = b"";
     let context = kw("authPW");
-    let derived = derive_hkdf_sha256_key(&streched, salt, &context, 32)?;
+    let derived = derive_hkdf_sha256_key(&stretched, salt, &context, 32)?;
     Ok(hex::encode(derived))
 }
 
@@ -188,8 +188,8 @@ fn xored(a: &[u8], b: &[u8]) -> Result<Vec<u8>> {
 }
 
 fn derive_unwrap_kb(email: &str, pwd: &str) -> Result<Vec<u8>> {
-    let streched_pw = quick_strech_pwd(email, pwd)?;
-    let out = derive_hkdf_sha256_key(&streched_pw, &[0u8; 0], &kw("unwrapBkey"), 32)?;
+    let stretched_pw = quick_stretch_pwd(email, pwd)?;
+    let out = derive_hkdf_sha256_key(&stretched_pw, &[0u8; 0], &kw("unwrapBkey"), 32)?;
     Ok(out)
 }
 
@@ -224,7 +224,7 @@ mod tests {
     const PASSWORD: &str = "pässwörd";
     #[test]
     fn test_derive_quick_stretch() {
-        let qs = quick_strech_pwd(EMAIL, PASSWORD).unwrap();
+        let qs = quick_stretch_pwd(EMAIL, PASSWORD).unwrap();
         let expected = "e4e8889bd8bd61ad6de6b95c059d56e7b50dacdaf62bd84644af7e2add84345d";
         assert_eq!(expected, hex::encode(qs));
     }

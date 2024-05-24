@@ -147,7 +147,7 @@ fun recordKeyRegenerationEvent(reason: KeyRegenerationEventReason) {
  *    - total count of operations performed
  *    - count of operations that produced an error, labeled by type
  *
- * This is a convenince wrapper to measure the two in one shot.
+ * This is a convenience wrapper to measure the two in one shot.
  */
 class LoginsStoreCounterMetrics(
     val count: CounterMetricType,

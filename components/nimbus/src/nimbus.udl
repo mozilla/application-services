@@ -179,7 +179,7 @@ interface NimbusClient {
 
     // Getter and setter for user's participation in all experiments.
     // Possible values are:
-    // * `true`: the user will not enroll in new experiments, and opt out of all exisitng ones.
+    // * `true`: the user will not enroll in new experiments, and opt out of all existing ones.
     // * `false`: experiments proceed as usual.
     [Throws=NimbusError]
     boolean get_global_user_participation();

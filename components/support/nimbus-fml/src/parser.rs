@@ -729,7 +729,7 @@ mod unit_tests {
                 .unwrap(),
             "Go Ahead!"
         );
-        // We validate that the orignal field level default don't get lost if no
+        // We validate that the original field level default don't get lost if no
         // feature level default with the same name exists
         assert_eq!(
             positive_button
@@ -775,7 +775,7 @@ mod unit_tests {
                 .unwrap(),
             "bright-red"
         );
-        // We againt validate that regardless
+        // We against validate that regardless
         // of the channel, the no-channel feature level default got merged back
         assert_eq!(
             positive_button

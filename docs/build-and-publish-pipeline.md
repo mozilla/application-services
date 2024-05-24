@@ -69,7 +69,7 @@ For iOS consumers the corresponding steps are:
     * TODO: can we prevent these steps from being able to see the tokens used
       for publishing in subsequent steps?
 4. CircleCI builds a binary artifact:
-    * An XCFramework containing just Rust code and header files, as a zipfile, for use by Swift Packags.
+    * An XCFramework containing just Rust code and header files, as a zipfile, for use by Swift Packages.
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
     * See [Authentication and secrets below](#authentication-and-secrets)

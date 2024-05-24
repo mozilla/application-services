@@ -37,7 +37,7 @@ val api = MockNimbus("with-objects-feature" to """{
 injected = api
 MyNimbus.invalidateCachedValues()
 
-// Now test the selectively overidden properties of the feature.
+// Now test the selectively overridden properties of the feature.
 val feature1 = MyNimbus.features.withObjectsFeature.value()
 
 assert(feature1.anObject.aString == "yes")

@@ -201,7 +201,7 @@ we can't replace the clients engine with the FxA device record and we can't
 simply drop this engine entirely.
 
 Of particular interest is "commands" - these involve communicating with the
-engine regarding commands targetting it, and accepting commands to be send to
+engine regarding commands targeting it, and accepting commands to be send to
 other devices. Note that outgoing commands are likely to not originate from a sync,
 but instead from other actions, such as "restore bookmarks".
 

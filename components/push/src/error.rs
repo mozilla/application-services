@@ -25,7 +25,7 @@ pub enum PushApiError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
-    /// An unspecified general error has occured
+    /// An unspecified general error has occurred
     #[error("General Error: {0:?}")]
     GeneralError(String),
 

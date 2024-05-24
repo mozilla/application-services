@@ -12,7 +12,7 @@
 # consideration
 # the following known consumers of the fxaclient component Android bindings:
 #
-#  * Fenix for Andriod
+#  * Fenix for Android
 
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/2-0-0

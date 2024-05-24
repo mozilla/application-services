@@ -114,7 +114,7 @@ pub trait CodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType;
 
     /// A function handle that is capable of turning the variables type to the TypeRef type.
@@ -128,7 +128,7 @@ pub trait CodeType {
     }
 
     // The foreign language type for how default values are stored in the `Defaults` object.
-    // This is usually the same as the type_label itself, but occassionally— e.g. for bundled resources—
+    // This is usually the same as the type_label itself, but occasionally— e.g. for bundled resources—
     // this will be different.
     // If it is different, then a `defaults_mapper` is needed to map between the `defaults_type` and the
     // `type_label` type.

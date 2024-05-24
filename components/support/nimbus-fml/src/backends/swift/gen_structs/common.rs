@@ -45,7 +45,7 @@ pub(crate) mod code_type {
         let merger = ct.value_merger(oracle, &default);
 
         // We need to be quite careful about option chaining.
-        // Swift takes the `?` as an indicator to _stop evaulating the chain expression_ if the immediately preceeding
+        // Swift takes the `?` as an indicator to _stop evaluating the chain expression_ if the immediately preceeding
         // expression returns an optional.
         // Only the value_getter returns an optional, so that's all we need to `?`.
         // https://docs.swift.org/swift-book/LanguageGuide/OptionalChaining.html

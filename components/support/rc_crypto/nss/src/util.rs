@@ -79,7 +79,7 @@ where
     fn as_mut_ptr(&self) -> *mut Self::RawType;
 }
 
-// The macro defines a wrapper around pointers refering to types allocated by NSS,
+// The macro defines a wrapper around pointers referring to types allocated by NSS,
 // calling their NSS destructor method when they go out of scope to avoid memory leaks.
 // The `as_ptr`/`as_mut_ptr` are provided to retrieve the raw pointers to pass to
 // NSS functions that consume them.

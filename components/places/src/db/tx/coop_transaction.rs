@@ -72,7 +72,7 @@ impl PlacesDb {
     /// Begin a "coop" transaction. Must be called from the write connection, see
     /// module doc for details.
     pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction<'_>> {
-        // Only validate tranaction types for ConnectionType::ReadWrite.
+        // Only validate transaction types for ConnectionType::ReadWrite.
         assert_eq!(
             self.conn_type(),
             ConnectionType::ReadWrite,
@@ -96,7 +96,7 @@ impl PlacesDb {
 /// some duration the transaction will be committed and another one
 /// started. You should always call .commit() at the end. Note that there is
 /// no .rollback() method as it will be very difficult to work out what was
-/// previously commited and therefore what was rolled back - if you need to
+/// previously committed and therefore what was rolled back - if you need to
 /// explicitly roll-back, this probably isn't what you should be using. Note
 /// that SQLite might rollback for its own reasons though.
 ///
@@ -149,7 +149,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
         if self.should_commit() {
-            log::debug!("ChunkedCoopTransaction commiting after taking allocated time");
+            log::debug!("ChunkedCoopTransaction committing after taking allocated time");
             self.commit_and_start_new_tx()?;
         }
         Ok(())

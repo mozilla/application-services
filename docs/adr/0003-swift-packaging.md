@@ -108,7 +108,7 @@ the Carthage build setup from the application-services repo.
 At some future date, we will consider whether to move the `Package.swift` definition in to the `application-services` repo,
 or whether it's better to keep it separate. (Attempting to move it into the `application-services` will involve non-trivial
 changes to the release process, because the checksum of the released `.xcframework` bundle needs to be included in
-the release taged version of the `Package.swift` file.)
+the release tagged version of the `Package.swift` file.)
 
 # Pros and Cons of the Options
 
@@ -132,7 +132,7 @@ This option isn't really tractable for us, but it's included for completeness.
 
 ### **(B) Use Carthage to build XCFramework bundles**
 
-In this option, we would try to change our iOS build and publising process as little
+In this option, we would try to change our iOS build and publishing process as little
 as possible, but use Carthage's recent support for [building platform-independent
 XCFrameworks](https://github.com/Carthage/carthage#building-platform-independent-xcframeworks-Xcode-12-and-above) in order
 to support consumers running on M1 Apple Silicon.

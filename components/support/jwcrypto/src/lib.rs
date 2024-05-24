@@ -8,7 +8,7 @@
 //! The encryption is done by [rc_crypto] - this crate just does the JOSE
 //! wrappers around this crypto. As a result, most of the structs etc here
 //! support serialization and deserialization to and from JSON via serde in
-//! a way that's compatibile with rfc7518 etc.
+//! a way that's compatible with rfc7518 etc.
 
 // Theoretically, everything done in this crate could and should be done in a JWT library.
 // However, none of the existing rust JWT libraries can handle ECDH-ES encryption, and API choices

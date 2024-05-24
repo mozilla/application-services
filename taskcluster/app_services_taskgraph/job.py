@@ -119,7 +119,7 @@ def _extract_gradlew_command(run):
 
 def _generate_secret_command(secret):
     # TODO: Bug 1563169 - when we update Docker image, we should ensure we run
-    # the up-to-date `taskcluster` python pacakge
+    # the up-to-date `taskcluster` python package
     secret_command = [
         "python3",
         "taskcluster/scripts/get-secret.py",

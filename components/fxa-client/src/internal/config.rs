@@ -60,7 +60,7 @@ impl Config {
             issuer: openid_config.issuer,
             jwks_uri: openid_config.jwks_uri,
             // TODO: bring back openid token endpoint once https://github.com/mozilla/fxa/issues/453 has been resolved
-            // and the openid reponse has been switched to the new endpoint.
+            // and the openid response has been switched to the new endpoint.
             // token_endpoint: openid_config.token_endpoint,
             token_endpoint: format!("{}/v1/oauth/token", client_config.auth_server_base_url),
             userinfo_endpoint: openid_config.userinfo_endpoint,

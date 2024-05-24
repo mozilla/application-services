@@ -118,7 +118,7 @@ depending on the specifics of the project's build setup, but at a high level you
    in the specified directory.
 
    This automates steps (2) and (3) of the manual workflow above, using gradle's dependency substitution
-   capabilities to override the verion requirements for application-services components. It may be necessary
+   capabilities to override the version requirements for application-services components. It may be necessary
    to experiment with the ordering of this relative to other build configuration steps, in order for the
    dependency substitution to work correctly.
 

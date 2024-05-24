@@ -74,7 +74,7 @@ fn test_empty_ratios() {
 #[test]
 fn test_bucket_sample() {
     // Different combinations here tested against the
-    // deskop implementation
+    // desktop implementation
     let input = serde_json::json!([
         "299eed1e-be6d-457d-9e53-da7b1a03f10d",
         "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77"

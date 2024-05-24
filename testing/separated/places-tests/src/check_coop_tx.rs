@@ -58,7 +58,7 @@ fn test_coop_tx() {
             .expect("should get the main transaction");
         update(&dbmain, i).unwrap();
         tx.commit().expect("main thread should commit");
-        println!("main thread commited");
+        println!("main thread committed");
     }
     println!("completed outer, waiting for thread to complete.");
 

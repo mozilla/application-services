@@ -365,7 +365,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     assert_eq!(app_version, "v94.0.0");
     let new_update_date: DateTime<Utc> = store.get(&reader, DB_KEY_UPDATE_DATE)?.unwrap();
     // we make sure the persisted date, is **EXACTLY** the same
-    // one we persisted earler, not that the `DateTime` object here
+    // one we persisted earlier, not that the `DateTime` object here
     // includes time to the nanoseconds, so this is a valid way
     // to ensure the objects are the same
     assert_eq!(new_update_date, update_date);

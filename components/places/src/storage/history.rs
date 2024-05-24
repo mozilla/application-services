@@ -2873,7 +2873,7 @@ mod tests {
 
         delete_everything(&conn).expect("Should delete everything");
 
-        // We should clear all origins after deleting everythig.
+        // We should clear all origins after deleting everything.
         let origin_count = conn
             .query_one::<i64>("SELECT COUNT(*) FROM moz_origins")
             .expect("Should fetch origin count");

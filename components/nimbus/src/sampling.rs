@@ -33,8 +33,8 @@ const HASH_LENGTH: u32 = HASH_BITS / 4;
 /// # Errors:
 ///
 /// Could error in the following cases (but not limited to)
-/// - An error occured in the hashing process
-/// - an error occured while checking if the hash belongs in the bucket
+/// - An error occurred in the hashing process
+/// - an error occurred while checking if the hash belongs in the bucket
 pub(crate) fn bucket_sample<T: serde::Serialize>(
     input: T,
     start: u32,
@@ -92,7 +92,7 @@ pub(crate) fn ratio_sample<T: serde::Serialize>(input: T, ratios: &[u32]) -> Res
 /// - `data`: The data to be hashed
 ///
 /// # Returns:
-/// Returns the 6 bytes associted with the SHA-256 of the data
+/// Returns the 6 bytes associated with the SHA-256 of the data
 ///
 /// # Errors:
 /// Would return an error if the hashing function fails to generate a hash

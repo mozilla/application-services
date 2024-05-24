@@ -123,7 +123,7 @@ lazy_static::lazy_static! {
         WHERE h.is_deleted = 0"
    ;
 
-   // Create a temporrary table for visists
+   // Create a temporary table for visists
    static ref CREATE_TEMP_VISIT_TABLE: &'static str = "
     CREATE TEMP TABLE IF NOT EXISTS temp.latestVisits(
         id INTEGER PRIMARY KEY,

@@ -79,7 +79,7 @@ to a component, and matching changes in mozilla-central to use that new feature.
 
 In that scenario, you don't want to check your changes in and re-vendor as you
 iterate - it would be far better to use a local checkout of application-services
-with uncommitted changes with your mozilla-central tree which also has uncommited
+with uncommitted changes with your mozilla-central tree which also has uncommitted
 changes.
 
 To do this, you can edit the top-level `Cargo.toml` to specify a path. Note

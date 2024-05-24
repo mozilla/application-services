@@ -59,7 +59,7 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     ///
     /// Applications that function as a web browser may need to hold on to a session token
-    /// on behalf of Firefox Accounts web content. This method exists so that they can retreive
+    /// on behalf of Firefox Accounts web content. This method exists so that they can retrieve
     /// it an pass it back to said web content when required.
     ///
     /// # Notes
@@ -158,7 +158,7 @@ pub struct AccessTokenInfo {
     pub expires_at: i64,
 }
 
-/// A cryptograpic key associated with an OAuth scope.
+/// A cryptographic key associated with an OAuth scope.
 ///
 /// Some OAuth scopes have a corresponding client-side encryption key that is required
 /// in order to access protected data. This struct represents such key material in a

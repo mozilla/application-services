@@ -139,7 +139,7 @@ fn test_minimum_version_targeting_fails() -> Result<()> {
 }
 
 #[test]
-fn test_targeting_specific_verision() -> Result<()> {
+fn test_targeting_specific_version() -> Result<()> {
     // Here's our valid jexl statement that targets **only** 96 versions
     let expression_statement =
         "(app_version|versionCompare('96.!') >= 0) && (app_version|versionCompare('97.!') < 0)";
@@ -417,7 +417,7 @@ fn test_is_experiment_available() {
         channel: Some("nightly".to_string()),
         ..experiment
     };
-    // channels now match, so should be availble for enrollment (true) and testing (false)
+    // channels now match, so should be available for enrollment (true) and testing (false)
     assert!(is_experiment_available(&th, &experiment, true));
     assert!(is_experiment_available(&th, &experiment, false));
 

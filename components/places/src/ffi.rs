@@ -109,7 +109,7 @@ impl UniffiCustomTypeConverter for Guid {
 
 // Check for multiple write connections open at the same time
 //
-// One potential cause of #5040 is that Fenix is somehow openening multiiple write connections to
+// One potential cause of #5040 is that Fenix is somehow opening multiiple write connections to
 // the places DB.  This code tests if that's happening and reports an error if so.
 lazy_static::lazy_static! {
     static ref READ_WRITE_CONNECTIONS: Mutex<Vec<Weak<PlacesConnection>>> = Mutex::new(Vec::new());
@@ -252,7 +252,7 @@ impl PlacesConnection {
         &self,
         data: HistoryMetadataObservation,
     ) -> ApiResult<()> {
-        // odd historical naming discrepency - public function is "note_*", impl is "apply_*"
+        // odd historical naming discrepancy - public function is "note_*", impl is "apply_*"
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 

@@ -379,7 +379,7 @@ mod test {
         let mut ir = load_feature_manifest(files, path, cmd.load_from_ir, Some(&cmd.channel))?;
 
         // We do a dance here to make sure that we can override class names and package names during tests,
-        // and while we still have to support setting those options from the commmand line.
+        // and while we still have to support setting those options from the command line.
         // We will deprecate setting classnames, package names etc, then we can simplify.
         let from_file = ir.about;
         let kotlin_about = from_cli.kotlin_about.or(from_file.kotlin_about);

@@ -31,7 +31,7 @@ public extension Dictionary {
 
     func mergeWith(_ defaults: [Key: Value], _ valueMerger: ((Value, Value) -> Value)? = nil) -> [Key: Value] {
         guard let valueMerger = valueMerger else {
-            return merging(defaults, uniquingKeysWith: { overide, _ in overide })
+            return merging(defaults, uniquingKeysWith: { override, _ in override })
         }
 
         return merging(defaults, uniquingKeysWith: valueMerger)

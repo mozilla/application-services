@@ -57,7 +57,7 @@
 //! stored encrypted, so almost all uses of an LoginEntry struct will also require the
 //! encryption key to be known and passed in.    [LoginDB] methods that save data typically input
 //! [LoginEntry] instances.  This allows the DB code to handle dupe-checking issues like
-//! determining which login record should be updated for a newly sumbitted [LoginEntry].
+//! determining which login record should be updated for a newly submitted [LoginEntry].
 //! It contains the following fields:
 //! - fields: A [`LoginFields`] struct.
 //! - sec_fields: A [`SecureLoginFields`] struct.
@@ -108,7 +108,7 @@
 //!    representation of an `SecureLoginFields`.
 //!
 //!   This field is required and usually encrypted.  There are two different value types:
-//!       - Plantext empty string: Used for deleted records
+//!       - Plaintext empty string: Used for deleted records
 //!       - Encrypted value: The credentials associated with the login.
 //!
 //! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
@@ -272,7 +272,7 @@
 //! implement the `ValidateAndFixup` trait, providing the following methods which can be used by
 //! callers to ensure that they're only working with valid records:
 //!
-//! - `Login::check_valid()`:    Checks valdity of a login record, returning `()` if it is valid
+//! - `Login::check_valid()`:    Checks validity of a login record, returning `()` if it is valid
 //!                              or an error if it is not.
 //!
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields

@@ -110,7 +110,7 @@ be shared. Please be brave and have a go at this!
 
 ### Triggers
 
-We tend to like triggers for encompasing application logic - for example, if
+We tend to like triggers for encompassing application logic - for example, if
 updating one row means a row in a different table should be updated based on
 that data, we'd tend to prefer an, eg,  `AFTER UPDATE` trigger than having our
 code manually implement the logic.

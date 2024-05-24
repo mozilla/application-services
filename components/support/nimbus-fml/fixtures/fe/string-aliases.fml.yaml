@@ -69,7 +69,7 @@ features:
           available-players: ["Aka", "Ekeka", "Hene", "Iolana", "Keoni", "Lino", "Mele", "Nona", "Oliwa", "Pama", "Upana", "Wene"]
 
   my-fixture:
-    description: Anoter contrived example, showing a deeply nested object within an object.
+    description: Another contrived example, showing a deeply nested object within an object.
     variables:
       available-players:
         description: Describes the list of valid players

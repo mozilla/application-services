@@ -36,7 +36,7 @@ pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn Sy
             SyncEngineId::CreditCards => {
                 Some(Box::new(crate::sync::credit_card::create_engine(store)))
             }
-            // panicing here seems reasonable - it's a static error if this
+            // panicking here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
             _ => unreachable!("can't provide unknown engine: {}", engine_id),
         },
