@@ -45,7 +45,7 @@ This component acts a client of the [Push Service Bridge HTTP Interface](https:/
 
 We assume two things about the consuming application:
 * It has registered with the autopush service and received a unique `app_id` identifying this registration.
-* It has registred with whatever platform-specific notification infrastructure is appropriate, and is
+* It has registered with whatever platform-specific notification infrastructure is appropriate, and is
   able to obtain a `registration_id` corresponding to its native push notification state.
 
 On first use, this component will register itself as an *application instance* with the autopush service, providing the `app_id` and `token` and receiving a unique `uaid` ("user-agent id") to identify its

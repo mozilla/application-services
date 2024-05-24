@@ -50,7 +50,7 @@ The Kotlin tests for a component should be runnable via `./gradlew <component>:t
 The tests at this layer are designed to ensure that the API binding code is working as intended,
 and should not repeat tests for functionality that is already well tested at the Rust level.
 But given that the Kotlin bindings involve a non-trivial amount of hand-written boilerplate code,
-it's important to exercise that code throughly.
+it's important to exercise that code thoroughly.
 
 One complication with running Kotlin tests is that the code needs to run on your local development machine,
 but the Kotlin code's native dependencies are typically compiled and packaged for Android devices. The

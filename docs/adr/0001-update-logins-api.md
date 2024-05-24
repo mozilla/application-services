@@ -16,7 +16,7 @@ The per-field encryption in autofill, which we are planning to replicate in logi
 * Addressing previously identified deficiencies in the logins API while we are breaking the API for the encryption work
 * Continuing to support the existing logins validation and deduping logic
 * Avoiding the implementation of new security approaches that may require additional time and security resources
-* Establishing a standard encyrption approach across components
+* Establishing a standard encryption approach across components
 
 
 ## Considered Options
@@ -50,7 +50,7 @@ Chosen Option: "Reduce the API functions that require the encryption key and pas
         - Functions related to sync have been omitted as it is assumed they will have access to decrypted data.
         - The `get_all`, `get_by_base_domain`, and `get_by_id` functions will require the encryption key because they call the validate and fixup logic, not because we want to return logins with decrypted data.
 
-  Propsed changes:
+  Proposed changes:
     - Combine the `add` and `update` functions into a new `add_or_update` function
       - This will allow the removal of consumer code that distinguishes when a login record should be created or updated
       - **Note:** This function needs the encryption key for the fixup and deduping logic _and_ for continued support of the accurate population of the `time_password_changed` field

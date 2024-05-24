@@ -40,7 +40,7 @@ fn create_sync_engine(
 ) -> Result<Box<dyn SyncEngine>> {
     match engine_id {
         SyncEngineId::Passwords => Ok(Box::new(LoginsSyncEngine::new(Arc::clone(&store))?)),
-        // panicing here seems reasonable - it's a static error if this
+        // panicking here seems reasonable - it's a static error if this
         // it hit, not something that runtime conditions can influence.
         _ => unreachable!("can't provide unknown engine: {}", engine_id),
     }

@@ -55,7 +55,7 @@ pub(crate) mod code_type {
         // Kotlin takes the `?` as an indicator to that the preceeding expression
         // is optional to continue processing, but be aware that the
         // expression returns an optional.
-        // Only the value_getter returns an optional, yet the optionality propogates.
+        // Only the value_getter returns an optional, yet the optionality propagates.
         // https://kotlinlang.org/docs/null-safety.html#safe-calls
         let getter = match (mapper, merger) {
             (Some(mapper), Some(merger)) => format!("{}?.{}?.{}", getter, mapper, merger),

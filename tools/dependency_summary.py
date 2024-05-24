@@ -46,7 +46,7 @@ ALL_ANDROID_TARGETS = [
 # The targets used when compiling for iOS.
 # From ../build-scripts/xc-universal-binary.sh
 #
-# Sadly, you can only use these targets if you have the iOS SDK avilable, which means
+# Sadly, you can only use these targets if you have the iOS SDK available, which means
 # only on a Mac. If you're running this script elsewhere then we use a Desktop Mac
 # target instead, but might generate incorrect info (which will be detected by a test
 # in CI that runs on a Mac).
@@ -69,7 +69,7 @@ LICENSES_IN_PREFERENCE_ORDER = [
     "Apache-2.0",
     # The MIT license is pretty good, because it's short.
     "MIT",
-    # Creative Commons Zero is the only Creative Commons license that's MPL-comaptible.
+    # Creative Commons Zero is the only Creative Commons license that's MPL-compatible.
     # It's the closest thing around to a "public domain" license and is recommended
     # by Mozilla for use on e.g. testing code.
     "CC0-1.0",
@@ -173,7 +173,7 @@ PACKAGES_WITH_EXTRA_DEPENDENCIES = {
     "nss_sys": ["ext-nss", "ext-nspr"],
     "openssl-sys": ["ext-openssl"],
     "rusqlite": ["ext-sqlite"],
-    # Our `rc_crypto` crate copies the API of `ring`, so take a fake dependnecy
+    # Our `rc_crypto` crate copies the API of `ring`, so take a fake dependency
     # in order to reflect accurate license information.
     "rc_crypto": ["ext-ring"],
 }
@@ -992,7 +992,7 @@ class WorkspaceMetadata(object):
     This uses `cargo metadata` to load the complete set of package metadata for the dependency tree
     of our workspace.  This typically lists too many packages, because it does a union of all features
     required by all packages in the workspace. Use the `get_package_dependencies` to obtain the
-    set of depdencies for a specific package, based on its build plan.
+    set of dependencies for a specific package, based on its build plan.
 
     For the JSON data format, ref https://doc.rust-lang.org/cargo/commands/cargo-metadata.html
     """
@@ -1038,7 +1038,7 @@ class WorkspaceMetadata(object):
         return self.pkgInfoByManifestPath[path]
 
     def get_dependency_summary(self, packages, targets=None):
-        """Get dependency and license summary infomation.
+        """Get dependency and license summary information.
 
         This method will yield dependency summary information for the named package. When the `targets`
         argument is specified it will yield information for the named package when compiled for just
@@ -1151,7 +1151,7 @@ class WorkspaceMetadata(object):
         return self.pkgInfoById[id]["manifest_path"]
 
     def get_license_info(self, id):
-        """Get the licensing info for the named dependency, or error if it can't be detemined."""
+        """Get the licensing info for the named dependency, or error if it can't be determined."""
         pkgInfo = self.pkgInfoById[id]
         chosenLicense = self.pick_most_acceptable_license(
             id, pkgInfo["license"])
@@ -1293,7 +1293,7 @@ def make_license_title(license, deps=None):
     else:
         title = "{} License".format(license)
     if deps:
-        # Dedupe in case of multiple versons of dependencies
+        # Dedupe in case of multiple versions of dependencies
         names = sorted(set(d["name"] for d in deps))
         title = "{}: {}".format(title, ", ".join(names))
     return title
@@ -1401,7 +1401,7 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
         pf("")
         pkgs = ["[{}]({})".format(info["name"], info["repository"])
                 for info in section["dependencies"]]
-        # Dedupe in case of multiple versons of dependencies.
+        # Dedupe in case of multiple versions of dependencies.
         pkgs = sorted(set(pkgs))
         pf("The following text applies to code linked from these dependencies:\n{}", ",\n".join(pkgs))
         pf("")

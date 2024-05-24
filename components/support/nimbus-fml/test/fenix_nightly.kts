@@ -11,8 +11,8 @@ import org.mozilla.experiments.nimbus.MockNimbus
 var injected: MockNimbus? = null
 MyNimbus.initialize { injected }
 
-// Test the default map with an enum to Boolean maping based
-// on the nighlty defaults
+// Test the default map with an enum to Boolean mapping based
+// on the nightly defaults
 
 val feature = MyNimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)

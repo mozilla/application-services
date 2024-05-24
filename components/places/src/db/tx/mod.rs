@@ -35,7 +35,7 @@ impl<'conn> PlacesTransaction<'conn> {
         }
     }
 
-    /// - For transactions on sync connnections: Checks to see if we have held a
+    /// - For transactions on sync connections: Checks to see if we have held a
     ///   transaction for longer than the requested time, and if so, commits the
     ///   current transaction and opens another.
     /// - For transactions on other connections: `debug_assert!`s, or logs a

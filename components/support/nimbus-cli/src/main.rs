@@ -44,7 +44,7 @@ where
     let mut commands: Vec<AppCommand> = Default::default();
 
     // We do this here to ensure that all the command line is valid
-    // with respect to the main command. We do this here becasue
+    // with respect to the main command. We do this here because
     // as the cli has expanded, we've changed when we need `--app`
     // and `--channel`. We catch those types of errors early by doing this
     // here.

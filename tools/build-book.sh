@@ -9,7 +9,7 @@
 
 set -xe
 
-# Genarate the Rust docs and move them over to the book.
+# Generate the Rust docs and move them over to the book.
 # We document all features. Ideally we'd leverage https://docs.rs/document-features/latest/document_features/
 # so the features themselves are documented, but that's another dependency or another yak, so for another day.
 cargo doc --all-features --no-deps
@@ -23,7 +23,7 @@ if echo "$output" | grep -q "\[ERROR\]" ; then
     exit 1
 fi
 
-# copy the output files to the publising directory
+# copy the output files to the publishing directory
 rm -rf build/docs
 mkdir -p build/docs
 echo '<meta http-equiv=refresh content=0;url=book/index.html>' > build/docs/index.html

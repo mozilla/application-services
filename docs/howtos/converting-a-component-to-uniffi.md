@@ -102,7 +102,7 @@ Swift code.
 Don't spend too much time on trying to match every minute detail of the existing hand-written API.
 There are likely to be small differences between how UniFFI likes to do things and how the hand-written
 APIs were structured, and it's in everyone's best long-term interests to just push ahead and update
-consumers to accommodate any breaking API changes, rathern than e.g. trying to convince UniFFI to
+consumers to accommodate any breaking API changes, rather than e.g. trying to convince UniFFI to
 capitalize enum variant names in the same style that the hand-written code was using.
 
 To check whether the `.udl` file is syntactically valid, you can use `uniffi-bindgen` to generate
@@ -258,7 +258,7 @@ adding the ability to set a persistence callback.
 
 Finally, you will need to try out the new bindings with a consuming app. For Kotlin code you should
 [make a local build of android-components and Fenix](locally-published-components-in-fenix.md),
-updating them to accomodate any changes in the component's public API.
+updating them to accommodate any changes in the component's public API.
 
 
 ## Set up the Swift wrapper

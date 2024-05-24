@@ -41,7 +41,7 @@ impl CodeType for BooleanCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Bool
     }
@@ -110,7 +110,7 @@ impl CodeType for IntCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Int
     }
@@ -175,7 +175,7 @@ impl CodeType for StringCodeType {
     }
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::String
     }

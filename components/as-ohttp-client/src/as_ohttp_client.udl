@@ -28,7 +28,7 @@ interface OhttpSession {
     constructor([ByRef] sequence<u8> config);
 
     // Encapsulate an HTTP request as Binary HTTP and then encrypt that
-    // payload using HPKE. The caller is reponsible for sending the
+    // payload using HPKE. The caller is responsible for sending the
     // resulting message to the Relay.
     [Throws=OhttpError]
     sequence<u8> encapsulate([ByRef] string method,

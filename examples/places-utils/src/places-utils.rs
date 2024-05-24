@@ -436,7 +436,7 @@ enum Command {
     DeleteHistory,
 
     #[structopt(name = "run-maintenance")]
-    /// Run maintenence on the database
+    /// Run maintenance on the database
     RunMaintenance {
         #[structopt(name = "db-size-limit", long, default_value = "75000000")]
         /// Target size of the database (in bytes)

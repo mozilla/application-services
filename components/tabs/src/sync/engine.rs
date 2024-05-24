@@ -32,7 +32,7 @@ pub fn get_registered_sync_engine(
         None => None,
         Some(store) => match engine_id {
             SyncEngineId::Tabs => Some(Box::new(TabsEngine::new(Arc::clone(&store)))),
-            // panicing here seems reasonable - it's a static error if this
+            // panicking here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
             _ => unreachable!("can't provide unknown engine: {}", engine_id),
         },

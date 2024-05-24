@@ -94,7 +94,7 @@ struct Sysctl {
         return keysBuffer
     }
 
-    /// Invoke `sysctl` with an array of identifers, interpreting the returned buffer as the specified type.
+    /// Invoke `sysctl` with an array of identifiers, interpreting the returned buffer as the specified type.
     /// This function will throw `Error.invalidSize` if the size of buffer returned from `sysctl` fails to match the size of `T`.
     public static func value<T>(ofType _: T.Type, forKeys keys: [Int32]) throws -> T {
         let buffer = try data(for: keys)
@@ -107,7 +107,7 @@ struct Sysctl {
         }
     }
 
-    /// Invoke `sysctl` with an array of identifers, interpreting the returned buffer as the specified type.
+    /// Invoke `sysctl` with an array of identifiers, interpreting the returned buffer as the specified type.
     /// This function will throw `Error.invalidSize` if the size of buffer returned from `sysctl` fails to match the size of `T`.
     public static func value<T>(ofType type: T.Type, forKeys keys: Int32...) throws -> T {
         return try value(ofType: type, forKeys: keys)
@@ -119,7 +119,7 @@ struct Sysctl {
         return try value(ofType: type, forKeys: keys(for: name))
     }
 
-    /// Invoke `sysctl` with an array of identifers, interpreting the returned buffer as a `String`.
+    /// Invoke `sysctl` with an array of identifiers, interpreting the returned buffer as a `String`.
     /// This function will throw `Error.malformedUTF8` if the buffer returned from `sysctl` cannot be interpreted as a UTF8 buffer.
     public static func string(for keys: [Int32]) throws -> String {
         let optionalString = try data(for: keys).withUnsafeBufferPointer { dataPointer -> String? in
@@ -131,7 +131,7 @@ struct Sysctl {
         return s
     }
 
-    /// Invoke `sysctl` with an array of identifers, interpreting the returned buffer as a `String`.
+    /// Invoke `sysctl` with an array of identifiers, interpreting the returned buffer as a `String`.
     /// This function will throw `Error.malformedUTF8` if the buffer returned from `sysctl` cannot be interpreted as a UTF8 buffer.
     public static func string(for keys: Int32...) throws -> String {
         return try string(for: keys)

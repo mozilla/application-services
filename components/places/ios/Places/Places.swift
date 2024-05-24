@@ -438,7 +438,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
      * - Deleting older visits when the database exceeds dbSizeLimit
      * - etc.
      *
-     * Maintanance in performed in small chunks at a time to avoid blocking the
+     * Maintenance in performed in small chunks at a time to avoid blocking the
      * DB connection for too long.  This means that this should be called
      * regularly when the app is idle.
      *

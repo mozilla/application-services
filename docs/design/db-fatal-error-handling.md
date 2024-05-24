@@ -9,7 +9,7 @@ happened when the database become corrupt. So think of this as making the app
 usable again!
 
 Note that this strategy doesn't exclude better recovery strategies - eg,
-we could do someting smart like auto-backup the database and automatically
+we could do something smart like auto-backup the database and automatically
 restore when we are in this state. Sync will also help users recover their
 data. But even if recovery strategies are available, we still need to know
 how to identify scenarios where this recovery should be done. Further, there's

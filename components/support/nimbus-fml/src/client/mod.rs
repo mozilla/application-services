@@ -373,7 +373,7 @@ mod string_aliases {
         assert_eq!(expected, err.message.as_str());
 
         // -----------------------------------------------------------
-        // Suprise! Donkey is now available!
+        // Surprise! Donkey is now available!
         // because we added them to the player-availability map.
         let errors = inspector.get_errors(
             r#"{
@@ -508,7 +508,7 @@ mod string_aliases {
         assert_eq!(Some("\"Aka\""), err.highlight.as_deref());
 
         // ------------------------------------------------------------
-        // Suprise! Donkey is the only available player, for all games,
+        // Surprise! Donkey is the only available player, for all games,
         let errors = inspector.get_errors(
             r#"{
                 "available-players": ["Donkey"],

@@ -390,7 +390,7 @@ pub(crate) mod tests {
             },
         )?;
 
-        // creating a third credit card with a tombstone to ensure it's not retunred
+        // creating a third credit card with a tombstone to ensure it's not returned
         let saved_credit_card3 = add_credit_card(
             &db,
             UpdatableCreditCardFields {

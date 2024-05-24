@@ -7,7 +7,7 @@ import XCTest
 // some utility functions for the test code
 func dynCmp<T: Equatable>(_ optVal: T?, _ optDynVal: Any?) -> Bool {
     guard let dynVal = optDynVal else {
-        // no requierment given, all is fine
+        // no requirement given, all is fine
         return true
     }
     guard let val = optVal else {

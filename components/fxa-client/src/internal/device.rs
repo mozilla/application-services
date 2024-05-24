@@ -96,7 +96,7 @@ impl FirefoxAccount {
         Ok(commands)
     }
 
-    /// Initalizes our own device, most of the time this will be called right after logging-in
+    /// Initializes our own device, most of the time this will be called right after logging-in
     /// for the first time.
     ///
     /// **💾 This method alters the persisted account state.**

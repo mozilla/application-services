@@ -127,7 +127,7 @@ Bumped the version of rusqlite/libsqlite3-sys, meaning the bundled sqlite versio
 
 ### ✨ What's New ✨
 
-- Added an `info` command to add to the `nimbus-fml` command line ([#5967](https://github.com/mozilla/application-services/pull/5967)). It outputs JSON / YAML with a summmary of each feature including:
+- Added an `info` command to add to the `nimbus-fml` command line ([#5967](https://github.com/mozilla/application-services/pull/5967)). It outputs JSON / YAML with a summary of each feature including:
   - the types used, as a proxy for feature complexity
   - [feature metadata](https://experimenter.info/fml/feature-metadata), including documentation and events
   - the schema hash and defaults hash.
@@ -774,7 +774,7 @@ The Tabs engine is now more efficient in how it fetches its records:
      - For example, the Notification Service in iOS creates its own instance of the account manager, changes its state (by changing the index of the last retrieved send tab)
      - The main account manager held by the application should call` resetPersistedState` before calling any other method that might change its state. This way it can retrieve the most up to date index that the Notification Services persisted.
 ### What's changed
-- The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibilty of ensuring each push gets a UI element to the caller.
+- The `processRawIncomingAccountEvent` function will now process all commands, not just one. This moves the responsibility of ensuring each push gets a UI element to the caller.
 
 # v96.0.1 (_2022-11-18_)
 
@@ -1328,7 +1328,7 @@ The Tabs engine is now more efficient in how it fetches its records:
 ## Places
 
 ### What's Changed
-  - The database initialization code now uses BEGIN IMMIDIATE to start a
+  - The database initialization code now uses BEGIN IMMEDIATE to start a
     transaction.  This will hopefully prevent `database is locked` errors when
     opening a sync connection.
 
@@ -1852,7 +1852,7 @@ Note: Though this is technically a breaking change, we do not expect any consume
 ### ⚠️ Breaking Changes ⚠️
   - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
     Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
-    will recieve an error indicating that the schema was not correctly formated.
+    will receive an error indicating that the schema was not correctly formatted.
 
 ## Nimbus
 ### What's Changed
@@ -1994,7 +1994,7 @@ Fixed an error migrating from version 1 to version 2 of the database.
 
 ### ⚠️ Breaking changes ⚠️
 
-- Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Obsevrer.
+- Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Observer.
   Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
 
 
@@ -2029,7 +2029,7 @@ Fixed an error migrating from version 1 to version 2 of the database.
 
 ### What's changed
 
-- Make `channel` targeting comparision case-insensitive. ([#4009](https://github.com/mozilla/application-services/pull/4009))
+- Make `channel` targeting comparison case-insensitive. ([#4009](https://github.com/mozilla/application-services/pull/4009))
 
 
 # v75.0.0 (_2021-03-29_)
@@ -2525,7 +2525,7 @@ the full megazord.
 
 ## General
 
-- This release only exists to correct issues that occured when publishing a v61.0.11, which failed to produce an artifact because of a warning which occured during the build process. (It contains a small number of additional cherry-picked patches which correct these warnings).
+- This release only exists to correct issues that occurred when publishing a v61.0.11, which failed to produce an artifact because of a warning which occurred during the build process. (It contains a small number of additional cherry-picked patches which correct these warnings).
 
 # v61.0.11 (_2020-08-07_)
 
@@ -2643,7 +2643,7 @@ the full megazord.
 
 - Remove the node.js integration tests helper and removes node from the circleci environment. ([#3187](https://github.com/mozilla/application-services/pull/3187))
 - Put `backtrace` behind a cargo feature. ([#3213](https://github.com/mozilla/application-services/pull/3213))
-- Move sqlite dependency down from rc_cryto to nss_sys. ([#3198](https://github.com/mozilla/application-services/pull/3198))
+- Move sqlite dependency down from rc_crypto to nss_sys. ([#3198](https://github.com/mozilla/application-services/pull/3198))
 - Adds jwe encryption in scoped_keys. ([#3195](https://github.com/mozilla/application-services/pull/3195))
 - Adds an implementation for [pbkdf2](https://www.ietf.org/rfc/rfc2898.txt). ([#3193](https://github.com/mozilla/application-services/pull/3193))
 - Fix bug to correctly return the given defaults when the storageArea's `get()` method is used with an empty store ([bug 1645598](https://bugzilla.mozilla.org/show_bug.cgi?id=1645598)). ([#3236](https://github.com/mozilla/application-services/pull/3236))
@@ -3439,7 +3439,7 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 
 ### What's new
 
-- Android: Exposed `stroage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
+- Android: Exposed `storage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
 
 ## FxA Client
 
@@ -4550,7 +4550,7 @@ and working around subtle build issues.
 - New methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
     - `fun deleteVisit(url: String, timestamp: Long)`: If a visit exists at the specified timestamp for the specified URL, delete it. This change will be synced if it is the last remaining visit (standard caveat for partial visit deletion). ([#621](https://github.com/mozilla/application-services/issues/621))
     - `fun deleteVisitsBetween(start: Long, end: Long)`: Similar to `deleteVisitsSince(start)`, but takes an end date. ([#621](https://github.com/mozilla/application-services/issues/621))
-    - `fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>`: Returns a more detailed set of information about the visits that occured. ([#619](https://github.com/mozilla/application-services/issues/619))
+    - `fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>`: Returns a more detailed set of information about the visits that occurred. ([#619](https://github.com/mozilla/application-services/issues/619))
         - `VisitInfo` is a new data class that contains a visit's url, title, timestamp, and type.
     - `fun wipeLocal()`: Deletes all history entries without recording any sync information. ([#611](https://github.com/mozilla/application-services/issues/611)).
 
@@ -4722,7 +4722,7 @@ and working around subtle build issues.
 
 - In most cases, opaque integer handles are now used to pass data over the FFI ([#567](https://github.com/mozilla/application-services/issues/567)). This should be more robust, and allow detection of many types of errors that would previously cause silent memory corruption.
 
-  This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the Rust code paniced (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
+  This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the Rust code panicked (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
 
   This may seem inconvenient, but it should be an improvement over the previous version, where we instead would simply carry on despite potentially having corrupted internal state.
 
@@ -4771,7 +4771,7 @@ Some APIs which are semantically internal (but exposed for various reasons) have
 ### What's New
 
 - The fxa-client android library will now write logs to logcat. ([#533](https://github.com/mozilla/application-services/pull/533))
-- The fxa-client Android and iOS librairies will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
+- The fxa-client Android and iOS libraries will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
 
 # 0.13.1 (_2019-01-10_)
 

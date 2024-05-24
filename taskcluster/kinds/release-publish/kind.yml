@@ -8,7 +8,7 @@
 # apps for app-services version bumps.
 #
 # This task only runs if build-summary succeeds, which implies that all other
-# tasks suceeded.  This task should not fail, since that could leave the
+# tasks succeeded.  This task should not fail, since that could leave the
 # build artifacts in an inconsistent state.
 loader: taskgraph.loader.transform:loader
 

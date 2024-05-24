@@ -66,7 +66,7 @@ impl UpdatePlan {
             match local {
                 LocalLogin::Tombstone { .. } => {
                     // If the login was deleted locally, the merged delta is the
-                    // upstream delta. We do this because a user simultanously deleting their
+                    // upstream delta. We do this because a user simultaneously deleting their
                     // login and updating it has two possible outcomes:
                     //   - A login that was intended to be deleted remains because another update was
                     //   there

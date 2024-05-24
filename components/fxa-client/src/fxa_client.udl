@@ -164,7 +164,7 @@ interface FirefoxAccount {
   //       - This parameter is used for metrics purposes, to identify the
   //         UX entrypoint from which the user triggered the signin request.
   //         For example, the application toolbar, on the onboarding flow.
-  //   - `metrics` - optionally, additional metrics tracking paramters.
+  //   - `metrics` - optionally, additional metrics tracking parameters.
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
@@ -203,7 +203,7 @@ interface FirefoxAccount {
   //       - This parameter is used for metrics purposes, to identify the
   //         UX entrypoint from which the user triggered the signin request.
   //         For example, the application toolbar, on the onboarding flow.
-  //   - `metrics` - optionally, additional metrics tracking paramters.
+  //   - `metrics` - optionally, additional metrics tracking parameters.
   //       - These will be included as query parameters in the resulting URL.
   //
   [Throws=FxaError]
@@ -307,7 +307,7 @@ interface FirefoxAccount {
   //
   // **💾 This method alters the persisted account state.**
   //
-  // This method registed a device record for the application, providing basic metadata for
+  // This method registered a device record for the application, providing basic metadata for
   // the device along with a list of supported [Device Capabilities](DeviceCapability) for
   // participating in the "device commands" ecosystem.
   //
@@ -370,10 +370,10 @@ interface FirefoxAccount {
   // Get the list of all client applications attached to the user's account.
   //
   // This method returns a list of [`AttachedClient`] structs representing all the applications
-  // connected to the user's acount. This includes applications that are registered as a device
+  // connected to the user's account. This includes applications that are registered as a device
   // as well as server-side services that the user has connected.
   //
-  // This information is really only useful for targetted messaging or marketing purposes,
+  // This information is really only useful for targeted messaging or marketing purposes,
   // e.g. if the application wants to advertize a related product, but first wants to check
   // whether the user is already using that product.
   //
@@ -427,7 +427,7 @@ interface FirefoxAccount {
   //
   // **💾 This method alters the persisted account state.**
   //
-  // This method checks that the currently-registred device record is advertising the
+  // This method checks that the currently-registered device record is advertising the
   // given set of capabilities in the FxA "device commands" ecosystem. If not, then it
   // updates the device record to do so.
   //
@@ -627,7 +627,7 @@ interface FirefoxAccount {
   // **💾 This method alters the persisted account state.**
   //
   // Applications that function as a web browser may need to hold on to a session token
-  // on behalf of Firefox Accounts web content. This method exists so that they can retreive
+  // on behalf of Firefox Accounts web content. This method exists so that they can retrieve
   // it an pass it back to said web content when required.
   //
   // # Notes
@@ -777,7 +777,7 @@ dictionary AccessTokenInfo {
   i64 expires_at;
 };
 
-// A cryptograpic key associated with an OAuth scope.
+// A cryptographic key associated with an OAuth scope.
 //
 // Some OAuth scopes have a corresponding client-side encryption key that is required
 // in order to access protected data. This struct represents such key material in a
@@ -919,7 +919,7 @@ dictionary TabHistoryEntry {
 // Firefox Account.
 //
 //
-// This data would typically be used for targetted messaging purposes, catering the
+// This data would typically be used for targeted messaging purposes, catering the
 // contents of the message to what other applications the user has on their account.
 //
 dictionary AttachedClient {

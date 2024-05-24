@@ -190,7 +190,7 @@ impl<'a> CallErrorHandler<'a> {
     }
 
     fn handle_error(&mut self, e: Error, account: &mut FirefoxAccount) -> CallResult {
-        // If we see a StateMachineLogicError, return it immedately
+        // If we see a StateMachineLogicError, return it immediately
         if matches!(e, Error::StateMachineLogicError(_)) {
             return CallResult::InternalError(e);
         }

@@ -1,6 +1,6 @@
 // Forked from https://github.com/thomcc/find-places-dbs, which was itself
 // originally in app-services, then split out for general-purpose use, but
-// then became unmaintained and publiched to crates.io without a Mozilla owner.
+// then became unmaintained and published to crates.io without a Mozilla owner.
 // If we ever need to split it out again we should contact Thom, who I'm sure
 // would be happy to give us ownership of the crate.
 

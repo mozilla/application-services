@@ -232,7 +232,7 @@ fn is_dir(path_buf: &Path) -> bool {
 }
 
 // In tests, the directories don't always exist on-disk, so we cannot use the
-// `.is_dir()` method, which would call `stat` (or equivalent) on a non-existant
+// `.is_dir()` method, which would call `stat` (or equivalent) on a non-existent
 // file. Instead, we check for the presence of a trailing slash, so all tests
 // that need to treat a path like a directory *must* append trailing slashes to
 // those paths.
@@ -375,7 +375,7 @@ impl FileLoader {
             || loc.contains("://")
         {
             // The `loc`, whatever the current working directory, is going to end up as a part of a path.
-            // A trailing slash ensures it gets treated like a directoy, rather than a file.
+            // A trailing slash ensures it gets treated like a directory, rather than a file.
             // See Url::join.
             let loc = if loc.ends_with('/') {
                 loc.to_string()
@@ -386,7 +386,7 @@ impl FileLoader {
             // URLs, relative file paths, absolute paths.
             cwd.join(&loc)?
         } else {
-            // refs, commmit hashes, tags, branches.
+            // refs, commit hashes, tags, branches.
             self.remote_file_path(repo_id, loc)
         };
 

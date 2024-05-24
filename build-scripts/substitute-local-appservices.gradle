@@ -3,7 +3,7 @@
 // will be configured to look for development versions published to the local maven repository.
 //
 // There is a companion gradle command `autoPublishForLocalDevelopment` that can be used to publish
-// the local development versions that are targetted by this script.
+// the local development versions that are targeted by this script.
 
 def version = null
 if (gradle.hasProperty("localProperties.autoPublish.application-services.dir")) {

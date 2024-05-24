@@ -10,7 +10,7 @@ typealias LoginsStoreError = LoginsApiError
 
 /*
  ** We probably should have this class go away eventually as it's really only a thin wrapper
- * similar to its kotlin equiavlent, however the only thing preventing this from being removed is
+ * similar to its kotlin equivalents, however the only thing preventing this from being removed is
  * the queue.sync which we should be moved over to the consumer side of things
  */
 open class LoginsStorage {

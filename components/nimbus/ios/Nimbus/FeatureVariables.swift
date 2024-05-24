@@ -44,7 +44,7 @@ public protocol Variables {
     /// Returns the whole variables object as a string map
     /// will return `nil` if it cannot be converted
     ///  - Note: This function will omit any variables that could not be converted to strings
-    ///  - Returns: a `[String:String]` dictonary representing the whole variables object
+    ///  - Returns: a `[String:String]` dictionary representing the whole variables object
     func asStringMap() -> [String: String]?
 
     /// Finds a integer typed value for this key. If none exists, `nil` is returned.
@@ -63,7 +63,7 @@ public protocol Variables {
     /// Returns the whole variables object as an Int map
     /// will return `nil` if it cannot be converted
     ///  - Note: This function will omit any variables that could not be converted to Ints
-    ///  - Returns: a `[String:Int]` dictonary representing the whole variables object
+    ///  - Returns: a `[String:Int]` dictionary representing the whole variables object
     func asIntMap() -> [String: Int]?
 
     /// Finds a boolean typed value for this key. If none exists, `nil` is returned.
@@ -82,7 +82,7 @@ public protocol Variables {
     /// Returns the whole variables object as a boolean map
     /// will return `nil` if it cannot be converted
     ///  - Note: This function will omit any variables that could not be converted to booleans
-    ///  - Returns: a `[String:Bool]` dictonary representing the whole variables object
+    ///  - Returns: a `[String:Bool]` dictionary representing the whole variables object
     func asBoolMap() -> [String: Bool]?
 
     /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
@@ -135,7 +135,7 @@ public protocol Variables {
     /// Returns the whole variables object as a variables map
     /// will return `nil` if it cannot be converted
     ///  - Note: This function will omit any variables that could not be converted to a class representing variables
-    ///  - Returns: a `[String:Variables]` dictonary representing the whole variables object
+    ///  - Returns: a `[String:Variables]` dictionary representing the whole variables object
     func asVariablesMap() -> [String: Variables]?
 }
 

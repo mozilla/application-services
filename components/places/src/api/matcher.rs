@@ -745,7 +745,7 @@ mod tests {
         .unwrap();
     }
     // This panics in tests but not for "real" consumers. In an effort to ensure
-    // we are panicing where we think we are, note the 'expected' string.
+    // we are panicking where we think we are, note the 'expected' string.
     // (Not really clear this test offers much value, but seems worth having...)
     #[test]
     #[cfg_attr(

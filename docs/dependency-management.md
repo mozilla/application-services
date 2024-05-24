@@ -38,7 +38,7 @@ We try to balance this responsibility against the many benefits of using existin
   * For trivial functionality, consider just writing it yourself.
     Remember the cautionary tale of [left-pad](https://www.theregister.co.uk/2016/03/23/npm_left_pad_chaos/).
   * Check if we already have a crate in our dependency tree that can provide the needed functionality.
-* Prefer crates that have a a high level of due-dilligence already applied, such as:
+* Prefer crates that have a a high level of due-diligence already applied, such as:
   * Crates that are [already vendored into Firefox](https://dxr.mozilla.org/mozilla-central/source/third_party/rust).
   * Crates from [rust-lang-nursery](https://github.com/rust-lang-nursery).
   * Crates that appear to be widely used in the rust community.

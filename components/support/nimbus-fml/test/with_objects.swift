@@ -36,7 +36,7 @@ let api = HardcodedNimbusFeatures(with: ["with-objects-feature":  """
 nimbus.api = api
 nimbus.invalidateCachedValues()
 
-// Now test the selectively overidden properties of the feature.
+// Now test the selectively overridden properties of the feature.
 let feature1 = nimbus.features.withObjectsFeature.value()
 
 assert(feature1.anObject.aString == "yes")

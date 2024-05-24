@@ -337,7 +337,7 @@ LEFT JOIN moz_places o ON o.id = m.referrer_place_id";
 // Highlight query returns moz_places entries ranked by a "highlight score".
 // This score takes into account two factors:
 // 1) frequency of visits to a page,
-// 2) cummulative view time of a page.
+// 2) cumulative view time of a page.
 //
 // Eventually, we could consider combining this with `moz_places.frecency` as a basis for (1), that assumes we have a populated moz_historyvisits table.
 // Currently, iOS doesn't use 'places' library to track visits, so iOS clients won't have meaningful frecency scores.

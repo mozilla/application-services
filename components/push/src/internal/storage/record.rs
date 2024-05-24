@@ -19,7 +19,7 @@ pub struct PushRecord {
     /// Endpoint provided from the push server
     pub endpoint: String,
 
-    /// The receipient (service worker)'s scope
+    /// The recipient (service worker)'s scope
     pub scope: String,
 
     /// Private EC Prime256v1 key info.

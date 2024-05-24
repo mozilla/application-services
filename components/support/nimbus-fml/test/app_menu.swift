@@ -13,7 +13,7 @@ assert(feature.itemEnabled[MenuItemId.resumeGame] == false)
 assert(feature.itemEnabled[MenuItemId.settings] == true)
 assert(feature.itemEnabled[MenuItemId.community] == false)
 
-// Excercise a map of Objects.
+// Exercise a map of Objects.
 assert(feature.items[MenuItemId.startGame]?.label == "Start Game")
 assert(feature.items[MenuItemId.resumeGame]?.label == "Resume Game")
 assert(feature.items[MenuItemId.settings]?.label == "Settings")

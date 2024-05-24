@@ -111,7 +111,7 @@ pub enum StoreId {
     /// Store containing miscellaneous metadata about this client instance.
     ///
     /// Keys in the `Meta` store are string constants, and their corresponding values
-    /// are serialized items whose type depends on the constant. Known constaints
+    /// are serialized items whose type depends on the constant. Known constraints
     /// include:
     ///   * "db_version":   u16, the version number of the most revent migration
     ///                     applied to this database.
@@ -261,7 +261,7 @@ pub struct Database {
 
 impl Database {
     /// Main constructor for a database
-    /// Initiates the Rkv database to be used to retreive persisted data
+    /// Initiates the Rkv database to be used to retrieve persisted data
     /// # Arguments
     /// - `path`: A path to the persisted data, this is provided by the consuming application
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {

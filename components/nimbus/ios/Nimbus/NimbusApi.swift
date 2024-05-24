@@ -247,7 +247,7 @@ public let remoteSettingsCollection = "nimbus-mobile-experiments"
 public let remoteSettingsPreviewCollection = "nimbus-preview"
 
 /// Name, channel and specific context of the app which should agree with what is specified in Experimenter.
-/// The specifc context is there to capture any context that the SDK doesn't need to be explictly aware of.
+/// The specific context is there to capture any context that the SDK doesn't need to be explicitly aware of.
 ///
 public struct NimbusAppSettings {
     public init(appName: String, channel: String, customTargetingAttributes: [String: Any] = [String: Any]()) {

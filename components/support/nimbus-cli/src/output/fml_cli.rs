@@ -20,7 +20,7 @@ pub(crate) fn fml_cli(args: &Vec<OsString>, cwd: &Path) -> Result<bool> {
 
     let help = OsStr::new("--help").to_os_string();
     if args.is_empty() {
-        // If the user has just typed `nimbus-cli fml`– with no furher arguments— then the rather unhelpful message
+        // If the user has just typed `nimbus-cli fml`– with no further arguments— then the rather unhelpful message
         // `not implemented: Command  not implemented` is displayed. This will change if and when we upgrade the nimbus-fml
         // to use cli-derive, but until then, we can do a simple thing to make the experience a bit nicer, by adding
         // the `--help` flag, so the user gets the nimbus-fml command line help.

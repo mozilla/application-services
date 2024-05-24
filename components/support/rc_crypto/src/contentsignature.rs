@@ -14,7 +14,7 @@ use crate::signature;
 
 /// Verify content signatures, with the ECDSA P384 curve and SHA-384 hashing (NIST384p / secp384r1).
 ///
-/// These signatures are typically used to garantee integrity of data between our servers and clients.
+/// These signatures are typically used to guarantee integrity of data between our servers and clients.
 /// This is a critical part of systems like Remote Settings or the experiment platform.
 ///
 /// The equivalent implementation for Gecko is ``security/manager/ssl/nsIContentSignatureVerifier.idl``.

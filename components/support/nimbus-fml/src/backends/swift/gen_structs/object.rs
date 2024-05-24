@@ -60,7 +60,7 @@ impl CodeType for ObjectCodeType {
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
 
     /// The name of the type as it's represented in the `Variables` object.
-    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    /// The string return may be used to combine with an identifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Variables
     }

@@ -149,7 +149,7 @@ fn version_compare(args: &[Value]) -> Result<Value> {
         NimbusError::VersionParsingError("minimum version doesn't exist in jexl transform".into())
     })?;
     let min_version = min_version.as_str().ok_or_else(|| {
-        NimbusError::VersionParsingError("minium version is not a string in jexl transform".into())
+        NimbusError::VersionParsingError("minimum version is not a string in jexl transform".into())
     })?;
     let min_version = Version::try_from(min_version)?;
     let curr_version = Version::try_from(curr_version)?;

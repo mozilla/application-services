@@ -6,7 +6,7 @@ import android.content.Context as MockContext
 import org.mozilla.experiments.nimbus.MockNimbus
 import org.mozilla.experiments.nimbus.internal.FeatureHolder
 
-// Test the default map with an enum to Boolean maping.
+// Test the default map with an enum to Boolean mapping.
 val feature = MyNimbus.features.homescreen.value()
 assert(feature.sectionsEnabled[HomeScreenSection.TOP_SITES] == true)
 assert(feature.sectionsEnabled[HomeScreenSection.JUMP_BACK_IN] == false)

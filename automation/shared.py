@@ -23,7 +23,7 @@ def check_output(*args, **kwargs):
 def ensure_working_tree_clean():
     """Error out if there are un-committed or staged files in the working tree."""
     if run_cmd_checked(["git", "status", "--porcelain"], capture_output=True).stdout:
-        fatal_err("The working tree has un-commited or staged files.")
+        fatal_err("The working tree has un-committed or staged files.")
 
 def find_app_services_root():
     """Find the absolute path of the Application services repository root."""

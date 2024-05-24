@@ -603,7 +603,7 @@ interface ReadableHistoryMetadataConnection : InterruptibleConnection {
     /**
      * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is greater or equal to [since].
      *
-     * @param since Timestmap to search by.
+     * @param since Timestamp to search by.
      * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
      */
     suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata>
@@ -796,7 +796,7 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * - Deleting older visits when the database exceeds dbSizeLimit
      * - etc.
      *
-     * Maintanance in performed in small chunks at a time to avoid blocking the
+     * Maintenance in performed in small chunks at a time to avoid blocking the
      * DB connection for too long.  This means that this should be called
      * regularly when the app is idle.
      *
@@ -817,7 +817,7 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * The difference between this and wipeLocal is that wipeLocal does
      * not prevent the deleted visits from returning. For wipeLocal,
      * the visits will return on the next full sync (which may be
-     * arbitrarially far in the future), wheras items which were
+     * arbitrarially far in the future), whereas items which were
      * deleted by deleteEverything (or potentially could have been)
      * should not return.
      */
@@ -906,7 +906,7 @@ data class HistoryMetadataKey(
  *    - total count of operations performed
  *    - count of operations that produced an error, labeled by type
  *
- * This is a convenince wrapper to measure the two in one shot.
+ * This is a convenience wrapper to measure the two in one shot.
  */
 class PlacesManagerCounterMetrics(
     val count: CounterMetricType,

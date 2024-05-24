@@ -5,7 +5,7 @@
 
 # Nimbus Feature Manifest Language Generator
 #
-# For more infomration, check out https://experimenter.info/fml-spec
+# For more information, check out https://experimenter.info/fml-spec
 #
 # This script generates Swift definitions for all the experimentable features supported by Nimbus.
 # It generates Swift code to be included in the final build.
@@ -34,7 +34,7 @@ Nimbus Feature Manifest Language generator initializer.
 
 This script generates the code needed to interact with Nimbus, exposing features which are experimentable.
 
-For more infomration, check out https://experimenter.info/fml-spec
+For more information, check out https://experimenter.info/fml-spec
 
 The script structure was adopted from the similar script "sdk_generator.sh" written by the Glean team.
 

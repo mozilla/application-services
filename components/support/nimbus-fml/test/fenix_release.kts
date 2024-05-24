@@ -8,7 +8,7 @@ import com.example.release.FxNimbus as MyNimbus
 import com.example.release.HomeScreenSection
 import org.mozilla.experiments.nimbus.MockNimbus
 
-// Test the default map with an enum to Boolean maping.
+// Test the default map with an enum to Boolean mapping.
 var injected: MockNimbus? = null
 MyNimbus.initialize { injected }
 val feature = MyNimbus.features.homescreen.value()

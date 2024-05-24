@@ -57,7 +57,7 @@ pub(crate) fn encrypt_to_jwe(
 
 /// The ECDH helper that takes the ciphertext in the form of a CompactJwe,
 /// and the keys, creates the appropriate header, then calls the `aes` module to
-/// do the actual decrytion.
+/// do the actual decryption.
 pub(crate) fn decrypt_jwe(jwe: &CompactJwe, local_key_pair: EphemeralKeyPair) -> Result<String> {
     // Part 0: Validate inputs.
     let protected_header = jwe.protected_header()?.ok_or(JwCryptoError::IllegalState(

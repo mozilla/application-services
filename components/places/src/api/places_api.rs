@@ -143,7 +143,7 @@ pub struct PlacesApi {
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
     // Used for get_sync_connection()
-    // - The inner mutux synchronizes sync operation (for example one of the [SyncEngine] methods).
+    // - The inner mutex synchronizes sync operation (for example one of the [SyncEngine] methods).
     //   This avoids issues like #867
     // - The weak facilitates connection sharing.  When `get_sync_connection()` returns an Arc, we
     //   keep a weak reference to it.  If the Arc is still alive when `get_sync_connection()` is
