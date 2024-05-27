@@ -412,7 +412,7 @@ extension Nimbus: NimbusMessagingProtocol {
         encoder.keyEncodingStrategy = .convertToSnakeCase
 
         let data = try encoder.encode(additionalContext)
-        let string = String(data: data, encoding: .utf8)!
+        let string = String(decoding: data, as: UTF8.self)
         return try createMessageHelper(string: string)
     }
 

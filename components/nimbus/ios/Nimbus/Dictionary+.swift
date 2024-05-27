@@ -7,10 +7,7 @@ import Foundation
 extension Dictionary where Key == String, Value == Any {
     func stringify() throws -> String {
         let data = try JSONSerialization.data(withJSONObject: self)
-        guard let s = String(data: data, encoding: .utf8) else {
-            throw NimbusError.JsonError(message: "Unable to encode")
-        }
-        return s
+        return String(decoding: data, as: UTF8.self)
     }
 
     static func parse(jsonString string: String) throws -> [String: Any] {
