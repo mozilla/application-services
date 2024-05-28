@@ -31,6 +31,10 @@ class NimbusDelegate(
      * was called upon.
      */
     val updateScope: CoroutineScope? = MainScope(),
+    /**
+     * This is the coroutine scope that the SDK uses to record calls through Glean
+     */
+    val metricsScope: CoroutineScope,
     val errorReporter: ErrorReporter,
     val logger: LoggerFunction,
 ) {
@@ -44,6 +48,7 @@ class NimbusDelegate(
         fun default() = NimbusDelegate(
             dbScope = createCoroutineScope(),
             fetchScope = createCoroutineScope(),
+            metricsScope = createCoroutineScope(),
             errorReporter = { msg: String, e: Throwable -> Log.e(logTag, msg, e) },
             logger = { Log.i(logTag, it) },
         )
