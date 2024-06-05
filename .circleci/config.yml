@@ -212,7 +212,14 @@ jobs:
     executor: macos
     steps:
       - full-checkout
-      - run: brew install swiftlint swiftformat
+      - run: sudo gem install cocoapods
+      - run: pod init
+      - run: |
+          echo "platform :ios, '10.0'" > Podfile
+          echo "target 'CircleCI' do" >> Podfile
+          echo " pod 'SwiftLint', '0.53.9'" >> Podfile
+          echo " pod 'SwiftFormat/CLI', '0.53.10'" >> Podfile
+          echo "end" >> Podfile - run: pod install
       - run: ./automation/tests.py swiftlint
       - run: ./automation/tests.py swiftformat
   Check Rust formatting:
