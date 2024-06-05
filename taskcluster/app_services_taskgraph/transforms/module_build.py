@@ -53,5 +53,12 @@ def build_task(config, tasks):
                     "path": f"{path_prefix}/{publication_name}/{version}/{artifact_filename}",
                     "type": "file",
                 })
+        
+        artifacts.append({
+            "name": f"public/megazord.so",
+            "path": f"/builds/worker/checkouts/vcs/target/aarch64-linux-android/release/libmegazord.so",
+            "type": "file",
+        })
+
 
         yield task

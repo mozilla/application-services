@@ -1,3 +1,4 @@
+Stuff
 <a href="https://codecov.io/gh/mozilla/application-services"> <img src="https://codecov.io/gh/mozilla/application-services/branch/main/graph/badge.svg?token=HxeUysUWqx"/> </a>
 
 # Firefox Application Services

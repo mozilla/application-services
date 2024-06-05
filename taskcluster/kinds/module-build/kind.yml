@@ -39,6 +39,10 @@ task-defaults:
       - ':{module_name}:assembleRelease'
       - ':{module_name}:publish'
       - ':{module_name}:checkMavenArtifacts'
+    post-gradlew:
+      - ["echo", "UPLOAD_WILD"]
+      - [ls, '-l', 'target/aarch64-linux-android/release/libmegazord.so']
+      - [pwd]
     dummy-secrets:
         by-level:
             '3': []
