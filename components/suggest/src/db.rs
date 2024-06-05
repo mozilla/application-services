@@ -1000,6 +1000,18 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
+    #[cfg(feature = "benchmark_api")]
+    /// Clears the value for a metadata key.
+    ///
+    /// This is currently only used for the benchmarks.
+    pub fn clear_meta(&mut self, key: &str) -> Result<()> {
+        self.conn.execute_cached(
+            "DELETE FROM meta WHERE key = :key",
+            named_params! { ":key": key },
+        )?;
+        Ok(())
+    }
+
     /// Updates the last ingest timestamp if the given last modified time is
     /// newer than the existing one recorded.
     pub fn put_last_ingest_if_newer(

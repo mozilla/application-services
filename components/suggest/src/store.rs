@@ -577,10 +577,21 @@ where
         self.dbs().unwrap();
     }
 
+    pub fn force_reingest(&self, ingest_record_type: SuggestRecordType) {
+        // To force a re-ingestion, we're going to ingest all records then forget the last
+        // ingestion time.
+        self.benchmark_ingest_records_by_type(ingest_record_type);
+        let writer = &self.dbs().unwrap().writer;
+        writer
+            .write(|dao| dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str()))
+            .unwrap();
+    }
+
     pub fn benchmark_ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {
         let writer = &self.dbs().unwrap().writer;
         writer
             .write(|dao| {
+                dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str())?;
                 self.ingest_records_by_type(
                     ingest_record_type,
                     dao,
@@ -614,6 +625,15 @@ where
             .collect();
         table_names_with_counts.sort_by(|a, b| (b.1.cmp(&a.1)));
         table_names_with_counts
+    }
+
+    pub fn db_size(&self) -> usize {
+        use sql_support::ConnExt;
+
+        let reader = &self.dbs().unwrap().reader;
+        let conn = reader.conn.lock();
+        conn.query_one("SELECT page_size * page_count FROM pragma_page_count(), pragma_page_size()")
+            .unwrap()
     }
 }
 
