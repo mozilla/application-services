@@ -127,6 +127,14 @@ CREATE TABLE mdn_custom_details(
 CREATE TABLE dismissed_suggestions (
     url TEXT PRIMARY KEY
 ) WITHOUT ROWID;
+
+CREATE INDEX yelp_subjects_record_id ON yelp_subjects(record_id);
+
+CREATE INDEX yelp_modifiers_record_id ON yelp_modifiers(record_id);
+
+CREATE INDEX yelp_location_record_id ON yelp_location_signs(record_id);
+
+CREATE INDEX yelp_custom_details_record_id ON yelp_custom_details(record_id);
 ";
 
 /// Initializes an SQLite connection to the Suggest database, performing

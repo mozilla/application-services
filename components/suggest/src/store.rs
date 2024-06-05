@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
+pub use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
 
 use serde::de::DeserializeOwned;
 
@@ -374,8 +374,7 @@ where
     ) -> Result<()> {
         let request = RecordRequest {
             record_type: Some(ingest_record_type.to_string()),
-            last_modified: dao
-                .get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())?,
+            last_modified: None,
             limit: constraints.max_suggestions,
         };
 
