@@ -172,10 +172,7 @@ pub fn print_debug_ingestion_sizes() {
         "Total attachment size: {}kb",
         (total_attachment_size + 500) / 1000
     );
-    println!(
-        "Total database size: {}kb",
-        (db_size + 500) / 1000
-    );
+    println!("Total database size: {}kb", (db_size + 500) / 1000);
     println!();
     println!("Database table row counts");
     println!("-------------------------");
