@@ -26,8 +26,8 @@ CREATE TABLE meta(
 
 CREATE TABLE keywords(
     keyword TEXT NOT NULL,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
-    full_keyword_id INTEGER NULL REFERENCES full_keywords(id),
+    suggestion_id INTEGER NOT NULL,
+    full_keyword_id INTEGER NULL,
     rank INTEGER NOT NULL,
     PRIMARY KEY (keyword, suggestion_id)
 ) WITHOUT ROWID;
@@ -35,7 +35,7 @@ CREATE TABLE keywords(
 -- full keywords are what we display to the user when a (partial) keyword matches
 CREATE TABLE full_keywords(
     id INTEGER PRIMARY KEY,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
+    suggestion_id INTEGER NOT NULL,
     full_keyword TEXT NOT NULL
 );
 
@@ -44,17 +44,11 @@ CREATE TABLE prefix_keywords(
     keyword_suffix TEXT NOT NULL DEFAULT '',
     confidence INTEGER NOT NULL DEFAULT 0,
     rank INTEGER NOT NULL,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
+    suggestion_id INTEGER NOT NULL,
     PRIMARY KEY (keyword_prefix, keyword_suffix, suggestion_id)
 ) WITHOUT ROWID;
 
--- Create indexes between the various keywords tables.  In particular, we want to create an index
--- on each child column for a foreign key so that SQLite can quickly check the key after a row has
--- been deleted in the parent table.
 CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
-CREATE UNIQUE INDEX prefix_keywords_suggestion_id ON prefix_keywords(suggestion_id, confidence, rank);
-CREATE INDEX keywords_full_keyword_id ON keywords(full_keyword_id);
-CREATE INDEX full_keywords_suggestion_id ON full_keywords(suggestion_id);
 
 CREATE TABLE suggestions(
     id INTEGER PRIMARY KEY,
@@ -204,20 +198,20 @@ CREATE TABLE IF NOT EXISTS dismissed_suggestions (
                 clear_database(tx)?;
                 tx.execute_batch(
                     "
--- Recreate the various keywords table to drop the `ON DELETE` clauses
+-- Recreate the various keywords table to drop the foreign keys.
 DROP TABLE keywords;
 DROP TABLE full_keywords;
 DROP TABLE prefix_keywords;
 CREATE TABLE keywords(
     keyword TEXT NOT NULL,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
-    full_keyword_id INTEGER NULL REFERENCES full_keywords(id),
+    suggestion_id INTEGER NOT NULL,
+    full_keyword_id INTEGER NULL,
     rank INTEGER NOT NULL,
     PRIMARY KEY (keyword, suggestion_id)
 ) WITHOUT ROWID;
 CREATE TABLE full_keywords(
     id INTEGER PRIMARY KEY,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
+    suggestion_id INTEGER NOT NULL,
     full_keyword TEXT NOT NULL
 );
 CREATE TABLE prefix_keywords(
@@ -225,15 +219,10 @@ CREATE TABLE prefix_keywords(
     keyword_suffix TEXT NOT NULL DEFAULT '',
     confidence INTEGER NOT NULL DEFAULT 0,
     rank INTEGER NOT NULL,
-    suggestion_id INTEGER NOT NULL REFERENCES suggestions(id),
+    suggestion_id INTEGER NOT NULL,
     PRIMARY KEY (keyword_prefix, keyword_suffix, suggestion_id)
 ) WITHOUT ROWID;
 CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
--- Create the new indexes
-CREATE UNIQUE INDEX prefix_keywords_suggestion_id ON prefix_keywords(suggestion_id, confidence, rank);
-CREATE INDEX keywords_full_keyword_id ON keywords(full_keyword_id);
-CREATE INDEX full_keywords_suggestion_id ON full_keywords(suggestion_id);
-
                     ",
                 )?;
                 Ok(())
