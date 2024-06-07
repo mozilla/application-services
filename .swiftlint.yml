@@ -29,6 +29,8 @@ disabled_rules:
   - trailing_comma
   # It disagrees with swiftformat on this, and wants the opening braces to be on the same line in multiline declarations
   - opening_brace
+  # see discussion here https://github.com/realm/SwiftLint/issues/5263
+  - non_optional_string_data_conversion
 
 identifier_name:
   # Turn off it complaining about `id` or `let t = title`, etc, but keep
