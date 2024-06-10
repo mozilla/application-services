@@ -162,7 +162,7 @@ nimbus_events:
     data_sensitivity:
       - technical
     notification_emails:
-      - jhugman@mozilla.com
+      - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
     # Disabled by default. This needs a server-knobs rollout to ensure the volume is not overwhelming.
@@ -220,7 +220,7 @@ nimbus_events:
     data_sensitivity:
       - technical
     notification_emails:
-      - jhugman@mozilla.com
+      - chumphreys@mozilla.com
       - nimbus-team@mozilla.com
     expires: never
   enrollment_status:
@@ -270,7 +270,7 @@ nimbus_events:
     notification_emails:
       - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
-    expires: 2024-06-01
+    expires: never
 nimbus_health:
   cache_not_ready_for_feature:
     type: event
@@ -308,7 +308,7 @@ nimbus_health:
     data_sensitivity:
       - technical
     notification_emails:
-      - jhugman@mozilla.com
+      - chumphreys@mozilla.com
       - nimbus-dev@mozilla.com
     expires: never
   fetch_experiments_time:
@@ -325,6 +325,6 @@ nimbus_health:
     data_sensitivity:
       - technical
     notification_emails:
-      - jhugman@mozilla.com
+      - chumphreys@mozilla.com
       - nimbus-dev@mozilla.com
     expires: never
