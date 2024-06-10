@@ -1,9 +1,11 @@
-# v128.0 (In progress)
+# v128.0 (_2024-06-10_)
+
+## 🦊 What's Changed 🦊
 
 ### Glean
 - Updated to v60.1.0 ([#6241](https://github.com/mozilla/application-services/pull/6241))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v127.0...v128.0)
 
 # v127.0 (_2024-05-13_)
 
@@ -18,6 +20,8 @@
 [Full Changelog](https://github.com/mozilla/application-services/compare/v126.0...v127.0)
 
 # v126.0 (_2024-04-15_)
+
+## 🦊 What's Changed 🦊
 
 ### Nimbus SDK ⛅️🔬🔭
 
