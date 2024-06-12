@@ -30,6 +30,9 @@ use crate::{
     Result, SuggestionQuery,
 };
 
+#[cfg(feature = "fakespot")]
+use crate::rs::DownloadedFakespotSuggestion;
+
 /// The metadata key whose value is a JSON string encoding a
 /// `SuggestGlobalConfig`, which contains global Suggest configuration data.
 pub const GLOBAL_CONFIG_META_KEY: &str = "global_config";
@@ -216,6 +219,8 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
                     SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
                     SuggestionProvider::Weather => self.fetch_weather_suggestions(query),
+                    #[cfg(feature = "fakespot")]
+                    SuggestionProvider::Fakespot => self.fetch_fakespot_suggestions(query),
                 }?;
                 acc.extend(suggestions);
                 Ok(acc)
@@ -672,6 +677,45 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
+    #[cfg(feature = "fakespot")]
+    /// Fetches fakespot suggestions
+    pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
+        self.conn.query_rows_and_then_cached(
+            r#"
+            SELECT
+                s.title,
+                s.url,
+                s.score,
+                f.fakespot_grade,
+                f.product_id,
+                f.rating,
+                f.total_reviews
+            FROM
+                suggestions s
+            JOIN
+                fakespot_custom_details f
+                ON f.suggestion_id = s.id
+            WHERE
+                s.title LIKE '%' || ? || '%'
+            ORDER BY
+                s.score DESC
+            "#,
+            (&query.keyword,),
+            |row| {
+                Ok(Suggestion::Fakespot {
+                    title: row.get(0)?,
+                    url: row.get(1)?,
+                    score: row.get(2)?,
+                    fakespot_grade: row.get(3)?,
+                    product_id: row.get(4)?,
+                    rating: row.get(5)?,
+                    total_reviews: row.get(6)?,
+                })
+            },
+        )
+    }
+
     /// Inserts all suggestions from a downloaded AMO attachment into
     /// the database.
     pub fn insert_amo_suggestions(
@@ -874,6 +918,29 @@ impl<'a> SuggestDao<'a> {
                     index,
                 )?;
             }
+        }
+        Ok(())
+    }
+
+    /// Inserts all suggestions from a downloaded Fakespot attachment into the database.
+    #[cfg(feature = "fakespot")]
+    pub fn insert_fakespot_suggestions(
+        &mut self,
+        record_id: &SuggestRecordId,
+        suggestions: &[DownloadedFakespotSuggestion],
+    ) -> Result<()> {
+        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
+        let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
+        let mut fakespot_insert = FakespotInsertStatement::new(self.conn)?;
+        for suggestion in suggestions {
+            let suggestion_id = suggestion_insert.execute(
+                record_id,
+                &suggestion.title,
+                &suggestion.url,
+                suggestion.score,
+                SuggestionProvider::Fakespot,
+            )?;
+            fakespot_insert.execute(suggestion_id, suggestion)?;
         }
         Ok(())
     }
@@ -1284,6 +1351,43 @@ impl<'conn> MdnInsertStatement<'conn> {
         self.0
             .execute((suggestion_id, &mdn.description))
             .with_context("mdn insert")?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "fakespot")]
+struct FakespotInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+#[cfg(feature = "fakespot")]
+impl<'conn> FakespotInsertStatement<'conn> {
+    fn new(conn: &'conn Connection) -> Result<Self> {
+        Ok(Self(conn.prepare(
+            "INSERT INTO fakespot_custom_details(
+                 suggestion_id,
+                 fakespot_grade,
+                 product_id,
+                 rating,
+                 total_reviews
+             )
+             VALUES(?, ?, ?, ?, ?)
+             ",
+        )?))
+    }
+
+    fn execute(
+        &mut self,
+        suggestion_id: i64,
+        fakespot: &DownloadedFakespotSuggestion,
+    ) -> Result<()> {
+        self.0
+            .execute((
+                suggestion_id,
+                &fakespot.fakespot_grade,
+                &fakespot.product_id,
+                fakespot.rating,
+                fakespot.total_reviews,
+            ))
+            .with_context("fakespot insert")?;
         Ok(())
     }
 }

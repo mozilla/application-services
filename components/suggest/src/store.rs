@@ -22,8 +22,8 @@ use crate::{
     error::Error,
     provider::SuggestionProvider,
     rs::{
-        Client, Record, RecordRequest, SuggestAttachment, SuggestRecord, SuggestRecordId,
-        SuggestRecordType, DEFAULT_RECORDS_TYPES, REMOTE_SETTINGS_COLLECTION,
+        Client, Record, RecordRequest, RemoteSettingsClient, SuggestAttachment, SuggestRecord,
+        SuggestRecordId, SuggestRecordType, DEFAULT_RECORDS_TYPES,
     },
     Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
@@ -80,15 +80,14 @@ impl SuggestStoreBuilder {
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
 
-        let remote_settings_config = RemoteSettingsConfig {
-            server: inner.remote_settings_server.clone(),
-            bucket_name: inner.remote_settings_bucket_name.clone(),
-            server_url: None,
-            collection_name: REMOTE_SETTINGS_COLLECTION.into(),
-        };
-        let settings_client = remote_settings::Client::new(remote_settings_config)?;
+        let client = RemoteSettingsClient::new(
+            inner.remote_settings_server.clone(),
+            inner.remote_settings_bucket_name.clone(),
+            None,
+        )?;
+
         Ok(Arc::new(SuggestStore {
-            inner: SuggestStoreInner::new(data_path, settings_client),
+            inner: SuggestStoreInner::new(data_path, client),
         }))
     }
 }
@@ -134,7 +133,7 @@ pub enum InterruptKind {
 ///    later, while a desktop on a fast link might download the entire dataset
 ///    on the first launch.
 pub struct SuggestStore {
-    inner: SuggestStoreInner<remote_settings::Client>,
+    inner: SuggestStoreInner<RemoteSettingsClient>,
 }
 
 impl SuggestStore {
@@ -144,18 +143,20 @@ impl SuggestStore {
         path: &str,
         settings_config: Option<RemoteSettingsConfig>,
     ) -> SuggestApiResult<Self> {
-        let settings_client = || -> Result<_> {
-            Ok(remote_settings::Client::new(
-                settings_config.unwrap_or_else(|| RemoteSettingsConfig {
-                    server: None,
-                    server_url: None,
-                    bucket_name: None,
-                    collection_name: REMOTE_SETTINGS_COLLECTION.into(),
-                }),
-            )?)
-        }()?;
+        let client = match settings_config {
+            Some(settings_config) => RemoteSettingsClient::new(
+                settings_config.server,
+                settings_config.bucket_name,
+                settings_config.server_url,
+                // Note: collection name is ignored, since we fetch from multiple collections
+                // (fakespot-suggest-products and quicksuggest).  No consumer sets it to a
+                // non-default value anyways.
+            )?,
+            None => RemoteSettingsClient::new(None, None, None)?,
+        };
+
         Ok(Self {
-            inner: SuggestStoreInner::new(path.to_owned(), settings_client),
+            inner: SuggestStoreInner::new(path.to_owned(), client),
         })
     }
 
@@ -358,7 +359,7 @@ where
         constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
         let request = RecordRequest {
-            record_type: Some(ingest_record_type.to_string()),
+            record_type: ingest_record_type.to_string(),
             last_modified: dao
                 .get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())?,
             limit: constraints.max_suggestions,
@@ -490,6 +491,17 @@ where
                         dao,
                         record,
                         |dao, _| dao.put_global_config(&SuggestGlobalConfig::from(&config)),
+                    )?;
+                }
+                #[cfg(feature = "fakespot")]
+                SuggestRecord::Fakespot => {
+                    self.ingest_attachment(
+                        &SuggestRecordType::Fakespot.last_ingest_meta_key(),
+                        dao,
+                        record,
+                        |dao, record_id, suggestions| {
+                            dao.insert_fakespot_suggestions(record_id, suggestions)
+                        },
                     )?;
                 }
             }
@@ -2149,6 +2161,33 @@ mod tests {
         store.inner.clear_dismissed_suggestions()?;
         assert_eq!(store.fetch_suggestions(query.clone()).len(), 6);
 
+        Ok(())
+    }
+
+    #[cfg(feature = "fakespot")]
+    #[test]
+    fn query_fakespot() -> anyhow::Result<()> {
+        before_each();
+
+        // FAKESPOT-TODO: Update these tests to test the new matching logic.
+        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "fakespot-suggestions",
+            "fakespot-1",
+            json!([snowglobe_fakespot(), simpsons_fakespot()]),
+        ));
+        store.ingest(SuggestIngestionConstraints::default());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
+            vec![snowglobe_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simpsons")),
+            vec![simpsons_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
+            vec![simpsons_suggestion(), snowglobe_suggestion()],
+        );
         Ok(())
     }
 }

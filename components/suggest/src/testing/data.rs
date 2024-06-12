@@ -449,3 +449,57 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
         full_keyword: "multimatch".into(),
     }
 }
+
+// Fakespot test data
+
+#[cfg(feature = "fakespot")]
+pub fn snowglobe_fakespot() -> JsonValue {
+    json!({
+        "fakespot_grade": "B",
+        "product_id": "amazon-ABC",
+        "rating": 4.7,
+        "score": 0.7,
+        "title": "Make Your Own Glitter Snow Globes",
+        "total_reviews": 152,
+        "url": "http://amazon.com/dp/ABC"
+    })
+}
+
+#[cfg(feature = "fakespot")]
+pub fn snowglobe_suggestion() -> Suggestion {
+    Suggestion::Fakespot {
+        fakespot_grade: "B".into(),
+        product_id: "amazon-ABC".into(),
+        rating: 4.7,
+        title: "Make Your Own Glitter Snow Globes".into(),
+        total_reviews: 152,
+        url: "http://amazon.com/dp/ABC".into(),
+        score: 0.7,
+    }
+}
+
+#[cfg(feature = "fakespot")]
+pub fn simpsons_fakespot() -> JsonValue {
+    json!({
+        "fakespot_grade": "A",
+        "product_id": "amazon-XYZ",
+        "rating": 4.9,
+        "score": 0.9,
+        "title": "The Simpsons: Skinner's Sense of Snow (DVD)",
+        "total_reviews": 14000,
+        "url": "http://amazon.com/dp/XYZ"
+    })
+}
+
+#[cfg(feature = "fakespot")]
+pub fn simpsons_suggestion() -> Suggestion {
+    Suggestion::Fakespot {
+        fakespot_grade: "A".into(),
+        product_id: "amazon-XYZ".into(),
+        rating: 4.9,
+        title: "The Simpsons: Skinner's Sense of Snow (DVD)".into(),
+        total_reviews: 14000,
+        url: "http://amazon.com/dp/XYZ".into(),
+        score: 0.9,
+    }
+}

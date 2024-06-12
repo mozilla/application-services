@@ -41,6 +41,8 @@ uniffi = { workspace = true, features = ["build"] }
 [features]
 # Required for the benchmarks to work, wasted bytes otherwise.
 benchmark_api = ["tempfile", "viaduct-reqwest"]
+# Enable fakespot suggestions.  This is behind a feature flag since it's currently a WIP.
+fakespot = []
 
 [[bench]]
 name = "benchmark_all"

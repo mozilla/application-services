@@ -95,6 +95,15 @@ impl SuggestionQuery {
         }
     }
 
+    #[cfg(feature = "fakespot")]
+    pub fn fakespot(keyword: &str) -> Self {
+        Self {
+            keyword: keyword.into(),
+            providers: vec![SuggestionProvider::Fakespot],
+            limit: None,
+        }
+    }
+
     pub fn weather(keyword: &str) -> Self {
         Self {
             keyword: keyword.into(),

@@ -22,6 +22,8 @@ pub enum SuggestionProvider {
     Mdn = 6,
     Weather = 7,
     AmpMobile = 8,
+    #[cfg(feature = "fakespot")]
+    Fakespot = 9,
 }
 
 impl FromSql for SuggestionProvider {
@@ -35,6 +37,7 @@ impl FromSql for SuggestionProvider {
 }
 
 impl SuggestionProvider {
+    #[cfg(not(feature = "fakespot"))]
     pub fn all() -> [Self; 8] {
         [
             Self::Amp,
@@ -48,6 +51,21 @@ impl SuggestionProvider {
         ]
     }
 
+    #[cfg(feature = "fakespot")]
+    pub fn all() -> [Self; 9] {
+        [
+            Self::Amp,
+            Self::Wikipedia,
+            Self::Amo,
+            Self::Pocket,
+            Self::Yelp,
+            Self::Mdn,
+            Self::Weather,
+            Self::AmpMobile,
+            Self::Fakespot,
+        ]
+    }
+
     #[inline]
     pub(crate) fn from_u8(v: u8) -> Option<Self> {
         match v {
@@ -58,6 +76,9 @@ impl SuggestionProvider {
             5 => Some(SuggestionProvider::Yelp),
             6 => Some(SuggestionProvider::Mdn),
             7 => Some(SuggestionProvider::Weather),
+            8 => Some(SuggestionProvider::AmpMobile),
+            #[cfg(feature = "fakespot")]
+            9 => Some(SuggestionProvider::Fakespot),
             _ => None,
         }
     }
@@ -104,6 +125,10 @@ impl SuggestionProvider {
                     SuggestRecordType::Icon,
                     SuggestRecordType::GlobalConfig,
                 ]
+            }
+            #[cfg(feature = "fakespot")]
+            SuggestionProvider::Fakespot => {
+                vec![SuggestRecordType::Fakespot]
             }
         }
     }
