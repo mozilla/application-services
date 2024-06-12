@@ -1,0 +1,196 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+[External="remote_settings"]
+typedef extern RemoteSettingsConfig;
+
+[External="remote_settings"]
+typedef extern RemoteSettingsServer;
+
+namespace suggest {
+
+boolean raw_suggestion_url_matches([ByRef] string raw_url, [ByRef] string url);
+
+};
+
+[Error]
+interface SuggestApiError {
+    // An operation was interrupted by calling `SuggestStore.interrupt()`
+    Interrupted();
+    // The server requested a backoff after too many requests
+    Backoff(u64 seconds);
+    Network(string reason);
+    Other(string reason);
+};
+
+enum SuggestionProvider {
+    "Amp",
+    "Pocket",
+    "Wikipedia",
+    "Amo",
+    "Yelp",
+    "Mdn",
+    "Weather",
+    "AmpMobile",
+    "Fakespot",
+};
+
+[Enum]
+interface Suggestion {
+    Amp(
+        string title,
+        string url,
+        string raw_url,
+        sequence<u8>? icon,
+        string? icon_mimetype,
+        string full_keyword,
+        i64 block_id,
+        string advertiser,
+        string iab_category,
+        string impression_url,
+        string click_url,
+        string raw_click_url,
+        f64 score
+    );
+    Pocket(
+        string title,
+        string url,
+        f64 score,
+        boolean is_top_pick
+    );
+    Wikipedia(
+        string title,
+        string url,
+        sequence<u8>? icon,
+        string? icon_mimetype,
+        string full_keyword
+    );
+    Amo(
+        string title,
+        string url,
+        string icon_url,
+        string description,
+        string? rating,
+        i64 number_of_ratings,
+        string guid,
+        f64 score
+    );
+    Yelp(
+        string url,
+        string title,
+        sequence<u8>? icon,
+        string? icon_mimetype,
+        f64 score,
+        boolean has_location_sign,
+        boolean subject_exact_match,
+        string location_param
+    );
+    Mdn(
+        string title,
+        string url,
+        string description,
+        f64 score
+    );
+    Weather(
+        f64 score
+    );
+    Fakespot(
+        string fakespot_grade,
+        string product_id,
+        f64 rating,
+        string title,
+        i64 total_reviews,
+        string url,
+        f64 score
+    );
+};
+
+dictionary SuggestionQuery {
+    string keyword;
+    sequence<SuggestionProvider> providers;
+    i32? limit = null;
+};
+
+dictionary SuggestIngestionConstraints {
+    u64? max_suggestions = null;
+    sequence<SuggestionProvider>? providers = null;
+    // Only ingest if the table `suggestions` is empty.
+    //
+    // This is indented to handle periodic updates.  Consumers can schedule an ingest with
+    // `empty_only=true` on startup and a regular ingest with `empty_only=false` to run on a long periodic schedule (maybe
+    // once a day). This allows ingestion to normally be run at a slow, periodic rate.  However, if
+    // there is a schema upgrade that causes the database to be thrown away, then the
+    // `empty_only=true` ingestion that runs on startup will repopulate it.
+    boolean empty_only = false;
+};
+
+dictionary SuggestGlobalConfig {
+    i32 show_less_frequently_cap;
+};
+
+[Enum]
+interface SuggestProviderConfig {
+    Weather(
+        i32 min_keyword_length
+    );
+};
+
+enum InterruptKind {
+    "Read",
+    "Write",
+    "ReadWrite",
+};
+
+interface SuggestStore {
+    [Throws=SuggestApiError]
+    constructor([ByRef] string path, optional RemoteSettingsConfig? settings_config = null);
+
+    [Throws=SuggestApiError]
+    sequence<Suggestion> query(SuggestionQuery query);
+
+    [Throws=SuggestApiError]
+    void dismiss_suggestion(string raw_suggestion_url);
+
+    [Throws=SuggestApiError]
+    void clear_dismissed_suggestions();
+
+    // Interrupt operations
+    //
+    // This is optional for backwards compatibility, but this is deprecated.  Consumers should
+    // update their code to pass in a InterruptKind value.
+    void interrupt(optional InterruptKind? kind = null);
+
+    [Throws=SuggestApiError]
+    void ingest(SuggestIngestionConstraints constraints);
+
+    [Throws=SuggestApiError]
+    void clear();
+
+    [Throws=SuggestApiError]
+    SuggestGlobalConfig fetch_global_config();
+
+    [Throws=SuggestApiError]
+    SuggestProviderConfig? fetch_provider_config(SuggestionProvider provider);
+};
+
+interface SuggestStoreBuilder {
+    constructor();
+
+    [Self=ByArc]
+    SuggestStoreBuilder data_path(string path);
+
+    // Deprecated: this is no longer used by the suggest component.
+    [Self=ByArc]
+    SuggestStoreBuilder cache_path(string path);
+
+    [Self=ByArc]
+    SuggestStoreBuilder remote_settings_server(RemoteSettingsServer server);
+
+    [Self=ByArc]
+    SuggestStoreBuilder remote_settings_bucket_name(string bucket_name);
+
+    [Throws=SuggestApiError]
+    SuggestStore build();
+};

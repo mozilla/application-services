@@ -81,6 +81,16 @@ pub enum Suggestion {
     Weather {
         score: f64,
     },
+    #[cfg(feature = "fakespot")]
+    Fakespot {
+        fakespot_grade: String,
+        product_id: String,
+        rating: f64,
+        title: String,
+        total_reviews: i64,
+        url: String,
+        score: f64,
+    },
 }
 
 impl PartialOrd for Suggestion {

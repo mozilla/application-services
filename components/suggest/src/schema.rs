@@ -6,6 +6,7 @@
 use rusqlite::{Connection, Transaction};
 use sql_support::open_database::{self, ConnectionInitializer};
 
+#[cfg(not(feature = "fakespot"))]
 /// The current database schema version.
 ///
 /// For any changes to the schema [`SQL`], please make sure to:
@@ -16,6 +17,10 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
 pub const VERSION: u32 = 20;
+
+#[cfg(feature = "fakespot")]
+/// Database schema version for fakespot
+pub const VERSION: u32 = 21;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -151,7 +156,23 @@ impl ConnectionInitializer for SuggestConnectionInitializer {
     }
 
     fn init(&self, db: &Transaction<'_>) -> open_database::Result<()> {
-        Ok(db.execute_batch(SQL)?)
+        db.execute_batch(SQL)?;
+
+        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
+        #[cfg(feature = "fakespot")]
+        db.execute_batch(
+            "
+CREATE TABLE fakespot_custom_details(
+    suggestion_id INTEGER PRIMARY KEY,
+    fakespot_grade TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    rating REAL NOT NULL,
+    total_reviews INTEGER NOT NULL,
+    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+);
+            ",
+        )?;
+        Ok(())
     }
 
     fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
@@ -224,6 +245,29 @@ CREATE TABLE prefix_keywords(
 ) WITHOUT ROWID;
 CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
                     ",
+                )?;
+                Ok(())
+            }
+
+            // Migration for the fakespot data.  This is not currently active for any users, it's
+            // only used for the tests.  It's safe to alter the fakespot_custom_detail schema and
+            // update this migration as the project moves forward.
+            //
+            // Note: if we want to add a regular migration while the fakespot code is still behind
+            // a feature flag, insert it before this one and make fakespot the last migration.
+            #[cfg(feature = "fakespot")]
+            20 => {
+                tx.execute_batch(
+                    "
+CREATE TABLE fakespot_custom_details(
+    suggestion_id INTEGER PRIMARY KEY,
+    fakespot_grade TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    rating REAL NOT NULL,
+    total_reviews INTEGER NOT NULL,
+    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+);
+                ",
                 )?;
                 Ok(())
             }
