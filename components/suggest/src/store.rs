@@ -38,7 +38,7 @@ pub struct SuggestStoreBuilder(Mutex<SuggestStoreBuilderInner>);
 struct SuggestStoreBuilderInner {
     data_path: Option<String>,
     remote_settings_server: Option<RemoteSettingsServer>,
-    remote_settings_config: Option<RemoteSettingsConfig>,
+    remote_settings_bucket_name: Option<String>,
 }
 
 impl Default for SuggestStoreBuilder {
@@ -62,13 +62,13 @@ impl SuggestStoreBuilder {
         self
     }
 
-    pub fn remote_settings_config(self: Arc<Self>, config: RemoteSettingsConfig) -> Arc<Self> {
-        self.0.lock().remote_settings_config = Some(config);
+    pub fn remote_settings_server(self: Arc<Self>, server: RemoteSettingsServer) -> Arc<Self> {
+        self.0.lock().remote_settings_server = Some(server);
         self
     }
 
-    pub fn remote_settings_server(self: Arc<Self>, server: RemoteSettingsServer) -> Arc<Self> {
-        self.0.lock().remote_settings_server = Some(server);
+    pub fn remote_settings_bucket_name(self: Arc<Self>, bucket_name: String) -> Arc<Self> {
+        self.0.lock().remote_settings_bucket_name = Some(bucket_name);
         self
     }
 
@@ -79,27 +79,12 @@ impl SuggestStoreBuilder {
             .data_path
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
-        let remote_settings_config = match (
-            inner.remote_settings_server.as_ref(),
-            inner.remote_settings_config.as_ref(),
-        ) {
-            (Some(server), None) => RemoteSettingsConfig {
-                server: Some(server.clone()),
-                server_url: None,
-                bucket_name: None,
-                collection_name: REMOTE_SETTINGS_COLLECTION.into(),
-            },
-            (None, Some(remote_settings_config)) => remote_settings_config.clone(),
-            (None, None) => RemoteSettingsConfig {
-                server: None,
-                server_url: None,
-                bucket_name: None,
-                collection_name: REMOTE_SETTINGS_COLLECTION.into(),
-            },
-            (Some(_), Some(_)) => Err(Error::SuggestStoreBuilder(
-                "can't specify both `remote_settings_server` and `remote_settings_config`"
-                    .to_owned(),
-            ))?,
+
+        let remote_settings_config = RemoteSettingsConfig {
+            server: inner.remote_settings_server.clone(),
+            bucket_name: inner.remote_settings_bucket_name.clone(),
+            server_url: None,
+            collection_name: REMOTE_SETTINGS_COLLECTION.into(),
         };
         let settings_client = remote_settings::Client::new(remote_settings_config)?;
         Ok(Arc::new(SuggestStore {

@@ -1,6 +1,14 @@
 # v129.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Suggest
+- Removed the deprecated `remote_settings_config` method.  No consumers were using this.
+
 ## ✨ What's New ✨
+
+### Suggest
+- Added the `SuggestStoreBuilder.remote_settings_bucket_name` as a way to specify the bucket name.
 
 [Full Changelog](In progress)
 
