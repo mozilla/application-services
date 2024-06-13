@@ -4,9 +4,8 @@
 
 use super::{
     commands::{
-        close_tabs::{self, CloseTabsPayload, EncryptedCloseTabsPayload},
-        send_tab::PrivateSendTabKeys,
-        IncomingDeviceCommand,
+        close_tabs::{self, CloseTabsPayload},
+        decrypt_command, encrypt_command, IncomingDeviceCommand, PrivateCommandKeys,
     },
     http_client::GetDeviceResponse,
     scopes, telemetry, FirefoxAccount,
@@ -23,7 +22,8 @@ impl FirefoxAccount {
         let (payload, sent_telemetry) =
             CloseTabsPayload::with_urls(urls.iter().map(|url| url.as_ref().to_owned()).collect());
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
-        let command_payload = close_tabs::build_close_tabs_command(oldsync_key, target, &payload)?;
+        let command_payload =
+            encrypt_command(oldsync_key, target, close_tabs::COMMAND_NAME, &payload)?;
         self.invoke_command(
             close_tabs::COMMAND_NAME,
             target,
@@ -40,16 +40,15 @@ impl FirefoxAccount {
         payload: serde_json::Value,
         reason: telemetry::ReceivedReason,
     ) -> Result<IncomingDeviceCommand> {
-        let send_tab_key: PrivateSendTabKeys = match self.close_tabs_key() {
-            Some(s) => PrivateSendTabKeys::deserialize(s)?,
+        let close_tabs_key: PrivateCommandKeys = match self.close_tabs_key() {
+            Some(s) => PrivateCommandKeys::deserialize(s)?,
             None => {
                 return Err(Error::IllegalState(
                     "Cannot find Close Remote Tabs keys. Has initialize_device been called before?",
                 ));
             }
         };
-        let encrypted_payload: EncryptedCloseTabsPayload = serde_json::from_value(payload)?;
-        match encrypted_payload.decrypt(&send_tab_key) {
+        match decrypt_command(payload, &close_tabs_key) {
             Ok(payload) => {
                 let recd_telemetry = telemetry::ReceivedCommand::for_close_tabs(&payload, reason);
                 self.telemetry.record_command_received(recd_telemetry);
@@ -64,9 +63,9 @@ impl FirefoxAccount {
         }
     }
 
-    pub(crate) fn load_or_generate_close_tabs_keys(&mut self) -> Result<PrivateSendTabKeys> {
+    pub(crate) fn load_or_generate_close_tabs_keys(&mut self) -> Result<PrivateCommandKeys> {
         if let Some(s) = self.close_tabs_key() {
-            match PrivateSendTabKeys::deserialize(s) {
+            match PrivateCommandKeys::deserialize(s) {
                 Ok(keys) => return Ok(keys),
                 Err(_) => {
                     error_support::report_error!(
@@ -76,7 +75,7 @@ impl FirefoxAccount {
                 }
             }
         }
-        let keys = PrivateSendTabKeys::from_random()?;
+        let keys = PrivateCommandKeys::from_random()?;
         self.set_close_tabs_key(keys.serialize()?);
         Ok(keys)
     }

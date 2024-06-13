@@ -3,10 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod close_tabs;
+mod keys;
 pub mod send_tab;
 
 pub use close_tabs::CloseTabsPayload;
 pub use send_tab::SendTabPayload;
+
+pub(crate) use keys::{
+    decrypt_command, encrypt_command, get_public_keys, PrivateCommandKeys, PublicCommandKeys,
+};
 
 use super::device::Device;
 use crate::{Error, Result};

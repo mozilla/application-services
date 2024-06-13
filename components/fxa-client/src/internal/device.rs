@@ -6,11 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 pub use super::http_client::{GetDeviceResponse as Device, PushSubscription};
 use super::{
-    commands::{
-        self,
-        send_tab::{PrivateSendTabKeys, PublicSendTabKeys},
-        IncomingDeviceCommand,
-    },
+    commands::{self, IncomingDeviceCommand, PrivateCommandKeys, PublicCommandKeys},
     http_client::{
         DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand, UpdateDeviceResponse,
     },
@@ -348,7 +344,7 @@ impl FirefoxAccount {
     /// **💾 This method alters the persisted account state.**
     pub(crate) fn generate_command_data(&mut self, capability: DeviceCapability) -> Result<String> {
         let own_keys = self.load_or_generate_command_keys(capability)?;
-        let public_keys: PublicSendTabKeys = own_keys.into();
+        let public_keys: PublicCommandKeys = own_keys.into();
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         public_keys.as_command_data(oldsync_key)
     }
@@ -356,7 +352,7 @@ impl FirefoxAccount {
     fn load_or_generate_command_keys(
         &mut self,
         capability: DeviceCapability,
-    ) -> Result<PrivateSendTabKeys> {
+    ) -> Result<PrivateCommandKeys> {
         match capability {
             DeviceCapability::SendTab => self.load_or_generate_send_tab_keys(),
             DeviceCapability::CloseTabs => self.load_or_generate_close_tabs_keys(),
