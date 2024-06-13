@@ -539,6 +539,12 @@ interface FirefoxAccount {
   [Throws=FxaError]
   void close_tabs([ByRef] string target_device_id, sequence<string> urls);
 
+  /// As above - but for closing all "inactive" tabs on the target and
+  /// the capability is [`CloseInactiveTabs`](DeviceCapability::CloseInactiveTabs)
+  ///
+  /// **💾 This method alters the persisted account state.**
+  [Throws=FxaError]
+  void close_inactive_tabs([ByRef] string target_device_id);
 
   // Get the URL at which to access the user's sync data.
   //
@@ -1002,6 +1008,7 @@ enum FxaRustAuthState {
 enum DeviceCapability {
   "SendTab",
   "CloseTabs",
+  "CloseInactiveTabs",
 };
 
 
@@ -1078,6 +1085,9 @@ interface IncomingDeviceCommand {
 
   /// Indicates that the sender wants to close one or more tabs on this device.
   TabsClosed(Device? sender, CloseTabsPayload payload);
+
+  /// Indicates that the sender wants to close all "inactive" tabs on this device.
+  InactiveTabsClosed(Device? sender);
 };
 
 // Machinery for dry-run testing of FxaAuthStateMachine
