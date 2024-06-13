@@ -8,8 +8,8 @@ mod send_tab;
 use std::fs;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use cli_support::fxa_creds;
-use fxa_client::{FirefoxAccount, FxaConfig, FxaServer};
+use cli_support::{fxa_creds, init_logging};
+use fxa_client::{DeviceCapability, FirefoxAccount, FxaConfig, FxaServer};
 
 static CREDENTIALS_PATH: &str = "credentials.json";
 static CLIENT_ID: &str = "a2270f727f45f648";
@@ -61,11 +61,12 @@ enum Server {
 #[derive(Subcommand)]
 enum Command {
     Devices(devices::DeviceArgs),
-    SendTab(send_tab::SendTabArgs),
+    Send(send_tab::SendCommandArgs),
     Disconnect,
 }
 
 fn main() -> Result<()> {
+    init_logging();
     let cli = Cli::parse();
     viaduct_reqwest::use_reqwest_backend();
     if cli.log {
@@ -88,7 +89,7 @@ fn main() -> Result<()> {
     let account = load_account(&cli, scopes)?;
     match cli.command {
         Command::Devices(args) => devices::run(&account, args),
-        Command::SendTab(args) => send_tab::run(&account, args),
+        Command::Send(args) => send_tab::run(&account, args),
         Command::Disconnect => {
             account.disconnect();
             Ok(())
@@ -111,7 +112,13 @@ fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };
-    fxa_creds::get_cli_fxa(config, CREDENTIALS_PATH, scopes).map(|cli| cli.account)
+    let acct = fxa_creds::get_cli_fxa(config, CREDENTIALS_PATH, scopes).map(|cli| cli.account)?;
+    acct.ensure_capabilities(vec![
+        DeviceCapability::SendTab,
+        DeviceCapability::CloseTabs,
+        DeviceCapability::CloseAllInactiveTabs,
+    ])?;
+    Ok(acct)
 }
 
 pub fn persist_fxa_state(acct: &FirefoxAccount) -> Result<()> {

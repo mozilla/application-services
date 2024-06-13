@@ -195,6 +195,12 @@ class PersistedFirefoxAccount {
         }
     }
 
+    public func closeAllInactiveTabs(targetDeviceId: String) throws {
+        return try notifyAuthErrors {
+            try self.inner.closeAllInactiveTabs(targetDeviceId: targetDeviceId)
+        }
+    }
+
     public func getTokenServerEndpointURL() throws -> URL {
         return try URL(string: inner.getTokenServerEndpointUrl())!
     }
