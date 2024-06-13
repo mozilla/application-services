@@ -50,6 +50,8 @@ pub enum Command {
     SendTab,
     #[serde(rename = "close_tabs")]
     CloseTabs,
+    #[serde(rename = "close_all_inactive_tabs")]
+    CloseAllInactiveTabs,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,6 +68,10 @@ impl SentCommand {
 
     pub fn for_close_tabs() -> Self {
         Self::new(Command::CloseTabs)
+    }
+
+    pub fn for_close_all_inactive_tabs() -> Self {
+        Self::new(Command::CloseAllInactiveTabs)
     }
 
     pub fn clone_with_new_stream_id(&self) -> Self {
@@ -105,7 +111,19 @@ impl ReceivedCommand {
 
     pub fn for_close_tabs(payload: &commands::CloseTabsPayload, reason: ReceivedReason) -> Self {
         Self {
-            command: Command::SendTab,
+            command: Command::CloseTabs,
+            flow_id: payload.flow_id.clone(),
+            stream_id: payload.stream_id.clone(),
+            reason,
+        }
+    }
+
+    pub fn for_close_all_inactive_tabs(
+        payload: &commands::CloseAllInactiveTabsPayload,
+        reason: ReceivedReason,
+    ) -> Self {
+        Self {
+            command: Command::CloseAllInactiveTabs,
             flow_id: payload.flow_id.clone(),
             stream_id: payload.stream_id.clone(),
             reason,
