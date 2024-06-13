@@ -4,11 +4,10 @@
 
 use super::{
     commands::{
-        send_tab::{
-            self, EncryptedSendTabPayload, PrivateSendTabKeys, PublicSendTabKeys,
-            SendTabKeysPayload, SendTabPayload,
-        },
-        IncomingDeviceCommand,
+        decrypt_command, encrypt_command, get_public_keys,
+        send_tab::{self, SendTabPayload},
+        IncomingDeviceCommand, PrivateCommandKeys as PrivateSendTabKeys,
+        PublicCommandKeys as PublicSendTabKeys,
     },
     http_client::GetDeviceResponse,
     scopes, telemetry, FirefoxAccount,
@@ -52,7 +51,8 @@ impl FirefoxAccount {
             .ok_or_else(|| Error::UnknownTargetDevice(target_device_id.to_owned()))?;
         let (payload, sent_telemetry) = SendTabPayload::single_tab(title, url);
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
-        let command_payload = send_tab::build_send_command(oldsync_key, target, &payload)?;
+        let command_payload =
+            encrypt_command(oldsync_key, target, send_tab::COMMAND_NAME, &payload)?;
         self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload, None)?;
         self.telemetry.record_command_sent(sent_telemetry);
         Ok(())
@@ -72,8 +72,7 @@ impl FirefoxAccount {
                 ));
             }
         };
-        let encrypted_payload: EncryptedSendTabPayload = serde_json::from_value(payload)?;
-        match encrypted_payload.decrypt(&send_tab_key) {
+        match decrypt_command(payload, &send_tab_key) {
             Ok(payload) => {
                 // It's an incoming tab, which we record telemetry for.
                 let recd_telemetry = telemetry::ReceivedCommand::for_send_tab(&payload, reason);
@@ -122,16 +121,12 @@ impl FirefoxAccount {
         let own_device = &mut self
             .get_current_device()?
             .ok_or(Error::SendTabDiagnosisError("No remote device."))?;
-
-        let command = own_device
-            .available_commands
-            .get(send_tab::COMMAND_NAME)
-            .ok_or(Error::SendTabDiagnosisError("No remote command."))?;
-        let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
-        let public_keys_remote = bundle
-            .decrypt(oldsync_key)
-            .map_err(|_| Error::SendTabDiagnosisError("Unable to decrypt public key bundle."))?;
+
+        let public_keys_remote = get_public_keys(oldsync_key, own_device, send_tab::COMMAND_NAME)
+            .map_err(|_| {
+            Error::SendTabDiagnosisError("Unable to decrypt public key bundle.")
+        })?;
 
         let public_keys_local: PublicSendTabKeys = local_send_tab_key.into();
 
