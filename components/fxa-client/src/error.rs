@@ -53,8 +53,8 @@ pub enum FxaError {
     #[error("panic in native code")]
     Panic,
     /// A catch-all for other unspecified errors.
-    #[error("other error")]
-    Other,
+    #[error("other error: {0}")]
+    Other(String),
 }
 
 /// FxA internal error type
@@ -216,14 +216,15 @@ impl GetErrorHandling for Error {
             Error::UnknownOAuthState => {
                 ErrorHandling::convert(FxaError::NoExistingAuthFlow).log_warning()
             }
-            Error::BackoffError(_) => {
-                ErrorHandling::convert(FxaError::Other).report_error("fxa-client-backoff")
-            }
+            Error::BackoffError(_) => ErrorHandling::convert(FxaError::Other(self.to_string()))
+                .report_error("fxa-client-backoff"),
             Error::InvalidStateTransition(_) | Error::StateMachineLogicError(_) => {
-                ErrorHandling::convert(FxaError::Other).report_error("fxa-state-machine-error")
+                ErrorHandling::convert(FxaError::Other(self.to_string()))
+                    .report_error("fxa-state-machine-error")
             }
             Error::OriginMismatch(_) => ErrorHandling::convert(FxaError::OriginMismatch),
-            _ => ErrorHandling::convert(FxaError::Other).report_error("fxa-client-other-error"),
+            _ => ErrorHandling::convert(FxaError::Other(self.to_string()))
+                .report_error("fxa-client-other-error"),
         }
     }
 }
