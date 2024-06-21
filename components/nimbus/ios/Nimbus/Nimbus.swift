@@ -161,7 +161,6 @@ extension Nimbus: FeaturesInterface {
                     branch: event.branchSlug,
                     experiment: event.experimentSlug
                 ))
-
             case .enrollFailed:
                 GleanMetrics.NimbusEvents.enrollFailed.record(GleanMetrics.NimbusEvents.EnrollFailedExtra(
                     branch: event.branchSlug,
