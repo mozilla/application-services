@@ -7,6 +7,9 @@
 
 ## ✨ What's New ✨
 
+### Glean
+- Updated to v60.3.0 ([#6279](https://github.com/mozilla/application-services/pull/6279))
+
 ### Suggest
 - Added the `SuggestStoreBuilder.remote_settings_bucket_name` as a way to specify the bucket name.
 
