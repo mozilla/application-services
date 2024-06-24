@@ -148,6 +148,20 @@ impl Suggestion {
             _ => None,
         }
     }
+
+    pub fn title(&self) -> &str {
+        match self {
+            Self::Amp { title, .. }
+            | Self::Pocket { title, .. }
+            | Self::Wikipedia { title, .. }
+            | Self::Amo { title, .. }
+            | Self::Yelp { title, .. }
+            | Self::Mdn { title, .. } => title,
+            Self::Weather { .. } => "weather",
+            #[cfg(feature = "fakespot")]
+            Self::Fakespot { title, .. } => title,
+        }
+    }
 }
 
 impl Eq for Suggestion {}

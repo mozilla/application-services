@@ -1419,6 +1419,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "examples-suggest-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "log",
+ "remote_settings",
+ "suggest",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "expect-test"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
