@@ -172,22 +172,14 @@ impl<'a> SuggestDao<'a> {
     //
     //  These methods combine several low-level calls into one logical operation.
 
-    pub fn handle_ingested_record(&mut self, last_ingest_key: &str, record: &Record) -> Result<()> {
-        // Advance the last fetch time, so that we can resume
-        // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
-    }
-
-    pub fn handle_deleted_record(&mut self, last_ingest_key: &str, record: &Record) -> Result<()> {
+    pub fn delete_record_data(&mut self, record: &Record) -> Result<()> {
         let record_id = SuggestRecordId::from(&record.id);
         // Drop either the icon or suggestions, records only contain one or the other
         match record_id.as_icon_id() {
             Some(icon_id) => self.drop_icon(icon_id)?,
             None => self.drop_suggestions(&record_id)?,
         };
-        // Advance the last fetch time, so that we can resume
-        // fetching after this record if we're interrupted.
-        self.put_last_ingest_if_newer(last_ingest_key, record.last_modified)
+        Ok(())
     }
 
     // =============== Low level API ===============
