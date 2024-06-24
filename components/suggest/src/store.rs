@@ -358,32 +358,35 @@ where
         dao: &mut SuggestDao,
         constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
+        let last_ingest_key = ingest_record_type.last_ingest_meta_key();
         let request = RecordRequest {
             record_type: ingest_record_type.to_string(),
-            last_modified: dao
-                .get_meta::<u64>(ingest_record_type.last_ingest_meta_key().as_str())?,
+            last_modified: dao.get_meta::<u64>(&last_ingest_key)?,
             limit: constraints.max_suggestions,
         };
 
         let records = self.settings_client.get_records(request)?;
-        self.ingest_records(&ingest_record_type.last_ingest_meta_key(), dao, &records)?;
+        for record in &records {
+            // Drop any data that we previously ingested from this record.
+            // Suggestions in particular don't have a stable identifier, and
+            // determining which suggestions in the record actually changed is
+            // more complicated than dropping and re-ingesting all of them.
+            dao.delete_record_data(record)?;
+        }
+        self.ingest_records(dao, &records)?;
+        if let Some(max_last_modified) = records.iter().map(|r| r.last_modified).max() {
+            dao.put_last_ingest_if_newer(&last_ingest_key, max_last_modified)?;
+        }
         Ok(())
     }
 
-    fn ingest_records(
-        &self,
-        last_ingest_key: &str,
-        dao: &mut SuggestDao,
-        records: &[Record],
-    ) -> Result<()> {
+    fn ingest_records(&self, dao: &mut SuggestDao, records: &[Record]) -> Result<()> {
         for record in records {
-            let record_id = SuggestRecordId::from(&record.id);
             if record.deleted {
-                // If the entire record was deleted, drop all its suggestions
-                // and advance the last ingest time.
-                dao.handle_deleted_record(last_ingest_key, record)?;
                 continue;
             }
+
+            let record_id = SuggestRecordId::from(&record.id);
             let Ok(fields) =
                 serde_json::from_value(serde_json::Value::Object(record.fields.clone()))
             else {
@@ -394,27 +397,14 @@ where
 
             match fields {
                 SuggestRecord::AmpWikipedia => {
-                    self.ingest_attachment(
-                        // TODO: Currently re-creating the last_ingest_key because using last_ingest_meta
-                        // breaks the tests (particularly the unparsable functionality). So, keeping
-                        // a direct reference until we remove the "unparsable" functionality.
-                        &SuggestRecordType::AmpWikipedia.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::AmpMobile => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::AmpMobile.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_amp_mobile_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_amp_mobile_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Icon => {
                     let (Some(icon_id), Some(attachment)) =
@@ -423,116 +413,51 @@ where
                         // An icon record should have an icon ID and an
                         // attachment. Icons that don't have these are
                         // malformed, so skip to the next record.
-                        dao.put_last_ingest_if_newer(
-                            &SuggestRecordType::Icon.last_ingest_meta_key(),
-                            record.last_modified,
-                        )?;
                         continue;
                     };
                     let data = record.require_attachment_data()?;
                     dao.put_icon(icon_id, data, &attachment.mimetype)?;
-                    dao.handle_ingested_record(
-                        &SuggestRecordType::Icon.last_ingest_meta_key(),
-                        record,
-                    )?;
                 }
                 SuggestRecord::Amo => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::Amo.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_amo_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_amo_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Pocket => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::Pocket.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_pocket_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_pocket_suggestions(record_id, suggestions)
+                    })?;
                 }
                 SuggestRecord::Yelp => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::Yelp.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| match suggestions.first() {
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        match suggestions.first() {
                             Some(suggestion) => dao.insert_yelp_suggestions(record_id, suggestion),
                             None => Ok(()),
-                        },
-                    )?;
+                        }
+                    })?;
                 }
                 SuggestRecord::Mdn => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::Mdn.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_mdn_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_mdn_suggestions(record_id, suggestions)
+                    })?;
                 }
-                SuggestRecord::Weather(data) => {
-                    self.ingest_record(
-                        &SuggestRecordType::Weather.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id| dao.insert_weather_data(record_id, &data),
-                    )?;
-                }
+                SuggestRecord::Weather(data) => dao.insert_weather_data(&record_id, &data)?,
                 SuggestRecord::GlobalConfig(config) => {
-                    self.ingest_record(
-                        &SuggestRecordType::GlobalConfig.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, _| dao.put_global_config(&SuggestGlobalConfig::from(&config)),
-                    )?;
+                    dao.put_global_config(&SuggestGlobalConfig::from(&config))?
                 }
                 #[cfg(feature = "fakespot")]
                 SuggestRecord::Fakespot => {
-                    self.ingest_attachment(
-                        &SuggestRecordType::Fakespot.last_ingest_meta_key(),
-                        dao,
-                        record,
-                        |dao, record_id, suggestions| {
-                            dao.insert_fakespot_suggestions(record_id, suggestions)
-                        },
-                    )?;
+                    self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
+                        dao.insert_fakespot_suggestions(record_id, suggestions)
+                    })?;
                 }
             }
         }
         Ok(())
     }
 
-    fn ingest_record(
-        &self,
-        last_ingest_key: &str,
-        dao: &mut SuggestDao,
-        record: &Record,
-        ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId) -> Result<()>,
-    ) -> Result<()> {
-        let record_id = SuggestRecordId::from(&record.id);
-
-        // Drop any data that we previously ingested from this record.
-        // Suggestions in particular don't have a stable identifier, and
-        // determining which suggestions in the record actually changed is
-        // more complicated than dropping and re-ingesting all of them.
-        dao.drop_suggestions(&record_id)?;
-
-        // Ingest (or re-ingest) all data in the record.
-        ingestion_handler(dao, &record_id)?;
-
-        dao.handle_ingested_record(last_ingest_key, record)
-    }
-
     fn ingest_attachment<T>(
         &self,
-        last_ingest_key: &str,
         dao: &mut SuggestDao,
         record: &Record,
         ingestion_handler: impl FnOnce(&mut SuggestDao<'_>, &SuggestRecordId, &[T]) -> Result<()>,
@@ -541,18 +466,16 @@ where
         T: DeserializeOwned,
     {
         if record.attachment.is_none() {
-            // This method should be called only when a record is expected to
-            // have an attachment. If it doesn't have one, it's malformed, so
-            // skip to the next record.
-            dao.put_last_ingest_if_newer(last_ingest_key, record.last_modified)?;
             return Ok(());
         };
 
         let attachment_data = record.require_attachment_data()?;
         match serde_json::from_slice::<SuggestAttachment<T>>(attachment_data) {
-            Ok(attachment) => self.ingest_record(last_ingest_key, dao, record, |dao, record_id| {
-                ingestion_handler(dao, record_id, attachment.suggestions())
-            }),
+            Ok(attachment) => ingestion_handler(
+                dao,
+                &SuggestRecordId::from(&record.id),
+                attachment.suggestions(),
+            ),
             // If the attachment doesn't match our expected schema, just skip it.  It's possible
             // that we're using an older version.  If so, we'll get the data when we re-ingest
             // after updating the schema.
