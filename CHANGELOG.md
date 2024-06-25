@@ -10,6 +10,11 @@
 ### Suggest
 - Added the `SuggestStoreBuilder.remote_settings_bucket_name` as a way to specify the bucket name.
 
+## 🦊 What's Changed 🦊
+
+### Nimbus FML
+- The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
+
 [Full Changelog](In progress)
 
 # v128.0 (_2024-06-10_)
