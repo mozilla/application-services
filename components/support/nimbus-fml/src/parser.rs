@@ -223,7 +223,7 @@ impl Parser {
         &self,
         current: &FilePath,
         channel: Option<&str>,
-        imports: &mut HashMap<ModuleId, FeatureManifest>,
+        imports: &mut BTreeMap<ModuleId, FeatureManifest>,
         // includes: &mut HashSet<ModuleId>,
     ) -> Result<ModuleId> {
         let id = current.try_into()?;
@@ -253,7 +253,7 @@ impl Parser {
         // This loop does the work of merging the default blocks back into the imported manifests.
         // We'll then attach all the manifests to the root (i.e. the one we're generating code for today), in `imports`.
         // We associate only the feature ids with the manifest we're loading in this method.
-        let mut imported_feature_id_map = HashMap::new();
+        let mut imported_feature_id_map = BTreeMap::new();
 
         for block in &frontend.imports {
             // 1. Load the imported manifests in to the hash map.
@@ -328,7 +328,7 @@ impl Parser {
         &self,
         channel: Option<&str>,
     ) -> Result<FeatureManifest, FMLError> {
-        let mut manifests = HashMap::new();
+        let mut manifests = BTreeMap::new();
         let id = self.load_imports(&self.source, channel, &mut manifests)?;
         let mut fm = manifests
             .remove(&id)

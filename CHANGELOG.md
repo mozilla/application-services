@@ -3,6 +3,11 @@
 ### Suggest
 - Added support for Fakespot suggestions.
 
+## 🦊 What's Changed 🦊
+
+### Nimbus FML
+- The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
+
 [Full Changelog](In progress)
 
 # v129.0 (_2024-07-08_)
