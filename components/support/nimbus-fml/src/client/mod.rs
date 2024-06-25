@@ -205,7 +205,7 @@ mod unit_tests {
         intermediate_representation::{FeatureDef, ModuleId, PropDef, TypeRef},
     };
     use serde_json::{json, Value};
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
 
     fn create_manifest() -> FeatureManifest {
         let fm_i = get_feature_manifest(
@@ -221,7 +221,7 @@ mod unit_tests {
                 metadata: Default::default(),
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         get_feature_manifest(
@@ -238,7 +238,7 @@ mod unit_tests {
                 allow_coenrollment: true,
                 ..Default::default()
             }],
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         )
     }
 

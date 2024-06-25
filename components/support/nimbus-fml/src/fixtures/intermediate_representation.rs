@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::intermediate_representation::{
     EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TypeRef, VariantDef,
@@ -56,7 +56,7 @@ pub(crate) fn get_feature_manifest(
     obj_defs: Vec<ObjectDef>,
     enum_defs: Vec<EnumDef>,
     feature_defs: Vec<FeatureDef>,
-    all_imports: HashMap<ModuleId, FeatureManifest>,
+    all_imports: BTreeMap<ModuleId, FeatureManifest>,
 ) -> FeatureManifest {
     FeatureManifest {
         enum_defs: map_from(enum_defs, |e| e.name()),
@@ -90,7 +90,7 @@ pub(crate) fn get_one_prop_feature_manifest_with_imports(
     obj_defs: Vec<ObjectDef>,
     enum_defs: Vec<EnumDef>,
     prop: &PropDef,
-    all_imports: HashMap<ModuleId, FeatureManifest>,
+    all_imports: BTreeMap<ModuleId, FeatureManifest>,
 ) -> FeatureManifest {
     let mut fm = FeatureManifest {
         enum_defs: map_from(enum_defs, |e| e.name()),
