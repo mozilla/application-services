@@ -111,6 +111,14 @@ impl FirefoxAccount {
     pub fn close_tabs(&self, target_device_id: &str, urls: Vec<String>) -> ApiResult<()> {
         self.internal.lock().close_tabs(target_device_id, &urls)
     }
+
+    /// As above - but for closing all "inactive" tabs on the target and
+    /// the capability is [`CloseInactiveTabs`](DeviceCapability::CloseInactiveTabs)
+    /// **💾 This method alters the persisted account state.**
+    #[handle_error(Error)]
+    pub fn close_inactive_tabs(&self, target_device_id: &str) -> ApiResult<()> {
+        self.internal.lock().close_inactive_tabs(target_device_id)
+    }
 }
 
 /// Details of a web-push subscription endpoint.
@@ -203,6 +211,9 @@ pub enum IncomingDeviceCommand {
     TabsClosed {
         sender: Option<Device>,
         payload: CloseTabsPayload,
+    },
+    InactiveTabsClosed {
+        sender: Option<Device>,
     },
 }
 

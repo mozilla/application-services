@@ -243,6 +243,7 @@ pub struct Device {
 pub enum DeviceCapability {
     SendTab,
     CloseTabs,
+    CloseInactiveTabs,
 }
 
 /// A client connected to the user's account.
