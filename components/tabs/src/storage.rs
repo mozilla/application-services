@@ -270,8 +270,10 @@ impl TabsStorage {
             Ok(Some(conn)) => conn,
         };
         let pending_tabs_result: Result<Vec<(String, String)>> = conn.query_rows_and_then_cached(
-            "SELECT device_id, url FROM remote_tab_commands",
-            [],
+            "SELECT device_id, url
+             FROM remote_tab_commands
+             WHERE command = :command_close_tab",
+            rusqlite::named_params! { ":command_close_tab": CommandKind::CloseTab },
             |row| {
                 Ok((
                     row.get::<_, String>(0)?, // device_id
@@ -589,11 +591,13 @@ impl TabsStorage {
                 .get(&record.id)
                 .and_then(|r| r.fxa_device_id.as_ref())
                 .unwrap_or(&record.id);
-            if let Some(url) = record.tabs.first().and_then(|tab| tab.url_history.first()) {
-                conn.execute(
-                    "INSERT INTO new_remote_tabs (device_id, url) VALUES (?, ?)",
-                    rusqlite::params![fxa_id, url],
-                )?;
+            for tab in &record.tabs {
+                if let Some(url) = tab.url_history.first() {
+                    conn.execute(
+                        "INSERT INTO new_remote_tabs (device_id, url) VALUES (?, ?)",
+                        rusqlite::params![fxa_id, url],
+                    )?;
+                }
             }
         }
 
@@ -618,7 +622,7 @@ impl TabsStorage {
             conn.changes()
         );
 
-        // Anything that couldn't be removed above and is older than 24 hours
+        // Anything that couldn't be removed above and is older than REMOTE_COMMAND_TTL_MS
         // is assumed not closeable and we can remove it from the list
         let sql = format!("
             DELETE FROM remote_tab_commands
@@ -1356,10 +1360,16 @@ mod tests {
             TabsRecord {
                 id: "device-recent".to_string(),
                 client_name: "".to_string(),
-                tabs: vec![TabsRecordTab {
-                    url_history: vec!["https://example.com".to_string()],
-                    ..Default::default()
-                }],
+                tabs: vec![
+                    TabsRecordTab {
+                        url_history: vec!["https://example99.com".to_string()],
+                        ..Default::default()
+                    },
+                    TabsRecordTab {
+                        url_history: vec!["https://example.com".to_string()],
+                        ..Default::default()
+                    },
+                ],
             },
             ServerTimestamp::default(),
         )];
