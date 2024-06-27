@@ -1012,34 +1012,45 @@ impl<'a> SuggestDao<'a> {
     /// Deletes all suggestions associated with a Remote Settings record from
     /// the database.
     pub fn drop_suggestions(&mut self, record_id: &SuggestRecordId) -> Result<()> {
+        // Call `err_if_interrupted` before each statement since these have historically taken a
+        // long time and caused shutdown hangs.
+
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM full_keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM prefix_keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM yelp_subjects WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM yelp_modifiers WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM yelp_location_signs WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM yelp_custom_details WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
