@@ -237,10 +237,10 @@ pub struct FeatureManifest {
     pub(crate) about: AboutBlock,
 
     #[serde(default)]
-    pub(crate) imported_features: HashMap<ModuleId, BTreeSet<String>>,
+    pub(crate) imported_features: BTreeMap<ModuleId, BTreeSet<String>>,
 
     #[serde(default)]
-    pub(crate) all_imports: HashMap<ModuleId, FeatureManifest>,
+    pub(crate) all_imports: BTreeMap<ModuleId, FeatureManifest>,
 }
 
 impl TypeFinder for FeatureManifest {
@@ -824,7 +824,7 @@ mod imports_tests {
             obj_defs,
             vec![],
             &prop,
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let names: Vec<String> = fm.iter_all_object_defs().map(|(_, o)| o.name()).collect();
@@ -845,7 +845,7 @@ mod imports_tests {
             vec![],
             vec![],
             &prop,
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let names: Vec<String> = fm
@@ -868,7 +868,7 @@ mod imports_tests {
                 name: "feature_i".into(),
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let fm = get_feature_manifest(
@@ -878,7 +878,7 @@ mod imports_tests {
                 name: "feature".into(),
                 ..Default::default()
             }],
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let feature = fm.find_feature("feature_i");
@@ -905,7 +905,7 @@ mod imports_tests {
                     ..Default::default()
                 },
             ],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let fm = get_feature_manifest(
@@ -923,7 +923,7 @@ mod imports_tests {
                     ..Default::default()
                 },
             ],
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let coenrolling_features = fm.get_coenrolling_feature_ids();
@@ -948,7 +948,7 @@ mod imports_tests {
                 allow_coenrollment: false,
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let fm = get_feature_manifest(
@@ -966,7 +966,7 @@ mod imports_tests {
                     ..Default::default()
                 },
             ],
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let coenrolling_features = fm.get_coenrolling_feature_ids();
@@ -991,7 +991,7 @@ mod imports_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let fm = get_feature_manifest(
@@ -1006,7 +1006,7 @@ mod imports_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::from([(ModuleId::Local("test".into()), fm_i)]),
+            BTreeMap::from([(ModuleId::Local("test".into()), fm_i)]),
         );
 
         let json = fm.default_json();
@@ -1044,7 +1044,7 @@ mod feature_config_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let result = fm.validate_feature_config("feature", json!({ "prop_1": "new value" }))?;
@@ -1067,7 +1067,7 @@ mod feature_config_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let result = fm.validate_feature_config("feature-1", json!({ "prop_1": "new value" }));
@@ -1094,7 +1094,7 @@ mod feature_config_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let result = fm.validate_feature_config("feature", json!({"prop": "new value"}));
@@ -1121,7 +1121,7 @@ mod feature_config_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let result = fm.validate_feature_config(
@@ -1160,7 +1160,7 @@ mod feature_config_tests {
                 )],
                 ..Default::default()
             }],
-            HashMap::new(),
+            BTreeMap::new(),
         );
 
         let result = fm.validate_feature_config(
