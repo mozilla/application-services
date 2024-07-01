@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use crate::db::Sqlite3Extension;
 use rusqlite::{Connection, Transaction};
 use sql_support::open_database::{self, ConnectionInitializer};
 
@@ -135,13 +136,35 @@ CREATE TABLE dismissed_suggestions (
 
 /// Initializes an SQLite connection to the Suggest database, performing
 /// migrations as needed.
-pub struct SuggestConnectionInitializer;
+#[derive(Default)]
+pub struct SuggestConnectionInitializer<'a> {
+    extensions_to_load: &'a [Sqlite3Extension],
+}
 
-impl ConnectionInitializer for SuggestConnectionInitializer {
+impl<'a> SuggestConnectionInitializer<'a> {
+    pub fn new(extensions_to_load: &'a [Sqlite3Extension]) -> Self {
+        Self { extensions_to_load }
+    }
+
+    pub fn load_extensions(&self, conn: &Connection) -> open_database::Result<()> {
+        // Safety: this relies on the extensions we're loading to operate correctly, for the
+        // entry point to be correct, etc.
+        unsafe {
+            let _guard = rusqlite::LoadExtensionGuard::new(conn)?;
+            for ext in self.extensions_to_load {
+                conn.load_extension(&ext.library, ext.entry_point.as_deref())?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
     const NAME: &'static str = "suggest db";
     const END_VERSION: u32 = VERSION;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
+        self.load_extensions(conn)?;
         let initial_pragmas = "
             -- Use in-memory storage for TEMP tables.
             PRAGMA temp_store = 2;
@@ -416,7 +439,8 @@ PRAGMA user_version=16;
     /// If an upgrade fails, then this test will fail with a panic.
     #[test]
     fn test_all_upgrades() {
-        let db_file = MigratedDatabaseFile::new(SuggestConnectionInitializer, V16_SCHEMA);
+        let db_file =
+            MigratedDatabaseFile::new(SuggestConnectionInitializer::default(), V16_SCHEMA);
         db_file.run_all_upgrades();
         db_file.assert_schema_matches_new_database();
     }

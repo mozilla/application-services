@@ -18,7 +18,7 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
-    db::{ConnectionType, SuggestDao, SuggestDb},
+    db::{ConnectionType, Sqlite3Extension, SuggestDao, SuggestDb},
     error::Error,
     provider::SuggestionProvider,
     rs::{
@@ -39,6 +39,7 @@ struct SuggestStoreBuilderInner {
     data_path: Option<String>,
     remote_settings_server: Option<RemoteSettingsServer>,
     remote_settings_bucket_name: Option<String>,
+    extensions_to_load: Vec<Sqlite3Extension>,
 }
 
 impl Default for SuggestStoreBuilder {
@@ -72,9 +73,22 @@ impl SuggestStoreBuilder {
         self
     }
 
+    pub fn load_extension(
+        self: Arc<Self>,
+        library: String,
+        entry_point: Option<String>,
+    ) -> Arc<Self> {
+        self.0.lock().extensions_to_load.push(Sqlite3Extension {
+            library,
+            entry_point,
+        });
+        self
+    }
+
     #[handle_error(Error)]
     pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
         let inner = self.0.lock();
+        let extensions_to_load = inner.extensions_to_load.clone();
         let data_path = inner
             .data_path
             .clone()
@@ -87,7 +101,7 @@ impl SuggestStoreBuilder {
         )?;
 
         Ok(Arc::new(SuggestStore {
-            inner: SuggestStoreInner::new(data_path, client),
+            inner: SuggestStoreInner::new(data_path, extensions_to_load, client),
         }))
     }
 }
@@ -156,7 +170,7 @@ impl SuggestStore {
         };
 
         Ok(Self {
-            inner: SuggestStoreInner::new(path.to_owned(), client),
+            inner: SuggestStoreInner::new(path.to_owned(), vec![], client),
         })
     }
 
@@ -244,13 +258,19 @@ pub(crate) struct SuggestStoreInner<S> {
     #[allow(unused)]
     data_path: PathBuf,
     dbs: OnceCell<SuggestStoreDbs>,
+    extensions_to_load: Vec<Sqlite3Extension>,
     settings_client: S,
 }
 
 impl<S> SuggestStoreInner<S> {
-    pub fn new(data_path: impl Into<PathBuf>, settings_client: S) -> Self {
+    pub fn new(
+        data_path: impl Into<PathBuf>,
+        extensions_to_load: Vec<Sqlite3Extension>,
+        settings_client: S,
+    ) -> Self {
         Self {
             data_path: data_path.into(),
+            extensions_to_load,
             dbs: OnceCell::new(),
             settings_client,
         }
@@ -260,7 +280,7 @@ impl<S> SuggestStoreInner<S> {
     /// they're not already open.
     fn dbs(&self) -> Result<&SuggestStoreDbs> {
         self.dbs
-            .get_or_try_init(|| SuggestStoreDbs::open(&self.data_path))
+            .get_or_try_init(|| SuggestStoreDbs::open(&self.data_path, &self.extensions_to_load))
     }
 
     fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
@@ -566,11 +586,11 @@ struct SuggestStoreDbs {
 }
 
 impl SuggestStoreDbs {
-    fn open(path: &Path) -> Result<Self> {
+    fn open(path: &Path, extensions_to_load: &[Sqlite3Extension]) -> Result<Self> {
         // Order is important here: the writer must be opened first, so that it
         // can set up the database and run any migrations.
-        let writer = SuggestDb::open(path, ConnectionType::ReadWrite)?;
-        let reader = SuggestDb::open(path, ConnectionType::ReadOnly)?;
+        let writer = SuggestDb::open(path, extensions_to_load, ConnectionType::ReadWrite)?;
+        let reader = SuggestDb::open(path, extensions_to_load, ConnectionType::ReadOnly)?;
         Ok(Self { writer, reader })
     }
 }
@@ -600,7 +620,7 @@ mod tests {
                 COUNTER.fetch_add(1, Ordering::Relaxed),
             );
             Self {
-                inner: SuggestStoreInner::new(db_path, client),
+                inner: SuggestStoreInner::new(db_path, vec![], client),
             }
         }
 
