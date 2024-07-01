@@ -69,6 +69,12 @@ impl From<ConnectionType> for OpenFlags {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct Sqlite3Extension {
+    pub library: String,
+    pub entry_point: Option<String>,
+}
+
 /// A thread-safe wrapper around an SQLite connection to the Suggest database,
 /// and its interrupt handle.
 pub(crate) struct SuggestDb {
@@ -85,8 +91,16 @@ pub(crate) struct SuggestDb {
 impl SuggestDb {
     /// Opens a read-only or read-write connection to a Suggest database at the
     /// given path.
-    pub fn open(path: impl AsRef<Path>, type_: ConnectionType) -> Result<Self> {
-        let conn = open_database_with_flags(path, type_.into(), &SuggestConnectionInitializer)?;
+    pub fn open(
+        path: impl AsRef<Path>,
+        extensions_to_load: &[Sqlite3Extension],
+        type_: ConnectionType,
+    ) -> Result<Self> {
+        let conn = open_database_with_flags(
+            path,
+            type_.into(),
+            &SuggestConnectionInitializer::new(extensions_to_load),
+        )?;
         Ok(Self::with_connection(conn))
     }
 
