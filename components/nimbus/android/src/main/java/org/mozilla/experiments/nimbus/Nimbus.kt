@@ -44,6 +44,7 @@ import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import java.io.File
 import java.io.IOException
+import kotlin.system.measureTimeMillis
 
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
@@ -81,55 +82,65 @@ open class Nimbus(
 
     private val updateScope: CoroutineScope? = delegate.updateScope
 
+    private val metricsScope: CoroutineScope = delegate.metricsScope
+
     private val errorReporter = delegate.errorReporter
 
     private val logger = delegate.logger
 
     private val metricsHandler = object : MetricsHandler {
         override fun recordEnrollmentStatuses(enrollmentStatusExtras: List<EnrollmentStatusExtraDef>) {
-            for (extra in enrollmentStatusExtras) {
-                NimbusEvents.enrollmentStatus.record(
-                    NimbusEvents.EnrollmentStatusExtra(
-                        branch = extra.branch,
-                        slug = extra.slug,
-                        status = extra.status,
-                        reason = extra.reason,
-                        errorString = extra.errorString,
-                        conflictSlug = extra.conflictSlug,
+            metricsScope.launch {
+                for (extra in enrollmentStatusExtras) {
+                    NimbusEvents.enrollmentStatus.record(
+                        NimbusEvents.EnrollmentStatusExtra(
+                            branch = extra.branch,
+                            slug = extra.slug,
+                            status = extra.status,
+                            reason = extra.reason,
+                            errorString = extra.errorString,
+                            conflictSlug = extra.conflictSlug,
+                        ),
+                    )
+                }
+            }
+        }
+
+        override fun recordFeatureActivation(event: FeatureExposureExtraDef) {
+            metricsScope.launch {
+                NimbusEvents.activation.record(
+                    NimbusEvents.ActivationExtra(
+                        experiment = event.slug,
+                        branch = event.branch,
+                        featureId = event.featureId,
                     ),
                 )
             }
         }
 
-        override fun recordFeatureActivation(event: FeatureExposureExtraDef) {
-            NimbusEvents.activation.record(
-                NimbusEvents.ActivationExtra(
-                    experiment = event.slug,
-                    branch = event.branch,
-                    featureId = event.featureId,
-                ),
-            )
-        }
-
         override fun recordFeatureExposure(event: FeatureExposureExtraDef) {
-            NimbusEvents.exposure.record(
-                NimbusEvents.ExposureExtra(
-                    experiment = event.slug,
-                    branch = event.branch,
-                    featureId = event.featureId,
-                ),
-            )
+            metricsScope.launch {
+                NimbusEvents.exposure.record(
+                    NimbusEvents.ExposureExtra(
+                        experiment = event.slug,
+                        branch = event.branch,
+                        featureId = event.featureId,
+                    ),
+                )
+            }
         }
 
         override fun recordMalformedFeatureConfig(event: MalformedFeatureConfigExtraDef) {
-            NimbusEvents.malformedFeature.record(
-                NimbusEvents.MalformedFeatureExtra(
-                    experiment = event.slug,
-                    branch = event.branch,
-                    featureId = event.featureId,
-                    partId = event.part,
-                ),
-            )
+            metricsScope.launch {
+                NimbusEvents.malformedFeature.record(
+                    NimbusEvents.MalformedFeatureExtra(
+                        experiment = event.slug,
+                        branch = event.branch,
+                        featureId = event.featureId,
+                        partId = event.part,
+                    ),
+                )
+            }
         }
     }
 
@@ -195,11 +206,13 @@ open class Nimbus(
         try {
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
         } catch (e: NimbusException.DatabaseNotReady) {
-            NimbusHealth.cacheNotReadyForFeature.record(
-                NimbusHealth.CacheNotReadyForFeatureExtra(
-                    featureId = featureId,
-                ),
-            )
+            metricsScope.launch {
+                NimbusHealth.cacheNotReadyForFeature.record(
+                    NimbusHealth.CacheNotReadyForFeatureExtra(
+                        featureId = featureId,
+                    ),
+                )
+            }
             null
         } catch (e: Throwable) {
             reportError("getFeatureConfigVariablesJson", e)
@@ -275,8 +288,12 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun fetchExperimentsOnThisThread() = withCatchAll("fetchExperiments") {
         try {
-            NimbusHealth.fetchExperimentsTime.measure {
+            val time = measureTimeMillis {
                 nimbusClient.fetchExperiments()
+            }
+            logger("Measured ${time}ms to fetch experiments")
+            metricsScope.launch {
+                NimbusHealth.fetchExperimentsTime.accumulateSingleSample(time)
             }
             updateObserver {
                 it.onExperimentsFetched()
@@ -308,10 +325,15 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun applyPendingExperimentsOnThisThread() = withCatchAll("applyPendingExperiments") {
         try {
-            val events = NimbusHealth.applyPendingExperimentsTime.measure {
-                nimbusClient.applyPendingExperiments()
+            var events: List<EnrollmentChangeEvent>?
+            val time = measureTimeMillis {
+                events = nimbusClient.applyPendingExperiments()
             }
-            recordExperimentTelemetryEvents(events)
+            logger("Measured ${time}ms to apply pending experiments")
+            metricsScope.launch {
+                NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
+            }
+            recordExperimentTelemetryEvents(events!!)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusException.InvalidExperimentFormat) {
@@ -485,52 +507,54 @@ open class Nimbus(
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetryEvents(enrollmentChangeEvents: List<EnrollmentChangeEvent>) {
-        enrollmentChangeEvents.forEach { event ->
-            when (event.change) {
-                EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(
-                        NimbusEvents.EnrollmentExtra(
-                            experiment = event.experimentSlug,
-                            branch = event.branchSlug,
-                        ),
-                    )
-                }
+        metricsScope.launch {
+            enrollmentChangeEvents.forEach { event ->
+                when (event.change) {
+                    EnrollmentChangeEventType.ENROLLMENT -> {
+                        NimbusEvents.enrollment.record(
+                            NimbusEvents.EnrollmentExtra(
+                                experiment = event.experimentSlug,
+                                branch = event.branchSlug,
+                            ),
+                        )
+                    }
 
-                EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(
-                        NimbusEvents.DisqualificationExtra(
-                            experiment = event.experimentSlug,
-                            branch = event.branchSlug,
-                        ),
-                    )
-                }
+                    EnrollmentChangeEventType.DISQUALIFICATION -> {
+                        NimbusEvents.disqualification.record(
+                            NimbusEvents.DisqualificationExtra(
+                                experiment = event.experimentSlug,
+                                branch = event.branchSlug,
+                            ),
+                        )
+                    }
 
-                EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(
-                        NimbusEvents.UnenrollmentExtra(
-                            experiment = event.experimentSlug,
-                            branch = event.branchSlug,
-                        ),
-                    )
-                }
+                    EnrollmentChangeEventType.UNENROLLMENT -> {
+                        NimbusEvents.unenrollment.record(
+                            NimbusEvents.UnenrollmentExtra(
+                                experiment = event.experimentSlug,
+                                branch = event.branchSlug,
+                            ),
+                        )
+                    }
 
-                EnrollmentChangeEventType.ENROLL_FAILED -> {
-                    NimbusEvents.enrollFailed.record(
-                        NimbusEvents.EnrollFailedExtra(
-                            experiment = event.experimentSlug,
-                            branch = event.branchSlug,
-                            reason = event.reason,
-                        ),
-                    )
-                }
+                    EnrollmentChangeEventType.ENROLL_FAILED -> {
+                        NimbusEvents.enrollFailed.record(
+                            NimbusEvents.EnrollFailedExtra(
+                                experiment = event.experimentSlug,
+                                branch = event.branchSlug,
+                                reason = event.reason,
+                            ),
+                        )
+                    }
 
-                EnrollmentChangeEventType.UNENROLL_FAILED -> {
-                    NimbusEvents.unenrollFailed.record(
-                        NimbusEvents.UnenrollFailedExtra(
-                            experiment = event.experimentSlug,
-                            reason = event.reason,
-                        ),
-                    )
+                    EnrollmentChangeEventType.UNENROLL_FAILED -> {
+                        NimbusEvents.unenrollFailed.record(
+                            NimbusEvents.UnenrollFailedExtra(
+                                experiment = event.experimentSlug,
+                                reason = event.reason,
+                            ),
+                        )
+                    }
                 }
             }
         }
