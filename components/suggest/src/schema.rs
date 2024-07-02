@@ -181,7 +181,6 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
     fn init(&self, db: &Transaction<'_>) -> open_database::Result<()> {
         db.execute_batch(SQL)?;
 
-        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
         #[cfg(feature = "fakespot")]
         db.execute_batch(
             "
@@ -193,6 +192,23 @@ CREATE TABLE fakespot_custom_details(
     total_reviews INTEGER NOT NULL,
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
+CREATE VIRTUAL TABLE IF NOT EXISTS fakespot_fts USING FTS5(
+  title,
+  prefix='4 5 6 7 8 9 10 11',
+  content='',
+  contentless_delete=1,
+  tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
+);
+CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
+  INSERT INTO fakespot_fts(rowid, title)
+    SELECT id, title
+    FROM suggestions
+    WHERE id = new.suggestion_id;
+END;
+-- DELETE/UPDATE triggers are difficult to implement, since the FTS contents are split between the fakespot_custom_details and suggestions tables.
+-- If you use an AFTER trigger, then the data from the other table has already been deleted.
+-- BEFORE triggers are discouraged by the SQLite docs.
+-- Instead, the drop_suggestions function handles updating the FTS data.
             ",
         )?;
         Ok(())
@@ -290,6 +306,22 @@ CREATE TABLE fakespot_custom_details(
     total_reviews INTEGER NOT NULL,
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
+-- Create the Fakespot FTS table.
+-- The `tokenize` param is hard to read.  The effect is that dashes and apostrophes are
+-- considered valid tokens in a word, rather than separators.
+CREATE VIRTUAL TABLE IF NOT EXISTS fakespot_fts USING FTS5(
+  title,
+  prefix='4 5 6 7 8 9 10 11',
+  content='',
+  contentless_delete=1,
+  tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
+);
+CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
+  INSERT INTO fakespot_fts(rowid, title)
+    SELECT id, title
+    FROM suggestions
+    WHERE id = new.suggestion_id;
+END;
                 ",
                 )?;
                 Ok(())
@@ -314,7 +346,17 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
         DELETE FROM yelp_location_signs;
         DELETE FROM yelp_custom_details;
         ",
-    )
+    )?;
+    #[cfg(feature = "fakespot")]
+    {
+        use sql_support::ConnExt;
+        let table_exists: bool = db
+            .query_one("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = 'fakespot_fts')")?;
+        if table_exists {
+            db.execute("DELETE FROM fakespot_fts", ())?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
