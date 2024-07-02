@@ -2112,7 +2112,6 @@ mod tests {
     fn query_fakespot() -> anyhow::Result<()> {
         before_each();
 
-        // FAKESPOT-TODO: Update these tests to test the new matching logic.
         let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
             "fakespot-suggestions",
             "fakespot-1",
@@ -2131,6 +2130,88 @@ mod tests {
             store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
             vec![simpsons_suggestion(), snowglobe_suggestion()],
         );
+        // Test FTS by using a query where the keywords are separated in the source text
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simpsons snow")),
+            vec![simpsons_suggestion()],
+        );
+        // Special characters should be stripped out
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simpsons + snow")),
+            vec![simpsons_suggestion()],
+        );
+
+        Ok(())
+    }
+
+    #[cfg(feature = "fakespot")]
+    #[test]
+    fn fakespot_prefix_matching() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "fakespot-suggestions",
+            "fakespot-1",
+            json!([snowglobe_fakespot(), simpsons_fakespot()]),
+        ));
+        store.ingest(SuggestIngestionConstraints::default());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simp")),
+            vec![simpsons_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simps")),
+            vec![simpsons_suggestion()],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simpson")),
+            vec![simpsons_suggestion()],
+        );
+
+        Ok(())
+    }
+
+    #[cfg(feature = "fakespot")]
+    #[test]
+    fn fakespot_updates_and_deletes() -> anyhow::Result<()> {
+        before_each();
+
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            "fakespot-suggestions",
+            "fakespot-1",
+            json!([snowglobe_fakespot(), simpsons_fakespot()]),
+        ));
+        store.ingest(SuggestIngestionConstraints::default());
+
+        // Update the snapshot so that:
+        //   - The Simpsons entry is deleted
+        //   - Snow globes now use sea glass instead of glitter
+        store.replace_client(MockRemoteSettingsClient::default().with_record(
+            "fakespot-suggestions",
+            "fakespot-1",
+            json!([
+                snowglobe_fakespot().merge(json!({"title": "Make Your Own Sea Glass Snow Globes"}))
+            ]),
+        ));
+        store.ingest(SuggestIngestionConstraints::default());
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("glitter")),
+            vec![],
+        );
+        assert!(matches!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("sea glass")).as_slice(),
+            [
+                Suggestion::Fakespot { title, .. }
+            ]
+            if title == "Make Your Own Sea Glass Snow Globes"
+        ));
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("simpsons")),
+            vec![],
+        );
+
         Ok(())
     }
 }

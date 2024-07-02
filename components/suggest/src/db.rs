@@ -686,7 +686,6 @@ impl<'a> SuggestDao<'a> {
     #[cfg(feature = "fakespot")]
     /// Fetches fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
         self.conn.query_rows_and_then_cached(
             r#"
             SELECT
@@ -700,14 +699,17 @@ impl<'a> SuggestDao<'a> {
             FROM
                 suggestions s
             JOIN
+                fakespot_fts fts
+                ON fts.rowid = s.id
+            JOIN
                 fakespot_custom_details f
                 ON f.suggestion_id = s.id
             WHERE
-                s.title LIKE '%' || ? || '%'
+                fakespot_fts MATCH ?
             ORDER BY
                 s.score DESC
             "#,
-            (&query.keyword,),
+            (&query.fts_query(),),
             |row| {
                 Ok(Suggestion::Fakespot {
                     title: row.get(0)?,
@@ -935,7 +937,6 @@ impl<'a> SuggestDao<'a> {
         record_id: &SuggestRecordId,
         suggestions: &[DownloadedFakespotSuggestion],
     ) -> Result<()> {
-        // FAKESPOT-TODO: The SNG will update this based on the results of their FTS experimentation
         let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
         let mut fakespot_insert = FakespotInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
@@ -1036,6 +1037,17 @@ impl<'a> SuggestDao<'a> {
             "DELETE FROM prefix_keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        #[cfg(feature = "fakespot")]
+        {
+            self.scope.err_if_interrupted()?;
+            self.conn.execute_cached(
+                "
+                DELETE FROM fakespot_fts
+                WHERE rowid IN (SELECT id from suggestions WHERE record_id = :record_id)
+                ",
+                named_params! { ":record_id": record_id.as_str() },
+            )?;
+        }
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
