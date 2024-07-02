@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Commands","RemoteSettingsServerArg","SuggestionProviderArg"],"fn":["build_store","ingest","main","query"],"static":["DB_PATH"],"struct":["Cli"]};

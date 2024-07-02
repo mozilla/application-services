@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["object_literal"],"struct":["ObjectCodeDeclaration","ObjectCodeType","ObjectRuntime"]};

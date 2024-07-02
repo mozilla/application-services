@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["collect_channel_defaults","merge_two_defaults"],"struct":["DefaultsMerger"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["class_name","enum_variant_name","quoted","var_name"],"mod":["code_type"]};

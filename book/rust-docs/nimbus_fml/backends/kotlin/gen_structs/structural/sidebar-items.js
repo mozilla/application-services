@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["map_functions"],"struct":["ListCodeType","MapCodeType","OptionalCodeType"]};

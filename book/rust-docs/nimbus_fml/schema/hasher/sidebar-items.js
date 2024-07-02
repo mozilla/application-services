@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SchemaHasher","Sha256Hasher"],"trait":["SchemaHash"]};
