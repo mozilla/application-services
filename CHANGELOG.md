@@ -1,5 +1,9 @@
 # v132.0 (In progress)
 
+### Remote settings
+- Added `RemoteSettingsService` and `RemoteSettingsClient`.  These are a work in progress that will
+  eventually replace `RemoteSettings`.
+
 [Full Changelog](In progress)
 
 # v131.0 (_2024-08-30_)

@@ -18,12 +18,25 @@ use crate::Result;
 /// - `server_url`: An optional custom Remote Settings server URL. Deprecated; please use `server` instead.
 /// - `bucket_name`: The optional name of the bucket containing the collection on the server. If not specified, the standard bucket will be used.
 /// - `collection_name`: The name of the collection for the settings server.
+/// - `storage_dir`: Directory to store data in
 #[derive(Debug, Clone)]
 pub struct RemoteSettingsConfig {
     pub server: Option<RemoteSettingsServer>,
     pub server_url: Option<String>,
     pub bucket_name: Option<String>,
     pub collection_name: String,
+}
+
+/// Configuration for RemoteSettingsService
+///
+/// Once we move consumers away from the `RemoteSettings` API and to
+/// `RemoteSettingsService`/`RemoteSettingsClient`, we can remove the old config class and knock
+/// off the trailing `2`.
+#[derive(Debug, Clone)]
+pub struct RemoteSettingsConfig2 {
+    pub server: RemoteSettingsServer,
+    pub storage_dir: String,
+    pub bucket_name: Option<String>,
 }
 
 /// The Remote Settings server that the client should use.

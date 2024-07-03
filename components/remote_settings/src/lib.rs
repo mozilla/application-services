@@ -2,17 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::{fs::File, io::prelude::Write, sync::Arc};
+
+use camino::Utf8Path;
+
 pub mod cache;
 pub mod error;
 pub use error::{RemoteSettingsError, Result};
-use std::{fs::File, io::prelude::Write};
 pub mod client;
 pub use client::{
     Attachment, Client, GetItemsOptions, RemoteSettingsRecord, RemoteSettingsResponse,
     RsJsonObject, SortOrder,
 };
 pub mod config;
-pub use config::{RemoteSettingsConfig, RemoteSettingsServer};
+pub mod storage;
+pub use config::{RemoteSettingsConfig, RemoteSettingsConfig2, RemoteSettingsServer};
+
+use storage::Storage;
 
 uniffi::include_scaffolding!("remote_settings");
 
@@ -47,6 +53,78 @@ impl RemoteSettings {
         let resp = self.client.get_attachment(&attachment_location)?;
         let mut file = File::create(path)?;
         file.write_all(&resp)?;
+        Ok(())
+    }
+}
+
+pub struct RemoteSettingsService {
+    config: RemoteSettingsConfig2,
+}
+
+impl RemoteSettingsService {
+    pub fn new(config: RemoteSettingsConfig2) -> Self {
+        RemoteSettingsService { config }
+    }
+
+    pub fn make_client(&self, collection_name: String) -> Result<Arc<RemoteSettingsClient>> {
+        let storage = Storage::new(
+            &Utf8Path::new(&self.config.storage_dir).join(format!("{}.sqlite", collection_name)),
+        )?;
+        let client = Client::new_for_remote_settings_service(
+            self.config.server.clone(),
+            self.config
+                .bucket_name
+                .clone()
+                .unwrap_or_else(|| "main".to_string()),
+            collection_name,
+        )?;
+        Ok(Arc::new(RemoteSettingsClient { client, storage }))
+    }
+}
+
+pub struct RemoteSettingsClient {
+    client: Client,
+    storage: Storage,
+}
+
+impl RemoteSettingsClient {
+    pub fn get(&self) -> Result<Option<Vec<RemoteSettingsRecord>>> {
+        self.storage.get_records()
+    }
+
+    pub fn sync(&self) -> Result<()> {
+        let resp = match self.storage.last_modified_time()? {
+            Some(last_modified) => self.client.get_records_since(last_modified)?,
+            None => self.client.get_records()?,
+        };
+        self.storage
+            .update_records(resp.records, resp.last_modified)?;
+        Ok(())
+    }
+
+    pub fn sync_if_empty(&self) -> Result<()> {
+        if self.storage.last_modified_time()?.is_none() {
+            self.sync()?;
+        }
+        Ok(())
+    }
+
+    pub fn download_attachment_to_path(
+        &self,
+        attachment_location: String,
+        path: String,
+    ) -> Result<()> {
+        let data = match self.storage.get_attachment_data(&attachment_location)? {
+            Some(data) => data,
+            None => {
+                let data = self.client.get_attachment(&attachment_location)?;
+                self.storage
+                    .store_attachment_data(&attachment_location, &data)?;
+                data
+            }
+        };
+        let mut file = File::create(path)?;
+        file.write_all(&data)?;
         Ok(())
     }
 }

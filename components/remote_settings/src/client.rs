@@ -51,6 +51,19 @@ impl Client {
         })
     }
 
+    pub(crate) fn new_for_remote_settings_service(
+        server: RemoteSettingsServer,
+        bucket_name: String,
+        collection_name: String,
+    ) -> Result<Self> {
+        Ok(Self {
+            base_url: server.url()?,
+            bucket_name,
+            collection_name,
+            remote_state: Default::default(),
+        })
+    }
+
     /// Fetches all records for a collection that can be found in the server,
     /// bucket, and collection defined by the [ClientConfig] used to generate
     /// this [Client].

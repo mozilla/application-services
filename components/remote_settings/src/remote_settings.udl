@@ -55,6 +55,10 @@ enum RemoteSettingsError {
     "ConfigError",
 };
 
+/// Remote settings client
+///
+/// Soft-deprecated.  We plan to move clients over to the new RemoteSettingsService and
+/// RemoteSettingsClient interfaces.
 interface RemoteSettings {
     /// Construct a new Remote Settings client with the given configuration.
     [Throws=RemoteSettingsError]
@@ -68,6 +72,53 @@ interface RemoteSettings {
     /// using the configuration this client was initialized with.
     [Throws=RemoteSettingsError]
     RemoteSettingsResponse get_records_since(u64 timestamp);
+
+    /// Download an attachment with the provided id to the provided path.
+    [Throws=RemoteSettingsError]
+    void download_attachment_to_path(string attachment_id, string path);
+};
+
+/// Stores application-level configuration data and constructs clients
+interface RemoteSettingsService {
+    constructor(RemoteSettingsConfig2 config);
+
+    /// Construct a new client with the configuration passed to the constructor
+    [Throws=RemoteSettingsError]
+    RemoteSettingsClient make_client(string collection_name);
+};
+
+/// Configuration for RemoteSettingsService
+///
+/// Once all clients have moved to the new API, we can remove the old RemoteSettingsConfig and
+/// rename this.
+dictionary RemoteSettingsConfig2 {
+    /// Server to use
+    RemoteSettingsServer server;
+    /// Directory to store data in.  Must be writable by the client.
+    string storage_dir;
+    /// Override bucket name ("main" by default, "preview" for preview collections)
+    string? bucket_name = null;
+};
+
+/// New remote settings client
+///
+/// This is a WIP matches the semantics of the official client more closely.  Once this is complete,
+/// we may decide to deprecate and remote the RemoteSettings class.
+interface RemoteSettingsClient {
+    /// Get the current set of records.
+    ///
+    /// If no records have been downloaded, this will return null.  Use `sync` to fetch the current
+    /// records from the server.
+    [Throws=RemoteSettingsError]
+    sequence<RemoteSettingsRecord>? get();
+
+    /// Sync records with the server.
+    [Throws=RemoteSettingsError]
+    void sync();
+
+    /// Sync records with the server if there are no records currently persisted.
+    [Throws=RemoteSettingsError]
+    void sync_if_empty();
 
     /// Download an attachment with the provided id to the provided path.
     [Throws=RemoteSettingsError]
