@@ -5,6 +5,10 @@
 ### Suggest
 - Added support for Fakespot suggestions.
 
+### Remote settings
+- Added cache support
+- Added builder API for constructing RemoteSettings instances
+
 ## 🦊 What's Changed 🦊
 
 ### Android

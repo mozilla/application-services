@@ -61,6 +61,8 @@ interface RemoteSettings {
     constructor(RemoteSettingsConfig remote_settings_config);
 
     // Fetch all records for the configuration this client was initialized with.
+    //
+    // If a cache was setup, this will use the cache optimize the network requests
     [Throws=RemoteSettingsError]
     RemoteSettingsResponse get_records();
 
@@ -69,7 +71,53 @@ interface RemoteSettings {
     [Throws=RemoteSettingsError]
     RemoteSettingsResponse get_records_since(u64 timestamp);
 
+    // Get records from the cache, if present
+    //
+    // This method will only check the cache and not make any network requests.
+    // If a cache was not setup, this will always return null.
+    RemoteSettingsResponse? get_cached_records();
+
+    // Sync records with the cache
+    //
+    // This method fetches new records from the server and updates the cache.
+    // If a cache was not setup, this is a no-op
+    [Throws=RemoteSettingsError]
+    void sync_cached_records();
+
     // Download an attachment with the provided id to the provided path.
     [Throws=RemoteSettingsError]
     void download_attachment_to_path(string attachment_id, string path);
+};
+
+// Builder object for constructing a RemoteSettings instance
+interface RemoteSettingsBuilder {
+    constructor();
+
+    [Self=ByArc]
+    RemoteSettingsBuilder collection_name(string collection_name);
+
+    [Self=ByArc]
+    RemoteSettingsBuilder server(RemoteSettingsServer server);
+
+    [Self=ByArc]
+    RemoteSettingsBuilder bucket_name(string bucket_name);
+
+    // Setup a cache that writes to a file.
+    // This is the simplest way to enable caching support.
+    [Self=ByArc, Throws=RemoteSettingsError]
+    RemoteSettingsBuilder cache_file(string path);
+
+    // Setup cache using a callback interface that implements RemoteSettingsCache
+    [Self=ByArc]
+    RemoteSettingsBuilder cache(RemoteSettingsCache cache);
+
+    [Throws=RemoteSettingsError]
+    RemoteSettings build();
+};
+
+// Consumer-supplied interface for storing cached values for `get_cached_records`
+[Trait]
+interface RemoteSettingsCache {
+    void store(RemoteSettingsResponse value);
+    RemoteSettingsResponse? get();
 };

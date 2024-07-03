@@ -2,9 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use parking_lot::Mutex;
+
+pub mod cache;
 pub mod error;
+pub use cache::RemoteSettingsCache;
 pub use error::{RemoteSettingsError, Result};
-use std::{fs::File, io::prelude::Write};
+use std::{fs::File, io::prelude::Write, sync::Arc};
 pub mod client;
 pub use client::{
     Attachment, Client, GetItemsOptions, RemoteSettingsRecord, RemoteSettingsResponse,
@@ -16,14 +20,12 @@ pub use config::{RemoteSettingsConfig, RemoteSettingsServer};
 uniffi::include_scaffolding!("remote_settings");
 
 pub struct RemoteSettings {
-    pub config: RemoteSettingsConfig,
     client: Client,
 }
 
 impl RemoteSettings {
     pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
         Ok(RemoteSettings {
-            config: config.clone(),
             client: Client::new(config)?,
         })
     }
@@ -38,6 +40,14 @@ impl RemoteSettings {
         Ok(resp)
     }
 
+    fn get_cached_records(&self) -> Option<RemoteSettingsResponse> {
+        self.client.get_cached_records()
+    }
+
+    fn sync_cached_records(&self) -> Result<()> {
+        self.client.sync_cached_records()
+    }
+
     pub fn download_attachment_to_path(
         &self,
         attachment_location: String,
@@ -47,6 +57,80 @@ impl RemoteSettings {
         let mut file = File::create(path)?;
         file.write_all(&resp)?;
         Ok(())
+    }
+}
+
+pub struct RemoteSettingsBuilder {
+    inner: Mutex<RemoteSettingsBuilderInner>,
+}
+
+#[derive(Clone, Default)]
+struct RemoteSettingsBuilderInner {
+    server: Option<RemoteSettingsServer>,
+    bucket_name: Option<String>,
+    collection_name: Option<String>,
+    cache: Option<Arc<dyn RemoteSettingsCache>>,
+}
+
+impl Default for RemoteSettingsBuilder {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::new(RemoteSettingsBuilderInner::default()),
+        }
+    }
+}
+
+impl RemoteSettingsBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn collection_name(self: Arc<Self>, collection_name: String) -> Arc<Self> {
+        self.inner.lock().collection_name = Some(collection_name);
+        self
+    }
+
+    pub fn server(self: Arc<Self>, server: RemoteSettingsServer) -> Arc<Self> {
+        self.inner.lock().server = Some(server);
+        self
+    }
+
+    pub fn bucket_name(self: Arc<Self>, bucket_name: String) -> Arc<Self> {
+        self.inner.lock().bucket_name = Some(bucket_name);
+        self
+    }
+
+    pub fn cache(self: Arc<Self>, cache: Arc<dyn RemoteSettingsCache>) -> Arc<Self> {
+        self.inner.lock().cache = Some(cache);
+        self
+    }
+
+    pub fn cache_file(self: Arc<Self>, cache_path: String) -> Result<Arc<Self>> {
+        let cache = Arc::new(cache::RemoteSettingsCacheFile::new(cache_path)?);
+        Ok(self.cache(cache))
+    }
+
+    pub fn build(&self) -> Result<Arc<RemoteSettings>> {
+        let inner = self.inner.lock().clone();
+        let collection_name = match inner.collection_name {
+            Some(name) => name,
+            None => {
+                return Err(RemoteSettingsError::ConfigError(
+                    "No collection name specified".to_string(),
+                ))
+            }
+        };
+        Ok(Arc::new(RemoteSettings {
+            client: Client::new_with_cache(
+                RemoteSettingsConfig {
+                    collection_name,
+                    server: inner.server,
+                    bucket_name: inner.bucket_name,
+                    server_url: None,
+                },
+                inner.cache,
+            )?,
+        }))
     }
 }
 

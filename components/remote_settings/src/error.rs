@@ -6,7 +6,7 @@
 pub enum RemoteSettingsError {
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
-    #[error("Error writing downloaded attachment: {0}")]
+    #[error("File error: {0}")]
     FileError(#[from] std::io::Error),
     /// An error has occurred while sending a request.
     #[error("Error sending request: {0}")]

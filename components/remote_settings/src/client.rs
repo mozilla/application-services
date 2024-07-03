@@ -2,13 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::cache;
 use crate::config::RemoteSettingsConfig;
 use crate::error::{RemoteSettingsError, Result};
-use crate::{RemoteSettingsServer, UniffiCustomTypeConverter};
+use crate::{RemoteSettingsCache, RemoteSettingsServer, UniffiCustomTypeConverter};
 use parking_lot::Mutex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use url::Url;
@@ -26,11 +28,20 @@ pub struct Client {
     pub(crate) bucket_name: String,
     pub(crate) collection_name: String,
     pub(crate) remote_state: Mutex<RemoteState>,
+    pub(crate) cache: Option<Arc<dyn RemoteSettingsCache>>,
 }
 
 impl Client {
     /// Create a new [Client] with properties matching config.
     pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
+        Self::new_with_cache(config, None)
+    }
+
+    /// Create a new [Client] with properties matching config.
+    pub fn new_with_cache(
+        config: RemoteSettingsConfig,
+        cache: Option<Arc<dyn RemoteSettingsCache>>,
+    ) -> Result<Self> {
         let server = match (config.server, config.server_url) {
             (Some(server), None) => server,
             (None, Some(server_url)) => RemoteSettingsServer::Custom { url: server_url },
@@ -48,6 +59,7 @@ impl Client {
             bucket_name,
             collection_name: config.collection_name,
             remote_state: Default::default(),
+            cache,
         })
     }
 
@@ -55,7 +67,48 @@ impl Client {
     /// bucket, and collection defined by the [ClientConfig] used to generate
     /// this [Client].
     pub fn get_records(&self) -> Result<RemoteSettingsResponse> {
-        self.get_records_with_options(&GetItemsOptions::new())
+        match self.cache.as_deref() {
+            None => self.get_records_with_options(&GetItemsOptions::new()),
+            Some(cache) => self.get_records_with_cache(cache),
+        }
+    }
+
+    /// Fetches records, using a cached response for efficiency.
+    fn get_records_with_cache(
+        &self,
+        cache: &dyn RemoteSettingsCache,
+    ) -> Result<RemoteSettingsResponse> {
+        let cached_response = cache.get();
+        let cached_last_modified = cached_response
+            .as_ref()
+            .map(|r| r.last_modified)
+            .unwrap_or(0);
+
+        let response = if let Some(cached) = cached_response {
+            let new = self.get_records_since(cached.last_modified)?;
+            cache::merge_cache_and_response(cached, new)
+        } else {
+            self.get_records()?
+        };
+
+        if cached_last_modified != response.last_modified {
+            cache.store(response.clone());
+        }
+        Ok(response)
+    }
+
+    pub fn get_cached_records(&self) -> Option<RemoteSettingsResponse> {
+        self.cache.as_deref().and_then(|cache| cache.get())
+    }
+
+    pub fn sync_cached_records(&self) -> Result<()> {
+        if let Some(cache) = self.cache.as_deref() {
+            // Use get_records_with_cache to update the cache, then throw out the result.
+            // This avoids sending the response over the FFI in cases where the consumer
+            // doesn't need it.
+            self.get_records_with_cache(cache)?;
+        }
+        Ok(())
     }
 
     /// Fetches all records for a collection that can be found in the server,
@@ -215,7 +268,7 @@ impl Client {
 
 /// Data structure representing the top-level response from the Remote Settings.
 /// [last_modified] will be extracted from the etag header of the response.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct RemoteSettingsResponse {
     pub records: Vec<RemoteSettingsRecord>,
     pub last_modified: u64,
@@ -228,7 +281,7 @@ struct RecordsResponse {
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
 /// are required to further extract expected values from the [fields] member.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
@@ -241,7 +294,7 @@ pub struct RemoteSettingsRecord {
 
 /// Attachment metadata that can be optionally attached to a [Record]. The [location] should
 /// included in calls to [Client::get_attachment].
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Attachment {
     pub filename: String,
     pub mimetype: String,

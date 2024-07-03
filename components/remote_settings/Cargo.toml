@@ -11,6 +11,7 @@ exclude = ["/android", "/ios"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+log = "0.4"
 uniffi = { workspace = true }
 thiserror = "1.0"
 serde = { version = "1", features=["derive"] }
@@ -29,3 +30,4 @@ mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3.2.0"
