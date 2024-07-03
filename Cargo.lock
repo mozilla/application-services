@@ -3598,6 +3598,7 @@ name = "remote_settings"
 version = "0.1.0"
 dependencies = [
  "expect-test",
+ "log",
  "mockito",
  "parking_lot",
  "serde",
