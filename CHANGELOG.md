@@ -1,4 +1,8 @@
-# v129.0 (In progress)
+# v130.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v129.0 (_2024-07-08_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -13,7 +17,7 @@
 ### Suggest
 - Added the `SuggestStoreBuilder.remote_settings_bucket_name` as a way to specify the bucket name.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v128.0...v129.0)
 
 # v128.0 (_2024-06-10_)
 
