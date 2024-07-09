@@ -169,7 +169,6 @@ impl TabsStorage {
                 .collect();
             // Sort the tabs so when we trim tabs it's the oldest tabs
             sanitized_tabs.sort_by(|a, b| b.last_used.cmp(&a.last_used));
-            // If trimming the tab length failed for some reason, just return the untrimmed tabs
             trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE);
             return Some(sanitized_tabs);
         }
@@ -671,26 +670,12 @@ impl ToSql for CommandKind {
     }
 }
 
-// Trim the amount of tabs in a list to fit the specified memory size
+/// Trim the amount of tabs in a list to fit the specified memory size.
+/// If trimming the tab length fails for some reason, just return the untrimmed tabs.
 fn trim_tabs_length(tabs: &mut Vec<RemoteTab>, payload_size_max_bytes: usize) {
-    // Ported from https://searchfox.org/mozilla-central/rev/84fb1c4511312a0b9187f647d90059e3a6dd27f8/services/sync/modules/util.sys.mjs#422
-    // See bug 535326 comment 8 for an explanation of the estimation
-    let max_serialized_size = (payload_size_max_bytes / 4) * 3 - 1500;
-    let size = compute_serialized_size(tabs);
-    if size > max_serialized_size {
-        // Estimate a little more than the direct fraction to maximize packing
-        let cutoff = (tabs.len() * max_serialized_size) / size;
-        tabs.truncate(cutoff);
-
-        // Keep dropping off the last entry until the data fits.
-        while compute_serialized_size(tabs) > max_serialized_size {
-            tabs.pop();
-        }
+    if let Some(count) = payload_support::try_fit_items(tabs, payload_size_max_bytes).as_some() {
+        tabs.truncate(count.get());
     }
-}
-
-fn compute_serialized_size(v: &Vec<RemoteTab>) -> usize {
-    serde_json::to_string(v).unwrap_or_default().len()
 }
 
 // Similar to places/utils.js
@@ -728,6 +713,7 @@ fn is_url_syncable(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use payload_support::compute_serialized_size;
     use std::time::Duration;
 
     use super::*;
@@ -942,14 +928,14 @@ mod tests {
                 ..Default::default()
             });
         }
-        let tabs_mem_size = compute_serialized_size(&too_many_tabs);
+        let tabs_mem_size = compute_serialized_size(&too_many_tabs).unwrap();
         // ensure we are definitely over the payload limit
         assert!(tabs_mem_size > MAX_PAYLOAD_SIZE);
         // Add our over-the-limit tabs to the local state
         storage.update_local_state(too_many_tabs.clone());
         // prepare_local_tabs_for_upload did the trimming we needed to get under payload size
         let tabs_to_upload = &storage.prepare_local_tabs_for_upload().unwrap();
-        assert!(compute_serialized_size(tabs_to_upload) <= MAX_PAYLOAD_SIZE);
+        assert!(compute_serialized_size(tabs_to_upload).unwrap() <= MAX_PAYLOAD_SIZE);
     }
     // Helper struct to model what's stored in the DB
     struct TabsSQLRecord {

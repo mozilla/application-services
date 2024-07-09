@@ -1,0 +1,11 @@
+[package]
+name = "payload-support"
+version = "0.1.0"
+authors = ["Sync Team <sync-team@mozilla.com>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[dependencies]
+serde = "1"
+serde_derive = "1"
+serde_json = "1"

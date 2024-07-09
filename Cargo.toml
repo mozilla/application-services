@@ -22,6 +22,7 @@ members = [
     "components/support/jwcrypto",
     "components/support/nimbus-cli",
     "components/support/nimbus-fml",
+    "components/support/payload",
     "components/support/rand_rccrypto",
     "components/support/rate-limiter",
     "components/support/restmail-client",
