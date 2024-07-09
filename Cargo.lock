@@ -3033,6 +3033,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
 
 [[package]]
+name = "payload-support"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4170,6 +4179,7 @@ dependencies = [
  "interrupt-support",
  "lazy_static",
  "log",
+ "payload-support",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -4231,6 +4241,7 @@ dependencies = [
  "interrupt-support",
  "lazy_static",
  "log",
+ "payload-support",
  "rusqlite",
  "serde",
  "serde_derive",

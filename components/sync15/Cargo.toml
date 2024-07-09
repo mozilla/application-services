@@ -51,6 +51,7 @@ base64 = { version = "0.21", optional = true }
 error-support = { path = "../support/error" }
 ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
+payload-support = { path = "../support/payload" }
 lazy_static = "1.4"
 log = "0.4"
 rc_crypto = { path = "../support/rc_crypto", features = ["hawk"], optional = true }

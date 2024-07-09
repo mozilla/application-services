@@ -10,6 +10,7 @@ exclude = ["/android", "/ios"]
 anyhow = "1.0"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
+payload-support = { path = "../support/payload" }
 lazy_static = "1.4"
 log = "0.4"
 rusqlite = { workspace = true, features = ["bundled", "unlock_notify"] }
