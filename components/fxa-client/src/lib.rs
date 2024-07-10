@@ -55,7 +55,7 @@ use url::Url;
 
 pub use auth::{AuthorizationInfo, FxaEvent, FxaRustAuthState, FxaState, UserData};
 pub use device::{AttachedClient, Device, DeviceCapability, DeviceConfig, LocalDevice};
-pub use error::{Error, FxaError};
+pub use error::{DeviceCommandError, Error, FxaError};
 use parking_lot::Mutex;
 pub use profile::Profile;
 pub use push::{
@@ -74,6 +74,8 @@ pub use state_machine::checker::{
 pub type Result<T> = std::result::Result<T, Error>;
 /// Result returned by public-facing API functions
 pub type ApiResult<T> = std::result::Result<T, FxaError>;
+/// Result returned from a public device command-related function.
+pub type DeviceCommandResult<T> = std::result::Result<T, DeviceCommandError>;
 
 /// Object representing the signed-in state of an application.
 ///

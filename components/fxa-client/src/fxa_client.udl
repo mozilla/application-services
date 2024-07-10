@@ -91,6 +91,20 @@ enum FxaError {
 };
 
 
+/// An error type that carries additional information for
+/// device command-related [`FirefoxAccount`] operations.
+[Error]
+interface DeviceCommandError {
+  /// An error thrown if a device command to close one or more tabs
+  /// couldn't be sent. The caller should try to invoke
+  /// [`FirefoxAccount::close_tabs`] with the returned `urls` later.
+  TabsNotClosed(sequence<string> urls);
+
+  /// An error thrown if the operation failed for an
+  /// account-related reason.
+  Account(FxaError error);
+};
+
 
 // Object representing the signed-in state of an application.
 //
@@ -536,7 +550,7 @@ interface FirefoxAccount {
   ///
   /// If a device on the account has registered the [`CloseTabs`](DeviceCapability::CloseTabs)
   /// capability, this method can be used to close its tabs.
-  [Throws=FxaError]
+  [Throws=DeviceCommandError]
   void close_tabs([ByRef] string target_device_id, sequence<string> urls);
 
 

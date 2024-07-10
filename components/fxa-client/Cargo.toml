@@ -26,6 +26,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
 uniffi = { workspace = true }
+payload-support = { path = "../support/payload" }
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }

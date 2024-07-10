@@ -27,14 +27,15 @@ impl From<CloseTabsPayload> for crate::CloseTabsPayload {
 impl CloseTabsPayload {
     pub fn with_urls(urls: Vec<String>) -> (Self, telemetry::SentCommand) {
         let sent_telemetry: telemetry::SentCommand = telemetry::SentCommand::for_close_tabs();
-        (
-            CloseTabsPayload {
-                urls,
-                flow_id: sent_telemetry.flow_id.clone(),
-                stream_id: sent_telemetry.stream_id.clone(),
-            },
-            sent_telemetry,
-        )
+        (Self::with_telemetry(&sent_telemetry, urls), sent_telemetry)
+    }
+
+    pub fn with_telemetry(sent_telemetry: &telemetry::SentCommand, urls: Vec<String>) -> Self {
+        CloseTabsPayload {
+            urls,
+            flow_id: sent_telemetry.flow_id.clone(),
+            stream_id: sent_telemetry.stream_id.clone(),
+        }
     }
 }
 

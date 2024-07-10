@@ -1640,6 +1640,7 @@ dependencies = [
  "mockall",
  "mockito",
  "parking_lot",
+ "payload-support",
  "rate-limiter",
  "rc_crypto",
  "serde",

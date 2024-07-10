@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    cell::Cell,
+    collections::{HashMap, HashSet},
+};
 
 pub use super::http_client::{GetDeviceResponse as Device, PushSubscription};
 use super::{
@@ -17,6 +20,14 @@ use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
 const DEVICES_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
+
+thread_local! {
+    /// The maximum size, in bytes, of a command payload. The FxA server may
+    /// reject requests to invoke commands with payloads exceeding this size.
+    ///
+    /// Defaults to 16 KB; overridden in tests.
+    pub static COMMAND_MAX_PAYLOAD_SIZE: Cell<usize> = const { Cell::new(16 * 1024) }
+}
 
 /// The reason we are fetching commands.
 #[derive(Clone, Copy)]
