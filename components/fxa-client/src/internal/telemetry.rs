@@ -68,11 +68,19 @@ impl SentCommand {
         Self::new(Command::CloseTabs)
     }
 
+    pub fn clone_with_new_stream_id(&self) -> Self {
+        Self {
+            command: self.command,
+            flow_id: self.flow_id.clone(),
+            stream_id: Guid::random().into_string(),
+        }
+    }
+
     fn new(command: Command) -> Self {
         Self {
             command,
-            flow_id: Guid::random().to_string(),
-            stream_id: Guid::random().to_string(),
+            flow_id: Guid::random().into_string(),
+            stream_id: Guid::random().into_string(),
         }
     }
 }
