@@ -36,6 +36,7 @@ struct WhenTook {
 
 /// What we track while recording 'when' and 'took. It serializes as a WhenTook,
 /// except when .finished() hasn't been called, in which case it panics.
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Stopwatch {
     Started(time::SystemTime, time::Instant),

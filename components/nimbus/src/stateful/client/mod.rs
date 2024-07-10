@@ -43,6 +43,7 @@ pub(crate) fn create_client(
 
 // The trait used to fetch experiments.
 pub(crate) trait SettingsClient {
+    #[allow(dead_code)]
     fn get_experiments_metadata(&self) -> Result<String>;
     fn fetch_experiments(&self) -> Result<Vec<Experiment>>;
 }

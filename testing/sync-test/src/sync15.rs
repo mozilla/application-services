@@ -46,7 +46,9 @@ pub struct TestEngine {
     pub engine_sync_assoc: RefCell<EngineSyncAssociation>,
     pub was_reset_called: Cell<bool>,
 
+    #[allow(dead_code)]
     pub global_id: Option<Guid>,
+    #[allow(dead_code)]
     pub coll_id: Option<Guid>,
 }
 
