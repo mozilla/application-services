@@ -66,8 +66,8 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_gigantic_salt() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
-            let salt_bytes = vec![0; (std::u32::MAX as usize) + 1];
+        if (u32::MAX as usize) < usize::MAX {
+            let salt_bytes = vec![0; (u32::MAX as usize) + 1];
             let salt = hmac::SigningKey {
                 digest_alg: &digest::SHA256,
                 key_value: salt_bytes,
@@ -79,9 +79,9 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_gigantic_secret() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
+        if (u32::MAX as usize) < usize::MAX {
             let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
-            let secret = vec![0; (std::u32::MAX as usize) + 1];
+            let secret = vec![0; (u32::MAX as usize) + 1];
             let mut out = vec![0u8; 8];
             assert!(extract_and_expand(&salt, secret.as_slice(), b"info", &mut out).is_err());
         }

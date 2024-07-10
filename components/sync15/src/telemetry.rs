@@ -16,9 +16,9 @@ use serde::{ser, Serialize, Serializer};
 
 // A test helper, used by the many test modules below.
 #[cfg(test)]
-fn assert_json<T: ?Sized>(v: &T, expected: serde_json::Value)
+fn assert_json<T>(v: &T, expected: serde_json::Value)
 where
-    T: serde::Serialize,
+    T: serde::Serialize + ?Sized,
 {
     assert_eq!(
         serde_json::to_value(v).expect("should get a value"),

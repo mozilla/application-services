@@ -151,8 +151,8 @@ mod tests {
 
     #[test]
     fn hmac_sign_cleanly_rejects_gigantic_keys() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
-            let key_bytes = vec![0; (std::u32::MAX as usize) + 1];
+        if (u32::MAX as usize) < usize::MAX {
+            let key_bytes = vec![0; (u32::MAX as usize) + 1];
             // Direct construction of SigningKey to avoid instantiating the array.
             let key = SigningKey {
                 digest_alg: &digest::SHA256,
@@ -164,8 +164,8 @@ mod tests {
 
     #[test]
     fn hmac_verify_cleanly_rejects_gigantic_keys() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
-            let key_bytes = vec![0; (std::u32::MAX as usize) + 1];
+        if (u32::MAX as usize) < usize::MAX {
+            let key_bytes = vec![0; (u32::MAX as usize) + 1];
             // Direct construction of VerificationKey to avoid instantiating the array.
             let key = VerificationKey {
                 wrapped: SigningKey {
@@ -180,19 +180,19 @@ mod tests {
 
     #[test]
     fn hmac_sign_cleanly_rejects_gigantic_messages() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
+        if (u32::MAX as usize) < usize::MAX {
             let key = SigningKey::new(&digest::SHA256, KEY);
-            let message = vec![0; (std::u32::MAX as usize) + 1];
+            let message = vec![0; (u32::MAX as usize) + 1];
             assert!(sign(&key, &message).is_err());
         }
     }
 
     #[test]
     fn hmac_verify_cleanly_rejects_gigantic_messages() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
+        if (u32::MAX as usize) < usize::MAX {
             let key = VerificationKey::new(&digest::SHA256, KEY);
             let signature = hex::decode(SIGNATURE_HEX).unwrap();
-            let message = vec![0; (std::u32::MAX as usize) + 1];
+            let message = vec![0; (u32::MAX as usize) + 1];
             assert!(verify(&key, &message, &signature).is_err());
         }
     }

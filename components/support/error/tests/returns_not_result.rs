@@ -9,7 +9,7 @@
  #[derive(Debug, thiserror::Error)]
  struct Error {}
  impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
@@ -18,7 +18,7 @@
  struct ExternalError {}
  
  impl Display for ExternalError {
-     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          Ok(())
      }
  }

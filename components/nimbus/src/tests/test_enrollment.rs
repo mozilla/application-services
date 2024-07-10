@@ -735,7 +735,7 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
 fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()> {
     let exp = get_test_experiments()[0].clone();
     let (_, mut app_ctx, aru) = local_ctx();
-    app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
+    "foobar".clone_into(&mut app_ctx.app_name); // Make the experiment targeting fail.
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
@@ -1581,7 +1581,7 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
     let feature_map =
         map_features_by_feature_id(&enrollments, &next_experiments, &no_coenrolling_features());
     assert_eq!(feature_map.len(), 1);
-    assert!(feature_map.get("about_welcome").is_none());
+    assert!(!feature_map.contains_key("about_welcome"));
     assert_eq!(
         feature_map.get("newtab").unwrap().slug,
         "newtab-feature-experiment"
@@ -2244,7 +2244,7 @@ fn test_map_features_by_feature_id_with_slug_replacement() -> Result<()> {
 
 #[test]
 fn test_evolve_enrollments_error_handling() -> Result<()> {
-    let existing_enrollments = vec![ExperimentEnrollment {
+    let existing_enrollments = [ExperimentEnrollment {
         slug: "secure-gold".to_owned(),
         status: EnrollmentStatus::Enrolled {
             branch: "hello".to_owned(), // XXX this OK?

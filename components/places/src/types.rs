@@ -97,8 +97,7 @@ impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
     }
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitType, E> {
-        use std::u8::MAX as U8_MAX;
-        if value > u64::from(U8_MAX) {
+        if value > u64::from(u8::MAX) {
             // In practice this is *way* out of the valid range of VisitType, but
             // serde requires us to implement this as visit_u64 so...
             return Err(E::custom(format!("value out of u8 range: {}", value)));
@@ -134,7 +133,7 @@ pub enum BookmarkType {
 impl FromSql for BookmarkType {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         let v = value.as_i64()?;
-        if v < 0 || v > i64::from(u8::max_value()) {
+        if v < 0 || v > i64::from(u8::MAX) {
             return Err(FromSqlError::OutOfRange(v));
         }
         BookmarkType::from_u8(v as u8).ok_or(FromSqlError::OutOfRange(v))
@@ -219,7 +218,7 @@ impl SyncStatus {
 impl FromSql for SyncStatus {
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         let v = value.as_i64()?;
-        if v < 0 || v > i64::from(u8::max_value()) {
+        if v < 0 || v > i64::from(u8::MAX) {
             return Err(FromSqlError::OutOfRange(v));
         }
         Ok(SyncStatus::from_u8(v as u8))

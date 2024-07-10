@@ -121,7 +121,7 @@ mod tests {
                 scope: "profile".to_string(),
                 token: "profiletok".to_string(),
                 key: None,
-                expires_at: u64::max_value(),
+                expires_at: u64::MAX,
             },
         );
 
@@ -159,7 +159,7 @@ mod tests {
                 scope: "profile".to_string(),
                 token: "bad_access_token".to_string(),
                 key: None,
-                expires_at: u64::max_value(),
+                expires_at: u64::MAX,
             },
         );
         let mut refresh_token_scopes = std::collections::HashSet::new();

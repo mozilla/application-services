@@ -374,7 +374,7 @@ mod tests {
                 scope: "profile".to_string(),
                 token: "profiletok".to_string(),
                 key: None,
-                expires_at: u64::max_value(),
+                expires_at: u64::MAX,
             },
         );
 

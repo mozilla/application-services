@@ -22,7 +22,7 @@ use error::Result;
 pub use error::{EncryptorDecryptorError, JwCryptoError};
 use rc_crypto::agreement::EphemeralKeyPair;
 use serde_derive::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 mod aes;
 mod direct;
@@ -210,10 +210,10 @@ impl FromStr for CompactJwe {
     }
 }
 
-impl ToString for CompactJwe {
-    fn to_string(&self) -> String {
+impl fmt::Display for CompactJwe {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         assert!(self.jwe_segments.len() == 5);
-        self.jwe_segments.join(".")
+        write!(f, "{}", self.jwe_segments.join("."))
     }
 }
 

@@ -152,8 +152,8 @@ mod tests {
 
     #[test]
     fn test_rejects_gaigantic_salt() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
-            let salt = vec![0; (std::u32::MAX as usize) + 1];
+        if (u32::MAX as usize) < usize::MAX {
+            let salt = vec![0; (u32::MAX as usize) + 1];
             let mut out = vec![0u8; 1];
             let password = b"password";
             assert!(derive(password, &salt, 1, HashAlgorithm::SHA256, &mut out).is_err());
@@ -161,8 +161,8 @@ mod tests {
     }
     #[test]
     fn test_rejects_gaigantic_password() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
-            let password = vec![0; (std::u32::MAX as usize) + 1];
+        if (u32::MAX as usize) < usize::MAX {
+            let password = vec![0; (u32::MAX as usize) + 1];
             let mut out = vec![0u8; 1];
             let salt = b"salt";
             assert!(derive(&password, salt, 1, HashAlgorithm::SHA256, &mut out).is_err());
@@ -171,9 +171,9 @@ mod tests {
 
     #[test]
     fn test_rejects_gaigantic_out() {
-        if (std::u32::MAX as usize) < std::usize::MAX {
+        if (u32::MAX as usize) < usize::MAX {
             let password = b"password";
-            let mut out = vec![0; (std::u32::MAX as usize) + 1];
+            let mut out = vec![0; (u32::MAX as usize) + 1];
             let salt = b"salt";
             assert!(derive(password, salt, 1, HashAlgorithm::SHA256, &mut out).is_err());
         }
@@ -184,13 +184,6 @@ mod tests {
         let password = b"password";
         let mut out = vec![0; 32];
         let salt = b"salt";
-        assert!(derive(
-            password,
-            salt,
-            std::u32::MAX,
-            HashAlgorithm::SHA256,
-            &mut out
-        )
-        .is_err());
+        assert!(derive(password, salt, u32::MAX, HashAlgorithm::SHA256, &mut out).is_err());
     }
 }

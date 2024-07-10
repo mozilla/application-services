@@ -494,7 +494,7 @@ impl TabsStorage {
         let Some(conn) = self.open_if_exists()? else {
             return Ok(Vec::new());
         };
-        let records: Vec<Option<PendingCommand>> = match conn.query_rows_and_then_cached(
+        let result = conn.query_rows_and_then_cached(
             &format!(
                 "SELECT device_id, command, url, time_requested, time_sent
                     FROM remote_tab_commands
@@ -525,15 +525,14 @@ impl TabsStorage {
                     },
                 }))
             },
-        ) {
-            Ok(records) => records,
+        );
+        Ok(match result {
+            Ok(records) => records.into_iter().flatten().collect(),
             Err(e) => {
                 error_support::report_error!("tabs-get_unsent", "Failed to read database: {}", e);
-                return Ok(Vec::new());
+                Vec::new()
             }
-        };
-
-        Ok(records.into_iter().flatten().collect())
+        })
     }
 
     pub fn set_pending_command_sent(&mut self, command: &PendingCommand) -> Result<bool> {
