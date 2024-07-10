@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn digest_cleanly_rejects_gigantic_messages() {
-        let message = vec![0; (std::i32::MAX as usize) + 1];
+        let message = vec![0; (i32::MAX as usize) + 1];
         assert!(digest(&SHA256, &message).is_err());
     }
 }

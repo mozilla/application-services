@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn random_fill_rejects_attempts_to_fill_gigantic_arrays() {
-        let max_size: usize = std::i32::MAX as usize;
+        let max_size: usize = i32::MAX as usize;
         let mut out = vec![0u8; max_size + 1];
         assert!(fill(&mut out).is_err());
     }

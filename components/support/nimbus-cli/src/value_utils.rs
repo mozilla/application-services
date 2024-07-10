@@ -197,10 +197,10 @@ impl Patch for Value {
             (Value::Object(t), Value::Object(p)) => {
                 t.patch(p);
             }
-            (Value::String(t), Value::String(p)) => *t = p.clone(),
+            (Value::String(t), Value::String(p)) => t.clone_from(p),
             (Value::Bool(t), Value::Bool(p)) => *t = *p,
             (Value::Number(t), Value::Number(p)) => *t = p.clone(),
-            (Value::Array(t), Value::Array(p)) => *t = p.clone(),
+            (Value::Array(t), Value::Array(p)) => t.clone_from(p),
             (Value::Null, Value::Null) => (),
             _ => return false,
         };

@@ -13,7 +13,7 @@
  struct ExternalError {}
  
  impl Display for ExternalError {
-     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          Ok(())
      }
  }

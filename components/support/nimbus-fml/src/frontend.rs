@@ -345,7 +345,7 @@ impl ManifestFrontEnd {
 
     fn get_prop_def_from_feature_field(&self, nm: &str, body: &FeatureFieldBody) -> PropDef {
         let mut prop = self.get_prop_def_from_field(nm, &body.field);
-        prop.pref_key = body.pref_key.clone();
+        prop.pref_key.clone_from(&body.pref_key);
         if let Some(s) = &body.string_alias {
             prop.string_alias = Some(TypeRef::StringAlias(s.clone()));
         }

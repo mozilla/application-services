@@ -844,7 +844,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Months)
@@ -857,7 +857,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Months)
@@ -869,7 +869,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -882,7 +882,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -894,7 +894,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -906,7 +906,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-1".to_string())
+                .get("event-1")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -919,7 +919,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-2".to_string())
+                .get("event-2")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -932,7 +932,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"event-2".to_string())
+                .get("event-2")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -953,7 +953,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Minutes)
@@ -965,7 +965,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Hours)
@@ -977,7 +977,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Days)
@@ -989,7 +989,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Weeks)
@@ -1001,7 +1001,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Months)
@@ -1013,7 +1013,7 @@ mod event_store_tests {
         assert_eq!(
             store
                 .events
-                .get(&"test".to_string())
+                .get("test")
                 .unwrap()
                 .intervals
                 .get(&Interval::Years)
