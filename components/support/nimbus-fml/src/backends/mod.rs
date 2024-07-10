@@ -181,6 +181,7 @@ pub trait CodeType {
 
     /// Optional helper code to make this type work.
     /// This might include functions to patch a default value with another.
+    #[allow(dead_code)]
     fn helper_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         None
     }

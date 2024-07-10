@@ -96,6 +96,7 @@ pub(crate) trait FxAClient {
         session_token: &str,
         auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse>;
+    #[allow(dead_code)]
     fn duplicate_session_token(
         &self,
         config: &Config,
@@ -145,7 +146,9 @@ pub(crate) trait FxAClient {
         client_id: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
+    #[allow(dead_code)]
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse>;
+    #[allow(dead_code)]
     fn get_openid_configuration(&self, config: &Config) -> Result<OpenIdConfigurationResponse>;
     fn simulate_network_error(&self) {}
 }
@@ -680,6 +683,7 @@ pub struct ResponseAndETag<T> {
 #[derive(Deserialize)]
 pub struct PendingCommandsResponse {
     pub index: u64,
+    #[allow(dead_code)]
     pub last: Option<bool>,
     pub messages: Vec<PendingCommand>,
 }
@@ -902,8 +906,10 @@ pub struct OAuthTokenResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct OAuthAuthResponse {
+    #[allow(dead_code)]
     pub redirect: String,
     pub code: String,
+    #[allow(dead_code)]
     pub state: String,
 }
 
@@ -938,9 +944,12 @@ impl From<ProfileResponse> for crate::Profile {
 
 #[derive(Deserialize)]
 pub struct ScopedKeyDataResponse {
+    #[allow(dead_code)]
     pub identifier: String,
+    #[allow(dead_code)]
     #[serde(rename = "keyRotationSecret")]
     pub key_rotation_secret: String,
+    #[allow(dead_code)]
     #[serde(rename = "keyRotationTimestamp")]
     pub key_rotation_timestamp: u64,
 }

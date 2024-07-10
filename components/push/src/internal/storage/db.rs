@@ -25,6 +25,7 @@ pub trait Storage: Sized {
 
     fn get_channel_list(&self) -> Result<Vec<String>>;
 
+    #[allow(dead_code)]
     fn update_endpoint(&self, channel_id: &str, endpoint: &str) -> Result<bool>;
 
     // Some of our "meta" keys are more important than others, so they get special helpers.

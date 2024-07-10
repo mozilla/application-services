@@ -29,6 +29,8 @@ impl Registry for TaskClusterRegistry {
         Ok(Some(resp.version))
     }
 }
+
+#[allow(dead_code)]
 pub struct ReqwestGunzippingHttpClient;
 
 impl HttpClient for ReqwestGunzippingHttpClient {

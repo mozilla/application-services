@@ -35,6 +35,7 @@ pub fn random_base64_url_string(len: usize) -> Result<String> {
 }
 
 pub trait Xorable {
+    #[allow(dead_code)]
     fn xored_with(&self, other: &[u8]) -> Result<Vec<u8>>;
 }
 

@@ -54,6 +54,7 @@ pub struct RegisterResponse {
     pub endpoint: String,
 
     /// The sender id
+    #[allow(dead_code)]
     #[serde(rename = "senderid")]
     pub sender_id: Option<String>,
 }
@@ -73,6 +74,7 @@ pub struct SubscribeResponse {
     pub endpoint: String,
 
     /// The sender id
+    #[allow(dead_code)]
     #[serde(rename = "senderid")]
     pub sender_id: Option<String>,
 }
