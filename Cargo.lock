@@ -919,9 +919,9 @@ dependencies = [
 
 [[package]]
 name = "ctest2"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2adfaa6e490b1bfeffd38e9080ce2216ee86c97e99808756e2d51e8fefe5d84"
+checksum = "e5441a800778f5ea6e22299f4f6274d3db6576689306c15692fce0aa6504e694"
 dependencies = [
  "cc",
  "garando_syntax",
@@ -1678,9 +1678,9 @@ dependencies = [
 
 [[package]]
 name = "garando_syntax"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c482830d7f29a9c6bf038d445e317921123fa727f99de847f100cd3e4abecd6"
+checksum = "1d8a383861d12fc78c251bbcb1ec252dd8338714ce02ab0cc393cfd02f40d32b"
 dependencies = [
  "bitflags 1.3.2",
  "garando_errors",
