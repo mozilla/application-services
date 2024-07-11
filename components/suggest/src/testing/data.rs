@@ -452,7 +452,6 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
 
 // Fakespot test data
 
-#[cfg(feature = "fakespot")]
 pub fn snowglobe_fakespot() -> JsonValue {
     json!({
         "fakespot_grade": "B",
@@ -465,7 +464,6 @@ pub fn snowglobe_fakespot() -> JsonValue {
     })
 }
 
-#[cfg(feature = "fakespot")]
 pub fn snowglobe_suggestion() -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "B".into(),
@@ -478,7 +476,6 @@ pub fn snowglobe_suggestion() -> Suggestion {
     }
 }
 
-#[cfg(feature = "fakespot")]
 pub fn simpsons_fakespot() -> JsonValue {
     json!({
         "fakespot_grade": "A",
@@ -491,7 +488,6 @@ pub fn simpsons_fakespot() -> JsonValue {
     })
 }
 
-#[cfg(feature = "fakespot")]
 pub fn simpsons_suggestion() -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "A".into(),

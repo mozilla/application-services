@@ -10,5 +10,5 @@ remote_settings = { path = "../../components/remote_settings" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 log = "0.4"
 clap = {version = "4.2", features = ["derive"]}
-suggest = { path = "../../components/suggest", features = ["fakespot"] }
+suggest = { path = "../../components/suggest" }
 anyhow = "1.0"
