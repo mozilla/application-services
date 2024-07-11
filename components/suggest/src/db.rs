@@ -22,16 +22,13 @@ use crate::{
     provider::SuggestionProvider,
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
-        DownloadedMdnSuggestion, DownloadedPocketSuggestion, DownloadedWeatherData,
-        DownloadedWikipediaSuggestion, Record, SuggestRecordId,
+        DownloadedFakespotSuggestion, DownloadedMdnSuggestion, DownloadedPocketSuggestion,
+        DownloadedWeatherData, DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
     Result, SuggestionQuery,
 };
-
-#[cfg(feature = "fakespot")]
-use crate::rs::DownloadedFakespotSuggestion;
 
 /// The metadata key whose value is a JSON string encoding a
 /// `SuggestGlobalConfig`, which contains global Suggest configuration data.
@@ -225,7 +222,6 @@ impl<'a> SuggestDao<'a> {
                     SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
                     SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
                     SuggestionProvider::Weather => self.fetch_weather_suggestions(query),
-                    #[cfg(feature = "fakespot")]
                     SuggestionProvider::Fakespot => self.fetch_fakespot_suggestions(query),
                 }?;
                 acc.extend(suggestions);
@@ -683,7 +679,6 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    #[cfg(feature = "fakespot")]
     /// Fetches fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         self.conn.query_rows_and_then_cached(
@@ -931,7 +926,6 @@ impl<'a> SuggestDao<'a> {
     }
 
     /// Inserts all suggestions from a downloaded Fakespot attachment into the database.
-    #[cfg(feature = "fakespot")]
     pub fn insert_fakespot_suggestions(
         &mut self,
         record_id: &SuggestRecordId,
@@ -1037,17 +1031,14 @@ impl<'a> SuggestDao<'a> {
             "DELETE FROM prefix_keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
-        #[cfg(feature = "fakespot")]
-        {
-            self.scope.err_if_interrupted()?;
-            self.conn.execute_cached(
-                "
-                DELETE FROM fakespot_fts
-                WHERE rowid IN (SELECT id from suggestions WHERE record_id = :record_id)
-                ",
-                named_params! { ":record_id": record_id.as_str() },
-            )?;
-        }
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "
+            DELETE FROM fakespot_fts
+            WHERE rowid IN (SELECT id from suggestions WHERE record_id = :record_id)
+            ",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM suggestions WHERE record_id = :record_id",
@@ -1384,10 +1375,8 @@ impl<'conn> MdnInsertStatement<'conn> {
     }
 }
 
-#[cfg(feature = "fakespot")]
 struct FakespotInsertStatement<'conn>(rusqlite::Statement<'conn>);
 
-#[cfg(feature = "fakespot")]
 impl<'conn> FakespotInsertStatement<'conn> {
     fn new(conn: &'conn Connection) -> Result<Self> {
         Ok(Self(conn.prepare(

@@ -31,8 +31,4 @@ pub use suggestion::{raw_suggestion_url_matches, Suggestion};
 pub(crate) type Result<T> = std::result::Result<T, error::Error>;
 pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
 
-#[cfg(not(feature = "fakespot"))]
 uniffi::include_scaffolding!("suggest");
-
-#[cfg(feature = "fakespot")]
-uniffi::include_scaffolding!("suggest-fakespot");

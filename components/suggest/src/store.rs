@@ -247,6 +247,25 @@ pub struct SuggestIngestionConstraints {
     pub empty_only: bool,
 }
 
+impl SuggestIngestionConstraints {
+    pub fn all_providers() -> Self {
+        Self {
+            providers: Some(vec![
+                SuggestionProvider::Amp,
+                SuggestionProvider::Wikipedia,
+                SuggestionProvider::Amo,
+                SuggestionProvider::Pocket,
+                SuggestionProvider::Yelp,
+                SuggestionProvider::Mdn,
+                SuggestionProvider::Weather,
+                SuggestionProvider::AmpMobile,
+                SuggestionProvider::Fakespot,
+            ]),
+            ..Self::default()
+        }
+    }
+}
+
 /// The implementation of the store. This is generic over the Remote Settings
 /// client, and is split out from the concrete [`SuggestStore`] for testing
 /// with a mock client.
@@ -465,7 +484,6 @@ where
                 SuggestRecord::GlobalConfig(config) => {
                     dao.put_global_config(&SuggestGlobalConfig::from(&config))?
                 }
-                #[cfg(feature = "fakespot")]
                 SuggestRecord::Fakespot => {
                     self.ingest_attachment(dao, record, |dao, record_id, suggestions| {
                         dao.insert_fakespot_suggestions(record_id, suggestions)
@@ -535,7 +553,7 @@ where
                 self.ingest_records_by_type(
                     ingest_record_type,
                     dao,
-                    &SuggestIngestionConstraints::default(),
+                    &SuggestIngestionConstraints::all_providers(),
                 )
             })
             .unwrap()
@@ -702,7 +720,7 @@ mod tests {
                 .with_record("data", "1234", json![los_pollos_amp()])
                 .with_icon(los_pollos_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
             vec![los_pollos_suggestion("los")],
@@ -725,7 +743,7 @@ mod tests {
         // This ingestion should run, since the DB is empty
         store.ingest(SuggestIngestionConstraints {
             empty_only: true,
-            ..SuggestIngestionConstraints::default()
+            ..SuggestIngestionConstraints::all_providers()
         });
         // suggestions_table_empty returns false after the ingestion is complete
         assert!(!store.read(|dao| dao.suggestions_table_empty())?);
@@ -738,7 +756,7 @@ mod tests {
         ));
         store.ingest(SuggestIngestionConstraints {
             empty_only: true,
-            ..SuggestIngestionConstraints::default()
+            ..SuggestIngestionConstraints::all_providers()
         });
         // "la" should not match the good place eats suggestion, since that should not have been
         // ingested.
@@ -763,7 +781,7 @@ mod tests {
                 .with_icon(good_place_eats_icon()),
         );
         // This ingestion should run, since the DB is empty
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
@@ -817,7 +835,7 @@ mod tests {
             .with_icon(good_place_eats_icon())
             .with_icon(california_icon())
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
@@ -860,7 +878,7 @@ mod tests {
                 .with_record("data", "1234", los_pollos_amp())
                 .with_icon(los_pollos_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
             vec![los_pollos_suggestion("los")],
@@ -880,7 +898,7 @@ mod tests {
             json!([los_pollos_amp(), good_place_eats_amp()]),
         ));
         // Ingest once
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         // Update the snapshot with new suggestions: Los pollos has a new name and Good place eats
         // is now serving Penne
         store.replace_client(MockRemoteSettingsClient::default().with_record(
@@ -897,7 +915,7 @@ mod tests {
                 }))
             ]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")).as_slice(),
@@ -929,7 +947,7 @@ mod tests {
                 .with_icon(good_place_eats_icon()),
         );
         // This ingestion should run, since the DB is empty
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         // Reingest with updated icon data
         //  - Los pollos gets new data and a new id
@@ -954,7 +972,7 @@ mod tests {
                     ..good_place_eats_icon()
                 }),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")).as_slice(),
@@ -984,7 +1002,7 @@ mod tests {
                 ),
         );
 
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amo("masking e")),
@@ -1013,7 +1031,7 @@ mod tests {
                     ]),
                 ),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amo("masking e")),
@@ -1048,7 +1066,7 @@ mod tests {
                 .with_icon(los_pollos_icon())
                 .with_icon(good_place_eats_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
             vec![los_pollos_suggestion("los")],
@@ -1067,7 +1085,7 @@ mod tests {
                 .with_icon_tombstone(los_pollos_icon())
                 .with_icon_tombstone(good_place_eats_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(store.fetch_suggestions(SuggestionQuery::amp("lo")), vec![]);
         assert!(matches!(
@@ -1091,7 +1109,7 @@ mod tests {
                 .with_icon(los_pollos_icon())
                 .with_icon(good_place_eats_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert!(store.count_rows("suggestions") > 0);
         assert!(store.count_rows("keywords") > 0);
         assert!(store.count_rows("icons") > 0);
@@ -1141,7 +1159,7 @@ mod tests {
                 .with_icon(multimatch_wiki_icon()),
         );
 
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("")),
@@ -1565,7 +1583,7 @@ mod tests {
                 .with_icon(california_icon()),
         );
 
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("amp wiki match")),
             vec![
@@ -1624,7 +1642,7 @@ mod tests {
                 // things would work in practice, but it's okay for the tests.
                 .with_icon(good_place_eats_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         // The query results should be exactly the same for both the Amp and AmpMobile data
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp_mobile("las")),
@@ -1654,7 +1672,7 @@ mod tests {
                 .with_record("icon", "bad-icon-id", json!("i-am-an-icon")),
         );
 
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         store.read(|dao| {
             assert_eq!(
@@ -1701,7 +1719,7 @@ mod tests {
         let constraints = SuggestIngestionConstraints {
             max_suggestions: Some(100),
             providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Pocket]),
-            ..SuggestIngestionConstraints::default()
+            ..SuggestIngestionConstraints::all_providers()
         };
         store.ingest(constraints);
 
@@ -1798,7 +1816,7 @@ mod tests {
                 .with_icon(good_place_eats_icon()),
         );
 
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         // Test that the valid record was read
         assert_eq!(
@@ -1820,7 +1838,7 @@ mod tests {
             "mdn-1",
             json!([array_mdn()]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         // prefix
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::mdn("array")),
@@ -1860,7 +1878,7 @@ mod tests {
                 json!([ramen_yelp()]),
             ), // Note: yelp_favicon() is missing
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert!(matches!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")).as_slice(),
             [Suggestion::Yelp { icon, icon_mimetype, .. }] if icon.is_none() && icon_mimetype.is_none()
@@ -1882,7 +1900,7 @@ mod tests {
                 "score": "0.24"
             }),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         // No match since the query doesn't match any keyword
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::weather("xab")),
@@ -1984,7 +2002,7 @@ mod tests {
                 "show_less_frequently_cap": 3,
             }),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_global_config(),
             SuggestGlobalConfig {
@@ -2000,7 +2018,7 @@ mod tests {
         before_each();
 
         let store = TestStore::new(MockRemoteSettingsClient::default());
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_global_config(),
             SuggestGlobalConfig {
@@ -2016,7 +2034,7 @@ mod tests {
         before_each();
 
         let store = TestStore::new(MockRemoteSettingsClient::default());
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(store.fetch_provider_config(SuggestionProvider::Amp), None);
         assert_eq!(
             store.fetch_provider_config(SuggestionProvider::Weather),
@@ -2039,7 +2057,7 @@ mod tests {
                 "score": "0.24"
             }),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         // Getting the config for a different provider should return None.
         assert_eq!(store.fetch_provider_config(SuggestionProvider::Amp), None);
         Ok(())
@@ -2084,7 +2102,7 @@ mod tests {
                 .with_icon(good_place_eats_icon())
                 .with_icon(caltech_icon()),
         );
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         // A query for cats should return all suggestions
         let query = SuggestionQuery::all_providers("cats");
@@ -2107,7 +2125,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "fakespot")]
     #[test]
     fn query_fakespot() -> anyhow::Result<()> {
         before_each();
@@ -2117,7 +2134,7 @@ mod tests {
             "fakespot-1",
             json!([snowglobe_fakespot(), simpsons_fakespot()]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
             vec![snowglobe_suggestion()],
@@ -2144,7 +2161,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "fakespot")]
     #[test]
     fn fakespot_prefix_matching() -> anyhow::Result<()> {
         before_each();
@@ -2154,7 +2170,7 @@ mod tests {
             "fakespot-1",
             json!([snowglobe_fakespot(), simpsons_fakespot()]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simp")),
             vec![simpsons_suggestion()],
@@ -2171,7 +2187,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "fakespot")]
     #[test]
     fn fakespot_updates_and_deletes() -> anyhow::Result<()> {
         before_each();
@@ -2181,7 +2196,7 @@ mod tests {
             "fakespot-1",
             json!([snowglobe_fakespot(), simpsons_fakespot()]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         // Update the snapshot so that:
         //   - The Simpsons entry is deleted
@@ -2193,7 +2208,7 @@ mod tests {
                 snowglobe_fakespot().merge(json!({"title": "Make Your Own Sea Glass Snow Globes"}))
             ]),
         ));
-        store.ingest(SuggestIngestionConstraints::default());
+        store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("glitter")),

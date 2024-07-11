@@ -44,9 +44,10 @@ use crate::{error::Error, provider::SuggestionProvider, Result};
 /// `mozilla-services/quicksuggest-rs` repo.
 pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
 
-#[cfg(not(feature = "fakespot"))]
 /// A list of default record types to download if nothing is specified.
-/// This currently defaults to all of the record types.
+/// This defaults to all record types available as-of Fx128.
+/// Consumers should specify provider types in `SuggestIngestionConstraints` if they want a
+/// different set.
 pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
     SuggestRecordType::Icon,
     SuggestRecordType::AmpWikipedia,
@@ -57,22 +58,6 @@ pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
     SuggestRecordType::Weather,
     SuggestRecordType::GlobalConfig,
     SuggestRecordType::AmpMobile,
-];
-
-#[cfg(feature = "fakespot")]
-/// A list of default record types to download if nothing is specified.
-/// This currently defaults to all of the record types.
-pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 10] = [
-    SuggestRecordType::Icon,
-    SuggestRecordType::AmpWikipedia,
-    SuggestRecordType::Amo,
-    SuggestRecordType::Pocket,
-    SuggestRecordType::Yelp,
-    SuggestRecordType::Mdn,
-    SuggestRecordType::Weather,
-    SuggestRecordType::GlobalConfig,
-    SuggestRecordType::AmpMobile,
-    SuggestRecordType::Fakespot,
 ];
 
 /// A trait for a client that downloads suggestions from Remote Settings.
@@ -87,7 +72,6 @@ pub(crate) trait Client {
 pub struct RemoteSettingsClient {
     // Create a separate client for each collection name
     quicksuggest_client: remote_settings::Client,
-    #[cfg(feature = "fakespot")]
     fakespot_client: remote_settings::Client,
 }
 
@@ -106,7 +90,6 @@ impl RemoteSettingsClient {
                     server_url: server_url.clone(),
                 },
             )?,
-            #[cfg(feature = "fakespot")]
             fakespot_client: remote_settings::Client::new(remote_settings::RemoteSettingsConfig {
                 server,
                 bucket_name,
@@ -118,7 +101,6 @@ impl RemoteSettingsClient {
 
     fn client_for_record_type(&self, record_type: &str) -> &remote_settings::Client {
         match record_type {
-            #[cfg(feature = "fakespot")]
             "fakespot-suggestions" => &self.fakespot_client,
             _ => &self.quicksuggest_client,
         }
@@ -236,7 +218,6 @@ pub(crate) enum SuggestRecord {
     GlobalConfig(DownloadedGlobalConfig),
     #[serde(rename = "amp-mobile-suggestions")]
     AmpMobile,
-    #[cfg(feature = "fakespot")]
     #[serde(rename = "fakespot-suggestions")]
     Fakespot,
 }
@@ -255,7 +236,6 @@ pub enum SuggestRecordType {
     Weather,
     GlobalConfig,
     AmpMobile,
-    #[cfg(feature = "fakespot")]
     Fakespot,
 }
 
@@ -271,7 +251,6 @@ impl From<SuggestRecord> for SuggestRecordType {
             SuggestRecord::Yelp => Self::Yelp,
             SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
             SuggestRecord::AmpMobile => Self::AmpMobile,
-            #[cfg(feature = "fakespot")]
             SuggestRecord::Fakespot => Self::Fakespot,
         }
     }
@@ -289,7 +268,6 @@ impl fmt::Display for SuggestRecordType {
             Self::Weather => write!(f, "weather"),
             Self::GlobalConfig => write!(f, "configuration"),
             Self::AmpMobile => write!(f, "amp-mobile-suggestions"),
-            #[cfg(feature = "fakespot")]
             Self::Fakespot => write!(f, "fakespot-suggestions"),
         }
     }
@@ -541,7 +519,6 @@ pub(crate) struct DownloadedMdnSuggestion {
     pub score: f64,
 }
 
-#[cfg(feature = "fakespot")]
 /// A Fakespot suggestion to ingest from an attachment
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedFakespotSuggestion {

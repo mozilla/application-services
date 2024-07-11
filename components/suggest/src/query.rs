@@ -97,7 +97,6 @@ impl SuggestionQuery {
         }
     }
 
-    #[cfg(feature = "fakespot")]
     pub fn fakespot(keyword: &str) -> Self {
         Self {
             keyword: keyword.into(),
@@ -131,7 +130,6 @@ impl SuggestionQuery {
     ///     currently means Fakespot searches.
     ///   - Splits on whitespace to get a list of individual keywords
     ///
-    #[cfg(feature = "fakespot")]
     pub(crate) fn parse_keywords(&self) -> Vec<&str> {
         self.keyword
             .split([' ', '(', ')', ':', '^', '*', '"'])
@@ -140,7 +138,6 @@ impl SuggestionQuery {
     }
 
     /// Create an FTS query term for our keyword(s)
-    #[cfg(feature = "fakespot")]
     pub(crate) fn fts_query(&self) -> String {
         let keywords = self.parse_keywords();
         if keywords.is_empty() {
@@ -163,7 +160,6 @@ impl SuggestionQuery {
     }
 }
 
-#[cfg(feature = "fakespot")]
 #[cfg(test)]
 mod test {
     use super::*;

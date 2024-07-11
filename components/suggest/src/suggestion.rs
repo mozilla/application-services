@@ -81,7 +81,6 @@ pub enum Suggestion {
     Weather {
         score: f64,
     },
-    #[cfg(feature = "fakespot")]
     Fakespot {
         fakespot_grade: String,
         product_id: String,
@@ -158,7 +157,6 @@ impl Suggestion {
             | Self::Yelp { title, .. }
             | Self::Mdn { title, .. } => title,
             Self::Weather { .. } => "weather",
-            #[cfg(feature = "fakespot")]
             Self::Fakespot { title, .. } => title,
         }
     }
