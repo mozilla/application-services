@@ -19,7 +19,7 @@ use sql_support::{
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
-pub const VERSION: u32 = 21;
+pub const VERSION: u32 = 22;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -95,6 +95,7 @@ CREATE TABLE fakespot_custom_details(
     product_id TEXT NOT NULL,
     rating REAL NOT NULL,
     total_reviews INTEGER NOT NULL,
+    icon_id TEXT,
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
 
@@ -318,6 +319,30 @@ CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
     WHERE id = new.suggestion_id;
 END;
                 ",
+                )?;
+                Ok(())
+            }
+            21 => {
+                // Drop and re-create the fakespot_custom_details to add the icon_id column.
+                tx.execute_batch(
+                    "
+DROP TABLE fakespot_custom_details;
+CREATE TABLE fakespot_custom_details(
+    suggestion_id INTEGER PRIMARY KEY,
+    fakespot_grade TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    rating REAL NOT NULL,
+    total_reviews INTEGER NOT NULL,
+    icon_id TEXT,
+    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+);
+CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
+  INSERT INTO fakespot_fts(rowid, title)
+    SELECT id, title
+    FROM suggestions
+    WHERE id = new.suggestion_id;
+END;
+                    ",
                 )?;
                 Ok(())
             }

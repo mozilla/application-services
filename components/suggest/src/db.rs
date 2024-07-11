@@ -690,7 +690,9 @@ impl<'a> SuggestDao<'a> {
                 f.fakespot_grade,
                 f.product_id,
                 f.rating,
-                f.total_reviews
+                f.total_reviews,
+                i.data,
+                i.mimetype
             FROM
                 suggestions s
             JOIN
@@ -699,6 +701,9 @@ impl<'a> SuggestDao<'a> {
             JOIN
                 fakespot_custom_details f
                 ON f.suggestion_id = s.id
+            LEFT JOIN
+                icons i
+                ON i.id = f.icon_id
             WHERE
                 fakespot_fts MATCH ?
             ORDER BY
@@ -714,6 +719,8 @@ impl<'a> SuggestDao<'a> {
                     product_id: row.get(4)?,
                     rating: row.get(5)?,
                     total_reviews: row.get(6)?,
+                    icon: row.get(7)?,
+                    icon_mimetype: row.get(8)?,
                 })
             },
         )
@@ -1385,9 +1392,10 @@ impl<'conn> FakespotInsertStatement<'conn> {
                  fakespot_grade,
                  product_id,
                  rating,
-                 total_reviews
+                 total_reviews,
+                 icon_id
              )
-             VALUES(?, ?, ?, ?, ?)
+             VALUES(?, ?, ?, ?, ?, ?)
              ",
         )?))
     }
@@ -1397,6 +1405,10 @@ impl<'conn> FakespotInsertStatement<'conn> {
         suggestion_id: i64,
         fakespot: &DownloadedFakespotSuggestion,
     ) -> Result<()> {
+        let icon_id = fakespot
+            .product_id
+            .split_once('-')
+            .map(|(vendor, _)| format!("fakespot-{vendor}"));
         self.0
             .execute((
                 suggestion_id,
@@ -1404,6 +1416,7 @@ impl<'conn> FakespotInsertStatement<'conn> {
                 &fakespot.product_id,
                 fakespot.rating,
                 fakespot.total_reviews,
+                icon_id,
             ))
             .with_context("fakespot insert")?;
         Ok(())

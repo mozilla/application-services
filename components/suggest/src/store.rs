@@ -2129,11 +2129,15 @@ mod tests {
     fn query_fakespot() -> anyhow::Result<()> {
         before_each();
 
-        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
-            "fakespot-suggestions",
-            "fakespot-1",
-            json!([snowglobe_fakespot(), simpsons_fakespot()]),
-        ));
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "fakespot-suggestions",
+                    "fakespot-1",
+                    json!([snowglobe_fakespot(), simpsons_fakespot()]),
+                )
+                .with_icon(fakespot_amazon_icon()),
+        );
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
@@ -2165,11 +2169,15 @@ mod tests {
     fn fakespot_prefix_matching() -> anyhow::Result<()> {
         before_each();
 
-        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
-            "fakespot-suggestions",
-            "fakespot-1",
-            json!([snowglobe_fakespot(), simpsons_fakespot()]),
-        ));
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "fakespot-suggestions",
+                    "fakespot-1",
+                    json!([snowglobe_fakespot(), simpsons_fakespot()]),
+                )
+                .with_icon(fakespot_amazon_icon()),
+        );
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simp")),
@@ -2191,23 +2199,30 @@ mod tests {
     fn fakespot_updates_and_deletes() -> anyhow::Result<()> {
         before_each();
 
-        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
-            "fakespot-suggestions",
-            "fakespot-1",
-            json!([snowglobe_fakespot(), simpsons_fakespot()]),
-        ));
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "fakespot-suggestions",
+                    "fakespot-1",
+                    json!([snowglobe_fakespot(), simpsons_fakespot()]),
+                )
+                .with_icon(fakespot_amazon_icon()),
+        );
         store.ingest(SuggestIngestionConstraints::all_providers());
 
         // Update the snapshot so that:
         //   - The Simpsons entry is deleted
         //   - Snow globes now use sea glass instead of glitter
-        store.replace_client(MockRemoteSettingsClient::default().with_record(
-            "fakespot-suggestions",
-            "fakespot-1",
-            json!([
-                snowglobe_fakespot().merge(json!({"title": "Make Your Own Sea Glass Snow Globes"}))
-            ]),
-        ));
+        store.replace_client(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "fakespot-suggestions",
+                    "fakespot-1",
+                    json!([snowglobe_fakespot()
+                        .merge(json!({"title": "Make Your Own Sea Glass Snow Globes"}))]),
+                )
+                .with_icon(fakespot_amazon_icon()),
+        );
         store.ingest(SuggestIngestionConstraints::all_providers());
 
         assert_eq!(

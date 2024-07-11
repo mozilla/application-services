@@ -103,6 +103,8 @@ interface Suggestion {
         string title,
         i64 total_reviews,
         string url,
+        sequence<u8>? icon,
+        string? icon_mimetype,
         f64 score
     );
 };

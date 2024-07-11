@@ -473,29 +473,43 @@ pub fn snowglobe_suggestion() -> Suggestion {
         total_reviews: 152,
         url: "http://amazon.com/dp/ABC".into(),
         score: 0.7,
+        icon: Some("fakespot-icon-amazon-data".as_bytes().to_vec()),
+        icon_mimetype: Some("image/png".into()),
     }
 }
 
 pub fn simpsons_fakespot() -> JsonValue {
     json!({
         "fakespot_grade": "A",
-        "product_id": "amazon-XYZ",
+        // Use a product ID that doesn't match the ingested icons to test what happens.  In this
+        // case, icon and icon_mimetype for the returned Suggestion should both be None.
+        "product_id": "vendorwithouticon-XYZ",
         "rating": 4.9,
         "score": 0.9,
         "title": "The Simpsons: Skinner's Sense of Snow (DVD)",
         "total_reviews": 14000,
-        "url": "http://amazon.com/dp/XYZ"
+        "url": "http://vendorwithouticon.com/dp/XYZ"
     })
 }
 
 pub fn simpsons_suggestion() -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "A".into(),
-        product_id: "amazon-XYZ".into(),
+        product_id: "vendorwithouticon-XYZ".into(),
         rating: 4.9,
         title: "The Simpsons: Skinner's Sense of Snow (DVD)".into(),
         total_reviews: 14000,
-        url: "http://amazon.com/dp/XYZ".into(),
+        url: "http://vendorwithouticon.com/dp/XYZ".into(),
         score: 0.9,
+        icon: None,
+        icon_mimetype: None,
+    }
+}
+
+pub fn fakespot_amazon_icon() -> MockIcon {
+    MockIcon {
+        id: "fakespot-amazon",
+        data: "fakespot-icon-amazon-data",
+        mimetype: "image/png",
     }
 }
