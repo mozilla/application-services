@@ -107,7 +107,7 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
 fn ingest(store: &SuggestStore) {
     println!("Ingesting data...");
     store
-        .ingest(SuggestIngestionConstraints::default())
+        .ingest(SuggestIngestionConstraints::all_providers())
         .unwrap_or_else(|e| panic!("Error in ingest: {e}"));
     println!("Done");
 }
@@ -127,11 +127,13 @@ fn query(store: &SuggestStore, provider: SuggestionProviderArg, input: String) {
         println!("Results:");
         for suggestion in suggestions {
             let title = suggestion.title();
-            if let Some(url) = suggestion.url() {
-                println!("{title} ({url})");
+            let url = suggestion.url().unwrap_or("[no-url]");
+            let icon = if suggestion.icon_data().is_some() {
+                "with icon"
             } else {
-                println!("{title}");
-            }
+                "no icon"
+            };
+            println!("{title} ({url}) ({icon})");
         }
     }
 }

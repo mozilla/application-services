@@ -1,5 +1,8 @@
 # v130.0 (In progress)
 
+### Suggest
+- Added support for Fakespot suggestions.
+
 [Full Changelog](In progress)
 
 # v129.0 (_2024-07-08_)
