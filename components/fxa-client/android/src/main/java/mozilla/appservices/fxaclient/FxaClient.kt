@@ -517,12 +517,12 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * @param targetDeviceId The ID of the device on which the tabs are
      * currently open.
      * @param urls The URLs of the tabs to close.
+     * @return The result of the operation.
      */
-    fun closeTabs(targetDeviceId: String, urls: List<String>) {
+    fun closeTabs(targetDeviceId: String, urls: List<String>): CloseTabsResult =
         withMetrics {
             this.inner.closeTabs(targetDeviceId, urls)
         }
-    }
 
     /**
      * Gather any telemetry which has been collected internally and return

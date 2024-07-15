@@ -91,18 +91,30 @@ enum FxaError {
 };
 
 
-/// An error type that carries additional information for
-/// device command-related [`FirefoxAccount`] operations.
-[Error]
-interface DeviceCommandError {
-  /// An error thrown if a device command to close one or more tabs
-  /// couldn't be sent. The caller should try to invoke
-  /// [`FirefoxAccount::close_tabs`] with the returned `urls` later.
-  TabsNotClosed(sequence<string> urls);
+/// The result of invoking a "close tabs" command.
+///
+/// If [`FirefoxAccount::close_tabs`] is called with more URLs than can fit
+/// into a single command payload, the URLs will be chunked and sent in
+/// multiple commands.
+///
+/// Chunking breaks the atomicity of a "close tabs" command, but
+/// reduces the number of these commands that FxA sends to other devices.
+/// This is critical for platforms like iOS, where every command triggers a
+/// push message that must show a user-visible notification.
+[Enum]
+interface CloseTabsResult {
+  /// All URLs passed to [`FirefoxAccount::close_tabs`] were chunked and sent
+  /// in one or more device commands.
+  Ok();
 
-  /// An error thrown if the operation failed for an
-  /// account-related reason.
-  Account(FxaError error);
+  /// One or more URLs passed to [`FirefoxAccount::close_tabs`] couldn't be sent
+  /// in a device command. The caller can assume that:
+  ///
+  /// 1. Any URL in the returned list of `urls` was not sent, and
+  ///    should be retried.
+  /// 2. All other URLs that were passed to [`FirefoxAccount::close_tabs`], and
+  ///    that are _not_ in the list of `urls`, were chunked and sent.
+  TabsNotClosed(sequence<string> urls);
 };
 
 
@@ -550,8 +562,8 @@ interface FirefoxAccount {
   ///
   /// If a device on the account has registered the [`CloseTabs`](DeviceCapability::CloseTabs)
   /// capability, this method can be used to close its tabs.
-  [Throws=DeviceCommandError]
-  void close_tabs([ByRef] string target_device_id, sequence<string> urls);
+  [Throws=FxaError]
+  CloseTabsResult close_tabs([ByRef] string target_device_id, sequence<string> urls);
 
 
   // Get the URL at which to access the user's sync data.

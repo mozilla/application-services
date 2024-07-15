@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error_support::{convert_log_report_error, ErrorHandling, GetErrorHandling};
+use error_support::{ErrorHandling, GetErrorHandling};
 use rc_crypto::hawk;
 use std::string;
 
@@ -55,39 +55,6 @@ pub enum FxaError {
     /// A catch-all for other unspecified errors.
     #[error("other error: {0}")]
     Other(String),
-}
-
-/// Public error type thrown by device command-related
-/// [`FirefoxAccount`] operations.
-#[derive(Debug, thiserror::Error)]
-pub enum DeviceCommandError {
-    TabsNotClosed { urls: Vec<String> },
-    Account { error: FxaError },
-}
-
-impl DeviceCommandError {
-    /// Logs and reports an internal [`Error`] from a device command-related
-    /// operation, then converts the internal error to a public
-    /// [`DeviceCommandError`].
-    pub fn handle_error(error: Error) -> Self {
-        match error {
-            Error::TabsNotClosed { urls } => Self::TabsNotClosed { urls },
-            _ => Self::Account {
-                error: convert_log_report_error(error),
-            },
-        }
-    }
-}
-
-impl std::fmt::Display for DeviceCommandError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::TabsNotClosed { .. } => {
-                write!(f, "couldn't send one or more commands to close tabs")
-            }
-            Self::Account { error } => write!(f, "account error: {error}"),
-        }
-    }
 }
 
 /// FxA internal error type
@@ -226,9 +193,6 @@ pub enum Error {
 
     #[error("Internal error in the state machine: {0}")]
     StateMachineLogicError(String),
-
-    #[error("Some tabs weren't closed")]
-    TabsNotClosed { urls: Vec<String> },
 }
 
 // Define how our internal errors are handled and converted to external errors

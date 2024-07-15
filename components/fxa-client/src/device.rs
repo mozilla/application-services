@@ -266,3 +266,9 @@ pub struct AttachedClient {
     pub last_access_time: Option<i64>,
     pub scope: Option<Vec<String>>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CloseTabsResult {
+    Ok,
+    TabsNotClosed { urls: Vec<String> },
+}

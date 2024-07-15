@@ -189,7 +189,7 @@ class PersistedFirefoxAccount {
         }
     }
 
-    public func closeTabs(targetDeviceId: String, urls: [String]) throws {
+    public func closeTabs(targetDeviceId: String, urls: [String]) throws -> CloseTabsResult {
         return try notifyAuthErrors {
             try self.inner.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
         }

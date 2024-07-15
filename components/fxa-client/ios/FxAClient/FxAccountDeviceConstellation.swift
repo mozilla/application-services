@@ -95,7 +95,7 @@ public class DeviceConstellation {
                         try self.account.sendSingleTab(targetDeviceId: targetDeviceId, title: title, url: url)
                     }
                 case let .closeTabs(urls):
-                    try self.account.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
+                    _ = try self.account.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
                 }
             } catch {
                 FxALog.error("Error sending event to another device: \(error).")

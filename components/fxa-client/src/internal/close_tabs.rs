@@ -15,10 +15,10 @@ use super::{
     http_client::GetDeviceResponse,
     scopes, telemetry, FirefoxAccount,
 };
-use crate::{Error, Result};
+use crate::{CloseTabsResult, Error, Result};
 
 impl FirefoxAccount {
-    pub fn close_tabs<T>(&mut self, target_device_id: &str, urls: Vec<T>) -> Result<()>
+    pub fn close_tabs<T>(&mut self, target_device_id: &str, urls: Vec<T>) -> Result<CloseTabsResult>
     where
         T: Into<String>,
     {
@@ -89,13 +89,13 @@ impl FirefoxAccount {
             }
         }
 
-        if urls_to_retry.is_empty() {
-            Ok(())
+        Ok(if urls_to_retry.is_empty() {
+            CloseTabsResult::Ok
         } else {
-            Err(Error::TabsNotClosed {
+            CloseTabsResult::TabsNotClosed {
                 urls: urls_to_retry,
-            })
-        }
+            }
+        })
     }
 
     pub(crate) fn handle_close_tabs_command(
@@ -253,7 +253,10 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         // Send one command.
-        fxa.close_tabs("device0102", vec!["https://example.com"])?;
+        assert_eq!(
+            fxa.close_tabs("device0102", vec!["https://example.com"])?,
+            CloseTabsResult::Ok
+        );
 
         Ok(())
     }
@@ -302,10 +305,13 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         // Send two commands.
-        fxa.close_tabs(
-            "device0304",
-            vec!["https://example.com", "https://example.org"],
-        )?;
+        assert_eq!(
+            fxa.close_tabs(
+                "device0304",
+                vec!["https://example.com", "https://example.org"],
+            )?,
+            CloseTabsResult::Ok
+        );
 
         Ok(())
     }
@@ -358,24 +364,23 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         // Fail to send any commands.
-        match fxa.close_tabs(
-            "device0506",
-            vec![
-                "https://example.com",
-                "https://example.org",
-                "https://example.net",
-            ],
-        ) {
-            Err(Error::TabsNotClosed { urls }) => assert_eq!(
-                urls,
-                &[
+        assert_eq!(
+            fxa.close_tabs(
+                "device0506",
+                vec![
                     "https://example.com",
                     "https://example.org",
-                    "https://example.net"
+                    "https://example.net",
+                ],
+            )?,
+            CloseTabsResult::TabsNotClosed {
+                urls: vec![
+                    "https://example.com".into(),
+                    "https://example.org".into(),
+                    "https://example.net".into(),
                 ]
-            ),
-            v => panic!("Wanted tabs not closed error; got {:?}", v),
-        };
+            }
+        );
 
         Ok(())
     }
@@ -435,17 +440,19 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         // Send two commands; fail to send one.
-        match fxa.close_tabs(
-            "device0708",
-            vec![
-                "https://example.com",
-                "https://example.org",
-                "https://example.net",
-            ],
-        ) {
-            Err(Error::TabsNotClosed { urls }) => assert_eq!(urls, &["https://example.org"]),
-            v => panic!("Wanted tabs not closed error; got {:?}", v),
-        }
+        assert_eq!(
+            fxa.close_tabs(
+                "device0708",
+                vec![
+                    "https://example.com",
+                    "https://example.org",
+                    "https://example.net",
+                ],
+            )?,
+            CloseTabsResult::TabsNotClosed {
+                urls: vec!["https://example.org".into()]
+            }
+        );
 
         Ok(())
     }
@@ -491,10 +498,12 @@ mod tests {
         );
         fxa.set_client(Arc::new(client));
 
-        match fxa.close_tabs("device0910", vec!["https://example.com"]) {
-            Err(Error::TabsNotClosed { urls }) => assert_eq!(urls, &["https://example.com"]),
-            v => panic!("Wanted tabs not closed error; got {:?}", v),
-        }
+        assert_eq!(
+            fxa.close_tabs("device0910", vec!["https://example.com"])?,
+            CloseTabsResult::TabsNotClosed {
+                urls: vec!["https://example.com".into()]
+            }
+        );
 
         Ok(())
     }
@@ -543,15 +552,18 @@ mod tests {
             .returning(|_, _, _, _, _, _| Ok(()));
         fxa.set_client(Arc::new(client));
 
-        fxa.close_tabs(
-            "device1112",
-            vec![
-                "https://example.com/abcdefghi",
-                "https://example.org/jklmnopqr",
-                "https://example.net/stuvwxyza",
-                "https://example.edu/bcdefghij",
-            ],
-        )?;
+        assert_eq!(
+            fxa.close_tabs(
+                "device1112",
+                vec![
+                    "https://example.com/abcdefghi",
+                    "https://example.org/jklmnopqr",
+                    "https://example.net/stuvwxyza",
+                    "https://example.edu/bcdefghij",
+                ],
+            )?,
+            CloseTabsResult::Ok
+        );
 
         Ok(())
     }
