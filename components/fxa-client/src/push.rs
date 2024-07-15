@@ -5,10 +5,7 @@
 use error_support::handle_error;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    internal, ApiResult, Device, DeviceCommandError, DeviceCommandResult, Error, FirefoxAccount,
-    LocalDevice,
-};
+use crate::{internal, ApiResult, CloseTabsResult, Device, Error, FirefoxAccount, LocalDevice};
 
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.
@@ -110,11 +107,13 @@ impl FirefoxAccount {
     ///
     /// If a device on the account has registered the [`CloseTabs`](DeviceCapability::CloseTabs)
     /// capability, this method can be used to close its tabs.
-    pub fn close_tabs(&self, target_device_id: &str, urls: Vec<String>) -> DeviceCommandResult<()> {
-        self.internal
-            .lock()
-            .close_tabs(target_device_id, urls)
-            .map_err(DeviceCommandError::handle_error)
+    #[handle_error(Error)]
+    pub fn close_tabs(
+        &self,
+        target_device_id: &str,
+        urls: Vec<String>,
+    ) -> ApiResult<CloseTabsResult> {
+        self.internal.lock().close_tabs(target_device_id, urls)
     }
 }
 
