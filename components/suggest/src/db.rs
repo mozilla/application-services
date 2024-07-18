@@ -714,7 +714,7 @@ impl<'a> SuggestDao<'a> {
                 Ok(Suggestion::Fakespot {
                     title: row.get(0)?,
                     url: row.get(1)?,
-                    score: row.get(2)?,
+                    score: fakespot_suggestion_score(row.get(2)?),
                     fakespot_grade: row.get(3)?,
                     product_id: row.get(4)?,
                     rating: row.get(5)?,
@@ -1216,6 +1216,29 @@ impl<'a> FullKeywordInserter<'a> {
             }
         }
     }
+}
+
+/// Convert the score from the suggestions table for a Fakespot suggestion into the final score
+/// to use.
+///
+/// Fakespot suggestions have 2 different scores:
+///   - The Fakespot score comes from the Fakespot data set and is used to order Fakespot
+///     suggestions relative to each other.
+///   - The suggestion score is what we assign to the `Suggestion::Fakespot.score` field and is
+///     used by consumers to order suggestions of all types against each other.
+///
+/// This function calculates the suggestion score from the Fakespot score so that:
+///   - Suggestion scores for Fakespot suggestions are lower than AMP suggestions
+///   - Suggestion scores for Fakespot suggestions are higher than all other suggestions
+///     which is the weather score)
+///   - Suggestion scores for Fakespot suggestions reflect the Fakespot score, and ensure that
+///     fakespot suggestions are correctly ordered against each other.
+///
+/// Since AMP suggestions are always 0.3 and the next highest by suggestion type is weather at
+/// 0.29, we pick a score that is 0.295 + the Fakespot score scaled down to [0, 0.001].
+#[inline(always)]
+fn fakespot_suggestion_score(fakespot_score: f64) -> f64 {
+    0.295 + fakespot_score / 1000.0
 }
 
 // ======================== Statement types ========================

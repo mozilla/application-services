@@ -457,7 +457,7 @@ pub fn snowglobe_fakespot() -> JsonValue {
         "fakespot_grade": "B",
         "product_id": "amazon-ABC",
         "rating": 4.7,
-        "score": 0.7,
+        "score": 0.8,
         "title": "Make Your Own Glitter Snow Globes",
         "total_reviews": 152,
         "url": "http://amazon.com/dp/ABC"
@@ -472,7 +472,9 @@ pub fn snowglobe_suggestion() -> Suggestion {
         title: "Make Your Own Glitter Snow Globes".into(),
         total_reviews: 152,
         url: "http://amazon.com/dp/ABC".into(),
-        score: 0.7,
+        // The base score for Fakespot suggestions is 0.295, this should get an extra 0.0008 since
+        // the fakespot score is 0.8
+        score: 0.2958,
         icon: Some("fakespot-icon-amazon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
     }
@@ -500,7 +502,9 @@ pub fn simpsons_suggestion() -> Suggestion {
         title: "The Simpsons: Skinner's Sense of Snow (DVD)".into(),
         total_reviews: 14000,
         url: "http://vendorwithouticon.com/dp/XYZ".into(),
-        score: 0.9,
+        // The base score for Fakespot suggestions is 0.295, this should get an extra 0.0009 since
+        // the fakespot score is 0.9.
+        score: 0.2959,
         icon: None,
         icon_mimetype: None,
     }
