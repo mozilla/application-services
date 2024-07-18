@@ -107,8 +107,8 @@ The following instructions assume that you are building `application-services` f
    1. Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the Android Studio sdk location and add it to your rc file (either `.zshrc` or `.bashrc` depending on the shell you use for your terminal).
    1. Configure the required versions of NDK
   `Configure menu > System Settings > Android SDK > SDK Tools > NDK > Show Package Details > NDK (Side by side)`
-        - 25.1.8937393 (required by Fenix; note: a specific NDK version isn't configured, this maps to default [NDK version](https://developer.android.com/studio/projects/install-ndk#default-ndk-per-agp) for the [AGP version](https://github.com/mozilla-mobile/firefox-android/blob/main/android-components/plugins/dependencies/src/main/java/DependenciesPlugin.kt#L31))
-        - 26.2.11394342 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
+        - 26.2.11394342 (required by Fenix; note: a specific NDK version isn't configured, this maps to default [NDK version](https://developer.android.com/studio/projects/install-ndk#default-ndk-per-agp) for the [AGP version](https://searchfox.org/mozilla-central/source/mobile/android/android-components/plugins/dependencies/src/main/java/DependenciesPlugin.kt#33))
+        - 27.0.12077973 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
 1. If you are on Windows using WSL - drop to the section below, [Windows setup
 for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceeding.
 1. Check dependencies, environment variables

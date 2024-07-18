@@ -1,9 +1,14 @@
 # v130.0 (In progress)
 
+## ✨ What's New ✨
+
 ### Suggest
 - Added support for Fakespot suggestions.
 
 ## 🦊 What's Changed 🦊
+
+### Android
+- Upgraded NDK from r26c to r27. ([#6305](https://github.com/mozilla/application-services/pull/6305))
 
 ### Nimbus FML
 - The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
