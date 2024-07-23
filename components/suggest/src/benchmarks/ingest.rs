@@ -5,15 +5,12 @@
 use crate::{
     benchmarks::{
         client::{RemoteSettingsBenchmarkClient, RemoteSettingsWarmUpClient},
-        BenchmarkWithInput,
+        unique_db_filename, BenchmarkWithInput,
     },
     rs::SuggestRecordType,
     store::SuggestStoreInner,
     SuggestIngestionConstraints,
 };
-use std::sync::atomic::{AtomicU32, Ordering};
-
-static DB_FILE_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 pub struct IngestBenchmark {
     temp_dir: tempfile::TempDir,
@@ -49,10 +46,7 @@ impl BenchmarkWithInput for IngestBenchmark {
     type Input = InputType;
 
     fn generate_input(&self) -> Self::Input {
-        let data_path = self.temp_dir.path().join(format!(
-            "db{}.sqlite",
-            DB_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
-        ));
+        let data_path = self.temp_dir.path().join(unique_db_filename());
         let store = SuggestStoreInner::new(data_path, vec![], self.client.clone());
         store.ensure_db_initialized();
         if self.reingest {
@@ -75,72 +69,80 @@ pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
             IngestBenchmark::new(SuggestRecordType::Icon, false),
         ),
         (
-            "ingest-amp-wikipedia",
-            IngestBenchmark::new(SuggestRecordType::AmpWikipedia, false),
-        ),
-        (
-            "ingest-amo",
-            IngestBenchmark::new(SuggestRecordType::Amo, false),
-        ),
-        (
-            "ingest-pocket",
-            IngestBenchmark::new(SuggestRecordType::Pocket, false),
-        ),
-        (
-            "ingest-yelp",
-            IngestBenchmark::new(SuggestRecordType::Yelp, false),
-        ),
-        (
-            "ingest-mdn",
-            IngestBenchmark::new(SuggestRecordType::Mdn, false),
-        ),
-        (
-            "ingest-weather",
-            IngestBenchmark::new(SuggestRecordType::Weather, false),
-        ),
-        (
-            "ingest-global-config",
-            IngestBenchmark::new(SuggestRecordType::GlobalConfig, false),
-        ),
-        (
-            "ingest-amp-mobile",
-            IngestBenchmark::new(SuggestRecordType::AmpMobile, false),
-        ),
-        (
             "ingest-again-icon",
             IngestBenchmark::new(SuggestRecordType::Icon, true),
+        ),
+        (
+            "ingest-amp-wikipedia",
+            IngestBenchmark::new(SuggestRecordType::AmpWikipedia, false),
         ),
         (
             "ingest-again-amp-wikipedia",
             IngestBenchmark::new(SuggestRecordType::AmpWikipedia, true),
         ),
         (
+            "ingest-amo",
+            IngestBenchmark::new(SuggestRecordType::Amo, false),
+        ),
+        (
             "ingest-again-amo",
             IngestBenchmark::new(SuggestRecordType::Amo, true),
+        ),
+        (
+            "ingest-pocket",
+            IngestBenchmark::new(SuggestRecordType::Pocket, false),
         ),
         (
             "ingest-again-pocket",
             IngestBenchmark::new(SuggestRecordType::Pocket, true),
         ),
         (
+            "ingest-yelp",
+            IngestBenchmark::new(SuggestRecordType::Yelp, false),
+        ),
+        (
             "ingest-again-yelp",
             IngestBenchmark::new(SuggestRecordType::Yelp, true),
+        ),
+        (
+            "ingest-mdn",
+            IngestBenchmark::new(SuggestRecordType::Mdn, false),
         ),
         (
             "ingest-again-mdn",
             IngestBenchmark::new(SuggestRecordType::Mdn, true),
         ),
         (
+            "ingest-weather",
+            IngestBenchmark::new(SuggestRecordType::Weather, false),
+        ),
+        (
             "ingest-again-weather",
             IngestBenchmark::new(SuggestRecordType::Weather, true),
+        ),
+        (
+            "ingest-global-config",
+            IngestBenchmark::new(SuggestRecordType::GlobalConfig, false),
         ),
         (
             "ingest-again-global-config",
             IngestBenchmark::new(SuggestRecordType::GlobalConfig, true),
         ),
         (
+            "ingest-amp-mobile",
+            IngestBenchmark::new(SuggestRecordType::AmpMobile, false),
+        ),
+        (
             "ingest-again-amp-mobile",
             IngestBenchmark::new(SuggestRecordType::AmpMobile, true),
+        ),
+        (
+            "ingest-fakespot",
+            IngestBenchmark::new(SuggestRecordType::Fakespot, false),
+        ),
+        (
+            "ingest-again-fakespot",
+            IngestBenchmark::new(SuggestRecordType::Fakespot, true),
         ),
     ]
 }
@@ -153,7 +155,11 @@ pub fn print_debug_ingestion_sizes() {
         RemoteSettingsWarmUpClient::new(),
     );
     store
-        .ingest(SuggestIngestionConstraints::default())
+        .ingest(SuggestIngestionConstraints {
+            // Uncomment to measure the size for a specific provider
+            // providers: Some(vec![crate::SuggestionProvider::Fakespot]),
+            ..SuggestIngestionConstraints::default()
+        })
         .unwrap();
     let table_row_counts = store.table_row_counts();
     let db_size = store.db_size();
