@@ -1228,17 +1228,16 @@ impl<'a> FullKeywordInserter<'a> {
 ///     used by consumers to order suggestions of all types against each other.
 ///
 /// This function calculates the suggestion score from the Fakespot score so that:
-///   - Suggestion scores for Fakespot suggestions are lower than AMP suggestions
+///   - Suggestion scores for Fakespot suggestions are lower than Yelp suggestions
 ///   - Suggestion scores for Fakespot suggestions are higher than all other suggestions
-///     which is the weather score)
 ///   - Suggestion scores for Fakespot suggestions reflect the Fakespot score, and ensure that
-///     fakespot suggestions are correctly ordered against each other.
+///     Fakespot suggestions are correctly ordered against each other.
 ///
-/// Since AMP suggestions are always 0.3 and the next highest by suggestion type is weather at
-/// 0.29, we pick a score that is 0.295 + the Fakespot score scaled down to [0, 0.001].
+/// Since Yelp suggestions are always 0.25 and the next highest by suggestion type is MDN at
+/// 0.24, we pick a score that is 0.245 + the Fakespot score scaled down to [0, 0.001].
 #[inline(always)]
 fn fakespot_suggestion_score(fakespot_score: f64) -> f64 {
-    0.295 + fakespot_score / 1000.0
+    0.245 + fakespot_score / 1000.0
 }
 
 // ======================== Statement types ========================
