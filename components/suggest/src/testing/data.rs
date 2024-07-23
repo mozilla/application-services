@@ -472,9 +472,9 @@ pub fn snowglobe_suggestion() -> Suggestion {
         title: "Make Your Own Glitter Snow Globes".into(),
         total_reviews: 152,
         url: "http://amazon.com/dp/ABC".into(),
-        // The base score for Fakespot suggestions is 0.295, this should get an extra 0.0008 since
+        // The base score for Fakespot suggestions is 0.245, this should get an extra 0.0008 since
         // the fakespot score is 0.8
-        score: 0.2958,
+        score: 0.2458,
         icon: Some("fakespot-icon-amazon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
     }
@@ -502,9 +502,9 @@ pub fn simpsons_suggestion() -> Suggestion {
         title: "The Simpsons: Skinner's Sense of Snow (DVD)".into(),
         total_reviews: 14000,
         url: "http://vendorwithouticon.com/dp/XYZ".into(),
-        // The base score for Fakespot suggestions is 0.295, this should get an extra 0.0009 since
+        // The base score for Fakespot suggestions is 0.245, this should get an extra 0.0009 since
         // the fakespot score is 0.9.
-        score: 0.2959,
+        score: 0.2459,
         icon: None,
         icon_mimetype: None,
     }
