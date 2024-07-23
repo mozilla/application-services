@@ -42,6 +42,9 @@ uniffi = { workspace = true, features = ["build"] }
 # Required for the benchmarks to work, wasted bytes otherwise.
 benchmark_api = ["tempfile", "viaduct-reqwest"]
 
+[lib]
+bench = false
+
 [[bench]]
 name = "benchmark_all"
 harness = false
@@ -50,3 +53,4 @@ required-features = ["benchmark_api"]
 [[bin]]
 name = "debug_ingestion_sizes"
 required-features = ["benchmark_api"]
+bench = false
