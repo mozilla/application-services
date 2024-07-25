@@ -54,7 +54,9 @@ jobs:
           source $HOME/.cargo/env
       - name: Run Cargo Audit
         run: |
-            cargo install cargo-audit
+            # cargo-audit 0.20 is giving us trouble in CI - it's failing to build the package.
+            # not clear what's causing this, but we work around it by pinning to 0.19
+            cargo install cargo-audit@^0.19
             # Explanation for ignored issues:
             #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
             #                       version of `yaml-rust`, which will be released in `v3` and additionally,
