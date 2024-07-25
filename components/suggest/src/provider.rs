@@ -104,7 +104,6 @@ impl SuggestionProvider {
             SuggestionProvider::AmpMobile => {
                 vec![
                     SuggestRecordType::AmpMobile,
-                    SuggestRecordType::AmpWikipedia,
                     SuggestRecordType::Icon,
                     SuggestRecordType::GlobalConfig,
                 ]
