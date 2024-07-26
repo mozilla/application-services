@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::sync::OnceLock;
+
 use crate::{
-    benchmarks::{
-        client::{RemoteSettingsBenchmarkClient, RemoteSettingsWarmUpClient},
-        unique_db_filename, BenchmarkWithInput,
-    },
+    benchmarks::{client::RemoteSettingsBenchmarkClient, unique_db_filename, BenchmarkWithInput},
     rs::SuggestRecordType,
     store::SuggestStoreInner,
     SuggestIngestionConstraints,
@@ -19,17 +18,23 @@ pub struct IngestBenchmark {
     reingest: bool,
 }
 
+/// Get a benchmark client to use for the tests
+///
+/// Uses OnceLock to ensure we only construct it once.
+fn get_benchmark_client() -> RemoteSettingsBenchmarkClient {
+    static CELL: OnceLock<RemoteSettingsBenchmarkClient> = OnceLock::new();
+    CELL.get_or_init(|| {
+        RemoteSettingsBenchmarkClient::new()
+            .unwrap_or_else(|e| panic!("Error creating benchmark client {e}"))
+    })
+    .clone()
+}
+
 impl IngestBenchmark {
     pub fn new(record_type: SuggestRecordType, reingest: bool) -> Self {
         let temp_dir = tempfile::tempdir().unwrap();
-        let store = SuggestStoreInner::new(
-            temp_dir.path().join("warmup.sqlite"),
-            vec![],
-            RemoteSettingsWarmUpClient::new(),
-        );
-        store.benchmark_ingest_records_by_type(record_type);
         Self {
-            client: RemoteSettingsBenchmarkClient::from(store.into_settings_client()),
+            client: get_benchmark_client(),
             temp_dir,
             record_type,
             reingest,
@@ -50,7 +55,8 @@ impl BenchmarkWithInput for IngestBenchmark {
         let store = SuggestStoreInner::new(data_path, vec![], self.client.clone());
         store.ensure_db_initialized();
         if self.reingest {
-            store.force_reingest(self.record_type);
+            store.benchmark_ingest_records_by_type(self.record_type);
+            store.force_reingest();
         }
         InputType(store)
     }
@@ -152,7 +158,7 @@ pub fn print_debug_ingestion_sizes() {
     let store = SuggestStoreInner::new(
         "file:debug_ingestion_sizes?mode=memory&cache=shared",
         vec![],
-        RemoteSettingsWarmUpClient::new(),
+        RemoteSettingsBenchmarkClient::new().unwrap(),
     );
     store
         .ingest(SuggestIngestionConstraints {
@@ -164,17 +170,7 @@ pub fn print_debug_ingestion_sizes() {
     let table_row_counts = store.table_row_counts();
     let db_size = store.db_size();
     let client = store.into_settings_client();
-    let total_attachment_size: usize = client
-        .get_records_responses
-        .lock()
-        .values()
-        .flat_map(|records| {
-            records.iter().map(|r| match &r.attachment_data {
-                Some(d) => d.len(),
-                None => 0,
-            })
-        })
-        .sum();
+    let total_attachment_size: usize = client.attachments.values().map(|a| a.len()).sum();
 
     println!(
         "Total attachment size: {}kb",
