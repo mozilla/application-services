@@ -10,6 +10,9 @@
 ### Android
 - Upgraded NDK from r26c to r27. ([#6305](https://github.com/mozilla/application-services/pull/6305))
 
+### Glean
+- Updated to v60.4.0 ([#6320](https://github.com/mozilla/application-services/pull/6320))
+
 ### Nimbus FML
 - The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
 
