@@ -1106,7 +1106,6 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    #[cfg(feature = "benchmark_api")]
     /// Clears the value for a metadata key.
     ///
     /// This is currently only used for the benchmarks.
