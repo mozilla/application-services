@@ -38,26 +38,19 @@ use serde::{Deserialize, Deserializer};
 
 use crate::{error::Error, provider::SuggestionProvider, Result};
 
-/// The maximum number of suggestions in a Suggest record's attachment.
-///
-/// This should be the same as the `BUCKET_SIZE` constant in the
-/// `mozilla-services/quicksuggest-rs` repo.
-pub(crate) const SUGGESTIONS_PER_ATTACHMENT: u64 = 200;
-
 /// A list of default record types to download if nothing is specified.
 /// This defaults to all record types available as-of Fx128.
 /// Consumers should specify provider types in `SuggestIngestionConstraints` if they want a
 /// different set.
-pub(crate) const DEFAULT_RECORDS_TYPES: [SuggestRecordType; 9] = [
-    SuggestRecordType::Icon,
-    SuggestRecordType::AmpWikipedia,
-    SuggestRecordType::Amo,
-    SuggestRecordType::Pocket,
-    SuggestRecordType::Yelp,
-    SuggestRecordType::Mdn,
-    SuggestRecordType::Weather,
-    SuggestRecordType::GlobalConfig,
-    SuggestRecordType::AmpMobile,
+pub(crate) const DEFAULT_PROVIDERS: [SuggestionProvider; 8] = [
+    SuggestionProvider::Amp,
+    SuggestionProvider::Wikipedia,
+    SuggestionProvider::Amo,
+    SuggestionProvider::Pocket,
+    SuggestionProvider::Yelp,
+    SuggestionProvider::Mdn,
+    SuggestionProvider::Weather,
+    SuggestionProvider::AmpMobile,
 ];
 
 /// A trait for a client that downloads suggestions from Remote Settings.
@@ -131,7 +124,6 @@ impl Client for RemoteSettingsClient {
 pub struct RecordRequest {
     pub record_type: String,
     pub last_modified: Option<u64>,
-    pub limit: Option<u64>,
 }
 
 impl From<RecordRequest> for GetItemsOptions {
@@ -147,12 +139,6 @@ impl From<RecordRequest> for GetItemsOptions {
 
         if let Some(last_modified) = value.last_modified {
             options.filter_gt("last_modified", last_modified.to_string());
-        }
-
-        if let Some(limit) = value.limit {
-            // Each record's attachment has 200 suggestions, so download enough
-            // records to cover the requested maximum.
-            options.limit((limit.saturating_sub(1) / SUGGESTIONS_PER_ATTACHMENT) + 1);
         }
         options
     }
@@ -678,38 +664,5 @@ mod test {
                 },
             ],
         );
-    }
-
-    #[test]
-    fn test_remote_settings_limits() {
-        fn check_limit(suggestion_limit: Option<u64>, expected_record_limit: Option<&str>) {
-            let request = RecordRequest {
-                limit: suggestion_limit,
-                ..RecordRequest::default()
-            };
-            let options: GetItemsOptions = request.into();
-            let actual_record_limit = options
-                .iter_query_pairs()
-                .find_map(|(name, value)| (name == "_limit").then(|| value.to_string()));
-            assert_eq!(
-                actual_record_limit.as_deref(),
-                expected_record_limit,
-                "expected record limit = {:?} for suggestion limit {:?}; actual = {:?}",
-                expected_record_limit,
-                suggestion_limit,
-                actual_record_limit
-            );
-        }
-
-        check_limit(None, None);
-        // 200 suggestions per record, so test with numbers around that
-        // boundary.
-        check_limit(Some(0), Some("1"));
-        check_limit(Some(199), Some("1"));
-        check_limit(Some(200), Some("1"));
-        check_limit(Some(201), Some("2"));
-        check_limit(Some(300), Some("2"));
-        check_limit(Some(400), Some("2"));
-        check_limit(Some(401), Some("3"));
     }
 }

@@ -7,7 +7,7 @@ use crate::{
         client::{RemoteSettingsBenchmarkClient, RemoteSettingsWarmUpClient},
         unique_db_filename, BenchmarkWithInput,
     },
-    rs::SuggestRecordType,
+    provider::SuggestionProvider,
     store::SuggestStoreInner,
     SuggestIngestionConstraints,
 };
@@ -15,23 +15,23 @@ use crate::{
 pub struct IngestBenchmark {
     temp_dir: tempfile::TempDir,
     client: RemoteSettingsBenchmarkClient,
-    record_type: SuggestRecordType,
+    provider: SuggestionProvider,
     reingest: bool,
 }
 
 impl IngestBenchmark {
-    pub fn new(record_type: SuggestRecordType, reingest: bool) -> Self {
+    pub fn new(provider: SuggestionProvider, reingest: bool) -> Self {
         let temp_dir = tempfile::tempdir().unwrap();
         let store = SuggestStoreInner::new(
             temp_dir.path().join("warmup.sqlite"),
             vec![],
             RemoteSettingsWarmUpClient::new(),
         );
-        store.benchmark_ingest_records_by_type(record_type);
+        store.benchmark_fetch_and_ingest_records(provider);
         Self {
             client: RemoteSettingsBenchmarkClient::from(store.into_settings_client()),
             temp_dir,
-            record_type,
+            provider,
             reingest,
         }
     }
@@ -50,14 +50,14 @@ impl BenchmarkWithInput for IngestBenchmark {
         let store = SuggestStoreInner::new(data_path, vec![], self.client.clone());
         store.ensure_db_initialized();
         if self.reingest {
-            store.force_reingest(self.record_type);
+            store.force_reingest(self.provider);
         }
         InputType(store)
     }
 
     fn benchmarked_code(&self, input: Self::Input) {
         let InputType(store) = input;
-        store.benchmark_ingest_records_by_type(self.record_type);
+        store.benchmark_fetch_and_ingest_records(self.provider);
     }
 }
 
@@ -65,84 +65,76 @@ impl BenchmarkWithInput for IngestBenchmark {
 pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
     vec![
         (
-            "ingest-icon",
-            IngestBenchmark::new(SuggestRecordType::Icon, false),
+            "ingest-amp",
+            IngestBenchmark::new(SuggestionProvider::Amp, false),
         ),
         (
-            "ingest-again-icon",
-            IngestBenchmark::new(SuggestRecordType::Icon, true),
+            "ingest-again-amp",
+            IngestBenchmark::new(SuggestionProvider::Amp, true),
         ),
         (
-            "ingest-amp-wikipedia",
-            IngestBenchmark::new(SuggestRecordType::AmpWikipedia, false),
+            "ingest-wikipedia",
+            IngestBenchmark::new(SuggestionProvider::Wikipedia, false),
         ),
         (
-            "ingest-again-amp-wikipedia",
-            IngestBenchmark::new(SuggestRecordType::AmpWikipedia, true),
+            "ingest-again-wikipedia",
+            IngestBenchmark::new(SuggestionProvider::Wikipedia, true),
         ),
         (
             "ingest-amo",
-            IngestBenchmark::new(SuggestRecordType::Amo, false),
+            IngestBenchmark::new(SuggestionProvider::Amo, false),
         ),
         (
             "ingest-again-amo",
-            IngestBenchmark::new(SuggestRecordType::Amo, true),
+            IngestBenchmark::new(SuggestionProvider::Amo, true),
         ),
         (
             "ingest-pocket",
-            IngestBenchmark::new(SuggestRecordType::Pocket, false),
+            IngestBenchmark::new(SuggestionProvider::Pocket, false),
         ),
         (
             "ingest-again-pocket",
-            IngestBenchmark::new(SuggestRecordType::Pocket, true),
+            IngestBenchmark::new(SuggestionProvider::Pocket, true),
         ),
         (
             "ingest-yelp",
-            IngestBenchmark::new(SuggestRecordType::Yelp, false),
+            IngestBenchmark::new(SuggestionProvider::Yelp, false),
         ),
         (
             "ingest-again-yelp",
-            IngestBenchmark::new(SuggestRecordType::Yelp, true),
+            IngestBenchmark::new(SuggestionProvider::Yelp, true),
         ),
         (
             "ingest-mdn",
-            IngestBenchmark::new(SuggestRecordType::Mdn, false),
+            IngestBenchmark::new(SuggestionProvider::Mdn, false),
         ),
         (
             "ingest-again-mdn",
-            IngestBenchmark::new(SuggestRecordType::Mdn, true),
+            IngestBenchmark::new(SuggestionProvider::Mdn, true),
         ),
         (
             "ingest-weather",
-            IngestBenchmark::new(SuggestRecordType::Weather, false),
+            IngestBenchmark::new(SuggestionProvider::Weather, false),
         ),
         (
             "ingest-again-weather",
-            IngestBenchmark::new(SuggestRecordType::Weather, true),
-        ),
-        (
-            "ingest-global-config",
-            IngestBenchmark::new(SuggestRecordType::GlobalConfig, false),
-        ),
-        (
-            "ingest-again-global-config",
-            IngestBenchmark::new(SuggestRecordType::GlobalConfig, true),
+            IngestBenchmark::new(SuggestionProvider::Weather, true),
         ),
         (
             "ingest-amp-mobile",
-            IngestBenchmark::new(SuggestRecordType::AmpMobile, false),
+            IngestBenchmark::new(SuggestionProvider::AmpMobile, false),
         ),
         (
             "ingest-again-amp-mobile",
-            IngestBenchmark::new(SuggestRecordType::AmpMobile, true),
+            IngestBenchmark::new(SuggestionProvider::AmpMobile, true),
         ),
         (
             "ingest-fakespot",
-            IngestBenchmark::new(SuggestRecordType::Fakespot, false),
+            IngestBenchmark::new(SuggestionProvider::Fakespot, false),
         ),
         (
             "ingest-again-fakespot",
-            IngestBenchmark::new(SuggestRecordType::Fakespot, true),
+            IngestBenchmark::new(SuggestionProvider::Fakespot, true),
         ),
     ]
 }

@@ -21,6 +21,7 @@
 
 ### Suggest
 - Removed the deprecated `remote_settings_config` method.  No consumers were using this.
+- Removed the `SuggestIngestionConstraints::max_suggestions` field.  No consumers were using this.
 
 ## ✨ What's New ✨
 
