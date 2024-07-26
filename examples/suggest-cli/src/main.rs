@@ -15,6 +15,9 @@ use suggest::{
 
 static DB_PATH: &str = "suggest.db";
 
+const DEFAULT_LOG_FILTER: &str = "suggest::store=info";
+const DEFAULT_LOG_FILTER_VERBOSE: &str = "suggest::store=trace";
+
 #[derive(Debug, Parser)]
 #[command(about, long_about = None)]
 struct Cli {
@@ -22,6 +25,8 @@ struct Cli {
     remote_settings_server: Option<RemoteSettingsServerArg>,
     #[arg(short = 'b')]
     remote_settings_bucket: Option<String>,
+    #[arg(long, short, action)]
+    verbose: bool,
     // Custom { url: String },
     #[command(subcommand)]
     command: Commands,
@@ -37,7 +42,12 @@ enum RemoteSettingsServerArg {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Ingest data
-    Ingest,
+    Ingest {
+        #[clap(long, short, action)]
+        reingest: bool,
+        #[clap(long, short)]
+        providers: Vec<SuggestionProviderArg>,
+    },
     /// Query against ingested data
     Query {
         provider: SuggestionProviderArg,
@@ -77,10 +87,21 @@ impl From<SuggestionProviderArg> for SuggestionProvider {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    env_logger::init_from_env(env_logger::Env::default().filter_or(
+        "RUST_LOG",
+        if cli.verbose {
+            DEFAULT_LOG_FILTER_VERBOSE
+        } else {
+            DEFAULT_LOG_FILTER
+        },
+    ));
     viaduct_reqwest::use_reqwest_backend();
     let store = build_store(&cli);
     match cli.command {
-        Commands::Ingest => ingest(&store),
+        Commands::Ingest {
+            reingest,
+            providers,
+        } => ingest(&store, reingest, providers),
         Commands::Query { provider, input } => query(&store, provider, input),
     };
     Ok(())
@@ -104,10 +125,24 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
         .unwrap_or_else(|e| panic!("Error building store: {e}"))
 }
 
-fn ingest(store: &SuggestStore) {
-    println!("Ingesting data...");
+fn ingest(store: &SuggestStore, reingest: bool, providers: Vec<SuggestionProviderArg>) {
+    if reingest {
+        println!("Reingesting data...");
+        store.force_reingest();
+    } else {
+        println!("Ingesting data...");
+    }
+    let constraints = if providers.is_empty() {
+        SuggestIngestionConstraints::all_providers()
+    } else {
+        SuggestIngestionConstraints {
+            providers: Some(providers.into_iter().map(Into::into).collect()),
+            ..SuggestIngestionConstraints::default()
+        }
+    };
+
     store
-        .ingest(SuggestIngestionConstraints::all_providers())
+        .ingest(constraints)
         .unwrap_or_else(|e| panic!("Error in ingest: {e}"));
     println!("Done");
 }

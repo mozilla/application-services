@@ -231,17 +231,15 @@ impl SuggestStore {
     ) -> SuggestApiResult<Option<SuggestProviderConfig>> {
         self.inner.fetch_provider_config(provider)
     }
+
+    pub fn force_reingest(&self) {
+        self.inner.force_reingest()
+    }
 }
 
 /// Constraints limit which suggestions to ingest from Remote Settings.
 #[derive(Clone, Default, Debug)]
 pub struct SuggestIngestionConstraints {
-    /// The approximate maximum number of suggestions to ingest. Set to [`None`]
-    /// for "no limit".
-    ///
-    /// Because of how suggestions are partitioned in Remote Settings, this is a
-    /// soft limit, and the store might ingest more than requested.
-    pub max_suggestions: Option<u64>,
     pub providers: Option<Vec<SuggestionProvider>>,
     /// Only run ingestion if the table `suggestions` is empty
     pub empty_only: bool,
@@ -354,6 +352,17 @@ impl<S> SuggestStoreInner<S> {
             .reader
             .read(|dao| dao.get_provider_config(provider))
     }
+
+    // Cause the next ingestion to re-ingest all data
+    pub fn force_reingest(&self) {
+        for provider in SuggestionProvider::all() {
+            let ingest_record_type = provider.record_type();
+            let writer = &self.dbs().unwrap().writer;
+            writer
+                .write(|dao| dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str()))
+                .unwrap();
+        }
+    }
 }
 
 impl<S> SuggestStoreInner<S>
@@ -370,7 +379,9 @@ where
         // use std::collections::BTreeSet;
         let ingest_record_types = if let Some(rt) = &constraints.providers {
             rt.iter()
-                .flat_map(|x| x.records_for_provider())
+                .map(|x| x.record_type())
+                // Always ingest these types
+                .chain([SuggestRecordType::Icon, SuggestRecordType::GlobalConfig])
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect()
@@ -382,8 +393,7 @@ where
         let mut write_scope = writer.write_scope()?;
         for ingest_record_type in ingest_record_types {
             breadcrumb!("Ingesting {ingest_record_type}");
-            write_scope
-                .write(|dao| self.ingest_records_by_type(ingest_record_type, dao, &constraints))?;
+            write_scope.write(|dao| self.ingest_records_by_type(ingest_record_type, dao))?;
             write_scope.err_if_interrupted()?;
         }
         breadcrumb!("Ingestion complete");
@@ -395,17 +405,17 @@ where
         &self,
         ingest_record_type: SuggestRecordType,
         dao: &mut SuggestDao,
-        constraints: &SuggestIngestionConstraints,
     ) -> Result<()> {
+        breadcrumb!("Ingesting {ingest_record_type}");
         let last_ingest_key = ingest_record_type.last_ingest_meta_key();
         let request = RecordRequest {
             record_type: ingest_record_type.to_string(),
             last_modified: dao.get_meta::<u64>(&last_ingest_key)?,
-            limit: constraints.max_suggestions,
         };
 
         let records = self.settings_client.get_records(request)?;
         for record in &records {
+            log::trace!("Deleting: {:?}", record.id);
             // Drop any data that we previously ingested from this record.
             // Suggestions in particular don't have a stable identifier, and
             // determining which suggestions in the record actually changed is
@@ -421,11 +431,13 @@ where
 
     fn ingest_records(&self, dao: &mut SuggestDao, records: &[Record]) -> Result<()> {
         for record in records {
+            let record_id = SuggestRecordId::from(&record.id);
+
             if record.deleted {
+                log::trace!("Skipping deleted: {record_id:?}");
                 continue;
             }
 
-            let record_id = SuggestRecordId::from(&record.id);
             let Ok(fields) =
                 serde_json::from_value(serde_json::Value::Object(record.fields.clone()))
             else {
@@ -433,6 +445,12 @@ where
                 // to ingest its suggestions. Skip processing this record.
                 continue;
             };
+
+            log::trace!(
+                "Ingesting: {} ({})",
+                record_id.as_str(),
+                SuggestRecordType::from(&fields)
+            );
 
             match fields {
                 SuggestRecord::AmpWikipedia => {
@@ -535,26 +553,12 @@ where
         self.dbs().unwrap();
     }
 
-    pub fn force_reingest(&self, ingest_record_type: SuggestRecordType) {
-        // To force a re-ingestion, we're going to ingest all records then forget the last
-        // ingestion time.
-        self.benchmark_ingest_records_by_type(ingest_record_type);
-        let writer = &self.dbs().unwrap().writer;
-        writer
-            .write(|dao| dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str()))
-            .unwrap();
-    }
-
     pub fn benchmark_ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {
         let writer = &self.dbs().unwrap().writer;
         writer
             .write(|dao| {
                 dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str())?;
-                self.ingest_records_by_type(
-                    ingest_record_type,
-                    dao,
-                    &SuggestIngestionConstraints::all_providers(),
-                )
+                self.ingest_records_by_type(ingest_record_type, dao)
             })
             .unwrap()
     }
@@ -1717,7 +1721,6 @@ mod tests {
         })?;
 
         let constraints = SuggestIngestionConstraints {
-            max_suggestions: Some(100),
             providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Pocket]),
             ..SuggestIngestionConstraints::all_providers()
         };
