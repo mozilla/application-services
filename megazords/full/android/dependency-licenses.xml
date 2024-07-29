@@ -569,6 +569,14 @@ the details of which are reproduced below.
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: rmp</name>
+    <url>https://github.com/3Hren/msgpack-rust/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: rmp-serde</name>
+    <url>https://github.com/3Hren/msgpack-rust/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: scroll</name>
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>

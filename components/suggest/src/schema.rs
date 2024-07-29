@@ -19,13 +19,26 @@ use sql_support::{
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
-pub const VERSION: u32 = 24;
+pub const VERSION: u32 = 25;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
 CREATE TABLE meta(
     key TEXT PRIMARY KEY,
     value NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE rs_cache(
+    collection TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE ingested_records(
+    id TEXT,
+    collection TEXT,
+    type TEXT NOT NULL,
+    last_modified INTEGER NOT NULL,
+    PRIMARY KEY (id, collection)
 ) WITHOUT ROWID;
 
 CREATE TABLE keywords(
@@ -390,7 +403,26 @@ END;
                 )?;
                 Ok(())
             }
-
+            24 => {
+                // Clear the database so that we re-ingest and populate the ingested_records table.
+                clear_database(tx)?;
+                tx.execute_batch(
+                    "
+CREATE TABLE rs_cache(
+    collection TEXT PRIMARY KEY,
+    data TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE ingested_records(
+    id TEXT,
+    collection TEXT,
+    type TEXT NOT NULL,
+    last_modified INTEGER NOT NULL,
+    PRIMARY KEY (id, collection)
+) WITHOUT ROWID;
+                    ",
+                )?;
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }

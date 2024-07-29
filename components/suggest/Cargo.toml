@@ -9,6 +9,7 @@ exclude = ["/android", "/ios"]
 
 [dependencies]
 anyhow = "1.0"
+rmp-serde = "1.3"
 chrono = "0.4"
 extend = "1.1"
 interrupt-support = { path = "../support/interrupt" }

@@ -4,9 +4,7 @@
 
 use std::collections::HashMap;
 
-use serde_json::Value as JsonValue;
-
-use crate::{rs, Result};
+use crate::{db::SuggestDao, error::Error, rs, Result};
 
 /// Remotes settings client for benchmarking
 ///
@@ -15,33 +13,39 @@ use crate::{rs, Result};
 /// ensures that network time does not count towards the benchmark time.
 #[derive(Clone, Default)]
 pub struct RemoteSettingsBenchmarkClient {
-    pub records: Vec<remote_settings::RemoteSettingsRecord>,
-    pub attachments: HashMap<String, Vec<u8>>,
+    records: Vec<rs::Record>,
+    attachments: HashMap<String, Vec<u8>>,
 }
 
 impl RemoteSettingsBenchmarkClient {
     pub fn new() -> Result<Self> {
         let mut new_benchmark_client = Self::default();
-        new_benchmark_client.fetch_data_with_client(remote_settings::Client::new(
-            remote_settings::RemoteSettingsConfig {
+        new_benchmark_client.fetch_data_with_client(
+            remote_settings::Client::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
                 collection_name: "quicksuggest".to_owned(),
                 server_url: None,
-            },
-        )?)?;
-        new_benchmark_client.fetch_data_with_client(remote_settings::Client::new(
-            remote_settings::RemoteSettingsConfig {
+            })?,
+            rs::Collection::Quicksuggest,
+        )?;
+        new_benchmark_client.fetch_data_with_client(
+            remote_settings::Client::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
                 collection_name: "fakespot-suggest-products".to_owned(),
                 server_url: None,
-            },
-        )?)?;
+            })?,
+            rs::Collection::Fakespot,
+        )?;
         Ok(new_benchmark_client)
     }
 
-    fn fetch_data_with_client(&mut self, client: remote_settings::Client) -> Result<()> {
+    fn fetch_data_with_client(
+        &mut self,
+        client: remote_settings::Client,
+        collection: rs::Collection,
+    ) -> Result<()> {
         let response = client.get_records()?;
         for r in &response.records {
             if let Some(a) = &r.attachment {
@@ -49,30 +53,41 @@ impl RemoteSettingsBenchmarkClient {
                     .insert(a.location.clone(), client.get_attachment(&a.location)?);
             }
         }
-        self.records.extend(response.records);
+        self.records.extend(
+            response
+                .records
+                .into_iter()
+                .filter_map(|r| rs::Record::new(r, collection).ok()),
+        );
         Ok(())
+    }
+
+    pub fn total_attachment_size(&self) -> usize {
+        self.attachments.values().map(|a| a.len()).sum()
     }
 }
 
 impl rs::Client for RemoteSettingsBenchmarkClient {
-    fn get_records(&self, request: rs::RecordRequest) -> Result<Vec<rs::Record>> {
-        self.records
+    fn get_records(
+        &self,
+        collection: rs::Collection,
+        _db: &mut SuggestDao,
+    ) -> Result<Vec<rs::Record>> {
+        Ok(self
+            .records
             .iter()
-            .filter(|r| {
-                r.fields.get("type").and_then(JsonValue::as_str)
-                    == Some(request.record_type.as_str())
-            })
-            .filter(|r| match request.last_modified {
-                None => true,
-                Some(last_modified) => r.last_modified > last_modified,
-            })
-            .map(|record| {
-                let attachment_data = record
-                    .attachment
-                    .as_ref()
-                    .and_then(|a| self.attachments.get(&a.location).cloned());
-                Ok(rs::Record::new(record.clone(), attachment_data))
-            })
-            .collect()
+            .filter(|r| r.collection == collection)
+            .cloned()
+            .collect())
+    }
+
+    fn download_attachment(&self, record: &rs::Record) -> Result<Vec<u8>> {
+        match &record.attachment {
+            Some(a) => match self.attachments.get(&a.location) {
+                Some(data) => Ok(data.clone()),
+                None => Err(Error::MissingAttachment(record.id.to_string())),
+            },
+            None => Err(Error::MissingAttachment(record.id.to_string())),
+        }
     }
 }

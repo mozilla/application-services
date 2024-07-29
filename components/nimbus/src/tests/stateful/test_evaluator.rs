@@ -155,7 +155,7 @@ fn test_event_transform_sum_cnz_avg_avgnz_parameters() {
             &th,
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1.0`, expected a string"
                 .to_string()
         })
     );
@@ -165,7 +165,7 @@ fn test_event_transform_sum_cnz_avg_avgnz_parameters() {
             &th,
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1.0`, expected a string"
                 .to_string()
         })
     );
@@ -231,7 +231,7 @@ fn test_event_transform_last_seen_parameters() {
             &th,
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1.0`, expected a string"
                 .to_string()
         })
     );
@@ -241,7 +241,7 @@ fn test_event_transform_last_seen_parameters() {
             &th,
         ),
         Some(EnrollmentStatus::Error {
-            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1`, expected a string"
+            reason: "EvaluationError: Custom error: JSON Error: invalid type: floating point `1.0`, expected a string"
                 .to_string()
         })
     );
