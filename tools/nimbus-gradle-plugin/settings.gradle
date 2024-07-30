@@ -8,7 +8,7 @@ buildscript {
         classpath 'org.yaml:snakeyaml:2.2'
     }
     repositories {
-        jcenter()
+        mavenCentral()
     }
 }
 

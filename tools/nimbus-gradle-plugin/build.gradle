@@ -19,7 +19,7 @@ gradlePlugin {
 
 repositories {
     google()
-    jcenter()
+    mavenCentral()
     maven {
         name "Mozilla"
         url "https://maven.mozilla.org/maven2"
