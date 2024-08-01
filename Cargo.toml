@@ -126,7 +126,7 @@ default-members = [
 [workspace.dependencies]
 rusqlite = "0.31.0"
 libsqlite3-sys = "0.28.0"
-uniffi = "0.27.1"
+uniffi = "0.28.0"
 
 [profile.release]
 opt-level = "s"
