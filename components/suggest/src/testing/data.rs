@@ -464,7 +464,7 @@ pub fn snowglobe_fakespot() -> JsonValue {
     })
 }
 
-pub fn snowglobe_suggestion() -> Suggestion {
+pub fn snowglobe_suggestion(highlighted_title: &str) -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "B".into(),
         product_id: "amazon-ABC".into(),
@@ -477,6 +477,7 @@ pub fn snowglobe_suggestion() -> Suggestion {
         score: 0.2458,
         icon: Some("fakespot-icon-amazon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
+        highlighted_title: highlighted_title.to_string(),
     }
 }
 
@@ -494,7 +495,7 @@ pub fn simpsons_fakespot() -> JsonValue {
     })
 }
 
-pub fn simpsons_suggestion() -> Suggestion {
+pub fn simpsons_suggestion(highlighted_title: &str) -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "A".into(),
         product_id: "vendorwithouticon-XYZ".into(),
@@ -507,6 +508,7 @@ pub fn simpsons_suggestion() -> Suggestion {
         score: 0.2459,
         icon: None,
         icon_mimetype: None,
+        highlighted_title: highlighted_title.to_string(),
     }
 }
 

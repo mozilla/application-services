@@ -19,7 +19,7 @@ use sql_support::{
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
 ///       the migration.
-pub const VERSION: u32 = 23;
+pub const VERSION: u32 = 24;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -101,8 +101,6 @@ CREATE TABLE fakespot_custom_details(
 
 CREATE VIRTUAL TABLE IF NOT EXISTS fakespot_fts USING FTS5(
   title,
-  content='',
-  contentless_delete=1,
   tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
 );
 
@@ -354,6 +352,19 @@ CREATE VIRTUAL TABLE fakespot_fts USING FTS5(
   title,
   content='',
   contentless_delete=1,
+  tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
+);
+                    ",
+                )?;
+                Ok(())
+            }
+            23 => {
+                // Drop and re-create the fakespot_fts table to remove the content='' param
+                tx.execute_batch(
+                    "
+DROP TABLE fakespot_fts;
+CREATE VIRTUAL TABLE fakespot_fts USING FTS5(
+  title,
   tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
 );
                     ",

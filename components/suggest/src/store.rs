@@ -2144,25 +2144,36 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
-            vec![snowglobe_suggestion()],
+            vec![snowglobe_suggestion(
+                "Make Your Own Glitter Snow <b>Globes</b>"
+            )],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of Snow (DVD)"
+            )],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
-            vec![simpsons_suggestion(), snowglobe_suggestion()],
+            vec![
+                simpsons_suggestion("The Simpsons: Skinner's Sense of <b>Snow</b> (DVD)"),
+                snowglobe_suggestion("Make Your Own Glitter <b>Snow</b> Globes"),
+            ],
         );
         // Test FTS by using a query where the keywords are separated in the source text
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons snow")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of <b>Snow</b> (DVD)"
+            )],
         );
         // Special characters should be stripped out
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons + snow")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of <b>Snow</b> (DVD)"
+            )],
         );
 
         Ok(())
@@ -2184,15 +2195,21 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simp")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of Snow (DVD)"
+            )],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simps")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of Snow (DVD)"
+            )],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpson")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(
+                "The <b>Simpsons</b>: Skinner's Sense of Snow (DVD)"
+            )],
         );
 
         Ok(())

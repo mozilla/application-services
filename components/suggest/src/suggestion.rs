@@ -90,6 +90,7 @@ pub enum Suggestion {
         url: String,
         icon: Option<Vec<u8>>,
         icon_mimetype: Option<String>,
+        highlighted_title: String,
         score: f64,
     },
 }

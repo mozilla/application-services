@@ -105,6 +105,7 @@ interface Suggestion {
         string url,
         sequence<u8>? icon,
         string? icon_mimetype,
+        string highlighted_title,
         f64 score
     );
 };

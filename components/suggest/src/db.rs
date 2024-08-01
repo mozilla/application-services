@@ -692,7 +692,8 @@ impl<'a> SuggestDao<'a> {
                 f.rating,
                 f.total_reviews,
                 i.data,
-                i.mimetype
+                i.mimetype,
+                highlight(fakespot_fts, 0, '<b>', '</b>')
             FROM
                 suggestions s
             JOIN
@@ -721,6 +722,7 @@ impl<'a> SuggestDao<'a> {
                     total_reviews: row.get(6)?,
                     icon: row.get(7)?,
                     icon_mimetype: row.get(8)?,
+                    highlighted_title: row.get(9)?,
                 })
             },
         )
