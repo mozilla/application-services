@@ -277,10 +277,6 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: oneshot-uniffi</name>
-    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-  </license>
-  <license>
     <name>Apache License 2.0: parking_lot</name>
     <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
@@ -449,20 +445,12 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: unicode-linebreak</name>
-    <url>https://github.com/axelf4/unicode-linebreak/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-segmentation</name>
     <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: unicode-width</name>
-    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: url</name>
