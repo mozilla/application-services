@@ -23,12 +23,18 @@ pub use interest::{Interest, InterestVector};
 
 use error_support::handle_error;
 
+uniffi::setup_scaffolding!();
+
+#[derive(uniffi::Object)]
 pub struct RelevancyStore {
     db: RelevancyDb,
 }
 
 /// Top-level API for the Relevancy component
+// Impl block to be exported via `UniFFI`.
+#[uniffi::export]
 impl RelevancyStore {
+    #[uniffi::constructor]
     pub fn new(db_path: String) -> Self {
         Self {
             db: RelevancyDb::new(db_path),
@@ -41,13 +47,6 @@ impl RelevancyStore {
 
     pub fn interrupt(&self) {
         self.db.interrupt()
-    }
-
-    /// Download the interest data from remote settings if needed
-    #[handle_error(Error)]
-    pub fn ensure_interest_data_populated(&self) -> ApiResult<()> {
-        ingest::ensure_interest_data_populated(&self.db)?;
-        Ok(())
     }
 
     /// Ingest top URLs to build the user's interest vector.
@@ -70,17 +69,6 @@ impl RelevancyStore {
         Ok(interest_vec)
     }
 
-    pub fn classify(&self, top_urls_by_frecency: Vec<String>) -> Result<InterestVector> {
-        let mut interest_vector = InterestVector::default();
-        for url in top_urls_by_frecency {
-            let interest_count = self.db.read(|dao| dao.get_url_interest_vector(&url))?;
-            log::trace!("classified: {url} {}", interest_count.summary());
-            interest_vector = interest_vector + interest_count;
-        }
-
-        Ok(interest_vector)
-    }
-
     /// Calculate metrics for the validation phase
     ///
     /// This runs after [Self::ingest].  It takes the interest vector that ingest created and
@@ -100,14 +88,32 @@ impl RelevancyStore {
     }
 }
 
+impl RelevancyStore {
+    /// Download the interest data from remote settings if needed
+    #[handle_error(Error)]
+    pub fn ensure_interest_data_populated(&self) -> ApiResult<()> {
+        ingest::ensure_interest_data_populated(&self.db)?;
+        Ok(())
+    }
+
+    pub fn classify(&self, top_urls_by_frecency: Vec<String>) -> Result<InterestVector> {
+        let mut interest_vector = InterestVector::default();
+        for url in top_urls_by_frecency {
+            let interest_count = self.db.read(|dao| dao.get_url_interest_vector(&url))?;
+            log::trace!("classified: {url} {}", interest_count.summary());
+            interest_vector = interest_vector + interest_count;
+        }
+        Ok(interest_vector)
+    }
+}
+
 /// Interest metric data.  See `relevancy.udl` for details.
+#[derive(uniffi::Record)]
 pub struct InterestMetrics {
     pub top_single_interest_similarity: u32,
     pub top_2interest_similarity: u32,
     pub top_3interest_similarity: u32,
 }
-
-uniffi::include_scaffolding!("relevancy");
 
 #[cfg(test)]
 mod test {
