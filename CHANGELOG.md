@@ -1,4 +1,4 @@
-# v130.0 (In progress)
+# v130.0 (_2024-08-05_)
 
 ## ✨ What's New ✨
 
@@ -17,7 +17,7 @@
 ### Nimbus FML
 - The output order should be deterministic again ([#6283](https://github.com/mozilla/application-services/pull/6283))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v129.0...v130.0)
 
 # v129.0 (_2024-07-08_)
 
