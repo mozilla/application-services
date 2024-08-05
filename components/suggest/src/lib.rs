@@ -10,6 +10,7 @@ mod config;
 mod db;
 mod error;
 mod keyword;
+mod metrics;
 pub mod pocket;
 mod provider;
 mod query;
@@ -23,8 +24,9 @@ mod yelp;
 
 pub use config::{SuggestGlobalConfig, SuggestProviderConfig};
 pub use error::SuggestApiError;
+pub use metrics::{LabeledTimingSample, SuggestIngestionMetrics};
 pub use provider::SuggestionProvider;
-pub use query::SuggestionQuery;
+pub use query::{QueryWithMetricsResult, SuggestionQuery};
 pub use store::{InterruptKind, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder};
 pub use suggestion::{raw_suggestion_url_matches, Suggestion};
 

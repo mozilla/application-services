@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{collections::HashSet, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::{Mutex, MutexGuard};
@@ -201,39 +201,6 @@ impl<'a> SuggestDao<'a> {
         Ok(self
             .conn
             .query_one::<bool>("SELECT NOT EXISTS (SELECT 1 FROM suggestions)")?)
-    }
-
-    /// Fetches suggestions that match the given query from the database.
-    pub fn fetch_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        let unique_providers = query.providers.iter().collect::<HashSet<_>>();
-        unique_providers
-            .iter()
-            .try_fold(vec![], |mut acc, provider| {
-                let suggestions = match provider {
-                    SuggestionProvider::Amp => {
-                        self.fetch_amp_suggestions(query, AmpSuggestionType::Desktop)
-                    }
-                    SuggestionProvider::AmpMobile => {
-                        self.fetch_amp_suggestions(query, AmpSuggestionType::Mobile)
-                    }
-                    SuggestionProvider::Wikipedia => self.fetch_wikipedia_suggestions(query),
-                    SuggestionProvider::Amo => self.fetch_amo_suggestions(query),
-                    SuggestionProvider::Pocket => self.fetch_pocket_suggestions(query),
-                    SuggestionProvider::Yelp => self.fetch_yelp_suggestions(query),
-                    SuggestionProvider::Mdn => self.fetch_mdn_suggestions(query),
-                    SuggestionProvider::Weather => self.fetch_weather_suggestions(query),
-                    SuggestionProvider::Fakespot => self.fetch_fakespot_suggestions(query),
-                }?;
-                acc.extend(suggestions);
-                Ok(acc)
-            })
-            .map(|mut suggestions| {
-                suggestions.sort();
-                if let Some(limit) = query.limit.and_then(|limit| usize::try_from(limit).ok()) {
-                    suggestions.truncate(limit);
-                }
-                suggestions
-            })
     }
 
     /// Fetches Suggestions of type Amp provider that match the given query

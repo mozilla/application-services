@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::fmt;
+
 use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
     Result as RusqliteResult,
@@ -23,6 +25,22 @@ pub enum SuggestionProvider {
     Weather = 7,
     AmpMobile = 8,
     Fakespot = 9,
+}
+
+impl fmt::Display for SuggestionProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Amp => write!(f, "amp"),
+            Self::Wikipedia => write!(f, "wikipedia"),
+            Self::Amo => write!(f, "amo"),
+            Self::Pocket => write!(f, "pocket"),
+            Self::Yelp => write!(f, "yelp"),
+            Self::Mdn => write!(f, "mdn"),
+            Self::Weather => write!(f, "weather"),
+            Self::AmpMobile => write!(f, "ampmobile"),
+            Self::Fakespot => write!(f, "fakespot"),
+        }
+    }
 }
 
 impl FromSql for SuggestionProvider {

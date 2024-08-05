@@ -8,6 +8,7 @@
 
 ### Suggest
 - Added support for Fakespot suggestions.
+- Added support for recording metrics
 - Removed the `SuggestIngestionConstraints::max_suggestions` field.  No consumers were using this.
 
 ## 🦊 What's Changed 🦊
