@@ -4,7 +4,7 @@
  */
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -20,12 +20,14 @@ use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     db::{ConnectionType, Sqlite3Extension, SuggestDao, SuggestDb},
     error::Error,
+    metrics::{DownloadTimer, SuggestIngestionMetrics, SuggestQueryMetrics},
     provider::SuggestionProvider,
     rs::{
         Client, Record, RecordRequest, RemoteSettingsClient, SuggestAttachment, SuggestRecord,
         SuggestRecordId, SuggestRecordType, DEFAULT_RECORDS_TYPES,
     },
-    Result, SuggestApiResult, Suggestion, SuggestionQuery,
+    suggestion::AmpSuggestionType,
+    QueryWithMetricsResult, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
 /// Builder for [SuggestStore]
@@ -177,6 +179,15 @@ impl SuggestStore {
     /// Queries the database for suggestions.
     #[handle_error(Error)]
     pub fn query(&self, query: SuggestionQuery) -> SuggestApiResult<Vec<Suggestion>> {
+        Ok(self.inner.query(query)?.suggestions)
+    }
+
+    /// Queries the database for suggestions.
+    #[handle_error(Error)]
+    pub fn query_with_metrics(
+        &self,
+        query: SuggestionQuery,
+    ) -> SuggestApiResult<QueryWithMetricsResult> {
         self.inner.query(query)
     }
 
@@ -207,7 +218,10 @@ impl SuggestStore {
 
     /// Ingests new suggestions from Remote Settings.
     #[handle_error(Error)]
-    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> SuggestApiResult<()> {
+    pub fn ingest(
+        &self,
+        constraints: SuggestIngestionConstraints,
+    ) -> SuggestApiResult<SuggestIngestionMetrics> {
         self.inner.ingest(constraints)
     }
 
@@ -300,11 +314,41 @@ impl<S> SuggestStoreInner<S> {
             .get_or_try_init(|| SuggestStoreDbs::open(&self.data_path, &self.extensions_to_load))
     }
 
-    fn query(&self, query: SuggestionQuery) -> Result<Vec<Suggestion>> {
-        if query.keyword.is_empty() || query.providers.is_empty() {
-            return Ok(Vec::new());
+    fn query(&self, query: SuggestionQuery) -> Result<QueryWithMetricsResult> {
+        let mut metrics = SuggestQueryMetrics::default();
+        let mut suggestions = vec![];
+
+        let unique_providers = query.providers.iter().collect::<HashSet<_>>();
+        let reader = &self.dbs()?.reader;
+        for provider in unique_providers {
+            let new_suggestions = metrics.measure_query(provider.to_string(), || {
+                reader.read(|dao| match provider {
+                    SuggestionProvider::Amp => {
+                        dao.fetch_amp_suggestions(&query, AmpSuggestionType::Desktop)
+                    }
+                    SuggestionProvider::AmpMobile => {
+                        dao.fetch_amp_suggestions(&query, AmpSuggestionType::Mobile)
+                    }
+                    SuggestionProvider::Wikipedia => dao.fetch_wikipedia_suggestions(&query),
+                    SuggestionProvider::Amo => dao.fetch_amo_suggestions(&query),
+                    SuggestionProvider::Pocket => dao.fetch_pocket_suggestions(&query),
+                    SuggestionProvider::Yelp => dao.fetch_yelp_suggestions(&query),
+                    SuggestionProvider::Mdn => dao.fetch_mdn_suggestions(&query),
+                    SuggestionProvider::Weather => dao.fetch_weather_suggestions(&query),
+                    SuggestionProvider::Fakespot => dao.fetch_fakespot_suggestions(&query),
+                })
+            })?;
+            suggestions.extend(new_suggestions);
         }
-        self.dbs()?.reader.read(|dao| dao.fetch_suggestions(&query))
+
+        suggestions.sort();
+        if let Some(limit) = query.limit.and_then(|limit| usize::try_from(limit).ok()) {
+            suggestions.truncate(limit);
+        }
+        Ok(QueryWithMetricsResult {
+            suggestions,
+            query_times: metrics.times,
+        })
     }
 
     fn dismiss_suggestion(&self, suggestion_url: String) -> Result<()> {
@@ -369,11 +413,15 @@ impl<S> SuggestStoreInner<S>
 where
     S: Client,
 {
-    pub fn ingest(&self, constraints: SuggestIngestionConstraints) -> Result<()> {
+    pub fn ingest(
+        &self,
+        constraints: SuggestIngestionConstraints,
+    ) -> Result<SuggestIngestionMetrics> {
         breadcrumb!("Ingestion starting");
         let writer = &self.dbs()?.writer;
+        let mut metrics = SuggestIngestionMetrics::default();
         if constraints.empty_only && !writer.read(|dao| dao.suggestions_table_empty())? {
-            return Ok(());
+            return Ok(metrics);
         }
 
         // use std::collections::BTreeSet;
@@ -393,18 +441,23 @@ where
         let mut write_scope = writer.write_scope()?;
         for ingest_record_type in ingest_record_types {
             breadcrumb!("Ingesting {ingest_record_type}");
-            write_scope.write(|dao| self.ingest_records_by_type(ingest_record_type, dao))?;
+            metrics.measure_ingest(ingest_record_type.to_string(), |download_metrics| {
+                write_scope.write(|dao| {
+                    self.ingest_records_by_type(ingest_record_type, dao, download_metrics)
+                })
+            })?;
             write_scope.err_if_interrupted()?;
         }
         breadcrumb!("Ingestion complete");
 
-        Ok(())
+        Ok(metrics)
     }
 
     fn ingest_records_by_type(
         &self,
         ingest_record_type: SuggestRecordType,
         dao: &mut SuggestDao,
+        timer: &mut DownloadTimer,
     ) -> Result<()> {
         breadcrumb!("Ingesting {ingest_record_type}");
         let last_ingest_key = ingest_record_type.last_ingest_meta_key();
@@ -413,7 +466,7 @@ where
             last_modified: dao.get_meta::<u64>(&last_ingest_key)?,
         };
 
-        let records = self.settings_client.get_records(request)?;
+        let records = timer.measure_download(|| self.settings_client.get_records(request))?;
         for record in &records {
             log::trace!("Deleting: {:?}", record.id);
             // Drop any data that we previously ingested from this record.
@@ -555,10 +608,11 @@ where
 
     pub fn benchmark_ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {
         let writer = &self.dbs().unwrap().writer;
+        let mut timer = DownloadTimer::default();
         writer
             .write(|dao| {
                 dao.clear_meta(ingest_record_type.last_ingest_meta_key().as_str())?;
-                self.ingest_records_by_type(ingest_record_type, dao)
+                self.ingest_records_by_type(ingest_record_type, dao, &mut timer)
             })
             .unwrap()
     }
@@ -673,12 +727,7 @@ mod tests {
         }
 
         fn fetch_suggestions(&self, query: SuggestionQuery) -> Vec<Suggestion> {
-            self.inner
-                .dbs()
-                .unwrap()
-                .reader
-                .read(|dao| Ok(dao.fetch_suggestions(&query).unwrap()))
-                .unwrap()
+            self.inner.query(query).unwrap().suggestions
         }
 
         pub fn fetch_global_config(&self) -> SuggestGlobalConfig {
