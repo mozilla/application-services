@@ -9,6 +9,11 @@
 
 ## ✨ What's New ✨
 
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus SDK ⛅️🔬🔭
+- Added methods to `RecordedContext` for retrieving event queries and setting their values back to the foreign object ([#6322](https://github.com/mozilla/application-services/pull/6322)).
+
 ### Suggest
 - Added support for Fakespot suggestions.
 - Added support for recording metrics

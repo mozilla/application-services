@@ -26,10 +26,10 @@ use crate::{
         },
         matcher::AppContext,
         persistence::{Database, StoreId, Writer},
+        targeting::RecordedContext,
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
     },
     strings::fmt_with_map,
-    targeting::RecordedContext,
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
     ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
@@ -103,10 +103,7 @@ impl NimbusClient {
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
-        let mut targeting_attributes: TargetingAttributes = app_context.clone().into();
-        if let Some(ref context) = recorded_context {
-            targeting_attributes.set_recorded_context(&**context);
-        }
+        let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units: Default::default(),
             targeting_attributes,
@@ -161,7 +158,25 @@ impl NimbusClient {
     ) -> Result<()> {
         self.read_or_create_nimbus_id(db, writer, state)?;
         self.update_ta_install_dates(db, writer, state)?;
-        self.event_store.lock().unwrap().read_from_db(db)?;
+        self.event_store
+            .lock()
+            .expect("unable to lock event_store mutex")
+            .read_from_db(db)?;
+
+        if let Some(recorded_context) = &self.recorded_context {
+            let targeting_helper = self.create_targeting_helper_with_context(
+                serde_json::to_value(state.targeting_attributes.clone())?,
+            )?;
+            let query_results = recorded_context.execute_queries(targeting_helper.as_ref())?;
+            let event_queries = serde_json::Map::from_iter(vec![(
+                "events".to_string(),
+                serde_json::to_value(query_results)?,
+            )]);
+            let json = recorded_context.to_json();
+            let merged = event_queries.defaults(&json)?;
+            state.targeting_attributes.set_recorded_context(merged);
+        }
+
         Ok(())
     }
 
@@ -634,6 +649,14 @@ impl NimbusClient {
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
+        let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
+        Ok(Arc::new(helper))
+    }
+
+    pub fn create_targeting_helper_with_context(
+        &self,
+        context: Value,
+    ) -> Result<Arc<NimbusTargetingHelper>> {
         let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
         Ok(Arc::new(helper))
     }

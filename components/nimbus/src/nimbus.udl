@@ -104,6 +104,7 @@ enum NimbusError {
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
     "ParseIntError", "TransformParameterError", "ClientError", "UniFFICallbackError",
+    "RegexError",
 };
 
 [Custom]
@@ -112,6 +113,10 @@ typedef string JsonObject;
 [Trait, WithForeign]
 interface RecordedContext {
     JsonObject to_json();
+
+    JsonObject get_event_queries();
+
+    void set_event_query_values(JsonObject json);
 
     void record();
 };
