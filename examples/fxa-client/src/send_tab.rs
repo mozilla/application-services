@@ -8,7 +8,7 @@ use fxa_client::{FirefoxAccount, IncomingDeviceCommand};
 use crate::{persist_fxa_state, Result};
 
 #[derive(Args)]
-pub struct SendTabArgs {
+pub struct SendCommandArgs {
     #[command(subcommand)]
     command: Command,
 }
@@ -18,7 +18,7 @@ enum Command {
     /// Perform a single poll for tabs sent to this device
     Poll,
     /// Send a tab to another device
-    Send {
+    SendTab {
         /// Device ID (use the `devices` command to list)
         device_id: String,
         title: String,
@@ -29,22 +29,25 @@ enum Command {
         device_id: String,
         urls: Vec<String>,
     },
+    /// Close all inactive taba on another device
+    CloseInactive { device_id: String },
 }
 
-pub fn run(account: &FirefoxAccount, args: SendTabArgs) -> Result<()> {
+pub fn run(account: &FirefoxAccount, args: SendCommandArgs) -> Result<()> {
     match args.command {
         Command::Poll => poll(account),
-        Command::Send {
+        Command::SendTab {
             device_id,
             title,
             url,
         } => send(account, device_id, title, url),
         Command::Close { device_id, urls } => close(account, device_id, urls),
+        Command::CloseInactive { device_id } => close_inactive(account, device_id),
     }
 }
 
 fn poll(account: &FirefoxAccount) -> Result<()> {
-    println!("Polling for send-tab events.  Ctrl-C to cancel");
+    println!("Polling for command events.  Ctrl-C to cancel");
     loop {
         let events = account.poll_device_commands().unwrap_or_default(); // Ignore 404 errors for now.
         persist_fxa_state(account)?;
@@ -60,7 +63,12 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
                             None => println!("Tab received: {}", tab.url),
                         };
                     }
-                    IncomingDeviceCommand::TabsClosed { .. } => continue,
+                    IncomingDeviceCommand::TabsClosed { .. } => {
+                        println!("TabsClosed command received")
+                    }
+                    IncomingDeviceCommand::AllInactiveTabsClosed { .. } => {
+                        println!("AllInactiveTabsClosed command received")
+                    }
                 }
             }
         }
@@ -76,5 +84,11 @@ fn send(account: &FirefoxAccount, device_id: String, title: String, url: String)
 fn close(account: &FirefoxAccount, device_id: String, urls: Vec<String>) -> Result<()> {
     account.close_tabs(&device_id, urls)?;
     println!("Tabs closed!");
+    Ok(())
+}
+
+fn close_inactive(account: &FirefoxAccount, device_id: String) -> Result<()> {
+    account.close_all_inactive_tabs(&device_id)?;
+    println!("All Inactive Tabs closed!");
     Ok(())
 }
