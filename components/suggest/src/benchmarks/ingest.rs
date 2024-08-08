@@ -55,7 +55,7 @@ impl BenchmarkWithInput for IngestBenchmark {
         let store = SuggestStoreInner::new(data_path, vec![], self.client.clone());
         store.ensure_db_initialized();
         if self.reingest {
-            store.benchmark_ingest_records_by_type(self.record_type);
+            store.ingest_records_by_type(self.record_type);
             store.force_reingest();
         }
         InputType(store)
@@ -63,7 +63,7 @@ impl BenchmarkWithInput for IngestBenchmark {
 
     fn benchmarked_code(&self, input: Self::Input) {
         let InputType(store) = input;
-        store.benchmark_ingest_records_by_type(self.record_type);
+        store.ingest_records_by_type(self.record_type);
     }
 }
 
@@ -170,7 +170,7 @@ pub fn print_debug_ingestion_sizes() {
     let table_row_counts = store.table_row_counts();
     let db_size = store.db_size();
     let client = store.into_settings_client();
-    let total_attachment_size: usize = client.attachments.values().map(|a| a.len()).sum();
+    let total_attachment_size: usize = client.total_attachment_size();
 
     println!(
         "Total attachment size: {}kb",
