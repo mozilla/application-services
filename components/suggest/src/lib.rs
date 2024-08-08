@@ -22,13 +22,15 @@ mod testing;
 mod yelp;
 
 pub use config::{SuggestGlobalConfig, SuggestProviderConfig};
-pub use error::SuggestApiError;
+pub use error::{Error, SuggestApiError};
 pub use provider::SuggestionProvider;
 pub use query::SuggestionQuery;
 pub use store::{InterruptKind, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder};
 pub use suggestion::{raw_suggestion_url_matches, Suggestion};
 
-pub(crate) type Result<T> = std::result::Result<T, error::Error>;
-pub type SuggestApiResult<T> = std::result::Result<T, error::SuggestApiError>;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
+pub type SuggestApiResult<T> = std::result::Result<T, SuggestApiError>;
 
+uniffi::use_udl_record!(remote_settings, RemoteSettingsConfig);
+uniffi::use_udl_enum!(remote_settings, RemoteSettingsServer);
 uniffi::setup_scaffolding!();
