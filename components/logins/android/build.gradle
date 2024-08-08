@@ -26,6 +26,6 @@ dependencies {
     testImplementation project(":syncmanager")
 }
 
-ext.configureUniFFIBindgen("../src/logins.udl")
+ext.configureUniFFIBindgen("logins")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

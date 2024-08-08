@@ -5,7 +5,7 @@ android {
     namespace 'org.mozilla.appservices.remotesettings'
 }
 
-ext.configureUniFFIBindgen("../src/remote_settings.udl")
+ext.configureUniFFIBindgen("remote_settings")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
 

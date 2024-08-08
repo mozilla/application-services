@@ -20,6 +20,6 @@ dependencies {
     testImplementation libs.mozilla.glean.native.tests
 }
 
-ext.configureUniFFIBindgen("../src/fxa_client.udl")
+ext.configureUniFFIBindgen("fxa_client")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

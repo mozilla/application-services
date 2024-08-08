@@ -25,6 +25,6 @@ dependencies {
     testImplementation project(':syncmanager')
 }
 
-ext.configureUniFFIBindgen("../src/places.udl")
+ext.configureUniFFIBindgen("places")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
