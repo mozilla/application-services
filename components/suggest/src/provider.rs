@@ -11,7 +11,7 @@ use rusqlite::{
 use crate::rs::SuggestRecordType;
 
 /// A provider is a source of search suggestions.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, uniffi::Enum)]
 #[repr(u8)]
 pub enum SuggestionProvider {
     Amp = 1,

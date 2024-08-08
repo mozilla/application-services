@@ -61,7 +61,7 @@ pub impl<T> Result<T, rusqlite::Error> {
 
 /// The error type for all Suggest component operations. These errors are
 /// exposed to your application, which should handle them as needed.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 #[non_exhaustive]
 pub enum SuggestApiError {
     #[error("Network error: {reason}")]

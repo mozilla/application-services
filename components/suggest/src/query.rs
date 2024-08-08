@@ -5,7 +5,7 @@
 use crate::SuggestionProvider;
 
 /// A query for suggestions to show in the address bar.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, uniffi::Record)]
 pub struct SuggestionQuery {
     pub keyword: String,
     pub providers: Vec<SuggestionProvider>,
