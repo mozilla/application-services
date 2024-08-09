@@ -511,6 +511,8 @@ pub(crate) struct DownloadedMdnSuggestion {
 pub(crate) struct DownloadedFakespotSuggestion {
     pub fakespot_grade: String,
     pub product_id: String,
+    pub keywords: String,
+    pub product_type: String,
     pub rating: f64,
     pub score: f64,
     pub title: String,
