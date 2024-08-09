@@ -341,6 +341,10 @@ impl<S> SuggestStoreInner<S> {
             suggestions.extend(new_suggestions);
         }
 
+        // Note: it's important that this is a stable sort to keep the intra-provider order stable.
+        // For example, we can return multiple fakespot-suggestions all with `score=0.245`.  In
+        // that case, they must be in the same order that `fetch_fakespot_suggestions` returned
+        // them in.
         suggestions.sort();
         if let Some(limit) = query.limit.and_then(|limit| usize::try_from(limit).ok()) {
             suggestions.truncate(limit);
@@ -2193,15 +2197,20 @@ mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
-            vec![snowglobe_suggestion()],
+            vec![snowglobe_suggestion().with_fakespot_product_type_bonus(0.5)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons")),
             vec![simpsons_suggestion()],
         );
+        // The snowglobe suggestion should come before the simpsons one, since `snow` is a partial
+        // match on the product_type field.
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
-            vec![simpsons_suggestion(), snowglobe_suggestion()],
+            vec![
+                snowglobe_suggestion().with_fakespot_product_type_bonus(0.5),
+                simpsons_suggestion(),
+            ],
         );
         // Test FTS by using a query where the keywords are separated in the source text
         assert_eq!(
@@ -2214,6 +2223,35 @@ mod tests {
             vec![simpsons_suggestion()],
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn fakespot_keywords() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "fakespot-suggestions",
+                    "fakespot-1",
+                    json!([
+                        // Snow normally returns the snowglobe first.  Test using the keyword field
+                        // to force the simpsons result first.
+                        snowglobe_fakespot(),
+                        simpsons_fakespot().merge(json!({"keywords": "snow"})),
+                    ]),
+                )
+                .with_icon(fakespot_amazon_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::all_providers());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
+            vec![
+                simpsons_suggestion().with_fakespot_keyword_bonus(),
+                snowglobe_suggestion().with_fakespot_product_type_bonus(0.5),
+            ],
+        );
         Ok(())
     }
 
