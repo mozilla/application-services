@@ -17,6 +17,7 @@ use sql_support::{open_database::open_database_with_flags, ConnExt};
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     error::RusqliteResultExt,
+    fakespot,
     keyword::full_keyword,
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
@@ -692,7 +693,9 @@ impl<'a> SuggestDao<'a> {
                 f.rating,
                 f.total_reviews,
                 i.data,
-                i.mimetype
+                i.mimetype,
+                f.keywords,
+                f.product_type
             FROM
                 suggestions s
             JOIN
@@ -711,10 +714,17 @@ impl<'a> SuggestDao<'a> {
             "#,
             (&query.fts_query(),),
             |row| {
+                let score = fakespot::FakespotScore::new(
+                    &query.keyword,
+                    row.get(9)?,
+                    row.get(10)?,
+                    row.get(2)?,
+                )
+                .as_suggest_score();
                 Ok(Suggestion::Fakespot {
                     title: row.get(0)?,
                     url: row.get(1)?,
-                    score: fakespot_suggestion_score(row.get(2)?),
+                    score,
                     fakespot_grade: row.get(3)?,
                     product_id: row.get(4)?,
                     rating: row.get(5)?,
@@ -1217,28 +1227,6 @@ impl<'a> FullKeywordInserter<'a> {
     }
 }
 
-/// Convert the score from the suggestions table for a Fakespot suggestion into the final score
-/// to use.
-///
-/// Fakespot suggestions have 2 different scores:
-///   - The Fakespot score comes from the Fakespot data set and is used to order Fakespot
-///     suggestions relative to each other.
-///   - The suggestion score is what we assign to the `Suggestion::Fakespot.score` field and is
-///     used by consumers to order suggestions of all types against each other.
-///
-/// This function calculates the suggestion score from the Fakespot score so that:
-///   - Suggestion scores for Fakespot suggestions are lower than Yelp suggestions
-///   - Suggestion scores for Fakespot suggestions are higher than all other suggestions
-///   - Suggestion scores for Fakespot suggestions reflect the Fakespot score, and ensure that
-///     Fakespot suggestions are correctly ordered against each other.
-///
-/// Since Yelp suggestions are always 0.25 and the next highest by suggestion type is MDN at
-/// 0.24, we pick a score that is 0.245 + the Fakespot score scaled down to [0, 0.001].
-#[inline(always)]
-fn fakespot_suggestion_score(fakespot_score: f64) -> f64 {
-    0.245 + fakespot_score / 1000.0
-}
-
 // ======================== Statement types ========================
 //
 // During ingestion we can insert hundreds of thousands of rows.  These types enable speedups by
@@ -1412,11 +1400,13 @@ impl<'conn> FakespotInsertStatement<'conn> {
                  suggestion_id,
                  fakespot_grade,
                  product_id,
+                 keywords,
+                 product_type,
                  rating,
                  total_reviews,
                  icon_id
              )
-             VALUES(?, ?, ?, ?, ?, ?)
+             VALUES(?, ?, ?, ?, ?, ?, ?, ?)
              ",
         )?))
     }
@@ -1435,6 +1425,8 @@ impl<'conn> FakespotInsertStatement<'conn> {
                 suggestion_id,
                 &fakespot.fakespot_grade,
                 &fakespot.product_id,
+                &fakespot.keywords.to_lowercase(),
+                &fakespot.product_type.to_lowercase(),
                 fakespot.rating,
                 fakespot.total_reviews,
                 icon_id,
