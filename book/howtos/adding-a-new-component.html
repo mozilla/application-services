@@ -1,0 +1,476 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>How to add a new component - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../shared/a-s.css">
+        <link rel="stylesheet" href="../shared/mermaid.css">
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">Application Services Rust Components</a></li><li class="chapter-item expanded "><a href="../contributing.html"><strong aria-hidden="true">1.</strong> Contributing</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../building.html"><strong aria-hidden="true">1.1.</strong> Building</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-fenix.html"><strong aria-hidden="true">1.1.1.</strong> How to use the local development autopublish flow for Fenix</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-firefox-ios.html"><strong aria-hidden="true">1.1.2.</strong> How to use the local development autopublish flow for Firefox iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-focus-ios.html"><strong aria-hidden="true">1.1.3.</strong> How to use the local development flow for Focus for iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-building-jna.html"><strong aria-hidden="true">1.1.4.</strong> How to locally build JNA</a></li><li class="chapter-item expanded "><a href="../howtos/branch-builds.html"><strong aria-hidden="true">1.1.5.</strong> Branch builds</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/testing-a-rust-component.html"><strong aria-hidden="true">1.2.</strong> How to test Rust Components</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/smoke-testing-app-services.html"><strong aria-hidden="true">1.2.1.</strong> How to integration (smoke) test application-services</a></li><li class="chapter-item expanded "><a href="../design/test-faster.html"><strong aria-hidden="true">1.2.2.</strong> Writing efficient tests</a></li><li class="chapter-item expanded "><a href="../howtos/debug-sql.html"><strong aria-hidden="true">1.2.3.</strong> How to debug SQL/sqlite</a></li></ol></li><li class="chapter-item expanded "><a href="../dependency-management.html"><strong aria-hidden="true">1.3.</strong> Dependency management</a></li><li class="chapter-item expanded "><a href="../howtos/adding-a-new-component.html" class="active"><strong aria-hidden="true">1.4.</strong> How to add a new component</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/building-a-rust-component.html"><strong aria-hidden="true">1.4.1.</strong> How to build a new syncable component</a></li><li class="chapter-item expanded "><a href="../naming-conventions.html"><strong aria-hidden="true">1.4.2.</strong> Naming Conventions</a></li><li class="chapter-item expanded "><a href="../howtos/converting-a-component-to-uniffi.html"><strong aria-hidden="true">1.4.3.</strong> How to convert a Rust Component to Uniffi</a></li><li class="chapter-item expanded "><a href="../android-faqs.html"><strong aria-hidden="true">1.4.4.</strong> How to use Rust Components in Android</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/breaking-changes.html"><strong aria-hidden="true">1.5.</strong> Breaking API changes</a></li><li class="chapter-item expanded "><a href="../howtos/vendoring-into-mozilla-central.html"><strong aria-hidden="true">1.6.</strong> How to vendor application-services into mozilla-central</a></li><li class="chapter-item expanded "><a href="../logging.html"><strong aria-hidden="true">1.7.</strong> Logging</a></li><li class="chapter-item expanded "><a href="../howtos/uniffi-object-destruction-on-kotlin.html"><strong aria-hidden="true">1.8.</strong> UniFFI Object Destruction on Kotlin</a></li></ol></li><li class="chapter-item expanded "><a href="../adr/index.html"><strong aria-hidden="true">2.</strong> Architectural Decision Records</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../adr/0000-use-markdown-architectural-decision-records.html"><strong aria-hidden="true">2.1.</strong> ADR-0000</a></li><li class="chapter-item expanded "><a href="../adr/0001-update-logins-api.html"><strong aria-hidden="true">2.2.</strong> ADR-0001</a></li><li class="chapter-item expanded "><a href="../adr/0002-database-corruption.html"><strong aria-hidden="true">2.3.</strong> ADR-0002</a></li><li class="chapter-item expanded "><a href="../adr/0003-swift-packaging.html"><strong aria-hidden="true">2.4.</strong> ADR-0003</a></li><li class="chapter-item expanded "><a href="../adr/0004-early-startup-experiments.html"><strong aria-hidden="true">2.5.</strong> ADR-0004</a></li><li class="chapter-item expanded "><a href="../adr/0005-remote-settings-client.html"><strong aria-hidden="true">2.6.</strong> ADR-0005</a></li><li class="chapter-item expanded "><a href="../adr/0007-limit-visits-migration-to-10000.html"><strong aria-hidden="true">2.7.</strong> ADR-0007</a></li></ol></li><li class="chapter-item expanded "><a href="../design/index.html"><strong aria-hidden="true">3.</strong> Design</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../design/megazords.html"><strong aria-hidden="true">3.1.</strong> Megazords</a></li><li class="chapter-item expanded "><a href="../design/sync-manager.html"><strong aria-hidden="true">3.2.</strong> Sync Manager</a></li><li class="chapter-item expanded "><a href="../design/sync-overview.html"><strong aria-hidden="true">3.3.</strong> Sync overview</a></li><li class="chapter-item expanded "><a href="../design/swift-package-manager.html"><strong aria-hidden="true">3.4.</strong> Shipping Rust Components as Swift Packages</a></li><li class="chapter-item expanded "><a href="../design/components-strategy.html"><strong aria-hidden="true">3.5.</strong> Rust Component's Strategy</a></li><li class="chapter-item expanded "><a href="../design/metrics.html"><strong aria-hidden="true">3.6.</strong> Metrics - (Glean Telemetry)</a></li><li class="chapter-item expanded "><a href="../design/rust-versions.html"><strong aria-hidden="true">3.7.</strong> Rust Version Policy</a></li><li class="chapter-item expanded "><a href="../design/db-pragmas.html"><strong aria-hidden="true">3.8.</strong> Sqlite Database Pragma Usage</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/releases.html"><strong aria-hidden="true">4.</strong> Releases</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../build-and-publish-pipeline.html"><strong aria-hidden="true">4.1.</strong> CI Publishing tools and flow</a></li><li class="chapter-item expanded "><a href="../howtos/upgrading-nss-guide.html"><strong aria-hidden="true">4.2.</strong> How to upgrade NSS</a></li></ol></li><li class="chapter-item expanded "><a href="../rust-docs/fxa_client/index.html"><strong aria-hidden="true">5.</strong> Rustdocs for components</a></li><li class="chapter-item expanded "><a href="../adding-docs.html"><strong aria-hidden="true">6.</strong> Adding to these documents</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mozilla/application-services" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="adding-a-new-component-to-application-services"><a class="header" href="#adding-a-new-component-to-application-services">Adding a new component to Application Services</a></h1>
+<p>Each component in the Application Services repository has three parts (the Rust code,
+the Kotlin wrapper, and the Swift wrapper) so there are quite a few moving
+parts involved in adding a new component. This is a rapid-fire list of all
+the things you'll need to do if adding a new component from scratch.</p>
+<h2 id="the-rust-code"><a class="header" href="#the-rust-code">The Rust Code</a></h2>
+<p>Your component should live under <code>./components</code> in this repo.
+Use <code>cargo new --lib ./components/&lt;your_crate_name&gt;</code>to create a new library crate,
+and please try to avoid using hyphens in the crate name.</p>
+<p>See the <a href="./building-a-rust-component.html">Guide to Building a Rust Component</a> for general
+advice on designing and structuring the actual Rust code, and follow the
+<a href="../dependency-management.html">Dependency Management Guidelines</a> if your crate
+introduces any new dependencies.</p>
+<p>Use <a href="https://mozilla.github.io/uniffi-rs/">UniFFI</a> to define how your crate's
+API will get exposed to foreign-language bindings. By convention, put the interface
+definition file at <code>./components/&lt;your_crate_name&gt;/&lt;your_crate_name&gt;.udl</code>. Use
+the <code>builtin-bindgen</code> feature of UniFFI to simplify the build process, by
+putting the following in your <code>Cargo.toml</code>:</p>
+<pre><code>[build-dependencies]
+uniffi_build = { version = "&lt;latest version here&gt;", features=["builtin-bindgen"] }
+</code></pre>
+<p>Include your new crate in the <code>application-services</code> workspace, by adding
+it to the <code>members</code> and <code>default-members</code> lists in the <code>Cargo.toml</code> at
+the root of the repository.</p>
+<p>In order to be published to consumers, your crate must be included in the
+<a href="../design/megazords.html">"megazord"</a> crate for each target platform:</p>
+<ul>
+<li>For Android, add it as a dependency in <code>./megazords/full/Cargo.toml</code> and
+add a <code>pub use &lt;your_crate_name&gt;</code> to <code>./megazords/full/src/lib.rs</code>.</li>
+<li>For iOS, add it as a dependency in <code>./megazords/ios-rust/rust/Cargo.toml</code> and
+add a <code>pub use &lt;your_crate_name&gt;</code> to <code>./megazords/ios-rust/src/lib.rs</code>.</li>
+</ul>
+<p>Run <code>cargo check -p &lt;your_crate_name&gt;</code> in the repository root to confirm that
+things are configured properly. This will also have the side-effect of updating
+<code>Cargo.lock</code> to contain your new crate and its dependencies.</p>
+<h2 id="the-kotlin-bindings"><a class="header" href="#the-kotlin-bindings">The Kotlin Bindings</a></h2>
+<p>Make a <code>./components/&lt;your_crate_name&gt;/android</code> subdirectory to contain
+Kotlin- and Android-specific code. This directory will contain a gradle
+project for building your Kotlin bindings.</p>
+<p>Copy the <code>build.gradle</code> file from <code>./components/crashtest/android/</code> into
+your own component's directory, and edit it to replace the references to
+<code>crashtest.udl</code> with your own component's <code>.udl</code> file.</p>
+<p>Create a file <code>./components/&lt;your_crate_name&gt;/uniffi.toml</code> with the
+following contents:</p>
+<pre><code class="language-toml">[bindings.kotlin]
+package_name = "mozilla.appservices.&lt;your_crate_name&gt;"
+cdylib_name = "megazord"
+</code></pre>
+<p>Create a file <code>./components/&lt;your_crate_name&gt;/android/src/main/AndroidManifest.xml</code>
+with the following contents:</p>
+<pre><code class="language-xml">&lt;manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.mozilla.appservices.&lt;your_crate_name&gt;" /&gt;
+</code></pre>
+<p>In the root of the repository, edit <code>.buildconfig-android.yml</code>to add
+your component's metadata. This will cause it to be included in the
+gradle workspace and in our build and publish pipeline. Check whether
+it builds correctly by running:</p>
+<ul>
+<li><code>./gradlew &lt;your_crate_name&gt;:assembleDebug</code></li>
+</ul>
+<p>You can include hand-written Kotlin code alongside the automatically
+generated bindings, by placing `.kt`` files in a directory named:</p>
+<ul>
+<li><code>./android/src/test/java/mozilla/appservices/&lt;your_crate_name&gt;/</code></li>
+</ul>
+<p>You can write Kotlin-level tests that consume your component's API,
+by placing `.kt`` files in a directory named:</p>
+<ul>
+<li><code>./android/src/test/java/mozilla/appservices/&lt;your_crate_name&gt;/</code>.</li>
+</ul>
+<p>So you would end up with a directory structure something like this:</p>
+<ul>
+<li><code>components/&lt;your_crate_name&gt;/</code>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>uniffi.toml</code></li>
+<li><code>src/</code>
+<ul>
+<li>Rust code here.</li>
+</ul>
+</li>
+<li><code>android/</code>
+<ul>
+<li><code>build.gradle</code></li>
+<li><code>src/</code>
+<ul>
+<li><code>main/</code>
+<ul>
+<li><code>AndroidManifest.xml</code></li>
+<li><code>java/mozilla/appservices/&lt;your_crate_name&gt;/</code>
+<ul>
+<li>Hand-written Kotlin code here.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>test/java/mozilla/appservices/&lt;your_crate_name&gt;/</code>
+<ul>
+<li>Kotlin test-cases here.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Run your component's Kotlin tests with <code>./gradlew &lt;your_crate_name&gt;:test</code>
+to confirm that this is all working correctly.</p>
+<h2 id="the-swift-bindings"><a class="header" href="#the-swift-bindings">The Swift Bindings</a></h2>
+<h3 id="creating-the-directory-structure"><a class="header" href="#creating-the-directory-structure">Creating the directory structure</a></h3>
+<p>Make a <code>./components/&lt;your_crate_name&gt;/ios</code> subdirectory to contain
+Swift- and iOS-specific code. The UniFFI-generated swift bindings will
+be written to a subdirectory named <code>Generated</code>.</p>
+<p>You can include hand-written Swift code alongside the automatically
+generated bindings, by placing <code>.swift</code> files in a directory named:
+<code>./ios/&lt;your_crate_name&gt;/</code>.</p>
+<p>So you would end up with a directory structure something like this:</p>
+<ul>
+<li><code>components/&lt;your_crate_name&gt;/</code>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>uniffi.toml</code></li>
+<li><code>src/</code>
+<ul>
+<li>Rust code here.</li>
+</ul>
+</li>
+<li><code>ios/</code>
+<ul>
+<li><code>&lt;your_crate_name&gt;/</code>
+<ul>
+<li>Hand-written Swift code here.</li>
+</ul>
+</li>
+<li><code>Generated/</code>
+<ul>
+<li>Generated Swift code will be written into this directory.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="adding-your-component-to-the-swift-package-manager-megazord"><a class="header" href="#adding-your-component-to-the-swift-package-manager-megazord">Adding your component to the Swift Package Manager Megazord</a></h3>
+<blockquote>
+<p><em>For more information on our how we ship components using the Swift Package Manager, check the <a href="../adr/0003-swift-packaging.html">ADR that introduced the Swift Package Manager</a></em></p>
+</blockquote>
+<p>You will need to do the following steps to include the component in the megazord:</p>
+<ol>
+<li>
+<p>Update its <code>uniffi.toml</code> to include the following settings:</p>
+<pre><code class="language-toml">[bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "&lt;crate_name&gt;FFI"
+</code></pre>
+</li>
+<li>
+<p>Add the component as a dependency to the <code>Cargo.toml</code> in <a href="https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/Cargo.toml"><code>megazords/ios-rust/</code></a></p>
+</li>
+<li>
+<p>Add a <code>pub use</code> declaration for the component in <a href="https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/src/lib.rs"><code>megazords/ios-rust/src/lib.rs</code></a></p>
+</li>
+<li>
+<p>Add logic to the <a href="https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/build-xcframework.sh"><code>megazords/ios-rust/build-xcframework.sh</code></a> to copy or generate its header file into the build</p>
+</li>
+<li>
+<p>Add an <code>#import</code> for its header file to <a href="https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/MozillaRustComponents.h"><code>megazords/ios-rust/MozillaRustComponents.h</code></a></p>
+</li>
+<li>
+<p>Add your component into the iOS <a href="../design/megazords.html">"megazord"</a> through the Xcode project, which can only really by done using the Xcode application, which can only really be done if you're on a Mac.</p>
+<ol>
+<li>
+<p>Open <code>megazords/ios-rust/MozillaTestServices/MozillaTestServices.xcodeproj</code> in Xcode.</p>
+</li>
+<li>
+<p>In the Project navigator, add a new Group for your new component, pointing to
+the <code>./ios/</code> directory you created above.  Add the following entries to the Group:</p>
+<ul>
+<li>The <code>.udl</code> file for you component, from <code>../src/&lt;your_crate_name&gt;.udl</code>.</li>
+<li>Any hand-written <code>.swift </code>files for your component</li>
+</ul>
+</li>
+</ol>
+</li>
+</ol>
+<blockquote>
+<p>Make sure that the "Copy items if needed" option is <strong>unchecked</strong>, and that
+nothing is checked in the "Add to targets" list.</p>
+</blockquote>
+<p>The result should look something like this:</p>
+<p><img src="./img/xcode_add_component_1.png" alt="Screenshot of Xcode Project Navigator" /></p>
+<p>Click on the top-level "MozillaTestServices" project in the navigator, then go to "Build Phases".</p>
+<blockquote>
+<p>Double-check that <code>&lt;your_crate_name&gt;.udl</code> does <strong>not</strong> appear in the "Copy Bundle Resources" section.</p>
+</blockquote>
+<p>Add <code>&lt;your_crate_name&gt;.udl</code> to the list of "Compile Sources". This will trigger an Xcode Build Rule that generates
+the Swift bindings automatically. Also include any hand-written <code>.swift</code> files in this list.</p>
+<p>Finally, in the Project navigator, add a sub-group named "Generated", pointing to the <code>./Generated/</code> subdirectory, and
+containing entries for the files generated by UniFFI:
+* <code>&lt;your_crate_name&gt;.swift</code>
+* <code>&lt;your_crate_name&gt;FFI.h</code>
+Make sure that "Copy items if needed" is unchecked, and that nothing is checked in "Add to targets".</p>
+<blockquote>
+<p>Double-check that <code>&lt;your_crate_name&gt;.swift</code> does <strong>not</strong> appear in the "Compile Sources" section.</p>
+</blockquote>
+<p>The result should look something like this:</p>
+<p><img src="./img/xcode_add_component_2.png" alt="Screenshot of Xcode Compile Sources list" /></p>
+<p>Build the project in Xcode to check whether that all worked correctly.</p>
+<p>To add Swift tests for your component API, create them in a file under
+<code>megazords/ios-rust/MozillaTestServicesTests/</code>. Use this syntax to import
+your component's bindings from the compiled megazord:</p>
+<pre><code>@testable import MozillaTestServices
+</code></pre>
+<p>In Xcode, navigate to the <code>MozillaTestServicesTests</code> Group and add your
+new test file as an entry. Select the corresponding target, click on
+"Build Phases", and add your test file to the list of "Compile Sources".
+The result should look something like this:</p>
+<p><img src="./img/xcode_add_component_4.png" alt="Screenshot of Xcode Test Setup" /></p>
+<p>Use the Xcode Test Navigator to run your tests and check whether
+they're passing.</p>
+<h2 id="distribute-your-component-with-rust-components-swift"><a class="header" href="#distribute-your-component-with-rust-components-swift">Distribute your component with <code>rust-components-swift</code></a></h2>
+<p>The Swift source code and generated UniFFI bindings are distributed to consumers (eg: Firefox iOS) through <a href="https://github.com/mozilla/rust-components-swift"><code>rust-components-swift</code></a>.</p>
+<p>A nightly taskcluster job prepares the <code>rust-component-swift</code> packages from the source code in the application-services repository. To distribute your component with <code>rust-component-swift</code>, add the following to the taskcluster script in <code>taskcluster/scripts/build-and-test-swift.py</code>:</p>
+<ul>
+<li>Add the path to the <code>&lt;your_crate_name&gt;.udl</code> file to <code>BINDINGS_UDL_PATHS</code>
+<ul>
+<li>Optionally also to <code>FOCUS_UDL_PATHS</code> if your component is also targeting Firefox Focus</li>
+</ul>
+</li>
+<li>Add the path to the directory containing any hand-written swift code to <code>SOURCE_TO_COPY</code>
+<ul>
+<li>Optionally also to <code>FOCUS_SOURCE_TO_COPY</code> if your component is also targeting Firefox Focus</li>
+</ul>
+</li>
+</ul>
+<p>Your component should now automatically get included in the next <code>rust-component-swift</code> nightly release.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/howtos/adding-a-new-component.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../dependency-management.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../howtos/building-a-rust-component.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../dependency-management.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../howtos/building-a-rust-component.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../shared/tabs.js"></script>
+        <script src="../shared/mermaid.min.js"></script>
+        <script src="../shared/mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>
