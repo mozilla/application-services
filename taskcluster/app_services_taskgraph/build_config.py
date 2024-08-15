@@ -3,11 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
+import functools
 import os
 import yaml
-
-from taskgraph.util.memoize import memoize
-
 
 EXTENSIONS = {
     'aar': ('.aar', '.pom', '-sources.jar'),
@@ -44,7 +42,7 @@ def get_version(params):
     else:
         return version
 
-@memoize
+@functools.cache
 def get_version_from_version_txt():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     project_dir = os.path.realpath(os.path.join(current_dir, '..', '..'))
@@ -71,7 +69,7 @@ def get_extensions(module_name):
     return extensions
 
 
-@memoize
+@functools.cache
 def _read_build_config():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     project_dir = os.path.realpath(os.path.join(current_dir, '..', '..'))
