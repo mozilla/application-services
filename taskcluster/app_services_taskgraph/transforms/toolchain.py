@@ -3,11 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
+import functools
 import subprocess
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
-from taskgraph.util.memoize import memoize
 
 transforms = TransformSequence()
 
@@ -20,7 +20,7 @@ TOOLCHAIN_OLD_INDEX = {
 }
 
 
-@memoize
+@functools.cache
 def git_sha_for_directory(directory):
     output = subprocess.check_output(["git", "rev-parse", f"HEAD:{directory}"])
     sha = output.decode("utf8").strip()
