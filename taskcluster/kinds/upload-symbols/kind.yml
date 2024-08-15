@@ -1,0 +1,61 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+  - module-build
+  - toolchain
+
+transforms:
+  - taskgraph.transforms.from_deps
+  - app_services_taskgraph.transforms.secrets:transforms
+  - taskgraph.transforms.run:transforms
+  - taskgraph.transforms.task:transforms
+
+tasks:
+  upload-symbols:
+    attributes:
+      run-on-pr-type: full-ci
+      shipping_phase: ship
+      nightly: true
+    from-deps:
+      kinds: [module-build]
+      # unique-kinds needs to be false for now because of
+      # https://github.com/taskcluster/taskgraph/issues/563
+      unique-kinds: false
+      with-attributes:
+        uploadSymbols: "yes"
+      fetches:
+        module-build:
+          - artifact: crashreporter-symbols.tar.gz
+            extract: true
+            dest: crashreporter-symbols
+    worker-type: b-linux
+    worker:
+      chain-of-trust: true
+      max-run-time: 1800
+      docker-image: {in-tree: linux}
+      env: {}
+    description: "Upload symbols"
+    run:
+      using: run-commands
+      commands:
+        - [automation/upload_android_symbols.sh, crashreporter-symbols"]
+      dummy-secrets:
+          by-level:
+              '3': []
+              default:
+                  - content: "faketoken"
+                    path: .symbols_upload_token
+      secrets:
+          by-level:
+              '3':
+                  - name: project/application-services/symbols-token
+                    key: token
+                    path: .symbols_upload_token
+              default: []
+    fetches:
+      toolchain:
+        - android-libs
