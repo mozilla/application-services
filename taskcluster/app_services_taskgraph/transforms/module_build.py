@@ -37,6 +37,10 @@ def build_task(config, tasks):
         name = module_info["name"]
         version = get_version(config.params)
 
+        # copy uploadSymbols attribute so that we can filter on it in the upload-symbols task
+        if module_info.get("uploadSymbols", False):
+            task["attributes"]["uploadSymbols"] = "yes"
+
         for i,item in enumerate(task["run"]["gradlew"]):
             task["run"]["gradlew"][i] = task["run"]["gradlew"][i].format(module_name=name)
         if config.params.get('preview-build') is not None:
@@ -53,5 +57,29 @@ def build_task(config, tasks):
                     "path": f"{path_prefix}/{publication_name}/{version}/{artifact_filename}",
                     "type": "file",
                 })
+
+        yield task
+
+@transforms.add
+def generate_symbols(config, tasks):
+    for task in tasks:
+        artifacts = task["worker"].setdefault("artifacts", [])
+        post_gradlew = task["run"].setdefault("post-gradlew", [])
+        symbols_path = "/builds/worker/checkouts/vcs/build/crashreporter-symbols.tar.gz"
+
+        if task["attributes"]["buildconfig"].get("uploadSymbols", False):
+            post_gradlew.append(
+                [
+                    "source",
+                    "automation/generate_android_symbols.sh",
+                    task["attributes"]["buildconfig"]["path"],
+                    symbols_path,
+                ]
+            )
+            artifacts.append({
+                "name": "public/build/crashreporter-symbols.tar.gz",
+                "path": symbols_path,
+                "type": "file",
+            })
 
         yield task
