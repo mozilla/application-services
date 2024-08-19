@@ -145,27 +145,37 @@ impl NimbusApp {
         version: &Option<String>,
         ref_: &String,
     ) -> Result<String> {
-        if version.is_none() {
-            return Ok(ref_.to_string());
-        }
         let app_name = self
             .app_name()
             .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
 
+        if version.is_none() {
+            // gecko-dev uses master, not main
+            if (app_name == "fenix" || app_name == "focus_android") && ref_ == "main" {
+                return Ok("master".into());
+            }
+
+            return Ok(ref_.to_string());
+        }
+
         let v = version.as_ref().unwrap();
         let v = match app_name.as_str() {
             "fenix" => {
-                if is_before(version, 110) {
+                if is_before(version, 111) {
                     pad_major_minor_patch(v)
-                } else {
+                } else if is_before(version, 126) {
                     pad_major(v)
+                } else {
+                    bail!("gecko-dev does not have tagged versions, use --ref instead")
                 }
             }
             "focus_android" => {
                 if is_before(version, 110) {
                     pad_major_minor(v)
-                } else {
+                } else if is_before(version, 126) {
                     pad_major(v)
+                } else {
+                    bail!("gecko-dev does not have tagged versions, use --ref instead")
                 }
             }
             "firefox_ios" => {
@@ -202,17 +212,21 @@ impl NimbusApp {
         Ok(match app_name.as_str() {
             // Fenix and Focus are both in the same repo
             "fenix" => {
-                if is_before(version, 110) {
+                if is_before(version, 111) {
                     "mozilla-mobile/fenix"
-                } else {
+                } else if is_before(version, 126) {
                     "mozilla-mobile/firefox-android"
+                } else {
+                    "mozilla/gecko-dev"
                 }
             }
             "focus_android" => {
                 if is_before(version, 110) {
                     "mozilla-mobile/focus-android"
-                } else {
+                } else if is_before(version, 126) {
                     "mozilla-mobile/firefox-android"
+                } else {
+                    "mozilla/gecko-dev"
                 }
             }
             "firefox_ios" => "mozilla-mobile/firefox-ios",
@@ -229,12 +243,14 @@ impl NimbusApp {
             "fenix" => {
                 if is_before(version, 98) {
                     bail!("Fenix wasn't Nimbus enabled before v98")
-                } else if is_before(version, 110) {
+                } else if is_before(version, 111) {
                     "nimbus.fml.yaml"
                 } else if is_before(version, 112) {
                     "fenix/nimbus.fml.yaml"
-                } else {
+                } else if is_before(version, 126) {
                     "fenix/app/nimbus.fml.yaml"
+                } else {
+                    "mobile/android/fenix/app/nimbus.fml.yaml"
                 }
             }
             "focus_android" => {
@@ -244,8 +260,10 @@ impl NimbusApp {
                     "nimbus.fml.yaml"
                 } else if is_before(version, 112) {
                     "focus-android/nimbus.fml.yaml"
-                } else {
+                } else if is_before(version, 126) {
                     "focus-android/app/nimbus.fml.yaml"
+                } else {
+                    "mobile/android/focus-android/app/nimbus.fml.yaml"
                 }
             }
             "firefox_ios" => {
