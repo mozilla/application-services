@@ -1,0 +1,15 @@
+[package]
+name = "search"
+version = "0.1.0"
+edition = "2021"
+description = "Library for search service related components."
+readme = "README.md"
+license = "MPL-2.0"
+
+[dependencies]
+error-support = { path = "../support/error" }
+thiserror = "1"
+uniffi = { workspace = true }
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }
