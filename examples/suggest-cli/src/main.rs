@@ -186,7 +186,7 @@ fn query(
             None => SuggestionProvider::all().to_vec(),
         },
         keyword: input,
-        limit: None,
+        ..SuggestionQuery::default()
     };
     let mut results = store
         .query_with_metrics(query)
