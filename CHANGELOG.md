@@ -5,7 +5,7 @@
 # v131.0 (_2024-08-30_)
 
 ### Glean
-- Updated to v60.5.0 ([#6339](https://github.com/mozilla/application-services/pull/6339))
+- Updated to v61.0.0 ([#6348](https://github.com/mozilla/application-services/pull/6348))
 
 ### Nimbus CLI
 - Support for Firefox for Android and Focus v126+ (via gecko-dev).
