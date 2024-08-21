@@ -700,15 +700,24 @@ mod unit_tests {
         NimbusApp::new("fenix", "developer")
     }
 
+    fn fenix_old_manifest_with_ref(ref_: &str) -> ManifestSource {
+        ManifestSource::FromGithub {
+            channel: "developer".into(),
+            github_repo: "mozilla-mobile/firefox-android".into(),
+            ref_: ref_.into(),
+            manifest_file: "@mozilla-mobile/firefox-android/fenix/app/nimbus.fml.yaml".into(),
+        }
+    }
+
     fn fenix_manifest() -> ManifestSource {
-        fenix_manifest_with_ref("main")
+        fenix_manifest_with_ref("master")
     }
 
     fn fenix_manifest_with_ref(ref_: &str) -> ManifestSource {
         ManifestSource::FromGithub {
-            github_repo: "mozilla-mobile/firefox-android".to_string(),
+            github_repo: "mozilla/gecko-dev".to_string(),
             ref_: ref_.to_string(),
-            manifest_file: "@mozilla-mobile/firefox-android/fenix/app/nimbus.fml.yaml".to_string(),
+            manifest_file: "@mozilla/gecko-dev/mobile/android/fenix/app/nimbus.fml.yaml".into(),
             channel: "developer".to_string(),
         }
     }
@@ -1090,7 +1099,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: fenix_manifest_with_ref("releases_v114"),
+                manifest: fenix_old_manifest_with_ref("releases_v114"),
                 experiment: experiment("my-experiment"),
             },
             AppCommand::NoOp,
@@ -1206,7 +1215,7 @@ mod unit_tests {
         let expected = vec![
             AppCommand::ValidateExperiment {
                 params: fenix_params(),
-                manifest: fenix_manifest_with_ref("releases_v114"),
+                manifest: fenix_old_manifest_with_ref("releases_v114"),
                 experiment: feature_experiment(
                     "my-feature",
                     &["./my-branch.json", "./my-treatment.json"],
