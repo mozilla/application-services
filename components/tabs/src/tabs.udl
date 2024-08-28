@@ -60,7 +60,7 @@ dictionary ClientRemoteTabs {
 [Enum]
 interface RemoteCommand {
     CloseTab(string url);
-    CloseAllInactiveTabs();
+    // CloseInactive(); ??
 };
 
 interface RemoteCommandStore {

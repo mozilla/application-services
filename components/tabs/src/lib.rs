@@ -56,7 +56,7 @@ pub use crate::sync::engine::TabsEngine;
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RemoteCommand {
     CloseTab { url: String },
-    CloseAllInactiveTabs,
+    // eg, CloseInactive, ??
 }
 
 // Tabs that were requested to be closed on other clients

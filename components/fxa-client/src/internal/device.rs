@@ -98,14 +98,6 @@ impl FirefoxAccount {
                         close_tabs_command_data,
                     );
                 }
-                DeviceCapability::CloseAllInactiveTabs => {
-                    let command_data =
-                        self.generate_command_data(DeviceCapability::CloseAllInactiveTabs)?;
-                    commands.insert(
-                        commands::close_all_inactive_tabs::COMMAND_NAME.to_owned(),
-                        command_data,
-                    );
-                }
             }
         }
         Ok(commands)
@@ -281,8 +273,6 @@ impl FirefoxAccount {
             commands::close_tabs::COMMAND_NAME => {
                 self.handle_close_tabs_command(sender, command_data.payload, telem_reason)
             }
-            commands::close_all_inactive_tabs::COMMAND_NAME => self
-                .handle_close_all_inactive_tabs_command(sender, command_data.payload, telem_reason),
             _ => Err(Error::UnknownCommand(command_data.command)),
         }
     }
@@ -377,9 +367,6 @@ impl FirefoxAccount {
         match capability {
             DeviceCapability::SendTab => self.load_or_generate_send_tab_keys(),
             DeviceCapability::CloseTabs => self.load_or_generate_close_tabs_keys(),
-            DeviceCapability::CloseAllInactiveTabs => {
-                self.load_or_generate_close_all_inactive_tabs_keys()
-            }
         }
     }
 }
@@ -391,9 +378,6 @@ impl TryFrom<String> for DeviceCapability {
         match command.as_str() {
             commands::send_tab::COMMAND_NAME => Ok(DeviceCapability::SendTab),
             commands::close_tabs::COMMAND_NAME => Ok(DeviceCapability::CloseTabs),
-            commands::close_all_inactive_tabs::COMMAND_NAME => {
-                Ok(DeviceCapability::CloseAllInactiveTabs)
-            }
             _ => Err(Error::UnknownCommand(command)),
         }
     }
@@ -431,9 +415,6 @@ impl TryFrom<Device> for crate::Device {
             .filter_map(|k| match k.as_str() {
                 commands::send_tab::COMMAND_NAME => Some(DeviceCapability::SendTab),
                 commands::close_tabs::COMMAND_NAME => Some(DeviceCapability::CloseTabs),
-                commands::close_all_inactive_tabs::COMMAND_NAME => {
-                    Some(DeviceCapability::CloseAllInactiveTabs)
-                }
                 _ => None,
             })
             .map(Into::into)
@@ -479,36 +460,6 @@ mod tests {
             kid: "1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ".to_string(),
         });
         fxa
-    }
-
-    #[test]
-    fn test_all_capabilities() {
-        let mut fxa = setup();
-
-        // Do an initial call to ensure_capabilities().
-        let mut client = MockFxAClient::new();
-        client
-            .expect_update_device_record()
-            .with(always(), eq("refreshtok"), always())
-            .times(1)
-            .returning(|_, _, _| {
-                Ok(UpdateDeviceResponse {
-                    id: "device1".to_string(),
-                    display_name: "".to_string(),
-                    device_type: DeviceType::Desktop,
-                    push_subscription: None,
-                    // these tests don't care what the server responds with
-                    available_commands: HashMap::new(),
-                    push_endpoint_expired: false,
-                })
-            });
-        fxa.set_client(Arc::new(client));
-        fxa.ensure_capabilities(&[
-            DeviceCapability::SendTab,
-            DeviceCapability::CloseTabs,
-            DeviceCapability::CloseAllInactiveTabs,
-        ])
-        .unwrap();
     }
 
     #[test]

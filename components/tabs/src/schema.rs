@@ -38,7 +38,7 @@ const CREATE_PENDING_REMOTE_DELETE_TABLE_SQL: &str = "
         time_sent               INTEGER -- local timestamp, non-null == no longer pending.
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS remote_tab_commands_index ON remote_tab_commands(device_id, command, IFNULL(url, ''));
+    CREATE UNIQUE INDEX IF NOT EXISTS remote_tab_commands_index ON remote_tab_commands(device_id, command, url);
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -60,7 +60,7 @@ pub struct TabsMigrationLogic;
 
 impl MigrationLogic for TabsMigrationLogic {
     const NAME: &'static str = "tabs storage db";
-    const END_VERSION: u32 = 6;
+    const END_VERSION: u32 = 5;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> MigrationResult<()> {
         let initial_pragmas = "
@@ -85,20 +85,12 @@ impl MigrationLogic for TabsMigrationLogic {
 
     fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
         match version {
-            5 => upgrade_remotetabs_index(db),
             3 | 4 => upgrade_simple_commands_drop(db),
             2 => upgrade_from_v2(db),
             1 => upgrade_from_v1(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),
         }
     }
-}
-
-fn upgrade_remotetabs_index(db: &Connection) -> MigrationResult<()> {
-    // We changed the index to take nulls into account.
-    db.execute_batch("DROP INDEX IF EXISTS remote_tab_commands_index;")?;
-    db.execute_batch(CREATE_PENDING_REMOTE_DELETE_TABLE_SQL)?;
-    Ok(())
 }
 
 // while we can get away with this, we should :)
@@ -207,19 +199,5 @@ mod tests {
             [],
         )
         .expect_err("identical command should fail");
-        conn.execute(
-            "INSERT INTO remote_tab_commands
-                (device_id, command, url, time_requested, time_sent)
-                VALUES ('d', 'other', null, 1, null)",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO remote_tab_commands
-                (device_id, command, url, time_requested, time_sent)
-                VALUES ('d', 'other', null, 1, null)",
-            [],
-        )
-        .expect_err("identical command with null URL should fail");
     }
 }
