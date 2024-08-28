@@ -21,7 +21,6 @@ use url::Url;
 
 #[cfg(feature = "integration_test")]
 pub mod auth;
-mod close_all_inactive_tabs;
 mod close_tabs;
 mod commands;
 pub mod config;
