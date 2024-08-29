@@ -475,7 +475,7 @@ where
                         }),
                     );
                     write_scope.write(|dao| {
-                        self.ingest_records(dao, collection, changes, &constraints, download_timer)
+                        self.process_changes(dao, collection, changes, &constraints, download_timer)
                     })
                 })?;
                 write_scope.err_if_interrupted()?;
@@ -486,7 +486,7 @@ where
         Ok(metrics)
     }
 
-    fn ingest_records(
+    fn process_changes(
         &self,
         dao: &mut SuggestDao,
         collection: Collection,
@@ -496,7 +496,7 @@ where
     ) -> Result<()> {
         for record in &changes.new {
             log::trace!("Ingesting record ID: {}", record.id.as_str());
-            self.ingest_record(dao, record, constraints, download_timer)?;
+            self.process_record(dao, record, constraints, download_timer)?;
         }
         for record in &changes.updated {
             // Drop any data that we previously ingested from this record.
@@ -505,12 +505,12 @@ where
             // more complicated than dropping and re-ingesting all of them.
             log::trace!("Reingesting updated record ID: {}", record.id.as_str());
             dao.delete_record_data(&record.id)?;
-            self.ingest_record(dao, record, constraints, download_timer)?;
+            self.process_record(dao, record, constraints, download_timer)?;
         }
         for record in &changes.unchanged {
-            if self.should_reingest_record(dao, record)? {
+            if self.should_reprocess_record(dao, record)? {
                 log::trace!("Reingesting unchanged record ID: {}", record.id.as_str());
-                self.ingest_record(dao, record, constraints, download_timer)?;
+                self.process_record(dao, record, constraints, download_timer)?;
             }
         }
         for record in &changes.deleted {
@@ -526,7 +526,7 @@ where
         Ok(())
     }
 
-    fn ingest_record(
+    fn process_record(
         &self,
         dao: &mut SuggestDao,
         record: &Record,
@@ -535,7 +535,7 @@ where
     ) -> Result<()> {
         match &record.payload {
             SuggestRecord::AmpWikipedia => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -545,7 +545,7 @@ where
                 )?;
             }
             SuggestRecord::AmpMobile => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -567,7 +567,7 @@ where
                 dao.put_icon(icon_id, &data, &attachment.mimetype)?;
             }
             SuggestRecord::Amo => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -577,7 +577,7 @@ where
                 )?;
             }
             SuggestRecord::Pocket => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -587,7 +587,7 @@ where
                 )?;
             }
             SuggestRecord::Yelp => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -598,7 +598,7 @@ where
                 )?;
             }
             SuggestRecord::Mdn => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -612,7 +612,7 @@ where
                 dao.put_global_config(&SuggestGlobalConfig::from(config))?
             }
             SuggestRecord::Fakespot => {
-                self.ingest_attachment(
+                self.download_attachment(
                     dao,
                     record,
                     download_timer,
@@ -630,7 +630,7 @@ where
                     .and_then(|c| c.exposure_suggestion_types.as_ref())
                 {
                     if suggestion_types.iter().any(|t| *t == r.suggestion_type) {
-                        self.ingest_attachment(
+                        self.download_attachment(
                             dao,
                             record,
                             download_timer,
@@ -649,7 +649,7 @@ where
         Ok(())
     }
 
-    fn ingest_attachment<T>(
+    fn download_attachment<T>(
         &self,
         dao: &mut SuggestDao,
         record: &Record,
@@ -674,7 +674,7 @@ where
         }
     }
 
-    fn should_reingest_record(&self, dao: &mut SuggestDao, record: &Record) -> Result<bool> {
+    fn should_reprocess_record(&self, dao: &mut SuggestDao, record: &Record) -> Result<bool> {
         match &record.payload {
             SuggestRecord::Exposure(_) => {
                 // Even though the record was previously ingested, its
@@ -766,7 +766,7 @@ where
         );
         writer
             .write(|dao| {
-                self.ingest_records(
+                self.process_changes(
                     dao,
                     ingest_record_type.collection(),
                     changes,
