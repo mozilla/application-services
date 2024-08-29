@@ -71,3 +71,11 @@ cirrus.py
 fml.py
 *.dylib
 *.so
+
+# Build static website files
+automation/swift-components-docs/.build
+automation/swift-components-docs/docs
+automation/swift-components-docs/Sources/SwiftComponents/*.swift
+automation/swift-components-docs/Sources/SwiftComponents/include/*.h
+
+
