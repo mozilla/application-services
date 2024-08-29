@@ -503,9 +503,15 @@ where
             // Suggestions in particular don't have a stable identifier, and
             // determining which suggestions in the record actually changed is
             // more complicated than dropping and re-ingesting all of them.
-            log::trace!("Reingesting record ID: {}", record.id.as_str());
+            log::trace!("Reingesting updated record ID: {}", record.id.as_str());
             dao.delete_record_data(&record.id)?;
             self.ingest_record(dao, record, constraints, download_timer)?;
+        }
+        for record in &changes.unchanged {
+            if self.should_reingest_record(dao, record)? {
+                log::trace!("Reingesting unchanged record ID: {}", record.id.as_str());
+                self.ingest_record(dao, record, constraints, download_timer)?;
+            }
         }
         for record in &changes.deleted {
             log::trace!("Deleting record ID: {:?}", record.id);
@@ -667,6 +673,20 @@ where
             Err(_) => Ok(()),
         }
     }
+
+    fn should_reingest_record(&self, dao: &mut SuggestDao, record: &Record) -> Result<bool> {
+        match &record.payload {
+            SuggestRecord::Exposure(_) => {
+                // Even though the record was previously ingested, its
+                // suggestion wouldn't have been if it never matched the
+                // provider constraints of any ingest. Return true if the
+                // suggestion is not ingested. If the provider constraints of
+                // the current ingest do match the suggestion, we'll ingest it.
+                Ok(!dao.is_exposure_suggestion_ingested(&record.id)?)
+            }
+            _ => Ok(false),
+        }
+    }
 }
 
 /// Tracks changes in suggest records since the last ingestion
@@ -674,6 +694,7 @@ struct RecordChanges<'a> {
     new: Vec<&'a Record>,
     updated: Vec<&'a Record>,
     deleted: Vec<&'a IngestedRecord>,
+    unchanged: Vec<&'a Record>,
 }
 
 impl<'a> RecordChanges<'a> {
@@ -687,12 +708,15 @@ impl<'a> RecordChanges<'a> {
         // Remove existing records from ingested_map.
         let mut new = vec![];
         let mut updated = vec![];
+        let mut unchanged = vec![];
         for r in current {
             match ingested_map.entry(r.id.as_str()) {
                 Entry::Vacant(_) => new.push(r),
                 Entry::Occupied(e) => {
                     if e.remove().last_modified != r.last_modified {
                         updated.push(r);
+                    } else {
+                        unchanged.push(r);
                     }
                 }
             }
@@ -703,6 +727,7 @@ impl<'a> RecordChanges<'a> {
             new,
             deleted,
             updated,
+            unchanged,
         }
     }
 }
@@ -2845,7 +2870,7 @@ mod tests {
     }
 
     #[test]
-    fn exposure_not_ingested() -> anyhow::Result<()> {
+    fn exposure_ingest() -> anyhow::Result<()> {
         before_each();
 
         // Create suggestions with types "aaa" and "bbb".
@@ -2858,7 +2883,7 @@ mod tests {
                         "suggestion_type": "aaa",
                     })),
                     Some(json!({
-                        "keywords": ["aaa keyword"],
+                        "keywords": ["aaa keyword", "both keyword"],
                     })),
                 )
                 .with_full_record(
@@ -2868,12 +2893,40 @@ mod tests {
                         "suggestion_type": "bbb",
                     })),
                     Some(json!({
-                        "keywords": ["bbb keyword"],
+                        "keywords": ["bbb keyword", "both keyword"],
                     })),
                 ),
         );
 
-        // Ingest only the "bbb" suggestion.
+        // Ingest but don't pass in any provider constraints. The records will
+        // be ingested but their attachments won't be, so fetches shouldn't
+        // return any suggestions.
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Exposure]),
+            provider_constraints: None,
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        let ingest_1_queries = [
+            ("aaa keyword", vec!["aaa"]),
+            ("aaa keyword", vec!["bbb"]),
+            ("aaa keyword", vec!["aaa", "bbb"]),
+            ("bbb keyword", vec!["aaa"]),
+            ("bbb keyword", vec!["bbb"]),
+            ("bbb keyword", vec!["aaa", "bbb"]),
+            ("both keyword", vec!["aaa"]),
+            ("both keyword", vec!["bbb"]),
+            ("both keyword", vec!["aaa", "bbb"]),
+        ];
+        for (query, types) in &ingest_1_queries {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::exposure(query, types)),
+                vec![],
+            );
+        }
+
+        // Ingest only the "bbb" suggestion. The "bbb" attachment should be
+        // ingested, so "bbb" fetches should return the "bbb" suggestion.
         store.ingest(SuggestIngestionConstraints {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
@@ -2882,36 +2935,131 @@ mod tests {
             ..SuggestIngestionConstraints::all_providers()
         });
 
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("aaa keyword", &["aaa"])),
-            vec![],
+        let ingest_2_queries = [
+            ("aaa keyword", vec!["aaa"], vec![]),
+            ("aaa keyword", vec!["bbb"], vec![]),
+            ("aaa keyword", vec!["aaa", "bbb"], vec![]),
+            ("bbb keyword", vec!["aaa"], vec![]),
+            ("bbb keyword", vec!["bbb"], vec!["bbb"]),
+            ("bbb keyword", vec!["aaa", "bbb"], vec!["bbb"]),
+            ("both keyword", vec!["aaa"], vec![]),
+            ("both keyword", vec!["bbb"], vec!["bbb"]),
+            ("both keyword", vec!["aaa", "bbb"], vec!["bbb"]),
+        ];
+        for (query, types, expected_types) in &ingest_2_queries {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::exposure(query, types)),
+                expected_types
+                    .iter()
+                    .map(|t| Suggestion::Exposure {
+                        suggestion_type: t.to_string(),
+                        score: 1.0,
+                    })
+                    .collect::<Vec<Suggestion>>(),
+            );
+        }
+
+        // Now ingest the "aaa" suggestion.
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Exposure]),
+            provider_constraints: Some(SuggestionProviderConstraints {
+                exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+            }),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        let ingest_3_queries = [
+            ("aaa keyword", vec!["aaa"], vec!["aaa"]),
+            ("aaa keyword", vec!["bbb"], vec![]),
+            ("aaa keyword", vec!["aaa", "bbb"], vec!["aaa"]),
+            ("bbb keyword", vec!["aaa"], vec![]),
+            ("bbb keyword", vec!["bbb"], vec!["bbb"]),
+            ("bbb keyword", vec!["aaa", "bbb"], vec!["bbb"]),
+            ("both keyword", vec!["aaa"], vec!["aaa"]),
+            ("both keyword", vec!["bbb"], vec!["bbb"]),
+            ("both keyword", vec!["aaa", "bbb"], vec!["aaa", "bbb"]),
+        ];
+        for (query, types, expected_types) in &ingest_3_queries {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::exposure(query, types)),
+                expected_types
+                    .iter()
+                    .map(|t| Suggestion::Exposure {
+                        suggestion_type: t.to_string(),
+                        score: 1.0,
+                    })
+                    .collect::<Vec<Suggestion>>(),
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn exposure_ingest_new_record() -> anyhow::Result<()> {
+        before_each();
+
+        // Create an exposure suggestion and ingest it.
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_full_record(
+            "exposure-suggestions",
+            "exposure-0",
+            Some(json!({
+                "suggestion_type": "aaa",
+            })),
+            Some(json!({
+                "keywords": ["old keyword"],
+            })),
+        ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Exposure]),
+            provider_constraints: Some(SuggestionProviderConstraints {
+                exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+            }),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Add a new record of the same exposure type.
+        store.client_mut().add_full_record(
+            "exposure-suggestions",
+            "exposure-1",
+            Some(json!({
+                "suggestion_type": "aaa",
+            })),
+            Some(json!({
+                "keywords": ["new keyword"],
+            })),
         );
+
+        // Ingest, but don't ingest the exposure type. The store will download
+        // the new record but shouldn't ingest its attachment.
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Exposure]),
+            provider_constraints: None,
+            ..SuggestIngestionConstraints::all_providers()
+        });
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("aaa keyword", &["bbb"])),
-            vec![],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("aaa keyword", &["aaa", "bbb"])),
-            vec![],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("bbb keyword", &["aaa"])),
+            store.fetch_suggestions(SuggestionQuery::exposure("new keyword", &["aaa"])),
             vec![],
         );
 
+        // Ingest again with the exposure type. The new record will be
+        // unchanged, but the store should now ingest its attachment.
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Exposure]),
+            provider_constraints: Some(SuggestionProviderConstraints {
+                exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+            }),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // The keyword in the new attachment should match the suggestion,
+        // confirming that the new record's attachment was ingested.
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("bbb keyword", &["bbb"])),
+            store.fetch_suggestions(SuggestionQuery::exposure("new keyword", &["aaa"])),
             vec![Suggestion::Exposure {
-                suggestion_type: "bbb".into(),
+                suggestion_type: "aaa".to_string(),
                 score: 1.0,
-            }],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::exposure("bbb keyword", &["aaa", "bbb"])),
-            vec![Suggestion::Exposure {
-                suggestion_type: "bbb".into(),
-                score: 1.0,
-            }],
+            }]
         );
 
         Ok(())
