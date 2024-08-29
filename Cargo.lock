@@ -4160,6 +4160,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "swift_components_docs"
+version = "0.1.0"
+dependencies = [
+ "megazord_ios",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
