@@ -7,6 +7,7 @@ libs-ios:
     run:
         resources:
             - libs
+            - taskcluster/scripts/setup-mac-worker.sh
         script: libs-ios.sh
         toolchain-alias: libs-ios
         toolchain-artifact: public/build/ios.tar.gz

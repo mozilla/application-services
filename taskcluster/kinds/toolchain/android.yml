@@ -16,3 +16,5 @@ android:
         script: android.sh
         toolchain-alias: android-libs
         toolchain-artifact: public/build/android.tar.gz
+        resources:
+            - taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
