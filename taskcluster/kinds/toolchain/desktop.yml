@@ -6,6 +6,7 @@ task-defaults:
     run:
         resources:
             - 'libs'
+            - taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh
     fetches:
         toolchain:
             - rust
@@ -30,3 +31,5 @@ desktop-macos:
         script: desktop-macos.sh
         toolchain-alias: desktop-macos-libs
         toolchain-artifact: public/build/macos.tar.gz
+        resources:
+            - taskcluster/scripts/toolchain/cross-compile-setup.sh
