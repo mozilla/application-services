@@ -31,5 +31,4 @@ tasks-from:
     - android.yml
     - desktop.yml
     - ios.yml
-    - resourcemonitor.yml
     - rust.yml

@@ -18,7 +18,6 @@ kind-dependencies:
 task-defaults:
   attributes:
     run-on-pr-type: full-ci
-    resource-monitor: true
   scopes:
     - project:releng:services/tooltool/api/download/internal
 
