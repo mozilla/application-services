@@ -19,7 +19,6 @@ kind-dependencies:
 task-defaults:
   attributes:
     run-on-pr-type: full-ci
-    resource-monitor: true
   run-on-tasks-for: [github-pull-request, github-push, cron]
   description: "{module_name} - Build and test"
   scopes:

@@ -18,7 +18,6 @@ tasks:
   firefox-android:
     attributes:
       branch-build: firefox-android
-      resource-monitor: true
     description: "Build against a firefox-android branch"
     worker-type: b-linux
     worker:
@@ -49,7 +48,6 @@ tasks:
   firefox-ios:
     attributes:
       branch-build: firefox-ios
-      resource-monitor: true
     description: "Build against a firefox-ios branch"
     worker-type: b-osx
     worker:

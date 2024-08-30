@@ -21,7 +21,6 @@ tasks:
   build:
     attributes:
       run-on-pr-type: full-ci
-      resource-monitor: true
       release-routes:
         - index.project.{project}.v2.swift.{appservices_version}
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
