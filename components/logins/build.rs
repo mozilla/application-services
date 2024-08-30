@@ -4,5 +4,9 @@
  */
 
 fn main() {
-    uniffi::generate_scaffolding("./src/logins.udl").unwrap();
+    if cfg!(feature = "keydb") {
+        uniffi::generate_scaffolding("./src/logins-managed-store.udl").unwrap();
+    } else {
+        uniffi::generate_scaffolding("./src/logins.udl").unwrap();
+    }
 }

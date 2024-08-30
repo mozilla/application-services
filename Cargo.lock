@@ -1734,7 +1734,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean-build"
-version = "14.5.1"
+version = "14.0.1"
 dependencies = [
  "xshell-venv",
 ]
@@ -2316,6 +2316,7 @@ dependencies = [
  "lazy_static",
  "log",
  "more-asserts",
+ "nss",
  "parking_lot",
  "rusqlite",
  "serde",
