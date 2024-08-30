@@ -36,8 +36,11 @@ curl -sfSL --retry 5 --retry-delay 10 \
 tar -xf clang-dist-toolchain.tar.xz
 mv builds/worker/toolchains/clang clang
 rm clang-dist-toolchain.tar.xz
-popd
 
+# Fixup symlink
+ln -sf clang-18 clang/bin/clang
+
+popd
 
 pushd /tmp || exit
 
@@ -50,15 +53,5 @@ tooltool.py \
 tar -I zstd -xf "MacOSX11.0.sdk.tar.zst"
 
 popd || exit
-
-# Verify the permissions of clang symlink and the actual binary
-chmod +x builds/worker/toolchains/clang/bin/clang
-chmod +x builds/worker/toolchains/clang/bin/clang-18
-
-# Verify paths after extraction and permission changes
-echo "Verifying paths after extraction"
-ls -la builds/worker/toolchains/clang/bin
-file builds/worker/toolchains/clang/bin/clang
-file builds/worker/toolchains/clang/bin/clang-18
 
 set +eu
