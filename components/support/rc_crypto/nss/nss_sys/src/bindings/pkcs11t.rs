@@ -15,6 +15,7 @@ pub type CK_OBJECT_HANDLE = CK_ULONG;
 pub type CK_OBJECT_CLASS = CK_ULONG;
 pub type CK_KEY_TYPE = CK_ULONG;
 pub type CK_ATTRIBUTE_TYPE = CK_ULONG;
+pub type CK_FLAGS = CK_ULONG;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct CK_ATTRIBUTE {
@@ -35,6 +36,7 @@ pub const CKA_KEY_TYPE: u32 = 256;
 pub const CKA_ID: u32 = 258;
 pub const CKA_SENSITIVE: u32 = 259;
 pub const CKA_ENCRYPT: u32 = 260;
+pub const CKA_DECRYPT: u32 = 261;
 pub const CKA_WRAP: u32 = 262;
 pub const CKA_SIGN: u32 = 264;
 pub const CKA_EC_PARAMS: u32 = 384;
@@ -48,4 +50,6 @@ pub const CKM_EC_KEY_PAIR_GEN: u32 = 4160;
 pub const CKM_ECDH1_DERIVE: u32 = 4176;
 pub const CKM_AES_CBC_PAD: u32 = 4229;
 pub const CKM_AES_GCM: u32 = 4231;
+pub const CKM_AES_KEY_GEN: u64 = 0x00001080;
+pub const CKM_AES_KEY_WRAP_KWP: u64 = 0x0000210B;
 pub const CKD_NULL: u32 = 1;

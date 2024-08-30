@@ -28,10 +28,7 @@ impl Jwk {
         })
     }
 
-    // Create a new Jwk given the raw bytes of a `Direct` key. We generally
-    // prefer consumers to use serde with the entire key and the only use-case
-    // is currently tests, so let's limit this to tests for now...
-    #[cfg(test)]
+    // Create a new Jwk given the raw bytes of a `Direct` key.
     pub fn new_direct_from_bytes(kid: Option<String>, key: &[u8]) -> Self {
         Jwk {
             kid,

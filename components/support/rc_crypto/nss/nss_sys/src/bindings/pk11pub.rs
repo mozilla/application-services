@@ -3,19 +3,66 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::*;
-use std::os::raw::{c_int, c_uchar, c_uint, c_void};
+use std::os::raw::{c_char, c_int, c_uchar, c_uint, c_void};
 
 extern "C" {
     pub fn PK11_FreeSlot(slot: *mut PK11SlotInfo);
     pub fn PK11_GetInternalSlot() -> *mut PK11SlotInfo;
+    pub fn PK11_GetInternalKeySlot() -> *mut PK11SlotInfo;
+    pub fn PK11_InitPin(
+        slot: *mut PK11SlotInfo,
+        ssopw: *const c_char,
+        pk11_userpwd: *const c_char,
+    ) -> SECStatus;
+    pub fn PK11_KeyGen(
+        slot: *mut PK11SlotInfo,
+        type_: CK_MECHANISM_TYPE,
+        param: *mut SECItem,
+        keySize: c_int,
+        wincx: *mut c_void,
+    ) -> *mut PK11SymKey;
+    pub fn PK11_NeedUserInit(slot: *mut PK11SlotInfo) -> PRBool;
     pub fn PK11_GenerateRandom(data: *mut c_uchar, len: c_int) -> SECStatus;
     pub fn PK11_FreeSymKey(key: *mut PK11SymKey);
+    pub fn PK11_SetSymKeyNickname(key: *mut PK11SymKey, name: *const c_uchar);
     pub fn PK11_ImportSymKey(
         slot: *mut PK11SlotInfo,
         type_: CK_MECHANISM_TYPE,
         origin: u32, /* PK11Origin */
         operation: CK_ATTRIBUTE_TYPE,
         key: *mut SECItem,
+        wincx: *mut c_void,
+    ) -> *mut PK11SymKey;
+    pub fn PK11_WrapSymKey(
+        type_: CK_MECHANISM_TYPE,
+        param: *mut SECItem,
+        wrappingKey: *mut PK11SymKey,
+        symKey: *mut PK11SymKey,
+        wrappedKey: *mut SECItem,
+    ) -> SECStatus;
+    pub fn PK11_UnwrapSymKey(
+        wrappingKey: *mut PK11SymKey,
+        wrapType: CK_MECHANISM_TYPE,
+        param: *mut SECItem,
+        wrappedKey: *mut SECItem,
+        target: CK_MECHANISM_TYPE,
+        operation: CK_ATTRIBUTE_TYPE,
+        keySize: c_int,
+    ) -> *mut PK11SymKey;
+    pub fn SECITEM_AllocItem(arena: *mut c_void, item: *mut SECItem, len: c_int) -> *mut SECItem;
+    pub fn PK11_ImportSymKeyWithFlags(
+        slot: *mut PK11SlotInfo,
+        type_: CK_MECHANISM_TYPE,
+        origin: u32, /* PK11Origin */
+        operation: CK_ATTRIBUTE_TYPE,
+        key: *mut SECItem,
+        flags: CK_FLAGS,
+        isPerm: PRBool,
+        wincx: *mut c_void,
+    ) -> *mut PK11SymKey;
+    pub fn PK11_ListFixedKeysInSlot(
+        slot: *mut PK11SlotInfo,
+        nickname: *const c_uchar,
         wincx: *mut c_void,
     ) -> *mut PK11SymKey;
     pub fn PK11_Derive(
