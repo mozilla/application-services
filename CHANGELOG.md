@@ -1,6 +1,8 @@
-# v131.0 (In progress)
+# v132.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v131.0 (_2024-08-30_)
 
 ### Glean
 - Updated to v60.5.0 ([#6339](https://github.com/mozilla/application-services/pull/6339))
@@ -10,6 +12,8 @@
   Fixed a bug where manifests for Firefox for Android v110 were not available, due
   to being fetched from the wrong repository
   ([#6347](https://github.com/mozilla/application-services/pull/6347))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v130.0...v131.0)
 
 # v130.0 (_2024-08-05_)
 
