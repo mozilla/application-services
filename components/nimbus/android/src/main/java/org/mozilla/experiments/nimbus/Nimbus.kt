@@ -44,6 +44,7 @@ import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import java.io.File
 import java.io.IOException
+import kotlin.system.measureTimeMillis
 
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
@@ -308,10 +309,12 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun applyPendingExperimentsOnThisThread() = withCatchAll("applyPendingExperiments") {
         try {
-            val events = NimbusHealth.applyPendingExperimentsTime.measure {
-                nimbusClient.applyPendingExperiments()
+            var events: List<EnrollmentChangeEvent>?
+            val time = measureTimeMillis {
+                events = nimbusClient.applyPendingExperiments()
             }
-            recordExperimentTelemetryEvents(events)
+            NimbusHealth.applyPendingExperimentsTime.accumulateSingleSample(time)
+            recordExperimentTelemetryEvents(events!!)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusException.InvalidExperimentFormat) {
