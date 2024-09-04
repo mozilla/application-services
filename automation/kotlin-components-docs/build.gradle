@@ -1,0 +1,18 @@
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.8.20"
+    id "org.jetbrains.dokka" version "1.8.10"
+}
+
+repositories {
+    mavenCentral()
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+tasks.dokkaHtml.configure {
+    outputDirectory.set(file("build/dokka"))
+}

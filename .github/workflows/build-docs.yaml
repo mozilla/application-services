@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: docs-ubuntu-latest
-          path: 'build/docs'
+          path: "build/docs"
 
   build-swift-docs:
     runs-on: macos-latest
@@ -65,7 +65,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
 
       - name: Install Jazzy
         run: gem install jazzy
@@ -79,26 +79,96 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: docs-macos-latest
-          path: 'automation/swift-components-docs/docs'
+          path: "automation/swift-components-docs/docs"
 
+  build-kotlin-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Manual Android SDK Setup
+        env:
+          ANDROID_HOME: ${{ runner.temp }}/android-sdk
+        run: |
+          mkdir -p $ANDROID_HOME
+
+          # Download command-line tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+
+          # Add environment variables
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+          # Accept licenses
+          set +e
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_HOME} --licenses || true
+          set -e
+
+          # Install SDK platforms and build tools
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_HOME} "platforms;android-35" "build-tools;35.0.0"
+
+          # Verify installation
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_HOME} --list | grep "build-tools;35.0.0"
+
+      - name: Install Command-line tools
+        run: |
+          sdkmanager --install "cmdline-tools;latest"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
+          echo "$ANDROID_NDK_HOME" >> $GITHUB_PATH
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build Kotlin docs
+        run: |
+          cd ./automation/kotlin-components-docs
+          chmod +x ./generate_docs.sh
+          ./generate_docs.sh
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kotlin-docs
+          path: "automation/kotlin-components-docs/build/dokka"
 
   deploy-docs:
-    needs: [build-md-books, build-swift-docs]
+    needs: [build-md-books, build-swift-docs, build-kotlin-docs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
       - name: Download all artifacts
         uses: actions/download-artifact@v3
-
       - name: Prepare documentation
         run: |
           mkdir -p gh-pages
           mv docs-ubuntu-latest/* gh-pages/
           mkdir -p gh-pages/swift
           mv docs-macos-latest/* gh-pages/swift/
-
+          mkdir -p gh-pages/kotlin
+          mv kotlin-docs/* gh-pages/kotlin/
       - name: Deploy to GitHub Pages
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
