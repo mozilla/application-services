@@ -6,6 +6,7 @@ members = [
     "components/as-ohttp-client",
     "components/autofill",
     "components/crashtest",
+    "components/fairy-bridge",
     "components/fxa-client",
     "components/logins",
     "components/nimbus",
