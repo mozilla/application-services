@@ -1,56 +1,111 @@
-name: Build and Deploy
-on:   
-  schedule:
-    - cron: '0 1 * * *'
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
 jobs:
-  build-and-deploy-docs:
+  build-md-books:
     runs-on: ubuntu-latest
-    steps: 
-      - name: Get repository and install Rust dependencies
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up repository and install Rust
         run: |
           echo `env`
-          git init .
-          git remote add origin https://github.com/mozilla/application-services.git
-          git pull origin main
-          git submodule init
-          git submodule update --recursive
           echo 'rust.targets=linux-x86-64' > local.properties
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
- 
-      - name: Build Dependencies
-        env: 
-          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
-          NSS_STATIC: 1 
-        run: |
 
+      - name: Build Dependencies
+        env:
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1
+        run: |
           git clone https://chromium.googlesource.com/external/gyp.git tools/gyp
           cd tools/gyp
           sudo python setup.py install
           cd ../..
           sudo apt-get install ninja-build zlib1g-dev tclsh python3
           ./libs/verify-desktop-environment.sh
-      
+
       - name: Build mdbook
-        env: 
+        env:
           NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
-          NSS_STATIC: 1 
+          NSS_STATIC: 1
         run: |
           cargo install mdbook mdbook-mermaid mdbook-open-on-gh
           ./tools/build-book.sh
-          
-      - name: Deploy
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs-ubuntu-latest
+          path: 'build/docs'
+
+  build-swift-docs:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Jazzy
+        run: gem install jazzy
+
+      - name: Build Swift docs
         run: |
-          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
-          git config --local user.name "${{ github.actor }}"
-          git config --local url."https://api:${{ github.token }}@github.com/".insteadOf "https://github.com/"
-          git config --local url."https://ssh:${{ github.token }}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --local url."https://git:${{ github.token }}@github.com/".insteadOf "git@github.com:"
+          cd ./automation/swift-components-docs
+          ./build.sh
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs-macos-latest
+          path: 'automation/swift-components-docs/docs'
+
+
+  deploy-docs:
+    needs: [build-md-books, build-swift-docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Prepare documentation
+        run: |
+          mkdir -p gh-pages
+          mv docs-ubuntu-latest/* gh-pages/
+          mkdir -p gh-pages/swift
+          mv docs-macos-latest/* gh-pages/swift/
+
+      - name: Deploy to GitHub Pages
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git checkout --orphan gh-pages
-          git --work-tree build/docs add --all
-          git --work-tree build/docs commit -m 'Deploy Docs'
-          git push origin HEAD:gh-pages --force
-          rm -r build/docs
-          git checkout -f main 
-          git branch -D gh-pages
+          git rm -rf .
+          mv gh-pages/* .
+          git add .
+          git commit -m "Deploy documentation"
+          git push origin gh-pages --force
