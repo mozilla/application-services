@@ -44,11 +44,6 @@
 ### Suggest
 - Removed the deprecated `remote_settings_config` method.  No consumers were using this.
 
-### Webext-Storage
-- Exposed the bridged engine logic for use in desktop ([#6180](https://github.com/mozilla/application-services/pull/6180)).
-  - This updates the signature of the `bridged_engine` function technically making this a breaking change though the
-    references to function with the old signature are being removed in a desktop patch.
-
 ## ✨ What's New ✨
 
 ### Glean
