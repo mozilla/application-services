@@ -7,3 +7,4 @@ pub const SHA256_LENGTH: u32 = 32;
 pub const SHA384_LENGTH: u32 = 48;
 pub const HASH_LENGTH_MAX: u32 = 64;
 pub const AES_BLOCK_SIZE: u32 = 16;
+pub const AES_256_KEY_LENGTH: u32 = 32;

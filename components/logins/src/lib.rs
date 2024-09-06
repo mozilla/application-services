@@ -11,17 +11,24 @@ mod login;
 
 mod db;
 pub mod encryption;
+#[cfg(feature = "keydb")]
+mod managed_store;
 mod schema;
 mod store;
 mod sync;
 mod util;
 
+#[cfg(not(feature = "keydb"))]
 uniffi::include_scaffolding!("logins");
+#[cfg(feature = "keydb")]
+uniffi::include_scaffolding!("logins-managed-store");
 
 pub use crate::db::LoginDb;
 use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
+#[cfg(feature = "keydb")]
+pub use crate::managed_store::*;
 pub use crate::store::*;
 pub use crate::sync::LoginsSyncEngine;
 

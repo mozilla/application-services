@@ -3,7 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
+#[cfg(feature = "keydb")]
+use crate::pk11::slot;
 use nss_sys::*;
+use std::env;
 use std::{ffi::CString, os::raw::c_char, sync::Once};
 
 // This is the NSS version that this crate is claiming to be compatible with.
@@ -18,15 +21,29 @@ pub fn ensure_nss_initialized() {
         if unsafe { NSS_VersionCheck(version_ptr.as_ptr()) == PR_FALSE } {
             panic!("Incompatible NSS version!")
         }
+        // TBD: using an environment variable for the profile dir is just the easiest thing I could
+        // come up with, we might want to consider alternatives
+        let path: CString = if cfg!(feature = "keydb") {
+            CString::new(env::var("PROFILE_DIR").expect("missing PROFILE_DIR")).unwrap()
+        } else {
+            CString::default()
+        };
+
         let empty = CString::default();
-        let flags = NSS_INIT_READONLY
-            | NSS_INIT_NOCERTDB
-            | NSS_INIT_NOMODDB
-            | NSS_INIT_FORCEOPEN
-            | NSS_INIT_OPTIMIZESPACE;
+
+        let flags = if cfg!(feature = "keydb") {
+            NSS_INIT_FORCEOPEN | NSS_INIT_OPTIMIZESPACE
+        } else {
+            NSS_INIT_READONLY
+                | NSS_INIT_NOCERTDB
+                | NSS_INIT_NOMODDB
+                | NSS_INIT_FORCEOPEN
+                | NSS_INIT_OPTIMIZESPACE
+        };
+
         let context = unsafe {
             NSS_InitContext(
-                empty.as_ptr(),
+                path.as_ptr(),
                 empty.as_ptr(),
                 empty.as_ptr(),
                 empty.as_ptr(),
@@ -37,6 +54,28 @@ pub fn ensure_nss_initialized() {
         if context.is_null() {
             let error = get_last_error();
             panic!("Could not initialize NSS: {}", error);
+        }
+
+        #[cfg(feature = "keydb")]
+        {
+            let Ok(slot) = slot::get_internal_key_slot() else {
+                let error = get_last_error();
+                panic!("Could not get internal key slot: {}", error);
+            };
+
+            if unsafe { PK11_NeedUserInit(slot.as_mut_ptr()) } == nss_sys::PR_TRUE {
+                let result = unsafe {
+                    PK11_InitPin(
+                        slot.as_mut_ptr(),
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                    )
+                };
+                if result != SECStatus::SECSuccess {
+                    let error = get_last_error();
+                    panic!("Could not initialize internal key slot: {}", error);
+                }
+            }
         }
     })
 }
