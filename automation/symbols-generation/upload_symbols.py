@@ -80,7 +80,9 @@ def main():
     symbol_path = args[0]
     token_file = options.token_file
     shutil.make_archive(symbol_path , "zip", symbol_path)
-    upload_symbols(symbol_path + ".zip", token_file)
+    upload_success = upload_symbols(symbol_path + ".zip", token_file)
+    if not upload_success:
+        sys.exit(2)
 
 # run main if run directly
 if __name__ == "__main__":
