@@ -10,8 +10,200 @@ interface SearchApiError {
     Other(string reason);
 };
 
-interface SearchEngineSelector {
-    [Throws=SearchApiError]
-    void filter_engine_configuration();
+/// TBD: These may be going away.
+dictionary SearchAccessPointValues {
+    string? addressbar;
+    string? contextmenu;
+    string? homepage;
+    string? newtab;
+    string? searchbar;
 };
 
+/**
+ * Parameter definitions for search engine URLs. The name property is always
+ * specified, along with one of value, experiment_config or search_access_point.
+ */
+dictionary SearchUrlParam {
+    /// The name of the parameter in the url.
+    string name;
+
+    /// The parameter value, this may be a static value, or additionally contain
+    /// a parameter replacement, e.g. `{inputEncoding}`. For the partner code
+    /// parameter, this field should be `{partnerCode}`.
+    string? value;
+
+    /// The value for the parameter will be derived from the equivalent experiment
+    /// configuration value.
+    /// Only desktop uses this currently.
+    string? experiment_config;
+
+    /// TBD. May be going away.
+    SearchAccessPointValues? search_access_point;
+};
+
+/**
+ * Defines an individual search engine URL.
+ */
+dictionary SearchEngineUrl {
+    /// The PrePath and FilePath of the URL. May include variables for engines
+    /// which have a variable FilePath, e.g. `{searchTerm}` for when a search
+    /// term is within the path of the url.
+    string? base;
+
+    /// The HTTP method to use to send the request (`GET` or `POST`).
+    /// If not specified, defaults to GET.
+    string? method;
+
+    /// The parameters for this URL.
+    sequence<SearchUrlParam>? params;
+
+    /// The name of the query parameter for the search term. Automatically
+    /// appended to the end of the query. This may be skipped if `{searchTerm}`
+    /// is included in the base.
+    string? search_term_param_name;
+};
+
+/**
+ * The URLs associated with the search engine.
+ */
+dictionary SearchEngineUrls {
+    /// The URL to use for searches.
+    SearchEngineUrl search;
+
+    /// The URL to use for suggestions.
+    SearchEngineUrl? suggestions;
+
+    /// The URL to use for trending suggestions.
+    SearchEngineUrl? trending;
+};
+
+/**
+ * A definition for an individual search engine to be presented to the user.
+ */
+dictionary SearchEngineDefinition {
+    /// An optional list of aliases for this engine.
+    sequence<string>? aliases;
+
+    /// The classification of search engine according to the main search types
+    /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
+    /// a general search engine is supported.
+    /// On Android, only general search engines may be selected as "default"
+    /// search engines.
+    string classification;
+
+    /// The identifier of the search engine. This is used as an internal
+    /// identifier, e.g. for saving the user's settings for the engine. It is
+    /// also used to form the base telemetry id and may be extended by telemetrySuffix.
+    string identifier;
+
+    /// The user visible name of the search engine.
+    string name;
+
+    /// The partner code for the engine. This will be inserted into parameters
+    /// which include `{partnerCode}`.
+    string? partner_code;
+
+    /// Optional suffix that is appended to the search engine identifier
+    /// following a dash, i.e. `<identifier>-<suffix>`
+    string? telemetry_suffix;
+
+    /// The URLs associated with the search engine.
+    SearchEngineUrls urls;
+};
+
+/**
+ * Details of the search engines to display to the user, generated as a result
+ * of processing the search configuration.
+ */
+dictionary FilteredSearchEngines {
+    /// A list of engines, with the default engine first, and the rest in the
+    /// order defined by the configuration.
+    sequence<SearchEngineDefinition> engines;
+
+    /// The identifier of the engine that should be used for the application
+    /// default engine.
+    string app_default_engine_id
+
+    /// If specified, the identifier of the engine that should be used for the
+    /// application default engine in private browsing mode.
+    /// Only desktop uses this currently.
+    string? app_default_private_engine_id;
+};
+
+/**
+ * The possible application names.
+ */
+enum SearchApplicationName {
+    "firefox",
+    "firefox-android",
+    "focus-android",
+    "firefox-ios",
+    "focus-ios",
+};
+
+/**
+ * The possible channels that may be in use.
+ */
+enum SearchDistributionChannel {
+    "default",
+    "nightly",
+    "aurora",
+    "beta",
+    "release",
+    "esr",
+};
+
+/**
+ * The user's environment that is used for filtering the search configuration.
+ */
+dictionary SearchUserEnvironment {
+    /// The current locale of the application that the user is using.
+    string locale;
+
+    /// The home region that the user is currently identified as being within.
+    /// On desktop & android there is a 14 day lag after detecting a region
+    /// change before the home region changes. TBD: iOS?
+    string region;
+
+    /// The current distribution channel.
+    /// Use `default` for a self-build or an unknown channel.
+    SearchDistributionChannel channel;
+
+    /// The distribution id for the user's build.
+    string distribution_id;
+
+    /// The search related experiment id that the user is included within. On
+    /// desktop this is the `searchConfiguration.experiment` variable.
+    string experiment;
+
+    /// The application name that the user is using.
+    SearchApplicationName app_name;
+
+    /// The application version that the user is using.
+    string version;
+};
+
+/**
+ * SearchEngineSelector parses the JSON configuration for
+ * search engines and returns the applicable engines depending
+ * on their region + locale.
+ */
+interface SearchEngineSelector {
+    /// Sets the search configuration from the given string. This allows for
+    /// reprocessing of the configuration if it has not changed since the
+    /// previous update, e.g. to optimise test running.
+    [Throws=SearchApiError]
+    void set_search_config(string configuration);
+
+    /// Filters the search configuration with the user's given environment,
+    /// and returns the set of engines and parameters that should be presented
+    /// to the user.
+    [Throws=SearchApiError]
+    FilteredSearchEngines filter_engine_configuration(
+        SearchUserEnvironment user_environment
+    );
+
+    /// Clears the search configuration from memory if it is known that it is
+    /// not required for a time.
+    void clear_search_config();
+};
