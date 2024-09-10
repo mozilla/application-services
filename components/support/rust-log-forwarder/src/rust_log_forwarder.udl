@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 namespace rust_log_forwarder {
-    // Set the logger to forward to.
-    //
-    // Pass in null to disable logging.
+    /// Set the logger to forward to.
+    ///
+    /// Pass in null to disable logging.
     void set_logger(AppServicesLogger? logger);
-    // Set the maximum log level filter.  Records below this level will not be sent to the logger.
+    /// Set the maximum log level filter.  Records below this level will not be sent to the logger.
     void set_max_level(Level level);
 };
 
@@ -21,7 +21,7 @@ enum Level {
 
 dictionary Record {
     Level level;
-    // The target field from the Rust log crate.  Usually the Rust module name, however log! calls can manually override the target name.
+    /// The target field from the Rust log crate.  Usually the Rust module name, however log! calls can manually override the target name.
     string target;
     string message;
 };

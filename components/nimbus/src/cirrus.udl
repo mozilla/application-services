@@ -29,11 +29,11 @@ interface CirrusClient {
     [Throws=NimbusError]
     constructor(string app_context, MetricsHandler metrics_handler, sequence<string> coenrolling_feature_ids);
 
-    // Handles an enrollment request string and returns an enrollment response string.
+    /// Handles an enrollment request string and returns an enrollment response string.
     [Throws=NimbusError]
     string handle_enrollment(string request);
 
-    // Sets the experiments list in the CirrusClient's internal state.
+    /// Sets the experiments list in the CirrusClient's internal state.
     [Throws=NimbusError]
     void set_experiments(string experiments);
 };

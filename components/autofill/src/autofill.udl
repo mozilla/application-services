@@ -1,21 +1,21 @@
 namespace autofill {
     // We expose the crypto primitives on the namespace
 
-    // Create a new, random, encryption key.
+    /// Create a new, random, encryption key.
     [Throws=AutofillApiError]
     string create_autofill_key();
 
-    // Encrypt an arbitrary string - `key` must have come from `create_key()`
+    /// Encrypt an arbitrary string - `key` must have come from `create_key()`
     [Throws=AutofillApiError]
     string encrypt_string(string key, string cleartext);
 
-    // Decrypt an arbitrary string - `key` must have come from `create_key()`
-    // and `ciphertext` must have come from `encrypt_string()`
+    /// Decrypt an arbitrary string - `key` must have come from `create_key()`
+    /// and `ciphertext` must have come from `encrypt_string()`
     [Throws=AutofillApiError]
     string decrypt_string(string key, string ciphertext);
 };
 
-// What you pass to create or update a credit-card.
+/// What you pass to create or update a credit-card.
 dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number_enc;
@@ -25,7 +25,7 @@ dictionary UpdatableCreditCardFields {
     string cc_type;
 };
 
-// What you get back as a credit-card.
+/// What you get back as a credit-card.
 dictionary CreditCard {
     string guid;
     string cc_name;
@@ -41,7 +41,7 @@ dictionary CreditCard {
     i64 times_used;
 };
 
-// What you pass to create or update an address.
+/// What you pass to create or update an address.
 dictionary UpdatableAddressFields {
     string name;
     string organization;
@@ -55,7 +55,7 @@ dictionary UpdatableAddressFields {
     string email;
 };
 
-// What you get back as an address.
+/// What you get back as an address.
 dictionary Address {
     string guid;
     string name;

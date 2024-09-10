@@ -27,11 +27,11 @@ dictionary FmlLoaderConfig {
 };
 
 interface FmlClient {
-    // Constructs a new FmlClient object.
-    //
-    // Definitions of the parameters are as follows:
-    // - `manifest_path`: The path (relative to the current working directory) to the fml.yml that should be loaded.
-    // - `channel`: The channel that should be loaded for the manifest.
+    /// Constructs a new FmlClient object.
+    ///
+    /// Definitions of the parameters are as follows:
+    /// - `manifest_path`: The path (relative to the current working directory) to the fml.yml that should be loaded.
+    /// - `channel`: The channel that should be loaded for the manifest.
     [Throws=FMLError]
     constructor(string manifest, string channel);
 
@@ -41,28 +41,28 @@ interface FmlClient {
     [Name=new_with_config, Throws=FMLError]
     constructor(string manifest, string channel, FmlLoaderConfig config);
 
-    // Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
-    // default feature JSON, and invalid configurations will be returned as a list of their respective errors.
+    /// Validates a supplied list of feature configurations. The valid configurations will be merged into the manifest's
+    /// default feature JSON, and invalid configurations will be returned as a list of their respective errors.
     [Throws=FMLError]
     MergedJsonWithErrors merge(record<DOMString, JsonObject> feature_configs);
 
-    // Returns the default feature JSON for the loaded FML's selected channel.
+    /// Returns the default feature JSON for the loaded FML's selected channel.
     [Throws=FMLError]
     string get_default_json();
 
-    // Returns a list of feature ids that support coenrollment.
+    /// Returns a list of feature ids that support coenrollment.
     [Throws=FMLError]
     sequence<string> get_coenrolling_feature_ids();
 
-    // Returns a list of feature ids.
+    /// Returns a list of feature ids.
     sequence<string> get_feature_ids();
 
-    // Returns a description of the given feature.
-    // If no feature exists, returns None.
+    /// Returns a description of the given feature.
+    /// If no feature exists, returns None.
     FmlFeatureDescriptor? get_feature_descriptor(string id);
 
-    // Returns a description of the given feature.
-    // If no feature exists, returns None.
+    /// Returns a description of the given feature.
+    /// If no feature exists, returns None.
     sequence<FmlFeatureDescriptor> get_feature_descriptors();
 
     FmlFeatureInspector? get_feature_inspector(string id);
@@ -92,91 +92,91 @@ dictionary DocumentationLink {
 };
 
 interface FmlFeatureInspector {
-    // Parses the string and returns a list of errors.
-    // Current implementation will only return one error.
+    /// Parses the string and returns a list of errors.
+    /// Current implementation will only return one error.
     sequence<FmlEditorError>? get_errors(string src);
 
-    // Returns the default JSON for the feature for this channel.
+    /// Returns the default JSON for the feature for this channel.
     [Throws=FMLError]
     JsonObject get_default_json();
 
     [Throws=FMLError]
     sequence<FmlFeatureExample> get_examples();
 
-    // Returns a 8 digit hex hash of the structure of the feature.
-    //
-    // This is suitable for tracking over time.
-    //
-    // This is a truncated SHA256 hash which takes in to consideration
-    // the name and types of all the variables in this feature, and nested
-    // objects, as well as the variants of enums.
-    //
-    // It does not take into consideration the default values for this
-    // feature, ordering of fields or variables or enum variants, or
-    // documentation, so as to remain stable despite superficial changes
-    // to the feature's configuration.
-    //
-    // If this hash changes for a given feature then it is almost
-    // certain that the code which uses this configuration will also have
-    // changed.
+    /// Returns a 8 digit hex hash of the structure of the feature.
+    ///
+    /// This is suitable for tracking over time.
+    ///
+    /// This is a truncated SHA256 hash which takes in to consideration
+    /// the name and types of all the variables in this feature, and nested
+    /// objects, as well as the variants of enums.
+    ///
+    /// It does not take into consideration the default values for this
+    /// feature, ordering of fields or variables or enum variants, or
+    /// documentation, so as to remain stable despite superficial changes
+    /// to the feature's configuration.
+    ///
+    /// If this hash changes for a given feature then it is almost
+    /// certain that the code which uses this configuration will also have
+    /// changed.
     string get_schema_hash();
 
-    // Returns a 8 digit hex hash of the default values for the feature.
-    //
-    // This is suitable for tracking over time.
-    //
-    // This is likely to change more frequently than the structure hash.
-    //
-    // It should be noted that the any changes to the structure hash will
-    // necessitate a change to this value, but not vice versa.
+    /// Returns a 8 digit hex hash of the default values for the feature.
+    ///
+    /// This is suitable for tracking over time.
+    ///
+    /// This is likely to change more frequently than the structure hash.
+    ///
+    /// It should be noted that the any changes to the structure hash will
+    /// necessitate a change to this value, but not vice versa.
     string get_defaults_hash();
 };
 
 dictionary FmlEditorError {
-    // The error to display to the user.
+    /// The error to display to the user.
     string message;
 
-    // The span within the text where the error was found.
+    /// The span within the text where the error was found.
     CursorSpan error_span;
 
-    // The error token, the text to highlight.
-    // The text string should coincide within the error_span. If not, then
-    // the error should be considered as out of date.
+    /// The error token, the text to highlight.
+    /// The text string should coincide within the error_span. If not, then
+    /// the error should be considered as out of date.
     string? highlight;
 
-    // A list of corrections that the user could take.
+    /// A list of corrections that the user could take.
     sequence<CorrectionCandidate> corrections;
 
-    // Deprecated: zero indexed line number for the error. Use error_span.from.line instead.
+    /// Deprecated: zero indexed line number for the error. Use error_span.from.line instead.
     u32 line;
-    // Deprecated: zero indexed column number for the error. Use error_span.from.col instead.
+    /// Deprecated: zero indexed column number for the error. Use error_span.from.col instead.
     u32 col;
 };
 
-// The span of an error, or insertion into the editor text.
+/// The span of an error, or insertion into the editor text.
 dictionary CursorSpan {
     CursorPosition from;
     CursorPosition to;
 };
 
 dictionary CursorPosition {
-    // zero indexed line number.
+    /// zero indexed line number.
     u32 line;
-    // zero indexed column number for the error.
+    /// zero indexed column number for the error.
     u32 col;
 };
 
 dictionary CorrectionCandidate {
-    // The string that should be inserted into the source
+    /// The string that should be inserted into the source
     string           insert;
-    // The short display name to represent the fix.
+    /// The short display name to represent the fix.
     string?          display_name;
 
-    // Insertion span. If None, then the error's error_span should be used.
+    /// Insertion span. If None, then the error's error_span should be used.
     CursorSpan?        insertion_span;
 
-    // The final position of the cursor after the insertion has taken place.
-    // If None, then should be left to the editor to decide.
+    /// The final position of the cursor after the insertion has taken place.
+    /// If None, then should be left to the editor to decide.
     CursorPosition?   cursor_at;
 };
 
