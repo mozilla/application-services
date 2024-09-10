@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"examples_fxa_client":[["impl Subcommand for <a class=\"enum\" href=\"examples_fxa_client/devices/enum.Command.html\" title=\"enum examples_fxa_client::devices::Command\">Command</a>"],["impl Subcommand for <a class=\"enum\" href=\"examples_fxa_client/enum.Command.html\" title=\"enum examples_fxa_client::Command\">Command</a>"],["impl Subcommand for <a class=\"enum\" href=\"examples_fxa_client/send_tab/enum.Command.html\" title=\"enum examples_fxa_client::send_tab::Command\">Command</a>"]],
+"examples_suggest_cli":[["impl Subcommand for <a class=\"enum\" href=\"examples_suggest_cli/enum.Commands.html\" title=\"enum examples_suggest_cli::Commands\">Commands</a>"]],
+"nimbus_cli":[["impl Subcommand for <a class=\"enum\" href=\"nimbus_cli/cli/enum.CliCommand.html\" title=\"enum nimbus_cli::cli::CliCommand\">CliCommand</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

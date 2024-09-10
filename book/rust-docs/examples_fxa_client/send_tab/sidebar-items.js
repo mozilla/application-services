@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command"],"fn":["close","poll","run","send"],"struct":["SendTabArgs"]};

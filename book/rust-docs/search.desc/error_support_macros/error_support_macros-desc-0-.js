@@ -1,0 +1,1 @@
+searchState.loadedDescShard("error_support_macros", 0, "A procedural macro that exposes internal errors to …")

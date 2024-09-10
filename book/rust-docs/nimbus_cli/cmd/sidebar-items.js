@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["logcat_args","output_err","output_ok","process_cmd","prompt"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("crashtest", 0, "Crash Test Helper APIs\nAn error that can be returned from Rust code.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nTrigger a hard abort inside the Rust code.\nTrigger an error inside the Rust code.\nTrigger a panic inside the Rust code.")

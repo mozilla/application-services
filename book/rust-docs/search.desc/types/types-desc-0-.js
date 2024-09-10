@@ -1,0 +1,1 @@
+searchState.loadedDescShard("types", 0, "In desktop sync, bookmarks are clamped to Jan 23, 1993 …\nReturns None if <code>other</code> is later than <code>self</code> (Duration may not …\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MatchBehavior"],"fn":["find_in_string"],"struct":["AutocompleteMatch","SearchBehavior"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IncomingKind"],"mod":["test_utils"],"struct":["IncomingBso","IncomingContent","IncomingEncryptedBso","IncomingEnvelope","OutgoingBso","OutgoingEncryptedBso","OutgoingEnvelope"]};

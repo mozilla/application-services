@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_mailbox","find_email"]};

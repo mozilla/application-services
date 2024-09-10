@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SESSION_SCOPE","SYNC_SCOPE"],"fn":["get_account_and_token","get_cli_fxa","get_default_fxa_config"],"struct":["CliFxa"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["address","credit_card"],"struct":["Metadata"]};

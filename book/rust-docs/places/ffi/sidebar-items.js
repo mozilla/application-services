@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FrecencyThresholdOption"],"struct":["Dummy","Guid","HistoryVisitInfo","HistoryVisitInfosWithBound","PlacesConnection","PlacesTimestamp","SearchResult","SqlInterruptHandle","TopFrecentSiteInfo","Url"],"type":["BookmarkFolder","BookmarkItem","BookmarkSeparator","InsertableBookmarkFolder","InsertableBookmarkItem","InsertableBookmarkSeparator"]};

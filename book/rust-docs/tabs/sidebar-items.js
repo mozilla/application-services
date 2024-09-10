@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RemoteCommand"],"fn":["get_registered_sync_engine"],"mod":["error"],"struct":["ClientRemoteTabs","PendingCommand","RemoteCommandStore","TabsBridgedEngine","TabsEngine","TabsStore","Timestamp"],"type":["RemoteTabRecord","TabsDeviceType"]};

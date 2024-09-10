@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>TabsBridgedEngineProtocol Protocol Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset='utf-8'>
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
+  </head>
+  <body>
+    <a name="//apple_ref/swift/Protocol/TabsBridgedEngineProtocol" class="dashAnchor"></a>
+    <a title="TabsBridgedEngineProtocol Protocol Reference"></a>
+    <header>
+      <div class="content-wrapper">
+        <p><a href="../index.html"> Docs</a> (100% documented)</p>
+        <div class="header-right">
+          <form role="search" action="../search.json">
+            <input type="text" placeholder="Search documentation" data-typeahead>
+          </form>
+        </div>
+      </div>
+    </header>
+    <div class="content-wrapper">
+      <p id="breadcrumbs">
+        <a href="../index.html">Index</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        <a href="../Protocols.html">Protocols</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        SwiftComponents.TabsBridgedEngineProtocol Protocol Reference
+      </p>
+    </div>
+    <div class="content-wrapper">
+      <nav class="sidebar">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Classes/FirefoxAccount.html">FirefoxAccount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FirefoxAccount/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FxaStateMachineChecker.html">FxaStateMachineChecker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FxaStateMachineChecker/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/LoginStore.html">LoginStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/LoginStore/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusClient.html">NimbusClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusClient/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusStringHelper.html">NimbusStringHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusStringHelper/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusTargetingHelper.html">NimbusTargetingHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusTargetingHelper/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpSession.html">OhttpSession</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpSession/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpTestServer.html">OhttpTestServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpTestServer/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesApi.html">PlacesApi</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesApi/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesConnection.html">PlacesConnection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesConnection/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PushManager.html">PushManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PushManager/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RecordedContextImpl.html">RecordedContextImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RecordedContextImpl/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteCommandStore.html">RemoteCommandStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteCommandStore/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettings.html">RemoteSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettings/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SqlInterruptHandle.html">SqlInterruptHandle</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SqlInterruptHandle/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/Store.html">Store</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/Store/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStore.html">SuggestStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStore/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStoreBuilder.html">SuggestStoreBuilder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStoreBuilder/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SyncManager.html">SyncManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SyncManager/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsBridgedEngine.html">TabsBridgedEngine</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsBridgedEngine/NoPointer.html">– NoPointer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsStore.html">TabsStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsStore/NoPointer.html">– NoPointer</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Enums/AccountEvent.html">AccountEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/AutofillApiError.html">AutofillApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkItem.html">BookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkPosition.html">BookmarkPosition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BridgeType.html">BridgeType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CloseTabsResult.html">CloseTabsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ConnectionType.html">ConnectionType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CrashTestError.html">CrashTestError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceCapability.html">DeviceCapability</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceType.html">DeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DocumentType.html">DocumentType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/EnrollmentChangeEventType.html">EnrollmentChangeEventType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FrecencyThresholdOption.html">FrecencyThresholdOption</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaError.html">FxaError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaEvent.html">FxaEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaRustAuthState.html">FxaRustAuthState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaServer.html">FxaServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaState.html">FxaState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaStateCheckerEvent.html">FxaStateCheckerEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaStateCheckerState.html">FxaStateCheckerState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/IncomingDeviceCommand.html">IncomingDeviceCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InsertableBookmarkItem.html">InsertableBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InterruptKind.html">InterruptKind</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Level.html">Level</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/LoginsApiError.html">LoginsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/NimbusError.html">NimbusError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/OhttpError.html">OhttpError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PlacesApiError.html">PlacesApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushApiError.html">PushApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushHttpProtocol.html">PushHttpProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteCommand.html">RemoteCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsError.html">RemoteSettingsError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsServer.html">RemoteSettingsServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ServiceStatus.html">ServiceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestApiError.html">SuggestApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestProviderConfig.html">SuggestProviderConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Suggestion.html">Suggestion</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestionProvider.html">SuggestionProvider</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncEngineSelection.html">SyncEngineSelection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncManagerError.html">SyncManagerError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncReason.html">SyncReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/TabsApiError.html">TabsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/VisitType.html">VisitType</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Extensions.html">Extensions</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterCallbackInterfaceAppServicesLogger.html">FfiConverterCallbackInterfaceAppServicesLogger</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterCallbackInterfaceApplicationErrorReporter.html">FfiConverterCallbackInterfaceApplicationErrorReporter</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterCallbackInterfaceMetricsHandler.html">FfiConverterCallbackInterfaceMetricsHandler</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterPrimitive.html">FfiConverterPrimitive</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions/FfiConverterRustBuffer.html">FfiConverterRustBuffer</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Functions.html">Functions</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeAccessTokenInfo_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeAccessTokenInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeAccessTokenInfo_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeAccessTokenInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeAccountEvent_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeAccountEvent_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeAccountEvent_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeAccountEvent_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28FfiConverterTypeAddress_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeAddress_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeAddress_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeAddress_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeAppContext_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeAppContext_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeAppContext_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeAppContext_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeAttachedClient_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeAttachedClient_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeAttachedClient_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeAttachedClient_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeAttachment_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeAttachment_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeAttachment_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeAttachment_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeAuthorizationInfo_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeAuthorizationInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeAuthorizationInfo_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeAuthorizationInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeAuthorizationParameters_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeAuthorizationParameters_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeAuthorizationParameters_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeAuthorizationParameters_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeAvailableExperiment_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeAvailableExperiment_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeAvailableExperiment_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeAvailableExperiment_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeBookmarkData_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeBookmarkData_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeBookmarkData_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeBookmarkData_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeBookmarkFolder_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeBookmarkFolder_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeBookmarkFolder_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeBookmarkFolder_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeBookmarkItem_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeBookmarkItem_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeBookmarkItem_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeBookmarkItem_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeBookmarkPosition_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeBookmarkPosition_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeBookmarkPosition_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeBookmarkPosition_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeBookmarkSeparator_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeBookmarkSeparator_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeBookmarkSeparator_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeBookmarkSeparator_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeBookmarkUpdateInfo_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeBookmarkUpdateInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeBookmarkUpdateInfo_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeBookmarkUpdateInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents022FfiConverterTypeBridgeE5_liftyAA0fE0OSo10RustBufferVKF">FfiConverterTypeBridgeType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents022FfiConverterTypeBridgeE6_lowerySo10RustBufferVAA0fE0OF">FfiConverterTypeBridgeType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeClientRemoteTabs_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeClientRemoteTabs_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeClientRemoteTabs_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeClientRemoteTabs_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeCloseTabsPayload_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeCloseTabsPayload_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeCloseTabsPayload_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeCloseTabsPayload_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeCloseTabsResult_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeCloseTabsResult_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeCloseTabsResult_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeCloseTabsResult_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents026FfiConverterTypeConnectionE5_liftyAA0fE0OSo10RustBufferVKF">FfiConverterTypeConnectionType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents026FfiConverterTypeConnectionE6_lowerySo10RustBufferVAA0fE0OF">FfiConverterTypeConnectionType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeCreditCard_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeCreditCard_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeCreditCard_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeCreditCard_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeDecryptResponse_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeDecryptResponse_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeDecryptResponse_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeDecryptResponse_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeDeviceCapability_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeDeviceCapability_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeDeviceCapability_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeDeviceCapability_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeDeviceConfig_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeDeviceConfig_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeDeviceConfig_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeDeviceConfig_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeDevicePushSubscription_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeDevicePushSubscription_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeDevicePushSubscription_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeDevicePushSubscription_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeDeviceSettings_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeDeviceSettings_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeDeviceSettings_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeDeviceSettings_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents022FfiConverterTypeDeviceE5_liftyAA0fE0OSo10RustBufferVKF">FfiConverterTypeDeviceType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents022FfiConverterTypeDeviceE6_lowerySo10RustBufferVAA0fE0OF">FfiConverterTypeDeviceType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeDevice_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeDevice_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28FfiConverterTypeDevice_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeDevice_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents024FfiConverterTypeDocumentE5_liftyAA0fE0OSo10RustBufferVKF">FfiConverterTypeDocumentType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents024FfiConverterTypeDocumentE6_lowerySo10RustBufferVAA0fE0OF">FfiConverterTypeDocumentType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents26FfiConverterTypeDummy_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeDummy_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeDummy_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeDummy_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeEncryptedLogin_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeEncryptedLogin_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeEncryptedLogin_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeEncryptedLogin_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeEnrolledExperiment_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeEnrolledExperiment_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeEnrolledExperiment_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeEnrolledExperiment_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents037FfiConverterTypeEnrollmentChangeEventE5_liftyAA0fghE0OSo10RustBufferVKF">FfiConverterTypeEnrollmentChangeEventType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents037FfiConverterTypeEnrollmentChangeEventE6_lowerySo10RustBufferVAA0fghE0OF">FfiConverterTypeEnrollmentChangeEventType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeEnrollmentChangeEvent_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeEnrollmentChangeEvent_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeEnrollmentChangeEvent_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeEnrollmentChangeEvent_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeEnrollmentStatusExtraDef_liftyAA0fghI0VSo10RustBufferVKF">FfiConverterTypeEnrollmentStatusExtraDef_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents46FfiConverterTypeEnrollmentStatusExtraDef_lowerySo10RustBufferVAA0fghI0VF">FfiConverterTypeEnrollmentStatusExtraDef_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeExperimentBranch_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeExperimentBranch_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeExperimentBranch_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeExperimentBranch_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeFeatureExposureExtraDef_liftyAA0fghI0VSo10RustBufferVKF">FfiConverterTypeFeatureExposureExtraDef_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeFeatureExposureExtraDef_lowerySo10RustBufferVAA0fghI0VF">FfiConverterTypeFeatureExposureExtraDef_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeFirefoxAccount_liftyAA0fG0CSvKF">FfiConverterTypeFirefoxAccount_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeFirefoxAccount_lowerySvAA0fG0CF">FfiConverterTypeFirefoxAccount_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeFrecencyThresholdOption_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeFrecencyThresholdOption_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeFrecencyThresholdOption_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeFrecencyThresholdOption_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeFxaConfig_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeFxaConfig_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeFxaConfig_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeFxaConfig_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeFxaEvent_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeFxaEvent_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeFxaEvent_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeFxaEvent_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeFxaRustAuthState_liftyAA0fghI0OSo0G6BufferVKF">FfiConverterTypeFxaRustAuthState_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeFxaRustAuthState_lowerySo0G6BufferVAA0fghI0OF">FfiConverterTypeFxaRustAuthState_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeFxaServer_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeFxaServer_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeFxaServer_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeFxaServer_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeFxaStateCheckerEvent_liftyAA0fghI0OSo10RustBufferVKF">FfiConverterTypeFxaStateCheckerEvent_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeFxaStateCheckerEvent_lowerySo10RustBufferVAA0fghI0OF">FfiConverterTypeFxaStateCheckerEvent_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents031FfiConverterTypeFxaStateCheckerG5_liftyAA0fghG0OSo10RustBufferVKF">FfiConverterTypeFxaStateCheckerState_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents031FfiConverterTypeFxaStateCheckerG6_lowerySo10RustBufferVAA0fghG0OF">FfiConverterTypeFxaStateCheckerState_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeFxaStateMachineChecker_liftyAA0fghI0CSvKF">FfiConverterTypeFxaStateMachineChecker_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeFxaStateMachineChecker_lowerySvAA0fghI0CF">FfiConverterTypeFxaStateMachineChecker_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeFxaState_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeFxaState_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeFxaState_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeFxaState_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents25FfiConverterTypeGuid_liftySSSo10RustBufferVKF">FfiConverterTypeGuid_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents26FfiConverterTypeGuid_lowerySo10RustBufferVSSF">FfiConverterTypeGuid_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeHistoryHighlightWeights_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeHistoryHighlightWeights_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeHistoryHighlightWeights_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeHistoryHighlightWeights_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeHistoryHighlight_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeHistoryHighlight_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeHistoryHighlight_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeHistoryHighlight_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents47FfiConverterTypeHistoryMetadataObservation_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeHistoryMetadataObservation_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents48FfiConverterTypeHistoryMetadataObservation_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeHistoryMetadataObservation_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeHistoryMetadata_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeHistoryMetadata_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeHistoryMetadata_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeHistoryMetadata_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeHistoryMigrationResult_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeHistoryMigrationResult_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeHistoryMigrationResult_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeHistoryMigrationResult_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeHistoryVisitInfo_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeHistoryVisitInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeHistoryVisitInfo_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeHistoryVisitInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents47FfiConverterTypeHistoryVisitInfosWithBound_liftyAA0fghiJ0VSo10RustBufferVKF">FfiConverterTypeHistoryVisitInfosWithBound_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents48FfiConverterTypeHistoryVisitInfosWithBound_lowerySo10RustBufferVAA0fghiJ0VF">FfiConverterTypeHistoryVisitInfosWithBound_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeIncomingDeviceCommand_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeIncomingDeviceCommand_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeIncomingDeviceCommand_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeIncomingDeviceCommand_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeInsertableBookmarkFolder_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeInsertableBookmarkFolder_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents46FfiConverterTypeInsertableBookmarkFolder_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeInsertableBookmarkFolder_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeInsertableBookmarkItem_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeInsertableBookmarkItem_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeInsertableBookmarkItem_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeInsertableBookmarkItem_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents48FfiConverterTypeInsertableBookmarkSeparator_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeInsertableBookmarkSeparator_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents49FfiConverterTypeInsertableBookmarkSeparator_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeInsertableBookmarkSeparator_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeInsertableBookmark_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeInsertableBookmark_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeInsertableBookmark_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeInsertableBookmark_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeInterruptKind_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeInterruptKind_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeInterruptKind_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeInterruptKind_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeJsonObject_liftySSSo10RustBufferVKF">FfiConverterTypeJsonObject_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeJsonObject_lowerySo10RustBufferVSSF">FfiConverterTypeJsonObject_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28FfiConverterTypeKeyInfo_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeKeyInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeKeyInfo_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeKeyInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeLabeledTimingSample_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeLabeledTimingSample_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeLabeledTimingSample_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeLabeledTimingSample_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents26FfiConverterTypeLevel_liftyAA0F0OSo10RustBufferVKF">FfiConverterTypeLevel_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeLevel_lowerySo10RustBufferVAA0F0OF">FfiConverterTypeLevel_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeLocalDevice_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeLocalDevice_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeLocalDevice_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeLocalDevice_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeLoginEntry_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeLoginEntry_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeLoginEntry_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeLoginEntry_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeLoginFields_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeLoginFields_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeLoginFields_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeLoginFields_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeLoginStore_liftyAA0fG0CSvKF">FfiConverterTypeLoginStore_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeLoginStore_lowerySvAA0fG0CF">FfiConverterTypeLoginStore_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents26FfiConverterTypeLogin_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeLogin_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeLogin_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeLogin_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents51FfiConverterTypeMalformedFeatureConfigExtraDef_liftyAA0fghiJ0VSo10RustBufferVKF">FfiConverterTypeMalformedFeatureConfigExtraDef_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents52FfiConverterTypeMalformedFeatureConfigExtraDef_lowerySo10RustBufferVAA0fghiJ0VF">FfiConverterTypeMalformedFeatureConfigExtraDef_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeNimbusClient_liftyAA0fG0CSvKF">FfiConverterTypeNimbusClient_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeNimbusClient_lowerySvAA0fG0CF">FfiConverterTypeNimbusClient_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeNimbusStringHelper_liftyAA0fgH0CSvKF">FfiConverterTypeNimbusStringHelper_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeNimbusStringHelper_lowerySvAA0fgH0CF">FfiConverterTypeNimbusStringHelper_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeNimbusTargetingHelper_liftyAA0fgH0CSvKF">FfiConverterTypeNimbusTargetingHelper_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeNimbusTargetingHelper_lowerySvAA0fgH0CF">FfiConverterTypeNimbusTargetingHelper_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeOhttpResponse_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeOhttpResponse_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeOhttpResponse_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeOhttpResponse_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeOhttpSession_liftyAA0fG0CSvKF">FfiConverterTypeOhttpSession_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeOhttpSession_lowerySvAA0fG0CF">FfiConverterTypeOhttpSession_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeOhttpTestServer_liftyAA0fgH0CSvKF">FfiConverterTypeOhttpTestServer_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeOhttpTestServer_lowerySvAA0fgH0CF">FfiConverterTypeOhttpTestServer_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypePendingCommand_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypePendingCommand_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypePendingCommand_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypePendingCommand_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypePlacesApi_liftyAA0fG0CSvKF">FfiConverterTypePlacesApi_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypePlacesApi_lowerySvAA0fG0CF">FfiConverterTypePlacesApi_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypePlacesConnection_liftyAA0fG0CSvKF">FfiConverterTypePlacesConnection_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypePlacesConnection_lowerySvAA0fG0CF">FfiConverterTypePlacesConnection_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypePlacesTimestamp_liftys5Int64VADKF">FfiConverterTypePlacesTimestamp_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypePlacesTimestamp_lowerys5Int64VADF">FfiConverterTypePlacesTimestamp_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28FfiConverterTypeProfile_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeProfile_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeProfile_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeProfile_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypePushConfiguration_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypePushConfiguration_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypePushConfiguration_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypePushConfiguration_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypePushHttpProtocol_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypePushHttpProtocol_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypePushHttpProtocol_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypePushHttpProtocol_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypePushManager_liftyAA0fG0CSvKF">FfiConverterTypePushManager_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypePushManager_lowerySvAA0fG0CF">FfiConverterTypePushManager_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypePushSubscriptionChanged_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypePushSubscriptionChanged_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypePushSubscriptionChanged_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypePushSubscriptionChanged_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeQueryWithMetricsResult_liftyAA0fghI0VSo10RustBufferVKF">FfiConverterTypeQueryWithMetricsResult_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeQueryWithMetricsResult_lowerySo10RustBufferVAA0fghI0VF">FfiConverterTypeQueryWithMetricsResult_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeRecordFields_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeRecordFields_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeRecordFields_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeRecordFields_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeRecord_liftyAA0F0VSo10RustBufferVKF">FfiConverterTypeRecord_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28FfiConverterTypeRecord_lowerySo10RustBufferVAA0F0VF">FfiConverterTypeRecord_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeRecordedContext_liftyAA0fG0_pSvKF">FfiConverterTypeRecordedContext_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeRecordedContext_lowerySvAA0fG0_pF">FfiConverterTypeRecordedContext_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeRemoteCommandStore_liftyAA0fgH0CSvKF">FfiConverterTypeRemoteCommandStore_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeRemoteCommandStore_lowerySvAA0fgH0CF">FfiConverterTypeRemoteCommandStore_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeRemoteCommand_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeRemoteCommand_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeRemoteCommand_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeRemoteCommand_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeRemoteSettingsConfig_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeRemoteSettingsConfig_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeRemoteSettingsConfig_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeRemoteSettingsConfig_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeRemoteSettingsRecord_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeRemoteSettingsRecord_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeRemoteSettingsRecord_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeRemoteSettingsRecord_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeRemoteSettingsResponse_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeRemoteSettingsResponse_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeRemoteSettingsResponse_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeRemoteSettingsResponse_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeRemoteSettingsServer_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeRemoteSettingsServer_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeRemoteSettingsServer_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeRemoteSettingsServer_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeRemoteSettings_liftyAA0fG0CSvKF">FfiConverterTypeRemoteSettings_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeRemoteSettings_lowerySvAA0fG0CF">FfiConverterTypeRemoteSettings_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeRemoteTabRecord_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeRemoteTabRecord_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeRemoteTabRecord_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeRemoteTabRecord_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeRsJsonObject_liftySSSo10RustBufferVKF">FfiConverterTypeRsJsonObject_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeRsJsonObject_lowerySo10RustBufferVSSF">FfiConverterTypeRsJsonObject_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeRunMaintenanceMetrics_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeRunMaintenanceMetrics_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeRunMaintenanceMetrics_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeRunMaintenanceMetrics_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeScopedKey_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeScopedKey_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeScopedKey_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeScopedKey_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeSearchResult_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSearchResult_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeSearchResult_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSearchResult_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeSecureLoginFields_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSecureLoginFields_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeSecureLoginFields_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSecureLoginFields_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeSendTabPayload_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSendTabPayload_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeSendTabPayload_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSendTabPayload_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeServiceStatus_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeServiceStatus_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35FfiConverterTypeServiceStatus_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeServiceStatus_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeSqlInterruptHandle_liftyAA0fgH0CSvKF">FfiConverterTypeSqlInterruptHandle_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeSqlInterruptHandle_lowerySvAA0fgH0CF">FfiConverterTypeSqlInterruptHandle_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents26FfiConverterTypeStore_liftyAA0F0CSvKF">FfiConverterTypeStore_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27FfiConverterTypeStore_lowerySvAA0F0CF">FfiConverterTypeStore_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeSubscriptionInfo_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSubscriptionInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeSubscriptionInfo_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSubscriptionInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeSubscriptionResponse_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSubscriptionResponse_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeSubscriptionResponse_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSubscriptionResponse_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeSuggestGlobalConfig_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSuggestGlobalConfig_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeSuggestGlobalConfig_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSuggestGlobalConfig_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents48FfiConverterTypeSuggestIngestionConstraints_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSuggestIngestionConstraints_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents49FfiConverterTypeSuggestIngestionConstraints_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSuggestIngestionConstraints_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeSuggestIngestionMetrics_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSuggestIngestionMetrics_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents45FfiConverterTypeSuggestIngestionMetrics_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSuggestIngestionMetrics_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents42FfiConverterTypeSuggestProviderConfig_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeSuggestProviderConfig_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeSuggestProviderConfig_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeSuggestProviderConfig_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeSuggestStoreBuilder_liftyAA0fgH0CSvKF">FfiConverterTypeSuggestStoreBuilder_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeSuggestStoreBuilder_lowerySvAA0fgH0CF">FfiConverterTypeSuggestStoreBuilder_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeSuggestStore_liftyAA0fG0CSvKF">FfiConverterTypeSuggestStore_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeSuggestStore_lowerySvAA0fG0CF">FfiConverterTypeSuggestStore_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents50FfiConverterTypeSuggestionProviderConstraints_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSuggestionProviderConstraints_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents51FfiConverterTypeSuggestionProviderConstraints_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSuggestionProviderConstraints_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeSuggestionProvider_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeSuggestionProvider_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeSuggestionProvider_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeSuggestionProvider_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeSuggestionQuery_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSuggestionQuery_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeSuggestionQuery_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSuggestionQuery_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeSuggestion_liftyAA0F0OSo10RustBufferVKF">FfiConverterTypeSuggestion_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeSuggestion_lowerySo10RustBufferVAA0F0OF">FfiConverterTypeSuggestion_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeSyncAuthInfo_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeSyncAuthInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34FfiConverterTypeSyncAuthInfo_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeSyncAuthInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeSyncEngineSelection_liftyAA0fgH0OSo10RustBufferVKF">FfiConverterTypeSyncEngineSelection_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents41FfiConverterTypeSyncEngineSelection_lowerySo10RustBufferVAA0fgH0OF">FfiConverterTypeSyncEngineSelection_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeSyncManager_liftyAA0fG0CSvKF">FfiConverterTypeSyncManager_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents33FfiConverterTypeSyncManager_lowerySvAA0fG0CF">FfiConverterTypeSyncManager_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeSyncParams_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSyncParams_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeSyncParams_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSyncParams_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeSyncReason_liftyAA0fG0OSo10RustBufferVKF">FfiConverterTypeSyncReason_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeSyncReason_lowerySo10RustBufferVAA0fG0OF">FfiConverterTypeSyncReason_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeSyncResult_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeSyncResult_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32FfiConverterTypeSyncResult_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeSyncResult_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36FfiConverterTypeTabHistoryEntry_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeTabHistoryEntry_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeTabHistoryEntry_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeTabHistoryEntry_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeTabsBridgedEngine_liftyAA0fgH0CSvKF">FfiConverterTypeTabsBridgedEngine_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeTabsBridgedEngine_lowerySvAA0fgH0CF">FfiConverterTypeTabsBridgedEngine_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeTabsGuid_liftySSSo10RustBufferVKF">FfiConverterTypeTabsGuid_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeTabsGuid_lowerySo10RustBufferVSSF">FfiConverterTypeTabsGuid_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeTabsStore_liftyAA0fG0CSvKF">FfiConverterTypeTabsStore_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeTabsStore_lowerySvAA0fG0CF">FfiConverterTypeTabsStore_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeTestServerRequest_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeTestServerRequest_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeTestServerRequest_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeTestServerRequest_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeTimestamp_liftys5Int64VADKF">FfiConverterTypeTimestamp_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31FfiConverterTypeTimestamp_lowerys5Int64VADF">FfiConverterTypeTimestamp_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeTopFrecentSiteInfo_liftyAA0fghI0VSo10RustBufferVKF">FfiConverterTypeTopFrecentSiteInfo_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeTopFrecentSiteInfo_lowerySo10RustBufferVAA0fghI0VF">FfiConverterTypeTopFrecentSiteInfo_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents43FfiConverterTypeUpdatableAddressFields_liftyAA0fgH0VSo10RustBufferVKF">FfiConverterTypeUpdatableAddressFields_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents44FfiConverterTypeUpdatableAddressFields_lowerySo10RustBufferVAA0fgH0VF">FfiConverterTypeUpdatableAddressFields_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents46FfiConverterTypeUpdatableCreditCardFields_liftyAA0fghI0VSo10RustBufferVKF">FfiConverterTypeUpdatableCreditCardFields_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents47FfiConverterTypeUpdatableCreditCardFields_lowerySo10RustBufferVAA0fghI0VF">FfiConverterTypeUpdatableCreditCardFields_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents24FfiConverterTypeUrl_liftySSSo10RustBufferVKF">FfiConverterTypeUrl_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents25FfiConverterTypeUrl_lowerySo10RustBufferVSSF">FfiConverterTypeUrl_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29FfiConverterTypeUserData_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeUserData_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30FfiConverterTypeUserData_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeUserData_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37FfiConverterTypeVisitObservation_liftyAA0fG0VSo10RustBufferVKF">FfiConverterTypeVisitObservation_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents38FfiConverterTypeVisitObservation_lowerySo10RustBufferVAA0fG0VF">FfiConverterTypeVisitObservation_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39FfiConverterTypeVisitTransitionSet_liftys5Int32VADKF">FfiConverterTypeVisitTransitionSet_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents40FfiConverterTypeVisitTransitionSet_lowerys5Int32VADF">FfiConverterTypeVisitTransitionSet_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents021FfiConverterTypeVisitE5_liftyAA0fE0OSo10RustBufferVKF">FfiConverterTypeVisitType_lift(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents021FfiConverterTypeVisitE6_lowerySo10RustBufferVAA0fE0OF">FfiConverterTypeVisitType_lower(_:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11checkCanary6canary4text13encryptionKeySbSS_S2StKF">checkCanary(canary:text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17createAutofillKeySSyKF">createAutofillKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12createCanary4text13encryptionKeyS2S_SStKF">createCanary(text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9createKeySSyKF">createKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13decryptFields03secD013encryptionKeyAA011SecureLoginD0VSS_SStKF">decryptFields(secFields:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12decryptLogin5login13encryptionKeyAA0D0VAA09EncryptedD0V_SStKF">decryptLogin(login:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13decryptString3key10ciphertextS2S_SStKF">decryptString(key:ciphertext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13encryptFields03secD013encryptionKeySSAA011SecureLoginD0V_SStKF">encryptFields(secFields:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12encryptLogin5login13encryptionKeyAA09EncryptedD0VAA0D0V_SStKF">encryptLogin(login:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13encryptString3key9cleartextS2S_SStKF">encryptString(key:cleartext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12placesApiNew6dbPathAA06PlacesD0CSS_tKF">placesApiNew(dbPath:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23rawSuggestionUrlMatches0cE03urlSbSS_SStF">rawSuggestionUrlMatches(rawUrl:url:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27setApplicationErrorReporter05errorF0yAA0deF0_p_tF">setApplicationErrorReporter(errorReporter:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9setLogger6loggeryAA011AppServicesD0_pSg_tF">setLogger(logger:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11setMaxLevel5levelyAA0E0O_tF">setMaxLevel(level:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustAbortyyF">triggerRustAbort()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustErroryyKF">triggerRustError()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustPanicyyF">triggerRustPanic()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29unsetApplicationErrorReporteryyF">unsetApplicationErrorReporter()</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Protocols.html">Protocols</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Protocols/AppServicesLogger.html">AppServicesLogger</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ApplicationErrorReporter.html">ApplicationErrorReporter</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/FirefoxAccountProtocol.html">FirefoxAccountProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/FxaStateMachineCheckerProtocol.html">FxaStateMachineCheckerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/LoginStoreProtocol.html">LoginStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MetricsHandler.html">MetricsHandler</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusClientProtocol.html">NimbusClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusStringHelperProtocol.html">NimbusStringHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusTargetingHelperProtocol.html">NimbusTargetingHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/OhttpSessionProtocol.html">OhttpSessionProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/OhttpTestServerProtocol.html">OhttpTestServerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesApiProtocol.html">PlacesApiProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesConnectionProtocol.html">PlacesConnectionProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PushManagerProtocol.html">PushManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RecordedContext.html">RecordedContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteCommandStoreProtocol.html">RemoteCommandStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsProtocol.html">RemoteSettingsProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SqlInterruptHandleProtocol.html">SqlInterruptHandleProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/StoreProtocol.html">StoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreBuilderProtocol.html">SuggestStoreBuilderProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreProtocol.html">SuggestStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SyncManagerProtocol.html">SyncManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsBridgedEngineProtocol.html">TabsBridgedEngineProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsStoreProtocol.html">TabsStoreProtocol</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Structs.html">Structures</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Structs/AccessTokenInfo.html">AccessTokenInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Address.html">Address</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AppContext.html">AppContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AttachedClient.html">AttachedClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Attachment.html">Attachment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationInfo.html">AuthorizationInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationParameters.html">AuthorizationParameters</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AvailableExperiment.html">AvailableExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkData.html">BookmarkData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkFolder.html">BookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkSeparator.html">BookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkUpdateInfo.html">BookmarkUpdateInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ClientRemoteTabs.html">ClientRemoteTabs</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CloseTabsPayload.html">CloseTabsPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CreditCard.html">CreditCard</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DecryptResponse.html">DecryptResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Device.html">Device</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceConfig.html">DeviceConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DevicePushSubscription.html">DevicePushSubscription</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceSettings.html">DeviceSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Dummy.html">Dummy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EncryptedLogin.html">EncryptedLogin</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrolledExperiment.html">EnrolledExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentChangeEvent.html">EnrollmentChangeEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentStatusExtraDef.html">EnrollmentStatusExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ExperimentBranch.html">ExperimentBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FeatureExposureExtraDef.html">FeatureExposureExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAccessTokenInfo.html">FfiConverterTypeAccessTokenInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAccountEvent.html">FfiConverterTypeAccountEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAddress.html">FfiConverterTypeAddress</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAppContext.html">FfiConverterTypeAppContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAttachedClient.html">FfiConverterTypeAttachedClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAttachment.html">FfiConverterTypeAttachment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAuthorizationInfo.html">FfiConverterTypeAuthorizationInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAuthorizationParameters.html">FfiConverterTypeAuthorizationParameters</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAutofillApiError.html">FfiConverterTypeAutofillApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeAvailableExperiment.html">FfiConverterTypeAvailableExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkData.html">FfiConverterTypeBookmarkData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkFolder.html">FfiConverterTypeBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkItem.html">FfiConverterTypeBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkPosition.html">FfiConverterTypeBookmarkPosition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkSeparator.html">FfiConverterTypeBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBookmarkUpdateInfo.html">FfiConverterTypeBookmarkUpdateInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeBridgeType.html">FfiConverterTypeBridgeType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeClientRemoteTabs.html">FfiConverterTypeClientRemoteTabs</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeCloseTabsPayload.html">FfiConverterTypeCloseTabsPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeCloseTabsResult.html">FfiConverterTypeCloseTabsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeConnectionType.html">FfiConverterTypeConnectionType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeCrashTestError.html">FfiConverterTypeCrashTestError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeCreditCard.html">FfiConverterTypeCreditCard</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDecryptResponse.html">FfiConverterTypeDecryptResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDevice.html">FfiConverterTypeDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDeviceCapability.html">FfiConverterTypeDeviceCapability</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDeviceConfig.html">FfiConverterTypeDeviceConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDevicePushSubscription.html">FfiConverterTypeDevicePushSubscription</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDeviceSettings.html">FfiConverterTypeDeviceSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDeviceType.html">FfiConverterTypeDeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDocumentType.html">FfiConverterTypeDocumentType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeDummy.html">FfiConverterTypeDummy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeEncryptedLogin.html">FfiConverterTypeEncryptedLogin</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeEnrolledExperiment.html">FfiConverterTypeEnrolledExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeEnrollmentChangeEvent.html">FfiConverterTypeEnrollmentChangeEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeEnrollmentChangeEventType.html">FfiConverterTypeEnrollmentChangeEventType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeEnrollmentStatusExtraDef.html">FfiConverterTypeEnrollmentStatusExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeExperimentBranch.html">FfiConverterTypeExperimentBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFeatureExposureExtraDef.html">FfiConverterTypeFeatureExposureExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFirefoxAccount.html">FfiConverterTypeFirefoxAccount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFrecencyThresholdOption.html">FfiConverterTypeFrecencyThresholdOption</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaConfig.html">FfiConverterTypeFxaConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaError.html">FfiConverterTypeFxaError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaEvent.html">FfiConverterTypeFxaEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaRustAuthState.html">FfiConverterTypeFxaRustAuthState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaServer.html">FfiConverterTypeFxaServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaState.html">FfiConverterTypeFxaState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaStateCheckerEvent.html">FfiConverterTypeFxaStateCheckerEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaStateCheckerState.html">FfiConverterTypeFxaStateCheckerState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeFxaStateMachineChecker.html">FfiConverterTypeFxaStateMachineChecker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeGuid.html">FfiConverterTypeGuid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryHighlight.html">FfiConverterTypeHistoryHighlight</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryHighlightWeights.html">FfiConverterTypeHistoryHighlightWeights</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryMetadata.html">FfiConverterTypeHistoryMetadata</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryMetadataObservation.html">FfiConverterTypeHistoryMetadataObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryMigrationResult.html">FfiConverterTypeHistoryMigrationResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryVisitInfo.html">FfiConverterTypeHistoryVisitInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeHistoryVisitInfosWithBound.html">FfiConverterTypeHistoryVisitInfosWithBound</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeIncomingDeviceCommand.html">FfiConverterTypeIncomingDeviceCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeInsertableBookmark.html">FfiConverterTypeInsertableBookmark</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeInsertableBookmarkFolder.html">FfiConverterTypeInsertableBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeInsertableBookmarkItem.html">FfiConverterTypeInsertableBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeInsertableBookmarkSeparator.html">FfiConverterTypeInsertableBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeInterruptKind.html">FfiConverterTypeInterruptKind</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeJsonObject.html">FfiConverterTypeJsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeKeyInfo.html">FfiConverterTypeKeyInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLabeledTimingSample.html">FfiConverterTypeLabeledTimingSample</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLevel.html">FfiConverterTypeLevel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLocalDevice.html">FfiConverterTypeLocalDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLogin.html">FfiConverterTypeLogin</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLoginEntry.html">FfiConverterTypeLoginEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLoginFields.html">FfiConverterTypeLoginFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLoginStore.html">FfiConverterTypeLoginStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeLoginsApiError.html">FfiConverterTypeLoginsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeMalformedFeatureConfigExtraDef.html">FfiConverterTypeMalformedFeatureConfigExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeNimbusClient.html">FfiConverterTypeNimbusClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeNimbusError.html">FfiConverterTypeNimbusError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeNimbusStringHelper.html">FfiConverterTypeNimbusStringHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeNimbusTargetingHelper.html">FfiConverterTypeNimbusTargetingHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeOhttpError.html">FfiConverterTypeOhttpError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeOhttpResponse.html">FfiConverterTypeOhttpResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeOhttpSession.html">FfiConverterTypeOhttpSession</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeOhttpTestServer.html">FfiConverterTypeOhttpTestServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePendingCommand.html">FfiConverterTypePendingCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePlacesApi.html">FfiConverterTypePlacesApi</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePlacesApiError.html">FfiConverterTypePlacesApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePlacesConnection.html">FfiConverterTypePlacesConnection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePlacesTimestamp.html">FfiConverterTypePlacesTimestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeProfile.html">FfiConverterTypeProfile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePushApiError.html">FfiConverterTypePushApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePushConfiguration.html">FfiConverterTypePushConfiguration</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePushHttpProtocol.html">FfiConverterTypePushHttpProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePushManager.html">FfiConverterTypePushManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypePushSubscriptionChanged.html">FfiConverterTypePushSubscriptionChanged</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeQueryWithMetricsResult.html">FfiConverterTypeQueryWithMetricsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRecord.html">FfiConverterTypeRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRecordFields.html">FfiConverterTypeRecordFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRecordedContext.html">FfiConverterTypeRecordedContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteCommand.html">FfiConverterTypeRemoteCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteCommandStore.html">FfiConverterTypeRemoteCommandStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettings.html">FfiConverterTypeRemoteSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettingsConfig.html">FfiConverterTypeRemoteSettingsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettingsError.html">FfiConverterTypeRemoteSettingsError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettingsRecord.html">FfiConverterTypeRemoteSettingsRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettingsResponse.html">FfiConverterTypeRemoteSettingsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteSettingsServer.html">FfiConverterTypeRemoteSettingsServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRemoteTabRecord.html">FfiConverterTypeRemoteTabRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRsJsonObject.html">FfiConverterTypeRsJsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeRunMaintenanceMetrics.html">FfiConverterTypeRunMaintenanceMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeScopedKey.html">FfiConverterTypeScopedKey</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSearchResult.html">FfiConverterTypeSearchResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSecureLoginFields.html">FfiConverterTypeSecureLoginFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSendTabPayload.html">FfiConverterTypeSendTabPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeServiceStatus.html">FfiConverterTypeServiceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSqlInterruptHandle.html">FfiConverterTypeSqlInterruptHandle</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeStore.html">FfiConverterTypeStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSubscriptionInfo.html">FfiConverterTypeSubscriptionInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSubscriptionResponse.html">FfiConverterTypeSubscriptionResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestApiError.html">FfiConverterTypeSuggestApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestGlobalConfig.html">FfiConverterTypeSuggestGlobalConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestIngestionConstraints.html">FfiConverterTypeSuggestIngestionConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestIngestionMetrics.html">FfiConverterTypeSuggestIngestionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestProviderConfig.html">FfiConverterTypeSuggestProviderConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestStore.html">FfiConverterTypeSuggestStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestStoreBuilder.html">FfiConverterTypeSuggestStoreBuilder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestion.html">FfiConverterTypeSuggestion</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestionProvider.html">FfiConverterTypeSuggestionProvider</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestionProviderConstraints.html">FfiConverterTypeSuggestionProviderConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSuggestionQuery.html">FfiConverterTypeSuggestionQuery</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncAuthInfo.html">FfiConverterTypeSyncAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncEngineSelection.html">FfiConverterTypeSyncEngineSelection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncManager.html">FfiConverterTypeSyncManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncManagerError.html">FfiConverterTypeSyncManagerError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncParams.html">FfiConverterTypeSyncParams</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncReason.html">FfiConverterTypeSyncReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeSyncResult.html">FfiConverterTypeSyncResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTabHistoryEntry.html">FfiConverterTypeTabHistoryEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTabsApiError.html">FfiConverterTypeTabsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTabsBridgedEngine.html">FfiConverterTypeTabsBridgedEngine</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTabsGuid.html">FfiConverterTypeTabsGuid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTabsStore.html">FfiConverterTypeTabsStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTestServerRequest.html">FfiConverterTypeTestServerRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTimestamp.html">FfiConverterTypeTimestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeTopFrecentSiteInfo.html">FfiConverterTypeTopFrecentSiteInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeUpdatableAddressFields.html">FfiConverterTypeUpdatableAddressFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeUpdatableCreditCardFields.html">FfiConverterTypeUpdatableCreditCardFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeUrl.html">FfiConverterTypeUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeUserData.html">FfiConverterTypeUserData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeVisitObservation.html">FfiConverterTypeVisitObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeVisitTransitionSet.html">FfiConverterTypeVisitTransitionSet</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FfiConverterTypeVisitType.html">FfiConverterTypeVisitType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FxaConfig.html">FxaConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlight.html">HistoryHighlight</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlightWeights.html">HistoryHighlightWeights</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadata.html">HistoryMetadata</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadataObservation.html">HistoryMetadataObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMigrationResult.html">HistoryMigrationResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfo.html">HistoryVisitInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfosWithBound.html">HistoryVisitInfosWithBound</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmark.html">InsertableBookmark</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkFolder.html">InsertableBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkSeparator.html">InsertableBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/KeyInfo.html">KeyInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LabeledTimingSample.html">LabeledTimingSample</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LocalDevice.html">LocalDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Login.html">Login</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginEntry.html">LoginEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginFields.html">LoginFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MalformedFeatureConfigExtraDef.html">MalformedFeatureConfigExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/OhttpResponse.html">OhttpResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PendingCommand.html">PendingCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Profile.html">Profile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushConfiguration.html">PushConfiguration</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushSubscriptionChanged.html">PushSubscriptionChanged</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/QueryWithMetricsResult.html">QueryWithMetricsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Record.html">Record</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RecordFields.html">RecordFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsConfig.html">RemoteSettingsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsRecord.html">RemoteSettingsRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsResponse.html">RemoteSettingsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteTabRecord.html">RemoteTabRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RunMaintenanceMetrics.html">RunMaintenanceMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ScopedKey.html">ScopedKey</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchResult.html">SearchResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SecureLoginFields.html">SecureLoginFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SendTabPayload.html">SendTabPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionInfo.html">SubscriptionInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionResponse.html">SubscriptionResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestGlobalConfig.html">SuggestGlobalConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionConstraints.html">SuggestIngestionConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionMetrics.html">SuggestIngestionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionProviderConstraints.html">SuggestionProviderConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionQuery.html">SuggestionQuery</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncAuthInfo.html">SyncAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncParams.html">SyncParams</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncResult.html">SyncResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TabHistoryEntry.html">TabHistoryEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TestServerRequest.html">TestServerRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TopFrecentSiteInfo.html">TopFrecentSiteInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableAddressFields.html">UpdatableAddressFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableCreditCardFields.html">UpdatableCreditCardFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UserData.html">UserData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/VisitObservation.html">VisitObservation</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Typealiases.html">Type Aliases</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents10JsonObjecta">JsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents12RsJsonObjecta">RsJsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents8TabsGuida">TabsGuid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9Timestampa">Timestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+        <section>
+          <section class="section">
+            <h1>TabsBridgedEngineProtocol</h1>
+              <div class="declaration">
+                <div class="language">
+                  
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">protocol</span> <span class="kt">TabsBridgedEngineProtocol</span> <span class="p">:</span> <span class="kt">AnyObject</span></code></pre>
+
+                </div>
+              </div>
+            
+          </section>
+          <section class="section task-group-section">
+            <div class="task-group">
+              <ul>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP5applySaySSGyKF"></a>
+                    <a name="//apple_ref/swift/Method/apply()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP5applySaySSGyKF">apply()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">apply</span><span class="p">()</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt">String</span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP19ensureCurrentSyncId03newiJ0S2S_tKF"></a>
+                    <a name="//apple_ref/swift/Method/ensureCurrentSyncId(newSyncId:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP19ensureCurrentSyncId03newiJ0S2S_tKF">ensureCurrentSyncId(newSyncId:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">ensureCurrentSyncId</span><span class="p">(</span><span class="nv">newSyncId</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">String</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP8lastSyncs5Int64VyKF"></a>
+                    <a name="//apple_ref/swift/Method/lastSync()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP8lastSyncs5Int64VyKF">lastSync()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">lastSync</span><span class="p">()</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Int64</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP14prepareForSync10clientDataySS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/prepareForSync(clientData:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP14prepareForSync10clientDataySS_tKF">prepareForSync(clientData:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">prepareForSync</span><span class="p">(</span><span class="nv">clientData</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP5resetyyKF"></a>
+                    <a name="//apple_ref/swift/Method/reset()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP5resetyyKF">reset()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">reset</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP11resetSyncIdSSyKF"></a>
+                    <a name="//apple_ref/swift/Method/resetSyncId()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP11resetSyncIdSSyKF">resetSyncId()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">resetSyncId</span><span class="p">()</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">String</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP11setLastSync04lastI0ys5Int64V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/setLastSync(lastSync:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP11setLastSync04lastI0ys5Int64V_tKF">setLastSync(lastSync:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">setLastSync</span><span class="p">(</span><span class="nv">lastSync</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP11setUploaded12newTimestamp11uploadedIdsys5Int64V_SaySSGtKF"></a>
+                    <a name="//apple_ref/swift/Method/setUploaded(newTimestamp:uploadedIds:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP11setUploaded12newTimestamp11uploadedIdsys5Int64V_SaySSGtKF">setUploaded(newTimestamp:<wbr>uploadedIds:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">setUploaded</span><span class="p">(</span><span class="nv">newTimestamp</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">uploadedIds</span><span class="p">:</span> <span class="p">[</span><span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents8TabsGuida">TabsGuid</a></span><span class="p">])</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP13storeIncoming23incomingEnvelopesAsJsonySaySSG_tKF"></a>
+                    <a name="//apple_ref/swift/Method/storeIncoming(incomingEnvelopesAsJson:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP13storeIncoming23incomingEnvelopesAsJsonySaySSG_tKF">storeIncoming(incomingEnvelopesAsJson:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">storeIncoming</span><span class="p">(</span><span class="nv">incomingEnvelopesAsJson</span><span class="p">:</span> <span class="p">[</span><span class="kt">String</span><span class="p">])</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP12syncFinishedyyKF"></a>
+                    <a name="//apple_ref/swift/Method/syncFinished()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP12syncFinishedyyKF">syncFinished()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">syncFinished</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP6syncIdSSSgyKF"></a>
+                    <a name="//apple_ref/swift/Method/syncId()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP6syncIdSSSgyKF">syncId()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">syncId</span><span class="p">()</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">String</span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP11syncStartedyyKF"></a>
+                    <a name="//apple_ref/swift/Method/syncStarted()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP11syncStartedyyKF">syncStarted()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">syncStarted</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents25TabsBridgedEngineProtocolP4wipeyyKF"></a>
+                    <a name="//apple_ref/swift/Method/wipe()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents25TabsBridgedEngineProtocolP4wipeyyKF">wipe()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">wipe</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </section>
+        <section id="footer">
+          <p>&copy; 2024 <a class="link" href="" target="_blank" rel="external noopener"></a>. All rights reserved. (Last updated: 2024-09-10)</p>
+          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external noopener">jazzy ♪♫ v0.15.1</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external noopener">Realm</a> project.</p>
+        </section>
+      </article>
+    </div>
+  </body>
+</html>
