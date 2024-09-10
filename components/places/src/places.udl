@@ -61,8 +61,8 @@ interface PlacesConnection {
     [Throws=PlacesApiError]
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
-    // `url` is a `string` and not a `URL` because `accept_result`
-    // handles malformed urls
+    /// `url` is a `string` and not a `URL` because `accept_result`
+    /// handles malformed urls
     [Throws=PlacesApiError]
     void accept_result(string search_string, string url);
 
@@ -196,10 +196,10 @@ interface PlacesConnection {
     [Throws=PlacesApiError]
     Guid bookmarks_insert(InsertableBookmarkItem bookmark);
 
-    // Counts the number of bookmarks in the bookmark tree under the specified GUID. Does not count
-    // the passed item, so an empty folder will return zero, as will a non-existing GUID or the
-    // guid of a non-folder item.
-    // Counts only bookmark items - ie, sub-folders and separators are not counted.
+    /// Counts the number of bookmarks in the bookmark tree under the specified GUID. Does not count
+    /// the passed item, so an empty folder will return zero, as will a non-existing GUID or the
+    /// guid of a non-folder item.
+    /// Counts only bookmark items - ie, sub-folders and separators are not counted.
     [Throws=PlacesApiError]
     u32 bookmarks_count_bookmarks_in_trees([ByRef] sequence<Guid> folder_guids);
 
@@ -207,14 +207,13 @@ interface PlacesConnection {
     HistoryMigrationResult places_history_import_from_ios(string db_path, i64 last_sync_timestamp);
 };
 
-/**
- * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
- * with a frecency score greater or equal to the value associated with the enums
- */
+
+/// Frecency threshold options for fetching top frecent sites. Requests a page that was visited
+/// with a frecency score greater or equal to the value associated with the enums
 enum FrecencyThresholdOption {
-// Returns all visited pages. The frecency score is 0
+   /// Returns all visited pages. The frecency score is 0
   "None",
-// Skip visited pages that were only visited once. The frecency score is 101
+   /// Skip visited pages that were only visited once. The frecency score is 101
   "SkipOneTimePages",
 };
 
@@ -234,18 +233,18 @@ dictionary SearchResult {
 // Everything below is from the crate::storage::history_metadata module...
 
 enum DocumentType {
-     // A page that isn't described by any other more specific types.
+     /// A page that isn't described by any other more specific types.
     "Regular",
-    // A media page.
+    /// A media page.
     "Media",
 };
 
 // Mimics https://searchfox.org/mozilla-central/rev/57f94ca1d57ab745242daafc8926690377579b83/toolkit/components/places/nsINavHistoryService.idl#922
 enum VisitType {
-    // This transition type means the user followed a link.
+    /// This transition type means the user followed a link.
     "Link",
-    // This transition type means that the user typed the page's URL in the
-    // URL bar or selected it from UI (URL bar autocomplete results, etc)
+    /// This transition type means that the user typed the page's URL in the
+    /// URL bar or selected it from UI (URL bar autocomplete results, etc)
     "Typed",
     "Bookmark",
     "Embed",
@@ -254,11 +253,11 @@ enum VisitType {
     "Download",
     "FramedLink",
     "Reload",
-     // Internal visit type used for meta data updates. Doesn't represent an actual page visit
+     /// Internal visit type used for meta data updates. Doesn't represent an actual page visit
     "UpdatePlace",
 };
 
-// This is used as an "input" to the api.
+/// This is used as an "input" to the api.
 dictionary HistoryMetadataObservation {
     string url;
     string? referrer_url = null;
@@ -268,7 +267,7 @@ dictionary HistoryMetadataObservation {
     string? title = null;
 };
 
-// This is what is returned.
+/// This is what is returned.
 dictionary HistoryMetadata {
     string url;
     string? title;
@@ -310,10 +309,8 @@ dictionary HistoryVisitInfosWithBound {
     i64 offset;
 };
 
-/**
- * Encapsulates either information about a visit to a page, or meta information about the page,
- * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
- */
+/// Encapsulates either information about a visit to a page, or meta information about the page,
+/// or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
 dictionary VisitObservation {
     Url url;
     string? title = null;
@@ -327,7 +324,7 @@ dictionary VisitObservation {
     Url? preview_image_url = null;
 };
 
-// Exists just to convince uniffi to generate `liftSequence*` helpers!
+/// Exists just to convince uniffi to generate `liftSequence*` helpers!
 dictionary Dummy {
     sequence<HistoryMetadata>? md;
 };
@@ -401,7 +398,7 @@ dictionary BookmarkUpdateInfo {
 
 // Structs for inserting new bookmark items.
 
-// Where the item should be placed.
+/// Where the item should be placed.
 [Enum]
 interface BookmarkPosition {
     Specific(u32 pos);

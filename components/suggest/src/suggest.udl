@@ -17,9 +17,9 @@ boolean raw_suggestion_url_matches([ByRef] string raw_url, [ByRef] string url);
 
 [Error]
 interface SuggestApiError {
-    // An operation was interrupted by calling `SuggestStore.interrupt()`
+    /// An operation was interrupted by calling `SuggestStore.interrupt()`
     Interrupted();
-    // The server requested a backoff after too many requests
+    /// The server requested a backoff after too many requests
     Backoff(u64 seconds);
     Network(string reason);
     Other(string reason);
@@ -124,42 +124,42 @@ dictionary SuggestionQuery {
 dictionary SuggestIngestionConstraints {
     sequence<SuggestionProvider>? providers = null;
     SuggestionProviderConstraints? provider_constraints = null;
-    // Only ingest if the table `suggestions` is empty.
-    //
-    // This is indented to handle periodic updates.  Consumers can schedule an ingest with
-    // `empty_only=true` on startup and a regular ingest with `empty_only=false` to run on a long periodic schedule (maybe
-    // once a day). This allows ingestion to normally be run at a slow, periodic rate.  However, if
-    // there is a schema upgrade that causes the database to be thrown away, then the
-    // `empty_only=true` ingestion that runs on startup will repopulate it.
+    /// Only ingest if the table `suggestions` is empty.
+    ///
+    /// This is indented to handle periodic updates.  Consumers can schedule an ingest with
+    /// `empty_only=true` on startup and a regular ingest with `empty_only=false` to run on a long periodic schedule (maybe
+    /// once a day). This allows ingestion to normally be run at a slow, periodic rate.  However, if
+    /// there is a schema upgrade that causes the database to be thrown away, then the
+    /// `empty_only=true` ingestion that runs on startup will repopulate it.
     boolean empty_only = false;
 };
 
-// Some providers manage multiple suggestion subtypes. Queries, ingests, and
-// other operations on those providers must be constrained to a desired subtype.
+/// Some providers manage multiple suggestion subtypes. Queries, ingests, and
+/// other operations on those providers must be constrained to a desired subtype.
 dictionary SuggestionProviderConstraints {
-    // `Exposure` provider - For each desired exposure suggestion type, this
-    // should contain the value of the `suggestion_type` field of its remote
-    // settings record(s).
+    /// `Exposure` provider - For each desired exposure suggestion type, this
+    /// should contain the value of the `suggestion_type` field of its remote
+    /// settings record(s).
     sequence<string>? exposure_suggestion_types = null;
 };
 
 dictionary SuggestIngestionMetrics {
-    // Samples for the `suggest.ingestion_time` metric
+    /// Samples for the `suggest.ingestion_time` metric
     sequence<LabeledTimingSample> ingestion_times;
-    // Samples for the `suggest.ingestion_download_time` metric
+    /// Samples for the `suggest.ingestion_download_time` metric
     sequence<LabeledTimingSample> download_times;
 };
 
 dictionary QueryWithMetricsResult {
     sequence<Suggestion> suggestions;
-    // Samples for the `suggest.query_time` metric
+    /// Samples for the `suggest.query_time` metric
     sequence<LabeledTimingSample> query_times;
 };
 
-/// A single sample for a labeled timing distribution metric
+//// A single sample for a labeled timing distribution metric
 dictionary LabeledTimingSample {
     string label;
-    // Time in microseconds
+    /// Time in microseconds
     u64 value;
 };
 
@@ -196,10 +196,10 @@ interface SuggestStore {
     [Throws=SuggestApiError]
     void clear_dismissed_suggestions();
 
-    // Interrupt operations
-    //
-    // This is optional for backwards compatibility, but this is deprecated.  Consumers should
-    // update their code to pass in a InterruptKind value.
+    /// Interrupt operations
+    ///
+    /// This is optional for backwards compatibility, but this is deprecated.  Consumers should
+    /// update their code to pass in a InterruptKind value.
     void interrupt(optional InterruptKind? kind = null);
 
     [Throws=SuggestApiError]
@@ -221,7 +221,7 @@ interface SuggestStoreBuilder {
     [Self=ByArc]
     SuggestStoreBuilder data_path(string path);
 
-    // Deprecated: this is no longer used by the suggest component.
+    /// Deprecated: this is no longer used by the suggest component.
     [Self=ByArc]
     SuggestStoreBuilder cache_path(string path);
 
@@ -231,11 +231,11 @@ interface SuggestStoreBuilder {
     [Self=ByArc]
     SuggestStoreBuilder remote_settings_bucket_name(string bucket_name);
 
-    // Add an sqlite3 extension to load
-    //
-    // library_name should be the name of the library without any extension, for example `libmozsqlite3`.
-    // entrypoint should be the entry point, for example `sqlite3_fts5_init`.  If `null` (the default)
-    // entry point will be used (see https://sqlite.org/loadext.html for details).
+    /// Add an sqlite3 extension to load
+    ///
+    /// library_name should be the name of the library without any extension, for example `libmozsqlite3`.
+    /// entrypoint should be the entry point, for example `sqlite3_fts5_init`.  If `null` (the default)
+    /// entry point will be used (see https://sqlite.org/loadext.html for details).
     [Self=ByArc]
     SuggestStoreBuilder load_extension(string library_name, string? entrypoint);
 
