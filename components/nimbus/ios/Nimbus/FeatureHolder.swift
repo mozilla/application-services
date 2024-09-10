@@ -218,7 +218,12 @@ public extension FMLFeatureInterface {
 
     func toJSONString() -> String {
         let encoder = JSONEncoder()
-        let data = try! encoder.encode(self)
-        return String(decoding: data, as: UTF8.self)
+        guard let data = try? encoder.encode(self) else {
+            fatalError("`JSONEncoder.encode()` must succeed for `FMLFeatureInterface`")
+        }
+        guard let string = String(data: data, encoding: .utf8) else {
+            fatalError("`JSONEncoder.encode()` must return valid UTF-8")
+        }
+        return string
     }
 }
