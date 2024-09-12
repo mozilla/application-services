@@ -10,15 +10,6 @@ interface SearchApiError {
     Other(string reason);
 };
 
-/// TBD: These may be going away.
-dictionary SearchAccessPointValues {
-    string? addressbar;
-    string? contextmenu;
-    string? homepage;
-    string? newtab;
-    string? searchbar;
-};
-
 /**
  * Parameter definitions for search engine URLs. The name property is always
  * specified, along with one of value, experiment_config or search_access_point.
@@ -36,9 +27,6 @@ dictionary SearchUrlParam {
     /// configuration value.
     /// Only desktop uses this currently.
     string? experiment_config;
-
-    /// TBD. May be going away.
-    SearchAccessPointValues? search_access_point;
 };
 
 /**
