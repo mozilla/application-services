@@ -1,37 +1,34 @@
 import mozilla.appservices.Megazord
 import mozilla.appservices.autofill.Store
 import mozilla.appservices.syncmanager.SyncManager
-import org.junit.Assert
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.robolectric.annotation.Config
+import java.io.File
 
-@RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class AutofillTest {
-    @Rule
-    @JvmField
-    val dbFolder = TemporaryFolder()
 
-    fun createTestStore(): Store {
+    @field:TempDir
+    lateinit var dbFolder: File
+
+    private fun createTestStore(): Store {
         Megazord.init()
-        val dbPath = dbFolder.newFile()
-        return Store(dbpath = dbPath.absolutePath)
+        val dbPath = dbFolder.resolve("test.db")
+        return Store(dbPath.absolutePath)
     }
 
     @Test
-    fun testRegisterWithSyncmanager() {
+    fun testRegisterWithSyncManager() {
         val syncManager = SyncManager()
 
-        Assert.assertFalse(syncManager.getAvailableEngines().contains("addresses"))
-        Assert.assertFalse(syncManager.getAvailableEngines().contains("creditcards"))
+        Assertions.assertFalse(syncManager.getAvailableEngines().contains("addresses"))
+        Assertions.assertFalse(syncManager.getAvailableEngines().contains("creditcards"))
 
         createTestStore().registerWithSyncManager()
 
-        Assert.assertTrue(syncManager.getAvailableEngines().contains("addresses"))
-        Assert.assertTrue(syncManager.getAvailableEngines().contains("creditcards"))
+        Assertions.assertTrue(syncManager.getAvailableEngines().contains("addresses"))
+        Assertions.assertTrue(syncManager.getAvailableEngines().contains("creditcards"))
     }
 }
