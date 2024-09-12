@@ -39,7 +39,7 @@ androidx-test-runner = "1.6.1"
 androidx-test-work = "2.9.0"
 
 # Third Party Testing
-junit = "4.13.2"
+junit = "5.11.0"
 mockito = "5.12.0"
 robolectric = "4.13"
 
@@ -85,7 +85,7 @@ test-runner = { group = "androidx.test", name = "runner", version.ref = "android
 test-work = { group = "androidx.work", name = "work-testing", version.ref = "androidx-test-work" }
 
 # Third Party Testing
-junit = { group = "junit", name = "junit", version.ref = "junit" }
+junit = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junit" }
 mockito = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
