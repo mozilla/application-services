@@ -115,7 +115,7 @@ dictionary SearchEngineDefinition {
  * Details of the search engines to display to the user, generated as a result
  * of processing the search configuration.
  */
-dictionary FilteredSearchEngines {
+dictionary RefinedConfig {
     /// A list of engines, with the default engine first, and the rest in the
     /// order defined by the configuration.
     sequence<SearchEngineDefinition> engines;
@@ -199,7 +199,7 @@ interface SearchEngineSelector {
     /// and returns the set of engines and parameters that should be presented
     /// to the user.
     [Throws=SearchApiError]
-    FilteredSearchEngines filter_engine_configuration(
+    RefinedConfig filter_engine_configuration(
         SearchUserEnvironment user_environment
     );
 
