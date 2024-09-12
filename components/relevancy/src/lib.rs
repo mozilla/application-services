@@ -96,7 +96,7 @@ impl RelevancyStore {
     /// consumer can show it in an `about:` page.
     #[handle_error(Error)]
     pub fn user_interest_vector(&self) -> ApiResult<InterestVector> {
-        todo!()
+        self.db.read(|dao| dao.get_frecency_user_interest_vector())
     }
 }
 
@@ -115,38 +115,63 @@ mod test {
 
     use super::*;
 
-    #[test]
-    fn test_ingest() {
-        let top_urls = vec![
-            "https://food.com/".to_string(),
-            "https://hello.com".to_string(),
-            "https://pasta.com".to_string(),
-            "https://dog.com".to_string(),
-        ];
+    fn make_fixture() -> Vec<(String, Interest)> {
+        vec![
+            ("https://food.com/".to_string(), Interest::Food),
+            ("https://hello.com".to_string(), Interest::Inconclusive),
+            ("https://pasta.com".to_string(), Interest::Food),
+            ("https://dog.com".to_string(), Interest::Animals),
+        ]
+    }
+
+    fn expected_interest_vector() -> InterestVector {
+        InterestVector {
+            inconclusive: 1,
+            animals: 1,
+            food: 2,
+            ..InterestVector::default()
+        }
+    }
+
+    fn setup_store(test_id: &'static str) -> RelevancyStore {
         let relevancy_store =
-            RelevancyStore::new("file:test_store_data?mode=memory&cache=shared".to_owned());
+            RelevancyStore::new(format!("file:test_{test_id}_data?mode=memory&cache=shared"));
         relevancy_store
             .db
             .read_write(|dao| {
-                dao.add_url_interest(hash_url("https://food.com").unwrap(), Interest::Food)?;
-                dao.add_url_interest(
-                    hash_url("https://hello.com").unwrap(),
-                    Interest::Inconclusive,
-                )?;
-                dao.add_url_interest(hash_url("https://pasta.com").unwrap(), Interest::Food)?;
-                dao.add_url_interest(hash_url("https://dog.com").unwrap(), Interest::Animals)?;
+                for (url, interest) in make_fixture() {
+                    dao.add_url_interest(hash_url(&url).unwrap(), interest)?;
+                }
                 Ok(())
             })
             .expect("Insert should succeed");
 
+        relevancy_store
+    }
+
+    #[test]
+    fn test_ingest() {
+        let relevancy_store = setup_store("ingest");
+        let (top_urls, _): (Vec<String>, Vec<Interest>) = make_fixture().into_iter().unzip();
+
         assert_eq!(
             relevancy_store.ingest(top_urls).unwrap(),
-            InterestVector {
-                inconclusive: 1,
-                animals: 1,
-                food: 2,
-                ..InterestVector::default()
-            }
+            expected_interest_vector()
+        );
+    }
+
+    #[test]
+    fn test_get_user_interest_vector() {
+        let relevancy_store = setup_store("get_user_interest_vector");
+        let (top_urls, _): (Vec<String>, Vec<Interest>) = make_fixture().into_iter().unzip();
+
+        relevancy_store
+            .ingest(top_urls)
+            .expect("Ingest should succeed");
+
+        assert_eq!(
+            relevancy_store.user_interest_vector().unwrap(),
+            expected_interest_vector()
         );
     }
 }
