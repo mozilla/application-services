@@ -31,7 +31,7 @@ class AutofillTest {
 
         createTestStore().registerWithSyncManager()
 
-        Assert.assertTrue(syncManager.getAvailableEngines().contains("addresses"))
+        Assert.assertFalse(syncManager.getAvailableEngines().contains("addresses"))
         Assert.assertTrue(syncManager.getAvailableEngines().contains("creditcards"))
     }
 }
