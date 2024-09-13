@@ -13,6 +13,7 @@ mod db;
 mod error;
 mod ingest;
 mod interest;
+mod ranker;
 mod rs;
 mod schema;
 pub mod url_hash;
@@ -20,6 +21,7 @@ pub mod url_hash;
 pub use db::RelevancyDb;
 pub use error::{ApiResult, Error, RelevancyApiError, Result};
 pub use interest::{Interest, InterestVector};
+pub use ranker::score;
 
 use error_support::handle_error;
 
