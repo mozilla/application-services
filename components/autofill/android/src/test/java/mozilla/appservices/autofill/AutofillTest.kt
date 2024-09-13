@@ -24,7 +24,7 @@ class AutofillTest {
         val syncManager = SyncManager()
 
         Assertions.assertFalse(syncManager.getAvailableEngines().contains("addresses"))
-        Assertions.assertFalse(syncManager.getAvailableEngines().contains("creditcards"))
+        Assertions.assertTrue(syncManager.getAvailableEngines().contains("creditcards"))
 
         createTestStore().registerWithSyncManager()
 
