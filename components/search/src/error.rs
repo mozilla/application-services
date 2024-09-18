@@ -16,7 +16,7 @@ pub enum Error {
 }
 
 // #[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum SearchApiError {
     #[error("Other error: {reason}")]
     Other { reason: String },
