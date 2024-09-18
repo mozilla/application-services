@@ -1,9 +1,6 @@
 # Adding a new component to Application Services
 
-Each component in the Application Services repository has three parts (the Rust code,
-the Kotlin wrapper, and the Swift wrapper) so there are quite a few moving
-parts involved in adding a new component. This is a rapid-fire list of all
-the things you'll need to do if adding a new component from scratch.
+This is a rapid-fire list for adding a component from scratch and generating Kotlin/Swift bindings.
 
 ## The Rust Code
 
@@ -16,14 +13,18 @@ advice on designing and structuring the actual Rust code, and follow the
 introduces any new dependencies.
 
 Use [UniFFI](https://mozilla.github.io/uniffi-rs/) to define how your crate's
-API will get exposed to foreign-language bindings.  Prefer using the
-[proc-macro](https://mozilla.github.io/uniffi-rs/latest/proc_macro/index.html) approach to creating
-a UDL file.  Place the following entries in your `Cargo.toml`:
+API will get exposed to foreign-language bindings. Place the following in your `Cargo.toml`:
 
 ```
 [dependencies]
 uniffi = { workspace = true }
+```
 
+New components should prefer using the
+[proc-macro](https://mozilla.github.io/uniffi-rs/latest/proc_macro/index.html) approach rather than
+a UDL file based approach.  If you do use a UDL file, add this to `Cargo.toml` as well.
+
+```
 [build-dependencies]
 uniffi = { workspace = true }
 ```
@@ -32,60 +33,16 @@ Include your new crate in the `application-services` workspace, by adding
 it to the `members` and `default-members` lists in the `Cargo.toml` at
 the root of the repository.
 
-In order to be published to consumers, your crate must be included in the
-["megazord"](../design/megazords.md) crate for each target platform:
-
-* For Android, add it as a dependency in `./megazords/full/Cargo.toml` and
-  add a `pub use <your_crate_name>` to `./megazords/full/src/lib.rs`.
-* For iOS, add it as a dependency in `./megazords/ios-rust/rust/Cargo.toml` and
-  add a `pub use <your_crate_name>` to `./megazords/ios-rust/src/lib.rs`.
-
 Run `cargo check -p <your_crate_name>` in the repository root to confirm that
 things are configured properly. This will also have the side-effect of updating
 `Cargo.lock` to contain your new crate and its dependencies.
 
 
-## The Kotlin Bindings
+## The Android Bindings
 
-Make a `./components/<your_crate_name>/android` subdirectory to contain
-Kotlin- and Android-specific code. This directory will contain a gradle
-project for building your Kotlin bindings.
+Run the `start-bindings android <your_crate_name> <component_description>` command to auto-generate the initial code.  Follow the directions in the output.
 
-Copy the `build.gradle` file from `./components/crashtest/android/` into
-your own component's directory.  Update the `ext.configureUniFFIBindgen("crashtest")` line,
-replacing "crashtest" with the crate name of your component.
-
-Create a file `./components/<your_crate_name>/uniffi.toml` with the
-following contents:
-
-```toml
-[bindings.kotlin]
-package_name = "mozilla.appservices.<your_crate_name>"
-```
-
-Create a file `./components/<your_crate_name>/android/src/main/AndroidManifest.xml`
-with the following contents:
-
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.mozilla.appservices.<your_crate_name>" />
-```
-
-In the root of the repository, edit `.buildconfig-android.yml`to add
-your component's metadata. This will cause it to be included in the
-gradle workspace and in our build and publish pipeline. Check whether
-it builds correctly by running:
-* `./gradlew <your_crate_name>:assembleDebug`
-
-You can include hand-written Kotlin code alongside the automatically
-generated bindings, by placing `.kt`` files in a directory named:
-* `./android/src/test/java/mozilla/appservices/<your_crate_name>/`
-
-You can write Kotlin-level tests that consume your component's API,
-by placing `.kt`` files in a directory named:
-* `./android/src/test/java/mozilla/appservices/<your_crate_name>/`.
-
-So you would end up with a directory structure something like this:
+You will end up with a directory structure something like this:
 
 * `components/<your_crate_name>/`
     * `Cargo.toml`
@@ -97,26 +54,42 @@ So you would end up with a directory structure something like this:
         * `src/`
           * `main/`
               * `AndroidManifest.xml`
-              * `java/mozilla/appservices/<your_crate_name>/`
-                  * Hand-written Kotlin code here.
-          * `test/java/mozilla/appservices/<your_crate_name>/`
-              * Kotlin test-cases here.
 
-Run your component's Kotlin tests with `./gradlew <your_crate_name>:test`
-to confirm that this is all working correctly.
+### Dependent crates
+
+If your crate uses types from another crate in it's public API, you need to include a dependency for
+the corresponding project in your `android/build.gradle` file.
+
+For example, suppose use the `remote_settings::RemoteSettingsServer` type in your public API so that
+consumers can select which server they want.  In that case, you need to a dependency on the
+remotesettings project:
+
+```
+dependencies {
+    api project(":remotesettings")
+}
+```
+
+### Hand-written code
+
+You can include hand-written Kotlin code alongside the automatically
+generated bindings, by placing `.kt`` files in a directory named:
+* `./android/src/test/java/mozilla/appservices/<your_crate_name>/`
+
+You can write Kotlin-level tests that consume your component's API,
+by placing `.kt`` files in a directory named:
+* `./android/src/test/java/mozilla/appservices/<your_crate_name>/`.
+
+You can run the tests with `./gradlew <your_crate_name>:test`
+
+## The iOS Bindings
+
+* Run the `start-bindings ios <your_crate_name>` command to auto-generate the initial code
+* Run `start-bindings ios-focus <your_crate_name>` if you also want to expose your component to Focus.
+* Follow the directions in the output.
 
 
-## The Swift Bindings
-### Creating the directory structure
-Make a `./components/<your_crate_name>/ios` subdirectory to contain
-Swift- and iOS-specific code. The UniFFI-generated swift bindings will
-be written to a subdirectory named `Generated`.
-
-You can include hand-written Swift code alongside the automatically
-generated bindings, by placing `.swift` files in a directory named:
-`./ios/<your_crate_name>/`.
-
-So you would end up with a directory structure something like this:
+You will end up with a directory structure something like this:
 
 * `components/<your_crate_name>/`
     * `Cargo.toml`
@@ -124,31 +97,20 @@ So you would end up with a directory structure something like this:
     * `src/`
         * Rust code here.
     * `ios/`
-        * `<your_crate_name>/`
-          * Hand-written Swift code here.
         * `Generated/`
           * Generated Swift code will be written into this directory.
 
 ### Adding your component to the Swift Package Manager Megazord
+
 > *For more information on our how we ship components using the Swift Package Manager, check the [ADR that introduced the Swift Package Manager](../adr/0003-swift-packaging.md)*
 
-You will need to do the following steps to include the component in the megazord:
-1. Update its `uniffi.toml` to include the following settings:
-    ```toml
-    [bindings.swift]
-    ffi_module_name = "MozillaRustComponents"
-    ffi_module_filename = "<crate_name>FFI"
-    ```
-1. Add the component as a dependency to the `Cargo.toml` in [`megazords/ios-rust/`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/Cargo.toml)
-1. Add a `pub use` declaration for the component in [`megazords/ios-rust/src/lib.rs`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/src/lib.rs)
-1. Add an `#import` for its header file to [`megazords/ios-rust/MozillaRustComponents.h`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/MozillaRustComponents.h)
-1. Add your component into the iOS ["megazord"](../design/megazords.md) through the Xcode project, which can only really by done using the Xcode application, which can only really be done if you're on a Mac.
+Add your component into the iOS ["megazord"](../design/megazords.md) through the Xcode project, which can only really by done using the Xcode application, which can only really be done if you're on a Mac.
 
-    1. Open `megazords/ios-rust/MozillaTestServices/MozillaTestServices.xcodeproj` in Xcode.
+1. Open `megazords/ios-rust/MozillaTestServices/MozillaTestServices.xcodeproj` in Xcode.
 
-    1. In the Project navigator, add a new Group for your new component, pointing to
-    the `./ios/` directory you created above.  Add the following entries to the Group:
-        * Any hand-written `.swift `files for your component
+1. In the Project navigator, add a new Group for your new component, pointing to
+the `./ios/` directory you created above.  Add the following entries to the Group:
+    * Any hand-written `.swift `files for your component
 
 > Make sure that the "Copy items if needed" option is **unchecked**, and that
 nothing is checked in the "Add to targets" list.
@@ -191,11 +153,19 @@ The result should look something like this:
 Use the Xcode Test Navigator to run your tests and check whether
 they're passing.
 
-## Distribute your component with `rust-components-swift`
-The Swift source code and generated UniFFI bindings are distributed to consumers (eg: Firefox iOS) through [`rust-components-swift`](https://github.com/mozilla/rust-components-swift).
+### Hand-written code
 
-A nightly taskcluster job prepares the `rust-component-swift` packages from the source code in the application-services repository. To distribute your component with `rust-component-swift`, add the following to the taskcluster script in `taskcluster/scripts/build-and-test-swift.py`:
+You can include hand-written Swift code alongside the automatically
+generated bindings, by placing `.swift` files in a directory named:
+`./ios/<your_crate_name>/`.
+
+Make sure that this code gets distributed. Edit `taskcluster/scripts/build-and-test-swift.py` and:
+
 - Add the path to the directory containing any hand-written swift code to `SOURCE_TO_COPY`
-  - Optionally also to `FOCUS_SOURCE_TO_COPY` if your component is also targeting Firefox Focus
+- Optionally also to `FOCUS_SOURCE_TO_COPY` if your component is also targeting Firefox Focus
+
+
+### Distribute your component with `rust-components-swift`
+The Swift source code and generated UniFFI bindings are distributed to consumers (eg: Firefox iOS) through [`rust-components-swift`](https://github.com/mozilla/rust-components-swift).
 
 Your component should now automatically get included in the next `rust-component-swift` nightly release.

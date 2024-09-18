@@ -506,7 +506,7 @@ The following text applies to code linked from these dependencies:
 [iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
-[indexmap](https://github.com/bluss/indexmap),
+[indexmap](https://github.com/indexmap-rs/indexmap),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
 [ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/rust-itertools/itertools),

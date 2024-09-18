@@ -1,0 +1,7 @@
+  {{ crate_name }}:
+    path: {{ android_root }}
+    artifactId: {{ crate_name }}
+    publications:
+    - name: {{ crate_name }}
+      type: aar
+    description: {{ description }}
