@@ -4,4 +4,3 @@ package_name = "mozilla.appservices.rust_log_forwarder"
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "rustlogforwarderFFI"
-generate_module_map = false

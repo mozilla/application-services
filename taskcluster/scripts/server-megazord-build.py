@@ -89,16 +89,19 @@ def _build_shared_library(megazord, target, dist_dir):
         'cargo', 'build', '--manifest-path', f'{SRC_ROOT}/megazords/{megazord}/Cargo.toml', '--release', '--target', target,
     ], env=env, cwd=SRC_ROOT)
 
-    # Move the .so file to the dist_directory
-    shutil.move(SRC_ROOT / 'target' / target / 'release' / filename, dist_dir / filename)
-
     # This is only temporary, until cirrus uses pre-built binaries.
     _patch_uniffi_tomls()
 
-    # Generate the Python FFI. We do this with `--library` so we don't have to specify the UDL or the uniffi.toml file.
+    library_path = SRC_ROOT / 'target' / target / 'release' / filename
+
+    # Generate the Python FFI. We do this with `uniffi-bindgen-library-mode` so we don't have to specify the UDL or the uniffi.toml file.
+    # Use the `-l` flag rather than `-m` since we want to specify a particular target.
     subprocess.check_call([
-        'cargo', 'uniffi-bindgen', 'generate', '--library', dist_dir / filename, '--language', 'python', '--out-dir', dist_dir,
+        'cargo', 'uniffi-bindgen-library-mode', '-l', library_path.as_posix(), 'python', dist_dir
     ], env=env, cwd=SRC_ROOT)
+
+    # Move the .so file to the dist_directory
+    shutil.move(SRC_ROOT / 'target' / target / 'release' / filename, dist_dir / filename)
 
     return filename
 
