@@ -104,13 +104,13 @@ dictionary SearchEngineDefinition {
  * of processing the search configuration.
  */
 dictionary RefinedConfig {
-    /// A list of engines, with the default engine first, and the rest in the
-    /// order defined by the configuration.
+    /// A list of engines in their default sort order. The default engine should
+    /// not be assumed from this order.
     sequence<SearchEngineDefinition> engines;
 
     /// The identifier of the engine that should be used for the application
     /// default engine.
-    string app_default_engine_id
+    string app_default_engine_id;
 
     /// If specified, the identifier of the engine that should be used for the
     /// application default engine in private browsing mode.
@@ -122,23 +122,23 @@ dictionary RefinedConfig {
  * The possible application names.
  */
 enum SearchApplicationName {
-    "firefox",
-    "firefox-android",
-    "focus-android",
-    "firefox-ios",
-    "focus-ios",
+    "Firefox",
+    "FirefoxAndroid",
+    "FocusAndroid",
+    "FirefoxIOS",
+    "FocusIOS",
 };
 
 /**
  * The possible channels that may be in use.
  */
 enum SearchDistributionChannel {
-    "default",
-    "nightly",
-    "aurora",
-    "beta",
-    "release",
-    "esr",
+    "Default",
+    "Nightly",
+    "Aurora",
+    "Beta",
+    "Release",
+    "ESR",
 };
 
 /**
