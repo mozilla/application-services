@@ -14,6 +14,7 @@ use crate::interest::{Interest, InterestVector};
 ///   - `content_categories`: a list of categories (interests) of the give content.
 /// Return:
 //   - A score ranges in [0, 1].
+#[uniffi::export]
 pub fn score(interest_vector: InterestVector, content_categories: Vec<Interest>) -> f64 {
     let n = content_categories
         .iter()
