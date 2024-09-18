@@ -6,4 +6,3 @@ package_name = "mozilla.appservices.places.uniffi"
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "placesFFI"
-generate_module_map = false

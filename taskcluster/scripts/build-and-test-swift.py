@@ -143,21 +143,16 @@ def generate_uniffi_bindings(args):
     # Generate sources for Focus
     generate_uniffi_bindings_for_target(focus_out_dir, "megazord_focus")
 
-def generate_uniffi_bindings_for_target(out_dir, library_name):
-    log(f"generating sources for {library_name}")
-    # Use a megazord library that was built for the XCFramework.  Pick an arbitrary target, since
-    # the target doesn't affect the UniFFI bindings.
-    lib_path = f'target/aarch64-apple-ios/release/lib{library_name}.a'
-
-    cmdline = ['generate', '--library', lib_path, '-l', 'swift', '-o', out_dir]
-    run_uniffi_bindgen(cmdline)
-
-def run_uniffi_bindgen(bindgen_args):
-    all_args = [
-        'cargo', 'run', '-p', 'embedded-uniffi-bindgen',
-    ]
-    all_args.extend(bindgen_args)
-    subprocess.check_call(all_args, cwd=ROOT_DIR)
+def generate_uniffi_bindings_for_target(out_dir, megazord):
+    log(f"generating sources for {megazord}")
+    # We can't use the `-m` flag here because the megazord library was cross-compiled and the
+    # `uniffi-bindgen-library-mode` tool can't handle that yet.  Instead, send one of the library
+    # paths using the `-l` flag. Pick an arbitrary target, since the it doesn't affect the UniFFI
+    # bindings.
+    lib_path = f'target/aarch64-apple-ios/release/lib{megazord}.a'
+    subprocess.check_call([
+        'cargo', 'uniffi-bindgen-library-mode', '-l', lib_path, "swift", out_dir
+    ])
 
 def copy_source_dirs(args):
     out_dir = args.out_dir / 'all'
