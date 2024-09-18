@@ -49,28 +49,9 @@ SWIFT_DIR="$WORKING_DIR/Sources/$FRAMEWORK_NAME"
 mkdir -p "$INCLUDE_DIR"
 
 # Generate Swift bindings and headers using uniffi-bindgen
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/remote_settings/src/remote_settings.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/error/src/errorsupport.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/rust-log-forwarder/src/rust_log_forwarder.udl" -l swift -o "$SWIFT_DIR"
+$CARGO uniffi-bindgen-library-mode ios swift "$SWIFT_DIR"
 
 # Move header files to the include directory
-mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR"
-
-# Repeat for the other components if not focus
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/crashtest/src/crashtest.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/fxa-client/src/fxa_client.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/logins/src/logins.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/autofill/src/autofill.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/suggest/src/suggest.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync_manager/src/syncmanager.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync15/src/sync15.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/as-ohttp-client/src/as_ohttp_client.udl" -l swift -o "$SWIFT_DIR"
-
-# Move the header files to the include directory
 mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR"
 
 rm -rf "$WORKING_DIR"/Sources/"$FRAMEWORK_NAME"/*.modulemap

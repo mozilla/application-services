@@ -1,6 +1,7 @@
 [alias]
 regen-protobufs = ["run", "--bin", "protobuf-gen", "tools/protobuf_files.toml"]
 uniffi-bindgen = ["run", "--package", "embedded-uniffi-bindgen", "--"]
+uniffi-bindgen-library-mode = ["run", "--package", "uniffi-bindgen-library-mode", "--"]
 dev-install = ["install", "asdev"]
 verify_env = ["asdev", "verify_env"]
 fxa = ["run", "-p", "examples-fxa-client", "--"]
