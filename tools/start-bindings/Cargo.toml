@@ -1,0 +1,14 @@
+[package]
+name = "start-bindings"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+camino = "1"
+cargo_metadata = "0.15"
+clap = { version = "4.2", features = ["derive"] }
+rinja = "0.3.3"
+serde_yaml = "0.8"
+toml = "0.5"
+toml_edit = "0.22.21"

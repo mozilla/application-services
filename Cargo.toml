@@ -49,6 +49,7 @@ members = [
     "megazords/ios-rust/focus",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
+    "tools/start-bindings",
     "automation/swift-components-docs",
 
     "examples/*/",

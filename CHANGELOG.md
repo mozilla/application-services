@@ -4,6 +4,13 @@
 
 # v132.0 (_2024-09-30_)
 
+## ✨ What's New ✨
+
+### General
+
+- Simplified the process of adding a new component by adding a tool that can autogenerate the
+  initial UniFFI/bindings code.
+
 ## 🦊 What's Changed 🦊
 
 ### Glean
