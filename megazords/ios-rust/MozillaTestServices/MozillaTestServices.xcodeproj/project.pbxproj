@@ -68,7 +68,6 @@
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
 		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
-		BCFF93E82AA7E1ED005B5B71 /* suggest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 3082A3E24B1A68B03DB4EEA3 /* suggest.udl */; };
 		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
 		F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = F54D380C2A5732A3005087FB /* as_ohttp_client.udl */; };
@@ -187,7 +186,6 @@
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
 		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
 		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
-		3082A3E24B1A68B03DB4EEA3 /* suggest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = suggest.udl; path = ../../../components/suggest/src/suggest.udl; sourceTree = SOURCE_ROOT; };
 		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
 		3937440929E43B8800726A72 /* EventStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStoreTests.swift; sourceTree = "<group>"; };
 		3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HardcodedNimbusFeatures.swift; path = ../../../components/nimbus/ios/Nimbus/HardcodedNimbusFeatures.swift; sourceTree = SOURCE_ROOT; };
@@ -353,7 +351,6 @@
 				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
 				15DAE2082944142000DB06FE /* Autofill */,
-				F985126E44843CE503A17BDC /* Suggest */,
 				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
@@ -568,15 +565,6 @@
 			name = Generated;
 			sourceTree = "<group>";
 		};
-		9D2D69255AD5D783D9458AFE /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */,
-				D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */,
-			);
-			path = Generated;
-			sourceTree = "<group>";
-		};
 		AB65933A2A0C51F300DBF059 /* RemoteSettings */ = {
 			isa = PBXGroup;
 			children = (
@@ -664,16 +652,6 @@
 			);
 			name = Generated;
 			path = ../../../components/sync_manager/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
-		F985126E44843CE503A17BDC /* Suggest */ = {
-			isa = PBXGroup;
-			children = (
-				9D2D69255AD5D783D9458AFE /* Generated */,
-				3082A3E24B1A68B03DB4EEA3 /* suggest.udl */,
-			);
-			name = Suggest;
-			path = ../../../components/suggest/ios;
 			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
@@ -811,7 +789,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */,
-				BCFF93E82AA7E1ED005B5B71 /* suggest.udl in Sources */,
 				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
 				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,

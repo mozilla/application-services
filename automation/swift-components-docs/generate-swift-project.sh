@@ -1,78 +1,54 @@
 #!/usr/bin/env bash
 #
-# This script builds the Rust crate in its directory and generates Swift bindings, headers, and a module map.
+# This script builds the Rust crate in its directory and generates Swift bindings,
+# headers, and a module map using UniFFI in library mode.
+
+set -euo pipefail  # Ensure script exits on errors or unset variables
 
 FRAMEWORK_NAME="SwiftComponents"
-
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_ROOT="$( dirname "$( dirname "$THIS_DIR" )" )"
-WORKING_DIR=$THIS_DIR
-
-MANIFEST_PATH="$WORKING_DIR/Cargo.toml"
-
-if [[ ! -f "$MANIFEST_PATH" ]]; then
-  echo "Could not locate Cargo.toml in $MANIFEST_PATH"
-  exit 1
-fi
-
-CRATE_NAME=$(grep --max-count=1 '^name =' "$MANIFEST_PATH" | cut -d '"' -f 2)
-if [[ -z "$CRATE_NAME" ]]; then
-  echo "Could not determine crate name from $MANIFEST_PATH"
-  exit 1
-fi
-
-# Helper to run the cargo build command in a controlled environment.
-# It's important that we don't let environment variables from the user's default
-# desktop build environment leak into the iOS build, otherwise it might e.g.
-# link against the desktop build of NSS.
-
+WORKING_DIR="$THIS_DIR"
 CARGO="$HOME/.cargo/bin/cargo"
-LIBS_DIR="$REPO_ROOT/libs"
-
-cargo_build () {
-  LIBS_DIR="$REPO_ROOT/libs/ios/arm64"
-
-  env -i \
-    NSS_STATIC=1 \
-    NSS_DIR="$LIBS_DIR/nss" \
-    PATH="${PATH}"
-}
-
-set -euvx
-
-cargo_build aarch64-apple-ios
 
 # Create directories for Swift files, headers, and module map
 INCLUDE_DIR="$WORKING_DIR/Sources/$FRAMEWORK_NAME/include"
 SWIFT_DIR="$WORKING_DIR/Sources/$FRAMEWORK_NAME"
-
 mkdir -p "$INCLUDE_DIR"
 
-# Generate Swift bindings and headers using uniffi-bindgen
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/remote_settings/src/remote_settings.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/error/src/errorsupport.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/support/rust-log-forwarder/src/rust_log_forwarder.udl" -l swift -o "$SWIFT_DIR"
+# Build the Rust crate using Cargo
+echo "Building the Rust crate..."
+$CARGO build -p megazord --release
 
-# Move header files to the include directory
-mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR"
+# Define the path to the generated Rust library
+LIBRARY_FILE="$REPO_ROOT/target/release/libmegazord.dylib"
+if [[ ! -f "$LIBRARY_FILE" ]]; then
+  echo "Error: Rust library not found at $LIBRARY_FILE"
+  exit 1
+fi
 
-# Repeat for the other components if not focus
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/crashtest/src/crashtest.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/fxa-client/src/fxa_client.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/logins/src/logins.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/autofill/src/autofill.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/suggest/src/suggest.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync_manager/src/syncmanager.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/sync15/src/sync15.udl" -l swift -o "$SWIFT_DIR"
-$CARGO uniffi-bindgen generate "$REPO_ROOT/components/as-ohttp-client/src/as_ohttp_client.udl" -l swift -o "$SWIFT_DIR"
+# Generate Swift bindings, headers, and module map using uniffi-bindgen
+echo "Generating Swift bindings with uniffi-bindgen..."
+$CARGO uniffi-bindgen generate --library "$LIBRARY_FILE" --language swift --out-dir "$SWIFT_DIR"
 
-# Move the header files to the include directory
-mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR"
+# Move generated header files to the include directory
+echo "Moving header files to include directory..."
+mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR" || {
+  echo "Error: Failed to move header files."
+  exit 1
+}
 
-rm -rf "$WORKING_DIR"/Sources/"$FRAMEWORK_NAME"/*.modulemap
+# Remove any old modulemaps
+echo "Cleaning up old module maps..."
+rm -f "$SWIFT_DIR"/*.modulemap
 
+# Generate a new module map
+echo "Generating module map..."
+if [[ ! -f "$WORKING_DIR/generate-modulemap.sh" ]]; then
+  echo "Error: generate-modulemap.sh script not found."
+  exit 1
+fi
+"$WORKING_DIR/generate-modulemap.sh"
+
+# Success message
 echo "Successfully generated Swift bindings, headers, and module map."
