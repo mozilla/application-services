@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// The possible application names.
+/// The list of possible application names that are currently supported.
 #[derive(Debug, uniffi::Enum)]
 pub enum SearchApplicationName {
     Firefox = 1,
@@ -24,9 +24,10 @@ impl SearchApplicationName {
     }
 }
 
-/// The possible channels that may be in use.
+/// The list of possible update channels for a user's build.
+/// Use `default` for a self-build or an unknown channel.
 #[derive(Debug, uniffi::Enum)]
-pub enum SearchDistributionChannel {
+pub enum SearchUpdateChannel {
     Default,
     Nightly,
     Aurora,
@@ -35,15 +36,15 @@ pub enum SearchDistributionChannel {
     ESR,
 }
 
-impl SearchDistributionChannel {
+impl SearchUpdateChannel {
     pub fn as_str(&self) -> &'static str {
         match self {
-            SearchDistributionChannel::Default => "default",
-            SearchDistributionChannel::Nightly => "nightly",
-            SearchDistributionChannel::Aurora => "aurora",
-            SearchDistributionChannel::Beta => "beta",
-            SearchDistributionChannel::Release => "release",
-            SearchDistributionChannel::ESR => "esr",
+            SearchUpdateChannel::Default => "default",
+            SearchUpdateChannel::Nightly => "nightly",
+            SearchUpdateChannel::Aurora => "aurora",
+            SearchUpdateChannel::Beta => "beta",
+            SearchUpdateChannel::Release => "release",
+            SearchUpdateChannel::ESR => "esr",
         }
     }
 }
@@ -59,9 +60,8 @@ pub struct SearchUserEnvironment {
     /// change before the home region changes. TBD: iOS?
     pub region: String,
 
-    /// The current distribution channel.
-    /// Use `default` for a self-build or an unknown channel.
-    pub channel: SearchDistributionChannel,
+    /// The update channel of the user's build.
+    pub update_channel: SearchUpdateChannel,
 
     /// The distribution id for the user's build.
     pub distribution_id: String,

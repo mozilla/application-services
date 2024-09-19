@@ -49,7 +49,7 @@ mod tests {
         let result = selector.filter_engine_configuration(SearchUserEnvironment {
             locale: "fi".into(),
             region: "FR".into(),
-            channel: SearchDistributionChannel::Default,
+            update_channel: SearchUpdateChannel::Default,
             distribution_id: String::new(),
             experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
