@@ -17,5 +17,10 @@ fi
 
 SYMBOLS_DIR=${1}
 
+if [ ! -d "${SYMBOLS_DIR}" ]; then
+    echo "upload_android_symbols.sh: ${SYMBOLS_DIR} is not a directory"
+    exit 1
+fi
+
 pip3 install --user -r automation/symbols-generation/requirements.txt
 python3 automation/symbols-generation/upload_symbols.py "${SYMBOLS_DIR}" -t "$PWD/.symbols_upload_token"
