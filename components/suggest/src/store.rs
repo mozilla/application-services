@@ -166,7 +166,7 @@ pub struct SuggestStore {
 impl SuggestStore {
     /// Creates a Suggest store.
     #[handle_error(Error)]
-    #[uniffi::constructor]
+    #[uniffi::constructor(default(settings_config = None))]
     pub fn new(
         path: &str,
         settings_config: Option<RemoteSettingsConfig>,
@@ -224,6 +224,7 @@ impl SuggestStore {
     /// This should be called when the user types new input into the address
     /// bar, to ensure that they see fresh suggestions as they type. This
     /// method does not interrupt any ongoing ingests.
+    #[uniffi::method(default(kind = None))]
     pub fn interrupt(&self, kind: Option<InterruptKind>) {
         self.inner.interrupt(kind)
     }
@@ -268,7 +269,9 @@ impl SuggestStore {
 /// Constraints limit which suggestions to ingest from Remote Settings.
 #[derive(Clone, Default, Debug, uniffi::Record)]
 pub struct SuggestIngestionConstraints {
+    #[uniffi(default = None)]
     pub providers: Option<Vec<SuggestionProvider>>,
+    #[uniffi(default = None)]
     pub provider_constraints: Option<SuggestionProviderConstraints>,
     /// Only run ingestion if the table `suggestions` is empty
     ///
@@ -277,6 +280,7 @@ pub struct SuggestIngestionConstraints {
     // once a day). This allows ingestion to normally be run at a slow, periodic rate.  However, if
     // there is a schema upgrade that causes the database to be thrown away, then the
     // `empty_only=true` ingestion that runs on startup will repopulate it.
+    #[uniffi(default = false)]
     pub empty_only: bool,
 }
 
