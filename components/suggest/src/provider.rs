@@ -128,5 +128,6 @@ pub struct SuggestionProviderConstraints {
     /// `Exposure` provider - For each desired exposure suggestion type, this
     /// should contain the value of the `suggestion_type` field of its remote
     /// settings record(s).
+    #[uniffi(default = None)]
     pub exposure_suggestion_types: Option<Vec<String>>,
 }

@@ -9,7 +9,9 @@ use crate::{LabeledTimingSample, Suggestion, SuggestionProvider, SuggestionProvi
 pub struct SuggestionQuery {
     pub keyword: String,
     pub providers: Vec<SuggestionProvider>,
+    #[uniffi(default = None)]
     pub provider_constraints: Option<SuggestionProviderConstraints>,
+    #[uniffi(default = None)]
     pub limit: Option<i32>,
 }
 
