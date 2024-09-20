@@ -42,7 +42,7 @@ tasks:
     run:
       using: run-commands
       commands:
-        - [automation/upload_android_symbols.sh, crashreporter-symbols"]
+        - [automation/upload_android_symbols.sh, /builds/worker/fetches/crashreporter-symbols]
       dummy-secrets:
           by-level:
               '3': []
