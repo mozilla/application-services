@@ -40,7 +40,8 @@
 - [Releases](howtos/releases.md)
   - [CI Publishing tools and flow](build-and-publish-pipeline.md)
   - [How to upgrade NSS](howtos/upgrading-nss-guide.md)
-- Rustdocs for components
+- [Rustdocs for components](rust-docs/README.md)
+  <!-- When updating this list, don't forget to update rust-docs/README.md -->
   - [as_ohttp_client](rust-docs/as_ohttp_client/index.html)
   - [autofill](rust-docs/autofill/index.html)
   - [crashtest](rust-docs/crashtest/index.html)

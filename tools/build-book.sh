@@ -13,7 +13,6 @@ set -xe
 # We document all features. Ideally we'd leverage https://docs.rs/document-features/latest/document_features/
 # so the features themselves are documented, but that's another dependency or another yak, so for another day.
 cargo doc --all-features --no-deps
-echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
 mkdir -p docs/rust-docs
 cp -rf target/doc/* docs/rust-docs
 
@@ -25,8 +24,6 @@ fi
 
 # copy the output files to the publishing directory
 rm -rf build/docs
-mkdir -p build/docs
-echo '<meta http-equiv=refresh content=0;url=book/index.html>' > build/docs/index.html
 
 mkdir -p build/docs
 cp -a docs/book/. build/docs/book

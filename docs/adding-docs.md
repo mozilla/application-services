@@ -17,7 +17,7 @@ cargo install mdbook mdbook-mermaid mdbook-open-on-gh
 The repository documents are be built with:
 
 ```sh
-./tools/build.docs.sh
+./tools/build-book.sh
 ```
 
 The built documentation is saved in `build/docs/book`.

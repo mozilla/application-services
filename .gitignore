@@ -64,7 +64,8 @@ build/docs/*
 docs/book
 
 # Generated rustdocs
-docs/rust-docs
+docs/rust-docs/*
+!docs/rust-docs/README.md
 
 # UniFFI files
 cirrus.py
