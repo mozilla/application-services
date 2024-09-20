@@ -65,6 +65,7 @@ def upload_symbols(zip_file, token_file):
         return True
 
     print("Upload symbols failed: {0}".format(r), file=sys.stderr)
+    print(r.text, file=sys.stderr)
     return False
 
 def main():
