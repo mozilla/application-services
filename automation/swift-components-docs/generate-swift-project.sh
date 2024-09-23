@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-#
+
 # This script builds the Rust crate in its directory and generates Swift bindings,
 # headers, and a module map using UniFFI in library mode.
 
-set -euo pipefail  # Ensure script exits on errors or unset variables
+# Ensure script exits on errors or unset variables
+set -euo pipefail
 
 FRAMEWORK_NAME="SwiftComponents"
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -18,10 +19,10 @@ mkdir -p "$INCLUDE_DIR"
 
 # Build the Rust crate using Cargo
 echo "Building the Rust crate..."
-$CARGO build -p megazord --release
+$CARGO build -p megazord_ios --release
 
 # Define the path to the generated Rust library
-LIBRARY_FILE="$REPO_ROOT/target/release/libmegazord.dylib"
+LIBRARY_FILE="$REPO_ROOT/target/release/libmegazord_ios.a"
 if [[ ! -f "$LIBRARY_FILE" ]]; then
   echo "Error: Rust library not found at $LIBRARY_FILE"
   exit 1
