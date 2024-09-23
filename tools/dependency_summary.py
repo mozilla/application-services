@@ -130,7 +130,7 @@ EXTRA_PACKAGE_METADATA = {
         "name": "openssl",
         "repository": "https://www.openssl.org/source/",
         "license": "EXT-OPENSSL",
-        "license_file": "https://www.openssl.org/source/license-openssl-ssleay.txt",
+        "license_file": "https://openssl-library.org/source/license/license-openssl-ssleay.txt",
         "license_url": "https://www.openssl.org/source/license.html",
     },
     "ext-ring": {
