@@ -31,4 +31,4 @@ $CARGO uniffi-bindgen generate --library "$LIBRARY_FILE" --language kotlin --out
 
 # Generate documentation with increased memory
 (cd "$WORKING_DIR" && "$REPO_ROOT/gradlew" --max-workers=2 dokkaHtml -Dorg.gradle.vfs.watch=false)
-echo "Documentation generated in $DOC_DIR/build/dokka directory"
+echo "Documentation successfully generated"
