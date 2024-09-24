@@ -95,6 +95,8 @@ default-members = [
     "components/push",
     "components/remote_settings",
     "components/search",
+    "components/relevancy",
+    "components/suggest",
     "components/support/error",
     "components/support/error/macros",
     "components/support/error/tests",
