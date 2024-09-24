@@ -9,6 +9,11 @@
 
 set -xe
 
+if [[ ! -f "$(pwd)/tools/build-book.sh" ]]; then
+  echo "ERROR: build-book.sh should be run from the root directory of the repo"
+  exit 1
+fi
+
 # Generate the Rust docs and move them over to the book.
 # We document all features. Ideally we'd leverage https://docs.rs/document-features/latest/document_features/
 # so the features themselves are documented, but that's another dependency or another yak, so for another day.
