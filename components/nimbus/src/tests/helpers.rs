@@ -14,21 +14,41 @@ cfg_if::cfg_if! {
         use crate::{
             metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
             json::JsonObject,
-            targeting::RecordedContext
+            stateful::{behavior::EventStore, targeting::RecordedContext}
         };
         use serde_json::Map;
     }
 }
 
+use log::{Level, LevelFilter, Metadata, Record};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use crate::stateful::behavior::EventStore;
+struct TestLogger;
+
+impl log::Log for TestLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
     }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            println!("{} - {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: TestLogger = TestLogger;
+
+#[ctor::ctor]
+fn init() {
+    log::set_logger(&LOGGER)
+        .map(|()| log::set_max_level(LevelFilter::Info))
+        .unwrap();
 }
 
 impl From<TargetingAttributes> for NimbusTargetingHelper {
@@ -64,6 +84,7 @@ impl Default for NimbusTargetingHelper {
 struct RecordedContextState {
     context: Map<String, Value>,
     record_calls: u64,
+    event_queries: Map<String, Value>,
 }
 
 #[cfg(feature = "stateful")]
@@ -94,6 +115,11 @@ impl TestRecordedContext {
             .expect("value for `context` is not an object")
             .clone();
     }
+
+    pub fn set_event_queries(&self, queries: Map<String, Value>) {
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.event_queries = queries;
+    }
 }
 
 #[cfg(feature = "stateful")]
@@ -104,6 +130,23 @@ impl RecordedContext for TestRecordedContext {
             .expect("could not lock state mutex")
             .context
             .clone()
+    }
+
+    fn get_event_queries(&self) -> JsonObject {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .event_queries
+            .clone()
+    }
+
+    fn set_event_query_values(&self, json: JsonObject) {
+        log::info!(
+            "set_event_query_values {}",
+            serde_json::to_string(&json).unwrap()
+        );
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.event_queries = Map::from_iter(json.iter().map(|(k, v)| (k.clone(), json!(v))));
     }
 
     fn record(&self) {
