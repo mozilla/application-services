@@ -1,5 +1,10 @@
 # v134.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus SDK ⛅️🔬🔭
+- Added methods to `RecordedContext` for retrieving event queries and setting their values back to the foreign object ([#6322](https://github.com/mozilla/application-services/pull/6322)).
+
 [Full Changelog](In progress)
 
 # v133.0 (_2024-10-28_)
