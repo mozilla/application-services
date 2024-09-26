@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#[cfg(test)]
+use crate::tests::helpers::{TestMetrics, TestRecordedContext};
 use crate::{
     defaults::Defaults,
     enrollment::{
@@ -26,10 +28,10 @@ use crate::{
         },
         matcher::AppContext,
         persistence::{Database, StoreId, Writer},
+        targeting::{validate_event_queries, RecordedContext},
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
     },
     strings::fmt_with_map,
-    targeting::RecordedContext,
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
     ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
@@ -42,9 +44,6 @@ use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use uuid::Uuid;
-
-#[cfg(test)]
-use crate::tests::helpers::{TestMetrics, TestRecordedContext};
 
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
@@ -103,10 +102,7 @@ impl NimbusClient {
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
-        let mut targeting_attributes: TargetingAttributes = app_context.clone().into();
-        if let Some(ref context) = recorded_context {
-            targeting_attributes.set_recorded_context(&**context);
-        }
+        let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units: Default::default(),
             targeting_attributes,
@@ -161,7 +157,21 @@ impl NimbusClient {
     ) -> Result<()> {
         self.read_or_create_nimbus_id(db, writer, state)?;
         self.update_ta_install_dates(db, writer, state)?;
-        self.event_store.lock().unwrap().read_from_db(db)?;
+        self.event_store
+            .lock()
+            .expect("unable to lock event_store mutex")
+            .read_from_db(db)?;
+
+        if let Some(recorded_context) = &self.recorded_context {
+            let targeting_helper = self.create_targeting_helper_with_context(serde_json::to_value(
+                &state.targeting_attributes,
+            )?);
+            recorded_context.execute_queries(targeting_helper.as_ref())?;
+            state
+                .targeting_attributes
+                .set_recorded_context(recorded_context.to_json());
+        }
+
         Ok(())
     }
 
@@ -636,6 +646,16 @@ impl NimbusClient {
         let context = self.merge_additional_context(additional_context)?;
         let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
         Ok(Arc::new(helper))
+    }
+
+    pub fn create_targeting_helper_with_context(
+        &self,
+        context: Value,
+    ) -> Arc<NimbusTargetingHelper> {
+        Arc::new(NimbusTargetingHelper::new(
+            context,
+            self.event_store.clone(),
+        ))
     }
 
     pub fn create_string_helper(
