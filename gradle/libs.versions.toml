@@ -16,19 +16,19 @@ kotlin-dsl = "4.5.0"
 kotlinx-coroutines = "1.8.0"
 
 # Mozilla
-android-components = "128.0.2"
+android-components = "130.0.1"
 glean = "61.1.0"
 rust-android-gradle = "0.9.4"
 
 # AndroidX
-androidx-annotation = "1.8.1"
+androidx-annotation = "1.8.2"
 androidx-core = "1.13.1"
 
 # JNA
 jna = "5.14.0"
 
 # Linting and Static Analysis
-detekt = "1.23.6"
+detekt = "1.23.7"
 ktlint = "0.50.0"
 
 # AndroidX Testing
@@ -36,10 +36,10 @@ androidx-test-core = "1.6.1"
 androidx-test-espresso = "3.6.1"
 androidx-test-junit = "1.2.1"
 androidx-test-runner = "1.6.1"
-androidx-test-work = "2.9.0"
+androidx-test-work = "2.9.1"
 
 # Third Party Testing
-junit = "5.11.0"
+junit = "5.11.1"
 mockito = "5.13.0"
 robolectric = "4.13"
 
