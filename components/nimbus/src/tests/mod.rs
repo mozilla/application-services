@@ -19,6 +19,7 @@ mod stateful {
     mod test_evaluator;
     mod test_nimbus;
     mod test_persistence;
+    mod test_targeting;
     mod test_updating;
 
     mod client {
