@@ -116,6 +116,13 @@ def read_output(*args):
     (stdout, _) = subprocess.Popen(args=args, stdout=subprocess.PIPE).communicate()
     return stdout.decode("utf-8").rstrip()
 
+def get_version(srcdirs):
+    for dir in srcdirs:
+        path_try = os.path.join(dir, "version.txt")
+        if os.path.exists(path_try):
+            return open(path_try).read().strip()
+    return "Unknown"
+
 class GitHubRepoInfo:
     """
     Info about a locally cloned Git repository that has its "origin" remote on GitHub.
@@ -384,7 +391,15 @@ class Dumper:
         Get the commandline used to invoke dump_syms.
         '''
         # The Mac dumper overrides this.
-        return [self.dump_syms, file]
+        return [self.dump_syms, "--inlines", file] + self.dump_syms_extra_info()
+
+    def dump_syms_extra_info(self):
+        return [
+            "--extra-info",
+            "VERSION {}".format(get_version(self.srcdirs)),
+            "--extra-info",
+            "PRODUCTNAME ApplicationServices",
+        ]
 
     def ProcessFileWork(self, file, arch_num, arch, vcs_root, dsymbundle=None):
         t_start = time.time()
@@ -403,7 +418,7 @@ class Dumper:
                 # MODULE os cpu guid debug_file
                 (guid, debug_file) = (module_line.split())[3:5]
                 # strip off .pdb extensions, and append .sym
-                sym_file = re.sub("\.pdb$", "", debug_file) + ".sym"
+                sym_file = re.sub(r"\.pdb$", "", debug_file) + ".sym"
                 # we do want forward slashes here
                 rel_path = os.path.join(debug_file,
                                         guid,
@@ -639,7 +654,16 @@ class Dumper_Mac(Dumper):
         # in order to dump all the symbols.
         if dsymbundle:
             # This is the .dSYM bundle.
-            return [self.dump_syms] + arch.split() + ['-g', dsymbundle, file]
+            cmdline = [self.dump_syms]
+            cmdline.extend(arch.split())
+            cmdline.extend([
+                "--inlines",
+                "-j",
+                "2",
+            ])
+            cmdline.extend(self.dump_syms_extra_info())
+            cmdline.extend([dsymbundle, file])
+            return cmdline
         return Dumper.dump_syms_cmdline(self, file, arch)
 
     def GenerateDSYM(self, file):
