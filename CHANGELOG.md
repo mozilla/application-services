@@ -1,11 +1,11 @@
-# v132.0 (In progress)
+# v132.0 (_2024-09-30_)
 
 ## 🦊 What's Changed 🦊
 
 ### Glean
 - Updated to v61.1.0 ([#6397](https://github.com/mozilla/application-services/pull/6397))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v131.0...v132.0)
 
 # v131.0 (_2024-08-30_)
 
