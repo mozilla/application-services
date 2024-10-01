@@ -14,7 +14,6 @@
   - [How to add a new component](howtos/adding-a-new-component.md)
     - [How to build a new syncable component](howtos/building-a-rust-component.md)
     - [Naming Conventions](naming-conventions.md)
-    - [How to convert a Rust Component to Uniffi](howtos/converting-a-component-to-uniffi.md)
     - [How to use Rust Components in Android](android-faqs.md)
   - [Breaking API changes](howtos/breaking-changes.md)
   - [How to vendor application-services into mozilla-central](howtos/vendoring-into-mozilla-central.md)
