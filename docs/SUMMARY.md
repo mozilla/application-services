@@ -40,6 +40,7 @@
   - [CI Publishing tools and flow](build-and-publish-pipeline.md)
   - [How to upgrade NSS](howtos/upgrading-nss-guide.md)
 - [Topic Guides](topic-guides/topic-guides.md)
+  - [Viaduct](topic-guides/viaduct.md) 
   - [Swift]()
     - [Suggest](topic-guides/swift/suggest.md)
   - [Kotlin]()
