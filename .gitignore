@@ -6,6 +6,7 @@ credentials.json
 .*.swp
 *.db-shm
 *.db-wal
+*~
 .vscode/
 
 # Android stuff.
