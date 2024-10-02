@@ -9,10 +9,15 @@ use error_support::handle_error;
 /// search engines and returns the applicable engines depending
 /// on their region + locale.
 #[derive(uniffi::Object)]
-pub struct SearchEngineSelector();
+pub struct SearchEngineSelector {}
 
 #[uniffi::export]
 impl SearchEngineSelector {
+    #[uniffi::constructor]
+    pub fn new() -> SearchEngineSelector {
+        Self {}
+    }
+
     /// Sets the search configuration from the given string. This allows for
     /// reprocessing of the configuration if it has not changed since the
     /// previous update, e.g. to optimise test running.
@@ -44,7 +49,7 @@ mod tests {
 
     #[test]
     fn test_filter_engine_config_throws() {
-        let selector = SearchEngineSelector();
+        let selector = SearchEngineSelector::new();
 
         let result = selector.filter_engine_configuration(SearchUserEnvironment {
             locale: "fi".into(),
