@@ -8,14 +8,14 @@ use error_support::handle_error;
 /// SearchEngineSelector parses the JSON configuration for
 /// search engines and returns the applicable engines depending
 /// on their region + locale.
-#[derive(uniffi::Object)]
+#[derive(Default, uniffi::Object)]
 pub struct SearchEngineSelector {}
 
 #[uniffi::export]
 impl SearchEngineSelector {
     #[uniffi::constructor]
-    pub fn new() -> SearchEngineSelector {
-        Self {}
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Sets the search configuration from the given string. This allows for
