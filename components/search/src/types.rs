@@ -158,14 +158,32 @@ pub struct SearchEngineDefinition {
 
     /// The URLs associated with the search engine.
     pub urls: SearchEngineUrls,
+
+    /// A hint to the order that this engine should be in the engine list. This
+    /// is derived from the `engineOrders` section of the search configuration.
+    /// The higher the number, the nearer to the front it should be.
+    /// If the number is not specified, other methods of sorting may be relied
+    /// upon (e.g. alphabetical).
+    pub order_hint: Option<u8>,
 }
 
 /// Details of the search engines to display to the user, generated as a result
 /// of processing the search configuration.
 #[derive(Debug, uniffi::Record)]
 pub struct RefinedConfig {
-    /// A list of engines in their default sort order. The default engine should
-    /// not be assumed from this order.
+    /// A sorted list of engines. Clients may use the engine in the order that
+    /// this list is specified, or they may implement their own order if they
+    /// have other requirements.
+    ///
+    /// The application default engines should not be assumed from this order in
+    /// case of future changes.
+    ///
+    /// The sort order is:
+    ///
+    /// * Application Default Engine
+    /// * Application Default Engine for Private Mode (if specified & different)
+    /// * Engines sorted by descending `orderHint`
+    /// * Any other engines in alphabetical order (locale based comparison)
     pub engines: Vec<SearchEngineDefinition>,
 
     /// The identifier of the engine that should be used for the application
