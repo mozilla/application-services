@@ -21,6 +21,7 @@ mod store;
 mod suggestion;
 #[cfg(test)]
 mod testing;
+mod weather;
 mod yelp;
 
 pub use config::{SuggestGlobalConfig, SuggestProviderConfig};

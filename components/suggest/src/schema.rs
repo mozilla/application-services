@@ -17,8 +17,8 @@ use sql_support::{
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
 ///     [`SuggestConnectionInitializer::upgrade_from`].
-///    a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
-///       the migration.
+///     a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
+///        the migration.
 pub const VERSION: u32 = 26;
 
 /// The current Suggest database schema.

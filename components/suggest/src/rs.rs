@@ -196,7 +196,7 @@ pub(crate) enum SuggestRecord {
     #[serde(rename = "mdn-suggestions")]
     Mdn,
     #[serde(rename = "weather")]
-    Weather(DownloadedWeatherData),
+    Weather,
     #[serde(rename = "configuration")]
     GlobalConfig(DownloadedGlobalConfig),
     #[serde(rename = "amp-mobile-suggestions")]
@@ -233,7 +233,7 @@ impl From<&SuggestRecord> for SuggestRecordType {
             SuggestRecord::Icon => Self::Icon,
             SuggestRecord::Mdn => Self::Mdn,
             SuggestRecord::Pocket => Self::Pocket,
-            SuggestRecord::Weather(_) => Self::Weather,
+            SuggestRecord::Weather => Self::Weather,
             SuggestRecord::Yelp => Self::Yelp,
             SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
             SuggestRecord::AmpMobile => Self::AmpMobile,
@@ -628,21 +628,6 @@ impl FullOrPrefixKeywords<String> {
     }
 }
 
-/// Weather data to ingest from a weather record
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct DownloadedWeatherData {
-    pub weather: DownloadedWeatherDataInner,
-}
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct DownloadedWeatherDataInner {
-    pub min_keyword_length: i32,
-    pub keywords: Vec<String>,
-    // Remote settings doesn't support floats in record JSON so we use a
-    // stringified float instead. If a float can't be parsed, this will be None.
-    #[serde(default, deserialize_with = "de_stringified_f64")]
-    pub score: Option<f64>,
-}
-
 /// Global Suggest configuration data to ingest from a configuration record
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedGlobalConfig {
@@ -653,13 +638,6 @@ pub(crate) struct DownloadedGlobalConfigInner {
     /// The maximum number of times the user can click "Show less frequently"
     /// for a suggestion in the UI.
     pub show_less_frequently_cap: i32,
-}
-
-fn de_stringified_f64<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    String::deserialize(deserializer).map(|s| s.parse().ok())
 }
 
 #[cfg(test)]

@@ -25,8 +25,7 @@ use crate::{
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
         DownloadedExposureSuggestion, DownloadedFakespotSuggestion, DownloadedMdnSuggestion,
-        DownloadedPocketSuggestion, DownloadedWeatherData, DownloadedWikipediaSuggestion, Record,
-        SuggestRecordId,
+        DownloadedPocketSuggestion, DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
@@ -714,42 +713,6 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    /// Fetches weather suggestions
-    pub fn fetch_weather_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        // Weather keywords are matched by prefix but the query must be at least
-        // three chars long. Unlike the prefix matching of other suggestion
-        // types, the query doesn't need to contain the first full word.
-        if query.keyword.len() < 3 {
-            return Ok(vec![]);
-        }
-
-        let keyword_lowercased = &query.keyword.trim().to_lowercase();
-        let suggestions = self.conn.query_rows_and_then_cached(
-            r#"
-            SELECT
-              s.score
-            FROM
-              suggestions s
-            JOIN
-              keywords k
-              ON k.suggestion_id = s.id
-            WHERE
-              s.provider = :provider
-              AND (k.keyword BETWEEN :keyword AND :keyword || X'FFFF')
-             "#,
-            named_params! {
-                ":keyword": keyword_lowercased,
-                ":provider": SuggestionProvider::Weather
-            },
-            |row| -> Result<Suggestion> {
-                Ok(Suggestion::Weather {
-                    score: row.get::<_, f64>("score")?,
-                })
-            },
-        )?;
-        Ok(suggestions)
-    }
-
     /// Fetches fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         self.conn.query_rows_and_then_cached(
@@ -1110,32 +1073,6 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    /// Inserts weather record data into the database.
-    pub fn insert_weather_data(
-        &mut self,
-        record_id: &SuggestRecordId,
-        data: &DownloadedWeatherData,
-    ) -> Result<()> {
-        let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
-        let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
-        self.scope.err_if_interrupted()?;
-        let suggestion_id = suggestion_insert.execute(
-            record_id,
-            "",
-            "",
-            data.weather.score.unwrap_or(DEFAULT_SUGGESTION_SCORE),
-            SuggestionProvider::Weather,
-        )?;
-        for (index, keyword) in data.weather.keywords.iter().enumerate() {
-            keyword_insert.execute(suggestion_id, keyword, None, index)?;
-        }
-        self.put_provider_config(
-            SuggestionProvider::Weather,
-            &SuggestProviderConfig::from(data),
-        )?;
-        Ok(())
-    }
-
     /// Inserts exposure suggestion records data into the database.
     pub fn insert_exposure_suggestions(
         &mut self,
@@ -1413,10 +1350,10 @@ impl<'a> FullKeywordInserter<'a> {
 // for providers like Mdn, Pocket, and Weather, which have relatively small number of records
 // compared to Amp/Wikipedia.
 
-struct SuggestionInsertStatement<'conn>(rusqlite::Statement<'conn>);
+pub(crate) struct SuggestionInsertStatement<'conn>(rusqlite::Statement<'conn>);
 
 impl<'conn> SuggestionInsertStatement<'conn> {
-    fn new(conn: &'conn Connection) -> Result<Self> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
         Ok(Self(conn.prepare(
             "INSERT INTO suggestions(
                  record_id,
@@ -1431,7 +1368,7 @@ impl<'conn> SuggestionInsertStatement<'conn> {
     }
 
     /// Execute the insert and return the `suggestion_id` for the new row
-    fn execute(
+    pub(crate) fn execute(
         &mut self,
         record_id: &SuggestRecordId,
         title: &str,
@@ -1631,10 +1568,10 @@ impl<'conn> ExposureInsertStatement<'conn> {
     }
 }
 
-struct KeywordInsertStatement<'conn>(rusqlite::Statement<'conn>);
+pub(crate) struct KeywordInsertStatement<'conn>(rusqlite::Statement<'conn>);
 
 impl<'conn> KeywordInsertStatement<'conn> {
-    fn new(conn: &'conn Connection) -> Result<Self> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
         Ok(Self(conn.prepare(
             "INSERT INTO keywords(
                  suggestion_id,
@@ -1647,7 +1584,7 @@ impl<'conn> KeywordInsertStatement<'conn> {
         )?))
     }
 
-    fn new_with_or_ignore(conn: &'conn Connection) -> Result<Self> {
+    pub(crate) fn new_with_or_ignore(conn: &'conn Connection) -> Result<Self> {
         Ok(Self(conn.prepare(
             "INSERT OR IGNORE INTO keywords(
                  suggestion_id,
@@ -1660,7 +1597,7 @@ impl<'conn> KeywordInsertStatement<'conn> {
         )?))
     }
 
-    fn execute(
+    pub(crate) fn execute(
         &mut self,
         suggestion_id: i64,
         keyword: &str,
