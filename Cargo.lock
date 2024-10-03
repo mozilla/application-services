@@ -3965,6 +3965,9 @@ name = "search"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "parking_lot",
+ "serde",
+ "serde_json",
  "thiserror",
  "uniffi",
 ]
