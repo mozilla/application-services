@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! This module defines the types that we export across the UNIFFI interface.
+
+use serde::Deserialize;
+
 /// The list of possible application names that are currently supported.
 #[derive(Debug, uniffi::Enum)]
 pub enum SearchApplicationName {
@@ -79,7 +83,7 @@ pub struct SearchUserEnvironment {
 
 /// Parameter definitions for search engine URLs. The name property is always
 /// specified, along with one of value, experiment_config or search_access_point.
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
 pub struct SearchUrlParam {
     /// The name of the parameter in the url.
     pub name: String,
@@ -94,7 +98,7 @@ pub struct SearchUrlParam {
 }
 
 /// Defines an individual search engine URL.
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
 pub struct SearchEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
     /// which have a variable FilePath, e.g. `{searchTerm}` for when a search
@@ -115,7 +119,7 @@ pub struct SearchEngineUrl {
 }
 
 /// The URLs associated with the search engine.
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
 pub struct SearchEngineUrls {
     /// The URL to use for searches.
     pub search: SearchEngineUrl,
@@ -128,10 +132,12 @@ pub struct SearchEngineUrls {
 }
 
 /// The list of acceptable classifications for a search engine.
-#[derive(Debug, uniffi::Enum)]
+#[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum SearchEngineClassification {
-    Unknown = 1,
     General = 2,
+    #[serde(other)]
+    Unknown = 1,
 }
 
 impl SearchEngineClassification {
@@ -144,10 +150,13 @@ impl SearchEngineClassification {
 }
 
 /// A definition for an individual search engine to be presented to the user.
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug, uniffi::Record, PartialEq)]
 pub struct SearchEngineDefinition {
     /// A list of aliases for this engine.
     pub aliases: Vec<String>,
+
+    /// The character set this engine uses for queries.
+    pub charset: String,
 
     /// The classification of search engine according to the main search types
     /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
@@ -165,8 +174,8 @@ pub struct SearchEngineDefinition {
     pub name: String,
 
     /// The partner code for the engine. This will be inserted into parameters
-    /// which include `{partnerCode}`.
-    pub partner_code: Option<String>,
+    /// which include `{partnerCode}`. May be the empty string.
+    pub partner_code: String,
 
     /// Optional suffix that is appended to the search engine identifier
     /// following a dash, i.e. `<identifier>-<suffix>`
@@ -185,7 +194,7 @@ pub struct SearchEngineDefinition {
 
 /// Details of the search engines to display to the user, generated as a result
 /// of processing the search configuration.
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug, uniffi::Record, PartialEq)]
 pub struct RefinedSearchConfig {
     /// A sorted list of engines. Clients may use the engine in the order that
     /// this list is specified, or they may implement their own order if they
