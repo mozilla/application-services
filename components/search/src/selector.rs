@@ -18,16 +18,19 @@ impl SearchEngineSelector {
         Self::default()
     }
 
-    /// Sets the search configuration from the given string. This allows for
-    /// reprocessing of the configuration if it has not changed since the
-    /// previous update, e.g. to optimise test running.
+    /// Sets the search configuration from the given string. If the configuration
+    /// string is unchanged since the last update, the cached configuration is
+    /// reused to avoid unnecessary reprocessing. This helps optimize performance,
+    /// particularly during test runs where the same configuration may be used
+    /// repeatedly.
     #[handle_error(Error)]
     pub fn set_search_config(&self, _configuration: String) -> SearchApiResult<()> {
         Err(Error::NotImplemented)
     }
 
     /// Clears the search configuration from memory if it is known that it is
-    /// not required for a time.
+    /// not required for a time, e.g. if the configuration will only be re-filtered
+    /// after an app/environment update.
     pub fn clear_search_config(&self) {}
 
     /// Filters the search configuration with the user's given environment,

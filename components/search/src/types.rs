@@ -7,8 +7,8 @@
 pub enum SearchApplicationName {
     Firefox = 1,
     FirefoxAndroid = 2,
-    FocusAndroid = 3,
-    FirefoxIOS = 4,
+    FirefoxIOS = 3,
+    FocusAndroid = 4,
     FocusIOS = 5,
 }
 
@@ -28,12 +28,12 @@ impl SearchApplicationName {
 /// Use `default` for a self-build or an unknown channel.
 #[derive(Debug, uniffi::Enum)]
 pub enum SearchUpdateChannel {
-    Default,
-    Nightly,
-    Aurora,
-    Beta,
-    Release,
-    ESR,
+    Default = 1,
+    Nightly = 2,
+    Aurora = 3,
+    Beta = 4,
+    Release = 5,
+    ESR = 6,
 }
 
 impl SearchUpdateChannel {
@@ -102,11 +102,11 @@ pub struct SearchEngineUrl {
     pub base: String,
 
     /// The HTTP method to use to send the request (`GET` or `POST`).
-    /// If not specified, defaults to GET.
-    pub method: Option<String>,
+    /// If the engine definition has not specified the method, it defaults to GET.
+    pub method: String,
 
     /// The parameters for this URL.
-    pub params: Option<Vec<SearchUrlParam>>,
+    pub params: Vec<SearchUrlParam>,
 
     /// The name of the query parameter for the search term. Automatically
     /// appended to the end of the query. This may be skipped if `{searchTerm}`
@@ -127,18 +127,34 @@ pub struct SearchEngineUrls {
     pub trending: Option<SearchEngineUrl>,
 }
 
+/// The list of acceptable classifications for a search engine.
+#[derive(Debug, uniffi::Enum)]
+pub enum SearchEngineClassification {
+    Unknown = 1,
+    General = 2,
+}
+
+impl SearchEngineClassification {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SearchEngineClassification::Unknown => "unknown",
+            SearchEngineClassification::General => "general",
+        }
+    }
+}
+
 /// A definition for an individual search engine to be presented to the user.
 #[derive(Debug, uniffi::Record)]
 pub struct SearchEngineDefinition {
-    /// An optional list of aliases for this engine.
-    pub aliases: Option<Vec<String>>,
+    /// A list of aliases for this engine.
+    pub aliases: Vec<String>,
 
     /// The classification of search engine according to the main search types
     /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
     /// a general search engine is supported.
     /// On Android, only general search engines may be selected as "default"
     /// search engines.
-    pub classification: String,
+    pub classification: SearchEngineClassification,
 
     /// The identifier of the search engine. This is used as an internal
     /// identifier, e.g. for saving the user's settings for the engine. It is
@@ -182,7 +198,7 @@ pub struct RefinedConfig {
     ///
     /// * Application Default Engine
     /// * Application Default Engine for Private Mode (if specified & different)
-    /// * Engines sorted by descending `orderHint`
+    /// * Engines sorted by descending `SearchEngineDefinition.orderHint`
     /// * Any other engines in alphabetical order (locale based comparison)
     pub engines: Vec<SearchEngineDefinition>,
 
