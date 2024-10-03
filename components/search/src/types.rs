@@ -186,7 +186,7 @@ pub struct SearchEngineDefinition {
 /// Details of the search engines to display to the user, generated as a result
 /// of processing the search configuration.
 #[derive(Debug, uniffi::Record)]
-pub struct RefinedConfig {
+pub struct RefinedSearchConfig {
     /// A sorted list of engines. Clients may use the engine in the order that
     /// this list is specified, or they may implement their own order if they
     /// have other requirements.

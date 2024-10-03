@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::Error, RefinedConfig, SearchApiResult, SearchUserEnvironment};
+use crate::{error::Error, RefinedSearchConfig, SearchApiResult, SearchUserEnvironment};
 use error_support::handle_error;
 
 /// SearchEngineSelector parses the JSON configuration for
@@ -40,7 +40,7 @@ impl SearchEngineSelector {
     pub fn filter_engine_configuration(
         &self,
         _user_environment: SearchUserEnvironment,
-    ) -> SearchApiResult<RefinedConfig> {
+    ) -> SearchApiResult<RefinedSearchConfig> {
         Err(Error::NotImplemented)
     }
 }
