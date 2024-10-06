@@ -147,10 +147,10 @@ impl SuggestDao<'_> {
         let city_pred = "(g.feature_class = 'P')";
         let region_pred = "(g.feature_class = 'A' AND g.feature_code = 'ADM1')";
         let type_pred = match geoname_type {
-            None => &format!("({} OR {})", city_pred, region_pred),
-            Some(GeonameType::City) => city_pred,
-            Some(GeonameType::Region) => region_pred,
-            Some(GeonameType::Other) => &format!("((NOT {}) AND (NOT {}))", city_pred, region_pred),
+            None => format!("({} OR {})", city_pred, region_pred),
+            Some(GeonameType::City) => city_pred.to_string(),
+            Some(GeonameType::Region) => region_pred.to_string(),
+            Some(GeonameType::Other) => format!("((NOT {}) AND (NOT {}))", city_pred, region_pred),
         };
         Ok(self
             .conn
