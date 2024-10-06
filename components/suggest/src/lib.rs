@@ -10,7 +10,7 @@ mod config;
 mod db;
 mod error;
 mod fakespot;
-mod keyword;
+mod geoname;
 mod metrics;
 pub mod pocket;
 mod provider;
@@ -21,6 +21,7 @@ mod store;
 mod suggestion;
 #[cfg(test)]
 mod testing;
+pub mod util;
 mod weather;
 mod yelp;
 
