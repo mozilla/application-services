@@ -9,7 +9,7 @@ use crate::error::{NimbusError, Result};
 use crate::Experiment;
 use fs_client::FileSystemClient;
 use null_client::NullClient;
-use remote_settings::Client;
+use remote_settings::RemoteSettings;
 use remote_settings::RemoteSettingsConfig;
 
 pub(crate) fn create_client(
@@ -19,7 +19,7 @@ pub(crate) fn create_client(
         Some(config) => {
             assert!(config.server_url.is_none());
             let Some(remote_settings_server) = config.server.as_ref() else {
-                return Ok(Box::new(Client::new(config)?));
+                return Ok(Box::new(RemoteSettings::new(config)?));
             };
             let url = remote_settings_server.url()?;
             if url.scheme() == "file" {
@@ -32,7 +32,7 @@ pub(crate) fn create_client(
                 };
                 Box::new(FileSystemClient::new(path)?)
             } else {
-                Box::new(Client::new(config)?)
+                Box::new(RemoteSettings::new(config)?)
             }
         }
         // If no server is provided, then we still want Nimbus to work, but serving

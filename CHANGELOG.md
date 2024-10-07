@@ -1,5 +1,11 @@
 # v133.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Remote Settings
+- Updated Error hierarchy.  We don't need to update consumer code because the only consumer was
+  Android and it only caught exceptions using the base RemoteSettingsException class.
+
 ## 🦊 What's Changed 🦊
 
 ### Glean

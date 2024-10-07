@@ -2,17 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub mod cache;
-pub mod error;
-pub use error::{RemoteSettingsError, Result};
 use std::{fs::File, io::prelude::Write};
+
+use error_support::handle_error;
+
+pub mod cache;
 pub mod client;
-pub use client::{
-    Attachment, Client, GetItemsOptions, RemoteSettingsRecord, RemoteSettingsResponse,
-    RsJsonObject, SortOrder,
-};
 pub mod config;
+pub mod error;
+
+pub use client::{Attachment, RemoteSettingsRecord, RemoteSettingsResponse, RsJsonObject};
 pub use config::{RemoteSettingsConfig, RemoteSettingsServer};
+pub use error::{ApiResult, RemoteSettingsError, Result};
+
+use client::Client;
+use error::Error;
 
 uniffi::include_scaffolding!("remote_settings");
 
@@ -22,28 +26,48 @@ pub struct RemoteSettings {
 }
 
 impl RemoteSettings {
-    pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
+    #[handle_error(Error)]
+    pub fn new(config: RemoteSettingsConfig) -> ApiResult<Self> {
         Ok(RemoteSettings {
             config: config.clone(),
             client: Client::new(config)?,
         })
     }
 
-    pub fn get_records(&self) -> Result<RemoteSettingsResponse> {
+    #[handle_error(Error)]
+    pub fn get_records(&self) -> ApiResult<RemoteSettingsResponse> {
         let resp = self.client.get_records()?;
         Ok(resp)
     }
 
-    pub fn get_records_since(&self, timestamp: u64) -> Result<RemoteSettingsResponse> {
+    #[handle_error(Error)]
+    pub fn get_records_since(&self, timestamp: u64) -> ApiResult<RemoteSettingsResponse> {
         let resp = self.client.get_records_since(timestamp)?;
         Ok(resp)
     }
 
+    /// Fetches all records for a collection that can be found in the server,
+    /// bucket, and collection defined by the [ClientConfig] used to generate
+    /// this [Client]. This function will return the raw viaduct [Response].
+    #[handle_error(Error)]
+    pub fn get_records_raw(&self) -> ApiResult<viaduct::Response> {
+        self.client.get_records_raw()
+    }
+
+    /// Downloads an attachment from [attachment_location]. NOTE: there are no
+    /// guarantees about a maximum size, so use care when fetching potentially
+    /// large attachments.
+    #[handle_error(Error)]
+    pub fn get_attachment(&self, attachment_location: &str) -> ApiResult<Vec<u8>> {
+        self.client.get_attachment(attachment_location)
+    }
+
+    #[handle_error(Error)]
     pub fn download_attachment_to_path(
         &self,
         attachment_location: String,
         path: String,
-    ) -> Result<()> {
+    ) -> ApiResult<()> {
         let resp = self.client.get_attachment(&attachment_location)?;
         let mut file = File::create(path)?;
         file.write_all(&resp)?;
