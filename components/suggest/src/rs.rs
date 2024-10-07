@@ -74,8 +74,8 @@ pub(crate) trait Client {
 /// Implements the [Client] trait using a real remote settings client
 pub struct RemoteSettingsClient {
     // Create a separate client for each collection name
-    quicksuggest_client: remote_settings::Client,
-    fakespot_client: remote_settings::Client,
+    quicksuggest_client: remote_settings::RemoteSettings,
+    fakespot_client: remote_settings::RemoteSettings,
 }
 
 impl RemoteSettingsClient {
@@ -85,7 +85,7 @@ impl RemoteSettingsClient {
         server_url: Option<String>,
     ) -> Result<Self> {
         Ok(Self {
-            quicksuggest_client: remote_settings::Client::new(
+            quicksuggest_client: remote_settings::RemoteSettings::new(
                 remote_settings::RemoteSettingsConfig {
                     server: server.clone(),
                     bucket_name: bucket_name.clone(),
@@ -93,16 +93,18 @@ impl RemoteSettingsClient {
                     server_url: server_url.clone(),
                 },
             )?,
-            fakespot_client: remote_settings::Client::new(remote_settings::RemoteSettingsConfig {
-                server,
-                bucket_name,
-                collection_name: "fakespot-suggest-products".to_owned(),
-                server_url,
-            })?,
+            fakespot_client: remote_settings::RemoteSettings::new(
+                remote_settings::RemoteSettingsConfig {
+                    server,
+                    bucket_name,
+                    collection_name: "fakespot-suggest-products".to_owned(),
+                    server_url,
+                },
+            )?,
         })
     }
 
-    fn client_for_collection(&self, collection: Collection) -> &remote_settings::Client {
+    fn client_for_collection(&self, collection: Collection) -> &remote_settings::RemoteSettings {
         match collection {
             Collection::Fakespot => &self.fakespot_client,
             Collection::Quicksuggest => &self.quicksuggest_client,

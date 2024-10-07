@@ -3610,6 +3610,7 @@ dependencies = [
 name = "remote_settings"
 version = "0.1.0"
 dependencies = [
+ "error-support",
  "expect-test",
  "log",
  "mockito",

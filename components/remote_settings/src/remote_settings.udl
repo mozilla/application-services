@@ -44,15 +44,10 @@ dictionary Attachment {
 };
 
 [Error]
-enum RemoteSettingsError {
-    "JSONError",
-    "FileError",
-    "RequestError",
-    "UrlParsingError",
-    "BackoffError",
-    "ResponseError",
-    "AttachmentsUnsupportedError",
-    "ConfigError",
+interface RemoteSettingsError {
+    Network(string reason);
+    Backoff(u64 seconds);
+    Other(string reason);
 };
 
 interface RemoteSettings {

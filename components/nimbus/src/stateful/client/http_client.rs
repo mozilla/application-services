@@ -16,9 +16,9 @@
 use crate::error::Result;
 use crate::schema::parse_experiments;
 use crate::stateful::client::{Experiment, SettingsClient};
-use remote_settings::Client;
+use remote_settings::RemoteSettings;
 
-impl SettingsClient for Client {
+impl SettingsClient for RemoteSettings {
     fn get_experiments_metadata(&self) -> Result<String> {
         unimplemented!();
     }

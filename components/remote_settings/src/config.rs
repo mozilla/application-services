@@ -10,7 +10,7 @@
 
 use url::Url;
 
-use crate::Result;
+use crate::{ApiResult, Error, Result};
 
 /// Custom configuration for the client.
 /// Currently includes the following:
@@ -36,7 +36,17 @@ pub enum RemoteSettingsServer {
 }
 
 impl RemoteSettingsServer {
-    pub fn url(&self) -> Result<Url> {
+    /// Get the [url::Url] for this server
+    #[error_support::handle_error(Error)]
+    pub fn url(&self) -> ApiResult<Url> {
+        self.get_url()
+    }
+
+    /// Internal version of `url()`.
+    ///
+    /// The difference is that it uses `Error` instead of `ApiError`.  This is what we need to use
+    /// inside the crate.
+    pub(crate) fn get_url(&self) -> Result<Url> {
         Ok(match self {
             Self::Prod => Url::parse("https://firefox.settings.services.mozilla.com").unwrap(),
             Self::Stage => Url::parse("https://firefox.settings.services.allizom.org").unwrap(),
