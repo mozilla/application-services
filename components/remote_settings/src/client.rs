@@ -215,7 +215,7 @@ impl Client {
 
 /// Data structure representing the top-level response from the Remote Settings.
 /// [last_modified] will be extracted from the etag header of the response.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize, uniffi::Record)]
 pub struct RemoteSettingsResponse {
     pub records: Vec<RemoteSettingsRecord>,
     pub last_modified: u64,
@@ -228,7 +228,7 @@ struct RecordsResponse {
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
 /// are required to further extract expected values from the [fields] member.
-#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, uniffi::Record)]
 pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
@@ -241,7 +241,7 @@ pub struct RemoteSettingsRecord {
 
 /// Attachment metadata that can be optionally attached to a [Record]. The [location] should
 /// included in calls to [Client::get_attachment].
-#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, uniffi::Record)]
 pub struct Attachment {
     pub filename: String,
     pub mimetype: String,
@@ -250,10 +250,14 @@ pub struct Attachment {
     pub size: u64,
 }
 
-// At time of writing, UniFFI cannot rename iOS bindings and JsonObject conflicted with the declaration in Nimbus.
-// This shouldn't really impact Android, since the type is converted into the platform
-// JsonObject thanks to the UniFFI binding.
+// Define a UniFFI custom types to pass JSON objects across the FFI as a string
+//
+// This is named `RsJsonObject` because, UniFFI cannot currently rename iOS bindings and JsonObject
+// conflicted with the declaration in Nimbus. This shouldn't really impact Android, since the type
+// is converted into the platform JsonObject thanks to the UniFFI binding.
 pub type RsJsonObject = serde_json::Map<String, serde_json::Value>;
+uniffi::custom_type!(RsJsonObject, String);
+
 impl UniffiCustomTypeConverter for RsJsonObject {
     type Builtin = String;
     fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
