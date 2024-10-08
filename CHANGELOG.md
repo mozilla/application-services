@@ -1,5 +1,10 @@
 # v133.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### Glean
+- Updated to v61.2.0 ([#6410](https://github.com/mozilla/application-services/pull/6410))
+
 [Full Changelog](In progress)
 
 # v132.0 (_2024-09-30_)
