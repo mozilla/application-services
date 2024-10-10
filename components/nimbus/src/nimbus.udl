@@ -1,7 +1,7 @@
-[External="remote_settings"]
+[ExternalExport="remote_settings"]
 typedef extern RemoteSettingsConfig;
 
-[External="remote_settings"]
+[ExternalExport="remote_settings"]
 typedef extern RemoteSettingsServer;
 
 namespace nimbus {};
