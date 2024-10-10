@@ -31,7 +31,6 @@
 		1B3BC98B27B1D9B800229CF6 /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC97F27B1D9B700229CF6 /* Sysctl.swift */; };
 		1B3BC98C27B1D9B800229CF6 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98027B1D9B700229CF6 /* Utils.swift */; };
 		1B3BC98D27B1D9B800229CF6 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */; };
-		1B5CB50E27B202B600C31B56 /* MozillaRustComponents.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */; };
 		1BB64C7A27B1FA0400A4247F /* NimbusMessagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC54227AE065300DAFEF2 /* NimbusMessagingTests.swift */; };
 		1BBAC4FC27AE049500DAFEF2 /* MozillaTestServicesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FB27AE049500DAFEF2 /* MozillaTestServicesApp.swift */; };
 		1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */ = {isa = PBXBuildFile; productRef = 1BBAC55027AE06FD00DAFEF2 /* Glean */; };
@@ -67,6 +66,7 @@
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
+		801B52512CB5CAB5001F2183 /* MozillaRustComponents.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */; };
 		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
 		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
@@ -107,19 +107,6 @@
 			remoteInfo = MozillaTestServices;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		1BF50F3227B1F33A00A9C8A5 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		15DAE20D2944155E00DB06FE /* autofill.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autofill.udl; path = ../../../components/autofill/src/autofill.udl; sourceTree = SOURCE_ROOT; };
@@ -202,7 +189,6 @@
 		AB65933B2A0C524E00DBF059 /* remote_settings.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = remote_settings.udl; path = ../src/remote_settings.udl; sourceTree = "<group>"; };
 		AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = remote_settingsFFI.h; sourceTree = "<group>"; };
 		AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = "<group>"; };
-		D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = suggestFFI.h; sourceTree = "<group>"; };
 		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
 		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
 		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
@@ -222,7 +208,6 @@
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
 		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
-		FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = suggest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -230,7 +215,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B5CB50E27B202B600C31B56 /* MozillaRustComponents.xcframework in Frameworks */,
+				801B52512CB5CAB5001F2183 /* MozillaRustComponents.xcframework in Frameworks */,
 				1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -331,6 +316,7 @@
 				1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */,
 				1BBAC50B27AE049600DAFEF2 /* MozillaTestServicesTests */,
 				1BBAC4F927AE049500DAFEF2 /* Products */,
+				801B524D2CB5CA89001F2183 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -565,6 +551,13 @@
 			name = Generated;
 			sourceTree = "<group>";
 		};
+		801B524D2CB5CA89001F2183 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AB65933A2A0C51F300DBF059 /* RemoteSettings */ = {
 			isa = PBXGroup;
 			children = (
@@ -665,7 +658,6 @@
 				1BBAC4F427AE049500DAFEF2 /* Sources */,
 				1BBAC4F527AE049500DAFEF2 /* Frameworks */,
 				1BBAC4F627AE049500DAFEF2 /* Resources */,
-				1BF50F3227B1F33A00A9C8A5 /* Embed Frameworks */,
 			);
 			buildRules = (
 				1B3BC94427B1D67300229CF6 /* PBXBuildRule */,
@@ -1065,7 +1057,6 @@
 		1BBAC52027AE049600DAFEF2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -1086,7 +1077,6 @@
 		1BBAC52127AE049600DAFEF2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
