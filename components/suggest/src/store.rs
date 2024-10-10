@@ -460,10 +460,12 @@ where
             .unwrap_or(&DEFAULT_INGEST_PROVIDERS.to_vec())
             .iter()
         {
-            record_types_by_collection
-                .entry(p.record_type().collection())
-                .or_default()
-                .insert(p.record_type());
+            for t in p.record_types() {
+                record_types_by_collection
+                    .entry(t.collection())
+                    .or_default()
+                    .insert(t);
+            }
         }
 
         // Always ingest these record types.
@@ -668,6 +670,10 @@ where
                         )?;
                     }
                 }
+            }
+            SuggestRecord::Geonames => self.process_geoname_record(dao, record, download_timer)?,
+            SuggestRecord::GeonamesAlternates => {
+                self.process_geoname_alternates_record(dao, record, download_timer)?
             }
         }
         Ok(())
@@ -2095,6 +2101,8 @@ pub(crate) mod tests {
             json!({
                 "min_keyword_length": 3,
                 "score": 0.24,
+                "max_keyword_length": 1,
+                "max_keyword_word_count": 1,
                 "keywords": []
             }),
         ));
@@ -2105,6 +2113,7 @@ pub(crate) mod tests {
             store.fetch_provider_config(SuggestionProvider::Weather),
             Some(SuggestProviderConfig::Weather {
                 min_keyword_length: 3,
+                score: 0.24,
             })
         );
 
