@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","RemoteSettingsError"],"type":["ApiResult","Result"]};

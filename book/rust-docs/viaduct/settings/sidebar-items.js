@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["GLOBAL_SETTINGS"],"struct":["Settings"]};
