@@ -50,6 +50,7 @@ members = [
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
     "tools/start-bindings",
+    "tools/uniffi-bindgen-library-mode",
     "automation/swift-components-docs",
 
     "examples/*/",
@@ -122,6 +123,7 @@ default-members = [
 #    "testing/sync-test",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
+    "tools/uniffi-bindgen-library-mode",
     "examples/*/",
     "testing/separated/*/",
 ]
@@ -129,7 +131,8 @@ default-members = [
 [workspace.dependencies]
 rusqlite = "0.31.0"
 libsqlite3-sys = "0.28.0"
-uniffi = "0.28.0"
+uniffi = "0.28.2"
+uniffi_bindgen = "0.28.2"
 
 [profile.release]
 opt-level = "s"

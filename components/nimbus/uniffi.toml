@@ -13,7 +13,6 @@ from_custom = "{}.toString()"
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "nimbusFFI"
-generate_module_map = false
 
 [bindings.python]
 # This can be commented out, and the `--library` argument of `bindgen-uniffi` should be used instead.

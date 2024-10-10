@@ -8,7 +8,6 @@ set -euo pipefail
 
 FRAMEWORK_NAME="SwiftComponents"
 THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-REPO_ROOT="$( dirname "$( dirname "$THIS_DIR" )" )"
 WORKING_DIR="$THIS_DIR"
 CARGO="$HOME/.cargo/bin/cargo"
 
@@ -17,39 +16,10 @@ INCLUDE_DIR="$WORKING_DIR/Sources/$FRAMEWORK_NAME/include"
 SWIFT_DIR="$WORKING_DIR/Sources/$FRAMEWORK_NAME"
 mkdir -p "$INCLUDE_DIR"
 
-# Build the Rust crate using Cargo
-echo "Building the Rust crate..."
-$CARGO build -p megazord_ios --release
-
-# Define the path to the generated Rust library
-LIBRARY_FILE="$REPO_ROOT/target/release/libmegazord_ios.a"
-if [[ ! -f "$LIBRARY_FILE" ]]; then
-  echo "Error: Rust library not found at $LIBRARY_FILE"
-  exit 1
-fi
-
-# Generate Swift bindings, headers, and module map using uniffi-bindgen
-echo "Generating Swift bindings with uniffi-bindgen..."
-$CARGO uniffi-bindgen generate --library "$LIBRARY_FILE" --language swift --out-dir "$SWIFT_DIR"
-
-# Move generated header files to the include directory
-echo "Moving header files to include directory..."
-mv "$SWIFT_DIR"/*.h "$INCLUDE_DIR" || {
-  echo "Error: Failed to move header files."
-  exit 1
-}
-
-# Remove any old modulemaps
-echo "Cleaning up old module maps..."
-rm -f "$SWIFT_DIR"/*.modulemap
-
-# Generate a new module map
-echo "Generating module map..."
-if [[ ! -f "$WORKING_DIR/generate-modulemap.sh" ]]; then
-  echo "Error: generate-modulemap.sh script not found."
-  exit 1
-fi
-"$WORKING_DIR/generate-modulemap.sh"
+# Generate Swift bindings, headers, and module map to use as the documentation source
+echo "Generating Swift bindings"
+$CARGO uniffi-bindgen-library-mode -m megazord_ios swift --swift-sources "$SWIFT_DIR"
+$CARGO uniffi-bindgen-library-mode -m megazord_ios swift --headers --modulemap --modulemap-filename module.modulemap "$INCLUDE_DIR"
 
 # Success message
 echo "Successfully generated Swift bindings, headers, and module map."

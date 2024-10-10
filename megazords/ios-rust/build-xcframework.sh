@@ -133,7 +133,6 @@ rm -rf "$XCFRAMEWORK_ROOT"
 COMMON="$XCFRAMEWORK_ROOT/common/$FRAMEWORK_NAME.framework"
 
 mkdir -p "$COMMON/Modules"
-cp "$WORKING_DIR/module.modulemap" "$COMMON/Modules/"
 
 cp "$WORKING_DIR/DEPENDENCIES.md" "$COMMON/DEPENDENCIES.md"
 
@@ -147,17 +146,8 @@ UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 
-# Next, move the generated headers.
-#
-# TODO: https://github.com/mozilla/uniffi-rs/issues/1060
-#
-# It would be neat if there was a single UniFFI command that would generate headers-only, but for
-# now we generate both the `.h` and `.swift` files, then delete the `.swift`.  Bleh.
-
-$CARGO uniffi-bindgen generate --library "$UNIFFI_BINDGEN_LIBRARY" -l swift -o "$COMMON/Headers"
-rm -rf "$COMMON"/Headers/*.swift
-
-
+# Next, generate files with uniffi-bindgen
+"$THIS_DIR/generate-files.sh" "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
 
 # Flesh out the framework for each architecture based on the common files.
 # It's a little fiddly, because we apparently need to put all the simulator targets
