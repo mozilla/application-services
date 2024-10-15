@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod configuration_types;
+mod environment_matching;
 mod error;
 mod filter;
 pub use error::SearchApiError;

@@ -7,13 +7,14 @@
 use serde::Deserialize;
 
 /// The list of possible application names that are currently supported.
-#[derive(Debug, uniffi::Enum)]
+#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "kebab-case")]
 pub enum SearchApplicationName {
     Firefox = 1,
     FirefoxAndroid = 2,
-    FirefoxIOS = 3,
+    FirefoxIos = 3,
     FocusAndroid = 4,
-    FocusIOS = 5,
+    FocusIos = 5,
 }
 
 impl SearchApplicationName {
@@ -22,15 +23,15 @@ impl SearchApplicationName {
             SearchApplicationName::Firefox => "firefox",
             SearchApplicationName::FirefoxAndroid => "firefox-android",
             SearchApplicationName::FocusAndroid => "focus-android",
-            SearchApplicationName::FirefoxIOS => "firefox-ios",
-            SearchApplicationName::FocusIOS => "focus-ios",
+            SearchApplicationName::FirefoxIos => "firefox-ios",
+            SearchApplicationName::FocusIos => "focus-ios",
         }
     }
 }
 
 /// The list of possible update channels for a user's build.
 /// Use `default` for a self-build or an unknown channel.
-#[derive(Debug, uniffi::Enum)]
+#[derive(Clone, Debug, uniffi::Enum)]
 pub enum SearchUpdateChannel {
     Default = 1,
     Nightly = 2,
@@ -54,7 +55,7 @@ impl SearchUpdateChannel {
 }
 
 /// The user's environment that is used for filtering the search configuration.
-#[derive(Debug, uniffi::Record)]
+#[derive(Clone, Debug, uniffi::Record)]
 pub struct SearchUserEnvironment {
     /// The current locale of the application that the user is using.
     pub locale: String,
@@ -84,6 +85,7 @@ pub struct SearchUserEnvironment {
 /// Parameter definitions for search engine URLs. The name property is always
 /// specified, along with one of value, experiment_config or search_access_point.
 #[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchUrlParam {
     /// The name of the parameter in the url.
     pub name: String,

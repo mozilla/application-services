@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! This module defines the main `SearchEngineSelector`.
+
 use crate::filter::filter_engine_configuration;
 use crate::{
     error::Error, JSONSearchConfiguration, RefinedSearchConfig, SearchApiResult,
@@ -89,7 +91,13 @@ mod tests {
                         "method": "GET"
                       }
                     }
-                  }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true,
+                      "excludedRegions": []
+                    }
+                  }],
                 },
                 {
                   "recordType": "defaultEngines",
@@ -101,7 +109,8 @@ mod tests {
         );
         assert!(
             config_result.is_ok(),
-            "Should not have errored: `{config_result:?}`"
+            "Should have set the configuration successfully. {:?}",
+            config_result
         );
     }
 
@@ -127,6 +136,11 @@ mod tests {
                     },
                     "extraField2": "123"
                   },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
                   "extraField3": ["foo"]
                 },
                 {
@@ -142,7 +156,8 @@ mod tests {
         );
         assert!(
             config_result.is_ok(),
-            "Should not have errored: `{config_result:?}`"
+            "Should have set the configuration successfully with extra fields. {:?}",
+            config_result
         );
     }
 
@@ -165,7 +180,12 @@ mod tests {
                         "method": "GET"
                       }
                     }
-                  }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
                 },
                 {
                   "recordType": "defaultEngines",
@@ -180,7 +200,8 @@ mod tests {
         );
         assert!(
             config_result.is_ok(),
-            "Should not have errored: `{config_result:?}`"
+            "Should have set the configuration successfully with unknown record types. {:?}",
+            config_result
         );
     }
 
@@ -198,7 +219,10 @@ mod tests {
             version: String::new(),
         });
 
-        assert!(result.is_err());
+        assert!(
+            result.is_err(),
+            "Should throw an error when a configuration has not been specified before filtering"
+        );
         assert!(result
             .unwrap_err()
             .to_string()
@@ -225,7 +249,12 @@ mod tests {
                         "searchTermParamName": "q"
                       }
                     }
-                  }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
                 },
                 {
                   "recordType": "engine",
@@ -240,7 +269,12 @@ mod tests {
                         "searchTermParamName": "search"
                       }
                     }
-                  }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
                 },
                 {
                   "recordType": "defaultEngines",
@@ -253,7 +287,8 @@ mod tests {
         );
         assert!(
             config_result.is_ok(),
-            "Should not have errored: `{config_result:?}`"
+            "Should have set the configuration successfully. {:?}",
+            config_result
         );
 
         let result = selector.filter_engine_configuration(SearchUserEnvironment {
@@ -266,7 +301,11 @@ mod tests {
             version: String::new(),
         });
 
-        assert!(result.is_ok(), "Should not have errored: `{result:?}`");
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
         assert_eq!(
             result.unwrap(),
             RefinedSearchConfig {
@@ -316,5 +355,263 @@ mod tests {
                 app_default_private_engine_id: Some("test2".to_string())
             }
         )
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_handles_environments() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config(
+            json!({
+              "data": [
+                {
+                  "recordType": "engine",
+                  "identifier": "test1",
+                  "base": {
+                    "name": "Test 1",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com/1",
+                        "method": "GET",
+                        "searchTermParamName": "q"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
+                },
+                {
+                  "recordType": "engine",
+                  "identifier": "test2",
+                  "base": {
+                    "name": "Test 2",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com/2",
+                        "method": "GET",
+                        "searchTermParamName": "search"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "applications": ["firefox-android", "focus-ios"]
+                    }
+                  }],
+                },
+                {
+                  "recordType": "engine",
+                  "identifier": "test3",
+                  "base": {
+                    "name": "Test 3",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com/3",
+                        "method": "GET",
+                        "searchTermParamName": "trek"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "distributions": ["starship"]
+                    }
+                  }],
+                },
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                }
+              ]
+            })
+            .to_string(),
+        );
+        assert!(
+            config_result.is_ok(),
+            "Should have set the configuration successfully. {:?}",
+            config_result
+        );
+
+        let mut result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            locale: "fi".into(),
+            region: "FR".into(),
+            update_channel: SearchUpdateChannel::Default,
+            distribution_id: String::new(),
+            experiment: String::new(),
+            app_name: SearchApplicationName::Firefox,
+            version: String::new(),
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec!(
+                    SearchEngineDefinition {
+                        aliases: Vec::new(),
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test1".to_string(),
+                        name: "Test 1".to_string(),
+                        order_hint: None,
+                        partner_code: String::new(),
+                        telemetry_suffix: None,
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/1".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("q".to_string())
+                            },
+                            suggestions: None,
+                            trending: None
+                        }
+                    },
+                ),
+                app_default_engine_id: "test1".to_string(),
+                app_default_private_engine_id: None
+            }, "Should have selected test1 for all matching locales, as the environments do not match for the other two"
+        );
+
+        result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            locale: "fi".into(),
+            region: "FR".into(),
+            update_channel: SearchUpdateChannel::Default,
+            distribution_id: String::new(),
+            experiment: String::new(),
+            app_name: SearchApplicationName::FocusIos,
+            version: String::new(),
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec!(
+                    SearchEngineDefinition {
+                        aliases: Vec::new(),
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test1".to_string(),
+                        name: "Test 1".to_string(),
+                        order_hint: None,
+                        partner_code: String::new(),
+                        telemetry_suffix: None,
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/1".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("q".to_string())
+                            },
+                            suggestions: None,
+                            trending: None
+                        }
+                    },
+                    SearchEngineDefinition {
+                        aliases: Vec::new(),
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test2".to_string(),
+                        name: "Test 2".to_string(),
+                        order_hint: None,
+                        partner_code: String::new(),
+                        telemetry_suffix: None,
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/2".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("search".to_string())
+                            },
+                            suggestions: None,
+                            trending: None
+                        }
+                    },
+                ),
+                app_default_engine_id: "test1".to_string(),
+                app_default_private_engine_id: None
+            },
+            "Should have selected test1 for all matching locales and test2 for matching Focus IOS"
+        );
+
+        result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            locale: "fi".into(),
+            region: "FR".into(),
+            update_channel: SearchUpdateChannel::Default,
+            distribution_id: "starship".to_string(),
+            experiment: String::new(),
+            app_name: SearchApplicationName::Firefox,
+            version: String::new(),
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec!(
+                    SearchEngineDefinition {
+                        aliases: Vec::new(),
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test1".to_string(),
+                        name: "Test 1".to_string(),
+                        order_hint: None,
+                        partner_code: String::new(),
+                        telemetry_suffix: None,
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/1".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("q".to_string())
+                            },
+                            suggestions: None,
+                            trending: None
+                        }
+                    },
+                    SearchEngineDefinition {
+                        aliases: Vec::new(),
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test3".to_string(),
+                        name: "Test 3".to_string(),
+                        order_hint: None,
+                        partner_code: String::new(),
+                        telemetry_suffix: None,
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/3".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("trek".to_string())
+                            },
+                            suggestions: None,
+                            trending: None
+                        }
+                    },
+                ),
+                app_default_engine_id: "test1".to_string(),
+                app_default_private_engine_id: None
+            }, "Should have selected test1 for all matching locales and test3 for matching the distribution id"
+        );
     }
 }

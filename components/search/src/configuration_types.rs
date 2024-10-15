@@ -5,7 +5,7 @@
 //! This module defines the structures that we use for serde_json to parse
 //! the search configuration.
 
-use crate::{SearchEngineClassification, SearchUrlParam};
+use crate::{SearchApplicationName, SearchEngineClassification, SearchUrlParam};
 use serde::Deserialize;
 
 /// The list of possible submission methods for search engine urls.
@@ -91,12 +91,79 @@ pub(crate) struct JSONEngineBase {
     pub urls: JSONEngineUrls,
 }
 
+/// Specifies details of possible user environments that the engine or variant
+/// applies to.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONVariantEnvironment {
+    /// Indicates that this section applies to all regions and locales. May be
+    /// modified by excluded_regions/excluded_locales.
+    #[serde(default)]
+    pub all_regions_and_locales: bool,
+
+    /// A vector of locales that this section should be excluded from. 'default'
+    /// will apply to situations where we have not been able to detect the user's
+    /// locale.
+    #[serde(default)]
+    pub excluded_locales: Vec<String>,
+
+    /// A vector of regions that this section should be excluded from. 'default'
+    /// will apply to situations where we have not been able to detect the user's
+    /// region.
+    #[serde(default)]
+    pub excluded_regions: Vec<String>,
+
+    /// A vector of locales that this section applies to. 'default' will apply
+    /// to situations where we have not been able to detect the user's locale.
+    #[serde(default)]
+    pub locales: Vec<String>,
+
+    /// A vector of regions that this section applies to. 'default' will apply
+    /// to situations where we have not been able to detect the user's region.
+    #[serde(default)]
+    pub regions: Vec<String>,
+
+    /// A vector of distribution identifiers that this section applies to.
+    #[serde(default)]
+    pub distributions: Vec<String>,
+
+    /// A vector of distributions that this section should be excluded from.
+    #[serde(default)]
+    pub excluded_distributions: Vec<String>,
+
+    /// A vector of applications that this applies to.
+    #[serde(default)]
+    pub applications: Vec<SearchApplicationName>,
+    // TODO: Implement these.
+    // pub channels: Option<Vec<String>,
+    // pub experiment: Option<String>,
+    // pub min_version: Option<String>,
+    // pub max_version: Option<String>,
+    // pub device_type: Option<String>,
+}
+
+/// Describes an individual variant of a search engine.
+#[derive(Debug, Deserialize, Clone)]
+pub(crate) struct JSONEngineVariant {
+    /// Details of the possible user environments that this variant applies to.
+    pub environment: JSONVariantEnvironment,
+}
+
 /// Represents an individual engine record in the configuration.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineRecord {
+    /// The identiifer for the search engine.
     pub identifier: String,
+
+    /// The base information of the search engine, may be extended by the
+    /// variants.
     pub base: JSONEngineBase,
+
+    /// Describes variations of this search engine that may occur depending on
+    /// the user's environment. The last variant that matches the user's
+    /// environment will be applied to the engine, subvariants may also be applied.
+    pub variants: Vec<JSONEngineVariant>,
 }
 
 /// Represents the default engines record.
