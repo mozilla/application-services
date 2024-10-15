@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! This module defines the functions for managing the filtering of the configuration.
+
+use crate::environment_matching::matches_user_environment;
 use crate::{
     error::Error, JSONEngineBase, JSONEngineRecord, JSONEngineUrl, JSONEngineUrls,
     JSONSearchConfigurationRecords, RefinedSearchConfig, SearchEngineDefinition, SearchEngineUrl,
@@ -56,10 +59,15 @@ pub(crate) fn filter_engine_configuration(
     let mut default_engine_id: Option<String> = None;
     let mut default_private_engine_id: Option<String> = None;
 
+    let mut user_environment = user_environment.clone();
+    user_environment.locale = user_environment.locale.to_lowercase();
+    user_environment.region = user_environment.region.to_lowercase();
+    user_environment.version = user_environment.version.to_lowercase();
+
     for record in configuration {
         match record {
             JSONSearchConfigurationRecords::Engine(engine) => {
-                let result = extract_engine_config(&user_environment, engine);
+                let result = maybe_extract_engine_config(&user_environment, engine);
                 engines.extend(result);
             }
             JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
@@ -82,21 +90,29 @@ pub(crate) fn filter_engine_configuration(
     })
 }
 
-fn extract_engine_config(
-    _user_environment: &SearchUserEnvironment,
+fn maybe_extract_engine_config(
+    user_environment: &SearchUserEnvironment,
     record: Box<JSONEngineRecord>,
 ) -> Option<SearchEngineDefinition> {
-    // TODO: Variant handling.
-    Some(SearchEngineDefinition::from_configuration_details(
-        &record.identifier,
-        record.base,
-    ))
+    let JSONEngineRecord {
+        identifier,
+        variants,
+        base,
+    } = *record;
+    let matching_variant = variants
+        .into_iter()
+        .rev()
+        .find(|r| matches_user_environment(&r.environment, user_environment));
+
+    matching_variant
+        .map(|_variant| SearchEngineDefinition::from_configuration_details(&identifier, base))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::types::*;
+    use std::vec;
+
+    use crate::*;
 
     #[test]
     fn test_from_configuration_details_fallsback_to_defaults() {

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! Defines the error types for this module.
+
 /// The error type for all Search component operations. These errors are
 /// exposed to your application, which should handle them as needed.
 use error_support::{ErrorHandling, GetErrorHandling};
