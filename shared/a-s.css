@@ -1,0 +1,169 @@
+/* Style the tab */
+.tabbar {
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background-color: #f1f1f1;
+}
+
+/* Style the buttons that are used to open the tab content */
+.tabbar button {
+    background-color: inherit;
+    float: left;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    transition: 0.3s;
+}
+
+/* Change background color of buttons on hover */
+.tabbar button:hover {
+    background-color: #ddd;
+}
+
+/* Create an active/current tablink class */
+.tabbar button.active {
+    background-color: #ccc;
+}
+
+/* The container that holds all of the tab contents */
+.tabcontents {
+    display: flex;
+}
+
+/* The container for each individual language */
+.tab {
+    display: none;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-top: none;
+    padding: 6px 12px;
+}
+
+.tab.active {
+    display: block;
+}
+
+/* The footer with the "Open on GitHub" link */
+footer#open-on-gh {
+  font-size: 0.8em;
+  text-align: center;
+  border-top: 1px solid black;
+  padding: 5px 0;
+}
+
+/* Distribution simulator styles */
+
+#simulator-container {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+}
+
+#simulator-container h3 {
+    margin-top: 20px;
+}
+
+#simulator-container .input-group {
+    width: 100%;
+}
+
+#simulator-container .input-group label {
+    display: block;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 7px;
+}
+
+#simulator-container .input-group input,
+#simulator-container .input-group select,
+#custom-data-modal textarea {
+    display: block;
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 10px;
+    border-radius: 3px;
+    border: 1px solid #e0e0e0;
+    box-sizing: border-box;
+}
+
+#histogram-props,
+#data-options {
+    width: 50%;
+    box-sizing: border-box;
+}
+
+#data-options {
+    padding-right: 50px;
+}
+
+#data-options .input-group {
+    margin-bottom: 10px;
+}
+
+#data-options .input-group:first-of-type {
+    margin-top: 20px;
+}
+
+#data-options .input-group:last-of-type {
+    margin-bottom: 0;
+}
+
+#data-options .input-group label {
+    display: inline-block;
+}
+
+#data-options .input-group input {
+    display: inline;
+    width: auto;
+}
+
+#histogram-chart-container {
+    width: 100%;
+    padding: 30px;
+    border: 1px solid #e0e0e0;
+    margin: 30px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+#histogram-chart {
+    margin-top: 50px;
+    width: 100%;
+}
+
+#histogram-chart-legend {
+    font-size: 14px;
+    text-align: center;
+    width: 100%;
+}
+
+#histogram-functional-props,
+#histogram-non-functional-props {
+    display: none;
+}
+
+#custom-data-modal-overlay {
+    background-color: rgba(0, 0, 0, .5);
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    z-index: 999;
+    display: none;
+}
+
+#custom-data-modal {
+    width: 50%;
+    background-color: white;
+    border-radius: 5px;
+    position: relative;
+    top: 15%;
+    left: 25%;
+    padding: 50px;
+}
+
+.hide {
+    display: none !important;
+}

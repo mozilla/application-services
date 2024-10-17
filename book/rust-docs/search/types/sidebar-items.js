@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SearchApplicationName","SearchEngineClassification","SearchUpdateChannel"],"struct":["RefinedSearchConfig","SearchEngineDefinition","SearchEngineUrl","SearchEngineUrls","SearchUrlParam","SearchUserEnvironment"]};

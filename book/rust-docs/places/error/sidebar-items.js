@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Corruption","Error","InvalidMetadataObservation","InvalidPlaceInfo","PlacesApiError"],"type":["ApiResult","Result"]};
