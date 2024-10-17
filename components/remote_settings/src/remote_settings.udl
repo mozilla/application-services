@@ -7,24 +7,40 @@ typedef string RsJsonObject;
 
 namespace remote_settings {};
 
+interface RemoteSettingsService {
+    [Throws=RemoteSettingsError]
+    constructor(string storage_dir, RemoteSettingsConfig2 config);
+
+    [Throws=RemoteSettingsError]
+    RemoteSettingsClient make_client(string collection_name);
+
+    [Throws=RemoteSettingsError]
+    sequence<string> sync();
+
+    [Throws=RemoteSettingsError]
+    void update_config(RemoteSettingsConfig2 config);
+};
+
+interface RemoteSettingsClient {
+    string collection_name();
+    sequence<RemoteSettingsRecord>? get_records(optional boolean sync_if_empty = false);
+    record<string, RemoteSettingsRecord>? get_records_map(optional boolean sync_if_empty = false);
+
+    [Throws=RemoteSettingsError]
+    bytes get_attachment(string attachment_id);
+};
+
+dictionary RemoteSettingsConfig2 {
+    RemoteSettingsServer? server = null;
+    string? bucket_name = null;
+};
+
 [Enum]
 interface RemoteSettingsServer {
     Prod();
     Stage();
     Dev();
     Custom(string url);
-};
-
-dictionary RemoteSettingsConfig {
-    string collection_name;
-    string? bucket_name = null;
-    string? server_url = null;
-    RemoteSettingsServer? server = null;
-};
-
-dictionary RemoteSettingsResponse {
-    sequence<RemoteSettingsRecord> records;
-    u64 last_modified;
 };
 
 dictionary RemoteSettingsRecord {
@@ -48,6 +64,22 @@ interface RemoteSettingsError {
     Network(string reason);
     Backoff(u64 seconds);
     Other(string reason);
+};
+
+// Below here lies the old remote settings API.  The plan is to move consumers away from this then
+// remove it.
+
+
+dictionary RemoteSettingsConfig {
+    string collection_name;
+    string? bucket_name = null;
+    string? server_url = null;
+    RemoteSettingsServer? server = null;
+};
+
+dictionary RemoteSettingsResponse {
+    sequence<RemoteSettingsRecord> records;
+    u64 last_modified;
 };
 
 interface RemoteSettings {

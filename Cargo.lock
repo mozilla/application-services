@@ -1417,6 +1417,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "examples-remote-settings-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "env_logger",
+ "log",
+ "remote_settings",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "examples-suggest-cli"
 version = "0.1.0"
 dependencies = [
@@ -3608,6 +3620,7 @@ dependencies = [
 name = "remote_settings"
 version = "0.1.0"
 dependencies = [
+ "camino",
  "error-support",
  "expect-test",
  "log",
