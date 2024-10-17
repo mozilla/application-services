@@ -207,6 +207,8 @@ pub(crate) enum SuggestRecord {
     Fakespot,
     #[serde(rename = "exposure-suggestions")]
     Exposure(DownloadedExposureRecord),
+    #[serde(rename = "geonames")]
+    Geonames,
 }
 
 /// Enum for the different record types that can be consumed.
@@ -225,6 +227,7 @@ pub enum SuggestRecordType {
     AmpMobile,
     Fakespot,
     Exposure,
+    Geonames,
 }
 
 impl From<&SuggestRecord> for SuggestRecordType {
@@ -241,6 +244,7 @@ impl From<&SuggestRecord> for SuggestRecordType {
             SuggestRecord::AmpMobile => Self::AmpMobile,
             SuggestRecord::Fakespot => Self::Fakespot,
             SuggestRecord::Exposure(_) => Self::Exposure,
+            SuggestRecord::Geonames => Self::Geonames,
         }
     }
 }
@@ -269,6 +273,7 @@ impl SuggestRecordType {
             Self::AmpMobile,
             Self::Fakespot,
             Self::Exposure,
+            Self::Geonames,
         ]
     }
 
@@ -285,6 +290,7 @@ impl SuggestRecordType {
             Self::AmpMobile => "amp-mobile-suggestions",
             Self::Fakespot => "fakespot-suggestions",
             Self::Exposure => "exposure-suggestions",
+            Self::Geonames => "geonames",
         }
     }
 
