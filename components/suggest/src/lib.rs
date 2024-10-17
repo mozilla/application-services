@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer};
 #[cfg(feature = "benchmark_api")]
 pub mod benchmarks;
 mod config;
@@ -35,6 +34,4 @@ pub use suggestion::{raw_suggestion_url_matches, Suggestion};
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 pub type SuggestApiResult<T> = std::result::Result<T, SuggestApiError>;
 
-uniffi::use_udl_record!(remote_settings, RemoteSettingsConfig);
-uniffi::use_udl_enum!(remote_settings, RemoteSettingsServer);
 uniffi::setup_scaffolding!();

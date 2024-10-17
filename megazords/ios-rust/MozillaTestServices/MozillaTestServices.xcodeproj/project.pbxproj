@@ -67,7 +67,6 @@
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
 		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
-		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
 		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
 		F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = F54D380C2A5732A3005087FB /* as_ohttp_client.udl */; };
@@ -199,7 +198,6 @@
 		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
 		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
 		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
-		AB65933B2A0C524E00DBF059 /* remote_settings.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = remote_settings.udl; path = ../src/remote_settings.udl; sourceTree = "<group>"; };
 		AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = remote_settingsFFI.h; sourceTree = "<group>"; };
 		AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = "<group>"; };
 		D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = suggestFFI.h; sourceTree = "<group>"; };
@@ -569,7 +567,6 @@
 			isa = PBXGroup;
 			children = (
 				AB65933D2A0C528800DBF059 /* Generated */,
-				AB65933B2A0C524E00DBF059 /* remote_settings.udl */,
 			);
 			name = RemoteSettings;
 			path = ../../../components/remote_settings/ios;
@@ -790,7 +787,6 @@
 			files = (
 				F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */,
 				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
-				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
 				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
 				F40A9DCD29765EB20033D10E /* sync15.udl in Sources */,
