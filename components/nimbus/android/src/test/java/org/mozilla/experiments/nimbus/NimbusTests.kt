@@ -24,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Ignore
@@ -37,7 +38,9 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.JsonObject
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RecordedContext
+import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -71,6 +74,7 @@ class NimbusTests {
     private fun createNimbus(
         coenrollingFeatureIds: List<String> = listOf(),
         recordedContext: RecordedContext? = null,
+        block: Nimbus.() -> Unit = {},
     ) = Nimbus(
         context = context,
         appInfo = appInfo,
@@ -80,7 +84,7 @@ class NimbusTests {
         observer = null,
         delegate = nimbusDelegate,
         recordedContext = recordedContext,
-    )
+    ).also(block)
 
     @get:Rule
     val gleanRule = GleanTestRule(context)
@@ -734,21 +738,34 @@ class NimbusTests {
         assertEquals("Event count must match", isReadyEvents.count(), 3)
     }
 
+    class TestRecordedContext(
+        private val eventQueries: Map<String, String>? = null,
+        private var eventQueryValues: Map<String, Double>? = null,
+    ) : RecordedContext {
+        var recorded = mutableListOf<JSONObject>()
+
+        override fun getEventQueries(): Map<String, String> {
+            return eventQueries?.toMap() ?: mapOf()
+        }
+
+        override fun setEventQueryValues(eventQueryValues: Map<String, Double>) {
+            this.eventQueryValues = eventQueryValues
+        }
+
+        override fun record() {
+            recorded.add(this.toJson())
+        }
+
+        override fun toJson(): JsonObject {
+            val contextToRecord = JSONObject()
+            contextToRecord.put("enabled", true)
+            contextToRecord.put("events", JSONObject(eventQueryValues ?: mapOf<String, Double>()))
+            return contextToRecord
+        }
+    }
+
     @Test
     fun `Nimbus records context if it's passed in`() {
-        class TestRecordedContext : RecordedContext {
-            var recordCount = 0
-
-            override fun record() {
-                recordCount++
-            }
-
-            override fun toJson(): JsonObject {
-                val contextToRecord = JSONObject()
-                contextToRecord.put("enabled", true)
-                return contextToRecord
-            }
-        }
         val context = TestRecordedContext()
         val nimbus = createNimbus(recordedContext = context)
 
@@ -761,7 +778,42 @@ class NimbusTests {
             job.join()
         }
 
-        assertEquals(context.recordCount, 1)
+        assertEquals(context.recorded.size, 1)
+    }
+
+    @Test
+    fun `Nimbus recorded context event queries are run and the value is written back into the object`() {
+        val context = TestRecordedContext(
+            mapOf(
+                "TEST_QUERY" to "'event'|eventSum('Days', 1, 0)",
+            ),
+        )
+        val nimbus = createNimbus(recordedContext = context) {
+            recordEvent("event")
+        }
+
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(context.recorded.size, 1)
+        assertEquals(context.recorded[0].getJSONObject("events").getDouble("TEST_QUERY"), 1.0, 0.0)
+    }
+
+    @Test
+    fun `Nimbus recorded context event queries are validated`() {
+        val context = TestRecordedContext(
+            mapOf(
+                "FAILING_QUERY" to "'event'|eventSumThisWillFail('Days', 1, 0)",
+            ),
+        )
+
+        assertThrows("Expected an error to be thrown", NimbusException::class.java, { validateEventQueries(context) })
     }
 }
 
