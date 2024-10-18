@@ -79,6 +79,8 @@ pub enum Suggestion {
         score: f64,
     },
     Weather {
+        city: Option<String>,
+        region: Option<String>,
         score: f64,
     },
     Fakespot {
