@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		15DAE213294418F600DB06FE /* autofill.udl in Sources */ = {isa = PBXBuildFile; fileRef = 15DAE20D2944155E00DB06FE /* autofill.udl */; };
 		1B3BC93F27B1D62800229CF6 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */; };
 		1B3BC94027B1D62800229CF6 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */; };
 		1B3BC94127B1D62800229CF6 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */; };
@@ -36,11 +35,6 @@
 		1BBAC4FC27AE049500DAFEF2 /* MozillaTestServicesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FB27AE049500DAFEF2 /* MozillaTestServicesApp.swift */; };
 		1BBAC55127AE06FD00DAFEF2 /* Glean in Frameworks */ = {isa = PBXBuildFile; productRef = 1BBAC55027AE06FD00DAFEF2 /* Glean */; };
 		1BBAC59C27AE0BB600DAFEF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC4FD27AE049500DAFEF2 /* ContentView.swift */; };
-		1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC99127B1DAA300229CF6 /* crashtest.udl */; };
-		1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B3BC98E27B1D9D600229CF6 /* nimbus.udl */; };
-		1BE9B60F27C9CD770029D11A /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC5AB27AE101400DAFEF2 /* places.udl */; };
-		1BE9B61027C9CD770029D11A /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B58D8A627AE12850075168B /* logins.udl */; };
-		1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BB9C31F27B4924D001E5BBF /* fxa_client.udl */; };
 		1BF50F0C27B1E17B00A9C8A5 /* KeychainWrapper+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56727AE085F00DAFEF2 /* KeychainWrapper+.swift */; };
 		1BF50F0E27B1E17B00A9C8A5 /* FxAccountLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56C27AE085F00DAFEF2 /* FxAccountLogging.swift */; };
 		1BF50F0F27B1E17B00A9C8A5 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBAC56827AE085F00DAFEF2 /* FxAccountOAuth.swift */; };
@@ -66,37 +60,29 @@
 		39EE00FF29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */; };
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
-		45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */ = {isa = PBXBuildFile; fileRef = 45CC574828AD9C31006D55AA /* errorsupport.udl */; };
-		AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */ = {isa = PBXBuildFile; fileRef = AB65933B2A0C524E00DBF059 /* remote_settings.udl */; };
-		F40A9DCD29765EB20033D10E /* sync15.udl in Sources */ = {isa = PBXBuildFile; fileRef = F40A9DCB29765DCB0033D10E /* sync15.udl */; };
 		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
-		F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */ = {isa = PBXBuildFile; fileRef = F54D380C2A5732A3005087FB /* as_ohttp_client.udl */; };
 		F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F596D2DF2A68922100C8A817 /* OhttpManager.swift */; };
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
-		F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */; };
 		F85ED649299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */; };
 		F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */; };
-		F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */ = {isa = PBXBuildFile; fileRef = F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */; };
+		FF0352717C35BE7BC290F8BD /* logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6896A870F5D0C51F6F54F6 /* logins.swift */; };
+		FF0D139074DECBAF0A6B296B /* nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE04212600025B637A8E168 /* nimbus.swift */; };
+		FF1BDB6DC892EF17B7486298 /* as_ohttp_client.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */; };
+		FF41E05B86E1342211C42D25 /* sync15.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3695EC5326DDEC2A16102B /* sync15.swift */; };
+		FF6FC1E43C490B928681C964 /* remote_settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF869AD71B24D3BCCEF80E31 /* remote_settings.swift */; };
+		FF75A3350DBBE16CCBF9981C /* tabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1EB48B6D9E5E7C840709A9 /* tabs.swift */; };
+		FF790695C1A19437C03A454A /* suggest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0F8AD3374CE3C55AE37232 /* suggest.swift */; };
+		FF7B4B499B05A1427F2A3600 /* autofill.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA94DFDC836EB6A33F2AA2C /* autofill.swift */; };
+		FF8B8AB1E7BF6AE6EC2EA5A3 /* crashtest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFDAC3995E526AE8FF2CA8C5 /* crashtest.swift */; };
+		FF94DB38BF92EE26EC9C0DB3 /* syncmanager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF8493AA9EA06F5C551CE944 /* syncmanager.swift */; };
+		FF9B175AF519B55E84B79F47 /* fxa_client.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF791BDC1DB44F2BF4693A2F /* fxa_client.swift */; };
+		FFA0CE89488ACADB6DA4E093 /* rust_log_forwarder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5220EC8AE46B70AA9EB62C /* rust_log_forwarder.swift */; };
+		FFD1EF9B5533629216D8C377 /* push.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFFD2D1B5D617B891C785679 /* push.swift */; };
+		FFD7932BFB4CF2E2C0717514 /* places.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB029BD8B46B8C9A94ADA35 /* places.swift */; };
+		FFF5CF90B23DB3451C66B65A /* errorsupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEA963A30947DD62AD3D645 /* errorsupport.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildRule section */
-		1B3BC94427B1D67300229CF6 /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.proxy.script;
-			filePatterns = "*.udl";
-			fileType = pattern.proxy;
-			inputFiles = (
-			);
-			isEditable = 1;
-			outputFiles = (
-				"$(INPUT_FILE_DIR)/../ios/Generated/$(INPUT_FILE_BASE)FFI.h",
-				"$(INPUT_FILE_DIR)/../ios/Generated/$(INPUT_FILE_BASE).swift",
-			);
-			script = "bash $PWD/../../../build-scripts/xc-cargo.sh uniffi-bindgen generate $INPUT_FILE_PATH --language swift --out-dir $INPUT_FILE_DIR/../ios/Generated\n";
-		};
-/* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
 		1BBAC50927AE049600DAFEF2 /* PBXContainerItemProxy */ = {
@@ -122,9 +108,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		15DAE20D2944155E00DB06FE /* autofill.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autofill.udl; path = ../../../components/autofill/src/autofill.udl; sourceTree = SOURCE_ROOT; };
-		15DAE2102944165300DB06FE /* autofillFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = autofillFFI.h; sourceTree = "<group>"; };
-		15DAE2112944165300DB06FE /* autofill.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = autofill.swift; sourceTree = "<group>"; };
 		1B3BC97527B1D9B700229CF6 /* Collections+.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collections+.swift"; path = "../../../components/nimbus/ios/Nimbus/Collections+.swift"; sourceTree = SOURCE_ROOT; };
 		1B3BC97627B1D9B700229CF6 /* FeatureHolder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FeatureHolder.swift; path = ../../../components/nimbus/ios/Nimbus/FeatureHolder.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC97727B1D9B700229CF6 /* NimbusApi.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusApi.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusApi.swift; sourceTree = SOURCE_ROOT; };
@@ -137,11 +120,7 @@
 		1B3BC97F27B1D9B700229CF6 /* Sysctl.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Sysctl.swift; path = ../../../components/nimbus/ios/Nimbus/Utils/Sysctl.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC98027B1D9B700229CF6 /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Utils.swift; path = ../../../components/nimbus/ios/Nimbus/Utils/Utils.swift; sourceTree = SOURCE_ROOT; };
 		1B3BC98127B1D9B700229CF6 /* NimbusCreate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NimbusCreate.swift; path = ../../../components/nimbus/ios/Nimbus/NimbusCreate.swift; sourceTree = SOURCE_ROOT; };
-		1B3BC98E27B1D9D600229CF6 /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../../components/nimbus/src/nimbus.udl; sourceTree = SOURCE_ROOT; };
-		1B3BC99127B1DAA300229CF6 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../../components/crashtest/src/crashtest.udl; sourceTree = SOURCE_ROOT; };
-		1B58D8A627AE12850075168B /* logins.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = logins.udl; path = ../../../components/logins/src/logins.udl; sourceTree = SOURCE_ROOT; };
-		1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MozillaRustComponents.xcframework; path = ../MozillaRustComponents.xcframework; sourceTree = "<group>"; };
-		1BB9C31F27B4924D001E5BBF /* fxa_client.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = fxa_client.udl; path = "../../../components/fxa-client/src/fxa_client.udl"; sourceTree = SOURCE_ROOT; };
+		1B5CB50D27B202B600C31B56 /* MozillaRustComponents.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = MozillaRustComponents.xcframework; path = ../MozillaRustComponents.xcframework; sourceTree = SOURCE_ROOT; };
 		1BBAC4F827AE049500DAFEF2 /* MozillaTestServices.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MozillaTestServices.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1BBAC4FB27AE049500DAFEF2 /* MozillaTestServicesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MozillaTestServicesApp.swift; path = MozillaTestServices/TestClient/MozillaTestServicesApp.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC4FD27AE049500DAFEF2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = MozillaTestServices/TestClient/ContentView.swift; sourceTree = SOURCE_ROOT; };
@@ -170,22 +149,11 @@
 		1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Bookmark.swift; path = ../../../components/places/ios/Places/Bookmark.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = HistoryMetadata.swift; path = ../../../components/places/ios/Places/HistoryMetadata.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Places.swift; path = ../../../components/places/ios/Places/Places.swift; sourceTree = SOURCE_ROOT; };
-		1BBAC5AB27AE101400DAFEF2 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../../components/places/src/places.udl; sourceTree = SOURCE_ROOT; };
 		1BBAC5B027AE11AA00DAFEF2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncUnlockInfo.swift; path = ../../../components/sync15/ios/Sync15/SyncUnlockInfo.swift; sourceTree = SOURCE_ROOT; };
 		1BBAC5B127AE11AA00DAFEF2 /* ResultError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ResultError.swift; path = ../../../components/sync15/ios/Sync15/ResultError.swift; sourceTree = SOURCE_ROOT; };
-		1BF50EEE27B1DBD900A9C8A5 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = crashtestFFI.h; path = ../../../components/crashtest/ios/Generated/crashtestFFI.h; sourceTree = SOURCE_ROOT; };
-		1BF50EEF27B1DBD900A9C8A5 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = crashtest.swift; path = ../../../components/crashtest/ios/Generated/crashtest.swift; sourceTree = SOURCE_ROOT; };
-		1BF50EF527B1DD7D00A9C8A5 /* nimbusFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nimbusFFI.h; path = ../../../components/nimbus/ios/Generated/nimbusFFI.h; sourceTree = SOURCE_ROOT; };
-		1BF50EF627B1DD7D00A9C8A5 /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = nimbus.swift; path = ../../../components/nimbus/ios/Generated/nimbus.swift; sourceTree = SOURCE_ROOT; };
-		1BF50EFB27B1DDAE00A9C8A5 /* loginsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = loginsFFI.h; path = ../../../components/logins/ios/Generated/loginsFFI.h; sourceTree = SOURCE_ROOT; };
-		1BF50EFC27B1DDAE00A9C8A5 /* logins.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = logins.swift; path = ../../../components/logins/ios/Generated/logins.swift; sourceTree = SOURCE_ROOT; };
-		1BF50F0727B1E06700A9C8A5 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../../components/places/ios/Generated/places.swift; sourceTree = SOURCE_ROOT; };
-		1BF50F0827B1E06700A9C8A5 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = placesFFI.h; path = ../../../components/places/ios/Generated/placesFFI.h; sourceTree = SOURCE_ROOT; };
-		1BF50F1C27B1E1DF00A9C8A5 /* fxa_clientFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fxa_clientFFI.h; path = "../../../components/fxa-client/ios/Generated/fxa_clientFFI.h"; sourceTree = SOURCE_ROOT; };
-		1BF50F1D27B1E1DF00A9C8A5 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = fxa_client.swift; path = "../../../components/fxa-client/ios/Generated/fxa_client.swift"; sourceTree = SOURCE_ROOT; };
 		1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.yaml; name = metrics.yaml; path = ../../../components/nimbus/metrics.yaml; sourceTree = SOURCE_ROOT; };
-		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = SOURCE_ROOT; };
-		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = MozillaTestServices/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
+		1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = sdk_generator.sh; sourceTree = "<group>"; };
+		1BFC469627C99F250034E0A5 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		39083AAA29561E2400FDD302 /* OperationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationTests.swift; sourceTree = "<group>"; };
 		3937440929E43B8800726A72 /* EventStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStoreTests.swift; sourceTree = "<group>"; };
 		3948F41229A7F68900AA0D02 /* HardcodedNimbusFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HardcodedNimbusFeatures.swift; path = ../../../components/nimbus/ios/Nimbus/HardcodedNimbusFeatures.swift; sourceTree = SOURCE_ROOT; };
@@ -196,33 +164,28 @@
 		39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusArgumentProcessorTests.swift; sourceTree = "<group>"; };
 		39F5D7632956161E004E2384 /* Operation+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Operation+.swift"; path = "Nimbus/Operation+.swift"; sourceTree = "<group>"; };
 		39F5D765295616E3004E2384 /* NimbusBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusBuilder.swift; path = Nimbus/NimbusBuilder.swift; sourceTree = "<group>"; };
-		45CC574528AD9C0B006D55AA /* errorFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = errorFFI.h; path = ../../../../components/support/error/ios/Generated/errorFFI.h; sourceTree = "<group>"; };
-		45CC574628AD9C0B006D55AA /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = errorsupport.swift; path = ../../../../components/support/error/ios/Generated/errorsupport.swift; sourceTree = "<group>"; };
-		45CC574828AD9C31006D55AA /* errorsupport.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = errorsupport.udl; path = ../../../../components/support/error/src/errorsupport.udl; sourceTree = "<group>"; };
-		AB65933B2A0C524E00DBF059 /* remote_settings.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = remote_settings.udl; path = ../src/remote_settings.udl; sourceTree = "<group>"; };
-		AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = remote_settingsFFI.h; sourceTree = "<group>"; };
-		AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = "<group>"; };
-		D8C96FB4B97E950644E8ADA0 /* suggestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = suggestFFI.h; sourceTree = "<group>"; };
-		F40A9DCB29765DCB0033D10E /* sync15.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync15.udl; path = ../../../components/sync15/src/sync15.udl; sourceTree = SOURCE_ROOT; };
-		F4FCED2E2976605400BA127E /* sync15FFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sync15FFI.h; path = ../../../components/sync15/ios/Generated/sync15FFI.h; sourceTree = SOURCE_ROOT; };
-		F4FCED2F2976605400BA127E /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = sync15.swift; path = ../../../components/sync15/ios/Generated/sync15.swift; sourceTree = SOURCE_ROOT; };
-		F54D38072A564EC9005087FB /* as_ohttp_client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = as_ohttp_client.swift; path = ../../ios/Generated/as_ohttp_client.swift; sourceTree = "<group>"; };
-		F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = as_ohttp_clientFFI.h; path = ../../ios/Generated/as_ohttp_clientFFI.h; sourceTree = "<group>"; };
-		F54D380C2A5732A3005087FB /* as_ohttp_client.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = as_ohttp_client.udl; path = ../src/as_ohttp_client.udl; sourceTree = "<group>"; };
 		F54D380F2A5862E4005087FB /* OhttpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OhttpTests.swift; sourceTree = "<group>"; };
 		F596D2DF2A68922100C8A817 /* OhttpManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OhttpManager.swift; path = ASOhttpClient/OhttpManager.swift; sourceTree = "<group>"; };
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
-		F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */ = {isa = PBXFileReference; lastKnownFileType = text; name = rust_log_forwarder.udl; path = "../../../../components/support/rust-log-forwarder/src/rust_log_forwarder.udl"; sourceTree = "<group>"; };
-		F8368DB22AC1197C00182381 /* rust_log_forwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = rust_log_forwarder.swift; path = "../../../../components/support/rust-log-forwarder/ios/Generated/rust_log_forwarder.swift"; sourceTree = "<group>"; };
-		F8368DB32AC1197C00182381 /* rustlogforwarderFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = rustlogforwarderFFI.h; path = "../../../../components/support/rust-log-forwarder/ios/Generated/rustlogforwarderFFI.h"; sourceTree = "<group>"; };
 		F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustSyncTelemetryPingTests.swift; sourceTree = "<group>"; };
-		F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = syncmanager.udl; path = ../../../components/sync_manager/src/syncmanager.udl; sourceTree = SOURCE_ROOT; };
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
-		F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = syncmanagerFFI.h; path = ../../../components/sync_manager/ios/Generated/syncmanagerFFI.h; sourceTree = SOURCE_ROOT; };
-		F8C88395298B4EC00006E9E9 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = syncmanager.swift; path = ../../../components/sync_manager/ios/Generated/syncmanager.swift; sourceTree = SOURCE_ROOT; };
-		FA3C4E62BAEBB59E7D1EC881 /* suggest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = suggest.swift; sourceTree = "<group>"; };
+		FF0F8AD3374CE3C55AE37232 /* suggest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = suggest.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF1EB48B6D9E5E7C840709A9 /* tabs.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = tabs.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = as_ohttp_client.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF3695EC5326DDEC2A16102B /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = sync15.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF5220EC8AE46B70AA9EB62C /* rust_log_forwarder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = rust_log_forwarder.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF6896A870F5D0C51F6F54F6 /* logins.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = logins.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF791BDC1DB44F2BF4693A2F /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF8493AA9EA06F5C551CE944 /* syncmanager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = syncmanager.swift; sourceTree = DERIVED_FILE_DIR; };
+		FF869AD71B24D3BCCEF80E31 /* remote_settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = remote_settings.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFA94DFDC836EB6A33F2AA2C /* autofill.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = autofill.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFB029BD8B46B8C9A94ADA35 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = places.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFDAC3995E526AE8FF2CA8C5 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFE04212600025B637A8E168 /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFEA963A30947DD62AD3D645 /* errorsupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = errorsupport.swift; sourceTree = DERIVED_FILE_DIR; };
+		FFFD2D1B5D617B891C785679 /* push.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = push.swift; sourceTree = DERIVED_FILE_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -245,32 +208,10 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		15DAE2082944142000DB06FE /* Autofill */ = {
-			isa = PBXGroup;
-			children = (
-				15DAE20F294415B100DB06FE /* Generated */,
-				15DAE20D2944155E00DB06FE /* autofill.udl */,
-			);
-			name = Autofill;
-			path = ../../../../components/autofill/ios;
-			sourceTree = "<group>";
-		};
-		15DAE20F294415B100DB06FE /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				15DAE2112944165300DB06FE /* autofill.swift */,
-				15DAE2102944165300DB06FE /* autofillFFI.h */,
-			);
-			name = Generated;
-			path = ../../../components/autofill/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
 		1B3BC97427B1D99A00229CF6 /* Nimbus */ = {
 			isa = PBXGroup;
 			children = (
 				1BF50F2327B1E53E00A9C8A5 /* metrics.yaml */,
-				1BF50EF327B1DD7D00A9C8A5 /* Generated */,
-				1B3BC98E27B1D9D600229CF6 /* nimbus.udl */,
 				39EE00FC29F6DB2A001E7758 /* ArgumentProcessor.swift */,
 				395EFD6D2966EB6D00D24B97 /* Bundle+.swift */,
 				1B3BC97527B1D9B700229CF6 /* Collections+.swift */,
@@ -304,16 +245,6 @@
 			path = ../../../components/nimbus/ios/Nimbus/Utils;
 			sourceTree = SOURCE_ROOT;
 		};
-		1B3BC99027B1DA8700229CF6 /* Crashtest */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50EEC27B1DBD900A9C8A5 /* Generated */,
-				1B3BC99127B1DAA300229CF6 /* crashtest.udl */,
-			);
-			name = Crashtest;
-			path = ../../../../components/crashtest/ios;
-			sourceTree = "<group>";
-		};
 		1BB64C7B27B1FF9F00A4247F /* TestClient */ = {
 			isa = PBXGroup;
 			children = (
@@ -331,6 +262,7 @@
 				1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */,
 				1BBAC50B27AE049600DAFEF2 /* MozillaTestServicesTests */,
 				1BBAC4F927AE049500DAFEF2 /* Products */,
+				BC4CCC782CC1E25200BCCC59 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -346,16 +278,11 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
-				F8368DAE2AC1178000182381 /* RustLogForwarder */,
 				F54D38032A564653005087FB /* ASOhttpClient */,
-				AB65933A2A0C51F300DBF059 /* RemoteSettings */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
-				15DAE2082944142000DB06FE /* Autofill */,
-				45CC574328AD9BC8006D55AA /* ErrorSupport */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
 				1BF50F0327B1DFC900A9C8A5 /* Glean */,
-				1B3BC99027B1DA8700229CF6 /* Crashtest */,
 				1B3BC97427B1D99A00229CF6 /* Nimbus */,
 				1BBAC5A427AE0EF900DAFEF2 /* Places */,
 				1BBAC5AF27AE112D00DAFEF2 /* Sync15 */,
@@ -389,8 +316,6 @@
 		1BBAC55B27AE082400DAFEF2 /* FxAClient */ = {
 			isa = PBXGroup;
 			children = (
-				1BB9C31F27B4924D001E5BBF /* fxa_client.udl */,
-				1BF50F1B27B1E1DF00A9C8A5 /* Generated */,
 				1BBAC56027AE085F00DAFEF2 /* FxAClient */,
 			);
 			name = FxAClient;
@@ -429,8 +354,6 @@
 		1BBAC58027AE099B00DAFEF2 /* Logins */ = {
 			isa = PBXGroup;
 			children = (
-				1BF50EFA27B1DDAE00A9C8A5 /* Generated */,
-				1B58D8A627AE12850075168B /* logins.udl */,
 				1BBAC58527AE09C600DAFEF2 /* Logins */,
 			);
 			name = Logins;
@@ -449,8 +372,6 @@
 		1BBAC5A427AE0EF900DAFEF2 /* Places */ = {
 			isa = PBXGroup;
 			children = (
-				1BF50F0527B1E06700A9C8A5 /* Generated */,
-				1BBAC5AB27AE101400DAFEF2 /* places.udl */,
 				1BBAC5A527AE0F2E00DAFEF2 /* Bookmark.swift */,
 				1BBAC5A627AE0F2E00DAFEF2 /* HistoryMetadata.swift */,
 				1BBAC5A727AE0F2E00DAFEF2 /* Places.swift */,
@@ -463,79 +384,27 @@
 			isa = PBXGroup;
 			children = (
 				45A2ACC02A5DB0FD00CE1622 /* Sync15 */,
-				F4FCED2D2976605400BA127E /* Generated */,
-				F40A9DCB29765DCB0033D10E /* sync15.udl */,
 			);
 			name = Sync15;
 			path = ../../../../components/sync15/ios;
 			sourceTree = "<group>";
-		};
-		1BF50EEC27B1DBD900A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50EEE27B1DBD900A9C8A5 /* crashtestFFI.h */,
-				1BF50EEF27B1DBD900A9C8A5 /* crashtest.swift */,
-			);
-			name = Generated;
-			path = ../../../components/crashtest/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
-		1BF50EF327B1DD7D00A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50EF527B1DD7D00A9C8A5 /* nimbusFFI.h */,
-				1BF50EF627B1DD7D00A9C8A5 /* nimbus.swift */,
-			);
-			name = Generated;
-			path = ../../../components/nimbus/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
-		1BF50EFA27B1DDAE00A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50EFB27B1DDAE00A9C8A5 /* loginsFFI.h */,
-				1BF50EFC27B1DDAE00A9C8A5 /* logins.swift */,
-			);
-			name = Generated;
-			path = ../../../components/logins/ios/Generated;
-			sourceTree = SOURCE_ROOT;
 		};
 		1BF50F0327B1DFC900A9C8A5 /* Glean */ = {
 			isa = PBXGroup;
 			children = (
 				1BF50F2B27B1EB7D00A9C8A5 /* sdk_generator.sh */,
 			);
-			path = Glean;
+			name = Glean;
+			path = "../../../../components/external/glean/glean-core/ios";
 			sourceTree = "<group>";
-		};
-		1BF50F0527B1E06700A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50F0727B1E06700A9C8A5 /* places.swift */,
-				1BF50F0827B1E06700A9C8A5 /* placesFFI.h */,
-			);
-			name = Generated;
-			path = ../../../components/places/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
-		1BF50F1B27B1E1DF00A9C8A5 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				1BF50F1C27B1E1DF00A9C8A5 /* fxa_clientFFI.h */,
-				1BF50F1D27B1E1DF00A9C8A5 /* fxa_client.swift */,
-			);
-			name = Generated;
-			path = "../../../components/fxa-client/ios/Generated";
-			sourceTree = SOURCE_ROOT;
 		};
 		1BFC469427C99F250034E0A5 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
 				1BFC469627C99F250034E0A5 /* Metrics.swift */,
 			);
-			name = Generated;
-			path = MozillaTestServices/Generated;
-			sourceTree = SOURCE_ROOT;
+			path = Generated;
+			sourceTree = "<group>";
 		};
 		45A2ACC02A5DB0FD00CE1622 /* Sync15 */ = {
 			isa = PBXGroup;
@@ -547,112 +416,46 @@
 			path = Sync15;
 			sourceTree = "<group>";
 		};
-		45CC574328AD9BC8006D55AA /* ErrorSupport */ = {
+		BC4CCC782CC1E25200BCCC59 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				45CC574828AD9C31006D55AA /* errorsupport.udl */,
-				45CC574428AD9BDA006D55AA /* Generated */,
+				FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */,
+				FFA94DFDC836EB6A33F2AA2C /* autofill.swift */,
+				FFDAC3995E526AE8FF2CA8C5 /* crashtest.swift */,
+				FFEA963A30947DD62AD3D645 /* errorsupport.swift */,
+				FF791BDC1DB44F2BF4693A2F /* fxa_client.swift */,
+				FF6896A870F5D0C51F6F54F6 /* logins.swift */,
+				FFE04212600025B637A8E168 /* nimbus.swift */,
+				FFB029BD8B46B8C9A94ADA35 /* places.swift */,
+				FFFD2D1B5D617B891C785679 /* push.swift */,
+				FF869AD71B24D3BCCEF80E31 /* remote_settings.swift */,
+				FF5220EC8AE46B70AA9EB62C /* rust_log_forwarder.swift */,
+				FF0F8AD3374CE3C55AE37232 /* suggest.swift */,
+				FF3695EC5326DDEC2A16102B /* sync15.swift */,
+				FF8493AA9EA06F5C551CE944 /* syncmanager.swift */,
+				FF1EB48B6D9E5E7C840709A9 /* tabs.swift */,
 			);
-			name = ErrorSupport;
-			sourceTree = "<group>";
-		};
-		45CC574428AD9BDA006D55AA /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				45CC574528AD9C0B006D55AA /* errorFFI.h */,
-				45CC574628AD9C0B006D55AA /* errorsupport.swift */,
-			);
-			name = Generated;
-			sourceTree = "<group>";
-		};
-		AB65933A2A0C51F300DBF059 /* RemoteSettings */ = {
-			isa = PBXGroup;
-			children = (
-				AB65933D2A0C528800DBF059 /* Generated */,
-				AB65933B2A0C524E00DBF059 /* remote_settings.udl */,
-			);
-			name = RemoteSettings;
-			path = ../../../components/remote_settings/ios;
-			sourceTree = SOURCE_ROOT;
-		};
-		AB65933D2A0C528800DBF059 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				AB9C392C2A0D9E2D00AF5ADE /* remote_settings.swift */,
-				AB65933E2A0C52A000DBF059 /* remote_settingsFFI.h */,
-			);
-			name = Generated;
-			path = ../../../components/remote_settings/ios/Generated;
-			sourceTree = SOURCE_ROOT;
-		};
-		F4FCED2D2976605400BA127E /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				F4FCED2E2976605400BA127E /* sync15FFI.h */,
-				F4FCED2F2976605400BA127E /* sync15.swift */,
-			);
-			path = Generated;
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		F54D38032A564653005087FB /* ASOhttpClient */ = {
 			isa = PBXGroup;
 			children = (
-				F54D38042A564653005087FB /* Generated */,
-				F54D380C2A5732A3005087FB /* as_ohttp_client.udl */,
 				F596D2DF2A68922100C8A817 /* OhttpManager.swift */,
 			);
 			name = ASOhttpClient;
 			path = "../../../components/as-ohttp-client/ios";
 			sourceTree = SOURCE_ROOT;
 		};
-		F54D38042A564653005087FB /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				F54D38072A564EC9005087FB /* as_ohttp_client.swift */,
-				F54D38082A564EC9005087FB /* as_ohttp_clientFFI.h */,
-			);
-			path = Generated;
-			sourceTree = "<group>";
-		};
-		F8368DAE2AC1178000182381 /* RustLogForwarder */ = {
-			isa = PBXGroup;
-			children = (
-				F8368DB12AC118E800182381 /* Generated */,
-				F8368DAF2AC1181900182381 /* rust_log_forwarder.udl */,
-			);
-			name = RustLogForwarder;
-			sourceTree = "<group>";
-		};
-		F8368DB12AC118E800182381 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				F8368DB22AC1197C00182381 /* rust_log_forwarder.swift */,
-				F8368DB32AC1197C00182381 /* rustlogforwarderFFI.h */,
-			);
-			name = Generated;
-			sourceTree = "<group>";
-		};
 		F8AAC1CB298B40B8000BCDEC /* SyncManager */ = {
 			isa = PBXGroup;
 			children = (
 				F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */,
 				F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */,
-				F8AAC1CF298B43F0000BCDEC /* Generated */,
-				F8AAC1CC298B41FC000BCDEC /* syncmanager.udl */,
 			);
 			name = SyncManager;
-			path = ../../../components/sync_manager/ios;
+			path = ../../../../components/sync_manager/ios;
 			sourceTree = "<group>";
-		};
-		F8AAC1CF298B43F0000BCDEC /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				F8C88395298B4EC00006E9E9 /* syncmanager.swift */,
-				F8C88394298B4EC00006E9E9 /* syncmanagerFFI.h */,
-			);
-			name = Generated;
-			path = ../../../components/sync_manager/ios/Generated;
-			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
 
@@ -662,13 +465,13 @@
 			buildConfigurationList = 1BBAC51C27AE049600DAFEF2 /* Build configuration list for PBXNativeTarget "MozillaTestServices" */;
 			buildPhases = (
 				1B3BC94A27B1D75000229CF6 /* Generate Glean Metrics */,
+				BCCE07122CB8DFCD0009EA27 /* Generate UniFFI Swift Bindings */,
 				1BBAC4F427AE049500DAFEF2 /* Sources */,
 				1BBAC4F527AE049500DAFEF2 /* Frameworks */,
 				1BBAC4F627AE049500DAFEF2 /* Resources */,
 				1BF50F3227B1F33A00A9C8A5 /* Embed Frameworks */,
 			);
 			buildRules = (
-				1B3BC94427B1D67300229CF6 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -779,7 +582,39 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "rm -rf .venv; bash $PWD/../../../components/external/glean/glean-core/ios/sdk_generator.sh -g Glean\n";
+			shellScript = "rm -rf .venv; bash $SRCROOT/../../../components/external/glean/glean-core/ios/sdk_generator.sh -g Glean\n";
+		};
+		BCCE07122CB8DFCD0009EA27 /* Generate UniFFI Swift Bindings */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../MozillaRustComponents.xcframework",
+			);
+			name = "Generate UniFFI Swift Bindings";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/as_ohttp_client.swift",
+				"$(DERIVED_FILE_DIR)/autofill.swift",
+				"$(DERIVED_FILE_DIR)/crashtest.swift",
+				"$(DERIVED_FILE_DIR)/errorsupport.swift",
+				"$(DERIVED_FILE_DIR)/fxa_client.swift",
+				"$(DERIVED_FILE_DIR)/logins.swift",
+				"$(DERIVED_FILE_DIR)/nimbus.swift",
+				"$(DERIVED_FILE_DIR)/places.swift",
+				"$(DERIVED_FILE_DIR)/push.swift",
+				"$(DERIVED_FILE_DIR)/remote_settings.swift",
+				"$(DERIVED_FILE_DIR)/rust_log_forwarder.swift",
+				"$(DERIVED_FILE_DIR)/suggest.swift",
+				"$(DERIVED_FILE_DIR)/sync15.swift",
+				"$(DERIVED_FILE_DIR)/syncmanager.swift",
+				"$(DERIVED_FILE_DIR)/tabs.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "../../../build-scripts/xc-cargo.sh uniffi-bindgen generate --library ../MozillaRustComponents.xcframework/ios-arm64/MozillaRustComponents.framework/MozillaRustComponents --language swift --out-dir $DERIVED_FILE_DIR\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -788,20 +623,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F8368DB02AC1189000182381 /* rust_log_forwarder.udl in Sources */,
-				F54D38112A5E09F4005087FB /* as_ohttp_client.udl in Sources */,
-				AB9C392E2A0DA61900AF5ADE /* remote_settings.udl in Sources */,
 				39AD326F2988468B00E42E13 /* FeatureManifestInterface.swift in Sources */,
-				F8C88393298B4BF80006E9E9 /* syncmanager.udl in Sources */,
-				F40A9DCD29765EB20033D10E /* sync15.udl in Sources */,
-				15DAE213294418F600DB06FE /* autofill.udl in Sources */,
-				45CC574A28AD9C86006D55AA /* errorsupport.udl in Sources */,
 				F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */,
-				1BE9B60D27C9CD770029D11A /* crashtest.udl in Sources */,
-				1BE9B60E27C9CD770029D11A /* nimbus.udl in Sources */,
-				1BE9B60F27C9CD770029D11A /* places.udl in Sources */,
-				1BE9B61027C9CD770029D11A /* logins.udl in Sources */,
-				1BE9B61127C9CD770029D11A /* fxa_client.udl in Sources */,
 				1BFC469827C99F250034E0A5 /* Metrics.swift in Sources */,
 				39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */,
 				1B3BC98627B1D9B800229CF6 /* FeatureVariables.swift in Sources */,
@@ -844,6 +667,21 @@
 				1B3BC94027B1D62800229CF6 /* Places.swift in Sources */,
 				F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */,
 				1BF50F1527B1E17B00A9C8A5 /* FxAccountState.swift in Sources */,
+				FF1BDB6DC892EF17B7486298 /* as_ohttp_client.swift in Sources */,
+				FF7B4B499B05A1427F2A3600 /* autofill.swift in Sources */,
+				FF8B8AB1E7BF6AE6EC2EA5A3 /* crashtest.swift in Sources */,
+				FFF5CF90B23DB3451C66B65A /* errorsupport.swift in Sources */,
+				FF9B175AF519B55E84B79F47 /* fxa_client.swift in Sources */,
+				FF0352717C35BE7BC290F8BD /* logins.swift in Sources */,
+				FF0D139074DECBAF0A6B296B /* nimbus.swift in Sources */,
+				FFD7932BFB4CF2E2C0717514 /* places.swift in Sources */,
+				FFD1EF9B5533629216D8C377 /* push.swift in Sources */,
+				FF6FC1E43C490B928681C964 /* remote_settings.swift in Sources */,
+				FFA0CE89488ACADB6DA4E093 /* rust_log_forwarder.swift in Sources */,
+				FF790695C1A19437C03A454A /* suggest.swift in Sources */,
+				FF41E05B86E1342211C42D25 /* sync15.swift in Sources */,
+				FF94DB38BF92EE26EC9C0DB3 /* syncmanager.swift in Sources */,
+				FF75A3350DBBE16CCBF9981C /* tabs.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
