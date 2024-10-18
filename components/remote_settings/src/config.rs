@@ -12,6 +12,19 @@ use url::Url;
 
 use crate::{ApiResult, Error, Result};
 
+/// Remote settings configuration
+///
+/// This is the version used in the new API, hence the `2` at the end.  The plan is to move
+/// consumers to the new API, remove the RemoteSettingsConfig struct, then remove the `2` from this
+/// name.
+#[derive(Debug, Clone)]
+pub struct RemoteSettingsConfig2 {
+    /// The Remote Settings server to use. Defaults to [RemoteSettingsServer::Prod],
+    pub server: Option<RemoteSettingsServer>,
+    /// Bucket name to use, defaults to "main".  Use "main-preview" for a preview bucket
+    pub bucket_name: Option<String>,
+}
+
 /// Custom configuration for the client.
 /// Currently includes the following:
 /// - `server`: The Remote Settings server to use. If not specified, defaults to the production server (`RemoteSettingsServer::Prod`).

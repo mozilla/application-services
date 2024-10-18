@@ -20,6 +20,7 @@ parking_lot = "0.12"
 error-support = { path = "../support/error" }
 viaduct = { path = "../viaduct" }
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
+camino = "1.0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
