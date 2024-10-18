@@ -7,6 +7,8 @@ if [[ $# -ne 2 ]] ; then
     exit 1
 fi
 
+THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 UNIFFI_BINDGEN_LIBRARY=$1
 COMMON=$2
 
@@ -22,3 +24,7 @@ CARGO="$HOME/.cargo/bin/cargo"
 # uniffi-bindgen-library-mode tool can't handle yet.
 "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --headers "$COMMON/Headers"
 "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --modulemap "$COMMON/Modules" --xcframework --modulemap-filename module.modulemap
+
+# Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
+cp "$THIS_DIR/../../components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
+awk '/MozillaRustComponents/ { print; print "    header \"RustViaductFFI.h\""; next }1' "$COMMON/Modules/module.modulemap"
