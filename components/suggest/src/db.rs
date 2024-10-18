@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use std::{path::Path, sync::Arc};
+use std::{cell::OnceCell, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::{Mutex, MutexGuard};
@@ -19,7 +19,7 @@ use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     error::RusqliteResultExt,
     fakespot,
-    keyword::full_keyword,
+    geoname::GeonameCache,
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
     rs::{
@@ -29,6 +29,8 @@ use crate::{
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
+    util::full_keyword,
+    weather::WeatherCache,
     Result, SuggestionQuery,
 };
 
@@ -183,11 +185,18 @@ impl WriteScope<'_> {
 pub(crate) struct SuggestDao<'a> {
     pub conn: &'a Connection,
     pub scope: &'a SqlInterruptScope,
+    pub weather_cache: OnceCell<WeatherCache>,
+    pub geoname_cache: OnceCell<GeonameCache>,
 }
 
 impl<'a> SuggestDao<'a> {
     fn new(conn: &'a Connection, scope: &'a SqlInterruptScope) -> Self {
-        Self { conn, scope }
+        Self {
+            conn,
+            scope,
+            weather_cache: std::cell::OnceCell::new(),
+            geoname_cache: std::cell::OnceCell::new(),
+        }
     }
 
     // =============== High level API ===============
@@ -1167,6 +1176,11 @@ impl<'a> SuggestDao<'a> {
         )?;
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
+            "DELETE FROM keywords_metrics WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
             "
             DELETE FROM fakespot_fts
             WHERE rowid IN (SELECT id from suggestions WHERE record_id = :record_id)
@@ -1198,6 +1212,22 @@ impl<'a> SuggestDao<'a> {
             "DELETE FROM yelp_custom_details WHERE record_id = :record_id",
             named_params! { ":record_id": record_id.as_str() },
         )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "DELETE FROM geonames WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "DELETE FROM geonames_metrics WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+
+        // Invalidate these caches since we might have deleted a record their
+        // contents are based on.
+        self.weather_cache.take();
+        self.geoname_cache.take();
+
         Ok(())
     }
 
@@ -1645,6 +1675,36 @@ impl<'conn> PrefixKeywordInsertStatement<'conn> {
                 rank,
             ))
             .with_context("prefix keyword insert")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct KeywordMetricsInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+impl<'conn> KeywordMetricsInsertStatement<'conn> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
+        Ok(Self(conn.prepare(
+            "INSERT INTO keywords_metrics(
+                 record_id,
+                 provider,
+                 max_length,
+                 max_word_count
+             )
+             VALUES(?, ?, ?, ?)
+             ",
+        )?))
+    }
+
+    pub(crate) fn execute(
+        &mut self,
+        record_id: &SuggestRecordId,
+        provider: SuggestionProvider,
+        max_len: usize,
+        max_word_count: usize,
+    ) -> Result<()> {
+        self.0
+            .execute((record_id.as_str(), provider, max_len, max_word_count))
+            .with_context("keyword metrics insert")?;
         Ok(())
     }
 }
