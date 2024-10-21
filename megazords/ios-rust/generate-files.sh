@@ -27,4 +27,7 @@ CARGO="$HOME/.cargo/bin/cargo"
 
 # Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
 cp "$THIS_DIR/../../components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
-awk '/MozillaRustComponents/ { print; print "    header \"RustViaductFFI.h\""; next }1' "$COMMON/Modules/module.modulemap"
+echo "original modulemap"
+cat "$COMMON/Modules/module.modulemap"
+TWEAKED_MODULEMAP=$(cat <(head -n1 "$COMMON/Modules/module.modulemap") <(echo "    header \"RustViaductFFI.h\"") <(tail -n +2 "$COMMON/Modules/module.modulemap"))
+echo "$TWEAKED_MODULEMAP" > "$COMMON/Modules/module.modulemap"
