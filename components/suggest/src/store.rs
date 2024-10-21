@@ -589,7 +589,8 @@ where
                     // malformed, so skip to the next record.
                     return Ok(());
                 };
-                let data = self.settings_client.download_attachment(record)?;
+                let data = download_timer
+                    .measure_download(|| self.settings_client.download_attachment(record))?;
                 dao.put_icon(icon_id, &data, &attachment.mimetype)?;
             }
             SuggestRecord::Amo => {
