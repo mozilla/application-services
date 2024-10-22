@@ -16,7 +16,7 @@ use crate::{
         SuggestionInsertStatement, DEFAULT_SUGGESTION_SCORE,
     },
     geoname::{Geoname, GeonameType},
-    metrics::DownloadTimer,
+    metrics::MetricsContext,
     provider::SuggestionProvider,
     rs::{Client, Record, SuggestRecordId},
     store::SuggestStoreInner,
@@ -364,9 +364,9 @@ where
         &self,
         dao: &mut SuggestDao,
         record: &Record,
-        download_timer: &mut DownloadTimer,
+        context: &mut MetricsContext,
     ) -> Result<()> {
-        self.download_attachment(dao, record, download_timer, |dao, record_id, data| {
+        self.download_attachment(dao, record, context, |dao, record_id, data| {
             dao.insert_weather_data(record_id, data)
         })
     }
