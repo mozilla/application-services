@@ -21,6 +21,7 @@ error-support = { path = "../support/error" }
 viaduct = { path = "../viaduct" }
 url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 camino = "1.0"
+rusqlite = "0.31.0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
@@ -32,3 +33,4 @@ mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
+tempfile = "3"

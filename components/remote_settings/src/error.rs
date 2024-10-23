@@ -45,6 +45,8 @@ pub enum Error {
     AttachmentsUnsupportedError,
     #[error("Error configuring client: {0}")]
     ConfigError(String),
+    #[error("Storage Error: {0}")]
+    StorageError(#[from] rusqlite::Error),
 }
 
 // Define how our internal errors are handled and converted to external errors
