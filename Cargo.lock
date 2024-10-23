@@ -2865,6 +2865,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -3487,6 +3488,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
+dependencies = [
+ "num-traits",
+ "rand",
+]
+
+[[package]]
 name = "rand_rccrypto"
 version = "0.1.0"
 dependencies = [
@@ -3626,6 +3637,8 @@ dependencies = [
  "log",
  "md-5",
  "parking_lot",
+ "rand",
+ "rand_distr",
  "remote_settings",
  "rusqlite",
  "serde",
