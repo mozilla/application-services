@@ -3593,6 +3593,7 @@ dependencies = [
  "log",
  "md-5",
  "parking_lot",
+ "rand",
  "remote_settings",
  "rusqlite",
  "serde",

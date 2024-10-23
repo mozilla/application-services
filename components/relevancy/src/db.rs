@@ -75,6 +75,12 @@ impl RelevancyDb {
     }
 }
 
+pub struct ThompsonParamsForAnItem {
+    item: String,
+    x: f32,
+    y: f32,
+}
+
 /// A data access object (DAO) that wraps a connection to the Relevancy database
 ///
 /// Methods that only read from the database take an immutable reference to

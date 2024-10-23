@@ -17,6 +17,7 @@ mod ranker;
 mod rs;
 mod schema;
 pub mod url_hash;
+use rand::Rng;
 
 pub use db::RelevancyDb;
 pub use error::{ApiResult, Error, RelevancyApiError, Result};
@@ -94,6 +95,41 @@ impl RelevancyStore {
     #[handle_error(Error)]
     pub fn user_interest_vector(&self) -> ApiResult<InterestVector> {
         self.db.read(|dao| dao.get_frecency_user_interest_vector())
+    }
+
+    /// Initialize the probabilities for any unknown items.
+    pub fn bandit_init(&self, collection_name: String, items: HashMap<String, f32>) {
+        todo!()
+    }
+
+    /// Pick an item to show the user
+    pub fn bandit_select(&self, collection_name: String, items: Vec<String>) -> String {
+        let params: Vec<ThompsonParamsForAnItem> = self.db.read(|dao| dao.get_params(collection_name, items));
+        
+        let mut maximum_value = f32::NEG_INFINITY;
+        let mut best_item = None;
+
+        for param in params {
+            // Create a random number generator
+            let mut rng = rand::thread_rng();
+
+            // Generate a random number in the range [x, y) Beta distribution
+            // apparently its anterior & posterior and not x,y
+            let random_value = rng.gen_range(param.x..param.y);
+
+            if random_value > maximum_value {
+                maximum_value = random_value;
+                best_item = Some(param.item);
+            }
+        }
+
+        return best_item.unwrap_or_default()
+
+    } 
+    
+    /// Update the model based on a user selection/non-selection
+    pub fn bandit_update(&self, collection_name: String, item: String, selected: bool) {
+        todo!()
     }
 }
 
