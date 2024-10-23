@@ -8,9 +8,12 @@
 
 FROM ubuntu:20.04
 
+VOLUME /builds/worker/checkouts
+VOLUME /builds/worker/.cache
+
 # Add worker user
 
-RUN mkdir /builds && \
+RUN mkdir -p /builds && \
     useradd -d /builds/worker -s /bin/bash -m worker && \
     chown worker:worker /builds/worker && \
     mkdir /builds/worker/artifacts && \
@@ -82,9 +85,6 @@ RUN \
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
     PATH=/builds/worker/.local/bin:$PATH
-
-VOLUME /builds/worker/checkouts
-VOLUME /builds/worker/.cache
 
 # run-task needs to run as root (after initialization, it changes to `worker`)
 USER root
