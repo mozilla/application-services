@@ -1,5 +1,10 @@
 # v134.0 (In progress)
 
+## ✨ What's New ✨
+
+### Relevancy
+- Added init, select and update methods for Thompson Sampling (multi-armed bandit)
+
 ## 🦊 What's Changed 🦊
 
 ### FxA Client
