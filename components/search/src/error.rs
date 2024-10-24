@@ -11,8 +11,10 @@ use error_support::{ErrorHandling, GetErrorHandling};
 /// application.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("NotImplemented")]
-    NotImplemented,
+    #[error("Search configuration not specified")]
+    SearchConfigNotSpecified,
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 // #[non_exhaustive]
