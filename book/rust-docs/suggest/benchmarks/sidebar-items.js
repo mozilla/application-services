@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["client","ingest","query"],"trait":["Benchmark","BenchmarkWithInput"]};

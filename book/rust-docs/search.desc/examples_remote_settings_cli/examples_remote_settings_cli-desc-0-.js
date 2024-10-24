@@ -1,0 +1,1 @@
+searchState.loadedDescShard("examples_remote_settings_cli", 0, "Query against ingested data\nSync collections\nReturns the argument unchanged.\nReturns the argument unchanged.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nCalls <code>U::from(self)</code>.\nCalls <code>U::from(self)</code>.")

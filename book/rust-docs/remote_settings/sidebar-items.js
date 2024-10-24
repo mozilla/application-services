@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cache","client","config","error","service","storage"],"struct":["RemoteSettings","RemoteSettingsClient","RemoteSettingsService"]};
