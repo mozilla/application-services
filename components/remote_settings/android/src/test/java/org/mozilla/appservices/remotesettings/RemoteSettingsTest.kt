@@ -83,7 +83,7 @@ class RemoteSettingsTest {
         val attachmentUrl = "${config.serverUrl}/attachments/$attachmentLocation"
         doFetch = { req ->
             when (req.url) {
-                "$topUrl/" -> {
+                "$topUrl/v1/" -> {
                     Response(
                         url = req.url,
                         status = 200,

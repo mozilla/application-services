@@ -122,14 +122,18 @@ pub trait ApiClient {
 
 /// Client for Remote settings API requests
 pub struct ViaductApiClient {
+    /// Server base URL
+    ///
+    /// This is something like `https://[domain]/v1/`.  It's what's normally called the `base_url`
+    /// in other client implementations.
+    server_url: Url,
     /// Base URL for requests to a collections endpoint
     ///
     /// This is something like
-    /// `https://[server-url]/v1/buckets/[bucket-name]/collections/[collection-name]/"
+    /// `https://[server-url]/buckets/[bucket-name]/collections/[collection-name]/`
     ///
-    /// Note: this is different than the `base_url` used for other client implementations (
-    /// (`https://[server-url]/v1).  The main reason to use the collection_url is that we can use
-    /// it to check if we need to invalidate the cached data stored in the [Storage] layer.
+    /// The reason to store collection_url is that we can use it to check if we need to invalidate
+    /// the cached data stored in the [Storage] layer.
     collection_url: Url,
     remote_state: RemoteState,
 }
@@ -137,9 +141,10 @@ pub struct ViaductApiClient {
 impl ViaductApiClient {
     fn new(server_url: Url, bucket_name: &str, collection_name: &str) -> Result<Self> {
         let collection_url = server_url.join(&format!(
-            "v1/buckets/{bucket_name}/collections/{collection_name}/"
+            "buckets/{bucket_name}/collections/{collection_name}/"
         ))?;
         Ok(Self {
+            server_url,
             collection_url,
             remote_state: RemoteState::default(),
         })
@@ -239,8 +244,8 @@ impl ApiClient for ViaductApiClient {
         let attachments_base_url = match &self.remote_state.attachments_base_url {
             Some(attachments_base_url) => attachments_base_url.to_owned(),
             None => {
-                let collection_url = self.collection_url.clone();
-                let server_info = self.make_request(collection_url)?.json::<ServerInfo>()?;
+                let server_url = self.server_url.clone();
+                let server_info = self.make_request(server_url)?.json::<ServerInfo>()?;
                 let attachments_base_url = match server_info.capabilities.attachments {
                     Some(capability) => Url::parse(&capability.base_url)?,
                     None => Err(Error::AttachmentsUnsupportedError)?,
@@ -257,7 +262,7 @@ impl ApiClient for ViaductApiClient {
 
 /// A simple HTTP client that can retrieve Remote Settings data using the properties by [ClientConfig].
 /// Methods defined on this will fetch data from
-/// <base_url>/v1/buckets/<bucket_name>/collections/<collection_name>/
+/// <server_url>/buckets/<bucket_name>/collections/<collection_name>/
 pub struct Client {
     pub(crate) base_url: Url,
     pub(crate) bucket_name: String,
@@ -341,7 +346,7 @@ impl Client {
     /// collection with the given options.
     pub fn get_records_raw_with_options(&self, options: &GetItemsOptions) -> Result<Response> {
         let path = format!(
-            "v1/buckets/{}/collections/{}/records",
+            "buckets/{}/collections/{}/records",
             &self.bucket_name, &self.collection_name
         );
         let mut url = self.base_url.join(&path)?;
@@ -778,7 +783,7 @@ mod test {
         };
         let client = Client::new(config).unwrap();
         assert_eq!(
-            Url::parse("https://firefox.settings.services.mozilla.com").unwrap(),
+            Url::parse("https://firefox.settings.services.mozilla.com/v1/").unwrap(),
             client.base_url
         );
         assert_eq!(String::from("main"), client.bucket_name);
@@ -793,7 +798,10 @@ mod test {
             collection_name: String::from("the-collection"),
         };
         let client = Client::new(config).unwrap();
-        assert_eq!(Url::parse("https://example.com").unwrap(), client.base_url);
+        assert_eq!(
+            Url::parse("https://example.com/v1/").unwrap(),
+            client.base_url
+        );
     }
 
     #[test]
@@ -814,7 +822,7 @@ mod test {
     #[test]
     fn test_attachment_can_be_downloaded() {
         viaduct_reqwest::use_reqwest_backend();
-        let server_info_m = mock("GET", "/")
+        let server_info_m = mock("GET", "/v1/")
             .with_body(attachment_metadata(mockito::server_url()))
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -853,7 +861,7 @@ mod test {
     #[test]
     fn test_attachment_errors_if_server_not_configured_for_attachments() {
         viaduct_reqwest::use_reqwest_backend();
-        let server_info_m = mock("GET", "/")
+        let server_info_m = mock("GET", "/v1/")
             .with_body(NO_ATTACHMENTS_METADATA)
             .with_status(200)
             .with_header("content-type", "application/json")
