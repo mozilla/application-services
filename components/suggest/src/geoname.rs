@@ -17,7 +17,7 @@ use sql_support::ConnExt;
 use crate::{
     db::SuggestDao,
     error::RusqliteResultExt,
-    metrics::DownloadTimer,
+    metrics::MetricsContext,
     rs::{Client, Record, SuggestRecordId},
     store::SuggestStoreInner,
     Result,
@@ -287,9 +287,9 @@ where
         &self,
         dao: &mut SuggestDao,
         record: &Record,
-        download_timer: &mut DownloadTimer,
+        context: &mut MetricsContext,
     ) -> Result<()> {
-        self.download_attachment(dao, record, download_timer, |dao, record_id, data| {
+        self.download_attachment(dao, record, context, |dao, record_id, data| {
             dao.insert_geonames(record_id, data)
         })
     }

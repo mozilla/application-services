@@ -12,22 +12,40 @@ use url::Url;
 
 use crate::{ApiResult, Error, Result};
 
+/// Remote settings configuration
+///
+/// This is the version used in the new API, hence the `2` at the end.  The plan is to move
+/// consumers to the new API, remove the RemoteSettingsConfig struct, then remove the `2` from this
+/// name.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct RemoteSettingsConfig2 {
+    /// The Remote Settings server to use. Defaults to [RemoteSettingsServer::Prod],
+    #[uniffi(default = None)]
+    pub server: Option<RemoteSettingsServer>,
+    /// Bucket name to use, defaults to "main".  Use "main-preview" for a preview bucket
+    #[uniffi(default = None)]
+    pub bucket_name: Option<String>,
+}
+
 /// Custom configuration for the client.
 /// Currently includes the following:
 /// - `server`: The Remote Settings server to use. If not specified, defaults to the production server (`RemoteSettingsServer::Prod`).
 /// - `server_url`: An optional custom Remote Settings server URL. Deprecated; please use `server` instead.
 /// - `bucket_name`: The optional name of the bucket containing the collection on the server. If not specified, the standard bucket will be used.
 /// - `collection_name`: The name of the collection for the settings server.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct RemoteSettingsConfig {
-    pub server: Option<RemoteSettingsServer>,
-    pub server_url: Option<String>,
-    pub bucket_name: Option<String>,
     pub collection_name: String,
+    #[uniffi(default = None)]
+    pub bucket_name: Option<String>,
+    #[uniffi(default = None)]
+    pub server_url: Option<String>,
+    #[uniffi(default = None)]
+    pub server: Option<RemoteSettingsServer>,
 }
 
 /// The Remote Settings server that the client should use.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, uniffi::Enum)]
 pub enum RemoteSettingsServer {
     Prod,
     Stage,
