@@ -145,6 +145,10 @@ commands:
       - run:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
+      # Install SQLite development libraries
+      - run:
+          name: Install SQLite development libraries
+          command: sudo apt-get install libsqlite3-dev
   run-tests:
     steps:
       - run: automation/tests.py rust-tests
