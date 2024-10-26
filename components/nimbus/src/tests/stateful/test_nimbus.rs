@@ -2,6 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use crate::tests::helpers::TestRecordedContext;
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::Result,
@@ -12,19 +13,17 @@ use crate::{
             SingleIntervalCounter,
         },
         persistence::{Database, StoreId},
-        targeting::RecordedContext,
     },
     tests::helpers::{
         get_bucketed_rollout, get_ios_rollout_experiment, get_single_feature_experiment,
         get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
-        TestMetrics, TestRecordedContext,
+        TestMetrics,
     },
     AppContext, Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION,
     DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::{io::Write, str::FromStr};
@@ -1682,62 +1681,6 @@ fn test_recorded_context_recorded() -> Result<()> {
     client.apply_pending_experiments()?;
 
     let active_experiments = client.get_active_experiments()?;
-    assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
-
-    Ok(())
-}
-
-#[test]
-fn test_recorded_context_event_queries() -> Result<()> {
-    let metrics = TestMetrics::new();
-
-    let temp_dir = tempfile::tempdir()?;
-
-    let app_context = AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        app_version: Some("124.0.0".to_string()),
-        ..Default::default()
-    };
-    let recorded_context = Arc::new(TestRecordedContext::new());
-    recorded_context.set_context(json!({
-        "app_version": "125.0.0",
-        "other": "stuff",
-    }));
-    recorded_context.set_event_queries(HashMap::from_iter(vec![(
-        "TEST_QUERY".to_string(),
-        "'event'|eventSum('Days', 1, 0)".into(),
-    )]));
-    let client = NimbusClient::new(
-        app_context,
-        Some(recorded_context),
-        Default::default(),
-        temp_dir.path(),
-        None,
-        Box::new(metrics),
-    )?;
-    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
-    client.initialize()?;
-
-    let slug_1 = "test-1";
-
-    // Apply an initial experiment
-    let exp_1 = get_targeted_experiment(slug_1, "events.TEST_QUERY == 0.0");
-    client.set_experiments_locally(to_local_experiments_string(&[exp_1])?)?;
-    client.apply_pending_experiments()?;
-
-    log::info!(
-        "{}",
-        serde_json::to_string(&client.get_recorded_context().get_event_queries())?
-    );
-
-    let active_experiments = client.get_active_experiments()?;
-    assert_eq!(
-        client.get_recorded_context().get_event_query_values()["TEST_QUERY"],
-        0.0
-    );
     assert_eq!(active_experiments.len(), 1);
     assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
 

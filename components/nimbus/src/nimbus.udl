@@ -4,15 +4,7 @@ typedef extern RemoteSettingsConfig;
 [ExternalExport="remote_settings"]
 typedef extern RemoteSettingsServer;
 
-namespace nimbus {
-
-    /// A test utility used to validate event queries against the jexl evaluator.
-    ///
-    /// This method should only be used in tests.
-    [Throws=NimbusError]
-    void validate_event_queries(RecordedContext recorded_context);
-};
-
+namespace nimbus {};
 dictionary AppContext {
     string app_name;
     string app_id;
@@ -112,7 +104,6 @@ enum NimbusError {
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch",
     "DatabaseNotReady", "VersionParsingError", "BehaviorError", "TryFromIntError",
     "ParseIntError", "TransformParameterError", "ClientError", "UniFFICallbackError",
-    "RegexError",
 };
 
 [Custom]
@@ -121,10 +112,6 @@ typedef string JsonObject;
 [Trait, WithForeign]
 interface RecordedContext {
     JsonObject to_json();
-
-    record<string, string> get_event_queries();
-
-    void set_event_query_values(record<string, f64> event_query_values);
 
     void record();
 };
@@ -296,7 +283,6 @@ interface NimbusClient {
 
     [Throws=NimbusError]
     void dump_state_to_log();
-
 };
 
 interface NimbusTargetingHelper {

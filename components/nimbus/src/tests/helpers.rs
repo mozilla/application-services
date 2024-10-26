@@ -14,42 +14,21 @@ cfg_if::cfg_if! {
         use crate::{
             metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
             json::JsonObject,
-            stateful::{behavior::EventStore, targeting::RecordedContext}
+            targeting::RecordedContext
         };
-        use std::collections::HashMap;
         use serde_json::Map;
     }
 }
 
-use log::{Level, LevelFilter, Metadata, Record};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-struct TestLogger;
-
-impl log::Log for TestLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::stateful::behavior::EventStore;
     }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            println!("{} - {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: TestLogger = TestLogger;
-
-#[ctor::ctor]
-fn init() {
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(LevelFilter::Info))
-        .unwrap();
 }
 
 impl From<TargetingAttributes> for NimbusTargetingHelper {
@@ -85,8 +64,6 @@ impl Default for NimbusTargetingHelper {
 struct RecordedContextState {
     context: Map<String, Value>,
     record_calls: u64,
-    event_queries: HashMap<String, String>,
-    event_query_values: HashMap<String, f64>,
 }
 
 #[cfg(feature = "stateful")]
@@ -117,19 +94,6 @@ impl TestRecordedContext {
             .expect("value for `context` is not an object")
             .clone();
     }
-
-    pub fn set_event_queries(&self, queries: HashMap<String, String>) {
-        let mut state = self.state.lock().expect("could not lock state mutex");
-        state.event_queries = queries;
-    }
-
-    pub fn get_event_query_values(&self) -> HashMap<String, f64> {
-        self.state
-            .lock()
-            .expect("could not lock state mutex")
-            .event_query_values
-            .clone()
-    }
 }
 
 #[cfg(feature = "stateful")]
@@ -140,22 +104,6 @@ impl RecordedContext for TestRecordedContext {
             .expect("could not lock state mutex")
             .context
             .clone()
-    }
-
-    fn get_event_queries(&self) -> HashMap<String, String> {
-        self.state
-            .lock()
-            .expect("could not lock state mutex")
-            .event_queries
-            .clone()
-    }
-
-    fn set_event_query_values(&self, event_query_values: HashMap<String, f64>) {
-        let mut state = self.state.lock().expect("could not lock state mutex");
-        state.event_query_values.clone_from(&event_query_values);
-        state
-            .context
-            .insert("events".into(), json!(event_query_values));
     }
 
     fn record(&self) {

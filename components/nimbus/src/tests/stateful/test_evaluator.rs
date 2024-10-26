@@ -5,12 +5,9 @@
 use crate::{
     enrollment::NotEnrolledReason,
     evaluator::targeting,
-    stateful::{
-        behavior::{
-            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
-            SingleIntervalCounter,
-        },
-        targeting::RecordedContext,
+    stateful::behavior::{
+        EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
+        SingleIntervalCounter,
     },
     tests::helpers::TestRecordedContext,
     AppContext, EnrollmentStatus, TargetingAttributes,
@@ -509,7 +506,7 @@ fn test_multiple_contexts_flatten() -> crate::Result<()> {
     }));
     let mut targeting_attributes =
         crate::tests::test_evaluator::ta_with_locale("en-US".to_string());
-    targeting_attributes.set_recorded_context(recorded_context.to_json());
+    targeting_attributes.set_recorded_context(&*recorded_context);
 
     let value = serde_json::to_value(targeting_attributes).unwrap();
 

@@ -508,47 +508,20 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual(nil, enrolledExtra["conflict_slug"], "conflictSlug must match")
     }
 
-    class TestRecordedContext: RecordedContext {
-        var recorded: [[String: Any]] = []
-        var enabled: Bool
-        var eventQueries: [String: String]? = nil
-        var eventQueryValues: [String: Double]? = nil
-
-        init(enabled: Bool = true, eventQueries: [String: String]? = nil) {
-            self.enabled = enabled
-            self.eventQueries = eventQueries
-        }
-
-        func getEventQueries() -> [String: String] {
-            if let queries = eventQueries {
-                return queries
-            } else {
-                return [:]
-            }
-        }
-
-        func setEventQueryValues(eventQueryValues: [String: Double]) {
-            self.eventQueryValues = eventQueryValues
-        }
-
-        func toJson() -> MozillaTestServices.JsonObject {
-            do {
-                return try String(data: JSONSerialization.data(withJSONObject: [
-                    "enabled": enabled,
-                    "events": eventQueries as Any,
-                ] as Any), encoding: .ascii) ?? "{}" as MozillaTestServices.JsonObject
-            } catch {
-                print(error.localizedDescription)
-                return "{}"
-            }
-        }
-
-        func record() {
-            recorded.append(["enabled": enabled, "events": eventQueryValues as Any])
-        }
-    }
-
     func testNimbusRecordsRecordedContextObject() throws {
+        class TestRecordedContext: RecordedContext {
+            var recordedCount = 0
+
+            func toJson() -> MozillaTestServices.JsonObject {
+                let json = "{\"enabled\": true}"
+                return json
+            }
+
+            func record() {
+                recordedCount += 1
+            }
+        }
+
         let recordedContext = TestRecordedContext()
         let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), recordedContext: recordedContext) as! Nimbus
@@ -556,28 +529,7 @@ class NimbusTests: XCTestCase {
         try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
         try nimbus.applyPendingExperimentsOnThisThread()
 
-        XCTAssertEqual(1, recordedContext.recorded.count)
-        print(recordedContext.recorded)
-        XCTAssertEqual(true, recordedContext.recorded.first!["enabled"] as! Bool)
-    }
-
-    func testNimbusRecordedContextEventQueriesAreRunAndTheValueIsWrittenBackIntoTheObject() throws {
-        let recordedContext = TestRecordedContext(eventQueries: ["TEST_QUERY": "'event'|eventSum('Days', 1, 0)"])
-        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
-        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), recordedContext: recordedContext) as! Nimbus
-
-        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
-        try nimbus.applyPendingExperimentsOnThisThread()
-
-        XCTAssertEqual(1, recordedContext.recorded.count)
-        XCTAssertEqual(true, recordedContext.recorded.first!["enabled"] as! Bool)
-        XCTAssertEqual(0, (recordedContext.recorded.first!["events"] as! [String: Any])["TEST_QUERY"] as! Double)
-    }
-
-    func testNimbusRecordedContextEventQueriesAreValidated() throws {
-        let recordedContext = TestRecordedContext(eventQueries: ["TEST_QUERY": "'event'|eventSumThisWillFail('Days', 1, 0)"])
-
-        XCTAssertThrowsError(try validateEventQueries(recordedContext: recordedContext))
+        XCTAssertEqual(1, recordedContext.recordedCount)
     }
 }
 

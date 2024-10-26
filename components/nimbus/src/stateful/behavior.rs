@@ -62,7 +62,6 @@ impl PartialEq for Interval {
         self.to_string() == other.to_string()
     }
 }
-
 impl Eq for Interval {}
 
 impl Hash for Interval {
@@ -85,7 +84,7 @@ impl FromStr for Interval {
             _ => {
                 return Err(NimbusError::BehaviorError(
                     BehaviorError::IntervalParseError(input.to_string()),
-                ));
+                ))
             }
         })
     }
@@ -366,7 +365,7 @@ impl EventQueryType {
                 return Err(NimbusError::TransformParameterError(format!(
                     "event transform {} requires a positive number as the second parameter",
                     self
-                )));
+                )))
             }
         } as usize;
         let zero = &Value::from(0);
@@ -376,7 +375,7 @@ impl EventQueryType {
                 return Err(NimbusError::TransformParameterError(format!(
                     "event transform {} requires a positive number as the third parameter",
                     self
-                )));
+                )))
             }
         } as usize;
 
@@ -403,7 +402,7 @@ impl EventQueryType {
                 return Err(NimbusError::TransformParameterError(format!(
                     "event transform {} requires a positive number as the second parameter",
                     self
-                )));
+                )))
             }
         } as usize;
 
@@ -426,13 +425,6 @@ impl EventQueryType {
             | Self::AveragePerNonZeroInterval => self.validate_counting_arguments(args)?,
             Self::LastSeen => self.validate_last_seen_arguments(args)?,
         })
-    }
-
-    pub fn validate_query(maybe_query: &str) -> Result<bool> {
-        let regex = regex::Regex::new(
-            r#"^(?:"[^"']+"|'[^"']+')\|event(?:Sum|LastSeen|CountNonZero|Average|AveragePerNonZeroInterval)\(["'](?:Years|Months|Weeks|Days|Hours|Minutes)["'],\s*\d+\s*(?:,\s*\d+\s*)?\)$"#,
-        )?;
-        Ok(regex.is_match(maybe_query))
     }
 
     fn error_value(&self) -> f64 {

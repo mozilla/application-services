@@ -1522,33 +1522,3 @@ mod event_store_tests {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod event_query_type_tests {
-    use super::*;
-    use crate::stateful::behavior::EventQueryType;
-
-    #[test]
-    fn test_extract_query() -> Result<()> {
-        assert!(EventQueryType::validate_query(
-            "'event'|eventSum('Years', 28, 0)"
-        )?);
-        assert!(EventQueryType::validate_query(
-            "'event'|eventCountNonZero('Months', 28, 0)"
-        )?);
-        assert!(EventQueryType::validate_query(
-            "'event'|eventAverage('Weeks', 28, 0)"
-        )?);
-        assert!(EventQueryType::validate_query(
-            "'event'|eventAveragePerNonZeroInterval('Days', 28, 0)"
-        )?);
-        assert!(EventQueryType::validate_query(
-            "'event'|eventLastSeen('Hours', 10)"
-        )?);
-        assert!(EventQueryType::validate_query(
-            "'event'|eventSum('Minutes', 86400, 0)"
-        )?);
-        assert!(!EventQueryType::validate_query("yolo")?);
-        Ok(())
-    }
-}
