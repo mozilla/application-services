@@ -68,9 +68,6 @@ pub enum NimbusError {
     CirrusError(#[from] CirrusClientError),
     #[error("UniFFI callback error: {0}")]
     UniFFICallbackError(#[from] uniffi::UnexpectedUniFFICallbackError),
-    #[cfg(feature = "stateful")]
-    #[error("Regex error: {0}")]
-    RegexError(#[from] regex::Error),
 }
 
 #[cfg(feature = "stateful")]
@@ -84,14 +81,6 @@ pub enum BehaviorError {
     IntervalParseError(String),
     #[error("The event store is not available on the targeting attributes")]
     MissingEventStore,
-    #[error("The recorded context is not available on the nimbus client")]
-    MissingRecordedContext,
-    #[error("EventQueryTypeParseError: {0} is not a valid EventQueryType")]
-    EventQueryTypeParseError(String),
-    #[error(r#"EventQueryParseError: "{0}" is not a valid EventQuery"#)]
-    EventQueryParseError(String),
-    #[error(r#"TypeError: "{0}" is not of type {1}"#)]
-    TypeError(String, String),
 }
 
 #[cfg(not(feature = "stateful"))]

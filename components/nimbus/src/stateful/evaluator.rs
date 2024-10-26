@@ -7,6 +7,7 @@ use crate::{
     evaluator::split_locale,
     json::JsonObject,
     stateful::matcher::AppContext,
+    targeting::RecordedContext,
 };
 use chrono::{DateTime, Utc};
 use serde_derive::*;
@@ -49,8 +50,8 @@ impl From<AppContext> for TargetingAttributes {
 }
 
 impl TargetingAttributes {
-    pub(crate) fn set_recorded_context(&mut self, recorded_context: JsonObject) {
-        self.recorded_context = Some(recorded_context);
+    pub(crate) fn set_recorded_context(&mut self, recorded_context: &dyn RecordedContext) {
+        self.recorded_context = Some(recorded_context.to_json());
     }
 
     pub(crate) fn update_time_to_now(

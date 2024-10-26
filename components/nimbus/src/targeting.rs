@@ -10,9 +10,22 @@ use serde_json::{json, Value};
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use anyhow::anyhow;
-        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}};
+        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}, json::JsonObject};
         use std::sync::{Arc, Mutex};
     }
+}
+
+#[cfg(feature = "stateful")]
+pub trait RecordedContext: Send + Sync {
+    /// Returns a JSON representation of the context object
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn to_json(&self) -> JsonObject;
+
+    /// Records the context object to Glean
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn record(&self);
 }
 
 #[derive(Clone)]
@@ -48,16 +61,6 @@ impl NimbusTargetingHelper {
         }
     }
 
-    pub fn evaluate_jexl_raw_value(&self, expr: &str) -> Result<Value> {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "stateful")] {
-                jexl_eval_raw(expr, &self.context, self.event_store.clone())
-            } else {
-                jexl_eval_raw(expr, &self.context)
-            }
-        }
-    }
-
     pub(crate) fn put(&self, key: &str, value: bool) -> Self {
         let context = if let Value::Object(map) = &self.context {
             let mut map = map.clone();
@@ -77,11 +80,15 @@ impl NimbusTargetingHelper {
     }
 }
 
-pub fn jexl_eval_raw<Context: serde::Serialize>(
+// This is the common entry point to JEXL evaluation.
+// The targeting attributes and additional context should have been merged and calculated before
+// getting here.
+// Any additional transforms should be added here.
+pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
     #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
-) -> Result<Value> {
+) -> Result<bool> {
     let evaluator =
         Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
 
@@ -124,26 +131,7 @@ pub fn jexl_eval_raw<Context: serde::Serialize>(
         })
         .with_transform("bucketSample", bucket_sample);
 
-    evaluator
-        .eval_in_context(expression_statement, context)
-        .map_err(|err| NimbusError::EvaluationError(err.to_string()))
-}
-
-// This is the common entry point to JEXL evaluation.
-// The targeting attributes and additional context should have been merged and calculated before
-// getting here.
-// Any additional transforms should be added here.
-pub fn jexl_eval<Context: serde::Serialize>(
-    expression_statement: &str,
-    context: &Context,
-    #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
-) -> Result<bool> {
-    let res = jexl_eval_raw(
-        expression_statement,
-        context,
-        #[cfg(feature = "stateful")]
-        event_store,
-    )?;
+    let res = evaluator.eval_in_context(expression_statement, context)?;
     match res.as_bool() {
         Some(v) => Ok(v),
         None => Err(NimbusError::InvalidExpression),
