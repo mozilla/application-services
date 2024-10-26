@@ -8,7 +8,7 @@ pub type ApiResult<T> = std::result::Result<T, RemoteSettingsError>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Public error class, this is what we return to consumers
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum RemoteSettingsError {
     /// Network error while making a remote settings request
     #[error("Remote settings unexpected error: {reason}")]
@@ -45,6 +45,8 @@ pub enum Error {
     AttachmentsUnsupportedError,
     #[error("Error configuring client: {0}")]
     ConfigError(String),
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] rusqlite::Error),
 }
 
 // Define how our internal errors are handled and converted to external errors

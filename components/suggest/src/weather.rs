@@ -16,7 +16,7 @@ use crate::{
         SuggestionInsertStatement, DEFAULT_SUGGESTION_SCORE,
     },
     geoname::{Geoname, GeonameType},
-    metrics::DownloadTimer,
+    metrics::MetricsContext,
     provider::SuggestionProvider,
     rs::{Client, Record, SuggestRecordId},
     store::SuggestStoreInner,
@@ -174,6 +174,7 @@ impl SuggestDao<'_> {
             .map(|(city, _, _)| Suggestion::Weather {
                 city: city.as_ref().map(|c| c.name.clone()),
                 region: city.as_ref().map(|c| c.admin1_code.clone()),
+                country: city.as_ref().map(|c| c.country_code.clone()),
                 score: w_cache.score,
             })
             .collect())
@@ -363,9 +364,9 @@ where
         &self,
         dao: &mut SuggestDao,
         record: &Record,
-        download_timer: &mut DownloadTimer,
+        context: &mut MetricsContext,
     ) -> Result<()> {
-        self.download_attachment(dao, record, download_timer, |dao, record_id, data| {
+        self.download_attachment(dao, record, context, |dao, record_id, data| {
             dao.insert_weather_data(record_id, data)
         })
     }
@@ -511,7 +512,8 @@ mod tests {
                 vec![Suggestion::Weather {
                     score: 0.24,
                     city: None,
-                    region: None
+                    region: None,
+                    country: None,
                 },]
             );
         }
@@ -553,7 +555,8 @@ mod tests {
                 vec![Suggestion::Weather {
                     score: 0.24,
                     city: None,
-                    region: None
+                    region: None,
+                    country: None,
                 },]
             );
         }
@@ -592,11 +595,13 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("IA".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("AL".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -606,6 +611,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -614,6 +620,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -622,6 +629,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("AL".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -630,6 +638,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("AL".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -640,6 +649,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -648,6 +658,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -656,6 +667,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -665,6 +677,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -673,6 +686,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -681,6 +695,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -689,6 +704,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -697,6 +713,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -705,6 +722,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -713,6 +731,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -721,6 +740,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -729,6 +749,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -737,6 +758,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -745,6 +767,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -753,6 +776,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -761,6 +785,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -769,6 +794,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -777,6 +803,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Rochester".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -785,6 +812,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -797,6 +825,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -805,6 +834,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -813,6 +843,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -821,6 +852,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -830,11 +862,13 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("IA".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("AL".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -845,11 +879,13 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("IA".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("AL".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -864,6 +900,7 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Long Name".to_string()),
                         region: Some("NY".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -876,11 +913,13 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("IA".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                     Suggestion::Weather {
                         city: Some("Waterloo".to_string()),
                         region: Some("AL".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -890,6 +929,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -898,6 +938,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -906,6 +947,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -914,6 +956,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("Waterloo".to_string()),
                     region: Some("IA".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -922,6 +965,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -930,6 +974,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -938,6 +983,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -946,6 +992,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     city: Some("New York City".to_string()),
                     region: Some("NY".to_string()),
+                    country: Some("US".to_string()),
                     score: 0.24,
                 }],
             ),
@@ -955,6 +1002,7 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Long Name".to_string()),
                         region: Some("NY".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],
@@ -965,6 +1013,7 @@ mod tests {
                     Suggestion::Weather {
                         city: Some("Long Name".to_string()),
                         region: Some("NY".to_string()),
+                        country: Some("US".to_string()),
                         score: 0.24,
                     },
                 ],

@@ -4,9 +4,12 @@
 
 FROM ubuntu:22.04
 
+VOLUME /builds/worker/checkouts
+VOLUME /builds/worker/.cache
+
 # Add worker user
 
-RUN mkdir /builds && \
+RUN mkdir -p /builds && \
     useradd -d /builds/worker -s /bin/bash -m worker && \
     chown worker:worker /builds/worker && \
     mkdir /builds/worker/artifacts && \
@@ -19,7 +22,7 @@ WORKDIR /builds/worker/
 ENV ANDROID_BUILD_TOOLS "35.0.0"
 ENV ANDROID_TOOLS_VERSION "11076708"
 ENV ANDROID_PLATFORM_VERSION "35"
-ENV ANDROID_NDK_VERSION "27.0.12077973"
+ENV ANDROID_NDK_VERSION "27.2.12479018"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
 ENV LANG en_US.UTF-8
@@ -174,9 +177,6 @@ RUN \
 ENV SHELL=/bin/bash \
     HOME=/builds/worker \
     PATH=/builds/worker/.local/bin:$PATH
-
-VOLUME /builds/worker/checkouts
-VOLUME /builds/worker/.cache
 
 # Switch to the worker user to install rustup
 # After startup, run-task will downgrade it's permissions to be this user

@@ -150,7 +150,7 @@ fn ingest(
     let metrics = store
         .ingest(constraints)
         .unwrap_or_else(|e| panic!("Error in ingest: {e}"));
-    if verbose {
+    if verbose && !metrics.ingestion_times.is_empty() {
         print_header("Ingestion times");
         let mut ingestion_times = metrics.ingestion_times;
         let download_times: HashMap<String, u64> = metrics
