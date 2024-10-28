@@ -10,8 +10,14 @@ policy:
 tasks:
     - $let:
           trustDomain: app-services
+          isPullRequest:
+              $eval: 'tasks_for == "github-pull-request" || tasks_for == "github-issue-comment"'
           pullRequestAction:
               $if: 'tasks_for == "github-pull-request"'
+              then: ${event.action}
+              else: 'UNDEFINED'
+          issueCommentAction:
+              $if: 'tasks_for == "github-issue-comment"'
               then: ${event.action}
               else: 'UNDEFINED'
           ownTaskId:
@@ -24,65 +30,40 @@ tasks:
           $let:
               # Github events have this stuff in different places
               ownerEmail:
-                  $if: 'tasks_for in ["cron", "action"]'
-                  then: '${tasks_for}@noreply.mozilla.org'
-                  else:
-                      $if: 'tasks_for == "github-push"'
-                      then: '${event.pusher.email}'
-                      # Assume Pull Request
-                      else:
-                          $if: 'tasks_for == "github-pull-request"'
-                          then: '${event.pull_request.user.login}@users.noreply.github.com'
-
+                  $switch:
+                      'tasks_for == "github-push"': '${event.pusher.email}'
+                      isPullRequest: '${event.pull_request.user.login}@users.noreply.github.com'
+                      'tasks_for in ["cron", "action"]': '${tasks_for}@noreply.mozilla.org'
               baseRepoUrl:
-                  $if: 'tasks_for == "github-push"'
-                  then: '${event.repository.html_url}'
-                  else:
-                      $if: 'tasks_for == "github-pull-request"'
-                      then: '${event.pull_request.base.repo.html_url}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${repository.url}'
+                  $switch:
+                      'tasks_for == "github-push"': '${event.repository.html_url}'
+                      isPullRequest: '${event.pull_request.base.repo.html_url}'
+                      'tasks_for in ["cron", "action"]': '${repository.url}'
               repoUrl:
-                  $if: 'tasks_for == "github-push"'
-                  then: '${event.repository.html_url}'
-                  else:
-                      $if: 'tasks_for == "github-pull-request"'
-                      then: '${event.pull_request.head.repo.html_url}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${repository.url}'
+                  $switch:
+                      'tasks_for == "github-push"': '${event.repository.html_url}'
+                      isPullRequest: '${event.pull_request.head.repo.html_url}'
+                      'tasks_for in ["cron", "action"]': '${repository.url}'
               project:
-                  $if: 'tasks_for == "github-push"'
-                  then: '${event.repository.name}'
-                  else:
-                      $if: 'tasks_for == "github-pull-request"'
-                      then: '${event.pull_request.head.repo.name}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${repository.project}'
+                  $switch:
+                      'tasks_for == "github-push"': '${event.repository.name}'
+                      isPullRequest: '${event.pull_request.head.repo.name}'
+                      'tasks_for in ["cron", "action"]': '${repository.project}'
               head_branch:
-                  $if: 'tasks_for == "github-pull-request"'
-                  then: ${event.pull_request.head.ref}
-                  else:
-                      $if: 'tasks_for == "github-push"'
-                      then: ${event.ref}
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${push.branch}'
+                  $switch:
+                      'tasks_for == "github-push"': ${event.ref}
+                      isPullRequest: ${event.pull_request.head.ref}
+                      'tasks_for in ["cron", "action"]': '${push.branch}'
               head_sha:
-                  $if: 'tasks_for == "github-push"'
-                  then: '${event.after}'
-                  else:
-                      $if: 'tasks_for == "github-pull-request"'
-                      then: '${event.pull_request.head.sha}'
-                      else:
-                          $if: 'tasks_for in ["cron", "action"]'
-                          then: '${push.revision}'
+                  $switch:
+                    'tasks_for == "github-push"': '${event.after}'
+                    isPullRequest: '${event.pull_request.head.sha}'
+                    'tasks_for in ["cron", "action"]': '${push.revision}'
           in:
               $if: >
                 tasks_for in ["action", "cron"]
-                || (tasks_for == "github-pull-request" && pullRequestAction in ["opened", "reopened", "synchronize"])
+                || (isPullRequest && pullRequestAction in ["opened", "reopened", "synchronize"])
+                || (isPullRequest && issueCommentAction in ["created", "edited"])
                 || (tasks_for == "github-push" && (head_branch == "refs/heads/main" || head_branch[:19] == "refs/heads/release-"))
               then:
                   $let:
@@ -112,9 +93,9 @@ tasks:
                               $merge:
                                   - owner: "${ownerEmail}"
                                     source: '${repoUrl}/raw/${head_sha}/.taskcluster.yml'
-                                  - $if: 'tasks_for in ["github-push", "github-pull-request"]'
+                                  - $if: 'tasks_for in ["github-push", "github-pull-request", "github-issue-comment"]'
                                     then:
-                                        name: "Decision Task"
+                                        name: "Decision Task (${tasks_for[7:]})" # strip out "github-" from tasks_for
                                         description: 'The task that creates all of the other tasks in the task graph'
                                     else:
                                         $if: 'tasks_for == "action"'
@@ -130,7 +111,7 @@ tasks:
                           provisionerId: "app-services-${level}"
                           workerType: "decision-gcp"
                           tags:
-                              $if: 'tasks_for in ["github-push", "github-pull-request"]'
+                              $if: 'tasks_for in ["github-push", "github-pull-request", "github-issue-comment"]'
                               then:
                                   kind: decision-task
                               else:
@@ -147,7 +128,7 @@ tasks:
                               # We check for not pull-request instead of level 3 to support `staging-application-services`.
                               # This is ok as ${project} uniquely identifies the repo within this trust domain, and each
                               # project only has scopes to its own index namespace, so namespace collisions shouldn't happen.
-                              - $if: 'tasks_for != "github-pull-request"'
+                              - $if: '!isPullRequest'
                                 then:
                                     - $if: 'tasks_for == "github-push"'
                                       then:
@@ -166,7 +147,7 @@ tasks:
                                   # `https://` is 8 characters so, ${repoUrl[8:]} is the repository without the protocol.
                                   - 'assume:repo:${repoUrl[8:]}:branch:${short_head_branch}'
                               else:
-                                  $if: 'tasks_for == "github-pull-request"'
+                                  $if: isPullRequest
                                   then:
                                       - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
                                   else:
@@ -226,7 +207,14 @@ tasks:
                                   - bash
                                   - -cx
                                   - $let:
-                                      extraArgs: {$if: 'tasks_for == "cron"', then: '${cron.quoted_args}', else: ''}
+                                      # Can't use $switch statement here, see https://github.com/json-e/json-e/issues/541
+                                      extraArgs: 
+                                        $if: 'tasks_for == "cron"'
+                                        then: '${cron.quoted_args}'
+                                        else:
+                                            $if: 'tasks_for == "github-issue-comment"'
+                                            then: '--target-tasks-method=${event.taskcluster_comment}'
+                                            else: ''
                                     in:
                                       $if: 'tasks_for == "action"'
                                       then: >
