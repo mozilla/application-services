@@ -1,4 +1,4 @@
-# v133.0 (In progress)
+# v133.0 (_2024-10-28_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -14,7 +14,7 @@
 ### Glean
 - Updated to v61.2.0 ([#6410](https://github.com/mozilla/application-services/pull/6410))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v132.0...v133.0)
 
 # v132.0 (_2024-09-30_)
 
