@@ -38,7 +38,7 @@ megazords/ios-rust/focus/FocusRustComponents.xcframework*
 
 
 # Glean generated artifacts
-megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated/Metrics.swift
+megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated
 megazords/ios-rust/MozillaTestServices/.venv
 
 # Carthage generated artifacts
