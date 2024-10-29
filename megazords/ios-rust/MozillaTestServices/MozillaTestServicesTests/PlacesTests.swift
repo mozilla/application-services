@@ -281,9 +281,20 @@ class PlacesTests: XCTestCase {
             searchTerm: nil,
             referrerUrl: nil
         )
-        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey1, documentType: DocumentType.media)
-        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey2, documentType: DocumentType.media)
-        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey3, documentType: DocumentType.media)
+        _ = try! db.noteHistoryMetadataObservationDocumentType(
+            key: metaKey1,
+            documentType: .media,
+            NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
+        )
+        _ = try! db.noteHistoryMetadataObservationDocumentType(
+            key: metaKey2,
+            documentType: .media,
+            NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
+        )
+        _ = try! db.noteHistoryMetadataObservationDocumentType(
+            key: metaKey3, documentType: .media,
+            NoteHistoryMetadataObservationOptions(ifPageMissing: .insertPage)
+        )
         // There should be three entries now
         XCTAssertEqual(3, try! db.getHistoryMetadataSince(since: beginning).count)
         // two have the same url, so we remove them:

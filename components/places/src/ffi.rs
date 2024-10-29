@@ -15,7 +15,8 @@ use crate::storage::bookmarks;
 pub use crate::storage::bookmarks::BookmarkPosition;
 pub use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
-    HistoryMetadataObservation,
+    HistoryMetadataObservation, HistoryMetadataPageMissingBehavior,
+    NoteHistoryMetadataObservationOptions,
 };
 pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::{history, history_metadata};
@@ -251,9 +252,10 @@ impl PlacesConnection {
     pub fn note_history_metadata_observation(
         &self,
         data: HistoryMetadataObservation,
+        options: NoteHistoryMetadataObservationOptions,
     ) -> ApiResult<()> {
         // odd historical naming discrepancy - public function is "note_*", impl is "apply_*"
-        self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
+        self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data, options))
     }
 
     #[handle_error(crate::Error)]

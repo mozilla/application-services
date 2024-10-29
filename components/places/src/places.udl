@@ -76,7 +76,7 @@ interface PlacesConnection {
     sequence<HistoryHighlight> get_history_highlights(HistoryHighlightWeights weights, i32 limit);
 
     [Throws=PlacesApiError]
-    void note_history_metadata_observation(HistoryMetadataObservation data);
+    void note_history_metadata_observation(HistoryMetadataObservation data, NoteHistoryMetadataObservationOptions options);
 
     [Throws=PlacesApiError]
     void metadata_delete(Url url, Url? referrer_url, string? search_term);
@@ -265,6 +265,21 @@ dictionary HistoryMetadataObservation {
     i32? view_time = null;
     DocumentType? document_type = null;
     string? title = null;
+};
+
+/// The action to take when recording a history metadata observation for
+/// a page that doesn't have an entry in the history database.
+enum HistoryMetadataPageMissingBehavior {
+    /// Insert an entry for the page into the history database.
+    "InsertPage",
+
+    /// Ignore and discard the observation. This is the default behavior.
+    "IgnoreObservation",
+};
+
+/// Options for recording history metadata observations.
+dictionary NoteHistoryMetadataObservationOptions {
+    HistoryMetadataPageMissingBehavior if_page_missing = "IgnoreObservation";
 };
 
 /// This is what is returned.

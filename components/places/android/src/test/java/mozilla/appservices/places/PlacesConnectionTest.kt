@@ -9,6 +9,8 @@ import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
+import mozilla.appservices.places.uniffi.HistoryMetadataPageMissingBehavior
+import mozilla.appservices.places.uniffi.NoteHistoryMetadataObservationOptions
 import mozilla.appservices.places.uniffi.PlacesApiException
 import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.VisitType
@@ -576,6 +578,9 @@ class PlacesConnectionTest {
                 referrerUrl = "https://yandex.ru/query?путин+валдай",
             ),
             documentType = DocumentType.MEDIA,
+            NoteHistoryMetadataObservationOptions(
+                ifPageMissing = HistoryMetadataPageMissingBehavior.INSERT_PAGE,
+            ),
         )
 
         // recording view time first, before the document type. either order should be fine.
@@ -584,7 +589,13 @@ class PlacesConnectionTest {
             searchTerm = null,
             referrerUrl = null,
         )
-        db.noteHistoryMetadataObservationViewTime(metaKey2, 200)
+        db.noteHistoryMetadataObservationViewTime(
+            metaKey2,
+            200,
+            NoteHistoryMetadataObservationOptions(
+                ifPageMissing = HistoryMetadataPageMissingBehavior.INSERT_PAGE,
+            ),
+        )
 
         // document type defaults to `regular`.
         with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
