@@ -731,44 +731,57 @@ public class PlacesWriteConnection: PlacesReadConnection {
     // MARK: History metadata write APIs
 
     open func noteHistoryMetadataObservation(
-        observation: HistoryMetadataObservation
+        observation: HistoryMetadataObservation,
+        _ options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions()
     ) throws {
         try queue.sync {
             try self.checkApi()
-            try self.conn.noteHistoryMetadataObservation(data: observation)
+            try self.conn.noteHistoryMetadataObservation(data: observation, options: options)
         }
     }
 
     // Keeping these three functions inline with what Kotlin (PlacesConnection.kt)
     // to make future work more symmetrical
-    open func noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int32?) throws {
+    open func noteHistoryMetadataObservationViewTime(
+        key: HistoryMetadataKey,
+        viewTime: Int32?,
+        _ options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions()
+    ) throws {
         let obs = HistoryMetadataObservation(
             url: key.url,
             referrerUrl: key.referrerUrl,
             searchTerm: key.searchTerm,
             viewTime: viewTime
         )
-        try noteHistoryMetadataObservation(observation: obs)
+        try noteHistoryMetadataObservation(observation: obs, options)
     }
 
-    open func noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType) throws {
+    open func noteHistoryMetadataObservationDocumentType(
+        key: HistoryMetadataKey,
+        documentType: DocumentType,
+        _ options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions()
+    ) throws {
         let obs = HistoryMetadataObservation(
             url: key.url,
             referrerUrl: key.referrerUrl,
             searchTerm: key.searchTerm,
             documentType: documentType
         )
-        try noteHistoryMetadataObservation(observation: obs)
+        try noteHistoryMetadataObservation(observation: obs, options)
     }
 
-    open func noteHistoryMetadataObservationTitle(key: HistoryMetadataKey, title: String) throws {
+    open func noteHistoryMetadataObservationTitle(
+        key: HistoryMetadataKey,
+        title: String,
+        _ options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions()
+    ) throws {
         let obs = HistoryMetadataObservation(
             url: key.url,
             referrerUrl: key.referrerUrl,
             searchTerm: key.searchTerm,
             title: title
         )
-        try noteHistoryMetadataObservation(observation: obs)
+        try noteHistoryMetadataObservation(observation: obs, options)
     }
 
     open func deleteHistoryMetadataOlderThan(olderThan: Int64) throws {

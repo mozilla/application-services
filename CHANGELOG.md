@@ -13,10 +13,25 @@
 ### FxA Client
 - Updated the iOS `sendToDevice` function to return the `closeTab` call's result when applicable. ([#6448](https://github.com/mozilla/application-services/pull/6448))
 
+### Places
+- `PlacesConnection.noteHistoryMetadataObservation{ViewTime, DocumentType}()`
+  (Android) and `PlacesWriteConnection.noteHistoryMetadataObservation()` (iOS)
+  now take an optional `NoteHistoryMetadataObservationOptions` argument. The
+  new `if_page_missing` option specifies what to do if the page for the
+  observation doesn't exist in the history database.
+  ([#6443](https://github.com/mozilla/application-services/pull/6443))
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus SDK ⛅️🔬🔭
 - Added methods to `RecordedContext` for retrieving event queries and setting their values back to the foreign object ([#6322](https://github.com/mozilla/application-services/pull/6322)).
+
+### Places
+- If an entry for a page doesn't exist in the history database, any
+  history observations for that page will no longer be recorded by default.
+  To revert to the old behavior, and automatically insert an entry for
+  the page before recording the observation, set the new `if_page_missing`
+  option to `HistoryMetadataPageMissingBehavior::InsertPage`.
 
 [Full Changelog](In progress)
 

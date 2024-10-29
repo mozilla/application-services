@@ -79,6 +79,36 @@ pub struct HistoryMetadataObservation {
     pub referrer_url: Option<String>,
     pub title: Option<String>,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryMetadataPageMissingBehavior {
+    InsertPage,
+    IgnoreObservation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NoteHistoryMetadataObservationOptions {
+    pub if_page_missing: HistoryMetadataPageMissingBehavior,
+}
+
+impl Default for NoteHistoryMetadataObservationOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NoteHistoryMetadataObservationOptions {
+    pub fn new() -> Self {
+        Self {
+            if_page_missing: HistoryMetadataPageMissingBehavior::IgnoreObservation,
+        }
+    }
+
+    pub fn if_page_missing(self, if_page_missing: HistoryMetadataPageMissingBehavior) -> Self {
+        Self { if_page_missing }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryMetadata {
     pub url: String,
@@ -577,6 +607,7 @@ pub fn delete_metadata(
 pub fn apply_metadata_observation(
     db: &PlacesDb,
     observation: HistoryMetadataObservation,
+    options: NoteHistoryMetadataObservationOptions,
 ) -> Result<()> {
     if let Some(view_time) = observation.view_time {
         // Consider any view_time observations that are higher than 24hrs to be invalid.
@@ -599,7 +630,7 @@ pub fn apply_metadata_observation(
     let tx = db.begin_transaction()?;
 
     let place_entry = PlaceEntry::fetch(&observation.url, &tx, observation.title.clone())?;
-    let result = apply_metadata_observation_impl(&tx, place_entry, observation);
+    let result = apply_metadata_observation_impl(&tx, place_entry, observation, options);
 
     // Inserting into moz_places has side-effects (temp tables are populated via triggers and need to be flushed).
     // This call "finalizes" these side-effects.
@@ -616,6 +647,7 @@ fn apply_metadata_observation_impl(
     tx: &PlacesTransaction<'_>,
     place_entry: PlaceEntry,
     observation: HistoryMetadataObservation,
+    options: NoteHistoryMetadataObservationOptions,
 ) -> Result<()> {
     let referrer_entry = match observation.referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
@@ -691,7 +723,7 @@ fn apply_metadata_observation_impl(
             }
             Ok(())
         }
-        None => insert_metadata_in_tx(tx, compound_key, observation),
+        None => insert_metadata_in_tx(tx, compound_key, observation, options),
     }
 }
 
@@ -699,6 +731,7 @@ fn insert_metadata_in_tx(
     tx: &PlacesTransaction<'_>,
     key: HistoryMetadataCompoundKey,
     observation: MetadataObservation,
+    options: NoteHistoryMetadataObservationOptions,
 ) -> Result<()> {
     let now = Timestamp::now();
 
@@ -714,7 +747,16 @@ fn insert_metadata_in_tx(
 
     // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
     // This lets us simply INSERT here without worrying about the rest.
-    let place_id = key.place_entry.get_or_insert(tx)?;
+    let place_id = match (key.place_entry, options.if_page_missing) {
+        (PlaceEntry::Existing(id), _) => id,
+        (PlaceEntry::CreateFor(_, _), HistoryMetadataPageMissingBehavior::IgnoreObservation) => {
+            return Ok(())
+        }
+        (
+            ref entry @ PlaceEntry::CreateFor(_, _),
+            HistoryMetadataPageMissingBehavior::InsertPage,
+        ) => entry.get_or_insert(tx)?,
+    };
 
     let sql = "INSERT INTO moz_places_metadata
         (place_id, created_at, updated_at, total_view_time, search_query_id, document_type, referrer_place_id)
@@ -850,6 +892,19 @@ mod tests {
 
     macro_rules! note_observation {
         ($conn:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+            note_observation!(
+                $conn,
+                NoteHistoryMetadataObservationOptions::new()
+                    .if_page_missing(HistoryMetadataPageMissingBehavior::InsertPage),
+                url $url,
+                view_time $view_time,
+                search_term $search_term,
+                document_type $document_type,
+                referrer_url $referrer_url,
+                title $title
+            )
+        };
+        ($conn:expr, $options:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
             apply_metadata_observation(
                 $conn,
                 HistoryMetadataObservation {
@@ -860,6 +915,7 @@ mod tests {
                     referrer_url: $referrer_url.map(|s: &str| s.to_string()),
                     title: $title.map(|s: &str| s.to_string()),
                 },
+                $options,
             )
             .unwrap();
         };
@@ -1139,7 +1195,8 @@ mod tests {
                 document_type: None,
                 referrer_url: None,
                 title: None
-            }
+            },
+            NoteHistoryMetadataObservationOptions::new(),
         )
         .is_err());
 
@@ -1153,7 +1210,8 @@ mod tests {
                 document_type: None,
                 referrer_url: None,
                 title: None
-            }
+            },
+            NoteHistoryMetadataObservationOptions::new(),
         )
         .is_ok());
     }
@@ -2151,5 +2209,75 @@ mod tests {
 
         assert_table_size!(&conn, "moz_places_metadata", 0);
         assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
+    }
+
+    #[test]
+    fn test_if_page_missing_behavior() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(
+            &conn,
+            NoteHistoryMetadataObservationOptions::new()
+                .if_page_missing(HistoryMetadataPageMissingBehavior::IgnoreObservation),
+            url "https://www.example.com/",
+            view_time None,
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        let observations = get_since(&conn, 0).expect("should get all metadata observations");
+        assert_eq!(observations, &[]);
+
+        let visit_observation =
+            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                .with_at(Timestamp::now());
+        apply_observation(&conn, visit_observation).expect("should apply visit observation");
+
+        note_observation!(
+            &conn,
+            NoteHistoryMetadataObservationOptions::new()
+                .if_page_missing(HistoryMetadataPageMissingBehavior::IgnoreObservation),
+            url "https://www.example.com/",
+            view_time None,
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        let observations = get_since(&conn, 0).expect("should get all metadata observations");
+        assert_eq!(
+            observations
+                .into_iter()
+                .map(|m| m.url)
+                .collect::<Vec<String>>(),
+            &["https://www.example.com/"]
+        );
+
+        note_observation!(
+            &conn,
+            NoteHistoryMetadataObservationOptions::new()
+                .if_page_missing(HistoryMetadataPageMissingBehavior::InsertPage),
+            url "https://www.example.org/",
+            view_time None,
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        let observations = get_since(&conn, 0).expect("should get all metadata observations");
+        assert_eq!(
+            observations
+                .into_iter()
+                .map(|m| m.url)
+                .collect::<Vec<String>>(),
+            &[
+                "https://www.example.org/", // Newest first.
+                "https://www.example.com/",
+            ],
+        );
     }
 }
