@@ -76,10 +76,10 @@ impl SuggestDao<'_> {
         // into words. We want to avoid that work for strings that are so long
         // they can't possibly match. The longest possible weather query is two
         // geonames + one weather keyword + at least two spaces between those
-        // three components, say, 10 spaces total for some wiggle room. There's
-        // not much point in an analogous min length check since weather
-        // suggestions can be matched on city alone and many city names are only
-        // a few characters long ("nyc").
+        // three components, say, 10 extra characters total for spaces and
+        // punctuation. There's no point in an analogous min length check since
+        // weather suggestions can be matched on city alone and many city names
+        // are only a few characters long ("nyc").
         let g_cache = self.geoname_cache();
         let w_cache = self.weather_cache();
         let max_query_len = 2 * g_cache.max_name_length + w_cache.max_keyword_length + 10;
@@ -89,10 +89,19 @@ impl SuggestDao<'_> {
 
         let max_chunk_size =
             std::cmp::max(g_cache.max_name_word_count, w_cache.max_keyword_word_count);
-        let kw = query.keyword.to_lowercase();
+
+        // Lowercase, strip punctuation, and split the query into words.
+        let kw_lower = query.keyword.to_lowercase();
+        let words: Vec<_> = kw_lower
+            .split_whitespace()
+            .flat_map(|w| {
+                w.split(|c| !char::is_alphabetic(c))
+                    .filter(|s| !s.is_empty())
+            })
+            .collect();
 
         let mut matches =
-            filter_map_chunks::<Token>(&kw, max_chunk_size, |chunk, chunk_i, path| {
+            filter_map_chunks::<Token>(&words, max_chunk_size, |chunk, chunk_i, path| {
                 // Match the chunk to token types that haven't already been matched
                 // in this path. `all_tokens` will remain `None` until a token is
                 // matched.
@@ -744,6 +753,13 @@ mod tests {
                     geoname::tests::waterloo_al().into(),
                 ],
             ),
+            ("weather w w", vec![]),
+            ("weather w water", vec![]),
+            ("weather w waterloo", vec![]),
+            ("weather water w", vec![]),
+            ("weather waterloo water", vec![]),
+            ("weather water water", vec![]),
+            ("weather water waterloo", vec![]),
             ("waterloo foo", vec![]),
             ("waterloo weather foo", vec![]),
             ("foo waterloo", vec![]),
@@ -789,6 +805,170 @@ mod tests {
             ),
             (
                 "new york weather     ",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "rochester,",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester ,",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester , ",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester,ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester, ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester ,ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester , ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester,",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester, ",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester , ",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester,ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester, ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester ,ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather rochester , ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester,weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester, weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester ,weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester , weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester,ny weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester, ny weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester ,ny weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "rochester , ny weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "new york,",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york ,",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york , ",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york,ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york, ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york ,ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york , ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "weather new york,ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "weather new york, ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "weather new york ,ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "weather new york , ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york,weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york, weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york ,weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york , weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york,ny weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york, ny weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york ,ny weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "new york , ny weather",
                 vec![geoname::tests::nyc().into()],
             ),
             (
