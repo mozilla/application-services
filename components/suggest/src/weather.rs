@@ -184,6 +184,8 @@ impl SuggestDao<'_> {
                 city: city.as_ref().map(|c| c.name.clone()),
                 region: city.as_ref().map(|c| c.admin1_code.clone()),
                 country: city.as_ref().map(|c| c.country_code.clone()),
+                latitude: city.as_ref().map(|c| c.latitude),
+                longitude: city.as_ref().map(|c| c.longitude),
                 score: w_cache.score,
             })
             .collect())
@@ -431,7 +433,20 @@ impl Token {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{store::tests::TestStore, testing::*, SuggestIngestionConstraints};
+    use crate::{geoname, store::tests::TestStore, testing::*, SuggestIngestionConstraints};
+
+    impl From<Geoname> for Suggestion {
+        fn from(g: Geoname) -> Self {
+            Suggestion::Weather {
+                city: Some(g.name),
+                region: Some(g.admin1_code),
+                country: Some(g.country_code),
+                latitude: Some(g.latitude),
+                longitude: Some(g.longitude),
+                score: 0.24,
+            }
+        }
+    }
 
     #[test]
     fn weather_provider_config() -> anyhow::Result<()> {
@@ -523,6 +538,8 @@ mod tests {
                     city: None,
                     region: None,
                     country: None,
+                    latitude: None,
+                    longitude: None,
                 },]
             );
         }
@@ -566,6 +583,8 @@ mod tests {
                     city: None,
                     region: None,
                     country: None,
+                    latitude: None,
+                    longitude: None,
                 },]
             );
         }
@@ -577,7 +596,7 @@ mod tests {
     fn cities_and_regions() -> anyhow::Result<()> {
         before_each();
 
-        let mut store = crate::geoname::tests::new_test_store();
+        let mut store = geoname::tests::new_test_store();
         store.client_mut().add_record(
             "weather",
             "weather-1",
@@ -601,229 +620,104 @@ mod tests {
                 vec![
                     // Waterloo, IA should be first since its population is
                     // larger than Waterloo, AL.
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("IA".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("AL".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
                 ],
             ),
             (
                 "waterloo ia",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "ia waterloo",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "waterloo al",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("AL".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_al().into()],
             ),
             (
                 "al waterloo",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("AL".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_al().into()],
             ),
             ("waterloo ia al", vec![]),
             ("waterloo ny", vec![]),
             (
                 "new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "ny ny",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             ("ny ny ny", vec![]),
             (
                 "ny new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york ny",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "weather ny",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "ny weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "weather ny ny",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "ny weather ny",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "ny ny weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "rochester ny",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "ny rochester",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "weather rochester ny",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "rochester weather ny",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "rochester ny weather",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "weather ny rochester",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "ny weather rochester",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "ny rochester weather",
-                vec![Suggestion::Weather {
-                    city: Some("Rochester".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::rochester().into()],
             ),
             (
                 "weather new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new weather york",
@@ -831,72 +725,32 @@ mod tests {
             ),
             (
                 "new york weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "weather new york new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york weather new york",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york new york weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "weather water",
                 vec![
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("IA".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("AL".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
                 ],
             ),
             (
                 "waterloo w",
                 vec![
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("IA".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("AL".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
                 ],
             ),
             ("weather w w", vec![]),
@@ -911,119 +765,49 @@ mod tests {
             ("foo waterloo", vec![]),
             ("foo waterloo weather", vec![]),
             (
-                crate::geoname::tests::LONG_NAME,
-                vec![
-                    Suggestion::Weather {
-                        city: Some("Long Name".to_string()),
-                        region: Some("NY".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                ],
+                geoname::tests::LONG_NAME,
+                vec![geoname::tests::long_name_city().into()],
             ),
             (
                 "   WaTeRlOo   ",
                 vec![
-                    // Waterloo, IA should be first since its population is
-                    // larger than Waterloo, AL.
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("IA".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                    Suggestion::Weather {
-                        city: Some("Waterloo".to_string()),
-                        region: Some("AL".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
                 ],
             ),
             (
                 "     waterloo ia",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "waterloo     ia",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "waterloo ia     ",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "  waterloo   ia    ",
-                vec![Suggestion::Weather {
-                    city: Some("Waterloo".to_string()),
-                    region: Some("IA".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::waterloo_ia().into()],
             ),
             (
                 "     new york weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new     york weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york     weather",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
                 "new york weather     ",
-                vec![Suggestion::Weather {
-                    city: Some("New York City".to_string()),
-                    region: Some("NY".to_string()),
-                    country: Some("US".to_string()),
-                    score: 0.24,
-                }],
+                vec![geoname::tests::nyc().into()],
             ),
             (
-<<<<<<< HEAD
-                &format!("{} weather", crate::geoname::tests::LONG_NAME),
-                vec![
-                    Suggestion::Weather {
-                        city: Some("Long Name".to_string()),
-                        region: Some("NY".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                ],
-=======
                 "rochester,",
                 vec![geoname::tests::rochester().into()],
             ),
@@ -1190,77 +974,69 @@ mod tests {
             (
                 &format!("{} weather", geoname::tests::LONG_NAME),
                 vec![geoname::tests::long_name_city().into()],
->>>>>>> 892d31a9c (Bug 1927637 - Ignore punctuation when matching weather suggestions)
             ),
             (
-                &format!("weather {}", crate::geoname::tests::LONG_NAME),
-                vec![
-                    Suggestion::Weather {
-                        city: Some("Long Name".to_string()),
-                        region: Some("NY".to_string()),
-                        country: Some("US".to_string()),
-                        score: 0.24,
-                    },
-                ],
+                &format!("weather {}", geoname::tests::LONG_NAME),
+                vec![geoname::tests::long_name_city().into()],
             ),
             (
-                &format!("{} and some other words that don't match anything but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("{} and some other words that don't match anything but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and some other words that don't match anything {} but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("and some other words that don't match anything {} but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and some other words that don't match anything but that is neither here nor there {}", crate::geoname::tests::LONG_NAME),
+                &format!("and some other words that don't match anything but that is neither here nor there {}", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("weather {} and some other words that don't match anything but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("weather {} and some other words that don't match anything but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("{} weather and some other words that don't match anything but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("{} weather and some other words that don't match anything but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("{} and some other words that don't match anything weather but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("{} and some other words that don't match anything weather but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("{} and some other words that don't match anything but that is neither here nor there weather", crate::geoname::tests::LONG_NAME),
+                &format!("{} and some other words that don't match anything but that is neither here nor there weather", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("weather and some other words that don't match anything {} but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("weather and some other words that don't match anything {} but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("weather and some other words that don't match anything but that is neither here nor there {}", crate::geoname::tests::LONG_NAME),
+                &format!("weather and some other words that don't match anything but that is neither here nor there {}", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and some other words that don't match anything weather {} but that is neither here nor there", crate::geoname::tests::LONG_NAME),
+                &format!("and some other words that don't match anything weather {} but that is neither here nor there", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and some other words that don't match anything but that is neither here nor there weather {}", crate::geoname::tests::LONG_NAME),
+                &format!("and some other words that don't match anything but that is neither here nor there weather {}", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("{} weather and then this also doesn't match anything down here", crate::geoname::tests::LONG_NAME),
+                &format!("{} weather and then this also doesn't match anything down here", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("{} and then this also doesn't match anything down here weather", crate::geoname::tests::LONG_NAME),
+                &format!("{} and then this also doesn't match anything down here weather", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and then this also doesn't match anything down here {} weather", crate::geoname::tests::LONG_NAME),
+                &format!("and then this also doesn't match anything down here {} weather", geoname::tests::LONG_NAME),
                 vec![]
             ),
             (
-                &format!("and then this also doesn't match anything down here weather {}", crate::geoname::tests::LONG_NAME),
+                &format!("and then this also doesn't match anything down here weather {}", geoname::tests::LONG_NAME),
                 vec![]
             ),
         ];
