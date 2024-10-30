@@ -4,8 +4,9 @@
 
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
+use crate::jexl_filter::JexlFilter;
 use crate::storage::Storage;
-use crate::{RemoteSettingsServer, UniffiCustomTypeConverter};
+use crate::{RemoteSettingsContext, RemoteSettingsServer, UniffiCustomTypeConverter};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -26,6 +27,7 @@ const HEADER_RETRY_AFTER: &str = "Retry-After";
 pub struct RemoteSettingsClient<C = ViaductApiClient> {
     // This is immutable, so it can be outside the mutex
     collection_name: String,
+    jexl_filter: JexlFilter,
     inner: Mutex<RemoteSettingsClientInner<C>>,
 }
 
@@ -35,9 +37,15 @@ struct RemoteSettingsClientInner<C> {
 }
 
 impl<C: ApiClient> RemoteSettingsClient<C> {
-    pub fn new_from_parts(collection_name: String, storage: Storage, api_client: C) -> Self {
+    pub fn new_from_parts(
+        collection_name: String,
+        storage: Storage,
+        jexl_filter: JexlFilter,
+        api_client: C,
+    ) -> Self {
         Self {
             collection_name,
+            jexl_filter,
             inner: Mutex::new(RemoteSettingsClientInner {
                 storage,
                 api_client,
@@ -48,6 +56,19 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         &self.collection_name
     }
 
+    /// Filters records based on the presence and evaluation of `filter_expression`.
+    fn filter_records(&self, records: Vec<RemoteSettingsRecord>) -> Vec<RemoteSettingsRecord> {
+        records
+            .into_iter()
+            .filter(|record| match record.fields.get("filter_expression") {
+                Some(serde_json::Value::String(filter_expr)) => {
+                    self.jexl_filter.evaluate(filter_expr).unwrap_or(false)
+                }
+                _ => true, // Include records without a valid filter expression by default
+            })
+            .collect()
+    }
+
     /// Get the current set of records.
     ///
     /// If records are not present in storage this will normally return None.  Use `sync_if_empty =
@@ -56,14 +77,29 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         let mut inner = self.inner.lock();
         let collection_url = inner.api_client.collection_url();
 
+        // Try to retrieve and filter cached records first
         let cached_records = inner.storage.get_records(&collection_url)?;
-        if cached_records.is_some() || !sync_if_empty {
-            return Ok(cached_records);
-        }
 
-        let records = inner.api_client.get_records(None)?;
-        inner.storage.set_records(&collection_url, &records)?;
-        Ok(Some(records))
+        match cached_records {
+            Some(records) if !records.is_empty() || !sync_if_empty => {
+                // Filter and return cached records if they're present or if we don't need to sync
+                let filtered_records = self.filter_records(records);
+                Ok(Some(filtered_records))
+            }
+            None if !sync_if_empty => {
+                // No cached records and sync_if_empty is false, so we return None
+                Ok(None)
+            }
+            _ => {
+                // Fetch new records if no cached records or if sync is required
+                let records = inner.api_client.get_records(None)?;
+                inner.storage.set_records(&collection_url, &records)?;
+
+                // Apply filtering to the newly fetched records
+                let filtered_records = self.filter_records(records);
+                Ok(Some(filtered_records))
+            }
+        }
     }
 
     pub fn sync(&self) -> Result<()> {
@@ -89,10 +125,18 @@ impl RemoteSettingsClient<ViaductApiClient> {
         server_url: Url,
         bucket_name: String,
         collection_name: String,
+        context: Option<RemoteSettingsContext>,
         storage: Storage,
     ) -> Result<Self> {
         let api_client = ViaductApiClient::new(server_url, &bucket_name, &collection_name)?;
-        Ok(Self::new_from_parts(collection_name, storage, api_client))
+        let jexl_filter = JexlFilter::new(context);
+
+        Ok(Self::new_from_parts(
+            collection_name,
+            storage,
+            jexl_filter,
+            api_client,
+        ))
     }
 
     pub fn update_config(&self, server_url: Url, bucket_name: String) -> Result<()> {
@@ -1414,11 +1458,11 @@ mod test {
       "title": "jpg-attachment",
       "content": "content",
       "attachment": {
-      "filename": "jgp-attachment.jpg",
-      "location": "the-bucket/the-collection/d3a5eccc-f0ca-42c3-b0bb-c0d4408c21c9.jpg",
-      "hash": "2cbd593f3fd5f1585f92265433a6696a863bc98726f03e7222135ff0d8e83543",
-      "mimetype": "image/jpeg",
-      "size": 1374325
+          "filename": "jgp-attachment.jpg",
+          "location": "the-bucket/the-collection/d3a5eccc-f0ca-42c3-b0bb-c0d4408c21c9.jpg",
+          "hash": "2cbd593f3fd5f1585f92265433a6696a863bc98726f03e7222135ff0d8e83543",
+          "mimetype": "image/jpeg",
+          "size": 1374325
       },
       "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0d7",
       "schema": 1677694447771,
@@ -1500,8 +1544,12 @@ mod test_new_client {
         // Note, don't make any api_client.expect_*() calls, the RemoteSettingsClient should not
         // attempt to make any requests for this scenario
         let storage = Storage::new(":memory:".into()).expect("Error creating storage");
-        let rs_client =
-            RemoteSettingsClient::new_from_parts("test-collection".into(), storage, api_client);
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
         assert_eq!(
             rs_client.get_records(false).expect("Error getting records"),
             None
@@ -1529,11 +1577,115 @@ mod test_new_client {
             }
         });
         let storage = Storage::new(":memory:".into()).expect("Error creating storage");
-        let rs_client =
-            RemoteSettingsClient::new_from_parts("test-collection".into(), storage, api_client);
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
         assert_eq!(
             rs_client.get_records(true).expect("Error getting records"),
             Some(records)
+        );
+    }
+}
+
+#[cfg(test)]
+mod test_filtering_records {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_get_records_filtered_app_version_pass() {
+        let mut api_client = MockApiClient::new();
+        let records = vec![RemoteSettingsRecord {
+            id: "record-0001".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: None,
+            fields: json!({"filter_expression": "app_version|versionCompare('4.0') >= 0"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+        api_client.expect_collection_url().returning(|| {
+            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+        });
+        api_client.expect_get_records().returning({
+            let records = records.clone();
+            move |timestamp| {
+                assert_eq!(timestamp, None);
+                Ok(records.clone())
+            }
+        });
+
+        let context = RemoteSettingsContext {
+            app_version: Some("4.4".to_string()),
+            ..Default::default()
+        };
+
+        let mut storage = Storage::new(":memory:".into()).expect("Error creating storage");
+        let _ = storage.set_records(
+            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            &records,
+        );
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(Some(context)),
+            api_client,
+        );
+        assert_eq!(
+            rs_client.get_records(false).expect("Error getting records"),
+            Some(records)
+        );
+    }
+
+    #[test]
+    fn test_get_records_filtered_app_version_too_low() {
+        let mut api_client = MockApiClient::new();
+        let records = vec![RemoteSettingsRecord {
+            id: "record-0001".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: None,
+            fields: json!({"filter_expression": "app_version|versionCompare('4.0') >= 0"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+        api_client.expect_collection_url().returning(|| {
+            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+        });
+        api_client.expect_get_records().returning({
+            let records = records.clone();
+            move |timestamp| {
+                assert_eq!(timestamp, None);
+                Ok(records.clone())
+            }
+        });
+
+        let context = RemoteSettingsContext {
+            app_version: Some("3.9".to_string()),
+            ..Default::default()
+        };
+
+        let mut storage = Storage::new(":memory:".into()).expect("Error creating storage");
+        let _ = storage.set_records(
+            "http://rs.example.com/v1/buckets/main/collections/test-collection",
+            &records,
+        );
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(Some(context)),
+            api_client,
+        );
+        assert_eq!(
+            rs_client.get_records(false).expect("Error getting records"),
+            Some(vec![])
         );
     }
 }

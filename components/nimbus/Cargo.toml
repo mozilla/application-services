@@ -28,7 +28,7 @@ log = "0.4"
 thiserror = "1"
 url = "2.5"
 rkv = { version = "0.19", optional = true }
-jexl-eval = "0.2.2"
+jexl-eval = "0.3.0"
 uuid = { version = "1.7", features = ["serde", "v4"]}
 sha2 = "^0.10"
 hex = "0.4"
