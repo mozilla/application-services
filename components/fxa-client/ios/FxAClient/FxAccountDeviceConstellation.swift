@@ -13,6 +13,11 @@ public struct ConstellationState {
     public let remoteDevices: [Device]
 }
 
+public enum SendEventError: Error {
+    case tabsNotClosed(urls: [String])
+    case other(Error)
+}
+
 public class DeviceConstellation {
     var constellationState: ConstellationState?
     let account: PersistedFirefoxAccount
@@ -87,18 +92,29 @@ public class DeviceConstellation {
     }
 
     /// Send an event to another device such as Send Tab.
-    public func sendEventToDevice(targetDeviceId: String, e: DeviceEventOutgoing) {
+    public func sendEventToDevice(targetDeviceId: String,
+                                  e: DeviceEventOutgoing,
+                                  completionHandler: ((Result<Void, SendEventError>) -> Void)? = nil)
+    {
         DispatchQueue.global().async {
             do {
                 switch e {
                 case let .sendTab(title, url): do {
                         try self.account.sendSingleTab(targetDeviceId: targetDeviceId, title: title, url: url)
+                        completionHandler?(.success(()))
                     }
                 case let .closeTabs(urls):
-                    _ = try self.account.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
+                    let result = try self.account.closeTabs(targetDeviceId: targetDeviceId, urls: urls)
+                    switch result {
+                    case .ok:
+                        completionHandler?(.success(()))
+                    case let .tabsNotClosed(urls):
+                        completionHandler?(.failure(.tabsNotClosed(urls: urls)))
+                    }
                 }
             } catch {
                 FxALog.error("Error sending event to another device: \(error).")
+                completionHandler?(.failure(.other(error)))
             }
         }
     }

@@ -1,5 +1,10 @@
 # v134.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### FxA Client
+- Updated the iOS `sendToDevice` function to return the `closeTab` call's result when applicable. ([#6448](https://github.com/mozilla/application-services/pull/6448))
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus SDK ⛅️🔬🔭
