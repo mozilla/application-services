@@ -17,6 +17,12 @@
 ### Glean
 - Updated to v63.0.0 ([bug 1933939](https://bugzilla.mozilla.org/show_bug.cgi?id=1933939))
 
+## ⚠️ Breaking Changes ⚠️
+
+## Webext-Storage
+- Exposed the bridged engine logic for use in desktop ([#6473](https://github.com/mozilla/application-services/pull/6473)).
+  - This updated the signature of the `bridged_engine` function technically making this PR a breaking change though an imminent desktop patch will remove references to function calls with the old signature.
+
 # v134.0 (_2023-11-25_)
 
 ## ✨ What's New ✨
