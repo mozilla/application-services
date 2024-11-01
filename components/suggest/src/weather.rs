@@ -101,7 +101,7 @@ impl SuggestDao<'_> {
             .collect();
 
         let mut matches =
-            filter_map_chunks::<Token>(&words, max_chunk_size, |chunk, chunk_i, path| {
+            filter_map_chunks::<Token>(&words, max_chunk_size, |chunk, c_i, c_size, path| {
                 // Match the chunk to token types that haven't already been matched
                 // in this path. `all_tokens` will remain `None` until a token is
                 // matched.
@@ -112,10 +112,21 @@ impl SuggestDao<'_> {
                     TokenType::WeatherKeyword,
                 ] {
                     if !path.iter().any(|t| t.token_type() == tt) {
-                        // Allow prefix matching if this isn't the first chunk in
-                        // the path.
-                        let mut tokens =
-                            self.match_weather_tokens(tt, path, chunk, chunk_i == 0)?;
+                        let is_first_chunk = c_i == 0;
+                        let is_last_chunk = c_i + c_size == words.len();
+                        // Match prefixes if the chunk isn't the first term in
+                        // the query.
+                        let match_prefixes = !is_first_chunk;
+                        // Match abbreviations if the chunk isn't the only term
+                        // in the query.
+                        let match_abbreviations = !is_first_chunk || !is_last_chunk;
+                        let mut tokens = self.match_weather_tokens(
+                            tt,
+                            path,
+                            chunk,
+                            match_prefixes,
+                            match_abbreviations,
+                        )?;
                         if !tokens.is_empty() {
                             let mut ts = all_tokens.take().unwrap_or_default();
                             ts.append(&mut tokens);
@@ -196,18 +207,19 @@ impl SuggestDao<'_> {
         token_type: TokenType,
         path: &[Token],
         candidate: &str,
-        is_first_chunk: bool,
+        match_prefixes: bool,
+        match_abbreviations: bool,
     ) -> Result<Vec<Token>> {
         match token_type {
             TokenType::City => {
                 // Fetch matching cities, and filter them to regions we've
-                // already matched in this path. Allow prefix matching for
-                // chunks after the first.
+                // already matched in this path.
                 let regions: Vec<_> = path.iter().filter_map(|t| t.region()).collect();
                 Ok(self
                     .fetch_geonames(
                         candidate,
-                        !is_first_chunk,
+                        match_prefixes,
+                        match_abbreviations,
                         Some(GeonameType::City),
                         if regions.is_empty() {
                             None
@@ -221,13 +233,13 @@ impl SuggestDao<'_> {
             }
             TokenType::Region => {
                 // Fetch matching regions, and filter them to cities we've
-                // already matched in this patch. Allow prefix matching for
-                // chunks after the first.
+                // already matched in this patch.
                 let cities: Vec<_> = path.iter().filter_map(|t| t.city()).collect();
                 Ok(self
                     .fetch_geonames(
                         candidate,
-                        !is_first_chunk,
+                        match_prefixes,
+                        match_abbreviations,
                         Some(GeonameType::Region),
                         if cities.is_empty() {
                             None
@@ -240,16 +252,23 @@ impl SuggestDao<'_> {
                     .collect())
             }
             TokenType::WeatherKeyword => {
-                // Fetch matching keywords.
+                // Fetch matching keywords. `min_keyword_length == 0` in the
+                // config means that the config doesn't allow prefix matching.
+                // `min_keyword_length > 0` means that the keyword must be at
+                // least that long when it's the first term in the query. We
+                // assume that `match_prefixes == false` means the candidate is
+                // the first term in the query.
                 let len = self.weather_cache().min_keyword_length;
-                if is_first_chunk && (candidate.len() as i32) < len {
-                    // The chunk is first and it's too short.
+                if !match_prefixes && (candidate.len() as i32) < len {
+                    // The candidate is the first term in the query and it's too
+                    // short.
                     Ok(vec![])
                 } else {
-                    // Allow arbitrary prefix matching if the chunk isn't first
-                    // or if prefix matching is allowed.
+                    // Do arbitrary prefix matching if the candidate isn't the
+                    // first term in the query or if the config allows prefix
+                    // matching.
                     Ok(self
-                        .match_weather_keywords(candidate, !is_first_chunk || len > 0)?
+                        .match_weather_keywords(candidate, match_prefixes || len > 0)?
                         .into_iter()
                         .map(Token::WeatherKeyword)
                         .collect())
@@ -485,8 +504,8 @@ mod tests {
             "weather-1",
             json!({
                 // min_keyword_length > 0 means prefixes are allowed.
-                "min_keyword_length": 3,
-                "keywords": ["ab", "xyz", "weather"],
+                "min_keyword_length": 5,
+                "keywords": ["ab", "xyz", "cdefg", "weather"],
                 "max_keyword_length": "weather".len(),
                 "max_keyword_word_count": 1,
                 "score": 0.24
@@ -500,30 +519,36 @@ mod tests {
 
         let no_matches = [
             // doesn't match any keyword
-            "xab",
-            "abx",
-            "xxyz",
-            "xyzx",
+            "ab123",
+            "123ab",
+            "xyz12",
+            "12xyz",
+            "xcdefg",
+            "cdefgx",
+            "x cdefg",
+            "cdefg x",
             "weatherx",
             "xweather",
-            "xwea",
+            "xweat",
+            "weatx",
             "x   weather",
             "   weather x",
             "weather foo",
             "foo weather",
             // too short
-            "xy",
             "ab",
+            "xyz",
+            "cdef",
             "we",
+            "wea",
+            "weat",
         ];
         for q in no_matches {
             assert_eq!(store.fetch_suggestions(SuggestionQuery::weather(q)), vec![]);
         }
 
         let matches = [
-            "xyz",
-            "wea",
-            "weat",
+            "cdefg",
             "weath",
             "weathe",
             "weather",
@@ -642,6 +667,22 @@ mod tests {
             ),
             ("waterloo ia al", vec![]),
             ("waterloo ny", vec![]),
+            (
+                "ia",
+                vec![],
+            ),
+            (
+                "iowa",
+                vec![],
+            ),
+            (
+                "al",
+                vec![],
+            ),
+            (
+                "alabama",
+                vec![],
+            ),
             (
                 "new york",
                 vec![geoname::tests::nyc().into()],
@@ -764,6 +805,50 @@ mod tests {
             ("waterloo weather foo", vec![]),
             ("foo waterloo", vec![]),
             ("foo waterloo weather", vec![]),
+            (
+                "ny",
+                vec![],
+            ),
+            (
+                "nyc",
+                vec![],
+            ),
+            (
+                "roc",
+                vec![],
+            ),
+            (
+                "nyc ny",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "ny nyc",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "roc ny",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "ny roc",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "nyc weather",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "weather nyc",
+                vec![geoname::tests::nyc().into()],
+            ),
+            (
+                "roc weather",
+                vec![geoname::tests::rochester().into()],
+            ),
+            (
+                "weather roc",
+                vec![geoname::tests::rochester().into()],
+            ),
             (
                 geoname::tests::LONG_NAME,
                 vec![geoname::tests::long_name_city().into()],
