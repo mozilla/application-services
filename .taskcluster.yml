@@ -5,6 +5,7 @@
 version: 1
 reporting: checks-v1
 policy:
+    allowComments: collaborators
     pullRequests: public
 tasks:
     - $let:
