@@ -148,7 +148,7 @@ impl SuggestDao<'_> {
                     })
             })
             // Step 4: Discard matches that don't have the right combination of
-            // tokens or that are otherwise invalid. Along with step 1, this is
+            // tokens or that are otherwise invalid. Along with step 2, this is
             // the core of the matching logic. In general, allow a match if it
             // has (a) a city name typed in full or (b) a weather keyword at
             // least as long as the config's min keyword length, since that
