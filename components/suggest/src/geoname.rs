@@ -82,6 +82,33 @@ impl Hash for Geoname {
     }
 }
 
+/// Value returned by `fetch_geonames()`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GeonameMatch {
+    pub geoname: Geoname,
+    pub match_type: GeonameMatchType,
+    pub prefix: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GeonameMatchType {
+    /// For U.S. states, abbreviations are the usual two-letter codes ("CA").
+    Abbreviation,
+    AirportCode,
+    /// This includes any names that aren't abbreviations or airport codes.
+    Name,
+}
+
+impl GeonameMatchType {
+    pub fn is_abbreviation(&self) -> bool {
+        matches!(self, GeonameMatchType::Abbreviation)
+    }
+
+    pub fn is_name(&self) -> bool {
+        matches!(self, GeonameMatchType::Name)
+    }
+}
+
 /// This data is used to service every query handled by the weather provider and
 /// potentially other providers, so we cache it from the DB.
 #[derive(Debug, Default)]
@@ -162,13 +189,11 @@ impl SuggestDao<'_> {
     /// Fetches geonames that have at least one name matching the `query`
     /// string.
     ///
-    /// `match_prefixes` determines whether prefix matching is performed. If
-    /// `true`, returned geonames will have at least one name prefixed by
-    /// `query`. If `false`, returned geonames will have at least one name equal
-    /// to `query`.
-    ///
-    /// `match_abbreviations` determines whether abbreviations and airport codes
-    /// are matched.
+    /// `match_name_prefix` determines whether prefix matching is performed on
+    /// names that aren't abbreviations and airport codes. When `true`, names
+    /// that start with `query` will match. When false, names that equal `query`
+    /// will match. Prefix matching is never performed on abbreviations and
+    /// airport codes because we don't currently have a use case for that.
     ///
     /// `geoname_type` restricts returned geonames to the specified type. `None`
     /// restricts geonames to cities and regions. There's no way to return
@@ -182,14 +207,20 @@ impl SuggestDao<'_> {
     /// since city and region names are not unique. `filter` is disjunctive: If
     /// any item in `filter` matches a geoname, the geoname will be filtered in.
     /// If `filter` is empty, all geonames will be filtered out.
+    ///
+    /// The returned matches will include all matching types for a geoname, one
+    /// match per type per geoname. For example, if the query matches both a
+    /// geoname's name and abbreviation, two matches for that geoname will be
+    /// returned: one with a `match_type` of `GeonameMatchType::Name` and one
+    /// with a `match_type` of `GeonameMatchType::Abbreviation`. `prefix` is set
+    /// according to whether the query matched a prefix of the given type.
     pub fn fetch_geonames(
         &self,
         query: &str,
-        match_prefixes: bool,
-        match_abbreviations: bool,
+        match_name_prefix: bool,
         geoname_type: Option<GeonameType>,
         filter: Option<Vec<&Geoname>>,
-    ) -> Result<Vec<Geoname>> {
+    ) -> Result<Vec<GeonameMatch>> {
         let city_pred = "(g.feature_class = 'P')";
         let region_pred = "(g.feature_class = 'A' AND g.feature_code = 'ADM1')";
         let type_pred = match geoname_type {
@@ -210,56 +241,67 @@ impl SuggestDao<'_> {
                         g.feature_class,
                         g.country_code,
                         g.admin1_code,
-                        g.population
+                        g.population,
+                        a.name != :name AS prefix,
+                        (SELECT CASE
+                             -- abbreviation
+                             WHEN a.iso_language = 'abbr' THEN 1
+                             -- airport code
+                             WHEN a.iso_language IN ('iata', 'icao', 'faac') THEN 2
+                             -- name
+                             ELSE 3
+                             END
+                        ) AS match_type
                     FROM
                         geonames g
+                    JOIN
+                        geonames_alternates a ON g.id = a.geoname_id
                     WHERE
                         {}
-                        AND g.id IN (
-                            SELECT DISTINCT
-                                geoname_id
-                            FROM
-                                geonames_alternates
-                            WHERE
-                                CASE :abbr
-                                    WHEN TRUE THEN 1
-                                    ELSE (
-                                        iso_language ISNULL
-                                        OR iso_language NOT IN ('iata', 'icao', 'faac', 'abbr')
-                                    ) END
-                                AND CASE :prefix
-                                    WHEN TRUE THEN (name BETWEEN :name AND :name || X'FFFF')
-                                    ELSE name = :name
-                                    END
-                        )
+                        AND CASE :prefix
+                            WHEN FALSE THEN a.name = :name
+                            ELSE (a.name = :name OR (
+                                (a.name BETWEEN :name AND :name || X'FFFF')
+                                AND match_type = 3
+                            ))
+                            END
+                    GROUP BY
+                        g.id, match_type
                     ORDER BY
-                        g.feature_class = 'P' DESC, g.population DESC, g.id ASC
+                        g.feature_class = 'P' DESC, g.population DESC, g.id ASC, a.iso_language ASC
                     "#,
                     type_pred
                 ),
                 named_params! {
                     ":name": query.to_lowercase(),
-                    ":abbr": match_abbreviations,
-                    ":prefix": match_prefixes,
+                    ":prefix": match_name_prefix,
                 },
-                |row| -> Result<Option<Geoname>> {
-                    let geoname = Geoname {
-                        geoname_id: row.get("id")?,
-                        name: row.get("name")?,
-                        latitude: row.get("latitude")?,
-                        longitude: row.get("longitude")?,
-                        country_code: row.get("country_code")?,
-                        admin1_code: row.get("admin1_code")?,
-                        population: row.get("population")?,
+                |row| -> Result<Option<GeonameMatch>> {
+                    let g_match = GeonameMatch {
+                        geoname: Geoname {
+                            geoname_id: row.get("id")?,
+                            name: row.get("name")?,
+                            latitude: row.get("latitude")?,
+                            longitude: row.get("longitude")?,
+                            country_code: row.get("country_code")?,
+                            admin1_code: row.get("admin1_code")?,
+                            population: row.get("population")?,
+                        },
+                        prefix: row.get("prefix")?,
+                        match_type: match row.get::<_, i32>("match_type")? {
+                            1 => GeonameMatchType::Abbreviation,
+                            2 => GeonameMatchType::AirportCode,
+                            _ => GeonameMatchType::Name,
+                        },
                     };
                     if let Some(geonames) = &filter {
                         geonames
                             .iter()
-                            .find(|g| g.has_same_region(&geoname))
-                            .map(|_| Ok(Some(geoname)))
+                            .find(|g| g.has_same_region(&g_match.geoname))
+                            .map(|_| Ok(Some(g_match)))
                             .unwrap_or(Ok(None))
                     } else {
-                        Ok(Some(geoname))
+                        Ok(Some(g_match))
                     }
                 },
             )?
@@ -586,6 +628,39 @@ pub(crate) mod tests {
                             { "name": "ny", "iso_language": "abbr" },
                         ],
                     },
+                    // Waco, TX: Has a surprising IATA airport code that's a
+                    // common English word and not a prefix of the city name
+                    {
+                        "id": 9,
+                        "name": "Waco",
+                        "latitude": "31.54933",
+                        "longitude": "-97.14667",
+                        "feature_class": "P",
+                        "feature_code": "PPLA2",
+                        "country_code": "US",
+                        "admin1_code": "TX",
+                        "population": 132356,
+                        "alternate_names_2": [
+                            { "name": "waco" },
+                            { "name": "act", "iso_language": "iata" },
+                        ],
+                    },
+                    // TX
+                    {
+                        "id": 10,
+                        "name": "Texas",
+                        "latitude": "31.25044",
+                        "longitude": "-99.25061",
+                        "feature_class": "A",
+                        "feature_code": "ADM1",
+                        "country_code": "US",
+                        "admin1_code": "TX",
+                        "population": 22875689,
+                        "alternate_names_2": [
+                            { "name": "texas" },
+                            { "name": "tx", "iso_language": "abbr" },
+                        ],
+                    },
                     // Made-up city with a long name
                     {
                         "id": 999,
@@ -655,6 +730,18 @@ pub(crate) mod tests {
         }
     }
 
+    pub(crate) fn waco() -> Geoname {
+        Geoname {
+            geoname_id: 9,
+            name: "Waco".to_string(),
+            latitude: 31.54933,
+            longitude: -97.14667,
+            country_code: "US".to_string(),
+            admin1_code: "TX".to_string(),
+            population: 132356,
+        }
+    }
+
     pub(crate) fn long_name_city() -> Geoname {
         Geoname {
             geoname_id: 999,
@@ -715,404 +802,455 @@ pub(crate) mod tests {
             ..SuggestIngestionConstraints::all_providers()
         });
 
+        #[derive(Debug)]
         struct Test {
             query: &'static str,
-            match_prefixes: bool,
-            match_abbreviations: bool,
+            match_name_prefix: bool,
             geoname_type: Option<GeonameType>,
             filter: Option<Vec<Geoname>>,
-            expected: Vec<Geoname>,
+            expected: Vec<GeonameMatch>,
         }
 
         let tests = [
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "ia",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![],
-            },
-            Test {
-                query: "ia",
-                match_prefixes: true,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![],
-            },
-            Test {
-                query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![waterloo_ia(), waterloo_al()]),
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![waterloo_ia()]),
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![waterloo_al()]),
                 expected: vec![],
             },
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: Some(GeonameType::City),
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "ia",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: Some(GeonameType::Region),
                 filter: None,
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "iowa",
-                match_prefixes: false,
-                match_abbreviations: false,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![ia()],
-            },
-            Test {
-                query: "iowa",
-                match_prefixes: false,
-                match_abbreviations: true,
-                geoname_type: None,
-                filter: None,
-                expected: vec![ia()],
+                expected: vec![GeonameMatch {
+                    geoname: ia(),
+                    match_type: GeonameMatchType::Name,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "al",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![al()],
+                expected: vec![GeonameMatch {
+                    geoname: al(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
+            // "al" is both a name prefix and an abbreviation.
             Test {
                 query: "al",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![al()],
-            },
-            Test {
-                query: "al",
-                match_prefixes: false,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![],
-            },
-            // "al" is both an abbreviation and a prefix, so disabling
-            // abbreviations but enabling prefixes should match it.
-            Test {
-                query: "al",
-                match_prefixes: true,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![al()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: al(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                    GeonameMatch {
+                        geoname: al(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "waterloo",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![ia()]),
-                expected: vec![waterloo_ia()],
+                expected: vec![GeonameMatch {
+                    geoname: waterloo_ia(),
+                    match_type: GeonameMatchType::Name,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "waterloo",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![al()]),
-                expected: vec![waterloo_al()],
+                expected: vec![GeonameMatch {
+                    geoname: waterloo_al(),
+                    match_type: GeonameMatchType::Name,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "waterloo",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![ny_state()]),
                 expected: vec![],
             },
             Test {
                 query: "waterloo",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 // Waterloo, IA should be first since it has a larger
                 // population.
-                expected: vec![waterloo_ia(), waterloo_al()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: waterloo_ia(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: waterloo_al(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "water",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![waterloo_ia(), waterloo_al()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: waterloo_ia(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                    GeonameMatch {
+                        geoname: waterloo_al(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                ],
             },
             Test {
                 query: "water",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "ny",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 // NYC should be first since cities are ordered before regions.
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "ny",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "ny",
-                match_prefixes: false,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![],
-            },
-            Test {
-                query: "ny",
-                match_prefixes: true,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![],
-            },
-            Test {
-                query: "ny",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![nyc()]),
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "ny",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: Some(vec![ny_state()]),
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "ny",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: Some(GeonameType::City),
                 filter: None,
-                expected: vec![nyc()],
+                expected: vec![GeonameMatch {
+                    geoname: nyc(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "ny",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: Some(GeonameType::Region),
                 filter: None,
-                expected: vec![ny_state()],
+                expected: vec![GeonameMatch {
+                    geoname: ny_state(),
+                    match_type: GeonameMatchType::Abbreviation,
+                    prefix: false,
+                }],
             },
             Test {
                 query: "NeW YoRk",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "NY",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Abbreviation,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "new",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "new",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![nyc(), ny_state()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: nyc(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                    GeonameMatch {
+                        geoname: ny_state(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                ],
             },
             Test {
                 query: "new york foo",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "new york foo",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "new foo",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "foo new york",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "foo new york",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "foo new",
-                match_prefixes: true,
-                match_abbreviations: true,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
                 expected: vec![],
             },
             Test {
                 query: "roc",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![rochester()],
+                expected: vec![GeonameMatch {
+                    geoname: rochester(),
+                    match_type: GeonameMatchType::AirportCode,
+                    prefix: false,
+                }],
             },
+            // "roc" is both a name prefix and an airport code.
             Test {
                 query: "roc",
-                match_prefixes: false,
-                match_abbreviations: false,
+                match_name_prefix: true,
                 geoname_type: None,
                 filter: None,
-                expected: vec![],
-            },
-            Test {
-                query: "roc",
-                match_prefixes: true,
-                match_abbreviations: true,
-                geoname_type: None,
-                filter: None,
-                expected: vec![rochester()],
-            },
-            // "roc" is both an airport code and a prefix, so disabling
-            // abbreviations but enabling prefixes should match it.
-            Test {
-                query: "roc",
-                match_prefixes: true,
-                match_abbreviations: false,
-                geoname_type: None,
-                filter: None,
-                expected: vec![rochester()],
+                expected: vec![
+                    GeonameMatch {
+                        geoname: rochester(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: true,
+                    },
+                    GeonameMatch {
+                        geoname: rochester(),
+                        match_type: GeonameMatchType::AirportCode,
+                        prefix: false,
+                    },
+                ],
             },
             Test {
                 query: "long name",
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![Geoname {
-                    geoname_id: 999,
-                    name: "Long Name".to_string(),
-                    latitude: 38.06084,
-                    longitude: -97.92977,
-                    country_code: "US".to_string(),
-                    admin1_code: "NY".to_string(),
-                    population: 2,
+                expected: vec![GeonameMatch {
+                    geoname: long_name_city(),
+                    match_type: GeonameMatchType::Name,
+                    prefix: false,
                 }],
             },
             Test {
                 query: LONG_NAME,
-                match_prefixes: false,
-                match_abbreviations: true,
+                match_name_prefix: false,
                 geoname_type: None,
                 filter: None,
-                expected: vec![Geoname {
-                    geoname_id: 999,
-                    name: "Long Name".to_string(),
-                    latitude: 38.06084,
-                    longitude: -97.92977,
-                    country_code: "US".to_string(),
-                    admin1_code: "NY".to_string(),
-                    population: 2,
+                expected: vec![GeonameMatch {
+                    geoname: long_name_city(),
+                    match_type: GeonameMatchType::Name,
+                    prefix: false,
                 }],
             },
         ];
 
         store.read(|dao| {
             for t in tests {
-                let gs = t.filter.unwrap_or_default();
+                let gs = t.filter.clone().unwrap_or_default();
                 let gs_refs: Vec<_> = gs.iter().collect();
                 let filters = if gs_refs.is_empty() {
                     None
@@ -1122,12 +1260,13 @@ pub(crate) mod tests {
                 assert_eq!(
                     dao.fetch_geonames(
                         t.query,
-                        t.match_prefixes,
-                        t.match_abbreviations,
-                        t.geoname_type,
+                        t.match_name_prefix,
+                        t.geoname_type.clone(),
                         filters
                     )?,
-                    t.expected
+                    t.expected,
+                    "Test: {:?}",
+                    t
                 );
             }
             Ok(())
@@ -1230,8 +1369,19 @@ pub(crate) mod tests {
         // Make sure we have a match.
         store.read(|dao| {
             assert_eq!(
-                dao.fetch_geonames("waterloo", false, true, None, None)?,
-                vec![waterloo_ia(), waterloo_al()],
+                dao.fetch_geonames("waterloo", false, None, None)?,
+                vec![
+                    GeonameMatch {
+                        geoname: waterloo_ia(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                    GeonameMatch {
+                        geoname: waterloo_al(),
+                        match_type: GeonameMatchType::Name,
+                        prefix: false,
+                    },
+                ],
             );
             Ok(())
         })?;
@@ -1248,10 +1398,7 @@ pub(crate) mod tests {
         // The same query shouldn't match anymore and the tables should be
         // empty.
         store.read(|dao| {
-            assert_eq!(
-                dao.fetch_geonames("waterloo", false, true, None, None)?,
-                vec![],
-            );
+            assert_eq!(dao.fetch_geonames("waterloo", false, None, None)?, vec![],);
 
             let g_ids = dao.conn.query_rows_and_then(
                 "SELECT id FROM geonames",
