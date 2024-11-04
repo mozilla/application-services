@@ -55,6 +55,7 @@ members = [
 
     "examples/*/",
     "testing/separated/*/",
+    "components/support/firefox-versioning",
 ]
 
 exclude = [

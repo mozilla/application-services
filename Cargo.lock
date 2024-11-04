@@ -1523,6 +1523,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "firefox-versioning"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2697,6 +2705,7 @@ dependencies = [
  "ctor 0.2.8",
  "env_logger",
  "error-support",
+ "firefox-versioning",
  "glean-build",
  "hex",
  "jexl-eval",

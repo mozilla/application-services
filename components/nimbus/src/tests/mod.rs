@@ -10,7 +10,6 @@ mod test_evaluator;
 mod test_lib_bw_compat;
 mod test_sampling;
 mod test_schema;
-mod test_versioning;
 
 #[cfg(feature = "stateful")]
 mod stateful {

@@ -10,12 +10,19 @@ use crate::{
     enrollment::*,
     error::Result,
     tests::helpers::{
-        get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
-        get_test_experiments, no_coenrolling_features,
+        get_multi_feature_experiment, get_single_feature_experiment, get_test_experiments,
+        no_coenrolling_features,
     },
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stateful")] {
+        use crate::tests::helpers::get_ios_rollout_experiment;
+
+    }
+}
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -411,6 +418,7 @@ fn enrollment_evolver<'a>(
     EnrollmentsEvolver::new(aru, targeting_helper, ids)
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_ios_rollout_experiment() -> Result<()> {
     let exp = &get_ios_rollout_experiment();
