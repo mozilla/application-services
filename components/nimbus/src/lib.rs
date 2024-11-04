@@ -15,7 +15,6 @@ mod targeting;
 pub mod error;
 pub mod metrics;
 pub mod schema;
-pub mod versioning;
 
 pub use enrollment::{EnrolledFeature, EnrollmentStatus};
 pub use error::{NimbusError, Result};

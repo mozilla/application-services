@@ -2,8 +2,10 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::versioning::*;
-use crate::{error::Result, NimbusError};
+use firefox_versioning::error::VersionParsingError;
+use firefox_versioning::version::{Version, VersionPart};
+
+pub type Result<T, E = VersionParsingError> = std::result::Result<T, E>;
 
 #[test]
 fn test_wild_card_to_version_part() -> Result<()> {
@@ -162,7 +164,7 @@ fn test_compare_wild_card() -> Result<()> {
 #[test]
 fn test_non_ascii_throws_error() -> Result<()> {
     let err = Version::try_from("92🥲.1.2pre").expect_err("Should have thrown error");
-    if let NimbusError::VersionParsingError(_) = err {
+    if let VersionParsingError::ParseError(_) = err {
         // Good!
     } else {
         panic!("Expected VersionParsingError, got {:?}", err)
@@ -178,7 +180,7 @@ fn test_version_number_parsing_overflows() -> Result<()> {
     // this is greater than i32::MAX, should return an error
     let err =
         VersionPart::try_from("2147483648").expect_err("Should throw error, it overflows an i32");
-    if let NimbusError::VersionParsingError(_) = err {
+    if let VersionParsingError::Overflow(_) = err {
         // OK
     } else {
         panic!("Expected a VersionParsingError, got {:?}", err)

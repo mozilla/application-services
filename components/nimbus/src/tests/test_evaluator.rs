@@ -109,6 +109,7 @@ fn test_geo_targeting_fails_properly() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_minimum_version_targeting_passes() -> Result<()> {
     // Here's our valid jexl statement
@@ -121,6 +122,7 @@ fn test_minimum_version_targeting_passes() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_minimum_version_targeting_fails() -> Result<()> {
     // Here's our valid jexl statement
@@ -138,6 +140,7 @@ fn test_minimum_version_targeting_fails() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_targeting_specific_version() -> Result<()> {
     // Here's our valid jexl statement that targets **only** 96 versions
@@ -196,6 +199,7 @@ fn test_targeting_invalid_transform() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_targeting() {
     // Here's our valid jexl statement

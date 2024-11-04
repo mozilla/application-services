@@ -917,6 +917,7 @@ fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_ios_rollout() -> Result<()> {
     let metrics = TestMetrics::new();
@@ -1645,6 +1646,7 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stateful")]
 #[test]
 fn test_recorded_context_recorded() -> Result<()> {
     let metrics = TestMetrics::new();

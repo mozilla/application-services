@@ -20,6 +20,7 @@ mod message_tests {
 
     use super::*;
 
+    #[cfg(feature = "stateful")]
     #[test]
     fn test_jexl_expression() -> Result<()> {
         let nimbus = common::new_test_client("jexl_test")?;

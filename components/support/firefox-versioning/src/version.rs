@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! ## Nimbus SDK App Version Comparison
-//! The Nimbus SDK supports comparing app versions that follow the Firefox versioning scheme.
+//! ## Firefox Version Comparison
 //! This module was ported from the Firefox Desktop implementation. You can find the Desktop implementation
 //! in [this C++ file](https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsVersionComparator.cpp)
 //! There's also some more documentation in the [IDL](https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31)
@@ -49,7 +48,7 @@
 //! ## Example version comparisons
 //! The following comparisons are taken directly from [the brief documentation in Mozilla-Central](https://searchfox.org/mozilla-central/rev/468a65168dd0bc3c7d602211a566c16e66416cce/xpcom/base/nsIVersionComparator.idl#9-31)
 //! ```
-//! use nimbus::versioning::Version;
+//! use firefox_versioning::version::Version;
 //! let v1 = Version::try_from("1.0pre1").unwrap();
 //! let v2 = Version::try_from("1.0pre2").unwrap();
 //! let v3 = Version::try_from("1.0").unwrap();
@@ -84,19 +83,24 @@
 //!           < 1.1pre10a
 //!             < 1.1pre10
 
-use crate::NimbusError;
+use crate::error::VersionParsingError;
 use std::cmp::Ordering;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub(crate) struct VersionPart {
-    pub(crate) num_a: i32,
-    pub(crate) str_b: String,
-    pub(crate) num_c: i32,
-    pub(crate) extra_d: String,
+pub struct VersionPart {
+    pub num_a: i32,
+    pub str_b: String,
+    pub num_c: i32,
+    pub extra_d: String,
 }
 
+/// Represents a version in the form of a sequence of version parts.
+///
+/// The `Version` struct is used to compare application versions that follow
+/// a dot-separated format (e.g., `1.0.0`, `98.2pre1.0-beta`). Each part of the version
+/// is represented by a `VersionPart`.
 #[derive(Debug, Default, Clone)]
-pub struct Version(pub(crate) Vec<VersionPart>);
+pub struct Version(pub Vec<VersionPart>);
 
 impl PartialEq for Version {
     fn eq(&self, other: &Self) -> bool {
@@ -172,7 +176,7 @@ impl PartialOrd for VersionPart {
 }
 
 impl TryFrom<&'_ str> for Version {
-    type Error = NimbusError;
+    type Error = VersionParsingError;
     fn try_from(value: &'_ str) -> Result<Self, Self::Error> {
         let versions = value
             .split('.')
@@ -183,15 +187,15 @@ impl TryFrom<&'_ str> for Version {
 }
 
 impl TryFrom<String> for Version {
-    type Error = NimbusError;
-    fn try_from(curr_part: String) -> std::result::Result<Self, Self::Error> {
+    type Error = VersionParsingError;
+    fn try_from(curr_part: String) -> Result<Self, Self::Error> {
         curr_part.as_str().try_into()
     }
 }
 
-fn char_at(value: &str, idx: usize) -> Result<char, NimbusError> {
+fn char_at(value: &str, idx: usize) -> Result<char, VersionParsingError> {
     value.chars().nth(idx).ok_or_else(|| {
-        NimbusError::VersionParsingError(format!(
+        VersionParsingError::Overflow(format!(
             "Tried to access character {} in string {}, but it has size {}",
             idx,
             value,
@@ -209,13 +213,13 @@ fn is_num_c(c: char) -> bool {
     c.is_numeric() || c == '+' || c == '-'
 }
 
-fn parse_version_num(val: i32, res: &mut i32) -> Result<(), NimbusError> {
+fn parse_version_num(val: i32, res: &mut i32) -> Result<(), VersionParsingError> {
     if *res == 0 {
         *res = val;
     } else {
         let res_l = *res as i64;
         if (res_l * 10) + val as i64 > i32::MAX as i64 {
-            return Err(NimbusError::VersionParsingError(
+            return Err(VersionParsingError::Overflow(
                 "Number parsing overflows an i32".into(),
             ));
         }
@@ -226,11 +230,11 @@ fn parse_version_num(val: i32, res: &mut i32) -> Result<(), NimbusError> {
 }
 
 impl TryFrom<&'_ str> for VersionPart {
-    type Error = NimbusError;
+    type Error = VersionParsingError;
 
     fn try_from(value: &'_ str) -> Result<Self, Self::Error> {
         if value.chars().any(|c| !c.is_ascii()) {
-            return Err(NimbusError::VersionParsingError(format!(
+            return Err(VersionParsingError::ParseError(format!(
                 "version string {} contains non-ascii characters",
                 value
             )));

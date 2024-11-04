@@ -342,6 +342,7 @@ pub(crate) fn get_test_experiments() -> Vec<Experiment> {
     ]
 }
 
+#[cfg(feature = "stateful")]
 pub fn get_ios_rollout_experiment() -> Experiment {
     serde_json::from_value(json!(
     {

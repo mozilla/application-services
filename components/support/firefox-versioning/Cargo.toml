@@ -1,0 +1,10 @@
+[package]
+name = "firefox-versioning"
+version = "0.1.0"
+authors = ["Nimbus Team <project-nimbus@mozilla.com>"]
+license = "MPL-2.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0"
+thiserror = "1.0"

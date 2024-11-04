@@ -2,16 +2,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{versioning::Version, NimbusError, Result};
+use crate::{NimbusError, Result};
+
 use jexl_eval::Evaluator;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use anyhow::anyhow;
         use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}};
         use std::sync::{Arc, Mutex};
+        use firefox_versioning::compare::version_compare;
     }
 }
 
@@ -82,11 +84,11 @@ pub fn jexl_eval_raw<Context: serde::Serialize>(
     context: &Context,
     #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
 ) -> Result<Value> {
-    let evaluator =
-        Evaluator::new().with_transform("versionCompare", |args| Ok(version_compare(args)?));
+    let evaluator = Evaluator::new();
 
     #[cfg(feature = "stateful")]
     let evaluator = evaluator
+        .with_transform("versionCompare", |args| Ok(version_compare(args)?))
         .with_transform("eventSum", |args| {
             Ok(query_event_store(
                 event_store.clone(),
@@ -148,30 +150,6 @@ pub fn jexl_eval<Context: serde::Serialize>(
         Some(v) => Ok(v),
         None => Err(NimbusError::InvalidExpression),
     }
-}
-
-fn version_compare(args: &[Value]) -> Result<Value> {
-    let curr_version = args.first().ok_or_else(|| {
-        NimbusError::VersionParsingError("current version doesn't exist in jexl transform".into())
-    })?;
-    let curr_version = curr_version.as_str().ok_or_else(|| {
-        NimbusError::VersionParsingError("current version in jexl transform is not a string".into())
-    })?;
-    let min_version = args.get(1).ok_or_else(|| {
-        NimbusError::VersionParsingError("minimum version doesn't exist in jexl transform".into())
-    })?;
-    let min_version = min_version.as_str().ok_or_else(|| {
-        NimbusError::VersionParsingError("minimum version is not a string in jexl transform".into())
-    })?;
-    let min_version = Version::try_from(min_version)?;
-    let curr_version = Version::try_from(curr_version)?;
-    Ok(json!(if curr_version > min_version {
-        1
-    } else if curr_version < min_version {
-        -1
-    } else {
-        0
-    }))
 }
 
 #[cfg(feature = "stateful")]
