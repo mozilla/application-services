@@ -214,9 +214,9 @@ mozilla-repo-urls==0.1.1 \
     --hash=sha256:30510d3519479aa70211145d0ac9cf6e2fadcb8d30fa3b196bb957bd773502ba \
     --hash=sha256:7364da790751db2a060eb45adbf1d7db89a145ed279ba235f3425db9dd255915
     # via taskcluster-taskgraph
-mozilla-taskgraph==3.0.0 \
-    --hash=sha256:92133713a8da71840cbba16973a044dc63c6cd3bd4a9dc8866887625fa044e69 \
-    --hash=sha256:936182a910726e454124c9d6861a84cba3163a3b4b1565779c7a765710ee4241
+mozilla-taskgraph==3.0.1 \
+    --hash=sha256:3b9d18e9bfee127a1984bc2aaa948d51fef8f8e430e75b641b643b5b5a780dda \
+    --hash=sha256:dceb76a1678e4283a9b60ba23aa4ec7a80bb2de5ff0bec78562597766b2b21bb
     # via -r requirements.in
 pygments==2.18.0 \
     --hash=sha256:786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199 \
