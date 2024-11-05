@@ -1762,7 +1762,7 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "glean-build"
-version = "15.0.1"
+version = "15.2.0"
 dependencies = [
  "xshell-venv",
 ]

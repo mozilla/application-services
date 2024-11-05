@@ -2,6 +2,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Glean
+- Updated to v62.0.0 ([bug 1928630](https://bugzilla.mozilla.org/show_bug.cgi?id=1928630))
+
 ### FxA Client
 - Updated the iOS `sendToDevice` function to return the `closeTab` call's result when applicable. ([#6448](https://github.com/mozilla/application-services/pull/6448))
 
