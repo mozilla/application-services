@@ -47,15 +47,6 @@ commands:
       - run: |
           sccache --version
           sccache --zero-stats
-  install-grcov:
-    steps:
-      - run:
-          name: Install grcov
-          command: |
-            cargo install --locked grcov@0.8.19
-      # Run in a different shell to source $BASH_ENV
-      - run: |
-          grcov --version
   install-mdbook:
     steps:
       - run:
@@ -234,22 +225,6 @@ jobs:
       - test-setup
       - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
-  Generate code coverage:
-    executor: docker
-    resource_class: large
-    steps:
-      - full-checkout
-      - test-setup
-      - install-grcov
-      # Test coverage support in Rust has been evolving rapidly, use nightly
-      # in the hope of getting the best support/features on that front.
-      - run: RUSTUP_TOOLCHAIN="nightly" bash ./automation/emit_coverage_info.sh
-      - run:
-          name: Compile coverage
-          command: grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
-      - run:
-          name: Upload to codecov.io
-          command: ./automation/upload-to-codecov.sh
   Check Protobuf files are up-to-date:
     executor: docker
     resource_class: small
@@ -345,9 +320,6 @@ workflows:
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
-  coverage:
-    jobs:
-      - Generate code coverage
   ios-test:
     jobs:
       - iOS test
