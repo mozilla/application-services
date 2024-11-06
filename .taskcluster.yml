@@ -212,8 +212,8 @@ tasks:
                                         $if: 'tasks_for == "cron"'
                                         then: '${cron.quoted_args}'
                                         else:
-                                            $if: 'tasks_for == "github-issue-comment"'
-                                            then: '--target-tasks-method=${event.taskcluster_comment}'
+                                            $if: 'tasks_for == "github-issue-comment" && event.taskcluster_comment == "ci full"'
+                                            then: '--target-tasks-method=pr-full'
                                             else: ''
                                     in:
                                       $if: 'tasks_for == "action"'
