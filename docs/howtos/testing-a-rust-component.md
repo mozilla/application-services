@@ -106,10 +106,6 @@ a manual process involving:
 
 Ideally some or all of this would be automated and run in CI, but we have not yet invested in such automation.
 
-## Test Coverage
-
-We currently have code coverage reporting on Github using [codecov](https://github.com/mozilla/application-services/blob/main/codecov.yml). However, our code coverage does not tell us how much more coverage is caused by our consumers' tests.
-
 ## Ideas for Improvement
 
 * ASan, Memsan, and maybe other sanitizer checks, especially around the points where we cross FFI boundaries.
