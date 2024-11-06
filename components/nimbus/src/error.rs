@@ -8,8 +8,6 @@
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 
-#[cfg(feature = "stateful")]
-use firefox_versioning::error::VersionParsingError;
 use std::num::{ParseIntError, TryFromIntError};
 
 #[derive(Debug, thiserror::Error)]
@@ -51,6 +49,7 @@ pub enum NimbusError {
     NoSuchBranch(String, String),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
+    #[cfg(feature = "stateful")]
     #[error("Error parsing a string into a version {0}")]
     VersionParsingError(String),
     #[cfg(feature = "stateful")]
@@ -106,13 +105,6 @@ pub enum CirrusClientError {
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {
     fn from(eval_error: jexl_eval::error::EvaluationError<'a>) -> Self {
         NimbusError::EvaluationError(eval_error.to_string())
-    }
-}
-
-#[cfg(feature = "stateful")]
-impl From<VersionParsingError> for NimbusError {
-    fn from(eval_error: VersionParsingError) -> Self {
-        NimbusError::VersionParsingError(eval_error.to_string())
     }
 }
 
