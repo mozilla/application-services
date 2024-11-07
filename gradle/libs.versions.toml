@@ -16,13 +16,13 @@ kotlin-dsl = "4.5.0"
 kotlinx-coroutines = "1.8.0"
 
 # Mozilla
-android-components = "131.0.2"
+android-components = "132.0"
 glean = "62.0.0"
 rust-android-gradle = "0.9.4"
 
 # AndroidX
-androidx-annotation = "1.8.2"
-androidx-core = "1.13.1"
+androidx-annotation = "1.9.1"
+androidx-core = "1.13.1" # Newer releases blocked on compileSDK >34
 
 # JNA
 jna = "5.14.0"
@@ -39,8 +39,8 @@ androidx-test-runner = "1.6.1"
 androidx-test-work = "2.9.1"
 
 # Third Party Testing
-junit = "5.11.2"
-mockito = "5.14.1"
+junit = "5.11.3"
+mockito = "5.14.2"
 robolectric = "4.13"
 
 # Miscellaneous Gradle plugins
