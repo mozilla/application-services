@@ -19,19 +19,30 @@ use sync_guid::Guid;
 type UnknownFields = serde_json::Map<String, serde_json::Value>;
 
 trait UnknownFieldsExt {
-    fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String>;
-    fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self>
+    fn encrypt(&self, encdec: &dyn EncryptorDecryptor) -> Result<String>;
+    fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self>
     where
         Self: Sized;
 }
 
 impl UnknownFieldsExt for UnknownFields {
-    fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
-        encdec.encrypt_struct(&self, "encrypt unknown fields")
+    fn encrypt(&self, encdec: &dyn EncryptorDecryptor) -> Result<String> {
+        let string = serde_json::to_string(&self)?;
+        let cipherbytes = encdec
+            .encrypt(string.as_bytes().into())
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        let ciphertext = std::str::from_utf8(&cipherbytes)
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        Ok(ciphertext.to_owned())
     }
 
-    fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self> {
-        encdec.decrypt_struct(ciphertext, "decrypt unknown fields")
+    fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
+        let jsonbytes = encdec
+            .decrypt(ciphertext.as_bytes().into())
+            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        let json =
+            std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        Ok(serde_json::from_str(json)?)
     }
 }
 
@@ -51,7 +62,7 @@ impl IncomingLogin {
 
     pub(super) fn from_incoming_payload(
         p: LoginPayload,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<Self> {
         let fields = LoginFields {
             origin: p.hostname,
@@ -148,7 +159,7 @@ pub struct LoginPayload {
 impl EncryptedLogin {
     pub fn into_bso(
         self,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
         enc_unknown_fields: Option<String>,
     ) -> Result<OutgoingBso> {
         let unknown_fields = match enc_unknown_fields {
@@ -193,7 +204,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::{encrypt_struct, TEST_ENCDEC};
     use crate::sync::merge::SyncLoginData;
     use crate::{EncryptedLogin, LoginFields, RecordFields, SecureLoginFields};
     use sync15::bso::IncomingBso;
@@ -209,7 +220,7 @@ mod tests {
         }));
         let login = IncomingLogin::from_incoming_payload(
             bso.into_content::<LoginPayload>().content().unwrap(),
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap()
         .login;
@@ -217,7 +228,7 @@ mod tests {
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(login.fields.form_action_origin, None);
-        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
     }
@@ -236,7 +247,7 @@ mod tests {
         }));
         let login = IncomingLogin::from_incoming_payload(
             bso.into_content::<LoginPayload>().content().unwrap(),
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap()
         .login;
@@ -244,11 +255,11 @@ mod tests {
         assert_eq!(login.fields.form_action_origin, Some("".to_string()));
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
-        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
 
-        let bso = login.into_bso(&TEST_ENCRYPTOR, None).unwrap();
+        let bso = login.into_bso(&*TEST_ENCDEC, None).unwrap();
         assert_eq!(bso.envelope.id, "123412341234");
         let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
         assert_eq!(payload_data["httpRealm"], serde_json::Value::Null);
@@ -284,19 +295,12 @@ mod tests {
             "bar"
         );
         // re-serialize it.
-        let unknown = Some(
-            TEST_ENCRYPTOR
-                .encrypt_struct::<UnknownFields>(
-                    &payload.unknown_fields,
-                    "test encrypt unknown fields",
-                )
-                .unwrap(),
-        );
-        let login = IncomingLogin::from_incoming_payload(payload, &TEST_ENCRYPTOR)
+        let unknown = Some(encrypt_struct::<UnknownFields>(&payload.unknown_fields));
+        let login = IncomingLogin::from_incoming_payload(payload, &*TEST_ENCDEC)
             .unwrap()
             .login;
         // The raw outgoing payload should have it back.
-        let outgoing = login.into_bso(&TEST_ENCRYPTOR, unknown).unwrap();
+        let outgoing = login.into_bso(&*TEST_ENCDEC, unknown).unwrap();
         let json =
             serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&outgoing.payload)
                 .unwrap();
@@ -315,7 +319,7 @@ mod tests {
         }));
         let login = IncomingLogin::from_incoming_payload(
             bso.into_content::<LoginPayload>().content().unwrap(),
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap()
         .login;
@@ -327,7 +331,7 @@ mod tests {
             Some("https://www.example.com".to_string())
         );
         assert_eq!(login.fields.username_field, "username-field");
-        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        let sec_fields = login.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "user");
         assert_eq!(sec_fields.password, "password");
     }
@@ -349,7 +353,7 @@ mod tests {
                 password: "password".into(),
             }),
         };
-        let bso = login.into_bso(&TEST_ENCRYPTOR, None).unwrap();
+        let bso = login.into_bso(&*TEST_ENCDEC, None).unwrap();
         assert_eq!(bso.envelope.id, "123412341234");
         let payload_data: serde_json::Value = serde_json::from_str(&bso.payload).unwrap();
         assert_eq!(payload_data["httpRealm"], "test".to_string());
@@ -377,7 +381,7 @@ mod tests {
         // Incoming sync data gets fixed automatically.
         let login = IncomingLogin::from_incoming_payload(
             bad_bso.into_content::<LoginPayload>().content().unwrap(),
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap()
         .login;
@@ -385,7 +389,7 @@ mod tests {
 
         // SyncLoginData::from_payload also fixes up.
         let bad_bso = IncomingBso::from_test_content(bad_json);
-        let login = SyncLoginData::from_bso(bad_bso, &TEST_ENCRYPTOR)
+        let login = SyncLoginData::from_bso(bad_bso, &*TEST_ENCDEC)
             .unwrap()
             .inbound
             .unwrap()
@@ -406,7 +410,7 @@ mod tests {
 
         let login = IncomingLogin::from_incoming_payload(
             bad_bso.into_content::<LoginPayload>().content().unwrap(),
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap()
         .login;
