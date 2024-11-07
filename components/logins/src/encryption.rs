@@ -26,24 +26,120 @@
 // multiple layers, from the app saying "sync now" all the way down to the
 // low level sync code.
 // To make life a little easier, we do that via a struct.
+//
+// Consumers of the Login component have 3 options for setting up encryption:
+//    1. Implement EncryptorDecryptor directly
+//       eg `LoginStore::new(MyEncryptorDecryptor)`
+//    2. Implement KeyManager and use ManagedEncryptorDecryptor
+//       eg `LoginStore::new(ManagedEncryptorDecryptor::new(MyKeyManager))`
+//    3. Generate a single key and create a StaticKeyManager and use it together with
+//       ManagedEncryptorDecryptor
+//       eg `LoginStore::new(ManagedEncryptorDecryptor::new(StaticKeyManager { key: myKey }))`
 
 use crate::error::*;
+use std::sync::Arc;
 
-pub type EncryptorDecryptor = jwcrypto::EncryptorDecryptor<Error>;
+// This is the generic EncryptorDecryptor trait, as handed over to the Store during initialization.
+// Consumers can implement either this generic trait and bring in their own crypto, or leverage the
+// ManagedEncryptorDecryptor below, which provides encryption algorithms out of the box.
+pub trait EncryptorDecryptor: Send + Sync {
+    fn encrypt(&self, cleartext: Vec<u8>) -> ApiResult<Vec<u8>>;
+    fn decrypt(&self, ciphertext: Vec<u8>) -> ApiResult<Vec<u8>>;
+}
+
+impl<T: EncryptorDecryptor> EncryptorDecryptor for Arc<T> {
+    fn encrypt(&self, cleartext: Vec<u8>) -> ApiResult<Vec<u8>> {
+        (**self).encrypt(cleartext)
+    }
+
+    fn decrypt(&self, ciphertext: Vec<u8>) -> ApiResult<Vec<u8>> {
+        (**self).decrypt(ciphertext)
+    }
+}
+
+// The ManagedEncryptorDecryptor makes use of the NSS provided cryptographic algorithms. The
+// ManagedEncryptorDecryptor uses a KeyManager for encryption key retrieval.
+pub struct ManagedEncryptorDecryptor {
+    key_manager: Arc<dyn KeyManager>,
+}
+
+impl ManagedEncryptorDecryptor {
+    pub fn new(key_manager: Arc<dyn KeyManager>) -> Self {
+        Self { key_manager }
+    }
+}
+
+impl EncryptorDecryptor for ManagedEncryptorDecryptor {
+    #[handle_error(Error)]
+    fn encrypt(&self, cleartext: Vec<u8>) -> ApiResult<Vec<u8>> {
+        let key = self
+            .key_manager
+            .get_key()
+            .map_err(|_| Error::EncryptionKeyMissing)?;
+
+        let encdec = jwcrypto::EncryptorDecryptor::new(std::str::from_utf8(&key)?)?;
+        encdec
+            .encrypt(
+                std::str::from_utf8(&cleartext)?,
+                "encrypt SecureLoginFields",
+            )
+            .map(|text| text.into())
+    }
+
+    #[handle_error(Error)]
+    fn decrypt(&self, ciphertext: Vec<u8>) -> ApiResult<Vec<u8>> {
+        let key = self
+            .key_manager
+            .get_key()
+            .map_err(|_| Error::EncryptionKeyMissing)?;
+        let encdec = jwcrypto::EncryptorDecryptor::new(std::str::from_utf8(&key)?)?;
+        encdec
+            .decrypt(
+                std::str::from_utf8(&ciphertext)?,
+                "decrypt SecureLoginFields",
+            )
+            .map(|text| text.into())
+    }
+}
+
+// Consumers can implement the KeyManager in combination with the ManagedEncryptorDecryptor to hand
+// over the encryption key whenever encryption or decryption happens.
+pub trait KeyManager: Send + Sync {
+    fn get_key(&self) -> ApiResult<Vec<u8>>;
+}
+
+// Last but not least we provide a StaticKeyManager, which can be
+// used in cases where there is a single key during runtime, for example in tests.
+pub struct StaticKeyManager {
+    key: String,
+}
+
+impl StaticKeyManager {
+    pub fn new(key: String) -> Self {
+        Self { key }
+    }
+}
+
+impl KeyManager for StaticKeyManager {
+    #[handle_error(Error)]
+    fn get_key(&self) -> ApiResult<Vec<u8>> {
+        Ok(self.key.as_bytes().into())
+    }
+}
 
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
-    EncryptorDecryptor::new(key)?.create_canary(text)
+    jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)
 }
 
 #[handle_error(Error)]
 pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
-    EncryptorDecryptor::new(key)?.check_canary(canary, text)
+    jwcrypto::EncryptorDecryptor::new(key)?.check_canary(canary, text)
 }
 
 #[handle_error(Error)]
 pub fn create_key() -> ApiResult<String> {
-    EncryptorDecryptor::create_key()
+    jwcrypto::EncryptorDecryptor::create_key()
 }
 
 #[cfg(test)]
@@ -53,23 +149,17 @@ pub mod test_utils {
 
     lazy_static::lazy_static! {
         pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
-        pub static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
+        pub static ref TEST_ENCDEC: Arc<ManagedEncryptorDecryptor> = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager { key: TEST_ENCRYPTION_KEY.clone() })));
     }
-    pub fn encrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.encrypt(value, "test encrypt").unwrap()
-    }
-    pub fn decrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.decrypt(value, "test decrypt").unwrap()
-    }
+
     pub fn encrypt_struct<T: Serialize>(fields: &T) -> String {
-        TEST_ENCRYPTOR
-            .encrypt_struct(fields, "test encrypt struct")
-            .unwrap()
+        let string = serde_json::to_string(fields).unwrap();
+        let cipherbytes = TEST_ENCDEC.encrypt(string.as_bytes().into()).unwrap();
+        std::str::from_utf8(&cipherbytes).unwrap().to_owned()
     }
     pub fn decrypt_struct<T: DeserializeOwned>(ciphertext: String) -> T {
-        TEST_ENCRYPTOR
-            .decrypt_struct(&ciphertext, "test decrypt struct")
-            .unwrap()
+        let jsonbytes = TEST_ENCDEC.decrypt(ciphertext.as_bytes().into()).unwrap();
+        serde_json::from_str(std::str::from_utf8(&jsonbytes).unwrap()).unwrap()
     }
 }
 
@@ -78,22 +168,65 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_encrypt() {
-        let ed = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
-        let cleartext = "secret";
-        let ciphertext = ed.encrypt(cleartext, "test encrypt").unwrap();
-        assert_eq!(ed.decrypt(&ciphertext, "test decrypt").unwrap(), cleartext);
-        let ed2 = EncryptorDecryptor::new(&create_key().unwrap()).unwrap();
+    fn test_static_key_manager() {
+        let key = create_key().unwrap();
+        let key_manager = StaticKeyManager { key: key.clone() };
+        assert_eq!(key.as_bytes(), key_manager.get_key().unwrap());
+    }
+
+    #[test]
+    fn test_managed_encdec_with_invalid_key() {
+        let key_manager = Arc::new(StaticKeyManager {
+            key: "bad_key".to_owned(),
+        });
+        let encdec = ManagedEncryptorDecryptor { key_manager };
         assert!(matches!(
-            ed2.decrypt(&ciphertext, "test decrypt").err().unwrap(),
-            Error::CryptoError(jwcrypto::EncryptorDecryptorError { description, .. })
-            if description == "test decrypt"
+            encdec.encrypt("secret".as_bytes().into()).err().unwrap(),
+            LoginsApiError::IncorrectKey
+        ));
+    }
+
+    #[test]
+    fn test_managed_encdec_with_missing_key() {
+        struct MyKeyManager {}
+        impl KeyManager for MyKeyManager {
+            fn get_key(&self) -> ApiResult<Vec<u8>> {
+                Err(LoginsApiError::MissingKey)
+            }
+        }
+        let key_manager = Arc::new(MyKeyManager {});
+        let encdec = ManagedEncryptorDecryptor { key_manager };
+        assert!(matches!(
+            encdec.encrypt("secret".as_bytes().into()).err().unwrap(),
+            LoginsApiError::MissingKey
+        ));
+    }
+
+    #[test]
+    fn test_managed_encdec() {
+        let key = create_key().unwrap();
+        let key_manager = Arc::new(StaticKeyManager { key });
+        let encdec = ManagedEncryptorDecryptor { key_manager };
+        let cleartext = "secret";
+        let ciphertext = encdec.encrypt(cleartext.as_bytes().into()).unwrap();
+        assert_eq!(
+            encdec.decrypt(ciphertext.clone()).unwrap(),
+            cleartext.as_bytes()
+        );
+        let other_encdec = ManagedEncryptorDecryptor {
+            key_manager: Arc::new(StaticKeyManager {
+                key: create_key().unwrap(),
+            }),
+        };
+        assert!(matches!(
+            other_encdec.decrypt(ciphertext).err().unwrap(),
+            LoginsApiError::IncorrectKey
         ));
     }
 
     #[test]
     fn test_key_error() {
-        let storage_err = EncryptorDecryptor::new("bad-key").err().unwrap();
+        let storage_err = jwcrypto::EncryptorDecryptor::new("bad-key").err().unwrap();
         assert!(matches!(
             storage_err,
             Error::CryptoError(jwcrypto::EncryptorDecryptorError {
