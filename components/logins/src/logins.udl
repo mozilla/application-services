@@ -9,29 +9,25 @@ namespace logins {
     [Throws=LoginsApiError]
     string create_key();
 
-    /// Decrypt an `EncryptedLogin` to a `Login`
-    [Throws=LoginsApiError]
-    Login decrypt_login(EncryptedLogin login, [ByRef]string encryption_key);
-
-    /// Encrypt a `Login` to an `EncryptedLogin`
-    [Throws=LoginsApiError]
-    EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
-
-    /// Decrypt an encrypted `string` to `SecureLoginFields`
-    [Throws=LoginsApiError]
-    SecureLoginFields decrypt_fields(string sec_fields, [ByRef]string encryption_key);
-
-    /// Encrypt `SecureLoginFields` to an encrypted `string`
-    [Throws=LoginsApiError]
-    string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
-
-    /// Create a "canary" string, which can be used to test if the encryption key is still valid for the logins data
+    /// Create a "canary" string, which can be used to test if the encryption
+    //key is still valid for the logins data
     [Throws=LoginsApiError]
     string create_canary([ByRef]string text, [ByRef]string encryption_key);
 
-    /// Check that key is still valid using the output of `create_canary`.  `text` much match the text you initially passed to `create_canary()`
+    /// Check that key is still valid using the output of `create_canary`.
+    //`text` much match the text you initially passed to `create_canary()`
     [Throws=LoginsApiError]
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
+
+    /// Utility function to create a StaticKeyManager to be used for the time
+    /// being until support lands for [trait implementation of an UniFFI
+    /// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+    /// in UniFFI. 
+    KeyManager create_static_key_manager(string key);
+
+    /// Similar to create_static_key_manager above, create a
+    /// ManagedEncryptorDecryptor by passing in a KeyManager
+    EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
 };
 
 /// The fields you can add or update.
@@ -43,7 +39,7 @@ dictionary LoginFields {
     string password_field;
 };
 
-/// Fields available only while the encryption key is known.
+/// Fields which are encrypted at rest.
 dictionary SecureLoginFields {
     string password;
     string username;
@@ -59,7 +55,7 @@ dictionary RecordFields {
 };
 
 /// A login entry from the user, not linked to any database record.
-/// The add/update APIs input these, alongside an encryption key.
+/// The add/update APIs input these.
 dictionary LoginEntry {
     LoginFields fields;
     SecureLoginFields sec_fields;
@@ -72,15 +68,6 @@ dictionary Login {
     SecureLoginFields sec_fields;
 };
 
-/// An encrypted version of [Login].  This is what we return for all the "read"
-/// APIs - we never return the cleartext of encrypted fields.
-dictionary EncryptedLogin {
-    RecordFields record;
-    LoginFields fields;
-    /// ciphertext of a SecureLoginFields
-    string sec_fields;
-};
-
 /// These are the errors returned by our public API.
 [Error]
 interface LoginsApiError {
@@ -90,8 +77,17 @@ interface LoginsApiError {
     /// Asking to do something with a guid which doesn't exist.
     NoSuchRecord(string reason);
 
-    /// The encryption key supplied of the correct format, but not the correct key.
-    IncorrectKey();
+    /// Encryption key is missing.
+    MissingKey();
+
+    /// Encryption key is not valid.
+    InvalidKey();
+
+    /// encryption failed
+    EncryptionFailed(string reason);
+
+    /// decryption failed
+    DecryptionFailed(string reason);
 
     /// An operation was interrupted at the request of the consuming app.
     Interrupted(string reason);
@@ -107,19 +103,41 @@ interface LoginsApiError {
     UnexpectedLoginsApiError(string reason);
 };
 
+[Trait, WithForeign]
+interface EncryptorDecryptor {
+    [Throws=LoginsApiError]
+    bytes encrypt(bytes cleartext);
+
+    [Throws=LoginsApiError]
+    bytes decrypt(bytes ciphertext);
+};
+
+[Trait, WithForeign]
+interface KeyManager {
+    [Throws=LoginsApiError]
+    bytes get_key();
+};
+
+interface StaticKeyManager {
+    constructor(string key);
+};
+
+interface ManagedEncryptorDecryptor {
+    constructor(KeyManager key_manager);
+};
 
 interface LoginStore {
     [Throws=LoginsApiError]
-    constructor(string path);
+    constructor(string path, EncryptorDecryptor encdec);
 
     [Throws=LoginsApiError]
-    EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
+    Login add(LoginEntry login);
 
     [Throws=LoginsApiError]
-    EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
+    Login update([ByRef] string id, LoginEntry login);
 
     [Throws=LoginsApiError]
-    EncryptedLogin add_or_update(LoginEntry login, [ByRef]string encryption_key);
+    Login add_or_update(LoginEntry login);
 
     [Throws=LoginsApiError]
     boolean delete([ByRef] string id);
@@ -134,16 +152,19 @@ interface LoginStore {
     void touch([ByRef] string id);
 
     [Throws=LoginsApiError]
-    sequence<EncryptedLogin> list();
+    sequence<Login> list();
 
     [Throws=LoginsApiError]
-    sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
+    sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsApiError]
-    Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
+    boolean has_logins_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsApiError]
-    EncryptedLogin? get([ByRef] string id);
+    Login? find_login_to_update(LoginEntry look);
+
+    [Throws=LoginsApiError]
+    Login? get([ByRef] string id);
 
     [Self=ByArc]
     void register_with_sync_manager();

@@ -6,7 +6,6 @@ use super::merge::{LocalLogin, MirrorLogin, SyncLoginData};
 use super::update_plan::UpdatePlan;
 use super::SyncStatus;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::schema;
@@ -30,26 +29,15 @@ pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
     pub scope: SqlInterruptScope,
     pub staged: RefCell<Vec<IncomingBso>>,
-    // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
-    // an engine for, say, a `reset()` where this isn't needed or known.
-    encdec: Option<EncryptorDecryptor>,
 }
 
 impl LoginsSyncEngine {
-    fn encdec(&self) -> Result<&EncryptorDecryptor> {
-        match &self.encdec {
-            Some(encdec) => Ok(encdec),
-            None => Err(Error::EncryptionKeyMissing),
-        }
-    }
-
     pub fn new(store: Arc<LoginStore>) -> Result<Self> {
         let scope = store.db.lock().begin_interrupt_scope()?;
         Ok(Self {
             store,
             scope,
             staged: RefCell::new(vec![]),
-            encdec: None,
         })
     }
 
@@ -60,7 +48,6 @@ impl LoginsSyncEngine {
         telem: &mut telemetry::EngineIncoming,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
-        let encdec = self.encdec()?;
 
         for mut record in records {
             self.scope.err_if_interrupted()?;
@@ -82,7 +69,7 @@ impl LoginsSyncEngine {
                         upstream,
                         upstream_time,
                         server_now,
-                        encdec,
+                        self.store.encdec.as_ref(),
                     )?;
                     telem.reconciled(1);
                 }
@@ -145,7 +132,7 @@ impl LoginsSyncEngine {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.into_iter() {
                 let id = incoming.envelope.id.clone();
-                match SyncLoginData::from_bso(incoming, self.encdec()?) {
+                match SyncLoginData::from_bso(incoming, self.store.encdec.as_ref()) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         match e {
@@ -266,7 +253,8 @@ impl LoginsSyncEngine {
                 OutgoingBso::new_tombstone(envelope)
             } else {
                 let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
-                let mut bso = EncryptedLogin::from_row(row)?.into_bso(self.encdec()?, unknown)?;
+                let mut bso =
+                    EncryptedLogin::from_row(row)?.into_bso(self.store.encdec.as_ref(), unknown)?;
                 bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
                 bso
             })
@@ -398,8 +386,7 @@ impl LoginsSyncEngine {
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(s));
-        let encdec = self.encdec()?;
-        let enc_fields = l.decrypt_fields(encdec)?;
+        let enc_fields = l.decrypt_fields(self.store.encdec.as_ref())?;
         let args = named_params! {
             ":origin": l.fields.origin,
             ":http_realm": l.fields.http_realm,
@@ -424,7 +411,7 @@ impl LoginsSyncEngine {
             .query_and_then(args, EncryptedLogin::from_row)?
             .collect::<Result<Vec<EncryptedLogin>>>()?
         {
-            let this_enc_fields = login.decrypt_fields(encdec)?;
+            let this_enc_fields = login.decrypt_fields(self.store.encdec.as_ref())?;
             if enc_fields.username == this_enc_fields.username {
                 return Ok(Some(login));
             }
@@ -436,11 +423,6 @@ impl LoginsSyncEngine {
 impl SyncEngine for LoginsSyncEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "passwords".into()
-    }
-
-    fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
-        self.encdec = Some(EncryptorDecryptor::new(key)?);
-        Ok(())
     }
 
     fn stage_incoming(
@@ -508,7 +490,7 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
     use crate::{LoginEntry, LoginFields, RecordFields, SecureLoginFields};
     use std::collections::HashMap;
@@ -519,25 +501,19 @@ mod tests {
         engine: &mut LoginsSyncEngine,
         records: Vec<IncomingBso>,
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
         let mut telem = sync15::telemetry::EngineIncoming::new();
         (engine.fetch_login_data(records, &mut telem).unwrap(), telem)
     }
 
     fn run_fetch_outgoing(store: LoginStore) -> Vec<OutgoingBso> {
-        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine.fetch_outgoing().unwrap()
     }
 
     #[test]
     fn test_fetch_login_data() {
         // Test some common cases with fetch_login data
-        let store = LoginStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         insert_login(&store.db.lock(), "updated_remotely", None, Some("password"));
         insert_login(&store.db.lock(), "deleted_remotely", None, Some("password"));
         insert_login(
@@ -554,15 +530,15 @@ mod tests {
             vec![
                 IncomingBso::new_test_tombstone(Guid::new("deleted_remotely")),
                 enc_login("added_remotely", "password")
-                    .into_bso(&TEST_ENCRYPTOR, None)
+                    .into_bso(&*TEST_ENCDEC, None)
                     .unwrap()
                     .to_test_incoming(),
                 enc_login("updated_remotely", "new-password")
-                    .into_bso(&TEST_ENCRYPTOR, None)
+                    .into_bso(&*TEST_ENCDEC, None)
                     .unwrap()
                     .to_test_incoming(),
                 enc_login("three_way_merge", "new-remote-password")
-                    .into_bso(&TEST_ENCRYPTOR, None)
+                    .into_bso(&*TEST_ENCDEC, None)
                     .unwrap()
                     .to_test_incoming(),
             ],
@@ -584,13 +560,13 @@ mod tests {
                         let LocalLogin::Alive { login, .. } = local_login else {
                             unreachable!("this test is not expecting a tombstone");
                         };
-                        login.decrypt_fields(&TEST_ENCRYPTOR).unwrap().password
+                        login.decrypt_fields(&*TEST_ENCDEC).unwrap().password
                     }),
                     mirror: sync_login_data.mirror.map(|mirror_login| {
                         guids_seen.insert(mirror_login.login.record.id.clone());
                         mirror_login
                             .login
-                            .decrypt_fields(&TEST_ENCRYPTOR)
+                            .decrypt_fields(&*TEST_ENCDEC)
                             .unwrap()
                             .password
                     }),
@@ -598,7 +574,7 @@ mod tests {
                         guids_seen.insert(incoming.login.record.id.clone());
                         incoming
                             .login
-                            .decrypt_fields(&TEST_ENCRYPTOR)
+                            .decrypt_fields(&*TEST_ENCDEC)
                             .unwrap()
                             .password
                     }),
@@ -644,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_fetch_outgoing() {
-        let store = LoginStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         insert_login(
             &store.db.lock(),
             "changed",
@@ -676,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_bad_record() {
-        let store = LoginStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         let test_ids = ["dummy_000001", "dummy_000002", "dummy_000003"];
         for id in test_ids {
             insert_login(&store.db.lock(), id, Some("password"), Some("password"));
@@ -733,14 +709,14 @@ mod tests {
                 username: username.into(),
                 password: password.into(),
             }
-            .encrypt(&TEST_ENCRYPTOR)
+            .encrypt(&*TEST_ENCDEC)
             .unwrap(),
         }
     }
 
     #[test]
     fn find_dupe_login() {
-        let store = LoginStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
 
         let to_add = LoginEntry {
             fields: LoginFields {
@@ -753,11 +729,7 @@ mod tests {
                 password: "test".into(),
             },
         };
-        let first_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
-            .expect("should insert first")
-            .record
-            .id;
+        let first_id = store.add(to_add).expect("should insert first").record.id;
 
         let to_add = LoginEntry {
             fields: LoginFields {
@@ -770,11 +742,7 @@ mod tests {
                 password: "test1".into(),
             },
         };
-        let second_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
-            .expect("should insert second")
-            .record
-            .id;
+        let second_id = store.add(to_add).expect("should insert second").record.id;
 
         let to_add = LoginEntry {
             fields: LoginFields {
@@ -787,16 +755,9 @@ mod tests {
                 password: "test1".into(),
             },
         };
-        let no_form_origin_id = store
-            .add(to_add, &TEST_ENCRYPTION_KEY)
-            .expect("should insert second")
-            .record
-            .id;
+        let no_form_origin_id = store.add(to_add).expect("should insert second").record.id;
 
-        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         let to_find = make_enc_login("test", "test", Some("https://www.example.com".into()), None);
         assert_eq!(
@@ -889,7 +850,6 @@ mod tests {
                             password: "test".into(),
                         },
                     },
-                    &TEST_ENCRYPTION_KEY,
                 )
                 .unwrap();
             let changeset = engine.fetch_outgoing().unwrap();
@@ -898,11 +858,8 @@ mod tests {
         }
 
         // The test itself...
-        let store = LoginStore::new_in_memory().unwrap();
-        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         apply_incoming_payload(
             &engine,
@@ -982,11 +939,8 @@ mod tests {
         // The test itself...
         let (local_timestamp, remote_timestamp) = if local_newer { (123, 0) } else { (0, 123) };
 
-        let store = LoginStore::new_in_memory().unwrap();
-        let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
-        engine
-            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
-            .unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         // apply an incoming record - will be in the mirror.
         apply_incoming_payload(

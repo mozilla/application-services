@@ -366,12 +366,23 @@ pub struct SecureLoginFields {
 }
 
 impl SecureLoginFields {
-    pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
-        encdec.encrypt_struct(&self, "encrypt SecureLoginFields")
+    pub fn encrypt(&self, encdec: &dyn EncryptorDecryptor) -> Result<String> {
+        let string = serde_json::to_string(&self)?;
+        let cipherbytes = encdec
+            .encrypt(string.as_bytes().into())
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        let ciphertext = std::str::from_utf8(&cipherbytes)
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        Ok(ciphertext.to_owned())
     }
 
-    pub fn decrypt(ciphertext: &str, encdec: &EncryptorDecryptor) -> Result<Self> {
-        encdec.decrypt_struct(ciphertext, "decrypt SecureLoginFields")
+    pub fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
+        let jsonbytes = encdec
+            .decrypt(ciphertext.as_bytes().into())
+            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        let json =
+            std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        Ok(serde_json::from_str(json)?)
     }
 }
 
@@ -413,7 +424,7 @@ impl Login {
         }
     }
 
-    pub fn encrypt(self, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
+    pub fn encrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<EncryptedLogin> {
         Ok(EncryptedLogin {
             record: self.record,
             fields: self.fields,
@@ -442,7 +453,7 @@ impl EncryptedLogin {
         &self.record.id
     }
 
-    pub fn decrypt(self, encdec: &EncryptorDecryptor) -> Result<Login> {
+    pub fn decrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<Login> {
         Ok(Login {
             record: self.record,
             fields: self.fields,
@@ -450,7 +461,7 @@ impl EncryptedLogin {
         })
     }
 
-    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
+    pub fn decrypt_fields(&self, encdec: &dyn EncryptorDecryptor) -> Result<SecureLoginFields> {
         SecureLoginFields::decrypt(&self.sec_fields, encdec)
     }
 
@@ -720,6 +731,7 @@ pub mod test_utils {
                 origin: format!("https://{}.example.com", id),
                 ..Default::default()
             },
+            // TODO: fixme
             sec_fields: encrypt_struct(&sec_fields),
         }
     }
