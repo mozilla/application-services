@@ -299,6 +299,37 @@ public class PlacesReadConnection {
         }
     }
 
+    /**
+     * Counts the number of bookmark items in the bookmark trees under the specified GUIDs.
+     * Empty folders, non-existing GUIDs and non-folder guids will return zero.
+     *
+     * - Parameter folderGuids: The guids of folders to query.
+     * - Returns: Count of all bookmark items (ie, not folders or separators) in all specified folders recursively.
+     * - Throws:
+     *     - `PlacesApiError.databaseInterrupted`: If a call is made to
+     *                                             `interrupt()` on this object
+     *                                             from another thread.
+     *     - `PlacesConnectionError.connUseAfterAPIClosed`: If the PlacesAPI that returned
+     *                                                      this connection object has
+     *                                                      been closed. This indicates
+     *                                                      API misuse.
+     *     - `PlacesApiError.databaseBusy`: If this query times out with a
+     *                                      SQLITE_BUSY error.
+     *     - `PlacesApiError.unexpected`: When an error that has not specifically
+     *                                    been exposed to Swift is encountered (for
+     *                                    example IO errors from the database code,
+     *                                    etc).
+     *     - `PlacesApiError.panic`: If the rust code panics while completing this
+     *                               operation. (If this occurs, please let us
+     *                               know).
+     */
+    open func countBookmarksInTrees(folderGuids: [Guid]) throws -> UInt32 {
+        return try queue.sync {
+            try self.checkApi()
+            return try self.conn.bookmarksCountBookmarksInTrees(folderGuids: folderGuids)
+        }
+    }
+
     open func getLatestHistoryMetadataForUrl(url: Url) throws -> HistoryMetadata? {
         return try queue.sync {
             try self.checkApi()
