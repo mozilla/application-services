@@ -21,11 +21,12 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  * LoginStore.
  */
 
-class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
+class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoCloseable {
     private var store: LoginStore
 
     init {
-        this.store = LoginStore(dbPath)
+        val encdec = createManagedEncdec(keyManager)
+        this.store = LoginStore(dbPath, encdec)
     }
 
     @Throws(LoginsApiException::class)
@@ -46,7 +47,7 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsApiException::class)
-    fun get(id: String): EncryptedLogin? {
+    fun get(id: String): Login? {
         return readQueryCounters.measure {
             store.get(id)
         }
@@ -60,44 +61,44 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsApiException::class)
-    fun list(): List<EncryptedLogin> {
+    fun list(): List<Login> {
         return readQueryCounters.measure {
             store.list()
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun getByBaseDomain(baseDomain: String): List<EncryptedLogin> {
+    fun getByBaseDomain(baseDomain: String): List<Login> {
         return readQueryCounters.measure {
             store.getByBaseDomain(baseDomain)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun findLoginToUpdate(look: LoginEntry, encryptionKey: String): Login? {
+    fun findLoginToUpdate(look: LoginEntry): Login? {
         return readQueryCounters.measure {
-            store.findLoginToUpdate(look, encryptionKey)
+            store.findLoginToUpdate(look)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun add(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun add(entry: LoginEntry): Login {
         return writeQueryCounters.measure {
-            store.add(entry, encryptionKey)
+            store.add(entry)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun update(id: String, entry: LoginEntry): Login {
         return writeQueryCounters.measure {
-            store.update(id, entry, encryptionKey)
+            store.update(id, entry)
         }
     }
 
     @Throws(LoginsApiException::class)
-    fun addOrUpdate(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun addOrUpdate(entry: LoginEntry): Login {
         return writeQueryCounters.measure {
-            store.addOrUpdate(entry, encryptionKey)
+            store.addOrUpdate(entry)
         }
     }
 
