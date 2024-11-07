@@ -253,6 +253,13 @@ class PlacesTests: XCTestCase {
         ], checkChildren: .onlyGUIDs)
     }
 
+    func testCountBookmarksInTrees() {
+        let db = api.getWriter()
+        let newFolderGUID = insertTree(db, parent: BookmarkRoots.MenuFolderGUID, tree: DummyTree0)
+        let bookmarkCount = try! db.countBookmarksInTrees(folderGuids: [newFolderGUID])
+        XCTAssertEqual(3, bookmarkCount)
+    }
+
     // MARK: history metadata tests
 
     func testDeleteVisitsFor() {
