@@ -21,6 +21,9 @@ pub enum LoginsApiError {
     #[error("No record with guid exists (when one was required): {reason:?}")]
     NoSuchRecord { reason: String },
 
+    #[error("Encryption key is missing.")]
+    MissingKey,
+
     #[error("Encryption key is in the correct format, but is not the correct key.")]
     IncorrectKey,
 
@@ -58,11 +61,20 @@ pub enum Error {
     #[error("local encryption key not set")]
     EncryptionKeyMissing,
 
+    #[error("encryption failed")]
+    EncryptionFailed,
+
+    #[error("decryption failed")]
+    DecryptionFailed,
+
     #[error("Error synchronizing: {0}")]
     SyncAdapterError(#[from] sync15::Error),
 
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    #[error("Error constructing UTF8 string: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
 
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
@@ -138,6 +150,8 @@ impl GetErrorHandling for Error {
             }
             Self::CryptoError { .. } => ErrorHandling::convert(LoginsApiError::IncorrectKey)
                 .report_error("logins-crypto-error"),
+            Self::EncryptionKeyMissing { .. } => ErrorHandling::convert(LoginsApiError::MissingKey)
+                .report_error("logins-missing-key-error"),
             Self::Interrupted(_) => ErrorHandling::convert(LoginsApiError::Interrupted {
                 reason: self.to_string(),
             }),
