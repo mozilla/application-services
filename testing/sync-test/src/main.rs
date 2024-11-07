@@ -5,10 +5,9 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
-use std::{collections::HashSet, process};
 use std::sync::Arc;
+use std::{collections::HashSet, process};
 use structopt::StructOpt;
-
 
 mod auth;
 mod autofill;
@@ -78,7 +77,8 @@ pub fn run_test_group(opts: &Opts, group: TestGroup) {
     }
 
     let cfg = get_default_fxa_config();
-    let cli_fxa = get_cli_fxa(cfg, &opts.credential_file, &[SYNC_SCOPE]).expect("can't initialize cli");
+    let cli_fxa =
+        get_cli_fxa(cfg, &opts.credential_file, &[SYNC_SCOPE]).expect("can't initialize cli");
     let acct = Arc::new(cli_fxa);
 
     let mut user = TestUser::new(acct, 2).expect("Failed to get test user.");

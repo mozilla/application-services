@@ -74,8 +74,7 @@ pub fn add_credit_card(
 }
 
 pub fn scrub_credit_card(s: Arc<AutofillStore>) -> AutofillResult<()> {
-    AutofillStore::scrub_encrypted_data(s)
-        .expect("scrub_encrypted_data() to succeed");
+    AutofillStore::scrub_encrypted_data(s).expect("scrub_encrypted_data() to succeed");
     Ok(())
 }
 
@@ -257,7 +256,7 @@ pub fn get_test_group() -> TestGroup {
             ),
             (
                 "test_autofill_credit_cards_with_scrubbed_cards",
-                test_autofill_credit_cards_with_scrubbed_cards
+                test_autofill_credit_cards_with_scrubbed_cards,
             ),
         ],
     )
