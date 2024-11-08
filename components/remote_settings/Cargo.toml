@@ -23,7 +23,7 @@ url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
 camino = "1.0"
 rusqlite = { workspace = true, features = ["bundled"] }
 jexl-eval = "0.3.0"
-regex = "1.10.5"
+regex = "1.9"
 anyhow = "1.0"
 firefox-versioning = { path = "../support/firefox-versioning" }
 
