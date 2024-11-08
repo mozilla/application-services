@@ -99,7 +99,15 @@ pub(crate) fn ratio_sample<T: serde::Serialize>(input: T, ratios: &[u32]) -> Res
 /// that is larger than 6 bytes (Should never occur)
 pub(crate) fn truncated_hash<T: serde::Serialize>(data: T) -> Result<[u8; 6]> {
     let mut hasher = Sha256::new();
-    let data_str = serde_json::to_string(&data)?;
+    let data_str = match serde_json::to_string(&data) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(NimbusError::JSONError(
+                "data_str = nimbus::sampling::truncated_hash::serde_json::to_string".into(),
+                e.to_string(),
+            ))
+        }
+    };
     hasher.update(data_str.as_bytes());
     Ok(hasher.finalize()[0..6].try_into()?)
 }

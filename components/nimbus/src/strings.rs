@@ -7,7 +7,15 @@ use serde_json::{value::Value, Map};
 
 #[allow(dead_code)]
 pub fn fmt<T: serde::Serialize>(template: &str, context: &T) -> Result<String> {
-    let obj: Value = serde_json::to_value(context)?;
+    let obj: Value = match serde_json::to_value(context) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(NimbusError::JSONError(
+                "obj = nimbus::strings::fmt::serde_json::to_value".into(),
+                e.to_string(),
+            ))
+        }
+    };
 
     fmt_with_value(template, &obj)
 }

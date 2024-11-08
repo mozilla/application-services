@@ -13,6 +13,7 @@ mod test {
     use super::common::new_test_client_with_db;
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::error::Result;
+    use nimbus::NimbusError;
     use serde_json::json;
 
     fn experiment_target_false() -> serde_json::Value {
@@ -132,12 +133,15 @@ mod test {
         let temp_dir = tempfile::tempdir()?;
         let client = new_test_client_with_db(&temp_dir)?;
         client.initialize()?;
-        let experiment_json = serde_json::to_string(&json!({
+        let experiment_json = match serde_json::to_string(&json!({
             "data": [
                 experiment_target_false(),
                 experiment_zero_buckets(),
             ]
-        }))?;
+        })) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("test".into(), e.to_string())),
+        };
         client.set_experiments_locally(experiment_json.clone())?;
         client.apply_pending_experiments()?;
         // the experiment_target_false experiment has a 'targeting' of "false", we test to ensure that
@@ -180,13 +184,16 @@ mod test {
         let ta = client.get_targeting_attributes();
         assert_eq!(ta.active_experiments, expected);
 
-        let experiment_json = serde_json::to_string(&json!({
+        let experiment_json = match serde_json::to_string(&json!({
             "data": [
                 experiment_target_false(),
                 experiment_zero_buckets(),
                 experiment_always_enroll(),
             ]
-        }))?;
+        })) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("test".into(), e.to_string())),
+        };
         client.set_experiments_locally(experiment_json)?;
         client.apply_pending_experiments()?;
 

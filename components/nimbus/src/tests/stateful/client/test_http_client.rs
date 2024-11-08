@@ -66,7 +66,7 @@ fn test_malformed_payload() {
     "#;
 
     let result = parse_experiments(payload).unwrap_err();
-    assert!(matches!(result, NimbusError::JSONError(_)));
+    assert!(matches!(result, NimbusError::JSONError(_, _)));
 }
 
 // This response body includes a matching schema version, a non-matching schema version,

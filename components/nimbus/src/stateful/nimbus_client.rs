@@ -163,9 +163,12 @@ impl NimbusClient {
             .read_from_db(db)?;
 
         if let Some(recorded_context) = &self.recorded_context {
-            let targeting_helper = self.create_targeting_helper_with_context(serde_json::to_value(
+            let targeting_helper = self.create_targeting_helper_with_context(match serde_json::to_value(
                 &state.targeting_attributes,
-            )?);
+            ) {
+                Ok(v) => v,
+                Err(e) => return Err(NimbusError::JSONError("targeting_helper = nimbus::stateful::nimbus_client::NimbusClient::begin_initialize::serde_json::to_value".into(), e.to_string()))
+            });
             recorded_context.execute_queries(targeting_helper.as_ref())?;
             state
                 .targeting_attributes
@@ -512,7 +515,10 @@ impl NimbusClient {
         let mut buf = String::new();
         file.read_to_string(&mut buf)?;
 
-        let res = serde_json::from_str::<DateTime<Utc>>(&buf)?;
+        let res = match serde_json::from_str::<DateTime<Utc>>(&buf) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("res = nimbus::stateful::nimbus_client::get_creation_date_from_path::serde_json::from_str".into(), e.to_string()))
+        };
         Ok(res)
     }
 
@@ -630,7 +636,10 @@ impl NimbusClient {
 
     fn merge_additional_context(&self, context: Option<JsonObject>) -> Result<Value> {
         let context = context.map(Value::Object);
-        let targeting = serde_json::to_value(self.get_targeting_attributes())?;
+        let targeting = match serde_json::to_value(self.get_targeting_attributes()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("targeting = nimbus::stateful::nimbus_client::NimbusClient::merge_additional_context::serde_json::to_value".into(), e.to_string()))
+        };
         let context = match context {
             Some(v) => v.defaults(&targeting)?,
             None => targeting,

@@ -357,8 +357,14 @@ impl EventQueryType {
                 self
             )));
         }
-        let event = serde_json::from_value::<String>(args.first().unwrap().clone())?;
-        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let event = match serde_json::from_value::<String>(args.first().unwrap().clone()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("event = nimbus::stateful::behavior::EventQueryType::validate_counting_arguments::serde_json::from_value".into(), e.to_string()))
+        };
+        let interval = match serde_json::from_value::<String>(args.get(1).unwrap().clone()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("interval = nimbus::stateful::behavior::EventQueryType::validate_counting_arguments::serde_json::from_value".into(), e.to_string()))
+        };
         let interval = Interval::from_str(&interval)?;
         let num_buckets = match args.get(2).unwrap().as_f64() {
             Some(v) => v,
@@ -393,8 +399,14 @@ impl EventQueryType {
                 self
             )));
         }
-        let event = serde_json::from_value::<String>(args.first().unwrap().clone())?;
-        let interval = serde_json::from_value::<String>(args.get(1).unwrap().clone())?;
+        let event = match serde_json::from_value::<String>(args.first().unwrap().clone()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("event = nimbus::stateful::behavior::EventQueryType::validate_last_seen_arguments::serde_json::from_value".into(), e.to_string()))
+        };
+        let interval = match serde_json::from_value::<String>(args.get(1).unwrap().clone()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("interval = nimbus::stateful::behavior::EventQueryType::validate_last_seen_arguments::serde_json::from_value".into(), e.to_string()))
+        };
         let interval = Interval::from_str(&interval)?;
         let zero = &Value::from(0);
         let starting_bucket = match args.get(2).unwrap_or(zero).as_f64() {

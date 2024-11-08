@@ -106,7 +106,15 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
     // We first encode the response into a `serde_json::Value`
     // to allow us to deserialize each experiment individually,
     // omitting any malformed experiments
-    let value: Value = serde_json::from_str(payload)?;
+    let value: Value = match serde_json::from_str(payload) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(NimbusError::JSONError(
+                "value = nimbus::schema::parse_experiments::serde_json::from_str".into(),
+                e.to_string(),
+            ))
+        }
+    };
     let data = value
         .get("data")
         .ok_or(NimbusError::InvalidExperimentFormat)?;
