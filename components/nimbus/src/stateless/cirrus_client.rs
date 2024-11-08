@@ -90,7 +90,10 @@ impl CirrusClient {
         metrics_handler: Box<dyn MetricsHandler>,
         coenrolling_feature_ids: Vec<String>,
     ) -> Result<Self> {
-        let app_context: AppContext = serde_json::from_str(&app_context)?;
+        let app_context: AppContext = match serde_json::from_str(&app_context) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("app_context = nimbus::stateless::cirrus_client::CirrusClient::new::serde_json::from_str".into(), e.to_string()))
+        };
         Ok(Self {
             app_context,
             coenrolling_feature_ids,
@@ -112,7 +115,10 @@ impl CirrusClient {
             request_context,
             is_user_participating,
             prev_enrollments,
-        } = serde_json::from_str(request.as_str())?;
+        } = match serde_json::from_str(request.as_str()) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("EnrollmentRequest { .. } = nimbus::stateless::cirrus_client::CirrusClient::handle_enrollment::serde_json::from_str".into(), e.to_string()))
+        };
         let client_id = if let Some(client_id) = client_id {
             client_id
         } else {
@@ -121,12 +127,15 @@ impl CirrusClient {
             ));
         };
 
-        Ok(serde_json::to_string(&self.enroll(
+        Ok(match serde_json::to_string(&self.enroll(
             client_id,
             request_context,
             is_user_participating,
             &prev_enrollments,
-        )?)?)
+        )?) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("return nimbus::stateless::cirrus_client::CirrusClient::handle_enrollment::serde_json::to_string".into(), e.to_string()))
+        })
     }
 
     pub(crate) fn enroll(

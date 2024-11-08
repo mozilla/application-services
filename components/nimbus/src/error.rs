@@ -21,8 +21,8 @@ pub enum NimbusError {
     RkvError(#[from] rkv::StoreError),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
-    #[error("JSON Error: {0}")]
-    JSONError(#[from] serde_json::Error),
+    #[error("JSON Error: {0} — {1}")]
+    JSONError(String, String),
     #[error("EvaluationError: {0}")]
     EvaluationError(String),
     #[error("Invalid Expression - didn't evaluate to a bool")]
@@ -101,6 +101,13 @@ pub enum BehaviorError {
 pub enum CirrusClientError {
     #[error("Request missing parameter: {0}")]
     RequestMissingParameter(String),
+}
+
+#[cfg(test)]
+impl From<serde_json::Error> for NimbusError {
+    fn from(error: serde_json::Error) -> Self {
+        NimbusError::JSONError("test".into(), error.to_string())
+    }
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {

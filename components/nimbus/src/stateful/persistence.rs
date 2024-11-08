@@ -157,7 +157,10 @@ impl SingleStore {
         key: &str,
         persisted_data: &T,
     ) -> Result<()> {
-        let persisted_json = serde_json::to_string(persisted_data)?;
+        let persisted_json = match serde_json::to_string(persisted_data) {
+            Ok(v) => v,
+            Err(e) => return Err(NimbusError::JSONError("persisted_json = nimbus::stateful::persistence::SingleStore::put::serde_json::to_string".into(), e.to_string()))
+        };
         self.store
             .put(writer, key, &rkv::Value::Json(&persisted_json))?;
         Ok(())
@@ -187,7 +190,10 @@ impl SingleStore {
         match persisted_data {
             Some(data) => {
                 if let rkv::Value::Json(data) = data {
-                    Ok(Some(serde_json::from_str::<T>(data)?))
+                    Ok(Some(match serde_json::from_str::<T>(data) {
+                        Ok(v) => v,
+                        Err(e) => return Err(NimbusError::JSONError("match persisted_data nimbus::stateful::persistence::SingleStore::get::serde_json::from_str".into(), e.to_string()))
+                    }))
                 } else {
                     Err(NimbusError::InvalidPersistedData)
                 }
@@ -239,7 +245,10 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(data)?);
+                result.push(match serde_json::from_str::<T>(data) {
+                    Ok(v) => v,
+                    Err(e) => return Err(NimbusError::JSONError("rkv::Value::Json(data) nimbus::stateful::persistence::SingleStore::collect_all::serde_json::from_str".into(), e.to_string()))
+                });
             }
         }
         Ok(result)
@@ -510,7 +519,10 @@ impl Database {
         match persisted_data {
             Some(data) => {
                 if let rkv::Value::Json(data) = data {
-                    Ok(Some(serde_json::from_str::<T>(data)?))
+                    Ok(Some(match serde_json::from_str::<T>(data) {
+                        Ok(v) => v,
+                        Err(e) => return Err(NimbusError::JSONError("rkv::Value::Json(data) nimbus::stateful::persistence::Database::get::serde_json::from_str".into(), e.to_string()))
+                    }))
                 } else {
                     Err(NimbusError::InvalidPersistedData)
                 }
@@ -533,7 +545,10 @@ impl Database {
         let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(data)?);
+                result.push(match serde_json::from_str::<T>(data) {
+                    Ok(v) => v,
+                    Err(e) => return Err(NimbusError::JSONError("rkv::Value::Json(data) nimbus::stateful::persistence::Database::collect_all::serde_json::from_str".into(), e.to_string()))
+                });
             }
         }
         Ok(result)
