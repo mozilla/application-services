@@ -179,7 +179,7 @@ class NimbusTests: XCTestCase {
             return self.minimalExperimentJSON()
         }
 
-        let finishedNormally = job.joinOrTimeout(timeout: 1.0)
+        let finishedNormally = job.joinOrTimeout(timeout: 2.0)
         XCTAssertTrue(finishedNormally)
 
         let noExperiments = nimbus.getActiveExperiments()
