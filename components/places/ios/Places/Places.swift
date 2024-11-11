@@ -323,10 +323,10 @@ public class PlacesReadConnection {
      *                               operation. (If this occurs, please let us
      *                               know).
      */
-    open func countBookmarksInTrees(folderGuids: [Guid]) throws -> UInt32 {
+    open func countBookmarksInTrees(folderGuids: [Guid]) throws -> Int {
         return try queue.sync {
             try self.checkApi()
-            return try self.conn.bookmarksCountBookmarksInTrees(folderGuids: folderGuids)
+            return try Int(self.conn.bookmarksCountBookmarksInTrees(folderGuids: folderGuids))
         }
     }
 
