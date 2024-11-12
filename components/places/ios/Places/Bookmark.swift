@@ -23,6 +23,12 @@ public enum BookmarkRoots {
         BookmarkRoots.ToolbarFolderGUID,
         BookmarkRoots.UnfiledFolderGUID,
     ])
+
+    public static let DesktopRoots = Set<String>([
+        BookmarkRoots.MenuFolderGUID,
+        BookmarkRoots.ToolbarFolderGUID,
+        BookmarkRoots.UnfiledFolderGUID,
+    ])
 }
 
 // Keeping `BookmarkNodeType` in the swift wrapper because the iOS code relies on the raw value of the variants of
