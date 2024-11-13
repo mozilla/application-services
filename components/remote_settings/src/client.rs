@@ -1603,10 +1603,12 @@ mod test_filtering_records {
             last_modified: 100,
             deleted: false,
             attachment: None,
-            fields: json!({"filter_expression": "app_version|versionCompare('4.0') >= 0"})
-                .as_object()
-                .unwrap()
-                .clone(),
+            fields: json!({
+                "filter_expression": "env.version|versionCompare(\"128.0a1\") > 0"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
         }];
         api_client.expect_collection_url().returning(|| {
             "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
@@ -1620,7 +1622,7 @@ mod test_filtering_records {
         });
 
         let context = RemoteSettingsContext {
-            app_version: Some("4.4".to_string()),
+            app_version: Some("129.0.0".to_string()),
             ..Default::default()
         };
 
@@ -1650,10 +1652,12 @@ mod test_filtering_records {
             last_modified: 100,
             deleted: false,
             attachment: None,
-            fields: json!({"filter_expression": "app_version|versionCompare('4.0') >= 0"})
-                .as_object()
-                .unwrap()
-                .clone(),
+            fields: json!({
+                "filter_expression": "env.version|versionCompare(\"128.0a1\") > 0"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
         }];
         api_client.expect_collection_url().returning(|| {
             "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
@@ -1667,7 +1671,7 @@ mod test_filtering_records {
         });
 
         let context = RemoteSettingsContext {
-            app_version: Some("3.9".to_string()),
+            app_version: Some("127.0.0.".to_string()),
             ..Default::default()
         };
 
