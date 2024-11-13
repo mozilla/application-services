@@ -26,16 +26,15 @@ impl JexlFilter {
     pub(crate) fn new(context: Option<RemoteSettingsContext>) -> Self {
         let env_context = match context {
             Some(ctx) => {
-                serde_json::to_value(ctx).expect("Failed to serialize RemoteSettingsContext")
+                let serialized_context =
+                    serde_json::to_value(ctx).expect("Failed to serialize RemoteSettingsContext");
+                json!({ "env": serialized_context })
             }
-            None => json!({}),
+            None => json!({ "env": {} }),
         };
 
         Self {
             evaluator: Evaluator::new()
-                // We want to add more transforms later on. We started with `versionCompare`.
-                // https://remote-settings.readthedocs.io/en/latest/target-filters.html#transforms
-                // The goal is to get on pare with the desktop.
                 .with_transform("versionCompare", |args| Ok(version_compare(args)?)),
             context: env_context,
         }
