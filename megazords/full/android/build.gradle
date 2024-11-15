@@ -91,16 +91,21 @@ dependencies {
     }
 }
 
-afterEvaluate {
-    // The `cargoBuild` task isn't available until after evaluation.
-    android.libraryVariants.all { variant ->
-        def productFlavor = ""
-        variant.productFlavors.each {
-            productFlavor += "${it.name.capitalize()}"
-        }
-        def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
-    }
+// afterEvaluate {
+//     // The `cargoBuild` task isn't available until after evaluation.
+//     android.libraryVariants.all { variant ->
+//         def productFlavor = ""
+//         variant.productFlavors.each {
+//             productFlavor += "${it.name.capitalize()}"
+//         }
+//         def buildType = "${variant.buildType.name.capitalize()}"
+//         tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
+//     }
+// }
+
+tasks.matching { it.name.matches(/merge.*JniLibFolders/) }.configureEach {
+//    it.inputs.dir(new File(buildDir, "rustJniLibs/android"))
+    it.dependsOn("cargoBuild")
 }
 
 apply from: "$rootDir/publish.gradle"
