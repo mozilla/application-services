@@ -4,9 +4,12 @@
 
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
+#[cfg(feature = "jexl")]
 use crate::jexl_filter::JexlFilter;
 use crate::storage::Storage;
-use crate::{RemoteSettingsContext, RemoteSettingsServer, UniffiCustomTypeConverter};
+#[cfg(feature = "jexl")]
+use crate::RemoteSettingsContext;
+use crate::{RemoteSettingsServer, UniffiCustomTypeConverter};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -27,6 +30,7 @@ const HEADER_RETRY_AFTER: &str = "Retry-After";
 pub struct RemoteSettingsClient<C = ViaductApiClient> {
     // This is immutable, so it can be outside the mutex
     collection_name: String,
+    #[cfg(feature = "jexl")]
     jexl_filter: JexlFilter,
     inner: Mutex<RemoteSettingsClientInner<C>>,
 }
@@ -40,11 +44,12 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     pub fn new_from_parts(
         collection_name: String,
         storage: Storage,
-        jexl_filter: JexlFilter,
+        #[cfg(feature = "jexl")] jexl_filter: JexlFilter,
         api_client: C,
     ) -> Self {
         Self {
             collection_name,
+            #[cfg(feature = "jexl")]
             jexl_filter,
             inner: Mutex::new(RemoteSettingsClientInner {
                 storage,
@@ -57,6 +62,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     /// Filters records based on the presence and evaluation of `filter_expression`.
+    #[cfg(feature = "jexl")]
     fn filter_records(&self, records: Vec<RemoteSettingsRecord>) -> Vec<RemoteSettingsRecord> {
         records
             .into_iter()
@@ -67,6 +73,11 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                 _ => true, // Include records without a valid filter expression by default
             })
             .collect()
+    }
+
+    #[cfg(not(feature = "jexl"))]
+    fn filter_records(&self, records: Vec<RemoteSettingsRecord>) -> Vec<RemoteSettingsRecord> {
+        records
     }
 
     /// Get the current set of records.
@@ -125,15 +136,17 @@ impl RemoteSettingsClient<ViaductApiClient> {
         server_url: Url,
         bucket_name: String,
         collection_name: String,
-        context: Option<RemoteSettingsContext>,
+        #[cfg(feature = "jexl")] context: Option<RemoteSettingsContext>,
         storage: Storage,
     ) -> Result<Self> {
         let api_client = ViaductApiClient::new(server_url, &bucket_name, &collection_name)?;
+        #[cfg(feature = "jexl")]
         let jexl_filter = JexlFilter::new(context);
 
         Ok(Self::new_from_parts(
             collection_name,
             storage,
+            #[cfg(feature = "jexl")]
             jexl_filter,
             api_client,
         ))
@@ -1510,6 +1523,7 @@ mod test {
 mod test_new_client {
     use super::*;
 
+    #[cfg(not(feature = "jexl"))]
     use serde_json::json;
 
     #[test]
@@ -1536,6 +1550,7 @@ mod test_new_client {
     }
 
     #[test]
+    #[cfg(not(feature = "jexl"))]
     fn test_get_records_none_cached() {
         let mut api_client = MockApiClient::new();
         api_client.expect_collection_url().returning(|| {
@@ -1544,12 +1559,8 @@ mod test_new_client {
         // Note, don't make any api_client.expect_*() calls, the RemoteSettingsClient should not
         // attempt to make any requests for this scenario
         let storage = Storage::new(":memory:".into()).expect("Error creating storage");
-        let rs_client = RemoteSettingsClient::new_from_parts(
-            "test-collection".into(),
-            storage,
-            JexlFilter::new(None),
-            api_client,
-        );
+        let rs_client =
+            RemoteSettingsClient::new_from_parts("test-collection".into(), storage, api_client);
         assert_eq!(
             rs_client.get_records(false).expect("Error getting records"),
             None
@@ -1557,6 +1568,7 @@ mod test_new_client {
     }
 
     #[test]
+    #[cfg(not(feature = "jexl"))]
     fn test_get_records_none_cached_sync_with_empty() {
         let mut api_client = MockApiClient::new();
         let records = vec![RemoteSettingsRecord {
@@ -1577,12 +1589,8 @@ mod test_new_client {
             }
         });
         let storage = Storage::new(":memory:".into()).expect("Error creating storage");
-        let rs_client = RemoteSettingsClient::new_from_parts(
-            "test-collection".into(),
-            storage,
-            JexlFilter::new(None),
-            api_client,
-        );
+        let rs_client =
+            RemoteSettingsClient::new_from_parts("test-collection".into(), storage, api_client);
         assert_eq!(
             rs_client.get_records(true).expect("Error getting records"),
             Some(records)
@@ -1590,10 +1598,10 @@ mod test_new_client {
     }
 }
 
+#[cfg(feature = "jexl")]
 #[cfg(test)]
-mod test_filtering_records {
+mod jexl_tests {
     use super::*;
-    use serde_json::json;
 
     #[test]
     fn test_get_records_filtered_app_version_pass() {
@@ -1603,7 +1611,7 @@ mod test_filtering_records {
             last_modified: 100,
             deleted: false,
             attachment: None,
-            fields: json!({
+            fields: serde_json::json!({
                 "filter_expression": "env.version|versionCompare(\"128.0a1\") > 0"
             })
             .as_object()
@@ -1652,7 +1660,7 @@ mod test_filtering_records {
             last_modified: 100,
             deleted: false,
             attachment: None,
-            fields: json!({
+            fields: serde_json::json!({
                 "filter_expression": "env.version|versionCompare(\"128.0a1\") > 0"
             })
             .as_object()
