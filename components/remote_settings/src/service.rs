@@ -56,6 +56,7 @@ impl RemoteSettingsService {
     }
 
     /// Create a new Remote Settings client
+    #[cfg(feature = "jexl")]
     pub fn make_client(
         &self,
         collection_name: String,
@@ -68,6 +69,24 @@ impl RemoteSettingsService {
             inner.bucket_name.clone(),
             collection_name.clone(),
             context,
+            storage,
+        )?);
+        inner.clients.push(Arc::downgrade(&client));
+        Ok(client)
+    }
+
+    #[cfg(not(feature = "jexl"))]
+    pub fn make_client(
+        &self,
+        collection_name: String,
+        #[allow(unused_variables)] context: Option<RemoteSettingsContext>,
+    ) -> Result<Arc<RemoteSettingsClient>> {
+        let mut inner = self.inner.lock();
+        let storage = Storage::new(inner.storage_dir.join(format!("{collection_name}.sql")))?;
+        let client = Arc::new(RemoteSettingsClient::new(
+            inner.base_url.clone(),
+            inner.bucket_name.clone(),
+            collection_name.clone(),
             storage,
         )?);
         inner.clients.push(Arc::downgrade(&client));

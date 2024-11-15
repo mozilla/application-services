@@ -16,6 +16,7 @@ pub mod error;
 pub mod service;
 pub mod storage;
 
+#[cfg(feature = "jexl")]
 pub(crate) mod jexl_filter;
 
 pub use client::{Attachment, RemoteSettingsRecord, RemoteSettingsResponse, RsJsonObject};
@@ -209,7 +210,7 @@ impl RemoteSettingsClient {
         base_url: Url,
         bucket_name: String,
         collection_name: String,
-        context: Option<RemoteSettingsContext>,
+        #[cfg(feature = "jexl")] context: Option<RemoteSettingsContext>,
         storage: Storage,
     ) -> Result<Self> {
         Ok(Self {
@@ -217,6 +218,7 @@ impl RemoteSettingsClient {
                 base_url,
                 bucket_name,
                 collection_name,
+                #[cfg(feature = "jexl")]
                 context,
                 storage,
             )?,
