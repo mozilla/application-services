@@ -4,7 +4,9 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
+use dump::client::CollectionDownloader;
 use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
 
 const DEFAULT_LOG_FILTER: &str = "remote_settings=info";
@@ -45,9 +47,38 @@ enum Commands {
         #[arg(long)]
         sync_if_empty: bool,
     },
+    /// Download and combine all remote settings collections
+    DumpSync {
+        /// Root path of the repository
+        #[arg(short, long, default_value = ".")]
+        path: PathBuf,
+
+        /// Dry run - don't write any files
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+
+        /// Create a PR with the changes
+        #[arg(long, default_value_t = false)]
+        create_pr: bool,
+    },
+    /// Download a single collection to the dumps directory
+    DumpGet {
+        /// Bucket name
+        #[arg(long, required = true)]
+        bucket: String,
+
+        /// Collection name
+        #[arg(long, required = true)]
+        collection_name: String,
+
+        /// Root path of the repository
+        #[arg(short, long, default_value = ".")]
+        path: PathBuf,
+    },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     env_logger::init_from_env(env_logger::Env::default().filter_or(
         "RUST_LOG",
@@ -65,6 +96,22 @@ fn main() -> Result<()> {
             collection,
             sync_if_empty,
         } => get_records(service, collection, sync_if_empty),
+        Commands::DumpSync {
+            path,
+            dry_run,
+            create_pr,
+        } => {
+            let downloader = CollectionDownloader::new(path);
+            downloader.run(dry_run, create_pr).await
+        }
+        Commands::DumpGet {
+            bucket,
+            collection_name,
+            path,
+        } => {
+            let downloader = CollectionDownloader::new(path);
+            downloader.download_single(&bucket, &collection_name).await
+        }
     }
 }
 

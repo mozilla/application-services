@@ -133,7 +133,7 @@ impl Storage {
     pub fn set_records(
         &mut self,
         collection_url: &str,
-        records: &[RemoteSettingsRecord],
+        records: &Vec<RemoteSettingsRecord>,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
 
@@ -282,7 +282,7 @@ mod tests {
         let collection_url = "https://example.com/api";
 
         // Set empty records
-        storage.set_records(collection_url, &[])?;
+        storage.set_records(collection_url, &Vec::<RemoteSettingsRecord>::default())?;
 
         // Get records
         let fetched_records = storage.get_records(collection_url)?;
