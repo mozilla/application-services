@@ -64,6 +64,7 @@ impl RemoteSettingsService {
     ) -> Result<Arc<RemoteSettingsClient>> {
         let mut inner = self.inner.lock();
         let storage = Storage::new(inner.storage_dir.join(format!("{collection_name}.sql")))?;
+
         let client = Arc::new(RemoteSettingsClient::new(
             inner.base_url.clone(),
             inner.bucket_name.clone(),
