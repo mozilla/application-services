@@ -3,50 +3,39 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    benchmarks::{unique_db_filename, BenchmarkWithInput},
-    SuggestIngestionConstraints, SuggestStore, SuggestionProvider, SuggestionQuery,
+    benchmarks::{new_store, BenchmarkWithInput},
+    SuggestStore, SuggestionProvider, SuggestionQuery,
 };
 
 pub struct QueryBenchmark {
-    store: SuggestStore,
     provider: SuggestionProvider,
     query: &'static str,
 }
 
 impl QueryBenchmark {
     pub fn new(provider: SuggestionProvider, query: &'static str) -> Self {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let data_path = temp_dir.path().join(unique_db_filename());
-        let store =
-            SuggestStore::new(&data_path.to_string_lossy(), None).expect("Error building store");
-        store
-            .ingest(SuggestIngestionConstraints::all_providers())
-            .expect("Error during ingestion");
-        Self {
-            store,
-            provider,
-            query,
-        }
+        Self { provider, query }
     }
 }
 
-// The input for each benchmark a query to pass to the store
-pub struct InputType(SuggestionQuery);
-
 impl BenchmarkWithInput for QueryBenchmark {
-    type Input = InputType;
+    type GlobalInput = SuggestStore;
+    type IterationInput = SuggestionQuery;
 
-    fn generate_input(&self) -> Self::Input {
-        InputType(SuggestionQuery {
+    fn global_input(&self) -> Self::GlobalInput {
+        new_store()
+    }
+
+    fn iteration_input(&self) -> Self::IterationInput {
+        SuggestionQuery {
             providers: vec![self.provider],
             keyword: self.query.to_string(),
             ..SuggestionQuery::default()
-        })
+        }
     }
 
-    fn benchmarked_code(&self, input: Self::Input) {
-        let InputType(query) = input;
-        self.store
+    fn benchmarked_code(&self, store: &Self::GlobalInput, query: Self::IterationInput) {
+        store
             .query(query)
             .unwrap_or_else(|e| panic!("Error querying store: {e}"));
     }
