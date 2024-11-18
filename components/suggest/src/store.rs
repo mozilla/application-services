@@ -266,6 +266,16 @@ impl SuggestStore {
     }
 }
 
+#[cfg(feature = "benchmark_api")]
+impl SuggestStore {
+    /// Creates a WAL checkpoint. This will cause changes in the write-ahead log
+    /// to be written to the DB. See:
+    /// https://sqlite.org/pragma.html#pragma_wal_checkpoint
+    pub fn checkpoint(&self) {
+        self.inner.checkpoint();
+    }
+}
+
 /// Constraints limit which suggestions to ingest from Remote Settings.
 #[derive(Clone, Default, Debug, uniffi::Record)]
 pub struct SuggestIngestionConstraints {
@@ -749,6 +759,12 @@ where
 
     pub fn ensure_db_initialized(&self) {
         self.dbs().unwrap();
+    }
+
+    fn checkpoint(&self) {
+        let conn = self.dbs().unwrap().writer.conn.lock();
+        conn.pragma_update(None, "wal_checkpoint", "TRUNCATE")
+            .expect("Error performing checkpoint");
     }
 
     pub fn ingest_records_by_type(&self, ingest_record_type: SuggestRecordType) {

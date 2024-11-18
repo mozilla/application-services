@@ -24,10 +24,11 @@ fn run_benchmarks<B: BenchmarkWithInput, M: Measurement>(
     benchmarks: Vec<(&'static str, B)>,
 ) {
     for (name, benchmark) in benchmarks {
+        let g_input = benchmark.global_input();
         group.bench_function(name.to_string(), |b| {
             b.iter_batched(
-                || benchmark.generate_input(),
-                |input| benchmark.benchmarked_code(input),
+                || benchmark.iteration_input(),
+                |i_input| benchmark.benchmarked_code(&g_input, i_input),
                 // See https://docs.rs/criterion/latest/criterion/enum.BatchSize.html#variants for
                 // a discussion of this.  PerIteration is chosen for these benchmarks because the
                 // input holds a database file handle
