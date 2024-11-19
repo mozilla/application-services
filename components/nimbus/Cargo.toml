@@ -44,7 +44,6 @@ firefox-versioning = { path = "../support/firefox-versioning", optional = true }
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
-glean-build = { path = "../external/glean/glean-core/build" }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
