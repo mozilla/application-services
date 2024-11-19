@@ -22,6 +22,7 @@ use tempfile::TempDir;
 use crate::{SuggestIngestionConstraints, SuggestStore};
 
 pub mod client;
+pub mod geoname;
 pub mod ingest;
 pub mod query;
 
