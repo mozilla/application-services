@@ -30,6 +30,9 @@ use crate::{
     QueryWithMetricsResult, Result, SuggestApiResult, Suggestion, SuggestionQuery,
 };
 
+#[cfg(feature = "benchmark_api")]
+use crate::geoname::{Geoname, GeonameMatch, GeonameType};
+
 /// Builder for [SuggestStore]
 ///
 /// Using a builder is preferred to calling the constructor directly since it's harder to confuse
@@ -273,6 +276,17 @@ impl SuggestStore {
     /// https://sqlite.org/pragma.html#pragma_wal_checkpoint
     pub fn checkpoint(&self) {
         self.inner.checkpoint();
+    }
+
+    pub fn fetch_geonames(
+        &self,
+        query: &str,
+        match_name_prefix: bool,
+        geoname_type: Option<GeonameType>,
+        filter: Option<Vec<&Geoname>>,
+    ) -> Result<Vec<GeonameMatch>> {
+        self.inner
+            .fetch_geonames(query, match_name_prefix, geoname_type, filter)
     }
 }
 
@@ -832,6 +846,18 @@ where
         let conn = reader.conn.lock();
         conn.query_one("SELECT page_size * page_count FROM pragma_page_count(), pragma_page_size()")
             .unwrap()
+    }
+
+    pub fn fetch_geonames(
+        &self,
+        query: &str,
+        match_name_prefix: bool,
+        geoname_type: Option<GeonameType>,
+        filter: Option<Vec<&Geoname>>,
+    ) -> Result<Vec<GeonameMatch>> {
+        self.dbs()?
+            .reader
+            .read(|dao| dao.fetch_geonames(query, match_name_prefix, geoname_type, filter))
     }
 }
 
