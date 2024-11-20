@@ -18,7 +18,7 @@ pub struct FetchGeonamesArgs {
     query: &'static str,
     match_name_prefix: bool,
     geoname_type: Option<GeonameType>,
-    filter: Option<Vec<&'static Geoname>>,
+    filter: Option<Vec<Geoname>>,
 }
 
 pub struct IterationInput {
@@ -66,8 +66,7 @@ impl BenchmarkWithInput for GeonameBenchmark {
 }
 
 pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
-    static NY_STATE: std::sync::OnceLock<Geoname> = std::sync::OnceLock::new();
-    let ny_state = NY_STATE.get_or_init(|| Geoname {
+    let ny_state = Geoname {
         geoname_id: 8,
         name: "New York".to_string(),
         latitude: 43.00035,
@@ -75,7 +74,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
         country_code: "US".to_string(),
         admin1_code: "NY".to_string(),
         population: 19274244,
-    });
+    };
 
     vec![
         // no matches
@@ -388,7 +387,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                     query: "ny",
                     match_name_prefix: false,
                     geoname_type: None,
-                    filter: Some(vec![&ny_state]),
+                    filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
             }
@@ -402,7 +401,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                     query: "ny",
                     match_name_prefix: false,
                     geoname_type: Some(GeonameType::City),
-                    filter: Some(vec![&ny_state]),
+                    filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
             }
@@ -414,7 +413,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                     query: "ny",
                     match_name_prefix: false,
                     geoname_type: Some(GeonameType::Region),
-                    filter: Some(vec![&ny_state]),
+                    filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
             }
@@ -428,7 +427,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                     query: "ny",
                     match_name_prefix: true,
                     geoname_type: Some(GeonameType::City),
-                    filter: Some(vec![&ny_state]),
+                    filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
             }
@@ -440,7 +439,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                     query: "ny",
                     match_name_prefix: true,
                     geoname_type: Some(GeonameType::Region),
-                    filter: Some(vec![&ny_state]),
+                    filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
             }
