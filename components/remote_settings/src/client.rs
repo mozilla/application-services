@@ -177,10 +177,27 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
     /// maximum size, so use care when fetching potentially large attachments.
     pub fn get_attachment(&self, attachment_location: &str) -> Result<Vec<u8>> {
-        self.inner
+        let mut inner = self.inner.lock();
+        let collection_url = inner.api_client.collection_url();
+
+        if let Some(attachment) = inner
+            .storage
+            .get_attachment(&collection_url, attachment_location)?
+        {
+            return Ok(attachment);
+        }
+
+        let attachment = self
+            .inner
             .lock()
             .api_client
-            .get_attachment(attachment_location)
+            .get_attachment(attachment_location)?;
+
+        inner
+            .storage
+            .set_attachment(&collection_url, attachment_location, &attachment)?;
+
+        Ok(attachment)
     }
 }
 
