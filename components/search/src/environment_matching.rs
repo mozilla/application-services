@@ -5,7 +5,8 @@
 //! This module defines functions for testing if an environment from the
 //! configuration matches the user environment.
 
-use crate::{JSONVariantEnvironment, SearchApplicationName, SearchUserEnvironment};
+use crate::{JSONVariantEnvironment, SearchUserEnvironment};
+use firefox_versioning::version::Version;
 
 /// Matches the user's environment against the given environment from the
 /// configuration.
@@ -16,6 +17,10 @@ pub(crate) fn matches_user_environment(
     environment: &JSONVariantEnvironment,
     user_environment: &SearchUserEnvironment,
 ) -> bool {
+    if !environment.experiment.is_empty() && user_environment.experiment != environment.experiment {
+        return false;
+    }
+
     if !environment.excluded_distributions.is_empty()
         && environment
             .excluded_distributions
@@ -28,10 +33,16 @@ pub(crate) fn matches_user_environment(
         &user_environment.region,
         &user_environment.locale,
         environment,
-    ) && matches_distribution(
-        &user_environment.distribution_id,
+    ) && is_empty_or_contains(
         &environment.distributions,
-    ) && matches_application(&user_environment.app_name, &environment.applications)
+        &user_environment.distribution_id,
+    ) && matches_version(
+        &user_environment.version,
+        &environment.min_version,
+        &environment.max_version,
+    ) && is_empty_or_contains(&environment.channels, &user_environment.update_channel)
+        && is_empty_or_contains(&environment.applications, &user_environment.app_name)
+        && is_empty_or_contains(&environment.device_type, &user_environment.device_type)
 }
 
 /// Determines whether the region and locale constraints in the supplied
@@ -61,7 +72,6 @@ fn matches_region_and_locale(
 
     if does_array_include(&environment.regions, user_region)
         && does_array_include(&environment.locales, user_locale)
-    // && environment.all_regions_and_locales
     {
         return true;
     }
@@ -81,16 +91,40 @@ fn matches_region_and_locale(
     false
 }
 
-fn matches_distribution(user_distribution_id: &str, environment_distributions: &[String]) -> bool {
-    environment_distributions.is_empty()
-        || environment_distributions.contains(&user_distribution_id.to_string())
+fn matches_version(
+    user_version: &str,
+    environment_min_version: &str,
+    environment_max_version: &str,
+) -> bool {
+    use std::ops::{Bound, RangeBounds};
+
+    let (min_version, max_version) = match (
+        environment_min_version.is_empty(),
+        environment_max_version.is_empty(),
+    ) {
+        (true, true) => return true,
+        (true, false) => (
+            Bound::Unbounded,
+            Version::try_from(environment_max_version).map_or(Bound::Unbounded, Bound::Included),
+        ),
+        (false, true) => (
+            Version::try_from(environment_min_version).map_or(Bound::Unbounded, Bound::Included),
+            Bound::Unbounded,
+        ),
+        (false, false) => (
+            Version::try_from(environment_min_version).map_or(Bound::Unbounded, Bound::Included),
+            Version::try_from(environment_max_version).map_or(Bound::Unbounded, Bound::Included),
+        ),
+    };
+
+    !user_version.is_empty()
+        && Version::try_from(user_version).map_or(true, |user_version| {
+            (min_version, max_version).contains(&user_version)
+        })
 }
 
-fn matches_application(
-    user_application_name: &SearchApplicationName,
-    environment_applications: &[SearchApplicationName],
-) -> bool {
-    environment_applications.is_empty() || environment_applications.contains(user_application_name)
+fn is_empty_or_contains<T: std::cmp::PartialEq>(env_value: &[T], user_value: &T) -> bool {
+    env_value.is_empty() || env_value.contains(user_value)
 }
 
 fn does_array_include(config_array: &[String], compare_item: &str) -> bool {
@@ -120,6 +154,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -129,6 +168,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when all_regions_and_locales is true"
@@ -145,6 +185,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -154,6 +199,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when all_regions_and_locales is false (default) and no regions/locales are specified"
@@ -170,6 +216,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -179,6 +230,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when all_regions_and_locales is true and the locale is excluded"
@@ -195,6 +247,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -204,6 +261,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when all_regions_and_locales is true and the excluded locale is a different case"
@@ -220,6 +278,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -229,6 +292,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when all_regions_and_locales is true and the locale is not excluded"
@@ -245,6 +309,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -254,6 +323,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when all_regions_and_locales is true and the region is excluded"
@@ -270,6 +340,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -279,6 +354,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when all_regions_and_locales is true and the excluded region is a different case"
@@ -295,6 +371,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -304,6 +385,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when all_regions_and_locales is true and the region is not excluded"
@@ -323,6 +405,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -332,6 +419,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the user locale matches one from the config"
@@ -348,6 +436,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -357,6 +450,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the user locale matches one from the config and is a different case"
@@ -373,6 +467,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -382,6 +481,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the user locale does not match one from the config"
@@ -401,6 +501,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -410,6 +515,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the user region matches one from the config"
@@ -426,6 +532,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -435,6 +546,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the user region matches one from the config and is a different case"
@@ -451,6 +563,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -460,6 +577,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the user region does not match one from the config"
@@ -479,6 +597,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -488,6 +611,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the locale matches and the region is not excluded"
@@ -504,6 +628,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -513,6 +642,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the locale matches and the region is excluded"
@@ -532,6 +662,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -541,6 +676,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the region matches and the locale is not excluded"
@@ -557,6 +693,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -566,6 +707,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the region matches and the locale is excluded"
@@ -585,6 +727,11 @@ mod tests {
                     distributions: vec!["distro-1".to_string()],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -594,6 +741,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the distribution matches one in the environment"
@@ -610,6 +758,11 @@ mod tests {
                     distributions: vec!["distro-2".to_string(), "distro-3".to_string()],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -619,6 +772,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the distribution matches one in the environment when there are multiple"
@@ -635,6 +789,11 @@ mod tests {
                     distributions: vec!["distro-2".to_string(), "distro-3".to_string()],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -644,6 +803,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the distribution does not match any in the environment"
@@ -660,6 +820,11 @@ mod tests {
                     distributions: vec!["distro-1".to_string(), "distro-2".to_string()],
                     excluded_distributions: vec![],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -669,6 +834,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the distribution and region matches the environment"
@@ -690,6 +856,11 @@ mod tests {
                         distro-3".to_string(), "distro-4".to_string()
                     ],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -699,6 +870,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the distribution matches the distribution list but not the excluded distributions"
@@ -715,6 +887,11 @@ mod tests {
                     distributions: vec!["distro-1".to_string(), "distro-2".to_string()],
                     excluded_distributions: vec!["distro-3".to_string(), "distro-4".to_string()],
                     applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -724,6 +901,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return false when the distribution matches the the excluded distributions"
@@ -743,6 +921,11 @@ mod tests {
                     distributions: vec![],
                     excluded_distributions: vec![],
                     applications: vec![SearchApplicationName::Firefox],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -752,6 +935,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the application name matches the one in the environment"
@@ -771,6 +955,11 @@ mod tests {
                         SearchApplicationName::FirefoxAndroid,
                         SearchApplicationName::Firefox
                     ],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -780,6 +969,7 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
             "Should return true when the application name matches one in the environment when there are multiple"
@@ -799,6 +989,11 @@ mod tests {
                         SearchApplicationName::FirefoxAndroid,
                         SearchApplicationName::Firefox
                     ],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -808,9 +1003,10 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::FirefoxIos,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
-            "Should return false when the distribution does not match any in the environment"
+            "Should return false when the applications do not match the one in the environment"
         );
 
         assert!(
@@ -827,6 +1023,11 @@ mod tests {
                         SearchApplicationName::FirefoxAndroid,
                         SearchApplicationName::Firefox
                     ],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
                 },
                 &SearchUserEnvironment {
                     locale: "fi".into(),
@@ -836,9 +1037,444 @@ mod tests {
                     experiment: String::new(),
                     app_name: SearchApplicationName::Firefox,
                     version: String::new(),
+                    device_type: SearchDeviceType::None,
                 }
             ),
-            "Should return true when the distribution and region matches the environment"
+            "Should return true when the application name matches the one in the environment"
+        );
+    }
+
+    #[test]
+    fn test_matches_user_environment_channel() {
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![SearchUpdateChannel::Nightly],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Nightly,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return true when the channel matches one in the environment"
+        );
+
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![SearchUpdateChannel::Nightly, SearchUpdateChannel::Release],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Release,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return true when the channel matches one in the environment when there are multiple"
+        );
+
+        assert!(
+            !matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![SearchUpdateChannel::Nightly],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: "distro-4".into(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return false when the channel does not match any in the environment"
+        );
+
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec!["fr".to_string()],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![SearchUpdateChannel::Default],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return true when the channel and region matches the environment"
+        );
+    }
+
+    #[test]
+    fn test_matches_user_environment_experiment() {
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "warp-drive".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Nightly,
+                    distribution_id: String::new(),
+                    experiment: "warp-drive".to_string(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return true when the experiment matches the one in the environment"
+        );
+
+        assert!(
+            !matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "warp-drive".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::Smartphone],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: String::new(),
+                    experiment: "cloak".to_string(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return false when the experiment does not match the one in the environment"
+        );
+
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec!["fr".to_string()],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "warp-drive".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::Tablet],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: String::new(),
+                    experiment: "warp-drive".to_string(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::Tablet,
+                }
+            ),
+            "Should return true when the experiment and region matches the environment"
+        );
+    }
+
+    #[test]
+    fn test_matches_user_environment_versions() {
+        fn match_version(
+            variant_min_version: &str,
+            variant_max_version: &str,
+            user_version: &str,
+        ) -> bool {
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: String::new(),
+                    channels: vec![],
+                    min_version: variant_min_version.to_string(),
+                    max_version: variant_max_version.to_string(),
+                    device_type: vec![],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Nightly,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: user_version.to_string(),
+                    device_type: SearchDeviceType::None,
+                },
+            )
+        }
+
+        assert!(
+            !match_version("43.0.0", "", "42.0.0"),
+            "Should return false when the version is below the minimum"
+        );
+        assert!(
+            match_version("42.0.0", "", "42.0.0"),
+            "Should return true when the version is equal to the minimum"
+        );
+        assert!(
+            match_version("41.0.0", "", "42.0.0"),
+            "Should return true when the version is above the minimum"
+        );
+
+        assert!(
+            match_version("", "43.0.0", "42.0.0"),
+            "Should return true when the version is below the maximum"
+        );
+        assert!(
+            match_version("", "42.0.0", "42.0.0"),
+            "Should return true when the version is equal to the maximum"
+        );
+        assert!(
+            !match_version("", "41.0.0", "42.0.0"),
+            "Should return false when the version is above the maximum"
+        );
+
+        assert!(
+            !match_version("41.0.0", "43.0.0", "2.0.0"),
+            "Should return false when the version is below the minimum and both are specified"
+        );
+        assert!(
+            match_version("41.0.0", "43.0.0", "41.0.0"),
+            "Should return true when the version is equal to the minimum and both are specified"
+        );
+        assert!(
+            match_version("41.0.0", "43.0.0", "42.0.0"),
+            "Should return true when the version is between the minimum and maximum"
+        );
+        assert!(
+            match_version("41.0.0", "43.0.0", "43.0.0"),
+            "Should return true when the version is equal to the maximum and both are specified"
+        );
+        assert!(
+            !match_version("41.0.0", "43.0.0", "44.0.0"),
+            "Should return false when the version is above the maximum and both are specified"
+        );
+    }
+
+    #[test]
+    fn test_matches_user_environment_device_type() {
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::None],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Nightly,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return true when the device type matches one in the environment"
+        );
+
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::Smartphone, SearchDeviceType::Tablet],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Release,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::Tablet,
+                }
+            ),
+            "Should return true when the device type matches one in the environment when there are multiple"
+        );
+
+        assert!(
+            !matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec![],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::Smartphone],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: "distro-4".into(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::None,
+                }
+            ),
+            "Should return false when the device type does not match any in the environment"
+        );
+
+        assert!(
+            matches_user_environment(
+                &crate::JSONVariantEnvironment {
+                    all_regions_and_locales: false,
+                    excluded_locales: vec![],
+                    excluded_regions: vec![],
+                    locales: vec![],
+                    regions: vec!["fr".to_string()],
+                    distributions: vec![],
+                    excluded_distributions: vec![],
+                    applications: vec![],
+                    experiment: "".to_string(),
+                    channels: vec![],
+                    min_version: "".to_string(),
+                    max_version: "".to_string(),
+                    device_type: vec![SearchDeviceType::Tablet],
+                },
+                &SearchUserEnvironment {
+                    locale: "fi".into(),
+                    region: "fr".into(),
+                    update_channel: SearchUpdateChannel::Default,
+                    distribution_id: String::new(),
+                    experiment: String::new(),
+                    app_name: SearchApplicationName::Firefox,
+                    version: String::new(),
+                    device_type: SearchDeviceType::Tablet,
+                }
+            ),
+            "Should return true when the device type and region matches the environment"
         );
     }
 }

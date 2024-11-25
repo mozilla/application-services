@@ -5,7 +5,10 @@
 //! This module defines the structures that we use for serde_json to parse
 //! the search configuration.
 
-use crate::{SearchApplicationName, SearchEngineClassification, SearchUrlParam};
+use crate::{
+    SearchApplicationName, SearchDeviceType, SearchEngineClassification, SearchUpdateChannel,
+    SearchUrlParam,
+};
 use serde::Deserialize;
 
 /// The list of possible submission methods for search engine urls.
@@ -134,12 +137,25 @@ pub(crate) struct JSONVariantEnvironment {
     /// A vector of applications that this applies to.
     #[serde(default)]
     pub applications: Vec<SearchApplicationName>,
-    // TODO: Implement these.
-    // pub channels: Option<Vec<String>,
-    // pub experiment: Option<String>,
-    // pub min_version: Option<String>,
-    // pub max_version: Option<String>,
-    // pub device_type: Option<String>,
+
+    /// A vector of release channels that this section applies to (not set = everywhere).
+    #[serde(default)]
+    pub channels: Vec<SearchUpdateChannel>,
+
+    /// The experiment that this section applies to.
+    #[serde(default)]
+    pub experiment: String,
+
+    /// The minimum application version this section applies to.
+    #[serde(default)]
+    pub min_version: String,
+
+    /// The maximum application version this section applies to.
+    #[serde(default)]
+    pub max_version: String,
+
+    #[serde(default)]
+    pub device_type: Vec<SearchDeviceType>,
 }
 
 /// Describes an individual variant of a search engine.
