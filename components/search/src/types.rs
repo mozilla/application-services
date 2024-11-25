@@ -155,7 +155,7 @@ impl SearchEngineClassification {
 }
 
 /// A definition for an individual search engine to be presented to the user.
-#[derive(Debug, uniffi::Record, PartialEq)]
+#[derive(Debug, uniffi::Record, PartialEq, Clone)]
 pub struct SearchEngineDefinition {
     /// A list of aliases for this engine.
     pub aliases: Vec<String>,
@@ -217,11 +217,13 @@ pub struct RefinedSearchConfig {
     pub engines: Vec<SearchEngineDefinition>,
 
     /// The identifier of the engine that should be used for the application
-    /// default engine.
-    pub app_default_engine_id: String,
+    /// default engine. If this is undefined, an error has occurred, and the
+    /// application should either default to the first engine in the engines
+    /// list or otherwise handle appropriately.
+    pub app_default_engine_id: Option<String>,
 
     /// If specified, the identifier of the engine that should be used for the
     /// application default engine in private browsing mode.
     /// Only desktop uses this currently.
-    pub app_default_private_engine_id: Option<String>,
+    pub app_private_default_engine_id: Option<String>,
 }

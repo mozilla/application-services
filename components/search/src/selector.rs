@@ -390,8 +390,8 @@ mod tests {
                         }
                     }
                 ),
-                app_default_engine_id: "test1".to_string(),
-                app_default_private_engine_id: Some("test2".to_string())
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: Some("test2".to_string())
             }
         )
     }
@@ -518,8 +518,8 @@ mod tests {
                         }
                     },
                 ),
-                app_default_engine_id: "test1".to_string(),
-                app_default_private_engine_id: None
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
             }, "Should have selected test1 for all matching locales, as the environments do not match for the other two"
         );
 
@@ -584,8 +584,8 @@ mod tests {
                         }
                     },
                 ),
-                app_default_engine_id: "test1".to_string(),
-                app_default_private_engine_id: None
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
             },
             "Should have selected test1 for all matching locales and test2 for matching Focus IOS"
         );
@@ -651,9 +651,211 @@ mod tests {
                         }
                     },
                 ),
-                app_default_engine_id: "test1".to_string(),
-                app_default_private_engine_id: None
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: None
             }, "Should have selected test1 for all matching locales and test3 for matching the distribution id"
+        );
+    }
+
+    #[test]
+    fn test_set_config_should_handle_default_engines() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config(
+            json!({
+              "data": [
+                {
+                  "recordType": "engine",
+                  "identifier": "test",
+                  "base": {
+                    "name": "Test",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com",
+                        "method": "GET",
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
+                },
+                {
+                  "recordType": "engine",
+                  "identifier": "distro-default",
+                  "base": {
+                    "name": "Distribution Default",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com",
+                        "method": "GET"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    }
+                  }],
+                },
+                {
+                  "recordType": "engine",
+                  "identifier": "private-default-FR",
+                  "base": {
+                    "name": "Private default FR",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com",
+                        "method": "GET"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true,
+                    }
+                  }],
+                },
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test",
+                  "specificDefaults": [{
+                    "environment": {
+                      "distributions": ["test-distro"],
+                    },
+                    "default": "distro-default"
+                  }, {
+                    "environment": {
+                      "regions": ["fr"]
+                    },
+                    "defaultPrivate": "private-default-FR"
+                  }]
+                }
+              ]
+            })
+            .to_string(),
+        );
+        assert!(
+            config_result.is_ok(),
+            "Should have set the configuration successfully. {:?}",
+            config_result
+        );
+        let expected_engines = vec![
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "test".to_string(),
+                name: "Test".to_string(),
+                order_hint: None,
+                partner_code: String::new(),
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "distro-default".to_string(),
+                name: "Distribution Default".to_string(),
+                order_hint: None,
+                partner_code: String::new(),
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "private-default-FR".to_string(),
+                name: "Private default FR".to_string(),
+                order_hint: None,
+                partner_code: String::new(),
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+        ];
+
+        let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            locale: "fi".into(),
+            region: "GB".into(),
+            update_channel: SearchUpdateChannel::Default,
+            distribution_id: "test-distro".to_string(),
+            experiment: String::new(),
+            app_name: SearchApplicationName::Firefox,
+            version: String::new(),
+            device_type: SearchDeviceType::None,
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: expected_engines.clone(),
+                app_default_engine_id: Some("distro-default".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have selected the default engine for the matching specific default"
+        );
+
+        let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            locale: "fi".into(),
+            region: "fr".into(),
+            update_channel: SearchUpdateChannel::Default,
+            distribution_id: String::new(),
+            experiment: String::new(),
+            app_name: SearchApplicationName::Firefox,
+            version: String::new(),
+            device_type: SearchDeviceType::None,
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: expected_engines,
+                app_default_engine_id: Some("test".to_string()),
+                app_private_default_engine_id: Some("private-default-FR".to_string())
+            },
+            "Should have selected the private default engine for the matching specific default"
         );
     }
 }
