@@ -26,8 +26,8 @@ impl From<JSONEngineUrls> for SearchEngineUrls {
     fn from(urls: JSONEngineUrls) -> Self {
         Self {
             search: urls.search.into(),
-            suggestions: None,
-            trending: None,
+            suggestions: urls.suggestions.map(|suggestions| suggestions.into()),
+            trending: urls.trending.map(|trending| trending.into()),
         }
     }
 }
@@ -183,8 +183,26 @@ mod tests {
                         }]),
                         search_term_param_name: Some("baz".to_string()),
                     },
-                    suggestions: None,
-                    trending: None,
+                    suggestions: Some(JSONEngineUrl {
+                        base: "https://example.com/suggestions".to_string(),
+                        method: Some(crate::JSONEngineMethod::Get),
+                        params: Some(vec![SearchUrlParam {
+                            name: "suggest-name".to_string(),
+                            value: None,
+                            experiment_config: Some("suggest-experiment-value".to_string()),
+                        }]),
+                        search_term_param_name: Some("suggest".to_string()),
+                    }),
+                    trending: Some(JSONEngineUrl {
+                        base: "https://example.com/trending".to_string(),
+                        method: Some(crate::JSONEngineMethod::Get),
+                        params: Some(vec![SearchUrlParam {
+                            name: "trend-name".to_string(),
+                            value: Some("trend-value".to_string()),
+                            experiment_config: None,
+                        }]),
+                        search_term_param_name: None,
+                    }),
                 },
             },
         );
@@ -211,8 +229,26 @@ mod tests {
                         }],
                         search_term_param_name: Some("baz".to_string()),
                     },
-                    suggestions: None,
-                    trending: None
+                    suggestions: Some(SearchEngineUrl {
+                        base: "https://example.com/suggestions".to_string(),
+                        method: "GET".to_string(),
+                        params: vec![SearchUrlParam {
+                            name: "suggest-name".to_string(),
+                            value: None,
+                            experiment_config: Some("suggest-experiment-value".to_string()),
+                        }],
+                        search_term_param_name: Some("suggest".to_string()),
+                    }),
+                    trending: Some(SearchEngineUrl {
+                        base: "https://example.com/trending".to_string(),
+                        method: "GET".to_string(),
+                        params: vec![SearchUrlParam {
+                            name: "trend-name".to_string(),
+                            value: Some("trend-value".to_string()),
+                            experiment_config: None,
+                        }],
+                        search_term_param_name: None,
+                    })
                 }
             }
         )
