@@ -359,6 +359,7 @@ mod tests {
                         classification: SearchEngineClassification::General,
                         identifier: "test2".to_string(),
                         name: "Test 2".to_string(),
+                        optional: false,
                         order_hint: None,
                         partner_code: String::new(),
                         telemetry_suffix: None,
@@ -372,6 +373,182 @@ mod tests {
                             suggestions: None,
                             trending: None
                         }
+                    }
+                ),
+                app_default_engine_id: Some("test1".to_string()),
+                app_private_default_engine_id: Some("test2".to_string())
+            }
+        )
+    }
+
+    #[test]
+    fn test_filter_engine_configuration_handles_basic_variants() {
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let config_result = Arc::clone(&selector).set_search_config(
+            json!({
+              "data": [
+                {
+                  "recordType": "engine",
+                  "identifier": "test1",
+                  "partnerCode": "star",
+                  "base": {
+                    "name": "Test 1",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com/1",
+                        "method": "GET",
+                        "searchTermParamName": "q"
+                      },
+                      "suggestions": {
+                        "base": "https://example.com/suggestions",
+                        "method": "POST",
+                        "params": [{
+                          "name": "type",
+                          "value": "space",
+                        }],
+                        "searchTermParamName": "suggest"
+                      },
+                      "trending": {
+                        "base": "https://example.com/trending",
+                        "method": "GET",
+                        "params": [{
+                          "name": "area",
+                          "experimentConfig": "area-param",
+                        }]
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    },
+                  },
+                  {
+                    "environment": {
+                      "regions": ["FR"]
+                    },
+                    "urls": {
+                      "search": {
+                        "method": "POST",
+                        "params": [{
+                          "name": "mission",
+                          "value": "ongoing"
+                        }]
+                      }
+                    }
+                  }],
+                },
+                {
+                  "recordType": "engine",
+                  "identifier": "test2",
+                  "base": {
+                    "name": "Test 2",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com/2",
+                        "method": "GET",
+                        "searchTermParamName": "search"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true
+                    },
+                    "partnerCode": "ship",
+                    "telemetrySuffix": "E",
+                    "optional": true
+                  }],
+                },
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "test1",
+                  "globalDefaultPrivate": "test2"
+                }
+              ]
+            })
+            .to_string(),
+        );
+        assert!(
+            config_result.is_ok(),
+            "Should have set the configuration successfully. {:?}",
+            config_result
+        );
+
+        let result = selector.filter_engine_configuration(SearchUserEnvironment {
+            region: "FR".into(),
+            ..Default::default()
+        });
+
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec!(
+                    SearchEngineDefinition {
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test1".to_string(),
+                        name: "Test 1".to_string(),
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/1".to_string(),
+                                method: "POST".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "mission".to_string(),
+                                    value: Some("ongoing".to_string()),
+                                    experiment_config: None
+                                }],
+                                search_term_param_name: Some("q".to_string())
+                            },
+                            suggestions: Some(SearchEngineUrl {
+                                base: "https://example.com/suggestions".to_string(),
+                                method: "POST".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "type".to_string(),
+                                    value: Some("space".to_string()),
+                                    experiment_config: None
+                                }],
+                                search_term_param_name: Some("suggest".to_string())
+                            }),
+                            trending: Some(SearchEngineUrl {
+                                base: "https://example.com/trending".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "area".to_string(),
+                                    value: None,
+                                    experiment_config: Some("area-param".to_string())
+                                }],
+                                search_term_param_name: None
+                            })
+                        },
+                        ..Default::default()
+                    },
+                    SearchEngineDefinition {
+                        charset: "UTF-8".to_string(),
+                        classification: SearchEngineClassification::General,
+                        identifier: "test2".to_string(),
+                        name: "Test 2".to_string(),
+                        optional: true,
+                        partner_code: "ship".to_string(),
+                        telemetry_suffix: Some("E".to_string()),
+                        urls: SearchEngineUrls {
+                            search: SearchEngineUrl {
+                                base: "https://example.com/2".to_string(),
+                                method: "GET".to_string(),
+                                params: Vec::new(),
+                                search_term_param_name: Some("search".to_string())
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
                     }
                 ),
                 app_default_engine_id: Some("test1".to_string()),

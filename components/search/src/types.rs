@@ -178,6 +178,11 @@ pub struct SearchEngineDefinition {
     /// The user visible name of the search engine.
     pub name: String,
 
+    /// This search engine is presented as an option that the user may enable.
+    /// The application should not include these in the default list of the
+    /// user's engines. If not supported, it should filter them out.
+    pub optional: bool,
+
     /// The partner code for the engine. This will be inserted into parameters
     /// which include `{partnerCode}`. May be the empty string.
     pub partner_code: String,
