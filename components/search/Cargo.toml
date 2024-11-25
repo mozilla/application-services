@@ -17,3 +17,6 @@ firefox-versioning = { path = "../support/firefox-versioning" }
 
 [build-dependencies]
 uniffi = { version = "0.28.2", features = ["build"] }
+
+[dev-dependencies]
+once_cell = "1.18.0"

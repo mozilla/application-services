@@ -6,9 +6,9 @@
 
 use crate::environment_matching::matches_user_environment;
 use crate::{
-    error::Error, JSONEngineBase, JSONEngineRecord, JSONEngineUrl, JSONEngineUrls,
-    JSONSearchConfigurationRecords, RefinedSearchConfig, SearchEngineDefinition, SearchEngineUrl,
-    SearchEngineUrls, SearchUserEnvironment,
+    error::Error, JSONDefaultEnginesRecord, JSONEngineBase, JSONEngineRecord, JSONEngineUrl,
+    JSONEngineUrls, JSONSearchConfigurationRecords, RefinedSearchConfig, SearchEngineDefinition,
+    SearchEngineUrl, SearchEngineUrls, SearchUserEnvironment,
 };
 
 impl From<JSONEngineUrl> for SearchEngineUrl {
@@ -56,13 +56,13 @@ pub(crate) fn filter_engine_configuration(
     configuration: Vec<JSONSearchConfigurationRecords>,
 ) -> Result<RefinedSearchConfig, Error> {
     let mut engines = Vec::new();
-    let mut default_engine_id: Option<String> = None;
-    let mut default_private_engine_id: Option<String> = None;
 
     let mut user_environment = user_environment.clone();
     user_environment.locale = user_environment.locale.to_lowercase();
     user_environment.region = user_environment.region.to_lowercase();
     user_environment.version = user_environment.version.to_lowercase();
+
+    let mut default_engines_record = None;
 
     for record in configuration {
         match record {
@@ -71,8 +71,7 @@ pub(crate) fn filter_engine_configuration(
                 engines.extend(result);
             }
             JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
-                default_engine_id = Some(default_engines.global_default);
-                default_private_engine_id.clone_from(&default_engines.global_default_private);
+                default_engines_record = Some(default_engines);
             }
             JSONSearchConfigurationRecords::EngineOrders(_engine_orders) => {
                 // TODO: Implementation.
@@ -83,10 +82,13 @@ pub(crate) fn filter_engine_configuration(
         }
     }
 
+    let (default_engine_id, default_private_engine_id) =
+        determine_default_engines(&engines, default_engines_record, &user_environment);
+
     Ok(RefinedSearchConfig {
         engines,
-        app_default_engine_id: default_engine_id.unwrap(),
-        app_default_private_engine_id: default_private_engine_id,
+        app_default_engine_id: default_engine_id,
+        app_private_default_engine_id: default_private_engine_id,
     })
 }
 
@@ -108,11 +110,90 @@ fn maybe_extract_engine_config(
         .map(|_variant| SearchEngineDefinition::from_configuration_details(&identifier, base))
 }
 
+fn determine_default_engines(
+    engines: &[SearchEngineDefinition],
+    default_engines_record: Option<JSONDefaultEnginesRecord>,
+    user_environment: &SearchUserEnvironment,
+) -> (Option<String>, Option<String>) {
+    match default_engines_record {
+        None => (None, None),
+        Some(record) => {
+            let mut default_engine_id = None;
+            let mut default_engine_private_id = None;
+
+            let specific_default = record
+                .specific_defaults
+                .into_iter()
+                .rev()
+                .find(|r| matches_user_environment(&r.environment, user_environment));
+
+            if let Some(specific_default) = specific_default {
+                // Check the engine is present in the list of engines before
+                // we return it as default.
+                if let Some(engine_id) = find_engine_with_match(engines, specific_default.default) {
+                    default_engine_id.replace(engine_id);
+                }
+                if let Some(private_engine_id) =
+                    find_engine_with_match(engines, specific_default.default_private)
+                {
+                    default_engine_private_id.replace(private_engine_id);
+                }
+            }
+
+            (
+                // If we haven't found a default engine in a specific default,
+                // then fall back to the global default engine - but only if that
+                // exists in the engine list.
+                //
+                // For the normal mode engine (`default_engine_id`), this would
+                // effectively be considered an error. However, we can't do anything
+                // sensible here, so we will return `None` to the application, and
+                // that can handle it.
+                default_engine_id.or_else(|| find_engine_id(engines, record.global_default)),
+                default_engine_private_id
+                    .or_else(|| find_engine_id(engines, record.global_default_private)),
+            )
+        }
+    }
+}
+
+fn find_engine_id(engines: &[SearchEngineDefinition], engine_id: String) -> Option<String> {
+    if engine_id.is_empty() {
+        return None;
+    }
+    match engines.iter().any(|e| e.identifier == engine_id) {
+        true => Some(engine_id.clone()),
+        false => None,
+    }
+}
+
+fn find_engine_with_match(
+    engines: &[SearchEngineDefinition],
+    engine_id_match: String,
+) -> Option<String> {
+    if engine_id_match.is_empty() {
+        return None;
+    }
+    if let Some(match_no_star) = engine_id_match.strip_suffix('*') {
+        return engines
+            .iter()
+            .find(|e| e.identifier.starts_with(match_no_star))
+            .map(|e| e.identifier.clone());
+    }
+
+    engines
+        .iter()
+        .find(|e| e.identifier == engine_id_match)
+        .map(|e| e.identifier.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use std::vec;
 
+    use super::*;
     use crate::*;
+    use once_cell::sync::Lazy;
 
     #[test]
     fn test_from_configuration_details_fallsback_to_defaults() {
@@ -252,5 +333,508 @@ mod tests {
                 }
             }
         )
+    }
+
+    static ENGINES_LIST: Lazy<Vec<SearchEngineDefinition>> = Lazy::new(|| {
+        vec![
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: String::from("UTF-8"),
+                classification: SearchEngineClassification::General,
+                identifier: "engine1".to_string(),
+                partner_code: String::new(),
+                name: "Test".to_string(),
+                order_hint: None,
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "engine2".to_string(),
+                partner_code: String::new(),
+                name: "Test 2".to_string(),
+                order_hint: None,
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com/2".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "engine3".to_string(),
+                partner_code: String::new(),
+                name: "Test 3".to_string(),
+                order_hint: None,
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com/3".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "engine4wildcardmatch".to_string(),
+                partner_code: String::new(),
+                name: "Test 4".to_string(),
+                order_hint: None,
+                telemetry_suffix: None,
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com/4".to_string(),
+                        method: "GET".to_string(),
+                        params: Vec::new(),
+                        search_term_param_name: None,
+                    },
+                    suggestions: None,
+                    trending: None,
+                },
+            },
+        ]
+    });
+
+    #[test]
+    fn test_determine_default_engines_returns_global_default() {
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: Vec::new(),
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine"
+        );
+        assert!(
+            default_engine_private_id.is_none(),
+            "Should not have returned an id for the private engine"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: "engine1".to_string(),
+                    default_private: String::new(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["en-GB".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine when no specific defaults environments match"
+        );
+        assert!(
+            default_engine_private_id.is_none(),
+            "Should not have returned an id for the private engine"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: "engine1".to_string(),
+                    default_private: String::new(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["fi".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine1",
+            "Should have returned the specific default when environments match"
+        );
+        assert!(
+            default_engine_private_id.is_none(),
+            "Should not have returned an id for the private engine"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: "engine4*".to_string(),
+                    default_private: String::new(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["fi".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine4wildcardmatch",
+            "Should have returned the specific default when using a wildcard match"
+        );
+        assert!(
+            default_engine_private_id.is_none(),
+            "Should not have returned an id for the private engine"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: vec![
+                    JSONSpecificDefaultRecord {
+                        default: "engine4*".to_string(),
+                        default_private: String::new(),
+                        environment: JSONVariantEnvironment {
+                            all_regions_and_locales: false,
+                            excluded_locales: vec![],
+                            excluded_regions: vec![],
+                            locales: vec!["fi".to_string()],
+                            regions: vec![],
+                            distributions: vec![],
+                            excluded_distributions: vec![],
+                            applications: vec![],
+                            channels: vec![],
+                            device_type: vec![],
+                            min_version: "".to_string(),
+                            max_version: "".to_string(),
+                            experiment: "".to_string(),
+                        },
+                    },
+                    JSONSpecificDefaultRecord {
+                        default: "engine3".to_string(),
+                        default_private: String::new(),
+                        environment: JSONVariantEnvironment {
+                            all_regions_and_locales: false,
+                            excluded_locales: vec![],
+                            excluded_regions: vec![],
+                            locales: vec!["fi".to_string()],
+                            regions: vec![],
+                            distributions: vec![],
+                            excluded_distributions: vec![],
+                            applications: vec![],
+                            channels: vec![],
+                            device_type: vec![],
+                            min_version: "".to_string(),
+                            max_version: "".to_string(),
+                            experiment: "".to_string(),
+                        },
+                    },
+                ],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine3",
+            "Should have returned the last specific default when multiple environments match"
+        );
+        assert!(
+            default_engine_private_id.is_none(),
+            "Should not have returned an id for the private engine"
+        );
+    }
+
+    #[test]
+    fn test_determine_default_engines_returns_global_default_private() {
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: "engine3".to_string(),
+                specific_defaults: Vec::new(),
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine"
+        );
+        assert_eq!(
+            default_engine_private_id.unwrap(),
+            "engine3",
+            "Should have returned the global default engine for private mode"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: "engine3".to_string(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: String::new(),
+                    default_private: "engine1".to_string(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["en-GB".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine when no specific defaults environments match"
+        );
+        assert_eq!(
+            default_engine_private_id.unwrap(),
+            "engine3",
+            "Should have returned the global default engine for private mode when no specific defaults environments match"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: "engine3".to_string(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: String::new(),
+                    default_private: "engine1".to_string(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["fi".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine when specific environments match which override the private global default (and not the global default)."
+        );
+        assert_eq!(
+            default_engine_private_id.unwrap(),
+            "engine1",
+            "Should have returned the specific default engine for private mode when environments match"
+        );
+
+        let (default_engine_id, default_engine_private_id) = determine_default_engines(
+            &ENGINES_LIST,
+            Some(JSONDefaultEnginesRecord {
+                global_default: "engine2".to_string(),
+                global_default_private: String::new(),
+                specific_defaults: vec![JSONSpecificDefaultRecord {
+                    default: String::new(),
+                    default_private: "engine4*".to_string(),
+                    environment: JSONVariantEnvironment {
+                        all_regions_and_locales: false,
+                        excluded_locales: vec![],
+                        excluded_regions: vec![],
+                        locales: vec!["fi".to_string()],
+                        regions: vec![],
+                        distributions: vec![],
+                        excluded_distributions: vec![],
+                        applications: vec![],
+                        channels: vec![],
+                        device_type: vec![],
+                        min_version: "".to_string(),
+                        max_version: "".to_string(),
+                        experiment: "".to_string(),
+                    },
+                }],
+            }),
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                region: "FR".into(),
+                update_channel: SearchUpdateChannel::Default,
+                distribution_id: String::new(),
+                experiment: String::new(),
+                app_name: SearchApplicationName::Firefox,
+                version: String::new(),
+                device_type: SearchDeviceType::None,
+            },
+        );
+
+        assert_eq!(
+            default_engine_id.unwrap(),
+            "engine2",
+            "Should have returned the global default engine when specific environments match which override the private global default (and not the global default)"
+        );
+        assert_eq!(
+            default_engine_private_id.unwrap(),
+            "engine4wildcardmatch",
+            "Should have returned the specific default for private mode when using a wildcard match"
+        );
     }
 }

@@ -182,12 +182,43 @@ pub(crate) struct JSONEngineRecord {
     pub variants: Vec<JSONEngineVariant>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONSpecificDefaultRecord {
+    /// The identifier of the engine that will be used as the application default
+    /// for the associated environment. If the entry is suffixed with a star,
+    /// matching is applied on a "starts with" basis.
+    #[serde(default)]
+    pub default: String,
+
+    /// The identifier of the engine that will be used as the application default
+    /// in private mode for the associated environment. If the entry is suffixed
+    /// with a star, matching is applied on a "starts with" basis.
+    #[serde(default)]
+    pub default_private: String,
+
+    /// The specific environment to match for this record.
+    pub environment: JSONVariantEnvironment,
+}
+
 /// Represents the default engines record.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONDefaultEnginesRecord {
+    /// The identifier of the engine that will be used as the application default
+    /// if no other engines are specified as default.
     pub global_default: String,
-    pub global_default_private: Option<String>,
+
+    /// The identifier of the engine that will be used as the application default
+    /// in private mode if no other engines are specified as default.
+    #[serde(default)]
+    pub global_default_private: String,
+
+    /// The specific environment filters to set a different default engine. The
+    /// array is ordered, when multiple entries match on environments, the later
+    /// entry will override earlier entries.
+    #[serde(default)]
+    pub specific_defaults: Vec<JSONSpecificDefaultRecord>,
 }
 
 /// Represents the engine orders record.
