@@ -31,27 +31,25 @@ impl SearchApplicationName {
 
 /// The list of possible update channels for a user's build.
 /// Use `default` for a self-build or an unknown channel.
-#[derive(Clone, Debug, uniffi::Enum)]
+#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
 pub enum SearchUpdateChannel {
-    Default = 1,
-    Nightly = 2,
-    Aurora = 3,
-    Beta = 4,
-    Release = 5,
-    ESR = 6,
+    Nightly = 1,
+    Aurora = 2,
+    Beta = 3,
+    Release = 4,
+    Esr = 5,
+    #[serde(other)]
+    Default = 6,
 }
 
-impl SearchUpdateChannel {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            SearchUpdateChannel::Default => "default",
-            SearchUpdateChannel::Nightly => "nightly",
-            SearchUpdateChannel::Aurora => "aurora",
-            SearchUpdateChannel::Beta => "beta",
-            SearchUpdateChannel::Release => "release",
-            SearchUpdateChannel::ESR => "esr",
-        }
-    }
+#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum SearchDeviceType {
+    Smartphone = 1,
+    Tablet = 2,
+    #[serde(other)]
+    None = 3,
 }
 
 /// The user's environment that is used for filtering the search configuration.
@@ -80,6 +78,9 @@ pub struct SearchUserEnvironment {
 
     /// The application version that the user is using.
     pub version: String,
+
+    /// The device type that the user is using.
+    pub device_type: SearchDeviceType,
 }
 
 /// Parameter definitions for search engine URLs. The name property is always

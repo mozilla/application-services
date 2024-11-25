@@ -217,6 +217,7 @@ mod tests {
             experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
             version: String::new(),
+            device_type: SearchDeviceType::None,
         });
 
         assert!(
@@ -316,6 +317,7 @@ mod tests {
             experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
             version: String::new(),
+            device_type: SearchDeviceType::None,
         });
 
         assert!(
@@ -483,6 +485,7 @@ mod tests {
             experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
             version: String::new(),
+            device_type: SearchDeviceType::None,
         });
 
         assert!(
@@ -528,6 +531,7 @@ mod tests {
             experiment: String::new(),
             app_name: SearchApplicationName::FocusIos,
             version: String::new(),
+            device_type: SearchDeviceType::None,
         });
 
         assert!(
@@ -594,6 +598,7 @@ mod tests {
             experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
             version: String::new(),
+            device_type: SearchDeviceType::None,
         });
 
         assert!(

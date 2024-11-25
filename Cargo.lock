@@ -4504,6 +4504,7 @@ name = "search"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "firefox-versioning",
  "parking_lot",
  "serde",
  "serde_json",
