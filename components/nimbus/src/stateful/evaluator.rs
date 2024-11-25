@@ -2,13 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use crate::stateful::persistence::{Database, StoreId};
 use crate::{
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
+    error::Result,
     evaluator::split_locale,
     json::JsonObject,
     stateful::matcher::AppContext,
+    DB_KEY_UPDATE_DATE,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
@@ -110,4 +113,53 @@ impl TargetingAttributes {
             }
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct CalculatedAttributes {
+    pub days_since_install: Option<i32>,
+    pub days_since_update: Option<i32>,
+    pub language: Option<String>,
+    pub region: Option<String>,
+}
+
+pub fn get_calculated_attributes(
+    installation_date: Option<i64>,
+    db_path: String,
+    locale: String,
+) -> Result<CalculatedAttributes> {
+    let mut days_since_update: Option<i32> = None;
+    let now = Utc::now();
+    let days_since_install: Option<i32> = installation_date.map(|installation_date| {
+        let installation_date = DateTime::<Utc>::from_naive_utc_and_offset(
+            NaiveDateTime::from_timestamp_opt(installation_date / 1_000, 0).unwrap(),
+            Utc,
+        );
+        (now - installation_date).num_days() as i32
+    });
+    match Database::open_single(db_path, StoreId::Meta) {
+        Ok(single_store) => match single_store.read() {
+            Ok(reader) => {
+                let update_date: DateTime<Utc> = single_store
+                    .get(&reader, DB_KEY_UPDATE_DATE)?
+                    .unwrap_or_else(Utc::now);
+                days_since_update = Some((now - update_date).num_days() as i32);
+            }
+            Err(e) => {
+                log::warn!("{}", e);
+            }
+        },
+        Err(e) => {
+            log::warn!("{}", e);
+        }
+    }
+
+    let (language, region) = split_locale(locale);
+
+    Ok(CalculatedAttributes {
+        days_since_install,
+        days_since_update,
+        language,
+        region,
+    })
 }

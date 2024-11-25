@@ -17,6 +17,9 @@
 ### FxA Client
 - Updated the iOS `sendToDevice` function to return the `closeTab` call's result when applicable. ([#6448](https://github.com/mozilla/application-services/pull/6448))
 
+### Nimbus SDK ⛅️🔬🔭
+- Added a standalone method to calculate targeting context attributes that are based on values in the Nimbus persistence layer ([#6493](https://github.com/mozilla/application-services/pull/6493))
+
 ### Places
 - `PlacesConnection.noteHistoryMetadataObservation{ViewTime, DocumentType}()`
   (Android) and `PlacesWriteConnection.noteHistoryMetadataObservation()` (iOS)

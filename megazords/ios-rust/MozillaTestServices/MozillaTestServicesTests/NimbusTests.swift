@@ -579,6 +579,19 @@ class NimbusTests: XCTestCase {
 
         XCTAssertThrowsError(try validateEventQueries(recordedContext: recordedContext))
     }
+
+    func testNimbusCanObtainCalculatedAttributes() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
+        let databasePath = createDatabasePath()
+        _ = try Nimbus.create(nil, appSettings: appSettings, dbPath: databasePath) as! Nimbus
+
+        let calculatedAttributes = try getCalculatedAttributes(installationDate: Int64(Date().timeIntervalSince1970 * 1000) - (86_400_000 * 5), dbPath: databasePath, locale: getLocaleTag())
+
+        XCTAssertEqual(5, calculatedAttributes.daysSinceInstall)
+        XCTAssertEqual(0, calculatedAttributes.daysSinceUpdate)
+        XCTAssertEqual("en", calculatedAttributes.language)
+        XCTAssertEqual("US", calculatedAttributes.region)
+    }
 }
 
 private extension Device {

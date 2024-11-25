@@ -40,8 +40,10 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.JsonObject
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.RecordedContext
+import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 import java.util.Calendar
 import java.util.concurrent.Executors
 
@@ -814,6 +816,20 @@ class NimbusTests {
         )
 
         assertThrows("Expected an error to be thrown", NimbusException::class.java, { validateEventQueries(context) })
+    }
+
+    @Test
+    fun `Nimbus can obtain calculated attributes`() {
+        val db = File(context.applicationInfo.dataDir, NIMBUS_DATA_DIR)
+        val deviceInfo = NimbusDeviceInfo.default()
+        val date = Calendar.getInstance()
+
+        val calculatedAttributes = getCalculatedAttributes(date.timeInMillis - 86400000 * 5, db.path, deviceInfo.localeTag)
+
+        assertEquals(5, calculatedAttributes.daysSinceInstall)
+        assertEquals(0, calculatedAttributes.daysSinceUpdate)
+        assertEquals("en", calculatedAttributes.language)
+        assertEquals("US", calculatedAttributes.region)
     }
 }
 

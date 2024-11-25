@@ -4,6 +4,13 @@ typedef extern RemoteSettingsConfig;
 [ExternalExport="remote_settings"]
 typedef extern RemoteSettingsServer;
 
+dictionary CalculatedAttributes {
+    i32? days_since_install;
+    i32? days_since_update;
+    string? language;
+    string? region;
+};
+
 namespace nimbus {
 
     /// A test utility used to validate event queries against the jexl evaluator.
@@ -11,6 +18,10 @@ namespace nimbus {
     /// This method should only be used in tests.
     [Throws=NimbusError]
     void validate_event_queries(RecordedContext recorded_context);
+
+    ///
+    [Throws=NimbusError]
+    CalculatedAttributes get_calculated_attributes(i64? installation_date, string db_path, string locale);
 };
 
 dictionary AppContext {
