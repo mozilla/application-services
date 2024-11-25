@@ -1,4 +1,8 @@
-# v134.0 (In progress)
+# v135.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v134.0 (_2023-11-25_)
 
 ## ✨ What's New ✨
 
@@ -33,7 +37,7 @@
   the page before recording the observation, set the new `if_page_missing`
   option to `HistoryMetadataPageMissingBehavior::InsertPage`.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v133.0...v134.0)
 
 # v133.0 (_2024-10-28_)
 
