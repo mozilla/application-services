@@ -247,6 +247,23 @@ mod tests {
                         "base": "https://example.com/1",
                         "method": "GET",
                         "searchTermParamName": "q"
+                      },
+                      "suggestions": {
+                        "base": "https://example.com/suggestions",
+                        "method": "POST",
+                        "params": [{
+                          "name": "suggestion-name",
+                          "value": "suggestion-value",
+                        }],
+                        "searchTermParamName": "suggest"
+                      },
+                      "trending": {
+                        "base": "https://example.com/trending",
+                        "method": "GET",
+                        "params": [{
+                          "name": "trending-name",
+                          "experimentConfig": "trending-experiment-value",
+                        }]
                       }
                     }
                   },
@@ -326,8 +343,28 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("q".to_string())
                             },
-                            suggestions: None,
-                            trending: None
+                            suggestions: Some(SearchEngineUrl {
+                                base: "https://example.com/suggestions".to_string(),
+                                method: "POST".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "suggestion-name".to_string(),
+                                    value: Some("suggestion-value".to_string()),
+                                    experiment_config: None
+                                }],
+                                search_term_param_name: Some("suggest".to_string())
+                            }),
+                            trending: Some(SearchEngineUrl {
+                                base: "https://example.com/trending".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "trending-name".to_string(),
+                                    value: None,
+                                    experiment_config: Some(
+                                        "trending-experiment-value".to_string()
+                                    )
+                                }],
+                                search_term_param_name: None
+                            })
                         }
                     },
                     SearchEngineDefinition {
