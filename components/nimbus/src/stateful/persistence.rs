@@ -255,6 +255,34 @@ impl SingleStore {
     }
 }
 
+pub struct SingleStoreDatabase {
+    rkv: Rkv,
+    pub(crate) store: SingleStore,
+}
+
+impl SingleStoreDatabase {
+    /// Function used to obtain a "reader" which is used for read-only transactions.
+    pub fn read(&self) -> Result<Reader> {
+        Ok(self.rkv.read()?)
+    }
+
+    /// Function used to obtain a "writer" which is used for transactions.
+    /// The `writer.commit();` must be called to commit data added via the
+    /// writer.
+    pub fn write(&self) -> Result<Writer> {
+        Ok(self.rkv.write()?)
+    }
+
+    /// Function used to obtain values from the internal store.
+    pub fn get<'r, T, R>(&self, reader: &'r R, key: &str) -> Result<Option<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
+        self.store.get(reader, key)
+    }
+}
+
 /// Database used to access persisted data
 /// This an abstraction around an Rkv database
 /// An instance on this database is created each time the component is loaded
@@ -290,6 +318,18 @@ impl Database {
         };
         db.maybe_upgrade()?;
         Ok(db)
+    }
+
+    pub fn open_single<P: AsRef<Path>>(path: P, store_id: StoreId) -> Result<SingleStoreDatabase> {
+        let rkv = Self::open_rkv(path)?;
+        let store = SingleStore::new(match store_id {
+            StoreId::Experiments => rkv.open_single("experiments", StoreOptions::create())?,
+            StoreId::Enrollments => rkv.open_single("enrollments", StoreOptions::create())?,
+            StoreId::Meta => rkv.open_single("meta", StoreOptions::create())?,
+            StoreId::Updates => rkv.open_single("updates", StoreOptions::create())?,
+            StoreId::EventCounts => rkv.open_single("event_counts", StoreOptions::create())?,
+        });
+        Ok(SingleStoreDatabase { rkv, store })
     }
 
     fn maybe_upgrade(&self) -> Result<()> {

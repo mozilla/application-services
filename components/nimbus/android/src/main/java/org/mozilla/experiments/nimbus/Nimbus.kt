@@ -47,7 +47,7 @@ import java.io.IOException
 import kotlin.system.measureTimeMillis
 
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
-private const val NIMBUS_DATA_DIR: String = "nimbus_data"
+const val NIMBUS_DATA_DIR: String = "nimbus_data"
 
 /**
  * This class allows client apps to configure Nimbus to point to your own server.

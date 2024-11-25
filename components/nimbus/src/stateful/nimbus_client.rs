@@ -11,7 +11,10 @@ use crate::{
         ExperimentEnrollment,
     },
     error::BehaviorError,
-    evaluator::{is_experiment_available, TargetingAttributes},
+    evaluator::{
+        get_calculated_attributes, is_experiment_available, CalculatedAttributes,
+        TargetingAttributes,
+    },
     json::JsonObject,
     metrics::{
         EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
