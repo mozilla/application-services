@@ -39,7 +39,7 @@ pub(crate) struct JSONEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
     /// which have a variable FilePath, e.g. `{searchTerm}` for when a search
     /// term is within the path of the url.
-    pub base: String,
+    pub base: Option<String>,
 
     /// The HTTP method to use to send the request (`GET` or `POST`).
     /// If the engine definition has not specified the method, it defaults to GET.
@@ -160,9 +160,28 @@ pub(crate) struct JSONVariantEnvironment {
 
 /// Describes an individual variant of a search engine.
 #[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineVariant {
     /// Details of the possible user environments that this variant applies to.
     pub environment: JSONVariantEnvironment,
+
+    /// This search engine is presented as an option that the user may enable.
+    /// If not specified, defaults to false.
+    #[serde(default)]
+    pub optional: bool,
+
+    /// The partner code for the engine or variant. This will be inserted into
+    /// parameters which include '{partnerCode}'
+    pub partner_code: Option<String>,
+
+    /// Suffix that is appended to the search engine identifier following a dash,
+    /// i.e. `<identifier>-<suffix>`. There should always be a suffix supplied
+    /// if the partner code is different for a reason other than being on a
+    /// different platform.
+    pub telemetry_suffix: Option<String>,
+
+    /// The urls for this variant.
+    pub urls: Option<JSONEngineUrls>,
 }
 
 /// Represents an individual engine record in the configuration.
