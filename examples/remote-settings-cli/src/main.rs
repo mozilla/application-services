@@ -56,10 +56,6 @@ enum Commands {
         /// Dry run - don't write any files
         #[arg(long, default_value_t = false)]
         dry_run: bool,
-
-        /// Create a PR with the changes
-        #[arg(long, default_value_t = false)]
-        create_pr: bool,
     },
     /// Download a single collection to the dumps directory
     DumpGet {
@@ -96,13 +92,9 @@ async fn main() -> Result<()> {
             collection,
             sync_if_empty,
         } => get_records(service, collection, sync_if_empty),
-        Commands::DumpSync {
-            path,
-            dry_run,
-            create_pr,
-        } => {
+        Commands::DumpSync { path, dry_run } => {
             let downloader = CollectionDownloader::new(path);
-            downloader.run(dry_run, create_pr).await
+            downloader.run(dry_run).await
         }
         Commands::DumpGet {
             bucket,
