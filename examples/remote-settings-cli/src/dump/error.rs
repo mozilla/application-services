@@ -10,8 +10,8 @@ pub enum RemoteSettingsError {
     IO(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("Git operation failed: {0}")]
-    Git(String),
     #[error("Cannot find local dump: {0}")]
     Path(String),
+    #[error("Attachment error: {0}")]
+    Attachment(String),
 }
