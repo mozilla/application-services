@@ -18,6 +18,7 @@ pub mod storage;
 
 #[cfg(feature = "jexl")]
 pub(crate) mod jexl_filter;
+mod macros;
 
 pub use client::{Attachment, RemoteSettingsRecord, RemoteSettingsResponse, RsJsonObject};
 pub use config::{RemoteSettingsConfig, RemoteSettingsConfig2, RemoteSettingsServer};
@@ -196,8 +197,8 @@ impl RemoteSettingsClient {
     ///   - This method will throw if there is a network or other error when fetching the
     ///     attachment data.
     #[handle_error(Error)]
-    pub fn get_attachment(&self, attachment_location: String) -> ApiResult<Vec<u8>> {
-        self.internal.get_attachment(&attachment_location)
+    pub fn get_attachment(&self, record: RemoteSettingsRecord) -> ApiResult<Vec<u8>> {
+        self.internal.get_attachment(record)
     }
 }
 
