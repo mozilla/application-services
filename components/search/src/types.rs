@@ -7,14 +7,16 @@
 use serde::Deserialize;
 
 /// The list of possible application names that are currently supported.
-#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
 #[serde(rename_all = "kebab-case")]
 pub enum SearchApplicationName {
-    Firefox = 1,
-    FirefoxAndroid = 2,
-    FirefoxIos = 3,
-    FocusAndroid = 4,
-    FocusIos = 5,
+    FirefoxAndroid = 1,
+    FirefoxIos = 2,
+    FocusAndroid = 3,
+    FocusIos = 4,
+    // The default doesn't really matter here, so we pick desktop.
+    #[default]
+    Firefox = 5,
 }
 
 impl SearchApplicationName {
@@ -31,7 +33,7 @@ impl SearchApplicationName {
 
 /// The list of possible update channels for a user's build.
 /// Use `default` for a self-build or an unknown channel.
-#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchUpdateChannel {
     Nightly = 1,
@@ -39,21 +41,21 @@ pub enum SearchUpdateChannel {
     Beta = 3,
     Release = 4,
     Esr = 5,
-    #[serde(other)]
+    #[default]
     Default = 6,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
 #[serde(rename_all = "camelCase")]
 pub enum SearchDeviceType {
     Smartphone = 1,
     Tablet = 2,
-    #[serde(other)]
+    #[default]
     None = 3,
 }
 
 /// The user's environment that is used for filtering the search configuration.
-#[derive(Clone, Debug, uniffi::Record)]
+#[derive(Clone, Debug, uniffi::Record, Default)]
 pub struct SearchUserEnvironment {
     /// The current locale of the application that the user is using.
     pub locale: String,
