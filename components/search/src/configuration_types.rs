@@ -96,7 +96,7 @@ pub(crate) struct JSONEngineBase {
 
 /// Specifies details of possible user environments that the engine or variant
 /// applies to.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONVariantEnvironment {
     /// Indicates that this section applies to all regions and locales. May be
