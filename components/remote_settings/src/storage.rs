@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{RemoteSettingsRecord, Result};
+use crate::{Attachment, RemoteSettingsRecord, Result};
 use camino::Utf8PathBuf;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json;
+use sha2::{Digest, Sha256};
 
 /// Internal storage type
 ///
@@ -42,7 +43,7 @@ impl Storage {
             collection_url TEXT NOT NULL,
             data BLOB NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS attachments (
+       CREATE TABLE IF NOT EXISTS attachments (
             id TEXT PRIMARY KEY,
             collection_url TEXT NOT NULL,
             data BLOB NOT NULL
@@ -113,15 +114,30 @@ impl Storage {
     pub fn get_attachment(
         &self,
         collection_url: &str,
-        attachment_id: &str,
+        metadata: Attachment,
     ) -> Result<Option<Vec<u8>>> {
         let mut stmt = self
             .conn
             .prepare("SELECT data FROM attachments WHERE id = ? AND collection_url = ?")?;
 
-        Ok(stmt
-            .query_row((attachment_id, collection_url), |row| row.get(0))
-            .optional()?)
+        if let Some(data) = stmt
+            .query_row((metadata.location, collection_url), |row| {
+                row.get::<_, Vec<u8>>(0)
+            })
+            .optional()?
+        {
+            // Return None if data doesn't match expected metadata
+            if data.len() as u64 != metadata.size {
+                return Ok(None);
+            }
+            let hash = format!("{:x}", Sha256::digest(&data));
+            if hash != metadata.hash {
+                return Ok(None);
+            }
+            Ok(Some(data))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Set the list of records stored in the database, clearing out any previously stored records
@@ -165,7 +181,7 @@ impl Storage {
     pub fn set_attachment(
         &mut self,
         collection_url: &str,
-        attachment_id: &str,
+        location: &str,
         attachment: &[u8],
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
@@ -177,8 +193,10 @@ impl Storage {
         )?;
 
         tx.execute(
-            "INSERT OR REPLACE INTO attachments (id, collection_url, data) VALUES (?, ?, ?)",
-            params![attachment_id, collection_url, attachment],
+            "INSERT OR REPLACE INTO ATTACHMENTS \
+            (id, collection_url, data) \
+            VALUES (?, ?, ?)",
+            params![location, collection_url, attachment,],
         )?;
 
         tx.commit()?;
@@ -203,6 +221,7 @@ impl Storage {
 mod tests {
     use super::Storage;
     use crate::{Attachment, RemoteSettingsRecord, Result};
+    use sha2::{Digest, Sha256};
 
     #[test]
     fn test_storage_set_and_get_records() -> Result<()> {
@@ -292,23 +311,21 @@ mod tests {
     fn test_storage_set_and_get_attachment() -> Result<()> {
         let mut storage = Storage::new(":memory:".into())?;
 
+        let attachment = &[0x18, 0x64];
         let collection_url = "https://example.com/api";
         let attachment_metadata = Attachment {
             filename: "abc".to_string(),
             mimetype: "application/json".to_string(),
             location: "tmp".to_string(),
-            hash: "abc123".to_string(),
-            size: 1024,
+            hash: format!("{:x}", Sha256::digest(attachment)),
+            size: attachment.len() as u64,
         };
-
-        let attachment = &[0x18, 0x64];
 
         // Store attachment
         storage.set_attachment(collection_url, &attachment_metadata.location, attachment)?;
 
         // Get attachment
-        let fetched_attachment =
-            storage.get_attachment(collection_url, &attachment_metadata.location)?;
+        let fetched_attachment = storage.get_attachment(collection_url, attachment_metadata)?;
         assert!(fetched_attachment.is_some());
         let fetched_attachment = fetched_attachment.unwrap();
         assert_eq!(fetched_attachment, attachment);
@@ -322,24 +339,24 @@ mod tests {
 
         let collection_url = "https://example.com/api";
 
+        let attachment_1 = &[0x18, 0x64];
+        let attachment_2 = &[0x12, 0x48];
+
         let attachment_metadata_1 = Attachment {
             filename: "abc".to_string(),
             mimetype: "application/json".to_string(),
             location: "tmp".to_string(),
-            hash: "abc123".to_string(),
-            size: 1024,
+            hash: format!("{:x}", Sha256::digest(attachment_1)),
+            size: attachment_1.len() as u64,
         };
 
         let attachment_metadata_2 = Attachment {
             filename: "def".to_string(),
             mimetype: "application/json".to_string(),
             location: "tmp".to_string(),
-            hash: "def456".to_string(),
-            size: 2048,
+            hash: format!("{:x}", Sha256::digest(attachment_2)),
+            size: attachment_2.len() as u64,
         };
-
-        let attachment_1 = &[0x18, 0x64];
-        let attachment_2 = &[0x12, 0x48];
 
         // Store first attachment
         storage.set_attachment(
@@ -356,7 +373,7 @@ mod tests {
         )?;
 
         // Get attachment
-        let fetched_attachment = storage.get_attachment(collection_url, "tmp")?;
+        let fetched_attachment = storage.get_attachment(collection_url, attachment_metadata_2)?;
         assert!(fetched_attachment.is_some());
         let fetched_attachment = fetched_attachment.unwrap();
         assert_eq!(fetched_attachment, attachment_2);
@@ -371,24 +388,24 @@ mod tests {
         let collection_url_1 = "https://example.com/api1";
         let collection_url_2 = "https://example.com/api2";
 
+        let attachment_1 = &[0x18, 0x64];
+        let attachment_2 = &[0x12, 0x48];
+
         let attachment_metadata_1 = Attachment {
             filename: "abc".to_string(),
             mimetype: "application/json".to_string(),
             location: "first_tmp".to_string(),
-            hash: "abc123".to_string(),
-            size: 1024,
+            hash: format!("{:x}", Sha256::digest(attachment_1)),
+            size: attachment_1.len() as u64,
         };
 
         let attachment_metadata_2 = Attachment {
             filename: "def".to_string(),
             mimetype: "application/json".to_string(),
             location: "second_tmp".to_string(),
-            hash: "def456".to_string(),
-            size: 2048,
+            hash: format!("{:x}", Sha256::digest(attachment_2)),
+            size: attachment_2.len() as u64,
         };
-
-        let attachment_1 = &[0x18, 0x64];
-        let attachment_2 = &[0x12, 0x48];
 
         // Set attachments for two different collections
         storage.set_attachment(
@@ -404,11 +421,11 @@ mod tests {
 
         // Verify that only the attachment for the second collection remains
         let fetched_attachment_1 =
-            storage.get_attachment(collection_url_1, &attachment_metadata_1.location)?;
+            storage.get_attachment(collection_url_1, attachment_metadata_1)?;
         assert!(fetched_attachment_1.is_none());
 
         let fetched_attachment_2 =
-            storage.get_attachment(collection_url_2, &attachment_metadata_2.location)?;
+            storage.get_attachment(collection_url_2, attachment_metadata_2)?;
         assert!(fetched_attachment_2.is_some());
         let fetched_attachment_2 = fetched_attachment_2.unwrap();
         assert_eq!(fetched_attachment_2, attachment_2);
@@ -421,10 +438,10 @@ mod tests {
         let storage = Storage::new(":memory:".into())?;
 
         let collection_url = "https://example.com/api";
-        let attachment_id = "nonexistent";
+        let metadata = Attachment::default();
 
         // Get attachment that doesn't exist
-        let fetched_attachment = storage.get_attachment(collection_url, attachment_id)?;
+        let fetched_attachment = storage.get_attachment(collection_url, metadata)?;
         assert!(fetched_attachment.is_none());
 
         Ok(())
@@ -435,6 +452,8 @@ mod tests {
         let mut storage = Storage::new(":memory:".into())?;
 
         let collection_url = "https://example.com/api";
+        let attachment = &[0x18, 0x64];
+
         let records = vec![
             RemoteSettingsRecord {
                 id: "1".to_string(),
@@ -454,8 +473,8 @@ mod tests {
                     filename: "abc".to_string(),
                     mimetype: "application/json".to_string(),
                     location: "tmp".to_string(),
-                    hash: "abc123".to_string(),
-                    size: 1024,
+                    hash: format!("{:x}", Sha256::digest(attachment)),
+                    size: attachment.len() as u64,
                 }),
                 fields: serde_json::json!({"key": "value2"})
                     .as_object()
@@ -464,17 +483,19 @@ mod tests {
             },
         ];
 
-        let attachment_location = "tmp";
-        let attachment = &[0x18, 0x64];
+        let metadata = records[1]
+            .clone()
+            .attachment
+            .expect("No attachment metadata for record");
 
         // Set records and attachment
         storage.set_records(collection_url, &records)?;
-        storage.set_attachment(collection_url, attachment_location, attachment)?;
+        storage.set_attachment(collection_url, &metadata.location, attachment)?;
 
         // Verify they are stored
         let fetched_records = storage.get_records(collection_url)?;
         assert!(fetched_records.is_some());
-        let fetched_attachment = storage.get_attachment(collection_url, attachment_location)?;
+        let fetched_attachment = storage.get_attachment(collection_url, metadata.clone())?;
         assert!(fetched_attachment.is_some());
 
         // Empty the storage
@@ -483,7 +504,7 @@ mod tests {
         // Verify they are deleted
         let fetched_records = storage.get_records(collection_url)?;
         assert!(fetched_records.is_none());
-        let fetched_attachment = storage.get_attachment(collection_url, attachment_location)?;
+        let fetched_attachment = storage.get_attachment(collection_url, metadata)?;
         assert!(fetched_attachment.is_none());
 
         Ok(())

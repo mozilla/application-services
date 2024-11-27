@@ -39,7 +39,7 @@ pub struct UpdateResult {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Attachment {
+pub struct AttachmentMetadata {
     pub location: String,
     pub hash: String,
     pub size: u64,
@@ -243,7 +243,7 @@ impl CollectionDownloader {
         &self,
         base_url: &str,
         record_id: &str,
-        attachment: &Attachment,
+        attachment: &AttachmentMetadata,
         pb: &ProgressBar,
     ) -> Result<Vec<u8>> {
         let url = format!("{}{}", base_url, attachment.location);
@@ -304,7 +304,7 @@ impl CollectionDownloader {
         bucket: &str,
         collection: &str,
         record_id: &str,
-        remote_attachment: &Attachment,
+        remote_attachment: &AttachmentMetadata,
     ) -> Result<bool> {
         let (bin_path, meta_path) = self.get_attachment_paths(bucket, collection, record_id);
 
@@ -321,7 +321,7 @@ impl CollectionDownloader {
 
         // Read and parse metadata file
         let meta_content = std::fs::read_to_string(&meta_path)?;
-        let local_attachment: Attachment = serde_json::from_str(&meta_content)?;
+        let local_attachment: AttachmentMetadata = serde_json::from_str(&meta_content)?;
 
         // Compare metadata
         if local_attachment.hash != remote_attachment.hash
@@ -427,7 +427,8 @@ impl CollectionDownloader {
                         RemoteSettingsError::Json(serde_json::Error::custom("No record id"))
                     })?;
 
-                    let attachment: Attachment = serde_json::from_value(attachment.clone())?;
+                    let attachment: AttachmentMetadata =
+                        serde_json::from_value(attachment.clone())?;
                     if !self.is_attachment_up_to_date(bucket, name, record_id, &attachment)? {
                         attachments_updated += 1;
                     }
@@ -585,7 +586,7 @@ impl CollectionDownloader {
                     RemoteSettingsError::Json(serde_json::Error::custom("No record id"))
                 })?;
 
-                let attachment: Attachment = serde_json::from_value(attachment.clone())?;
+                let attachment: AttachmentMetadata = serde_json::from_value(attachment.clone())?;
 
                 if !self.is_attachment_up_to_date(bucket, collection, record_id, &attachment)? {
                     outdated_attachments.push((record_id.to_string(), attachment));
