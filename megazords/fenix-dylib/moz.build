@@ -1,0 +1,35 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# There are 2 parts to our megazord - a staticlib in megazords/full, then this
+# build file to create the final dyib .so
+# See the comments in megazords/full/moz.build.
+
+UNIFIED_SOURCES += [
+    "megazord_stub.c",
+]
+
+# This name confusion is a reflection of the 2 megazord parts. It should be
+# fixed after we land in m-c.
+SharedLibrary("megazord-so")
+SHARED_LIBRARY_NAME = "megazord"
+
+USE_LIBS += ["megazord", "mozpkix", "nspr"]
+
+# copy-pasta from other moz.build files.
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    OS_LIBS += ["-framework CoreFoundation"]
+elif CONFIG["OS_TARGET"] == "WINNT":
+    OS_LIBS += [
+        "advapi32",
+        "bcrypt",
+        "mswsock",
+        "ntdll",
+        "shell32",
+        "user32",
+        "userenv",
+        "wsock32",
+        "ws2_32",
+        "winmm",
+    ]
