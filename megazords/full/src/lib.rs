@@ -8,6 +8,7 @@
 use std::ffi::CString;
 use std::os::raw::c_char;
 
+// NOTE if you add or remove crates below here, please make a corresponding change in ../fenix-dylib/megazord_stub.c
 pub use autofill;
 pub use crashtest;
 pub use error_support;
@@ -27,6 +28,8 @@ pub use sync_manager;
 pub use tabs;
 pub use tracing_support;
 pub use viaduct;
+// NOTE if you add or remove crates above here, please make a corresponding change in ../fenix-dylib/megazord_stub.c
+
 // TODO: Uncomment this code when webext-storage component is integrated in android
 // pub use webext_storage;
 
