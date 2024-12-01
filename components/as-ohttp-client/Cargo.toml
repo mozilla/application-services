@@ -17,10 +17,10 @@ parking_lot = "0.12"
 rusqlite = { workspace = true, features = ["bundled"] }
 
 [dependencies.ohttp]
-version = "0.4"
+version = "0.5.1"
 default-features = false
 git = "https://github.com/martinthomson/ohttp.git"
-rev = "fc3f4c787d1f6a6a87bf5194f7152cc906b02973"
+rev = "bf02e480d4722f9fba38a4245168d1a82f8fac6c"
 features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]
