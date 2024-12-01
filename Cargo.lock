@@ -4779,7 +4779,6 @@ dependencies = [
  "log",
  "nss_build_common",
  "parking_lot",
- "prettytable-rs",
  "rusqlite",
  "tempfile",
  "thiserror 1.0.31",
