@@ -8,7 +8,7 @@
 android-plugin = "8.0.2"
 
 # Google
-protobuf = "4.28.2"
+protobuf = "4.29.0"
 
 # Kotlin
 kotlin-compiler = "1.9.24"
