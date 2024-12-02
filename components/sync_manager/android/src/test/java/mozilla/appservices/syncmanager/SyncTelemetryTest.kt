@@ -15,6 +15,7 @@ import mozilla.appservices.sync15.ProblemInfo
 import mozilla.appservices.sync15.SyncInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.appservices.sync15.ValidationInfo
+import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -50,6 +51,15 @@ class SyncTelemetryTest {
     fun setup() {
         now = Date().asSeconds()
         pingCount = 0
+
+        // Due to recent changes in how upload enabled works, we need to register the custom
+        // Sync pings before they can be submitted properly.
+        Glean.registerPings(Pings.sync)
+        Glean.registerPings(Pings.bookmarksSync)
+        Glean.registerPings(Pings.loginsSync)
+        Glean.registerPings(Pings.creditcardsSync)
+        Glean.registerPings(Pings.addressesSync)
+        Glean.registerPings(Pings.tabsSync)
     }
 
     @Test
