@@ -207,13 +207,6 @@ subprojects {
     afterEvaluate{
         if (it.hasProperty('android')) {
             android {
-                // This shouldn't be needed anymore with AGP 8.1.0+
-                // https://kotlinlang.org/docs/gradle-configure-project.html#gradle-java-toolchains-support
-                compileOptions {
-                    sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
-                    targetCompatibility rootProject.ext.build.jvmTargetCompatibility
-                }
-
                 buildFeatures {
                     buildConfig true
                 }
