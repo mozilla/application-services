@@ -83,7 +83,7 @@ func timestampNanos() -> UInt64 {
 /// to indicate "undetermined".
 ///
 /// - returns: a locale string that supports custom injected locale/languages.
-func getLocaleTag() -> String {
+public func getLocaleTag() -> String {
     if NSLocale.current.languageCode == nil {
         return "und"
     } else {

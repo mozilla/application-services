@@ -1,5 +1,8 @@
 # v135.0 (In progress)
 
+### Nimbus SDK ⛅️🔬🔭
+- Updated `getLocaleTag` to be publicly accessible ([#6510](https://github.com/mozilla/application-services/pull/6510))
+
 [Full Changelog](In progress)
 
 # v134.0 (_2023-11-25_)
