@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Setup the Rust toolchain built by the `build-rust-toolchain-sh` script.  See that script for details on this process.
 #
 # This is intended to be sourced in the `pre-commands`
