@@ -19,8 +19,9 @@ use std::{
 };
 use url::Url;
 
-#[cfg(feature = "integration_test")]
-pub mod auth;
+// We once had an "integration_test" feature this module was gated on.
+// We still keep the code around for now, in-case it turns out to be useful.
+// pub mod auth;
 mod close_tabs;
 mod commands;
 pub mod config;
