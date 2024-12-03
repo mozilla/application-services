@@ -6,6 +6,7 @@ package mozilla.appservices.syncmanager
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.work.testing.WorkManagerTestInitHelper
 import mozilla.appservices.sync15.EngineInfo
 import mozilla.appservices.sync15.FailureName
 import mozilla.appservices.sync15.FailureReason
@@ -16,7 +17,8 @@ import mozilla.appservices.sync15.SyncInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.appservices.sync15.ValidationInfo
 import mozilla.telemetry.glean.Glean
-import mozilla.telemetry.glean.testing.GleanTestRule
+import mozilla.telemetry.glean.config.Configuration
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -24,7 +26,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
@@ -41,9 +42,6 @@ private fun Date.asSeconds() = time / BaseGleanSyncPing.MILLIS_PER_SEC
 @RunWith(AndroidJUnit4::class)
 @Suppress("LargeClass")
 class SyncTelemetryTest {
-    @get:Rule
-    val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
-
     private var now: Long = 0
     private var pingCount = 0
 
@@ -53,13 +51,30 @@ class SyncTelemetryTest {
         pingCount = 0
 
         // Due to recent changes in how upload enabled works, we need to register the custom
-        // Sync pings before they can be submitted properly.
+        // Sync pings before resetting Glean manually so they can be submitted properly. This
+        // replaces the use of the GleanTestRule until it can be updated to better support testing
+        // custom pings in libraries.
         Glean.registerPings(Pings.sync)
+        Glean.registerPings(Pings.historySync)
         Glean.registerPings(Pings.bookmarksSync)
         Glean.registerPings(Pings.loginsSync)
         Glean.registerPings(Pings.creditcardsSync)
         Glean.registerPings(Pings.addressesSync)
         Glean.registerPings(Pings.tabsSync)
+
+        // Glean will crash in tests without this line when not using the GleanTestRule.
+        WorkManagerTestInitHelper.initializeTestWorkManager(ApplicationProvider.getApplicationContext())
+        Glean.resetGlean(
+            context = ApplicationProvider.getApplicationContext(),
+            config = Configuration(),
+            clearStores = true,
+        )
+    }
+
+    @After
+    fun tearDown() {
+        // This closes the WorkManager database to help prevent leaking it during tests.
+        WorkManagerTestInitHelper.closeWorkDatabase()
     }
 
     @Test
