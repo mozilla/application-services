@@ -22,7 +22,7 @@ sync-guid = { path = "../support/guid", features = ["random"] }
 sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "1.0"
 uniffi = { workspace = true }
-url = "2.1" # mozilla-central can't yet take 2.2 (see bug 1734538)
+url = "2"
 types = { path = "../support/types" }
 
 [dev-dependencies]
