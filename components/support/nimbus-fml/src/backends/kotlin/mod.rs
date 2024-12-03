@@ -151,11 +151,11 @@ pub mod test {
             .arg(json_jar())
             .arg("-d")
             .arg(build_dir)
-            .arg(&variables_kt())
-            .arg(&features_kt())
-            .arg(&hardcoded_features_kt())
-            .arg(&runtime_dir())
-            .arg(&nimbus_internals_kt())
+            .arg(variables_kt())
+            .arg(features_kt())
+            .arg(hardcoded_features_kt())
+            .arg(runtime_dir())
+            .arg(nimbus_internals_kt())
             .args(manifest_paths)
             .spawn()?
             .wait()?;

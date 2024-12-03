@@ -379,7 +379,7 @@ const ORIGIN_SQL: &str = "
     LIMIT 1
 ";
 
-impl<'query> Matcher for OriginOrUrl<'query> {
+impl Matcher for OriginOrUrl<'_> {
     fn search(&self, conn: &PlacesDb, _: u32) -> Result<Vec<SearchResult>> {
         Ok(if looks_like_origin(self.query) {
             query_flat_rows_and_then(
@@ -392,7 +392,7 @@ impl<'query> Matcher for OriginOrUrl<'query> {
                 ],
                 SearchResult::from_origin_row,
             )?
-        } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
+        } else if self.query.contains(['/', ':', '?']) {
             let (host, remainder) = split_after_host_and_port(self.query);
             // This can fail if the "host" has some characters that are not
             // currently allowed in URLs (even when punycoded). If that happens,
@@ -442,7 +442,7 @@ impl<'query> Adaptive<'query> {
     }
 }
 
-impl<'query> Matcher for Adaptive<'query> {
+impl Matcher for Adaptive<'_> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
         query_flat_rows_and_then(
             conn,
@@ -508,7 +508,7 @@ impl<'query> Suggestions<'query> {
     }
 }
 
-impl<'query> Matcher for Suggestions<'query> {
+impl Matcher for Suggestions<'_> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
         query_flat_rows_and_then(
             conn,

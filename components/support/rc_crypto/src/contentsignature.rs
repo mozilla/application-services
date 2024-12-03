@@ -18,7 +18,7 @@ use crate::signature;
 /// This is a critical part of systems like Remote Settings or the experiment platform.
 ///
 /// The equivalent implementation for Gecko is ``security/manager/ssl/nsIContentSignatureVerifier.idl``.
-
+///
 /// Decode a string with colon separated hexadecimal pairs into an array of bytes
 /// (eg. "3C:01:44" -> [60, 1, 68]).
 fn decode_root_hash(input: &str) -> Result<Vec<u8>> {

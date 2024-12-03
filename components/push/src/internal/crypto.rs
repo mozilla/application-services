@@ -157,7 +157,7 @@ fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
         log::debug!("No sub-value found for {}", target);
         return None;
     }
-    let items = val.split(|c| c == ',' || c == ';');
+    let items = val.split([',', ';']);
     for item in items {
         let mut kv = item.split('=');
         if kv.next() == Some(target) {

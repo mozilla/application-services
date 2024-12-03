@@ -340,7 +340,7 @@ pub struct AutocompleteMatch<'search, 'url, 'title, 'tags> {
     pub search_behavior: SearchBehavior,
 }
 
-impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tags> {
+impl AutocompleteMatch<'_, '_, '_, '_> {
     fn get_search_fn(&self) -> fn(&str, &str) -> bool {
         match self.match_behavior {
             MatchBehavior::Anywhere | MatchBehavior::AnywhereUnmodified => find_anywhere,

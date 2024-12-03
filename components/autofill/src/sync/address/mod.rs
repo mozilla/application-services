@@ -203,9 +203,8 @@ impl SyncRecord for InternalAddress {
         // guids must be identical
         assert_eq!(incoming.guid, local.guid);
 
-        match mirror {
-            Some(m) => assert_eq!(incoming.guid, m.guid),
-            None => {}
+        if let Some(m) = mirror {
+            assert_eq!(incoming.guid, m.guid)
         };
 
         merged_record.guid = incoming.guid.clone();

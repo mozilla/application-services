@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         struct V;
 
-        impl<'de> Visitor<'de> for V {
+        impl Visitor<'_> for V {
             type Value = BookmarkRecordId;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -370,7 +370,7 @@ where
 
     struct StringOrInt(PhantomData<Option<i64>>);
 
-    impl<'de> Visitor<'de> for StringOrInt {
+    impl Visitor<'_> for StringOrInt {
         type Value = Option<i64>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

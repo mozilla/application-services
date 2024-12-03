@@ -36,7 +36,6 @@ use serde_derive::*;
 /// Support for inserting and fetching a tree. Same limitations as desktop.
 /// Note that the guids are optional when inserting a tree. They will always
 /// have values when fetching it.
-
 // For testing purposes we implement PartialEq, such that optional fields are
 // ignored in the comparison. This allows tests to construct a tree with
 // missing fields and be able to compare against a tree with all fields (such

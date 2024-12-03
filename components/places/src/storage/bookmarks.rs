@@ -77,7 +77,7 @@ pub enum BookmarkPosition {
 }
 
 /// Helpers to deal with managing the position correctly.
-
+///
 /// Updates the position of existing items so that the insertion of a child in
 /// the position specified leaves all siblings with the correct position.
 /// Returns the index the item should be inserted at.

@@ -148,8 +148,8 @@ impl TypeRef {
  * - a file path can specify a non-canonical representation of the path
  * - a file path is difficult to serialize/deserialize
  * - a module identifies the cluster of FML files that map to a single generated
- * Kotlin or Swift file; this difference can be seen as: files can be included,
- * modules can be imported.
+ *   Kotlin or Swift file; this difference can be seen as: files can be included,
+ *   modules can be imported.
  */
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone, Serialize, Deserialize)]
 pub enum ModuleId {

@@ -40,6 +40,7 @@ fn clamp_visit_date(visit_date: Timestamp) -> std::result::Result<Timestamp, ()>
 /// This is the action we will take *locally* for each incoming record.
 /// For example, IncomingPlan::Delete means we will be deleting a local record
 /// and not that we will be uploading a tombstone or deleting the record itself.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum IncomingPlan {
     /// An entry we just want to ignore - either due to the URL etc, or because no changes.

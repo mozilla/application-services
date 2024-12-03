@@ -149,7 +149,6 @@ enum Command {
     Sync {
         #[structopt(name = "engines", long)]
         /// Path to store our cached fxa credentials.
-
         #[structopt(name = "credentials", long, default_value = "./credentials.json")]
         credential_file: String,
 

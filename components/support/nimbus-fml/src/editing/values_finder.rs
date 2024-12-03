@@ -52,7 +52,7 @@ impl<'a> ValuesFinder<'a> {
     }
 }
 
-impl<'a> ValuesFinder<'a> {
+impl ValuesFinder<'_> {
     fn get_enum_values(&self, type_name: &str) -> BTreeSet<String> {
         if let Some(def) = self.enum_defs.get(type_name) {
             def.variants.iter().map(|v| v.name()).collect()

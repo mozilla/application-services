@@ -100,7 +100,7 @@ impl PartialEq<SyncGuid> for BookmarkRootGuid {
 }
 
 // Even if we have a reference to &SyncGuid
-impl<'a> PartialEq<BookmarkRootGuid> for &'a SyncGuid {
+impl PartialEq<BookmarkRootGuid> for &SyncGuid {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
         self.as_str().as_bytes() == other.as_str().as_bytes()
     }
@@ -113,7 +113,7 @@ impl<'a> PartialEq<&'a SyncGuid> for BookmarkRootGuid {
 }
 
 // And between BookmarkRootGuid and &str
-impl<'a> PartialEq<BookmarkRootGuid> for &'a str {
+impl PartialEq<BookmarkRootGuid> for &str {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
         *self == other.as_str()
     }

@@ -12,7 +12,6 @@ use push::{BridgeType, PushConfiguration, PushManager};
  * you re-run this test.
  *
  */
-
 fn test_live_server() {
     let tempdir = tempfile::tempdir().unwrap();
     viaduct_reqwest::use_reqwest_backend();

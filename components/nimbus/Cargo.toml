@@ -51,3 +51,7 @@ env_logger = "0.10"
 clap = "2.34"
 tempfile = "3"
 ctor = "0.2.2"
+
+# Temp hack for uniffi 0.28 generated code, will not be necessary after next uniffi update.
+[lints.clippy]
+empty-line-after-doc-comments = "allow"

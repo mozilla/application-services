@@ -24,7 +24,7 @@ fn is_between(min_version: usize, current_version: &str, max_version: usize) -> 
 /// The following are dumb string manipulations to pad out a version number.
 /// We might use a version library if we need much more functionality, but right now
 /// it's isolated in a single file where it can be replaced as/when necessary.
-
+///
 /// pad_major_minor_patch will zero pad the minor and patch versions if they are not present.
 /// 112.1.3 --> 112.1.3
 /// 112.1   --> 112.1.0
