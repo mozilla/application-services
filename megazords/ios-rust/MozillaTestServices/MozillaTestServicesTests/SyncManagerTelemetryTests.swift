@@ -14,7 +14,8 @@ class SyncManagerTelemetryTests: XCTestCase {
         super.setUp()
 
         // Due to recent changes in how upload enabled works, we need to register the custom
-        // Sync pings before they can be submitted properly.
+        // Sync pings before they can collect data in tests.
+        // See https://bugzilla.mozilla.org/show_bug.cgi?id=1935001 for more info.
         Glean.shared.registerPings(GleanMetrics.Pings.shared.sync)
         Glean.shared.registerPings(GleanMetrics.Pings.shared.historySync)
         Glean.shared.registerPings(GleanMetrics.Pings.shared.bookmarksSync)
