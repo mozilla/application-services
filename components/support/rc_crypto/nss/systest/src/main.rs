@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(bad_style)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::all))]
+#![allow(clippy::all)]
 use nss_sys::*;
 
 include!(concat!(env!("OUT_DIR"), "/all.rs"));

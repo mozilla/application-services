@@ -43,7 +43,7 @@ impl FirefoxAccount {
     /// the current one.
     ///
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
-    /// and fetch devices from the server.
+    ///   and fetch devices from the server.
     pub fn get_devices(&mut self, ignore_cache: bool) -> Result<Vec<Device>> {
         if let Some(d) = &self.devices_cache {
             if !ignore_cache && util::now() < d.cached_at + DEVICES_FRESHNESS_THRESHOLD {

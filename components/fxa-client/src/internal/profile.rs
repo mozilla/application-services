@@ -16,7 +16,7 @@ impl FirefoxAccount {
     /// not have a valid refresh token.
     ///
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
-    /// and fetch the entire profile data from the server.
+    ///   and fetch the entire profile data from the server.
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {

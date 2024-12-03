@@ -125,7 +125,7 @@ impl FirefoxAccount {
     /// Initiate a pairing flow and return a URL that should be navigated to.
     ///
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
-    /// the pairing authority.
+    ///   the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     /// * `entrypoint` - The entrypoint to be used for data collection
     /// * `metrics` - Optional parameters for metrics

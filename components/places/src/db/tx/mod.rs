@@ -24,7 +24,7 @@ enum PlacesTransactionRepr<'conn> {
     ReadOnly(UncheckedTransaction<'conn>),
 }
 
-impl<'conn> PlacesTransaction<'conn> {
+impl PlacesTransaction<'_> {
     /// Returns `true` if the current transaction should be committed at the
     /// earliest opportunity.
     #[inline]
@@ -101,7 +101,7 @@ impl super::PlacesDb {
     }
 }
 
-impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
+impl std::ops::Deref for PlacesTransaction<'_> {
     type Target = Connection;
 
     fn deref(&self) -> &Connection {
@@ -113,7 +113,7 @@ impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
     }
 }
 
-impl<'conn> ConnExt for PlacesTransaction<'conn> {
+impl ConnExt for PlacesTransaction<'_> {
     #[inline]
     fn conn(&self) -> &Connection {
         self

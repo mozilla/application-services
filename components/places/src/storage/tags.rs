@@ -177,7 +177,7 @@ pub fn remove_tag(db: &PlacesDb, tag: &str) -> Result<()> {
 /// # Returns
 ///
 /// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
-/// the URLs.
+///   the URLs.
 pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
     let tag = validate_tag(tag).ensure_valid()?;
 

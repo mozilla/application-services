@@ -51,7 +51,7 @@ const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 /// Adapts an interruptee to a Dogear abort signal.
 struct MergeInterruptee<'a>(&'a SqlInterruptScope);
 
-impl<'a> AbortSignal for MergeInterruptee<'a> {
+impl AbortSignal for MergeInterruptee<'_> {
     #[inline]
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
@@ -1362,7 +1362,7 @@ impl<'a> Merger<'a> {
     }
 }
 
-impl<'a> dogear::Store for Merger<'a> {
+impl dogear::Store for Merger<'_> {
     type Ok = ();
     type Error = Error;
 
@@ -1649,7 +1649,7 @@ impl fmt::Display for UploadItemsFragment {
 /// local items. The CTE may be included in a `WITH RECURSIVE` clause.
 struct LocalItemsFragment<'a>(&'a str);
 
-impl<'a> fmt::Display for LocalItemsFragment<'a> {
+impl fmt::Display for LocalItemsFragment<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -1750,7 +1750,7 @@ impl fmt::Display for UrlOrPlaceIdFragment {
 /// root GUIDs.
 struct RootsFragment<'a>(&'a [BookmarkRootGuid]);
 
-impl<'a> fmt::Display for RootsFragment<'a> {
+impl fmt::Display for RootsFragment<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("(")?;
         for (i, guid) in self.0.iter().enumerate() {

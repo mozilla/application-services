@@ -236,7 +236,7 @@ impl LoginsSyncEngine {
                     Ok(())
                 })?;
                 // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
-                rows.collect::<Result<_>>()?;
+                rows.collect::<Result<()>>()?;
                 Ok(())
             },
         )?;

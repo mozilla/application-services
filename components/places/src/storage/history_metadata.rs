@@ -164,12 +164,11 @@ trait WhereArg {
 
 impl PlaceEntry {
     fn fetch(url: &str, tx: &PlacesTransaction<'_>, title: Option<String>) -> Result<Self> {
-        let url = Url::parse(url).map_err(|e| {
+        let url = Url::parse(url).inspect_err(|_e| {
             breadcrumb!(
                 "PlaceEntry::fetch -- Error parsing url: {}",
                 redact_url(url)
             );
-            e
         })?;
         let place_id = tx.try_query_one(
             "SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url",

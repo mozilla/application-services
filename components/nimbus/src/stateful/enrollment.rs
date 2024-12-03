@@ -14,7 +14,7 @@ use crate::{
 const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
 const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 
-impl<'a> EnrollmentsEvolver<'a> {
+impl EnrollmentsEvolver<'_> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
     /// enrollments and user participation from the database.
     pub(crate) fn evolve_enrollments_in_db(

@@ -550,7 +550,7 @@ impl EventStore {
             let new_counter = Default::default();
             self.events.insert(event_id.to_string(), new_counter);
         }
-        return self.events.get_mut(event_id).unwrap();
+        self.events.get_mut(event_id).unwrap()
     }
 
     pub fn persist_data(&self, db: &Database) -> Result<()> {

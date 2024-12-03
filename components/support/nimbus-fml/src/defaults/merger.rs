@@ -141,9 +141,9 @@ impl<'object> DefaultsMerger<'object> {
     ///
     /// # Arguments
     /// - `feature_def`: a [`FeatureDef`] representing the feature definition to transform
-    /// - `channel`: a [`Option<&String>`] representing the channel to merge back into the field variables
+    /// - `channel`: a [`Option<&String>`] representing the channel to merge back into the field variables.
+    ///    If the `channel` is `None` we default to using the `release` channel.
     /// - `supported_channels`: a [`&[String]`] representing the channels that are supported by the manifest
-    /// If the `channel` is `None` we default to using the `release` channel
     ///
     /// # Returns
     /// Returns a transformed [`FeatureDef`] with its defaults merged

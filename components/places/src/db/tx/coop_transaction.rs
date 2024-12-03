@@ -187,7 +187,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
     }
 }
 
-impl<'conn> Deref for ChunkedCoopTransaction<'conn> {
+impl Deref for ChunkedCoopTransaction<'_> {
     type Target = Connection;
 
     #[inline]
@@ -196,7 +196,7 @@ impl<'conn> Deref for ChunkedCoopTransaction<'conn> {
     }
 }
 
-impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
+impl ConnExt for ChunkedCoopTransaction<'_> {
     #[inline]
     fn conn(&self) -> &Connection {
         self
@@ -218,9 +218,8 @@ fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction
             // etc.
             let started_at = Instant::now();
             log::warn!("Attempting to get a read lock failed - doing one retry");
-            let tx = UncheckedTransaction::new(conn, behavior).map_err(|err| {
+            let tx = UncheckedTransaction::new(conn, behavior).inspect_err(|_err| {
                 log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
-                err
             })?;
             log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
             Ok(tx)
