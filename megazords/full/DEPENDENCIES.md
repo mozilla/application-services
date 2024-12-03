@@ -22,12 +22,14 @@ the details of which are reproduced below.
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: smawk](#mit-license-smawk)
+* [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: weedle2](#mit-license-weedle2)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
+* [Unicode-3.0 License: icu_collections, icu_locid, icu_locid_transform, icu_locid_transform_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_provider_macros, litemap, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locid-icu_locid_transform-icu_locid_transform_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_provider_macros-litemap-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
 -------------
 ## Mozilla Public License 2.0
@@ -450,6 +452,7 @@ The following text applies to code linked from these dependencies:
 [cpufeatures](https://github.com/RustCrypto/utils),
 [crypto-common](https://github.com/RustCrypto/traits),
 [digest](https://github.com/RustCrypto/traits),
+[displaydoc](https://github.com/yaahc/displaydoc),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
 [errno](https://github.com/lambda-fairy/rust-errno),
@@ -468,6 +471,7 @@ The following text applies to code linked from these dependencies:
 [iana-time-zone](https://github.com/strawlab/iana-time-zone),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
+[idna_adapter](https://github.com/hsivonen/idna_adapter),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -512,6 +516,7 @@ The following text applies to code linked from these dependencies:
 [siphasher](https://github.com/jedisct1/rust-siphash),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
+[stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
@@ -522,11 +527,12 @@ The following text applies to code linked from these dependencies:
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
 [unicase](https://github.com/seanmonstar/unicase),
-[unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-ident](https://github.com/dtolnay/unicode-ident),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
 [url](https://github.com/servo/rust-url),
+[utf16_iter](https://github.com/hsivonen/utf16_iter),
+[utf8_iter](https://github.com/hsivonen/utf8_iter),
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
@@ -534,6 +540,7 @@ The following text applies to code linked from these dependencies:
 [windows-targets](https://github.com/microsoft/windows-rs),
 [windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
 [windows_x86_64_msvc](https://github.com/microsoft/windows-rs),
+[write16](https://github.com/hsivonen/write16),
 [zerocopy](https://github.com/google/zerocopy)
 
 ```
@@ -1231,6 +1238,22 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: synstructure
+
+The following text applies to code linked from these dependencies:
+[synstructure](https://github.com/mystor/synstructure)
+
+```
+Copyright 2016 Nika Layzell
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+```
+-------------
 ## MIT License: textwrap
 
 The following text applies to code linked from these dependencies:
@@ -1593,6 +1616,79 @@ Code generated by the Protocol Buffer compiler is owned by the owner
 of the input file used when generating it.  This code is not
 standalone and requires a support library to be linked with it.  This
 support library is itself covered by the above license.
+
+```
+-------------
+## Unicode-3.0 License: icu_collections, icu_locid, icu_locid_transform, icu_locid_transform_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_provider_macros, litemap, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerovec, zerovec-derive
+
+The following text applies to code linked from these dependencies:
+[icu_collections](https://github.com/unicode-org/icu4x),
+[icu_locid](https://github.com/unicode-org/icu4x),
+[icu_locid_transform](https://github.com/unicode-org/icu4x),
+[icu_locid_transform_data](https://github.com/unicode-org/icu4x),
+[icu_normalizer](https://github.com/unicode-org/icu4x),
+[icu_normalizer_data](https://github.com/unicode-org/icu4x),
+[icu_properties](https://github.com/unicode-org/icu4x),
+[icu_properties_data](https://github.com/unicode-org/icu4x),
+[icu_provider](https://github.com/unicode-org/icu4x),
+[icu_provider_macros](https://github.com/unicode-org/icu4x),
+[litemap](https://github.com/unicode-org/icu4x),
+[tinystr](https://github.com/unicode-org/icu4x),
+[writeable](https://github.com/unicode-org/icu4x),
+[yoke-derive](https://github.com/unicode-org/icu4x),
+[yoke](https://github.com/unicode-org/icu4x),
+[zerofrom-derive](https://github.com/unicode-org/icu4x),
+[zerofrom](https://github.com/unicode-org/icu4x),
+[zerovec-derive](https://github.com/unicode-org/icu4x),
+[zerovec](https://github.com/unicode-org/icu4x)
+
+```
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 2020-2024 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
+
+SPDX-License-Identifier: Unicode-3.0
+
+—
+
+Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
+ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 
 ```
 -------------

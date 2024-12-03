@@ -79,6 +79,8 @@ LICENSES_IN_PREFERENCE_ORDER = [
     "BSD-3-Clause",
     # Zlib is permissive and compatible with MPL.
     "Zlib",
+    # Unicode-3 is acceptable: https://bugzilla.mozilla.org/show_bug.cgi?id=1766221
+    "Unicode-3.0",
     # Special one-off licenses for particular projects.
     "EXT-OPENSSL",
     "EXT-SQLITE",
