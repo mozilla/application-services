@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 // Forked from https://github.com/thomcc/find-places-dbs, which was itself
 // originally in app-services, then split out for general-purpose use, but
 // then became unmaintained and published to crates.io without a Mozilla owner.
