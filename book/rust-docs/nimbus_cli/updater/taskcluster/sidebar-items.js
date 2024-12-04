@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["check_taskcluster_for_update"],"struct":["ReqwestGunzippingHttpClient","Response","TaskClusterRegistry"]};
