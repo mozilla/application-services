@@ -5,12 +5,16 @@ use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use cli_support::fxa_creds::CliFxa;
 use fxa_client::{Device, FxaConfig, FxaServer};
+use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
 use logins::LoginStore;
 use std::collections::HashMap;
 use std::sync::Arc;
-use sync15::{client::{SetupStorageClient, Sync15StorageClient}, DeviceType};
+use sync15::{
+    client::{SetupStorageClient, Sync15StorageClient},
+    DeviceType,
+};
 use sync_manager::{
-    manager::SyncManager, SyncEngineSelection, SyncParams, SyncReason, DeviceSettings
+    manager::SyncManager, DeviceSettings, SyncEngineSelection, SyncParams, SyncReason,
 };
 use tabs::TabsStore;
 
@@ -36,19 +40,32 @@ impl TestClient {
     pub fn new(cli: Arc<CliFxa>, device_name: &str) -> Result<Self> {
         // XXX - not clear if/how this device gets cleaned up - we never disconnect from the account!
         // And this is messy - I think it reflects that the public device api should be improved?
-        let device = match cli.account.get_devices(false)?.into_iter().find(|d| d.is_current_device) {
+        let device = match cli
+            .account
+            .get_devices(false)?
+            .into_iter()
+            .find(|d| d.is_current_device)
+        {
             Some(d) => d,
             None => {
-                cli.account.initialize_device(device_name, DeviceType::Desktop, vec![])?;
-                cli.account.get_devices(true)?.into_iter().find(|d| d.is_current_device).ok_or_else(|| anyhow::Error::msg("can't find new device"))?
+                cli.account
+                    .initialize_device(device_name, DeviceType::Desktop, vec![])?;
+                cli.account
+                    .get_devices(true)?
+                    .into_iter()
+                    .find(|d| d.is_current_device)
+                    .ok_or_else(|| anyhow::Error::msg("can't find new device"))?
             }
         };
+
+        let key = create_key().unwrap();
+        let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key.clone()))));
 
         Ok(Self {
             cli,
             device,
             autofill_store: Arc::new(AutofillStore::new_shared_memory("sync-test")?),
-            logins_store: Arc::new(LoginStore::new_in_memory()?),
+            logins_store: Arc::new(LoginStore::new_in_memory(encdec)?),
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
             sync_manager: SyncManager::new(),
             persisted_state: None,
@@ -104,7 +121,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
         self.autofill_store = Arc::new(AutofillStore::new_shared_memory("sync-test")?);
-        self.logins_store = Arc::new(LoginStore::new_in_memory()?);
+        self.logins_store = Arc::new(LoginStore::new_in_memory(self.logins_store.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
         Ok(())
     }
@@ -135,10 +152,12 @@ pub struct TestUser {
 
 impl TestUser {
     pub fn new(cli: Arc<CliFxa>, client_count: usize) -> Result<Self> {
-        let clients = (0..client_count).map(|client_num| {
-            let name = format!("Testing Device {client_num}");
-            TestClient::new(cli.clone(), &name)
-        }).collect::<Result<_>>()?;
+        let clients = (0..client_count)
+            .map(|client_num| {
+                let name = format!("Testing Device {client_num}");
+                TestClient::new(cli.clone(), &name)
+            })
+            .collect::<Result<_>>()?;
         Ok(Self { clients })
     }
 }
@@ -159,7 +178,9 @@ impl FxaConfigUrl {
             FxaConfigUrl::Stage => FxaConfig::stage(client_id, redirect),
             FxaConfigUrl::Release => FxaConfig::release(client_id, redirect),
             FxaConfigUrl::Custom(url) => FxaConfig {
-                server: FxaServer::Custom { url: url.to_string() },
+                server: FxaServer::Custom {
+                    url: url.to_string(),
+                },
                 client_id: client_id.to_string(),
                 redirect_uri: redirect.to_string(),
                 token_server_url_override: None,
