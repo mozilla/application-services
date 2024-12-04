@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4"
 parking_lot = ">=0.11,<=0.12"
-rusqlite = { workspace = true, features = ["functions", "limits", "bundled", "unlock_notify"] }
-uniffi = { workspace = true }
+rusqlite = { version = "0.31.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
+uniffi = { version = "0.28.2" }
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"] }
+uniffi = { version = "0.28.2", features = ["build"] }

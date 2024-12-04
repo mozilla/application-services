@@ -13,18 +13,18 @@ bincode = "1.2"
 lazy_static = "1.4"
 base64 = "0.21"
 log = "0.4"
-rusqlite = { workspace = true, features = ["bundled", "unlock_notify"] }
+rusqlite = { version = "0.31.0", features = ["bundled", "unlock_notify"] }
 url = "2.2"
 viaduct = { path = "../viaduct" }
 error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "1.0"
-uniffi = { workspace = true }
+uniffi = { version = "0.28.2" }
 types = { path = "../support/types" }
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"] }
+uniffi = { version = "0.28.2", features = ["build"] }
 
 [dev-dependencies]
 env_logger = { version = "0.10", default-features = false, features = ["humantime"] }

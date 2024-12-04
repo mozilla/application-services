@@ -129,11 +129,9 @@ default-members = [
     "testing/separated/*/",
 ]
 
-[workspace.dependencies]
-rusqlite = "0.31.0"
-libsqlite3-sys = "0.28.0"
-uniffi = "0.28.2"
-uniffi_bindgen = "0.28.2"
+# * sob* - why can't we have nice things? Workspace properties don't work in m-c when our crates are
+# "excluded" from the m-c workspace for unfortunate reasons.
+# [workspace.dependencies]
 
 [profile.release]
 opt-level = "s"
