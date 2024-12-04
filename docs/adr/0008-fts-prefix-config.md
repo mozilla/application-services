@@ -159,4 +159,3 @@ Slow disks and/or an empty cache may change the results.
 |'1 2 3 4 5 6'|saniti|30.129 µs|+25.35%|
 |'1 2 3 4 5 6 7'|saniti|32.442 µs|+35.11%|
 |'2 3 4'|saniti|25.379 µs|+5.51%|
-

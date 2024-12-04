@@ -168,9 +168,9 @@ impl VisitTable {
                 1
             );
             end;
-          
+
            pragma recursive_triggers = 1;
-          
+
            INSERT INTO visits (
             id,
             siteID,

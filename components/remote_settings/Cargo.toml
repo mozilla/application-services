@@ -5,7 +5,7 @@ edition = "2021"
 # The Android mobile team took the basis of this client from Nimbus originally.
 authors = ["The Android Mobile Team <firefox-android-team@mozilla.com>", "The Glean Team <glean-team@mozilla.com>"]
 description = "A Remote Settings client intended for application layer platforms."
-license = "MPL-2.0" 
+license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [features]

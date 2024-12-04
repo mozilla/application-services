@@ -141,7 +141,7 @@ Usage: nimbus-cli --app <APP> --channel <CHANNEL> list [OPTIONS] [SERVER]
 Arguments:
   [SERVER]
           A server slug e.g. preview, release, stage, stage/preview
-          
+
           [default: ]
 
 Options:
@@ -150,9 +150,9 @@ Options:
 
       --use-api
           Use the v6 API to fetch the experiment recipes.
-          
+
           By default, the file is fetched from the Remote Settings.
-          
+
           The API contains *all* launched experiments, past and present, so this is considerably slower and longer than Remote Settings.
 
   -h, --help
@@ -179,15 +179,15 @@ Arguments:
 
   [PASSTHROUGH_ARGS]...
           Optionally, add platform specific arguments to the adb or xcrun command.
-          
+
           By default, arguments are added to the end of the command, likely to be passed directly to the app.
-          
+
           Arguments before a special placeholder `{}` are passed to `adb am start` or `xcrun simctl launch` commands directly.
 
 Options:
       --patch <PATCH_FILE>
           An optional patch file, used to patch feature configurations
-          
+
           This is of the format that comes from the `features --multi` or `defaults` commands.
 
       --deeplink <DEEPLINK>
@@ -207,7 +207,7 @@ Options:
 
       --ref <APP_VERSION>
           The branch/tag/commit for the version of the manifest to get from Github
-          
+
           [default: main]
 
   -h, --help

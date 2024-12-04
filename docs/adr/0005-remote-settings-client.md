@@ -185,4 +185,3 @@ The reason we are declaring this capability a non-requirement in the initial ver
 * The mobile operating systems have far stronger application isolation - in the general case, a 3rd party mobile application is prevented from touching any of the files used by other applications.
 
 Obviously though, things may change in the future - for example, we might add response caching, so we must be sure to reevaluate this requirement as other requirements change.
-

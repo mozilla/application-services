@@ -16,16 +16,16 @@
 
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
- 
+
  impl Display for ExternalError {
      fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          Ok(())
      }
  }
- 
+
  impl GetErrorHandling for Error {
      type ExternalError = ExternalError;
- 
+
      fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
          ErrorHandling::convert(ExternalError {})
      }

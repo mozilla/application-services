@@ -10,6 +10,6 @@ Cross Platform Rapid Experiments "Nimbus" SDK
 * [mozilla/uniffi-rs](https://github.com/mozilla/uniffi-rs)
 * [mozilla/jexl-rs](https://github.com/mozilla/jexl-rs)
 
-## 
+##
 
 <img src=https://app.lucidchart.com/publicSegments/view/59a408c7-3a09-422c-8eb2-950a7d81cdb9/image.jpeg width=600 />

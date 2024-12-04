@@ -600,7 +600,7 @@ impl LoginDb {
                      sync_status = {status_changed},
                      is_deleted = 1,
                      secFields = '',
-                     origin = '', 
+                     origin = '',
                      httpRealm = NULL,
                      formActionOrigin = NULL
                  WHERE guid = :guid",

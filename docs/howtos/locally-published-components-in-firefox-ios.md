@@ -59,7 +59,7 @@ However, if the script is failing or you would like to run the manual process fo
 ### Building the xcframework
 To build the [xcframework](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) do the following:
 1. In your local checkout of `application-services`, navigate to [`megazords/ios-rust/`](https://github.com/mozilla/application-services/tree/main/megazords/ios-rust)
-1. Run the `build-xcframework.sh` script: 
+1. Run the `build-xcframework.sh` script:
 ```bash
 $ ./build-xcframework.sh
 ```
@@ -106,5 +106,3 @@ This is the final step to include your local changes into `firefox-ios`. Do the 
     1. Click `Add Package`
     1. Now include the packages you would like to include, choose `MozillaAppServices`
 1. Finally, attempt to build firefox-ios, and if all goes well it should launch  with your code. If you face problems, feel free to [contact us](../index.md#contact-us)
-
-

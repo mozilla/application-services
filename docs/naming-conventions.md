@@ -9,9 +9,9 @@ TL;DR: do what Rust's builtin warnings and clippy lints tell you
 
 ### Overview
 
-- All variable names, function names, module names, and macros in Rust code should follow typical `snake_case` conventions. 
+- All variable names, function names, module names, and macros in Rust code should follow typical `snake_case` conventions.
 
-- All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`. 
+- All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`.
 
 - Static and constant variables should be written in `SCREAMING_SNAKE_CASE`. s
 
@@ -63,4 +63,3 @@ class FooBar{...}
 fun fromJSONString()
 package mozilla.appservices.places
 ```
-

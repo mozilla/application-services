@@ -55,7 +55,7 @@ The **(C) Retrieve Experiment data on first run, and deal with delay** option wa
 * Bad, because it prevents us from pausing enrollment on first-run experiments without a dot release
 * Bad, because it requires investment from the console team, and can modify existing flows.
 
-### Retrieve Experiment data on first run, and deal with delay 
+### Retrieve Experiment data on first run, and deal with delay
 
 * Good, because it enables us to retrieve experiments for users on their first run
 * Good, because it keeps the flexibility in experiment creation

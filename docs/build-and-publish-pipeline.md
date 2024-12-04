@@ -101,4 +101,3 @@ obtained via github's Settings -> Developer Settings -> Personal Access Tokens -
 * Have "no expiration" (XXX - this seems wrong, should we adjust?)
 
 Once you have generated the token, it must be added to https://app.circleci.com/settings/project/github/mozilla/application-services/environment-variables as the environment variable `GITHUB_TOKEN`
-

@@ -86,4 +86,3 @@ Instead, I manually ran getYC() in my console on https://news.ycombinator.com, a
 I then manually concatenated the output of `temp0.map(v => JSON.stringify(v).join(',\n'))` and wrapped it in square brackets.
 
 This is cludgey and it would have been better to scrape it from node or something, but it only needed to be run once, so whatever.
-

@@ -90,12 +90,12 @@ and edit its `Swift.package` to use the above URL and checksum for the `MozillaR
 * Add your local `rust-components-swift` repo as a Swift Package dependency in a consuming app. If testing in firefox-ios, you can run:
 ```bash
 $ cd firefox-ios
-$  ./rust_components_local.sh ../rust-components-swift   
+$  ./rust_components_local.sh ../rust-components-swift
 ```
 alternatively, you can specify `file:///path/to/rust-components-swift` as the git repo.
     * (You'll have to remove any existing dependency on https://github.com/mozilla/rust-components-swift first)
 
-Note that your changes *must* be committed. You can import them either as a local git tag or by choosing the branch of `rust-components-swift`. 
+Note that your changes *must* be committed. You can import them either as a local git tag or by choosing the branch of `rust-components-swift`.
 
 ## Further Reading
 

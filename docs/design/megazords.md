@@ -87,4 +87,3 @@ test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/des
 
 The above also means that unittests will not work correctly when doing local composite builds,
 because it's unreasonable to expect the main project (e.g. Fenix) to include the above in its build scripts.
-

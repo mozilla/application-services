@@ -182,5 +182,3 @@ module -- It seems weird to be in an environment where this *isn't* required)
 So, that's why. This way, we make it *way* less likely that you add a test file
 to some directory, and have it get ignored because you didn't realize that in
 this one folder, you need to add a `mod mytest` into a neighboring tests.rs.
-
-
