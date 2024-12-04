@@ -18,14 +18,14 @@ interrupt-support = { path = "../support/interrupt" }
 lazy_static = "1.4"
 log = "0.4"
 parking_lot = ">=0.11,<=0.12"
-rusqlite = { workspace = true, features = ["functions", "bundled", "serde_json", "unlock_notify"] }
+rusqlite = { version = "0.31.0", features = ["functions", "bundled", "serde_json", "unlock_notify"] }
 serde = "1"
 serde_json = "1"
 serde_derive = "1"
 sql-support = { path = "../support/sql" }
 sync15 = {path = "../../components/sync15", features=["sync-engine"]}
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-uniffi = { workspace = true }
+uniffi = { version = "0.28.2" }
 url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
@@ -37,7 +37,7 @@ sql-support = { path = "../support/sql" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"] }
+uniffi = { version = "0.28.2", features=["build"]}
 
 # Temp hack for uniffi 0.28 generated code, will not be necessary after next uniffi update.
 [lints.clippy]

@@ -27,7 +27,7 @@ unicode-segmentation = "1.8.0"
 url = { version = "2", features = ["serde"] }
 reqwest = { version = "0.11", features = ["blocking", "json", "native-tls-vendored"] }
 glob = "0.3.0"
-uniffi = { workspace = true, optional = true }
+uniffi = { version = "0.28.2", optional = true }
 cfg-if = "1.0.0"
 console = "0.15.5"
 lazy_static = "1.4"
@@ -36,7 +36,7 @@ sha2 = "^0.10"
 itertools = "0"
 
 [build-dependencies]
-uniffi = { workspace = true, features = ["build"], optional = true }
+uniffi = { version = "0.28.2", features = ["build"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
