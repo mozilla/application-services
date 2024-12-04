@@ -5,7 +5,7 @@
  use std::fmt::Display;
 
  use error_support::{handle_error, ErrorHandling, GetErrorHandling};
- 
+
  #[derive(Debug, thiserror::Error)]
  struct Error {}
  impl Display for Error {
@@ -16,8 +16,8 @@
 
  type Result<T, E = Error> = std::result::Result<T, E>;
 
- 
- 
+
+
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
 
@@ -36,10 +36,10 @@
         Ok(())
     }
 }
- 
+
  impl GetErrorHandling for Error {
      type ExternalError = OtherExternalError;
- 
+
      fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
          ErrorHandling::convert(OtherExternalError {})
      }

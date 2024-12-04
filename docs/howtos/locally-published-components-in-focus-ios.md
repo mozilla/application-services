@@ -14,7 +14,7 @@ Below are more detailed instructions for each step
 ## Building the xcframework
 To build the [xcframework](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) do the following:
 1. In a local checkout of `application-services`, navigate to [`megazords/ios-rust/`](https://github.com/mozilla/application-services/tree/main/megazords/ios-rust)
-1. Run the `build-xcframework.sh` script: 
+1. Run the `build-xcframework.sh` script:
 ```bash
 $ ./build-xcframework.sh --focus
 ```
@@ -68,5 +68,3 @@ This is the final step to include your local changes into `Focus`. Do the follow
     1. Now include the `FocusAppServices` library.
     > Note: If Xcode prevents you from adding the dependency to reference a local package, you will need to manually modify the `Blockzilla.xcodeproj/project.pbxproj` and replace every occurrence of `https://github.com/mozilla/rust-components-swift` with the full path to your local checkout.
 1. Finally, attempt to build focus, and if all goes well it should launch  with your code. If you face any problems, feel free to [contact us](../index.md#contact-us)
-
-

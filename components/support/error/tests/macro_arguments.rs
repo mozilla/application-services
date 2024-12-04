@@ -5,30 +5,30 @@
  use std::fmt::Display;
 
  use error_support::{handle_error, ErrorHandling, GetErrorHandling};
- 
+
  #[derive(Debug, thiserror::Error)]
  struct Error {}
- 
+
  impl Display for Error {
      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          write!(f, "Internal Error!")
      }
  }
- 
- 
- 
+
+
+
  #[derive(Debug, thiserror::Error)]
  struct ExternalError {}
- 
+
  impl Display for ExternalError {
      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          write!(f, "External Error!")
      }
  }
- 
+
  impl GetErrorHandling for Error {
      type ExternalError = ExternalError;
- 
+
      fn get_error_handling(&self) -> error_support::ErrorHandling<Self::ExternalError> {
          ErrorHandling::convert(ExternalError {})
      }

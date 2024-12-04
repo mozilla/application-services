@@ -123,4 +123,3 @@ if __name__ == "__main__":
   parser.add_argument('paths', type=str, nargs='*', default=[DEFAULT_PATH])
   args = parser.parse_args()
   print_loc_summaries(args.paths)
-

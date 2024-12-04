@@ -63,7 +63,7 @@ class FeatureVariablesTest {
             {
                 "inner": {
                     "stringVariable": "string",
-                    "intVariable": 3, 
+                    "intVariable": 3,
                     "booleanVariable": true
                 },
                 "really-a-string": "a string"
@@ -207,7 +207,7 @@ class FeatureVariablesTest {
                     },
                     "bookmarks": {
                         "label": "Bookmarks",
-                        "deepLink": "//bookmark-list"                        
+                        "deepLink": "//bookmark-list"
                     },
                     "history": {
                         "label": "History",
