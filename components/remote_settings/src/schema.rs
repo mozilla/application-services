@@ -13,7 +13,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
 ///     [`RemoteSettingsConnectionInitializer::upgrade_from`].
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 
 /// The current remote settings database schema.
 pub const SQL: &str = r#"
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     data BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS collection_metadata (
     collection_url TEXT PRIMARY KEY,
-    last_modified INTEGER);
+    last_modified INTEGER, bucket TEXT, signature TEXT, x5u TEXT);
 "#;
 
 /// Initializes an SQLite connection to the Remote Settings database, performing
@@ -37,7 +37,7 @@ pub struct RemoteSettingsConnectionInitializer;
 
 impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
     const NAME: &'static str = "remote_settings";
-    const END_VERSION: u32 = 1;
+    const END_VERSION: u32 = 2;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
         let initial_pragmas = "
@@ -61,6 +61,15 @@ impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
             // Upgrade from a database created before this crate used sql-support.
             0 => {
                 tx.execute("ALTER TABLE collection_metadata DROP column fetched", ())?;
+                Ok(())
+            }
+            1 => {
+                tx.execute("ALTER TABLE collection_metadata ADD COLUMN bucket TEXT", ())?;
+                tx.execute(
+                    "ALTER TABLE collection_metadata ADD COLUMN signature TEXT",
+                    (),
+                )?;
+                tx.execute("ALTER TABLE collection_metadata ADD COLUMN x5u TEXT", ())?;
                 Ok(())
             }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
