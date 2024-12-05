@@ -232,7 +232,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         }
 
         // Try to download the attachment because neither the storage nor the local data had it
-        let attachment = inner.api_client.get_attachment(&metadata.location)?;
+        let attachment = inner.api_client.fetch_attachment(&metadata.location)?;
 
         // Verify downloaded data
         if attachment.len() as u64 != metadata.size {
@@ -298,7 +298,7 @@ pub trait ApiClient {
     fn fetch_changeset(&mut self, timestamp: Option<u64>) -> Result<ChangesetResponse>;
 
     /// Fetch an attachment from the server
-    fn get_attachment(&mut self, attachment_location: &str) -> Result<Vec<u8>>;
+    fn fetch_attachment(&mut self, attachment_location: &str) -> Result<Vec<u8>>;
 
     /// Check if this client is pointing to the production server
     fn is_prod_server(&self) -> Result<bool>;
@@ -408,7 +408,7 @@ impl ApiClient for ViaductApiClient {
         }
     }
 
-    fn get_attachment(&mut self, attachment_location: &str) -> Result<Vec<u8>> {
+    fn fetch_attachment(&mut self, attachment_location: &str) -> Result<Vec<u8>> {
         let attachments_base_url = match &self.remote_state.attachments_base_url {
             Some(attachments_base_url) => attachments_base_url.to_owned(),
             None => {
@@ -2332,7 +2332,7 @@ mod test_packaged_metadata {
             .returning(move || collection_url.clone());
         api_client.expect_is_prod_server().returning(|| Ok(true));
         api_client
-            .expect_get_attachment()
+            .expect_fetch_attachment()
             .returning(move |_| Ok(mock_api_data.clone()));
 
         let rs_client =
