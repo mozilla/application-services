@@ -735,7 +735,7 @@ pub struct CollectionMetadata {
 pub struct CollectionSignature {
     signature: String,
     public_key: String,
-    x5u: Url,
+    x5u: String,
 }
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
@@ -1739,7 +1739,7 @@ mod test_new_client {
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),
-                    x5u: Url::parse("http://x5u.com").unwrap(),
+                    x5u: "http://x5u.com".into(),
                 },
             },
         };
@@ -2006,7 +2006,7 @@ mod cached_data_tests {
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),
-                    x5u: Url::parse("http://x5u.com").unwrap(),
+                    x5u: "http://x5u.com".into(),
                 },
             },
         };
@@ -2175,7 +2175,7 @@ mod cached_data_tests {
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),
-                    x5u: Url::parse("http://x5u.com").unwrap(),
+                    x5u: "http://x5u.com".into(),
                 },
             },
         };
