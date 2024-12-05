@@ -146,16 +146,24 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         if cached_records.is_none() {
             // Case 1a: Use packaged data if available (prod only)
             if let Some(collection) = packaged_data {
-                inner
-                    .storage
-                    .set_records(&collection_url, &collection.data)?;
+                inner.storage.set_collection_content(
+                    &collection_url,
+                    &collection.data,
+                    collection.timestamp,
+                    CollectionMetadata::empty(),
+                )?;
                 return Ok(Some(self.filter_records(collection.data)));
             }
             // Case 1b: No packaged data - fetch from remote if sync_if_empty
             if sync_if_empty {
-                let records = inner.api_client.fetch_changeset(None)?.changes;
-                inner.storage.set_records(&collection_url, &records)?;
-                return Ok(Some(self.filter_records(records)));
+                let changeset = inner.api_client.fetch_changeset(None)?;
+                inner.storage.set_collection_content(
+                    &collection_url,
+                    &changeset.changes,
+                    changeset.timestamp,
+                    changeset.metadata,
+                )?;
+                return Ok(Some(self.filter_records(changeset.changes)));
             }
             return Ok(None);
         }
@@ -168,9 +176,12 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         if let Some(packaged_data) = packaged_data {
             if packaged_data.timestamp > cached_timestamp.unwrap_or(0) {
                 // Packaged data is newer
-                inner
-                    .storage
-                    .set_records(&collection_url, &packaged_data.data)?;
+                inner.storage.set_collection_content(
+                    &collection_url,
+                    &packaged_data.data,
+                    packaged_data.timestamp,
+                    CollectionMetadata::empty(),
+                )?;
                 return Ok(Some(self.filter_records(packaged_data.data)));
             }
         }
@@ -183,17 +194,27 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         }
 
         // Case 4: Cache is empty and we're allowed to sync
-        let records = inner.api_client.fetch_changeset(None)?.changes;
-        inner.storage.set_records(&collection_url, &records)?;
-        Ok(Some(self.filter_records(records)))
+        let changeset = inner.api_client.fetch_changeset(None)?;
+        inner.storage.set_collection_content(
+            &collection_url,
+            &changeset.changes,
+            changeset.timestamp,
+            changeset.metadata,
+        )?;
+        Ok(Some(self.filter_records(changeset.changes)))
     }
 
     pub fn sync(&self) -> Result<()> {
         let mut inner = self.inner.lock();
         let collection_url = inner.api_client.collection_url();
         let mtime = inner.storage.get_last_modified_timestamp(&collection_url)?;
-        let records = inner.api_client.fetch_changeset(mtime)?.changes;
-        inner.storage.set_records(&collection_url, &records)
+        let changeset = inner.api_client.fetch_changeset(mtime)?;
+        inner.storage.set_collection_content(
+            &collection_url,
+            &changeset.changes,
+            changeset.timestamp,
+            changeset.metadata,
+        )
     }
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
@@ -729,6 +750,13 @@ pub struct ChangesetResponse {
 pub struct CollectionMetadata {
     signature: CollectionSignature,
 }
+impl CollectionMetadata {
+    pub(crate) fn empty() -> CollectionMetadata {
+        CollectionMetadata {
+            signature: CollectionSignature::empty(),
+        }
+    }
+}
 
 // TODO
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
@@ -736,6 +764,15 @@ pub struct CollectionSignature {
     signature: String,
     public_key: String,
     x5u: String,
+}
+impl CollectionSignature {
+    fn empty() -> CollectionSignature {
+        CollectionSignature {
+            signature: "".into(),
+            public_key: "".into(),
+            x5u: "data:///".into(),
+        }
+    }
 }
 
 /// A parsed Remote Settings record. Records can contain arbitrary fields, so clients
@@ -1939,7 +1976,12 @@ mod cached_data_tests {
 
         let mut api_client = MockApiClient::new();
         let mut storage = Storage::new(":memory:".into())?;
-        storage.set_records(collection_url, &vec![old_record.clone()])?;
+        storage.set_collection_content(
+            collection_url,
+            &vec![old_record.clone()],
+            42,
+            CollectionMetadata::empty(),
+        )?;
 
         api_client
             .expect_collection_url()
@@ -2094,7 +2136,12 @@ mod cached_data_tests {
             attachment: None,
             fields: serde_json::Map::new(),
         }];
-        storage.set_records(&collection_url, &cached_records)?;
+        storage.set_collection_content(
+            &collection_url,
+            &cached_records,
+            42,
+            CollectionMetadata::empty(),
+        )?;
 
         api_client
             .expect_collection_url()
@@ -2130,7 +2177,12 @@ mod cached_data_tests {
 
         // Set up empty cached records
         let cached_records: Vec<RemoteSettingsRecord> = vec![];
-        storage.set_records(&collection_url, &cached_records)?;
+        storage.set_collection_content(
+            &collection_url,
+            &cached_records,
+            42,
+            CollectionMetadata::empty(),
+        )?;
 
         api_client
             .expect_collection_url()
@@ -2187,7 +2239,12 @@ mod cached_data_tests {
 
         // Set up empty cached records
         let cached_records: Vec<RemoteSettingsRecord> = vec![];
-        storage.set_records(&collection_url, &cached_records)?;
+        storage.set_collection_content(
+            &collection_url,
+            &cached_records,
+            42,
+            CollectionMetadata::empty(),
+        )?;
 
         api_client
             .expect_collection_url()
