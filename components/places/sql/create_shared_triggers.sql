@@ -13,6 +13,60 @@ BEGIN
     DELETE FROM moz_places_tombstones WHERE guid = NEW.guid;
 END;
 
+-- Validate new rows. These were CHECK and FOREIGN KEY constraints
+-- in schemas <= 17; a trigger lets us provide custom error messages.
+CREATE TEMP TRIGGER moz_bookmarks_beforeinsert_trigger
+BEFORE INSERT ON moz_bookmarks
+BEGIN
+    -- SQLite < 3.47.0 only supports string literals for error messages,
+    -- so we use our own `throw(...)` function.
+
+    SELECT throw(format('insert: len(guid)=%d', length(NEW.guid)))
+    WHERE length(NEW.guid) <> 12;
+
+    SELECT throw('insert: type=1; fk NULL')
+    WHERE NEW.type = 1
+      AND NEW.fk IS NULL;
+
+    SELECT throw(format('insert: type=%d; fk NOT NULL', NEW.type))
+    WHERE NEW.type <> 1
+      AND NEW.fk IS NOT NULL;
+
+    SELECT throw('insert: root with parent')
+    WHERE NEW.guid = 'root________'
+      AND NEW.parent IS NOT NULL;
+
+    SELECT throw('insert: item without parent')
+    WHERE NEW.guid <> 'root________'
+      -- Equivalent to `FOREIGN KEY(parent) REFERENCES moz_bookmarks.parent`.
+      AND NOT EXISTS(
+          SELECT 1 FROM moz_bookmarks WHERE id = NEW.parent);
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_beforeupdate_trigger
+BEFORE UPDATE ON moz_bookmarks
+BEGIN
+    SELECT throw(format('update: len(guid)=%d', length(NEW.guid)))
+    WHERE length(NEW.guid) <> 12;
+
+    SELECT throw('update: type=1; fk NULL')
+    WHERE NEW.type = 1
+      AND NEW.fk IS NULL;
+
+    SELECT throw(format('update: type=%d; fk NOT NULL', NEW.type))
+    WHERE NEW.type <> 1
+      AND NEW.fk IS NOT NULL;
+
+    SELECT throw('update: root with parent')
+    WHERE NEW.guid = 'root________'
+      AND NEW.parent IS NOT NULL;
+
+    SELECT throw('update: item without parent')
+    WHERE NEW.guid <> 'root________'
+      AND NOT EXISTS(
+          SELECT 1 FROM moz_bookmarks WHERE id = NEW.parent);
+END;
+
 -- Triggers which update visit_count and last_visit_date based on historyvisits
 -- table changes.
 -- NOTE: the values "0, 4, 7, 8, 9" below are EXCLUDED_VISIT_TYPES, stolen
@@ -258,6 +312,17 @@ BEGIN
         AND foreign_count = 0
         AND last_visit_date_local = 0
         AND last_visit_date_remote = 0;
+END;
+
+-- Equivalent to `FOREIGN KEY(parent) ... ON DELETE CASCADE`. Since the
+-- BEFORE INSERT / UPDATE triggers already enforce the FOREIGN KEY
+-- relationship, we use an AFTER DELETE trigger for the ON DELETE
+-- action to avoid extra work.
+CREATE TEMP TRIGGER moz_bookmarks_parent_afterdelete_trigger
+AFTER DELETE ON moz_bookmarks
+BEGIN
+    DELETE FROM moz_bookmarks
+    WHERE parent = OLD.id;
 END;
 
 -- These triggers adjust the foreign count for tagged URLs, and bump the

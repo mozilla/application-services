@@ -11,7 +11,9 @@ use crate::types::SyncStatus;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-pub const VERSION: u32 = 17;
+use super::db::{Pragma, PragmaGuard};
+
+pub const VERSION: u32 = 18;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -288,6 +290,41 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
                 (),
             )?;
         }
+        17 => {
+            // Drop the CHECK and `FOREIGN KEY(parent)` constraints on
+            // `moz_bookmarks`; schemas >= 18 enforce constraints using
+            // TEMP triggers with more informative error messages.
+
+            // SQLite doesn't support `ALTER TABLE DROP CONSTRAINT`, so
+            // we rewrite the schema.
+
+            const NEW_SQL: &str = "CREATE TABLE moz_bookmarks ( \
+                id INTEGER PRIMARY KEY, \
+                fk INTEGER DEFAULT NULL, \
+                type INTEGER NOT NULL, \
+                parent INTEGER, \
+                position INTEGER NOT NULL, \
+                title TEXT, \
+                dateAdded INTEGER NOT NULL DEFAULT 0, \
+                lastModified INTEGER NOT NULL DEFAULT 0, \
+                guid TEXT NOT NULL UNIQUE, \
+                syncStatus INTEGER NOT NULL DEFAULT 0, \
+                syncChangeCounter INTEGER NOT NULL DEFAULT 1, \
+                FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT)";
+
+            let _c = PragmaGuard::new(db, Pragma::IgnoreCheckConstraints, true)?;
+            let _f = PragmaGuard::new(db, Pragma::ForeignKeys, false)?;
+            let _w = PragmaGuard::new(db, Pragma::WritableSchema, true)?;
+
+            db.execute(
+                "UPDATE sqlite_schema SET
+                   sql = ?
+                 WHERE type = 'table' AND name = 'moz_bookmarks'",
+                // _Must_ be valid SQL; updating `sqlite_schema.sql` with
+                // invalid SQL will corrupt the database.
+                rusqlite::params![NEW_SQL],
+            )?;
+        }
         // Add more migrations here...
 
         // Any other from value indicates that something very wrong happened
@@ -389,69 +426,186 @@ mod tests {
     fn test_bookmark_check_constraints() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
 
+        conn.execute_batch(
+            "INSERT INTO moz_places(id, guid, url, frecency)
+             VALUES(1, 'page_guid___', 'https://example.com', -1);",
+        )
+        .expect("should insert page");
+
         // type==BOOKMARK but null fk
-        let e = conn
-            .execute_cached(
+        {
+            let e = conn
+                .execute_cached(
+                    "INSERT INTO moz_bookmarks
+                        (fk, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (NULL, 1, 0, 0, 1, 1, 'fake_guid___')",
+                    [],
+                )
+                .expect_err("should fail to insert bookmark with NULL fk");
+            assert!(
+                e.to_string().contains("insert: type=1; fk NULL"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            conn.execute_batch(
                 "INSERT INTO moz_bookmarks
-                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                    (fk, type, parent, position, dateAdded, lastModified,
+                       guid)
                  VALUES
-                    (NULL, 1, 0, 0, 1, 1, 'fake_guid___')",
-                [],
+                    (1, 1, (SELECT id FROM moz_bookmarks WHERE guid = 'root________'), 0, 1, 1,
+                       'bmk_guid____')",
             )
-            .expect_err("should fail");
-        assert!(
-            e.to_string().starts_with("CHECK constraint failed"),
-            "Expected `CHECK` failure, got: {:?}",
-            e,
-        );
+            .expect("should insert bookmark");
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        fk = NULL
+                     WHERE guid = 'bmk_guid____'",
+                    [],
+                )
+                .expect_err("should fail to update bookmark with NULL fk");
+            assert!(
+                e.to_string().contains("update: type=1; fk NULL"),
+                "Expected error, got: {:?}",
+                e,
+            );
+        }
 
         // type!=BOOKMARK and non-null fk
-        let e = conn
-            .execute_cached(
+        {
+            let e = conn
+                .execute_cached(
+                    "INSERT INTO moz_bookmarks
+                        (fk, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (1, 2, 0, 0, 1, 1, 'fake_guid___')",
+                    [],
+                )
+                .expect_err("should fail to insert folder with non-NULL fk");
+            assert!(
+                e.to_string().contains("insert: type=2; fk NOT NULL"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            conn.execute_batch(
                 "INSERT INTO moz_bookmarks
-                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                    (fk, type, parent, position, dateAdded, lastModified,
+                       guid)
                  VALUES
-                    (1, 2, 0, 0, 1, 1, 'fake_guid___')",
-                [],
+                    (NULL, 2, (SELECT id FROM moz_bookmarks WHERE guid = 'root________'), 1, 1, 1,
+                       'folder_guid_')",
             )
-            .expect_err("should fail");
-        assert!(
-            e.to_string().starts_with("CHECK constraint failed"),
-            "Expected `CHECK` failure, got: {:?}",
-            e,
-        );
+            .expect("should insert folder");
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        fk = 1
+                     WHERE guid = 'folder_guid_'",
+                    [],
+                )
+                .expect_err("should fail to update folder with non-NULL fk");
+            assert!(
+                e.to_string().contains("update: type=2; fk NOT NULL"),
+                "Expected error, got: {:?}",
+                e,
+            );
+        }
 
         // null parent for item other than the root
-        let e = conn
-            .execute_cached(
-                "INSERT INTO moz_bookmarks
-                    (fk, type, parent, position, dateAdded, lastModified, guid)
-                 VALUES
-                    (NULL, 2, NULL, 0, 1, 1, 'fake_guid___')",
-                [],
-            )
-            .expect_err("should fail");
-        assert!(
-            e.to_string().starts_with("CHECK constraint failed"),
-            "Expected `CHECK` failure, got: {:?}",
-            e,
-        );
+        {
+            let e = conn
+                .execute_cached(
+                    "INSERT INTO moz_bookmarks
+                        (fk, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (NULL, 2, NULL, 0, 1, 1, 'fake_guid___')",
+                    [],
+                )
+                .expect_err("should fail to insert item with NULL parent");
+            assert!(
+                e.to_string().contains("insert: item without parent"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            let e = conn
+                .execute_cached(
+                    "INSERT INTO moz_bookmarks
+                        (fk, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (NULL, 2, -1, 0, 1, 1, 'fake_guid___')",
+                    [],
+                )
+                .expect_err("should fail to insert item with nonexistent parent");
+            assert!(
+                e.to_string().contains("insert: item without parent"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        parent = NULL
+                     WHERE guid = 'folder_guid_'",
+                    [],
+                )
+                .expect_err("should fail to update folder with NULL parent");
+            assert!(
+                e.to_string().contains("update: item without parent"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        parent = -1
+                     WHERE guid = 'folder_guid_'",
+                    [],
+                )
+                .expect_err("should fail to update folder with nonexistent parent");
+            assert!(
+                e.to_string().contains("update: item without parent"),
+                "Expected error, got: {:?}",
+                e,
+            );
+        }
 
         // Invalid length guid
-        let e = conn
-            .execute_cached(
-                "INSERT INTO moz_bookmarks
-                    (fk, type, parent, position, dateAdded, lastModified, guid)
-                 VALUES
-                    (NULL, 2, 0, 0, 1, 1, 'fake_guid')",
-                [],
-            )
-            .expect_err("should fail");
-        assert!(
-            e.to_string().starts_with("CHECK constraint failed"),
-            "Expected `CHECK` failure, got: {:?}",
-            e,
-        );
+        {
+            let e = conn
+                .execute_cached(
+                    "INSERT INTO moz_bookmarks
+                        (fk, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (NULL, 2, 0, 0, 1, 1, 'fake_guid')",
+                    [],
+                )
+                .expect_err("should fail");
+            assert!(
+                e.to_string().contains("insert: len(guid)=9"),
+                "Expected error, got: {:?}",
+                e,
+            );
+
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        guid = 'fake_guid'
+                     WHERE guid = 'bmk_guid____'",
+                    [],
+                )
+                .expect_err("should fail to update bookmark with invalid guid");
+            assert!(
+                e.to_string().contains("update: len(guid)=9"),
+                "Expected error, got: {:?}",
+                e,
+            );
+        }
     }
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
@@ -891,6 +1045,96 @@ mod tests {
         db.execute("PRAGMA user_version=15", []).unwrap();
         drop(db);
         db_file.upgrade_to(16);
+    }
+
+    const CREATE_V17_DB: &str = include_str!("../../sql/tests/create_v17_db.sql");
+
+    #[test]
+    fn test_upgrade_schema_17_18() {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V17_DB);
+
+        db_file.upgrade_to(18);
+        let db = db_file.open();
+
+        let sql = db
+            .query_one::<String>(
+                "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'moz_bookmarks'",
+            )
+            .expect("should retrieve CREATE TABLE statement");
+        assert!(!sql.contains("CHECK"));
+        assert!(!sql.contains("FOREIGN KEY(parent)"));
+
+        // Make sure that we didn't corrupt the database.
+        let integrity_ok = db
+            .query_row("PRAGMA integrity_check", [], |row| {
+                Ok(row.get::<_, String>(0)? == "ok")
+            })
+            .expect("should perform integrity check");
+        assert!(integrity_ok);
+
+        let foreign_keys_ok = db
+            .prepare("PRAGMA foreign_key_check")
+            .and_then(|mut statement| Ok(statement.query([])?.next()?.is_none()))
+            .expect("should perform foreign key check");
+        assert!(foreign_keys_ok);
+
+        // ...And that we can read everything we inserted.
+        #[derive(Eq, PartialEq, Debug)]
+        struct BookmarkRow {
+            id: i64,
+            type_: i64,
+            parent: Option<i64>,
+            fk: Option<i64>,
+            guid: String,
+        }
+        let rows = db
+            .query_rows_and_then(
+                "SELECT id, type, parent, fk, guid FROM moz_bookmarks ORDER BY id",
+                [],
+                |row| -> rusqlite::Result<_> {
+                    Ok(BookmarkRow {
+                        id: row.get("id")?,
+                        type_: row.get("type")?,
+                        parent: row.get("parent")?,
+                        fk: row.get("fk")?,
+                        guid: row.get("guid")?,
+                    })
+                },
+            )
+            .expect("should query all bookmark rows");
+        assert_eq!(
+            rows,
+            &[
+                BookmarkRow {
+                    id: 1,
+                    type_: 2,
+                    parent: None,
+                    fk: None,
+                    guid: "root________".into()
+                },
+                BookmarkRow {
+                    id: 2,
+                    type_: 2,
+                    parent: Some(1),
+                    fk: None,
+                    guid: "folder_guid_".into()
+                },
+                BookmarkRow {
+                    id: 3,
+                    type_: 1,
+                    parent: Some(2),
+                    fk: Some(1),
+                    guid: "bmk_guid____".into()
+                },
+                BookmarkRow {
+                    id: 4,
+                    type_: 3,
+                    parent: Some(2),
+                    fk: None,
+                    guid: "sep_guid____".into()
+                }
+            ]
+        );
     }
 
     #[test]

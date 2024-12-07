@@ -109,12 +109,18 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks (
     title TEXT, -- a'la bug 1356159, NULL is special here - it means 'not edited'
     dateAdded INTEGER NOT NULL DEFAULT 0,
     lastModified INTEGER NOT NULL DEFAULT 0,
-    guid TEXT NOT NULL UNIQUE,
+    guid TEXT NOT NULL UNIQUE CHECK(length(guid) == 12),
 
     syncStatus INTEGER NOT NULL DEFAULT 0,
     syncChangeCounter INTEGER NOT NULL DEFAULT 1,
 
+    -- bookmarks must have a fk to a URL, other types must not.
+    CHECK((type == 1 AND fk IS NOT NULL) OR (type > 1 AND fk IS NULL))
+    -- only the root is allowed to have a non-null parent
+    CHECK(guid == "root________" OR parent IS NOT NULL)
+
     FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
+    FOREIGN KEY(parent) REFERENCES moz_bookmarks(id) ON DELETE CASCADE
 );
 
 -- CREATE INDEX IF NOT EXISTS itemindex ON moz_bookmarks(fk, type);
@@ -267,3 +273,20 @@ CREATE TABLE IF NOT EXISTS moz_places_metadata_search_queries (
     id INTEGER PRIMARY KEY,
     term TEXT NOT NULL UNIQUE
 );
+
+INSERT INTO moz_places(id, guid, url, frecency)
+VALUES(1, 'page_guid___', 'https://example.com', -1);
+
+INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, guid)
+VALUES(1, 2, NULL, 0, 1, 1, 'root________');
+
+INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, guid)
+VALUES(2, 2, 1, 0, 1, 1, 'folder_guid_');
+
+INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, fk, guid)
+VALUES(3, 1, 2, 0, 1, 1, 1, 'bmk_guid____');
+
+INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, guid)
+VALUES(4, 3, 2, 1, 1, 1, 'sep_guid____');
+
+PRAGMA user_version = 17;
