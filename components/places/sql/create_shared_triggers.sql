@@ -65,6 +65,9 @@ BEGIN
     WHERE NEW.guid <> 'root________'
       AND NOT EXISTS(
           SELECT 1 FROM moz_bookmarks WHERE id = NEW.parent);
+
+    SELECT throw(format('update: old type=%d; new=%d', OLD.type, NEW.type))
+    WHERE OLD.type <> NEW.type;
 END;
 
 -- Triggers which update visit_count and last_visit_date based on historyvisits
