@@ -352,6 +352,9 @@ fn define_functions(c: &Connection, api_id: usize) -> rusqlite::Result<()> {
         FunctionFlags::SQLITE_UTF8,
         move |ctx| -> rusqlite::Result<i64> { sql_fns::note_bookmarks_sync_change(ctx, api_id) },
     )?;
+    c.create_scalar_function("throw", 1, FunctionFlags::SQLITE_UTF8, move |ctx| {
+        sql_fns::throw(ctx, api_id)
+    })?;
     Ok(())
 }
 
@@ -360,6 +363,7 @@ pub(crate) mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+    use rusqlite::types::Null;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
     use std::sync::atomic::Ordering;
     use sync_guid::Guid as SyncGuid;
@@ -507,6 +511,13 @@ pub(crate) mod sql_fns {
     #[inline(never)]
     pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
         Ok(SyncGuid::random())
+    }
+
+    #[inline(never)]
+    pub fn throw(ctx: &Context<'_>, api_id: usize) -> Result<Null> {
+        Err(rusqlite::Error::UserFunctionError(
+            format!("{} (#{})", ctx.get::<String>(0)?, api_id).into(),
+        ))
     }
 
     #[inline(never)]
