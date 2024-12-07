@@ -606,6 +606,23 @@ mod tests {
                 e,
             );
         }
+
+        // Changing the type of an existing item.
+        {
+            let e = conn
+                .execute(
+                    "UPDATE moz_bookmarks SET
+                        type = 3
+                     WHERE guid = 'folder_guid_'",
+                    [],
+                )
+                .expect_err("should fail to update type of bookmark");
+            assert!(
+                e.to_string().contains("update: old type=2; new=3"),
+                "Expected error, got: {:?}",
+                e,
+            );
+        }
     }
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
