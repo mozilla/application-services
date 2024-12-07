@@ -301,6 +301,62 @@ impl GlobalChangeCounterTracker {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum Pragma {
+    IgnoreCheckConstraints,
+    ForeignKeys,
+    WritableSchema,
+}
+
+impl Pragma {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::IgnoreCheckConstraints => "ignore_check_constraints",
+            Self::ForeignKeys => "foreign_keys",
+            Self::WritableSchema => "writable_schema",
+        }
+    }
+}
+
+/// A scope guard that sets a Boolean PRAGMA to a new value, and
+/// restores the inverse of the value when dropped.
+pub struct PragmaGuard<'a> {
+    conn: &'a Connection,
+    pragma: Pragma,
+    old_value: bool,
+}
+
+impl<'a> PragmaGuard<'a> {
+    pub fn new(conn: &'a Connection, pragma: Pragma, new_value: bool) -> rusqlite::Result<Self> {
+        conn.pragma_update(
+            None,
+            pragma.name(),
+            match new_value {
+                true => "ON",
+                false => "OFF",
+            },
+        )?;
+        Ok(Self {
+            conn,
+            pragma,
+            old_value: !new_value,
+        })
+    }
+}
+
+impl Drop for PragmaGuard<'_> {
+    fn drop(&mut self) {
+        let _ = self.conn.pragma_update(
+            None,
+            self.pragma.name(),
+            match self.old_value {
+                true => "ON",
+                false => "OFF",
+            },
+        );
+    }
+}
+
 fn define_functions(c: &Connection, api_id: usize) -> rusqlite::Result<()> {
     use rusqlite::functions::FunctionFlags;
     c.create_scalar_function(
@@ -352,6 +408,9 @@ fn define_functions(c: &Connection, api_id: usize) -> rusqlite::Result<()> {
         FunctionFlags::SQLITE_UTF8,
         move |ctx| -> rusqlite::Result<i64> { sql_fns::note_bookmarks_sync_change(ctx, api_id) },
     )?;
+    c.create_scalar_function("throw", 1, FunctionFlags::SQLITE_UTF8, move |ctx| {
+        sql_fns::throw(ctx, api_id)
+    })?;
     Ok(())
 }
 
@@ -360,6 +419,7 @@ pub(crate) mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+    use rusqlite::types::Null;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
     use std::sync::atomic::Ordering;
     use sync_guid::Guid as SyncGuid;
@@ -507,6 +567,13 @@ pub(crate) mod sql_fns {
     #[inline(never)]
     pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
         Ok(SyncGuid::random())
+    }
+
+    #[inline(never)]
+    pub fn throw(ctx: &Context<'_>, api_id: usize) -> Result<Null> {
+        Err(rusqlite::Error::UserFunctionError(
+            format!("{} (#{})", ctx.get::<String>(0)?, api_id).into(),
+        ))
     }
 
     #[inline(never)]
