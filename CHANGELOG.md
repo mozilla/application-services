@@ -5,11 +5,6 @@
 
 [Full Changelog](In progress)
 
-## 🦊 What's Changed 🦊
-
-### Glean
-- Updated to v63.0.0 ([bug 1933939](https://bugzilla.mozilla.org/show_bug.cgi?id=1933939))
-
 # v134.0 (_2023-11-25_)
 
 ## ✨ What's New ✨

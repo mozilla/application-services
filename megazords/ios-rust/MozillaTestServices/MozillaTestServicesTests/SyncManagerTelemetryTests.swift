@@ -12,20 +12,8 @@ class SyncManagerTelemetryTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-
-        // Due to recent changes in how upload enabled works, we need to register the custom
-        // Sync pings before they can collect data in tests.
-        // See https://bugzilla.mozilla.org/show_bug.cgi?id=1935001 for more info.
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.sync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.historySync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.bookmarksSync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.loginsSync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.creditcardsSync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.addressesSync)
-        Glean.shared.registerPings(GleanMetrics.Pings.shared.tabsSync)
-
         Glean.shared.resetGlean(clearStores: true)
-
+        Glean.shared.enableTestingMode()
         now = Int64(Date().timeIntervalSince1970) / BaseGleanSyncPing.MILLIS_PER_SEC
     }
 
