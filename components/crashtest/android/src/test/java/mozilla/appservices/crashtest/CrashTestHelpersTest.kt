@@ -16,6 +16,7 @@ class CrashTestHelpersTest {
     fun testPanicsAreCaughtAndThrown() {
         try {
             triggerRustPanic()
+            assert(false) // should be unreachable.
         } catch (e: InternalException) {
             assertEquals(e.message, "Panic! In The Rust Code.")
         }
@@ -25,6 +26,7 @@ class CrashTestHelpersTest {
     fun testErrorsAreThrown() {
         try {
             triggerRustError()
+            assert(false) // should be unreachable.
         } catch (e: CrashTestException) {
             assertEquals(e.message, "Error! From The Rust Code.")
         }
