@@ -8,9 +8,14 @@ from taskgraph.util.dependencies import group_by
 
 from ..build_config import EXTENSIONS
 
+
 def _extensions(type, secondary_extensions):
     primary_extensions = EXTENSIONS[type]
-    return [package_ext + secondary_ext for package_ext in primary_extensions for secondary_ext in secondary_extensions]
+    return [
+        package_ext + secondary_ext
+        for package_ext in primary_extensions
+        for secondary_ext in secondary_extensions
+    ]
 
 
 def _artifact_filename(name, version, extension):
@@ -21,32 +26,40 @@ def publications_to_artifact_paths(version, publications, secondary_extensions=(
     paths = []
     for publication in publications:
         for extension in _extensions(publication["type"], secondary_extensions):
-            artifact_filename = _artifact_filename(publication['name'], version, extension)
+            artifact_filename = _artifact_filename(
+                publication["name"], version, extension
+            )
             paths.append(f"public/build/{artifact_filename}")
 
     return paths
 
 
-def publications_to_artifact_map_paths(version, publications, preview_build, secondary_extensions):
+def publications_to_artifact_map_paths(
+    version, publications, preview_build, secondary_extensions
+):
     build_map_paths = {}
     for publication in publications:
         for extension in _extensions(publication["type"], secondary_extensions):
-            publication_name = publication['name']
+            publication_name = publication["name"]
             artifact_filename = _artifact_filename(publication_name, version, extension)
             if preview_build is not None:
                 # Both nightly and other preview builds are places in separate directory
-                destination = "maven2/org/mozilla/appservices/nightly/{}/{}/{}".format(publication_name, version, artifact_filename)
+                destination = "maven2/org/mozilla/appservices/nightly/{}/{}/{}".format(
+                    publication_name, version, artifact_filename
+                )
             else:
-                destination = "maven2/org/mozilla/appservices/{}/{}/{}".format(publication_name, version, artifact_filename)
+                destination = "maven2/org/mozilla/appservices/{}/{}/{}".format(
+                    publication_name, version, artifact_filename
+                )
             build_map_paths[f"public/build/{artifact_filename}"] = {
                 "checksums_path": "",  # XXX beetmover marks this as required, but it's not needed
-                "destinations": [destination]
+                "destinations": [destination],
             }
 
     return build_map_paths
 
 
-@group_by('component')
+@group_by("component")
 def component_grouping(config, tasks):
     """Custom group-by function for `from_deps` transforms"""
     groups = {}
@@ -62,10 +75,11 @@ def component_grouping(config, tasks):
         groups.setdefault(component, []).append(task)
 
     tasks_for_all_components = [
-        task for task in tasks
+        task
+        for task in tasks
         if task.attributes.get("buildconfig", {}).get("name", "") == "all"
     ]
-    for _, tasks in groups.items():
-        tasks.extend(copy.deepcopy(tasks_for_all_components))
+    for _, grouped_tasks in groups.items():
+        grouped_tasks.extend(copy.deepcopy(tasks_for_all_components))
 
     return groups.values()

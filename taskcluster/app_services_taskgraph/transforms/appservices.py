@@ -9,15 +9,17 @@ from ..build_config import get_version
 
 transforms = TransformSequence()
 
+
 @transforms.add
 def add_release_routes(config, tasks):
     for task in tasks:
         # Add routes listed in `release-routes` if we're building for a release
-        release_routes = task.get('attributes', {}).get('release-routes')
-        release_type = config.params.get('release-type')
+        release_routes = task.get("attributes", {}).get("release-routes")
+        release_type = config.params.get("release-type")
         if release_type and release_routes:
-            task.setdefault('routes', []).extend(release_routes)
+            task.setdefault("routes", []).extend(release_routes)
         yield task
+
 
 @transforms.add
 def transform_routes(config, tasks):
