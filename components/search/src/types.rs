@@ -7,14 +7,16 @@
 use serde::Deserialize;
 
 /// The list of possible application names that are currently supported.
-#[derive(Clone, Debug, Deserialize, PartialEq, uniffi::Enum)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
 #[serde(rename_all = "kebab-case")]
 pub enum SearchApplicationName {
-    Firefox = 1,
-    FirefoxAndroid = 2,
-    FirefoxIos = 3,
-    FocusAndroid = 4,
-    FocusIos = 5,
+    FirefoxAndroid = 1,
+    FirefoxIos = 2,
+    FocusAndroid = 3,
+    FocusIos = 4,
+    // The default doesn't really matter here, so we pick desktop.
+    #[default]
+    Firefox = 5,
 }
 
 impl SearchApplicationName {
@@ -31,31 +33,29 @@ impl SearchApplicationName {
 
 /// The list of possible update channels for a user's build.
 /// Use `default` for a self-build or an unknown channel.
-#[derive(Clone, Debug, uniffi::Enum)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
 pub enum SearchUpdateChannel {
-    Default = 1,
-    Nightly = 2,
-    Aurora = 3,
-    Beta = 4,
-    Release = 5,
-    ESR = 6,
+    Nightly = 1,
+    Aurora = 2,
+    Beta = 3,
+    Release = 4,
+    Esr = 5,
+    #[default]
+    Default = 6,
 }
 
-impl SearchUpdateChannel {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            SearchUpdateChannel::Default => "default",
-            SearchUpdateChannel::Nightly => "nightly",
-            SearchUpdateChannel::Aurora => "aurora",
-            SearchUpdateChannel::Beta => "beta",
-            SearchUpdateChannel::Release => "release",
-            SearchUpdateChannel::ESR => "esr",
-        }
-    }
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum SearchDeviceType {
+    Smartphone = 1,
+    Tablet = 2,
+    #[default]
+    None = 3,
 }
 
 /// The user's environment that is used for filtering the search configuration.
-#[derive(Clone, Debug, uniffi::Record)]
+#[derive(Clone, Debug, uniffi::Record, Default)]
 pub struct SearchUserEnvironment {
     /// The current locale of the application that the user is using.
     pub locale: String,
@@ -80,6 +80,9 @@ pub struct SearchUserEnvironment {
 
     /// The application version that the user is using.
     pub version: String,
+
+    /// The device type that the user is using.
+    pub device_type: SearchDeviceType,
 }
 
 /// Parameter definitions for search engine URLs. The name property is always
