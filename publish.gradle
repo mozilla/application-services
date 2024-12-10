@@ -9,16 +9,7 @@ def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
-// `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and want
-// to pack the JNA dispatch libraries and my Rust libraries into a single JAR
-// for use in unit tests that run on a development host (and not an Android
-// target device).  We extract the JNA libraries and our local Rust libraries
-// and stick them into a JAR that consumers augment their test configuration
-// with.
-//
-// It's only used for megazords, for which it's required. Passing it in for a
-// non-megazord is allowed, but will trigger a warning.
-ext.configurePublish = { jnaForTestConfiguration = null ->
+ext.configurePublish = {
     def theGroupId = rootProject.ext.library.groupId
     def theArtifactId = project.ext.artifactId
     def theDescription = project.ext.description
@@ -26,49 +17,6 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
     // This is a little cludgey, but it seems unlikely to cause a problem, and
     // we are already doing it inside taskcluster.
     def isMegazord = theArtifactId.endsWith("-megazord")
-
-    // Do some sanity checks. The following properties should either all be
-    // true, or none of them should be true:
-    // - We're a megazord
-    // - jnaForTestConfiguration was provided
-    // - we should have 2 publish artifacts, [project, project-forUnitTests]
-    if (isMegazord != (jnaForTestConfiguration != null)) {
-        throw new GradleException("ext.configurePublish needs a `jnaForTestConfiguration` iff the project is a megazord")
-    }
-
-    if (isMegazord) {
-        task extractJnaResources(type: Sync) {
-            dependsOn jnaForTestConfiguration
-
-            from {
-                // Defer the resolution of the configuration.  This helps to
-                // avoid a nasty issue with the Android-Gradle plugin 3.2.1,
-                // like `Cannot change attributes of configuration
-                // ':PROJECT:kapt' after it has been resolved`.
-                zipTree(jnaForTestConfiguration.singleFile)
-            }
-
-            into "${buildDir}/jnaResources/"
-
-            eachFile { FileCopyDetails fcp ->
-                // The intention is to just keep the various `*jnidispatch.*` files.
-                if (fcp.relativePath.pathString.startsWith("META-INFO") || fcp.relativePath.pathString.endsWith(".class")) {
-                    fcp.exclude()
-                }
-            }
-
-            includeEmptyDirs false
-        }
-
-        def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
-            from extractJnaResources
-            from "$buildDir/rustJniLibs/desktop"
-        }
-
-        project.afterEvaluate {
-            forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
-        }
-    }
 
     publishing {
         publications {
@@ -129,47 +77,6 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                     }
                 }
             }
-
-            if (isMegazord) {
-                forUnitTestsJar(MavenPublication) {
-                    artifact tasks['forUnitTestsJar']
-                    artifact file("${projectDir}/../DEPENDENCIES.md"), {
-                        extension "LICENSES.md"
-                    }
-                    pom {
-                        groupId = theGroupId
-                        artifactId = "${theArtifactId}-forUnitTests"
-                        description = theDescription
-                        // For mavenLocal publishing workflow, increment the version number every publish.
-                        version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
-                        packaging = "jar"
-
-                        licenses {
-                            license {
-                                name = libLicense
-                                url = libLicenseUrl
-                            }
-                        }
-
-                        developers {
-                            developer {
-                                name = 'Sync Team'
-                                email = 'sync-team@mozilla.com'
-                            }
-                        }
-
-                        scm {
-                            connection = libVcsUrl
-                            developerConnection = libVcsUrl
-                            url = libUrl
-                        }
-                    }
-
-                    // This is never the publication we want to use when publishing a
-                    // parent project with us as a child `project()` dependency.
-                    alias = true
-                }
-            }
         }
     }
 
@@ -180,122 +87,5 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
             commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
         }
         checkMavenArtifacts.dependsOn(checkFileSizeTask)
-    }
-}
-
-
-
-// A convenience function for configuring a `uniffi-bindgen` task, with appropriate dependency info.
-// This will call `uniffi-bindgen` with the provided crate in order to generate Kotlin language
-// bindings and include them in the source set for the project.
-ext.configureUniFFIBindgen = { crateName ->
-    android.libraryVariants.all { variant ->
-        def uniffiGeneratedPath = "generated/source/uniffi/${variant.name}/java"
-        def megazordPathCandidates = [
-            "${project.rootDir}/target/release/libmegazord.so",
-            "${project.rootDir}/target/release/libmegazord.dylib",
-            "${project.rootDir}/target/release/libmegazord.dll"
-        ]
-        def taskName = "generate${variant.name.capitalize()}UniFFIBindings";
-        def t = tasks.register(taskName) {
-            doLast {
-                def megazordPath = null
-                for (path in megazordPathCandidates) {
-                    def file = new File(path)
-                    if (file.exists()) {
-                        megazordPath = path
-                        break
-                    }
-                }
-                if (megazordPath == null) {
-                    throw new GradleException("libmegazord dynamic library path not found")
-                }
-                exec {
-                    workingDir project.rootDir
-                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', megazordPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
-                }
-            }
-            outputs.dir "${buildDir}/${uniffiGeneratedPath}"
-            // Re-generate when the megazord is rebuilt, which should happen if any components
-            // change
-            it.inputs.files megazordPathCandidates
-            // Re-generate if our uniffi-bindgen tooling changes.
-            inputs.dir "${project.rootDir}/tools/embedded-uniffi-bindgen/"
-            // Re-generate if our uniffi-bindgen version changes.
-            inputs.file "${project.rootDir}/Cargo.lock"
-        }
-        variant.registerJavaGeneratingTask(t.get(), new File(buildDir, uniffiGeneratedPath))
-        tasks[taskName].dependsOn(":full-megazord:assembleRelease")
-    }
-}
-
-// A convenience function for configuring a project to depend on the megazord
-// for native code. It sets up the correct set of dependencies for publishing
-// a package whose Rust code is included in the megazord, and for running its
-// tests using a local build.
-ext.dependsOnTheMegazord = {
-    // There's an interaction between Gradle's resolution of dependencies with different types
-    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
-    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
-    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
-    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
-    // what's happening is that @aar type in `implementation` resolves to the @jar type in
-    // `testImplementation`, and that it wins the dependency resolution battle.
-    //
-    // A workaround is to add a new configuration which depends on the @jar type and to reference
-    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
-    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
-    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
-    // Success!
-    configurations {
-        jnaForTest
-    }
-    // Add the full-megazord's build directory to our resource path so that
-    // we can actually find it during tests. (Unfortunately, each project
-    // has their own build dir)
-    android {
-        sourceSets {
-            test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
-        }
-    }
-    // Depend on the megazord and its support library, as well as the
-    // above-mentioned JNA stuff for testing.
-    dependencies {
-        api project(":full-megazord")
-        implementation project(":native-support")
-        jnaForTest(libs.jna) {
-            artifact {
-                extension ="jar"
-                type = "jar"
-            }
-        }
-        implementation(libs.jna) {
-            artifact {
-                extension ="aar"
-                type = "aar"
-            }
-        }
-        // For reasons unknown, resolving the jnaForTest configuration directly
-        // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
-        // change attributes of configuration ':PROJECT:kapt' after it has been
-        // resolved`.  I think that the configuration is being made a
-        // super-configuration of the testImplementation and then the `.files` is
-        // causing it to be resolved.  Cloning first dissociates the configuration,
-        // avoiding other configurations from being resolved.  Tricky!
-        testImplementation files(configurations.jnaForTest.copyRecursive().files)
-    }
-    // For running local tests, depend on a local native `cargo build` of the megazord.
-    // Unfortunately the `cargoBuild` tasks aren't available until after evaluation.
-    evaluationDependsOn(":full-megazord")
-    afterEvaluate {
-        android.libraryVariants.all { variant ->
-            def productFlavor = ""
-            variant.productFlavors.each {
-                productFlavor += "${it.name.capitalize()}"
-            }
-            def buildType = "${variant.buildType.name.capitalize()}"
-            def nativeCargoBuildTask = "cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"
-            tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks[nativeCargoBuildTask])
-        }
     }
 }

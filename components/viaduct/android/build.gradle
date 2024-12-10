@@ -8,6 +8,7 @@ android {
 
 dependencies {
     api libs.mozilla.concept.fetch
+    implementation project(":native-support")
 }
 
 ext.dependsOnTheMegazord()
