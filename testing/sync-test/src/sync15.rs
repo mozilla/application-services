@@ -16,9 +16,7 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::client::{sync_multiple, MemoryCachedState};
-use sync15::engine::{
-    CollectionRequest, EngineSyncAssociation, SyncEngine,
-};
+use sync15::engine::{CollectionRequest, EngineSyncAssociation, SyncEngine};
 use sync15::{telemetry, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -87,10 +85,10 @@ impl SyncEngine for TestEngine {
         // the RefCell.
         let temp: Vec<TestRecord> = mem::take(&mut *self.test_records.borrow_mut());
 
-        Ok(temp.into_iter()
-                .map(OutgoingBso::from_content_with_id)
-                .collect::<Result<_, _>>()?
-        )
+        Ok(temp
+            .into_iter()
+            .map(OutgoingBso::from_content_with_id)
+            .collect::<Result<_, _>>()?)
     }
 
     fn set_uploaded(

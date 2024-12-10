@@ -144,7 +144,7 @@ impl SyncLoginData {
         &self.guid
     }
 
-    pub fn from_bso(bso: IncomingBso, encdec: &EncryptorDecryptor) -> Result<Self> {
+    pub fn from_bso(bso: IncomingBso, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
         let guid = bso.envelope.id.clone();
         let inbound_ts = bso.envelope.modified;
         let inbound = match bso.into_content::<LoginPayload>().kind {
@@ -279,7 +279,7 @@ impl EncryptedLogin {
     pub(crate) fn apply_delta(
         &mut self,
         mut delta: LoginDelta,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<()> {
         apply_field!(self, delta, origin);
 
@@ -315,7 +315,7 @@ impl EncryptedLogin {
     pub(crate) fn delta(
         &self,
         older: &EncryptedLogin,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<LoginDelta> {
         let mut delta = LoginDelta::default();
 
@@ -380,7 +380,7 @@ impl EncryptedLogin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::TEST_ENCRYPTOR;
+    use crate::encryption::test_utils::TEST_ENCDEC;
 
     #[test]
     fn test_invalid_payload_timestamps() {
@@ -396,7 +396,7 @@ mod tests {
             "timeLastUsed": "some other garbage",
             "timePasswordChanged": -30, // valid i64 but negative
         }));
-        let login = SyncLoginData::from_bso(bad_payload, &TEST_ENCRYPTOR)
+        let login = SyncLoginData::from_bso(bad_payload, &*TEST_ENCDEC)
             .unwrap()
             .inbound
             .unwrap()
@@ -417,7 +417,7 @@ mod tests {
             "timePasswordChanged": now64 - 25,
         }));
 
-        let login = SyncLoginData::from_bso(good_payload, &TEST_ENCRYPTOR)
+        let login = SyncLoginData::from_bso(good_payload, &*TEST_ENCDEC)
             .unwrap()
             .inbound
             .unwrap()

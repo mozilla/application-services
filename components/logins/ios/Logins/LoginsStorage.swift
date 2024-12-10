@@ -17,8 +17,8 @@ open class LoginsStorage {
     private var store: LoginStore
     private let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 
-    public init(databasePath: String) throws {
-        store = try LoginStore(path: databasePath)
+    public init(databasePath: String, keyManager: KeyManager) throws {
+        store = try LoginStore(path: databasePath, encdec: createManagedEncdec(keyManager: keyManager))
     }
 
     open func wipeLocal() throws {
@@ -47,36 +47,36 @@ open class LoginsStorage {
     /// then this throws `LoginStoreError.DuplicateGuid` if there is a collision
     ///
     /// Returns the `id` of the newly inserted record.
-    open func add(login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
+    open func add(login: LoginEntry) throws -> Login {
         return try queue.sync {
-            try self.store.add(login: login, encryptionKey: encryptionKey)
+            try self.store.add(login: login)
         }
     }
 
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
-    open func update(id: String, login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
+    open func update(id: String, login: LoginEntry) throws -> Login {
         return try queue.sync {
-            try self.store.update(id: id, login: login, encryptionKey: encryptionKey)
+            try self.store.update(id: id, login: login)
         }
     }
 
     /// Get the record with the given id. Returns nil if there is no such record.
-    open func get(id: String) throws -> EncryptedLogin? {
+    open func get(id: String) throws -> Login? {
         return try queue.sync {
             try self.store.get(id: id)
         }
     }
 
     /// Get the entire list of records.
-    open func list() throws -> [EncryptedLogin] {
+    open func list() throws -> [Login] {
         return try queue.sync {
             try self.store.list()
         }
     }
 
     /// Get the list of records for some base domain.
-    open func getByBaseDomain(baseDomain: String) throws -> [EncryptedLogin] {
+    open func getByBaseDomain(baseDomain: String) throws -> [Login] {
         return try queue.sync {
             try self.store.getByBaseDomain(baseDomain: baseDomain)
         }
