@@ -2,15 +2,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
+
 import pytest
-from cirrus import CirrusClient, MetricsHandler, EnrollmentStatusExtraDef
+from cirrus import CirrusClient, EnrollmentStatusExtraDef, MetricsHandler
 from fml import FmlClient
 
 
 class TestMetricsHandler(MetricsHandler):
     recordings = []
 
-    def record_enrollment_statuses(self, enrollment_status_extras: [EnrollmentStatusExtraDef]):
+    def record_enrollment_statuses(
+        self, enrollment_status_extras: [EnrollmentStatusExtraDef]
+    ):
         self.recordings.clear()
         self.recordings.extend(enrollment_status_extras)
 

@@ -9,18 +9,21 @@ import argparse
 import json
 import os
 import pathlib
+
 import toml
 
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
+
 
 def main():
     args = parse_args()
     dump_json(args)
 
+
 def dump_json(args):
     data = {
-        'version': find_version(),
-        'commit': os.environ['APPSERVICES_HEAD_REV'],
+        "version": find_version(),
+        "commit": os.environ["APPSERVICES_HEAD_REV"],
     }
 
     dir = os.path.dirname(args.path)
@@ -29,16 +32,21 @@ def dump_json(args):
     with open(args.path, "wt") as f:
         json.dump(data, f)
 
+
 def find_version():
     path = ROOT_DIR.joinpath("components", "support", "nimbus-cli", "Cargo.toml")
     with open(path) as f:
         data = toml.load(f)
-    return data['package']['version']
+    return data["package"]["version"]
+
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Generate JSON file with information about the nimbus-cli build')
-    parser.add_argument('path')
+    parser = argparse.ArgumentParser(
+        description="Generate JSON file with information about the nimbus-cli build"
+    )
+    parser.add_argument("path")
     return parser.parse_args()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
