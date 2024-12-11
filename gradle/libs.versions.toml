@@ -12,7 +12,6 @@ protobuf = "4.28.2"
 
 # Kotlin
 kotlin-compiler = "1.9.24"
-kotlin-dsl = "5.1.1"
 kotlinx-coroutines = "1.8.0"
 
 # Mozilla
@@ -93,5 +92,4 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 gradle-download-task = { id = "de.undercouch.download", version.ref = "gradle-download-task" }
 gradle-python-envs = { id = "com.jetbrains.python.envs", version.ref = "python-envs" }
-kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version.ref = "kotlin-dsl"}
 protobuf-gradle = { id = "com.google.protobuf", version.ref = "protobuf-gradle" }
