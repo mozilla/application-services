@@ -43,6 +43,8 @@ kotlin {
 }
 
 dependencies {
+    lintChecks "androidx.lint:lint-gradle:1.0.0-alpha03"
+
     testImplementation libs.junit
     testImplementation libs.mockito
     testImplementation libs.robolectric

@@ -27,3 +27,16 @@ tasks:
     description: "Running ktlint over all modules"
     run:
       gradlew: [ktlint]
+  lint:
+    description: "Running Gradle lint over all modules"
+      pre-gradlew:
+        - [git, submodule, update, --init]
+        - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
+        - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
+        - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
+        - [bash, '-c', 'echo "rust.targets=linux-x86-64\n" > local.properties']
+      run:
+        gradlew:
+        - 'clean'
+        - 'lint'
+      use-caches: true
