@@ -6,19 +6,14 @@
 # `.buildconfig-android.yml`
 
 
-
 from taskgraph.loader.transform import loader as base_loader
 
 from ..build_config import get_components
 
 
 def loader(kind, path, config, params, loaded_tasks):
-    config['tasks'] = jobs = {
-        component['name']: {
-            'attributes': {
-                'buildconfig': component
-            }
-        }
+    config["tasks"] = {
+        component["name"]: {"attributes": {"buildconfig": component}}
         for component in get_components()
     }
 

@@ -8,26 +8,26 @@
 # It shells out to `cargo metadata` to gather information about the full dependency tree
 # and to `cargo build --build-plan` to figure out the dependencies of the specific target package.
 
-import io
-import re
-import sys
-import os.path
 import argparse
-import subprocess
+import collections
+import difflib
 import hashlib
+import io
+import itertools
 import json
 import logging
+import os.path
+import re
+import subprocess
+import sys
 import textwrap
-import difflib
-import itertools
-import collections
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 from xml.sax import saxutils
 
 import requests
 
 # handy for debugging; WARNING (default), INFO, and DEBUG can all be useful
-logging.basicConfig(level = logging.WARNING)
+logging.basicConfig(level=logging.WARNING)
 
 # The targets used by rust-android-gradle, including the ones for unit testing.
 # https://github.com/mozilla/rust-android-gradle/blob/master/plugin/src/main/kotlin/com/nishtahir/RustAndroidPlugin.kt
@@ -52,10 +52,11 @@ ALL_ANDROID_TARGETS = [
 # in CI that runs on a Mac).
 #
 # The alternative is to only let you generate these summaries on a Mac, which is bleh.
-ALL_IOS_TARGETS = ["fake-target-for-ios"] if sys.platform != "darwin" else [
-    "x86_64-apple-ios",
-    "aarch64-apple-ios"
-]
+ALL_IOS_TARGETS = (
+    ["fake-target-for-ios"]
+    if sys.platform != "darwin"
+    else ["x86_64-apple-ios", "aarch64-apple-ios"]
+)
 
 ALL_TARGETS = ALL_ANDROID_TARGETS + ALL_IOS_TARGETS
 
@@ -89,12 +90,14 @@ LICENSES_IN_PREFERENCE_ORDER = [
 # Packages that get pulled into our dependency tree but we know we definitely don't
 # ever build with in practice, typically because they're platform-specific support
 # for platforms we don't actually support.
-EXCLUDED_PACKAGES = set([
-    "cloudabi",
-    "fuchsia-cprng",
-    "fuchsia-zircon",
-    "fuchsia-zircon-sys",
-])
+EXCLUDED_PACKAGES = set(
+    [
+        "cloudabi",
+        "fuchsia-cprng",
+        "fuchsia-zircon",
+        "fuchsia-zircon-sys",
+    ]
+)
 
 # Known metadata for special extra packages that are not managed by cargo.
 EXTRA_PACKAGE_METADATA = {
@@ -114,7 +117,7 @@ EXTRA_PACKAGE_METADATA = {
         "name": "SwiftKeychainWrapper",
         "repository": "https://github.com/jrendel/SwiftKeychainWrapper",
         "license": "MIT",
-        "license_file": "https://raw.githubusercontent.com/jrendel/SwiftKeychainWrapper/develop/LICENSE"
+        "license_file": "https://raw.githubusercontent.com/jrendel/SwiftKeychainWrapper/develop/LICENSE",
     },
     "ext-nss": {
         "name": "NSS",
@@ -143,7 +146,8 @@ EXTRA_PACKAGE_METADATA = {
         "license_url": "https://github.com/briansmith/ring/blob/master/LICENSE",
         # We're only using the API surface from ring, not its internals,
         # and all the relevant files and under this ISC-style license.
-        "license_text": textwrap.dedent(r"""
+        "license_text": textwrap.dedent(
+            r"""
             Copyright 2015-2016 Brian Smith.
 
             Permission to use, copy, modify, and/or distribute this software for any
@@ -157,15 +161,16 @@ EXTRA_PACKAGE_METADATA = {
             WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
             OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
             CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-        """)
+        """
+        ),
     },
     "ext-sqlite": {
         "name": "sqlite",
         "repository": "https://www.sqlite.org/",
         "license": "EXT-SQLITE",
         "license_file": "https://sqlite.org/copyright.html",
-        "license_text": "This software makes use of the 'SQLite' database engine, and we are very"\
-                        " grateful to D. Richard Hipp and team for producing it.",
+        "license_text": "This software makes use of the 'SQLite' database engine, and we are very"
+        " grateful to D. Richard Hipp and team for producing it.",
     },
 }
 
@@ -210,69 +215,57 @@ PACKAGE_METADATA_FIXUPS = {
     "tracing": {
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE",
         }
     },
     "tracing-futures": {
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE",
         }
     },
     # These packages do not unambiguously declare their licensing file.
     "publicsuffix": {
-        "license": {
-            "check": "MIT/Apache-2.0"
-        },
+        "license": {"check": "MIT/Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "LICENSE-APACHE",
-        }
+        },
     },
     "siphasher": {
-        "license": {
-            "check": "MIT/Apache-2.0"
-        },
+        "license": {"check": "MIT/Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "COPYING",
-        }
+        },
     },
     "futures-task": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rust-lang/futures-rs/master/LICENSE-APACHE",
-        }
+        },
     },
     "typenum": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "LICENSE-APACHE",
-        }
+        },
     },
     "ohttp": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
-        }
+        },
     },
     "bhttp": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
-        }
+        },
     },
     # These packages do not include their license file in their release distributions,
     # so we have to fetch it over the network. Each has been manually checked and resolved
@@ -287,7 +280,7 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             # N.B. this was moved to rust-lang org, but the repo link in the distribution hasn't been updated.
             "fixup": "https://raw.githubusercontent.com/rust-lang/backtrace-rs/master/LICENSE-APACHE",
-        }
+        },
     },
     "base16": {
         "repository": {
@@ -296,7 +289,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/thomcc/rust-base16/master/LICENSE-APACHE",
-        }
+        },
     },
     "bitvec": {
         "license": {
@@ -311,13 +304,11 @@ PACKAGE_METADATA_FIXUPS = {
         "repository": {
             "check": "https://github.com/rust-lang/cargo",
         },
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rust-lang/cargo/master/LICENSE-APACHE",
-        }
+        },
     },
     "failure_derive": {
         "repository": {
@@ -326,7 +317,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rust-lang-nursery/failure/master/LICENSE-APACHE",
-        }
+        },
     },
     "funty": {
         "license": {
@@ -338,13 +329,11 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "fxhash": {
-        "license": {
-            "check": "Apache-2.0/MIT"
-        },
+        "license": {"check": "Apache-2.0/MIT"},
         "license_file": {
             "check": None,
-            "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt"
-        }
+            "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        },
     },
     "hawk": {
         "repository": {
@@ -353,7 +342,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
-        }
+        },
     },
     "oneshot-uniffi": {
         "repository": {
@@ -362,7 +351,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
-        }
+        },
     },
     "windows-sys": {
         "repository": {
@@ -409,7 +398,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
-        }
+        },
     },
     "libsqlite3-sys": {
         "repository": {
@@ -418,17 +407,14 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rusqlite/rusqlite/master/LICENSE",
-        }
+        },
     },
     "miniz_oxide": {
-        "license": {
-            "check": "MIT OR Zlib OR Apache-2.0",
-            "fixup": "MIT"
-        },
+        "license": {"check": "MIT OR Zlib OR Apache-2.0", "fixup": "MIT"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/Frommi/miniz_oxide/master/miniz_oxide/LICENSE-MIT.md",
-        }
+        },
     },
     "parking_lot_core": {
         "repository": {
@@ -450,7 +436,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/sfackler/rust-phf/master/LICENSE",
-        }
+        },
     },
     "phf_codegen": {
         "repository": {
@@ -459,7 +445,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/sfackler/rust-phf/master/LICENSE",
-        }
+        },
     },
     "phf_generator": {
         "repository": {
@@ -507,13 +493,11 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "radium": {
-        "license": {
-            "check": "MIT"
-        },
+        "license": {"check": "MIT"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/bitvecto-rs/radium/master/LICENSE.txt",
-        }
+        },
     },
     "security-framework": {
         "repository": {
@@ -534,22 +518,18 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "shlex": {
-        "repository": {
-            "check": "https://github.com/comex/rust-shlex"
-        },
+        "repository": {"check": "https://github.com/comex/rust-shlex"},
         "license_file": {
             "check": None,
             "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
         },
     },
     "tinyvec_macros": {
-        "license": {
-            "check": "MIT OR Apache-2.0 OR Zlib"
-        },
+        "license": {"check": "MIT OR Apache-2.0 OR Zlib"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/Soveu/tinyvec_macros/master/LICENSE-APACHE.md",
-        }
+        },
     },
     "url_serde": {
         "repository": {
@@ -601,30 +581,22 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "proc-macro-error": {
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
-        "repository": {
-            "check": "https://gitlab.com/CreepySkeleton/proc-macro-error"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
+        "repository": {"check": "https://gitlab.com/CreepySkeleton/proc-macro-error"},
         "license_file": {
             "check": None,
-            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE"
-        }
+            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE",
+        },
     },
     "proc-macro-error-attr": {
         # This is path dependency in `proc-macro-error` and uses
         # it's same license
-        "license": {
-            "check": "MIT OR Apache-2.0"
-        },
-        "repository": {
-            "check": "https://gitlab.com/CreepySkeleton/proc-macro-error"
-        },
+        "license": {"check": "MIT OR Apache-2.0"},
+        "repository": {"check": "https://gitlab.com/CreepySkeleton/proc-macro-error"},
         "license_file": {
             "check": None,
-            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE"
-        }
+            "fixup": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/raw/master/LICENSE-APACHE",
+        },
     },
     # Based on https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE.md
     # the library is licensed as dual licensed and a portion of the
@@ -637,13 +609,11 @@ PACKAGE_METADATA_FIXUPS = {
         "license": {
             "check": "MIT/Apache-2.0",
         },
-        "repository": {
-            "check": "https://github.com/Alexhuszagh/minimal-lexical"
-        },
+        "repository": {"check": "https://github.com/Alexhuszagh/minimal-lexical"},
         "license_file": {
             "check": None,
-            "fixup": "https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE"
-        }
+            "fixup": "https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE",
+        },
     },
     # These packages do not make it easy to infer a URL at which their license can be read,
     # so we track it down by hand and hard-code it here.
@@ -653,13 +623,13 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/stream-ciphers/chacha/LICENSE-APACHE"
+            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/stream-ciphers/chacha/LICENSE-APACHE",
         },
     },
     "ffi-support": {
         "license_url": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE"
+            "fixup": "https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE",
         },
     },
     "mime": {
@@ -670,7 +640,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/hyperium/mime/blob/v0.3.17/LICENSE-APACHE"
+            "fixup": "https://github.com/hyperium/mime/blob/v0.3.17/LICENSE-APACHE",
         },
     },
     "ppv-lite86": {
@@ -679,7 +649,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE"
+            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE",
         },
     },
     "time": {
@@ -688,7 +658,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/time-rs/time/blob/master/LICENSE-Apache"
+            "fixup": "https://github.com/time-rs/time/blob/master/LICENSE-Apache",
         },
     },
     "winapi": {
@@ -703,17 +673,15 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "tinyvec": {
-        "repository": {
-            "check": "https://github.com/Lokathor/tinyvec"
-        },
+        "repository": {"check": "https://github.com/Lokathor/tinyvec"},
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md"
+            "fixup": "https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/Lokathor/tinyvec/main/LICENSE-ZLIB.md"
-        }
+            "fixup": "https://raw.githubusercontent.com/Lokathor/tinyvec/main/LICENSE-ZLIB.md",
+        },
     },
     "glean-core": {
         "license_url": {
@@ -723,7 +691,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
-        }
+        },
     },
     "glean-ffi": {
         "license_url": {
@@ -733,7 +701,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
-        }
+        },
     },
     "lmdb-rkv-sys": {
         "license_url": {
@@ -743,7 +711,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/lmdb-rs/master/LICENSE",
-        }
+        },
     },
     "uniffi_bindgen": {
         "license_url": {
@@ -753,7 +721,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_build": {
         "license_url": {
@@ -763,7 +731,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_checksum_derive": {
         "license_url": {
@@ -773,7 +741,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_core": {
         "license_url": {
@@ -783,7 +751,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_macros": {
         "license_url": {
@@ -793,7 +761,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_meta": {
         "license_url": {
@@ -803,7 +771,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_testing": {
         "license_url": {
@@ -813,7 +781,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi_udl": {
         "license_url": {
@@ -823,7 +791,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "uniffi": {
         "license_url": {
@@ -833,7 +801,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
-        }
+        },
     },
     "jexl-eval": {
         "license_url": {
@@ -843,7 +811,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
-        }
+        },
     },
     "jexl-parser": {
         "license_url": {
@@ -853,7 +821,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
-        }
+        },
     },
     "lalrpop-util": {
         "license": {
@@ -866,7 +834,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/lalrpop/lalrpop/master/LICENSE-APACHE",
-        }
+        },
     },
     "humansize": {
         "license": {
@@ -879,7 +847,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
-        }
+        },
     },
     "encoding_rs": {
         "license": {
@@ -887,12 +855,12 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/hsivonen/encoding_rs/blob/master/COPYRIGHT"
+            "fixup": "https://github.com/hsivonen/encoding_rs/blob/master/COPYRIGHT",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT"
-        }
+            "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT",
+        },
     },
     "enum_variant_macros_macros": {
         "license": {
@@ -900,12 +868,12 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/MisterEggnog/enum-variant-macros/blob/trunk/LICENSE-APACHE"
+            "fixup": "https://github.com/MisterEggnog/enum-variant-macros/blob/trunk/LICENSE-APACHE",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/MisterEggnog/enum-variant-macros/trunk/LICENSE-APACHE"
-        }
+            "fixup": "https://raw.githubusercontent.com/MisterEggnog/enum-variant-macros/trunk/LICENSE-APACHE",
+        },
     },
     "extension-trait": {
         "license": {
@@ -913,34 +881,33 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_url": {
             "check": None,
-            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/blob/master/LICENSE-APACHE"
+            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/blob/master/LICENSE-APACHE",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/raw/master/LICENSE-APACHE"
-        }
+            "fixup": "https://gitlab.com/KonradBorowski/extension-trait/-/raw/master/LICENSE-APACHE",
+        },
     },
-
     "xshell-macros": {
         "license": {
             "check": "MIT OR Apache-2.0",
         },
         "license_url": {
             "check": None,
-            "fixup": "https://github.com/matklad/xshell/blob/master/LICENSE-APACHE"
+            "fixup": "https://github.com/matklad/xshell/blob/master/LICENSE-APACHE",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/matklad/xshell/master/LICENSE-APACHE"
-        }
+            "fixup": "https://raw.githubusercontent.com/matklad/xshell/master/LICENSE-APACHE",
+        },
     },
     # The following crates do not have repositories in the package metadata
     "openssl-macros": {
         "repository": {
             "check": None,
-            "fixup": "https://github.com/sfackler/rust-openssl"
+            "fixup": "https://github.com/sfackler/rust-openssl",
         }
-    }
+    },
 }
 
 # Sets of common licence file names, by license type.
@@ -972,10 +939,11 @@ def subprocess_run_cargo(args):
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = "nightly"
     p = subprocess.run(
-        ('cargo',) + args,
+        ("cargo",) + args,
         env=env,
         stdout=subprocess.PIPE,
         universal_newlines=True,
+        check=False,
     )
     p.check_returncode()
     return p.stdout
@@ -983,9 +951,11 @@ def subprocess_run_cargo(args):
 
 def get_workspace_metadata():
     """Get metadata for all dependencies in the workspace."""
-    return WorkspaceMetadata(json.loads(subprocess_run_cargo((
-        'metadata', '--locked', '--format-version', '1'
-    ))))
+    return WorkspaceMetadata(
+        json.loads(
+            subprocess_run_cargo(("metadata", "--locked", "--format-version", "1"))
+        )
+    )
 
 
 class WorkspaceMetadata(object):
@@ -1013,7 +983,8 @@ class WorkspaceMetadata(object):
                 for key, change in fixups.items():
                     if info.get(key, None) != change["check"]:
                         assert False, "Fixup check failed for {}.{}: {} != {}".format(
-                            info["name"], key,  info.get(key, None), change["check"])
+                            info["name"], key, info.get(key, None), change["check"]
+                        )
                     if "fixup" in change:
                         info[key] = change["fixup"]
             # Index packages for fast lookup.
@@ -1063,24 +1034,30 @@ class WorkspaceMetadata(object):
         """
         targets = self.get_compatible_targets_for_package(name, targets)
         cargo_args = (
-            '-Z', 'unstable-options',
-            'build',
-            '--build-plan',
-            '--quiet',
-            '--locked',
-            '--package', name,
+            "-Z",
+            "unstable-options",
+            "build",
+            "--build-plan",
+            "--quiet",
+            "--locked",
+            "--package",
+            name,
         )
         deps = set()
         for target in targets:
-            if target == "fake-target-for-ios":
-                target = "x86_64-apple-darwin"
-            buildPlan = subprocess_run_cargo(cargo_args + ('--target', target,))
+            this_target = "x86_64-apple-darwin" if target == "fake-target-for-ios" else target
+            buildPlan = subprocess_run_cargo(
+                cargo_args
+                + (
+                    "--target",
+                    this_target,
+                )
+            )
             buildPlan = json.loads(buildPlan)
-            for manifestPath in buildPlan['inputs']:
+            for manifestPath in buildPlan["inputs"]:
                 info = self.get_package_by_manifest_path(manifestPath)
-                deps.add(info['id'])
-        deps |= self.get_extra_dependencies_not_managed_by_cargo(
-            name, targets, deps)
+                deps.add(info["id"])
+        deps |= self.get_extra_dependencies_not_managed_by_cargo(name, targets, deps)
         return deps
 
     def get_extra_dependencies_not_managed_by_cargo(self, name, targets, deps):
@@ -1117,7 +1094,8 @@ class WorkspaceMetadata(object):
         for buildTarget in pkgInfo["targets"]:
             if "cdylib" in buildTarget["kind"]:
                 targets = [
-                    target for target in targets if not self.target_is_ios(target)]
+                    target for target in targets if not self.target_is_ios(target)
+                ]
         return targets
 
     def target_is_android(self, target):
@@ -1142,8 +1120,7 @@ class WorkspaceMetadata(object):
             # There's no "source" key in info for externally-managed dependencies
             return True
         manifest = pkgInfo["manifest_path"]
-        root = os.path.commonprefix(
-            [manifest, self.metadata["workspace_root"]])
+        root = os.path.commonprefix([manifest, self.metadata["workspace_root"]])
         if root != self.metadata["workspace_root"]:
             return True
         return False
@@ -1155,19 +1132,22 @@ class WorkspaceMetadata(object):
     def get_license_info(self, id):
         """Get the licensing info for the named dependency, or error if it can't be determined."""
         pkgInfo = self.pkgInfoById[id]
-        chosenLicense = self.pick_most_acceptable_license(
-            id, pkgInfo["license"])
+        chosenLicense = self.pick_most_acceptable_license(id, pkgInfo["license"])
         licenseFile = self._find_license_file(id, chosenLicense, pkgInfo)
         assert pkgInfo["name"] is not None
         assert pkgInfo["repository"] is not None
         return {
             "name": pkgInfo["name"],
-            "id": pkgInfo.get("id", pkgInfo["name"]), # Our fake external packages don't have an id.
+            "id": pkgInfo.get(
+                "id", pkgInfo["name"]
+            ),  # Our fake external packages don't have an id.
             "repository": pkgInfo["repository"],
             "license": chosenLicense,
             "license_file": licenseFile,
-            "license_text":  self._fetch_license_text(id, licenseFile, pkgInfo),
-            "license_url":  self._find_license_url(id, chosenLicense, licenseFile, pkgInfo)
+            "license_text": self._fetch_license_text(id, licenseFile, pkgInfo),
+            "license_url": self._find_license_url(
+                id, chosenLicense, licenseFile, pkgInfo
+            ),
         }
 
     def pick_most_acceptable_license(self, id, licenseId):
@@ -1184,14 +1164,16 @@ class WorkspaceMetadata(object):
             return licenseId
 
         # Split "A/B" and "A OR B" into individual license names.
-        licenses = set(l.strip()
-                       for l in re.split(r"\s*(?:/|\sOR\s)\s*", licenseId))
+        licenses = set(l.strip() for l in re.split(r"\s*(?:/|\sOR\s)\s*", licenseId))
         # Try to pick the "best" compatible license available.
         for license in LICENSES_IN_PREFERENCE_ORDER:
             if license in licenses:
                 return license
         raise RuntimeError(
-            "Could not determine acceptable license for {}; license is '{}'".format(id, licenseId))
+            "Could not determine acceptable license for {}; license is '{}'".format(
+                id, licenseId
+            )
+        )
 
     def _find_license_file(self, id, license, pkgInfo):
         logging.info("finding license file for %s", id)
@@ -1206,23 +1188,25 @@ class WorkspaceMetadata(object):
         except KeyError:
             licenseFileNames = COMMON_LICENSE_FILE_NAMES[""]
         logging.debug("candidate license filenames: %s", licenseFileNames)
-        foundLicenseFiles = [nm for nm in os.listdir(
-            pkgRoot) if nm.lower() in licenseFileNames]
+        foundLicenseFiles = [
+            nm for nm in os.listdir(pkgRoot) if nm.lower() in licenseFileNames
+        ]
         if len(foundLicenseFiles) == 1:
             return foundLicenseFiles[0]
         # We couldn't find the right license file. Let's do what we can to help a human
         # pick the right one and add it to the list of manual fixups.
         if len(foundLicenseFiles) > 1:
             err = "Multiple ambiguous license files found for '{}'.\n".format(
-                pkgInfo["name"])
+                pkgInfo["name"]
+            )
             err += "Please select the correct license file and add it to `PACKAGE_METADATA_FIXUPS`.\n"
             err += "Potential license files: {}".format(foundLicenseFiles)
         else:
-            err = "Could not find license file for '{}'.\n".format(
-                pkgInfo["name"])
+            err = "Could not find license file for '{}'.\n".format(pkgInfo["name"])
             err += "Please locate the correct license file and add it to `PACKAGE_METADATA_FIXUPS`.\n"
             err += "You may need to poke around in the source repository at {}".format(
-                pkgInfo["repository"])
+                pkgInfo["repository"]
+            )
         raise RuntimeError(err)
 
     def _fetch_license_text(self, id, licenseFile, pkgInfo):
@@ -1253,12 +1237,23 @@ class WorkspaceMetadata(object):
                     repo = repo.replace("http://", "https://")
                 if repo.startswith("https://github.com/"):
                     # Some projects include extra context in their repo URL; strip it off.
-                    for strip_suffix in [".git", "/tree/main/{}".format(pkgInfo["name"]), "/tree/master/{}".format(pkgInfo["name"]),]:
+                    for strip_suffix in [
+                        ".git",
+                        "/tree/main/{}".format(pkgInfo["name"]),
+                        "/tree/master/{}".format(pkgInfo["name"]),
+                    ]:
                         if repo.endswith(strip_suffix):
-                            repo = repo[:-len(strip_suffix)]
+                            repo = repo[: -len(strip_suffix)]
                     # Try a couple of common locations for the license file.
-                    for path in ["/main/", "/master/", "/main/{}/".format(pkgInfo["name"]), "/master/{}/".format(pkgInfo["name"]),]:
-                        licenseUrl = repo.replace("github.com", "raw.githubusercontent.com")
+                    for path in [
+                        "/main/",
+                        "/master/",
+                        "/main/{}/".format(pkgInfo["name"]),
+                        "/master/{}/".format(pkgInfo["name"]),
+                    ]:
+                        licenseUrl = repo.replace(
+                            "github.com", "raw.githubusercontent.com"
+                        )
                         licenseUrl += path + licenseFile
                         r = requests.get(licenseUrl)
                         if r.status_code == 200:
@@ -1271,14 +1266,18 @@ class WorkspaceMetadata(object):
         if licenseUrl is None:
             err = "Could not infer license URL for '{}'.\n".format(pkgInfo["name"])
             err += "Please locate the correct license URL and add it to `PACKAGE_METADATA_FIXUPS`.\n"
-            err += "You may need to poke around in the source repository at {}".format(repo)
+            err += "You may need to poke around in the source repository at {}".format(
+                repo
+            )
             err += " for a {} license file named {}.".format(chosenLicense, licenseFile)
             raise RuntimeError(err)
         # As a special case, convert raw github URLs back into human-friendly page URLs.
         if licenseUrl.startswith("https://raw.githubusercontent.com/"):
-            licenseUrl = re.sub(r"raw.githubusercontent.com/([^/]+)/([^/]+)/",
-                                r"github.com/\1/\2/blob/",
-                                licenseUrl)
+            licenseUrl = re.sub(
+                r"raw.githubusercontent.com/([^/]+)/([^/]+)/",
+                r"github.com/\1/\2/blob/",
+                licenseUrl,
+            )
         return licenseUrl
 
 
@@ -1311,23 +1310,26 @@ def group_dependencies_for_printing(deps):
     # Group by shared license text where possible.
     depsByLicenseTextHash = collections.defaultdict(list)
     for info in deps:
-        if info["license"] in ("MPL-2.0", "Apache-2.0") or info["license"].startswith("EXT-"):
+        if info["license"] in ("MPL-2.0", "Apache-2.0") or info["license"].startswith(
+            "EXT-"
+        ):
             # We know these licenses to have shared license text, sometimes differing on e.g. punctuation details.
             # XXX TODO: should check this more explicitly to ensure they contain the expected text.
             licenseTextHash = info["license"]
         else:
             # Other license texts typically include copyright notices that we can't dedupe, except on whitespace.
             text = "".join(info["license_text"].split())
-            licenseTextHash = info["license"] + ":" + \
-                hashlib.sha256(text.encode("utf8")).hexdigest()
+            licenseTextHash = (
+                info["license"] + ":" + hashlib.sha256(text.encode("utf8")).hexdigest()
+            )
         depsByLicenseTextHash[licenseTextHash].append(info)
 
     # Add summary information for each group.
     groups = []
-    for licenseTextHash, deps in depsByLicenseTextHash.items():
+    for licenseTextHash, unsorted_deps in depsByLicenseTextHash.items():
         # Sort by name and then by full package id, to produce a stable total order
         # that makes sense to humans and handles multiple versions of the same package.
-        deps = sorted(deps, key=lambda i: (i["name"], i["id"]))
+        deps = sorted(unsorted_deps, key=lambda i: (i["name"], i["id"]))
 
         # Find single canonical license text for the group, which is the whole point of grouping.
         license = deps[0]["license"]
@@ -1341,8 +1343,7 @@ def group_dependencies_for_printing(deps):
                 if "[yyyy]" in licenseText and "NSS" not in licenseText:
                     break
             else:
-                raise RuntimeError(
-                    "Could not find appropriate apache license text")
+                raise RuntimeError("Could not find appropriate apache license text")
 
         # Make a nice human-readable description for the group.
         # For some licenses we don't want to list all the deps in the title.
@@ -1351,14 +1352,16 @@ def group_dependencies_for_printing(deps):
         else:
             title = make_license_title(license, deps)
 
-        groups.append({
-            "title": title,
-            "dependencies": deps,
-            "license": license,
-            "license_text_hash": licenseTextHash,
-            "license_text": licenseText,
-            "license_url": deps[0].get("license_url"),
-        })
+        groups.append(
+            {
+                "title": title,
+                "dependencies": deps,
+                "license": license,
+                "license_text_hash": licenseTextHash,
+                "license_text": licenseText,
+                "license_url": deps[0].get("license_url"),
+            }
+        )
 
     # List groups in the order in which we prefer their license, then in alphabetical order
     # of the dependency names. This ensures a convenient and stable ordering.
@@ -1374,6 +1377,7 @@ def group_dependencies_for_printing(deps):
 
 def print_dependency_summary_markdown(deps, file=sys.stdout):
     """Print a nicely-formatted summary of dependencies and their license info."""
+
     def pf(string, *args):
         if args:
             string = string.format(*args)
@@ -1381,8 +1385,12 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
 
     pf("# Licenses for Third-Party Dependencies")
     pf("")
-    pf("Binary distributions of this software incorporate code from a number of third-party dependencies.")
-    pf("These dependencies are available under a variety of free and open source licenses,")
+    pf(
+        "Binary distributions of this software incorporate code from a number of third-party dependencies."
+    )
+    pf(
+        "These dependencies are available under a variety of free and open source licenses,"
+    )
     pf("the details of which are reproduced below.")
     pf("")
 
@@ -1391,8 +1399,13 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
     # First a "table of contents" style thing.
     for section in sections:
         header = section["title"]
-        anchor = header.lower().replace(" ", "-").replace(".",
-                                                          "").replace(",", "").replace(":", "")
+        anchor = (
+            header.lower()
+            .replace(" ", "-")
+            .replace(".", "")
+            .replace(",", "")
+            .replace(":", "")
+        )
         pf("* [{}](#{})", header, anchor)
 
     pf("-------------")
@@ -1401,11 +1414,16 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
     for section in sections:
         pf("## {}", section["title"])
         pf("")
-        pkgs = ["[{}]({})".format(info["name"], info["repository"])
-                for info in section["dependencies"]]
+        pkgs = [
+            "[{}]({})".format(info["name"], info["repository"])
+            for info in section["dependencies"]
+        ]
         # Dedupe in case of multiple versions of dependencies.
         pkgs = sorted(set(pkgs))
-        pf("The following text applies to code linked from these dependencies:\n{}", ",\n".join(pkgs))
+        pf(
+            "The following text applies to code linked from these dependencies:\n{}",
+            ",\n".join(pkgs),
+        )
         pf("")
         pf("```")
         assert "```" not in section["license_text"]
@@ -1416,6 +1434,7 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
 
 def print_dependency_summary_pom(deps, file=sys.stdout):
     """Print a summary of dependencies and their license info in .pom file XML format."""
+
     def pf(string, *args):
         if args:
             string = string.format(*args)
@@ -1423,8 +1442,12 @@ def print_dependency_summary_pom(deps, file=sys.stdout):
 
     pf("<licenses>")
     pf("<!--")
-    pf("Binary distributions of this software incorporate code from a number of third-party dependencies.")
-    pf("These dependencies are available under a variety of free and open source licenses,")
+    pf(
+        "Binary distributions of this software incorporate code from a number of third-party dependencies."
+    )
+    pf(
+        "These dependencies are available under a variety of free and open source licenses,"
+    )
     pf("the details of which are reproduced below.")
     pf("-->")
 
@@ -1433,12 +1456,22 @@ def print_dependency_summary_pom(deps, file=sys.stdout):
     for section in sections:
         # For the .pom file we want to list each dependency separately unless the name/license/url are identical.
         # First collapse to a tuple as that's hashable, and put it in a set
-        deps = sorted(set(map(lambda d: (d["name"], d["license"], d["license_url"]), section["dependencies"])))
+        deps = sorted(
+            set(
+                map(
+                    lambda d: (d["name"], d["license"], d["license_url"]),
+                    section["dependencies"],
+                )
+            )
+        )
 
-        for (name, license, license_url) in deps:
+        for name, license, license_url in deps:
             dep = {"name": name, "license": license, "license_url": license_url}
             pf("  <license>")
-            pf("    <name>{}</name>", saxutils.escape(make_license_title(dep["license"], [dep])))
+            pf(
+                "    <name>{}</name>",
+                saxutils.escape(make_license_title(dep["license"], [dep])),
+            )
             pf("    <url>{}</url>", saxutils.escape(dep["license_url"]))
             pf("  </license>")
 
@@ -1447,19 +1480,33 @@ def print_dependency_summary_pom(deps, file=sys.stdout):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="summarize dependencies and license information")
-    parser.add_argument('-p', '--package', action="append", dest="packages")
-    parser.add_argument('--target', action="append", dest="targets")
-    parser.add_argument('--all-android-targets', action="append_const",
-                        dest="targets", const=ALL_ANDROID_TARGETS)
-    parser.add_argument('--all-ios-targets', action="append_const",
-                        dest="targets", const=ALL_IOS_TARGETS)
-    parser.add_argument('--format',
-                        choices=["markdown", "json", "pom"],
-                        default="markdown",
-                        help="output format to generate")
-    parser.add_argument('--check', action="store",
-                        help="suppress output, instead checking that it matches the given file")
+        description="summarize dependencies and license information"
+    )
+    parser.add_argument("-p", "--package", action="append", dest="packages")
+    parser.add_argument("--target", action="append", dest="targets")
+    parser.add_argument(
+        "--all-android-targets",
+        action="append_const",
+        dest="targets",
+        const=ALL_ANDROID_TARGETS,
+    )
+    parser.add_argument(
+        "--all-ios-targets",
+        action="append_const",
+        dest="targets",
+        const=ALL_IOS_TARGETS,
+    )
+    parser.add_argument(
+        "--format",
+        choices=["markdown", "json", "pom"],
+        default="markdown",
+        help="output format to generate",
+    )
+    parser.add_argument(
+        "--check",
+        action="store",
+        help="suppress output, instead checking that it matches the given file",
+    )
     args = parser.parse_args()
 
     # Default to listing dependencies for the "megazord" and "megazord_ios" packages,
@@ -1469,8 +1516,9 @@ if __name__ == "__main__":
 
     if args.targets:
         # Flatten the lists introduced by --all-XXX-targets options.
-        args.targets = list(itertools.chain(
-            *([t] if isinstance(t, str) else t for t in args.targets)))
+        args.targets = list(
+            itertools.chain(*([t] if isinstance(t, str) else t for t in args.targets))
+        )
 
     metadata = get_workspace_metadata()
     deps = metadata.get_dependency_summary(args.packages, args.targets)
@@ -1490,11 +1538,11 @@ if __name__ == "__main__":
     if args.check:
         output.seek(0)
         outlines = output.readlines()
-        with open(args.check, 'r') as f:
+        with open(args.check, "r") as f:
             checklines = f.readlines()
             if outlines != checklines:
                 raise RuntimeError(
                     "Dependency details have changed from those in {}:\n{}".format(
-                        args.check,
-                        "".join(difflib.unified_diff(checklines, outlines))
-                    ))
+                        args.check, "".join(difflib.unified_diff(checklines, outlines))
+                    )
+                )

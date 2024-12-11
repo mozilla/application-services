@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
+
 import pytest
 from fml import FmlError, InternalError
 
@@ -97,4 +98,4 @@ def test_get_coenrolling_feature_ids(fml_client):
     client = fml_client("test-include-import.fml.yml", "developer")
     result = client.get_coenrolling_feature_ids()
 
-    assert result == ["example-feature","imported-module-1-included-feature-1"]
+    assert result == ["example-feature", "imported-module-1-included-feature-1"]

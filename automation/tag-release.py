@@ -8,8 +8,9 @@
 # Usage: ./automation/tag-release.py [major-version-number]
 
 import argparse
+import sys
 
-from shared import RefNames, get_moz_remote, step_msg, run_cmd_checked, check_output
+from shared import RefNames, check_output, get_moz_remote, run_cmd_checked, step_msg
 
 parser = argparse.ArgumentParser(description="Tags an application-services release")
 parser.add_argument("major_version_number", type=int)
@@ -20,11 +21,13 @@ branch = RefNames(major_version_number, 0).release
 
 step_msg("Getting version number")
 run_cmd_checked(["git", "fetch", moz_remote])
-version = check_output([
-    "git",
-    "show",
-    f"{moz_remote}/{branch}:version.txt",
-]).strip()
+version = check_output(
+    [
+        "git",
+        "show",
+        f"{moz_remote}/{branch}:version.txt",
+    ]
+).strip()
 tag = f"v{version}"
 
 step_msg("Getting commit")
@@ -34,9 +37,11 @@ logline = check_output(["git", "log", "-n1", "--oneline", branch]).strip()
 print(f"Branch: {branch}")
 print(f"Commit: {logline}")
 print(f"Tag: {tag}")
-response = input("Would you like to add the tag to the commit listed above? ([Y]/N)").lower()
-if response != "y" and response != "" and response != "yes":
-    exit(0)
+response = input(
+    "Would you like to add the tag to the commit listed above? ([Y]/N)"
+).lower()
+if response not in ("y", "", "yes"):
+    sys.exit(0)
 
 run_cmd_checked(["git", "tag", tag, commit])
 run_cmd_checked(["git", "push", moz_remote, tag])

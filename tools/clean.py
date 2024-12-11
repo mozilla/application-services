@@ -14,29 +14,32 @@ Please make a PR with anything you notice that should be cleaned but isn't!
 """
 
 import argparse
-import subprocess
-from pathlib import Path
 import shlex
 import shutil
+import subprocess
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
+
 def run_command(dry_run, cmdline, **kwargs):
-    print('Executing:', ' '.join(shlex.quote(str(part)) for part in cmdline))
+    print("Executing:", " ".join(shlex.quote(str(part)) for part in cmdline))
     if not dry_run:
         subprocess.check_call(cmdline, **kwargs)
 
+
 def find_generated_directories(look_dir):
     for child in look_dir.iterdir():
-        if child.name == 'support':
+        if child.name == "support":
             for sub in find_generated_directories(child):
                 yield sub
         else:
             # `android/build` directories should be removed.
-            sub = child / 'android' / 'build'
+            sub = child / "android" / "build"
             if sub.is_dir():
                 yield sub
             # TODO: ios/swift?
+
 
 def clean_android(dry_run):
     # pathlib.Path will join "." and "gradlew" as "gradlew", which doesn't
@@ -50,17 +53,24 @@ def clean_android(dry_run):
         print("`./gradle clean` failed, but looking for other Android stuff...")
     # ... and still try and find obviously generated directories.
     for to_rm in find_generated_directories(PROJECT_ROOT / "components"):
-        print('Removing:', to_rm)
+        print("Removing:", to_rm)
         if not dry_run:
             shutil.rmtree(to_rm)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-n', '--dry-run', dest="dry_run", action="store_true",
-                        help='show what would be executed/removed without actually doing it.')
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="show what would be executed/removed without actually doing it.",
+    )
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
@@ -69,5 +79,6 @@ def main():
     # TODO: add swift etc.
     print("We should be clean! (except for iOS - fix me? :)")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

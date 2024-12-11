@@ -7,9 +7,10 @@ import re
 
 from taskgraph.filter_tasks import filter_task
 
-REPO_RE = r'((?P<owner>[\.\w-]+)[/:])?(?P<branch>[\.\w-]+)'
-FIREFOX_IOS_BRANCH_RE = re.compile(r'\[firefox-ios:\s*' + REPO_RE + r'\]')
-FIREFOX_ANDROID_BRANCH_RE = re.compile(r'\[firefox-android:\s*' + REPO_RE + r'\]')
+REPO_RE = r"((?P<owner>[\.\w-]+)[/:])?(?P<branch>[\.\w-]+)"
+FIREFOX_IOS_BRANCH_RE = re.compile(r"\[firefox-ios:\s*" + REPO_RE + r"\]")
+FIREFOX_ANDROID_BRANCH_RE = re.compile(r"\[firefox-android:\s*" + REPO_RE + r"\]")
+
 
 def calc_branch_build_param(parameters):
     title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
@@ -17,25 +18,27 @@ def calc_branch_build_param(parameters):
 
     firefox_android_branch_match = FIREFOX_ANDROID_BRANCH_RE.search(title)
     if firefox_android_branch_match:
-        branch_build['firefox-android'] = {
-            'owner': calc_owner(firefox_android_branch_match),
-            'branch': firefox_android_branch_match.group('branch'),
+        branch_build["firefox-android"] = {
+            "owner": calc_owner(firefox_android_branch_match),
+            "branch": firefox_android_branch_match.group("branch"),
         }
 
     firefox_ios_branch_match = FIREFOX_IOS_BRANCH_RE.search(title)
     if firefox_ios_branch_match:
-        branch_build['firefox-ios'] = {
-            'owner': calc_owner(firefox_ios_branch_match),
-            'branch': firefox_ios_branch_match.group('branch'),
+        branch_build["firefox-ios"] = {
+            "owner": calc_owner(firefox_ios_branch_match),
+            "branch": firefox_ios_branch_match.group("branch"),
         }
 
     return branch_build
 
+
 def calc_owner(match):
-    if match.group('owner'):
-        return match.group('owner')
+    if match.group("owner"):
+        return match.group("owner")
     else:
-        return 'mozilla-mobile'
+        return "mozilla-mobile"
+
 
 @filter_task("branch-build")
 def filter_branch_build_tasks(full_task_graph, parameters, graph_config):
@@ -47,5 +50,6 @@ def filter_branch_build_tasks(full_task_graph, parameters, graph_config):
         else:
             # For tasks with a `branch-build` attribute, include them if there's a matching
             # parameter
-            return task_branch_build in parameters.get('branch-build', {})
+            return task_branch_build in parameters.get("branch-build", {})
+
     return [l for l, task in full_task_graph.tasks.items() if should_keep_task(task)]

@@ -7,11 +7,19 @@
 # Dependencies: yaml
 # Usage: ./automation/prepare-release.py
 
-from datetime import datetime
+import sys
 import webbrowser
+from datetime import datetime
 
-from shared import (RefNames, get_moz_remote, step_msg, fatal_err, run_cmd_checked,
-                    ensure_working_tree_clean, check_output)
+from shared import (
+    RefNames,
+    check_output,
+    ensure_working_tree_clean,
+    fatal_err,
+    get_moz_remote,
+    run_cmd_checked,
+    step_msg,
+)
 
 # Constants
 VERSION_FILE = "version.txt"
@@ -24,7 +32,7 @@ moz_remote = get_moz_remote()
 with open(VERSION_FILE, "r") as stream:
     cur_version = stream.read().strip()
 
-major_version_number = int(cur_version.split('.')[0])
+major_version_number = int(cur_version.split(".")[0])
 next_version_number = major_version_number + 1
 release_version = f"{major_version_number}.0"
 refs = RefNames(major_version_number, 0)
@@ -97,7 +105,7 @@ changelog[0:0] = [
     f"# v{next_version_number}.0 (In progress)",
     "",
     "[Full Changelog](In progress)",
-    ""
+    "",
 ]
 with open(CHANGELOG_FILE, "w") as stream:
     stream.write("\n".join(changelog))
@@ -108,13 +116,19 @@ run_cmd_checked(["git", "add", CHANGELOG_FILE])
 run_cmd_checked(["git", "commit", "-m", f"Start release v{next_version_number}"])
 
 print()
-response = input("Great! Would you like to push and open the two pull-requests? ([Y]/N)").lower()
-if response != "y" and response != "" and response != "yes":
-    exit(0)
+response = input(
+    "Great! Would you like to push and open the two pull-requests? ([Y]/N)"
+).lower()
+if response not in ("y", "", "yes"):
+    sys.exit(0)
 
 run_cmd_checked(["git", "push", moz_remote, refs.release_pr])
 run_cmd_checked(["git", "push", moz_remote, refs.start_release_pr])
 
-webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{refs.release}...{refs.release_pr}")
-webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{refs.main}...{refs.start_release_pr}")
+webbrowser.open_new_tab(
+    f"https://github.com/mozilla/application-services/compare/{refs.release}...{refs.release_pr}"
+)
+webbrowser.open_new_tab(
+    f"https://github.com/mozilla/application-services/compare/{refs.main}...{refs.start_release_pr}"
+)
 run_cmd_checked(["git", "checkout", refs.main])

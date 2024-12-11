@@ -1,9 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from cirrus import NimbusError, CirrusClient
-from conftest import TestMetricsHandler
 import json
+
+from cirrus import CirrusClient, NimbusError
+from conftest import TestMetricsHandler
 
 
 def test_one_experiment_should_enroll(client, req):
@@ -56,6 +57,6 @@ def test_metrics_handler(app_context, experiment, req):
     data = json.dumps({"data": [experiment]})
     client.set_experiments(data)
 
-    response = json.loads(client.handle_enrollment(req()))
+    json.loads(client.handle_enrollment(req()))
 
     assert len(test_metrics.recordings) == 1

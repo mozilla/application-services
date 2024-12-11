@@ -6,8 +6,8 @@
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
 
-from . import publications_to_artifact_paths
 from ..build_config import get_version
+from . import publications_to_artifact_paths
 
 transforms = TransformSequence()
 

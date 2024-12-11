@@ -1,5 +1,5 @@
-from copy import deepcopy
 import itertools
+from copy import deepcopy
 
 from taskgraph import MAX_DEPENDENCIES
 from taskgraph.transforms.base import TransformSequence
@@ -7,34 +7,34 @@ from taskgraph.transforms.base import TransformSequence
 transforms = TransformSequence()
 alerts = TransformSequence()
 
+
 @transforms.add
 def deps_complete_script(config, tasks):
     """Setup the deps-complete.py script"""
     for task in tasks:
-        task.update({
-            # Run this task when all dependencies are completed, rather than
-            # requiring them to be successful
-            'requires': 'all-resolved',
-            'worker-type': 'b-linux',
-            'worker': {
-                'chain-of-trust': True,
-                'docker-image': { 'in-tree': 'linux' },
-                'max-run-time': 1800,
-                'env': {
-                    'DECISION_TASK_ID': {
-                        'task-reference': '<decision>'
-                    },
-                    'TASK_ID': {
-                        'task-reference': '<self>'
+        task.update(
+            {
+                # Run this task when all dependencies are completed, rather than
+                # requiring them to be successful
+                "requires": "all-resolved",
+                "worker-type": "b-linux",
+                "worker": {
+                    "chain-of-trust": True,
+                    "docker-image": {"in-tree": "linux"},
+                    "max-run-time": 1800,
+                    "env": {
+                        "DECISION_TASK_ID": {"task-reference": "<decision>"},
+                        "TASK_ID": {"task-reference": "<self>"},
                     },
                 },
-            },
-            'run': {
-                'using': 'run-task',
-                'command': '/builds/worker/checkouts/vcs/taskcluster/scripts/deps-complete.py',
+                "run": {
+                    "using": "run-task",
+                    "command": "/builds/worker/checkouts/vcs/taskcluster/scripts/deps-complete.py",
+                },
             }
-        })
+        )
         yield task
+
 
 @transforms.add
 def convert_dependencies(config, tasks):
@@ -47,10 +47,10 @@ def convert_dependencies(config, tasks):
     for task in tasks:
         task.setdefault("soft-dependencies", [])
         task["soft-dependencies"] += [
-            dep_task.label
-            for dep_task in config.kind_dependencies_tasks.values()
+            dep_task.label for dep_task in config.kind_dependencies_tasks.values()
         ]
         yield task
+
 
 @alerts.add
 @transforms.add
@@ -64,12 +64,13 @@ def add_alert_routes(config, tasks):
             yield task
             continue
 
-        task.setdefault('routes', [])
+        task.setdefault("routes", [])
         for name, value in alerts.items():
             if name not in ("slack-channel", "email", "pulse", "matrix-room"):
                 raise KeyError("Unknown alert type: {}".format(name))
-            task['routes'].append("notify.{}.{}.on-failed".format(name, value))
+            task["routes"].append("notify.{}.{}.on-failed".format(name, value))
         yield task
+
 
 # Transform that adjusts the dependencies to not exceed MAX_DEPENDENCIES
 #
@@ -83,12 +84,14 @@ def add_alert_routes(config, tasks):
 # This code is based off the reverse_chunk_deps transform from Gecko
 reverse_chunk = TransformSequence()
 
+
 def adjust_dependencies_child_job(orig_job, deps, count):
     job = deepcopy(orig_job)
     job["soft-dependencies"] = deps
     job["label"] = "{} - {}".format(orig_job["label"], count)
-    del job["routes"] # don't send alerts for child jobs
+    del job["routes"]  # don't send alerts for child jobs
     return job
+
 
 @reverse_chunk.add
 def adjust_dependencies(config, jobs):
