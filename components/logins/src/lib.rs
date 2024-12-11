@@ -16,6 +16,9 @@ mod store;
 mod sync;
 mod util;
 
+use crate::encryption::{
+    EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager,
+};
 uniffi::include_scaffolding!("logins");
 
 pub use crate::db::LoginDb;
@@ -24,29 +27,18 @@ pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
 pub use crate::sync::LoginsSyncEngine;
+use std::sync::Arc;
 
-// Public encryption functions.  We publish these as top-level functions to expose them across
-// UniFFI
-#[handle_error(Error)]
-fn encrypt_login(login: Login, enc_key: &str) -> ApiResult<EncryptedLogin> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    login.encrypt(&encdec)
+// Utility function to create a StaticKeyManager to be used for the time being until support lands
+// for [trait implementation of an UniFFI
+// interface](https://mozilla.github.io/uniffi-rs/next/proc_macro/index.html#structs-implementing-traits)
+// in UniFFI.
+pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
+    Arc::new(StaticKeyManager::new(key))
 }
 
-#[handle_error(Error)]
-fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> ApiResult<Login> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    login.decrypt(&encdec)
-}
-
-#[handle_error(Error)]
-fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> ApiResult<String> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    sec_fields.encrypt(&encdec)
-}
-
-#[handle_error(Error)]
-fn decrypt_fields(sec_fields: String, enc_key: &str) -> ApiResult<SecureLoginFields> {
-    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    SecureLoginFields::decrypt(&sec_fields, &encdec)
+// Similar to create_static_key_manager above, create a
+// ManagedEncryptorDecryptor by passing in a KeyManager
+pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
+    Arc::new(ManagedEncryptorDecryptor::new(key_manager))
 }

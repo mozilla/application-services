@@ -89,7 +89,9 @@ To effectively work on the Logins component, you will need to be familiar with:
 
 ### Implementation Overview
 
-Logins implements encrypted storage for login records on top of NSS. The storage schema is based on the one
+Logins implements encrypted storage for login records on top of a consumer
+implemented EncryptorDecryptor, or via ManagedEncryptorDecryptor, using NSS
+based crypto algorithms (AES256-GCM). The storage schema is based on the one
 originally used in [Firefox for
 iOS](https://github.com/mozilla-mobile/firefox-ios/blob/faa6a2839abf4da2c54ff1b3291174b50b31ab2c/Storage/SQL/SQLiteLogins.swift),
 but with the following notable differences:
