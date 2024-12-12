@@ -103,7 +103,7 @@ pub struct SearchUrlParam {
 }
 
 /// Defines an individual search engine URL.
-#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone, Default)]
 pub struct SearchEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
     /// which have a variable FilePath, e.g. `{searchTerm}` for when a search
@@ -124,7 +124,7 @@ pub struct SearchEngineUrl {
 }
 
 /// The URLs associated with the search engine.
-#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone, Default)]
 pub struct SearchEngineUrls {
     /// The URL to use for searches.
     pub search: SearchEngineUrl,
@@ -137,11 +137,11 @@ pub struct SearchEngineUrls {
 }
 
 /// The list of acceptable classifications for a search engine.
-#[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone)]
+#[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchEngineClassification {
     General = 2,
-    #[serde(other)]
+    #[default]
     Unknown = 1,
 }
 
@@ -155,7 +155,7 @@ impl SearchEngineClassification {
 }
 
 /// A definition for an individual search engine to be presented to the user.
-#[derive(Debug, uniffi::Record, PartialEq, Clone)]
+#[derive(Debug, uniffi::Record, PartialEq, Clone, Default)]
 pub struct SearchEngineDefinition {
     /// A list of aliases for this engine.
     pub aliases: Vec<String>,
