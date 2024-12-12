@@ -1,7 +1,14 @@
 # v135.0 (In progress)
 
+## ✨ What's New ✨
+
 ### Nimbus SDK ⛅️🔬🔭
 - Updated `getLocaleTag` to be publicly accessible ([#6510](https://github.com/mozilla/application-services/pull/6510))
+
+## 🦊 What's Changed 🦊
+
+### Places
+- `PlacesConnection::get_visited()` no longer considers unvisited-but-bookmarked pages to be visited, matching the behavior of both `get_visited_urls_in_range()` and Desktop ([#6527](https://github.com/mozilla/application-services/pull/6527)).
 
 [Full Changelog](In progress)
 
