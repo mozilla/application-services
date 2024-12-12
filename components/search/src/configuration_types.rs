@@ -33,7 +33,7 @@ impl JSONEngineMethod {
 /// Defines an individual search engine URL. This is defined separately to
 /// `types::SearchEngineUrl` as various fields may be optional in the supplied
 /// configuration.
-#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
@@ -55,7 +55,7 @@ pub(crate) struct JSONEngineUrl {
 }
 
 /// Reflects `types::SearchEngineUrls`, but using `EngineUrl`.
-#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone)]
+#[derive(Debug, uniffi::Record, PartialEq, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineUrls {
     /// The URL to use for searches.
@@ -69,7 +69,7 @@ pub(crate) struct JSONEngineUrls {
 }
 
 /// Represents the engine base section of the configuration.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Default, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineBase {
     /// A list of aliases for this engine.

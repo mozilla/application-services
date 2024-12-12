@@ -70,6 +70,7 @@ impl SearchEngineSelector {
 mod tests {
     use super::*;
     use crate::types::*;
+    use pretty_assertions::assert_eq;
     use serde_json::json;
 
     #[test]
@@ -210,14 +211,7 @@ mod tests {
         let selector = Arc::new(SearchEngineSelector::new());
 
         let result = selector.filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "FR".into(),
-            update_channel: SearchUpdateChannel::Default,
-            distribution_id: String::new(),
-            experiment: String::new(),
-            app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
 
         assert!(
@@ -310,14 +304,7 @@ mod tests {
         );
 
         let result = selector.filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "FR".into(),
-            update_channel: SearchUpdateChannel::Default,
-            distribution_id: String::new(),
-            experiment: String::new(),
-            app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
 
         assert!(
@@ -330,14 +317,10 @@ mod tests {
             RefinedSearchConfig {
                 engines: vec!(
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test1".to_string(),
                         name: "Test 1".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/1".to_string(),
@@ -367,7 +350,8 @@ mod tests {
                                 }],
                                 search_term_param_name: None
                             })
-                        }
+                        },
+                        ..Default::default()
                     },
                     SearchEngineDefinition {
                         aliases: Vec::new(),
@@ -478,14 +462,9 @@ mod tests {
         );
 
         let mut result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "FR".into(),
-            update_channel: SearchUpdateChannel::Default,
             distribution_id: String::new(),
-            experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
 
         assert!(
@@ -498,14 +477,10 @@ mod tests {
             RefinedSearchConfig {
                 engines: vec!(
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test1".to_string(),
                         name: "Test 1".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/1".to_string(),
@@ -513,25 +488,20 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("q".to_string())
                             },
-                            suggestions: None,
-                            trending: None
-                        }
-                    },
-                ),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                      },
+            ),
                 app_default_engine_id: Some("test1".to_string()),
                 app_private_default_engine_id: None
             }, "Should have selected test1 for all matching locales, as the environments do not match for the other two"
         );
 
         result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "FR".into(),
-            update_channel: SearchUpdateChannel::Default,
             distribution_id: String::new(),
-            experiment: String::new(),
             app_name: SearchApplicationName::FocusIos,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
 
         assert!(
@@ -544,14 +514,10 @@ mod tests {
             RefinedSearchConfig {
                 engines: vec!(
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test1".to_string(),
                         name: "Test 1".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/1".to_string(),
@@ -559,19 +525,15 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("q".to_string())
                             },
-                            suggestions: None,
-                            trending: None
-                        }
+                            ..Default::default()
+                        },
+                        ..Default::default()
                     },
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test2".to_string(),
                         name: "Test 2".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/2".to_string(),
@@ -579,9 +541,9 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("search".to_string())
                             },
-                            suggestions: None,
-                            trending: None
-                        }
+                            ..Default::default()
+                        },
+                        ..Default::default()
                     },
                 ),
                 app_default_engine_id: Some("test1".to_string()),
@@ -591,14 +553,9 @@ mod tests {
         );
 
         result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "FR".into(),
-            update_channel: SearchUpdateChannel::Default,
             distribution_id: "starship".to_string(),
-            experiment: String::new(),
             app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
 
         assert!(
@@ -611,14 +568,10 @@ mod tests {
             RefinedSearchConfig {
                 engines: vec!(
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test1".to_string(),
                         name: "Test 1".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/1".to_string(),
@@ -626,19 +579,15 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("q".to_string())
                             },
-                            suggestions: None,
-                            trending: None
-                        }
+                            ..Default::default()
+                        },
+                        ..Default::default()
                     },
                     SearchEngineDefinition {
-                        aliases: Vec::new(),
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::General,
                         identifier: "test3".to_string(),
                         name: "Test 3".to_string(),
-                        order_hint: None,
-                        partner_code: String::new(),
-                        telemetry_suffix: None,
                         urls: SearchEngineUrls {
                             search: SearchEngineUrl {
                                 base: "https://example.com/3".to_string(),
@@ -646,10 +595,10 @@ mod tests {
                                 params: Vec::new(),
                                 search_term_param_name: Some("trek".to_string())
                             },
-                            suggestions: None,
-                            trending: None
-                        }
-                    },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                      },
                 ),
                 app_default_engine_id: Some("test1".to_string()),
                 app_private_default_engine_id: None
@@ -747,14 +696,10 @@ mod tests {
         );
         let expected_engines = vec![
             SearchEngineDefinition {
-                aliases: Vec::new(),
                 charset: "UTF-8".to_string(),
                 classification: SearchEngineClassification::General,
                 identifier: "test".to_string(),
                 name: "Test".to_string(),
-                order_hint: None,
-                partner_code: String::new(),
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
@@ -762,19 +707,15 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
             SearchEngineDefinition {
-                aliases: Vec::new(),
                 charset: "UTF-8".to_string(),
                 classification: SearchEngineClassification::General,
                 identifier: "distro-default".to_string(),
                 name: "Distribution Default".to_string(),
-                order_hint: None,
-                partner_code: String::new(),
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
@@ -782,19 +723,15 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
             SearchEngineDefinition {
-                aliases: Vec::new(),
                 charset: "UTF-8".to_string(),
                 classification: SearchEngineClassification::General,
                 identifier: "private-default-FR".to_string(),
                 name: "Private default FR".to_string(),
-                order_hint: None,
-                partner_code: String::new(),
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
@@ -802,21 +739,15 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
         ];
 
         let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
-            region: "GB".into(),
-            update_channel: SearchUpdateChannel::Default,
             distribution_id: "test-distro".to_string(),
-            experiment: String::new(),
-            app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
         assert!(
             result.is_ok(),
@@ -834,14 +765,9 @@ mod tests {
         );
 
         let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-            locale: "fi".into(),
             region: "fr".into(),
-            update_channel: SearchUpdateChannel::Default,
             distribution_id: String::new(),
-            experiment: String::new(),
-            app_name: SearchApplicationName::Firefox,
-            version: String::new(),
-            device_type: SearchDeviceType::None,
+            ..Default::default()
         });
         assert!(
             result.is_ok(),
