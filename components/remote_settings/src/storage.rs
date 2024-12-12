@@ -4,7 +4,7 @@
 
 use crate::{Attachment, RemoteSettingsRecord, Result};
 use camino::Utf8PathBuf;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde_json;
 use sha2::{Digest, Sha256};
 
@@ -61,7 +61,7 @@ impl Storage {
     /// Get the last modified timestamp for the stored records
     ///
     /// Returns None if no records are stored or if `collection_url` does not match the
-    /// `collection_url` passed to `set_records`.
+    /// last `collection_url` passed to `set_records` / `merge_records`
     pub fn get_last_modified_timestamp(&self, collection_url: &str) -> Result<Option<u64>> {
         let mut stmt = self
             .conn
@@ -144,36 +144,87 @@ impl Storage {
     pub fn set_records(
         &mut self,
         collection_url: &str,
-        records: &Vec<RemoteSettingsRecord>,
+        records: &[RemoteSettingsRecord],
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
 
-        // Delete ALL existing records and metadata for every collection_url
         tx.execute("DELETE FROM records", [])?;
         tx.execute("DELETE FROM collection_metadata", [])?;
+        let max_last_modified = Self::update_record_rows(&tx, collection_url, records)?;
+        Self::update_collection_metadata(&tx, collection_url, max_last_modified)?;
+        tx.commit()?;
+        Ok(())
+    }
 
+    /// Merge new records with records stored in the database
+    ///
+    /// Records with `deleted=false` will be inserted into the DB, replacing any previously stored
+    /// records with the same ID. Records with `deleted=true` will be removed.
+    pub fn merge_records(
+        &mut self,
+        collection_url: &str,
+        records: &[RemoteSettingsRecord],
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+
+        // Delete ALL existing records and metadata for with different collection_urls.
+        //
+        // This way, if a user (probably QA) switches the remote settings server in the middle of a
+        // browser sessions, we'll delete the stale data from the previous server.
+        tx.execute(
+            "DELETE FROM records where collection_url <> ?",
+            [collection_url],
+        )?;
+        tx.execute(
+            "DELETE FROM collection_metadata where collection_url <> ?",
+            [collection_url],
+        )?;
+        let max_last_modified = Self::update_record_rows(&tx, collection_url, records)?;
+        Self::update_collection_metadata(&tx, collection_url, max_last_modified)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Insert/remove/update rows in the records table based on a records list
+    ///
+    /// Returns the max last modified record from the list
+    fn update_record_rows(
+        tx: &Transaction<'_>,
+        collection_url: &str,
+        records: &[RemoteSettingsRecord],
+    ) -> Result<u64> {
         // Find the max last_modified time while inserting records
         let mut max_last_modified = 0;
         {
-            let mut stmt =
-                tx.prepare("INSERT INTO records (id, collection_url, data) VALUES (?, ?, ?)")?;
+            let mut insert_stmt = tx.prepare(
+                "INSERT OR REPLACE INTO records (id, collection_url, data) VALUES (?, ?, ?)",
+            )?;
+            let mut delete_stmt = tx.prepare("DELETE FROM records WHERE id=?")?;
             for record in records {
-                max_last_modified = max_last_modified.max(record.last_modified);
-                let data = serde_json::to_vec(record)?;
-
-                stmt.execute(params![record.id, collection_url, data])?;
+                if record.deleted {
+                    delete_stmt.execute(params![&record.id])?;
+                } else {
+                    max_last_modified = max_last_modified.max(record.last_modified);
+                    let data = serde_json::to_vec(&record)?;
+                    insert_stmt.execute(params![record.id, collection_url, data])?;
+                }
             }
         }
+        Ok(max_last_modified)
+    }
 
+    /// Update the collection metadata after setting/merging records
+    fn update_collection_metadata(
+        tx: &Transaction<'_>,
+        collection_url: &str,
+        last_modified: u64,
+    ) -> Result<()> {
         // Update the metadata
         let fetched = true;
         tx.execute(
             "INSERT OR REPLACE INTO collection_metadata (collection_url, last_modified, fetched) VALUES (?, ?, ?)",
-            (collection_url, max_last_modified, fetched),
+            (collection_url, last_modified, fetched),
         )?;
-
-        tx.commit()?;
-
         Ok(())
     }
 
@@ -220,7 +271,7 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::Storage;
-    use crate::{Attachment, RemoteSettingsRecord, Result};
+    use crate::{Attachment, RemoteSettingsRecord, Result, RsJsonObject};
     use sha2::{Digest, Sha256};
 
     #[test]
@@ -571,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_update_records() -> Result<()> {
+    fn test_storage_set_records() -> Result<()> {
         let mut storage = Storage::new(":memory:".into())?;
 
         let collection_url = "https://example.com/api";
@@ -615,6 +666,116 @@ mod tests {
         // Verify last modified timestamp
         let last_modified = storage.get_last_modified_timestamp(collection_url)?;
         assert_eq!(last_modified, Some(200));
+
+        Ok(())
+    }
+
+    // Quick way to generate the fields data for our mock records
+    fn test_fields(data: &str) -> RsJsonObject {
+        let mut map = serde_json::Map::new();
+        map.insert("data".into(), data.into());
+        map
+    }
+
+    #[test]
+    fn test_storage_merge_records() -> Result<()> {
+        let mut storage = Storage::new(":memory:".into())?;
+
+        let collection_url = "https://example.com/api";
+
+        let initial_records = vec![
+            RemoteSettingsRecord {
+                id: "a".into(),
+                last_modified: 100,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("a"),
+            },
+            RemoteSettingsRecord {
+                id: "b".into(),
+                last_modified: 200,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("b"),
+            },
+            RemoteSettingsRecord {
+                id: "c".into(),
+                last_modified: 300,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("c"),
+            },
+        ];
+        let updated_records = vec![
+            // d is new
+            RemoteSettingsRecord {
+                id: "d".into(),
+                last_modified: 1300,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("d"),
+            },
+            // b was deleted
+            RemoteSettingsRecord {
+                id: "b".into(),
+                last_modified: 1200,
+                deleted: true,
+                attachment: None,
+                fields: RsJsonObject::new(),
+            },
+            // a was updated
+            RemoteSettingsRecord {
+                id: "a".into(),
+                last_modified: 1100,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("a-with-new-data"),
+            },
+            // c was not modified, so it's not present in the new response
+        ];
+        let expected_records = vec![
+            // a was updated
+            RemoteSettingsRecord {
+                id: "a".into(),
+                last_modified: 1100,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("a-with-new-data"),
+            },
+            RemoteSettingsRecord {
+                id: "c".into(),
+                last_modified: 300,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("c"),
+            },
+            RemoteSettingsRecord {
+                id: "d".into(),
+                last_modified: 1300,
+                deleted: false,
+                attachment: None,
+                fields: test_fields("d"),
+            },
+        ];
+
+        // Set initial records
+        storage.set_records(collection_url, &initial_records)?;
+
+        // Verify initial records
+        let fetched_records = storage.get_records(collection_url)?.unwrap();
+        assert_eq!(fetched_records, initial_records);
+
+        // Update records
+        storage.merge_records(collection_url, &updated_records)?;
+
+        // Verify updated records
+        let mut fetched_records = storage.get_records(collection_url)?.unwrap();
+        fetched_records.sort_by_cached_key(|r| r.id.clone());
+        assert_eq!(fetched_records, expected_records);
+
+        // Verify last modified timestamp
+        let last_modified = storage.get_last_modified_timestamp(collection_url)?;
+        assert_eq!(last_modified, Some(1300));
 
         Ok(())
     }
