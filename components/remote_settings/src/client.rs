@@ -144,7 +144,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         // Case 1: The packaged data is more recent than the cache
         //
         // This happens when there's no cached data or when we get new packaged data because of a
-        // Firefox update
+        // product update
         if let Some(packaged_data) = packaged_data {
             let cached_timestamp = inner
                 .storage
@@ -162,6 +162,9 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
         Ok(match (cached_records, sync_if_empty) {
             // Case 2: We have cached records
+            //
+            // Note: we should return these even if it's an empty list and `sync_if_empty=true`.
+            // The "if empty" part refers to the cache being empty, not the list.
             (Some(cached_records), _) => Some(self.filter_records(cached_records)),
             // Case 3: sync_if_empty=true
             (None, true) => {
@@ -179,7 +182,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         let collection_url = inner.api_client.collection_url();
         let mtime = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let records = inner.api_client.get_records(mtime)?;
-        inner.storage.set_records(&collection_url, &records)
+        inner.storage.merge_records(&collection_url, &records)
     }
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
