@@ -179,7 +179,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         let collection_url = inner.api_client.collection_url();
         let mtime = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let records = inner.api_client.get_records(mtime)?;
-        inner.storage.set_records(&collection_url, &records)
+        inner.storage.merge_records(&collection_url, &records)
     }
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
