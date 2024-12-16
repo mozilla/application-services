@@ -28,6 +28,7 @@ pub use ranker::score;
 
 use error_support::handle_error;
 
+use db::BanditData;
 use std::collections::HashMap;
 
 uniffi::setup_scaffolding!();
@@ -170,11 +171,21 @@ impl RelevancyStore {
 
         Ok(())
     }
+
+    /// Retrieves the data for a specific bandit and arm.
+    #[handle_error(Error)]
+    pub fn get_bandit_data(&self, bandit: String, arm: String) -> ApiResult<BanditData> {
+        let bandit_data = self
+            .db
+            .read(|dao| dao.retrieve_bandit_data(&bandit, &arm))?;
+
+        Ok(bandit_data)
+    }
 }
 
 #[derive(Default)]
 pub struct BanditCache {
-    cache: HashMap<(String, String), (usize, usize)>,
+    cache: HashMap<(String, String), (u64, u64)>,
 }
 
 impl BanditCache {
@@ -197,7 +208,7 @@ impl BanditCache {
         bandit: &str,
         arm: &str,
         db: &RelevancyDb,
-    ) -> Result<(usize, usize)> {
+    ) -> Result<(u64, u64)> {
         let key = (bandit.to_string(), arm.to_string());
 
         // Check if the distribution is already cached
@@ -397,5 +408,45 @@ mod test {
             most_selected_arm_name, "weather",
             "Thompson Sampling did not favor the best-performing arm"
         );
+    }
+
+    #[test]
+    fn test_get_bandit_data() {
+        let relevancy_store = setup_store("get_bandit_data");
+
+        let bandit = "provider".to_string();
+        let arm = "wiki".to_string();
+
+        // initialize bandit
+        relevancy_store
+            .bandit_init(
+                "provider".to_string(),
+                &["weather".to_string(), "fakespot".to_string(), arm.clone()],
+            )
+            .unwrap();
+
+        // update beta distribution for arm based on click/no click
+        relevancy_store
+            .bandit_update(bandit.clone(), arm.clone(), true)
+            .expect("Failed to update beta distribution for arm");
+
+        relevancy_store
+            .bandit_update(bandit.clone(), arm.clone(), true)
+            .expect("Failed to update beta distribution for arm");
+
+        let bandit_data = relevancy_store
+            .get_bandit_data(bandit.clone(), arm.clone())
+            .unwrap();
+
+        let expected_bandit_data = BanditData {
+            bandit: bandit.clone(),
+            arm: arm.clone(),
+            impressions: 2,
+            clicks: 2,
+            alpha: 3,
+            beta: 1,
+        };
+
+        assert_eq!(bandit_data, expected_bandit_data);
     }
 }
