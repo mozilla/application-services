@@ -492,6 +492,7 @@ impl<'a> SuggestDao<'a> {
                     full_keyword: full_keyword(keyword_lowercased, &keywords),
                     icon,
                     icon_mimetype,
+                    score: DEFAULT_SUGGESTION_SCORE,
                 })
             },
         )?;

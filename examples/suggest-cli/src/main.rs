@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
+use relevancy::RelevancyStore;
 use remote_settings::RemoteSettingsServer;
 use suggest::{
     SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder, SuggestionProvider,
@@ -14,6 +15,7 @@ use suggest::{
 };
 
 static DB_PATH: &str = "suggest.db";
+static RELEVANCY_DB_PATH: &str = "relevancy.db";
 
 const DEFAULT_LOG_FILTER: &str = "suggest::store=info";
 const DEFAULT_LOG_FILTER_VERBOSE: &str = "suggest::store=trace";
@@ -25,6 +27,8 @@ struct Cli {
     remote_settings_server: Option<RemoteSettingsServerArg>,
     #[arg(short = 'b')]
     remote_settings_bucket: Option<String>,
+    #[arg(long, short, action)]
+    relevancy: bool,
     #[arg(long, short, action)]
     verbose: bool,
     // Custom { url: String },
@@ -54,6 +58,14 @@ enum Commands {
         provider: Option<SuggestionProviderArg>,
         /// Input to search
         input: String,
+    },
+    /// Update bandit data for a selected suggestion
+    BanditSelected {
+        suggestion_type: String,
+    },
+    /// Update bandit data for a unselected suggestion
+    BanditNotSelected {
+        suggestion_type: String,
     },
 }
 
@@ -98,12 +110,22 @@ fn main() -> Result<()> {
     ));
     viaduct_reqwest::use_reqwest_backend();
     let store = build_store(&cli);
+    if cli.relevancy {
+        store.set_relevancy_store(build_relevancy_store())
+    }
     match cli.command {
         Commands::Ingest {
             reingest,
             providers,
         } => ingest(&store, reingest, providers, cli.verbose),
         Commands::Query { provider, input } => query(&store, provider, input, cli.verbose),
+        Commands::BanditSelected { suggestion_type } => {
+            store.handle_suggestion_type_action(suggestion_type, true)?;
+
+        }
+        Commands::BanditNotSelected { suggestion_type } => {
+            store.handle_suggestion_type_action(suggestion_type, false)?;
+        }
     };
     Ok(())
 }
@@ -124,6 +146,10 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
         )
         .build()
         .unwrap_or_else(|e| panic!("Error building store: {e}"))
+}
+
+fn build_relevancy_store() -> Arc<RelevancyStore> {
+    Arc::new(RelevancyStore::new(RELEVANCY_DB_PATH.to_string()))
 }
 
 fn ingest(

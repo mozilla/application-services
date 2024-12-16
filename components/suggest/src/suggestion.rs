@@ -51,6 +51,7 @@ pub enum Suggestion {
         icon: Option<Vec<u8>>,
         icon_mimetype: Option<String>,
         full_keyword: String,
+        score: f64,
     },
     Amo {
         title: String,
@@ -133,6 +134,20 @@ impl Suggestion {
         }
     }
 
+    pub fn name(&self) -> String {
+        match self {
+            Self::Amp { .. } => "amp",
+            Self::Pocket { .. } => "pocket",
+            Self::Wikipedia { .. } => "wikipedia",
+            Self::Amo { .. } => "amo",
+            Self::Yelp { .. } => "yelp",
+            Self::Mdn { .. } => "mdn",
+            Self::Fakespot { .. } => "fakespot",
+            Self::Weather { .. } => "weather",
+            Self::Exposure { .. } => "exposure",
+        }.to_string()
+    }
+
     /// Get the raw URL for this suggestion, if present
     ///
     /// This is the same as `url` except for Amp.  In that case, `url` is the URL after being
@@ -181,8 +196,22 @@ impl Suggestion {
             | Self::Mdn { score, .. }
             | Self::Weather { score, .. }
             | Self::Fakespot { score, .. }
-            | Self::Exposure { score, .. } => *score,
-            Self::Wikipedia { .. } => DEFAULT_SUGGESTION_SCORE,
+            | Self::Exposure { score, .. }
+            | Self::Wikipedia { score, .. } => *score,
+        }
+    }
+
+    pub fn set_score(&mut self, new_score: f64) {
+        match self {
+            Self::Amp { score, .. }
+            | Self::Pocket { score, .. }
+            | Self::Amo { score, .. }
+            | Self::Yelp { score, .. }
+            | Self::Mdn { score, .. }
+            | Self::Weather { score, .. }
+            | Self::Fakespot { score, .. }
+            | Self::Exposure { score, .. }
+            | Self::Wikipedia { score, .. } => *score = new_score,
         }
     }
 }
