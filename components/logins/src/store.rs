@@ -197,15 +197,18 @@ mod test {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
-    use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
     fn assert_logins_equiv(a: &LoginEntry, b: &Login) {
-        assert_eq!(a.fields, b.fields);
-        assert_eq!(b.sec_fields.username, a.sec_fields.username);
-        assert_eq!(b.sec_fields.password, a.sec_fields.password);
+        assert_eq!(a.origin, b.origin);
+        assert_eq!(a.form_action_origin, b.form_action_origin);
+        assert_eq!(a.http_realm, b.http_realm);
+        assert_eq!(a.username_field, b.username_field);
+        assert_eq!(a.password_field, b.password_field);
+        assert_eq!(b.username, a.username);
+        assert_eq!(b.password, a.password);
     }
 
     #[test]
@@ -216,32 +219,24 @@ mod test {
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
         let a = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                form_action_origin: Some("https://www.example.com".into()),
-                username_field: "user_input".into(),
-                password_field: "pass_input".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "coolperson21".into(),
-                password: "p4ssw0rd".into(),
-            },
+            origin: "https://www.example.com".into(),
+            form_action_origin: Some("https://www.example.com".into()),
+            username_field: "user_input".into(),
+            password_field: "pass_input".into(),
+            username: "coolperson21".into(),
+            password: "p4ssw0rd".into(),
+            ..Default::default()
         };
 
         let b = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example2.com".into(),
-                http_realm: Some("Some String Here".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "asdf".into(),
-                password: "fdsa".into(),
-            },
+            origin: "https://www.example2.com".into(),
+            http_realm: Some("Some String Here".into()),
+            username: "asdf".into(),
+            password: "fdsa".into(),
+            ..Default::default()
         };
-        let a_id = store.add(a.clone()).expect("added a").record.id;
-        let b_id = store.add(b.clone()).expect("added b").record.id;
+        let a_id = store.add(a.clone()).expect("added a").id;
+        let b_id = store.add(b.clone()).expect("added b").id;
 
         let a_from_db = store
             .get(&a_id)
@@ -249,10 +244,10 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.record.time_created, start_us);
-        assert_ge!(a_from_db.record.time_password_changed, start_us);
-        assert_ge!(a_from_db.record.time_last_used, start_us);
-        assert_eq!(a_from_db.record.times_used, 1);
+        assert_ge!(a_from_db.time_created, start_us);
+        assert_ge!(a_from_db.time_password_changed, start_us);
+        assert_ge!(a_from_db.time_last_used, start_us);
+        assert_eq!(a_from_db.times_used, 1);
 
         let b_from_db = store
             .get(&b_id)
@@ -260,10 +255,10 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
-        assert_ge!(b_from_db.record.time_created, start_us);
-        assert_ge!(b_from_db.record.time_password_changed, start_us);
-        assert_ge!(b_from_db.record.time_last_used, start_us);
-        assert_eq!(b_from_db.record.times_used, 1);
+        assert_ge!(b_from_db.time_created, start_us);
+        assert_ge!(b_from_db.time_password_changed, start_us);
+        assert_ge!(b_from_db.time_last_used, start_us);
+        assert_eq!(b_from_db.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
@@ -307,10 +302,8 @@ mod test {
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = LoginEntry {
-            sec_fields: SecureLoginFields {
-                username: b.sec_fields.username.to_owned(),
-                password: "newpass".into(),
-            },
+            username: b.username.to_owned(),
+            password: "newpass".into(),
             ..b
         };
 
@@ -324,12 +317,12 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&b2, &b_after_update);
-        assert_ge!(b_after_update.record.time_created, start_us);
-        assert_le!(b_after_update.record.time_created, now_us);
-        assert_ge!(b_after_update.record.time_password_changed, now_us);
-        assert_ge!(b_after_update.record.time_last_used, now_us);
+        assert_ge!(b_after_update.time_created, start_us);
+        assert_le!(b_after_update.time_created, now_us);
+        assert_ge!(b_after_update.time_password_changed, now_us);
+        assert_ge!(b_after_update.time_last_used, now_us);
         // Should be two even though we updated twice
-        assert_eq!(b_after_update.record.times_used, 2);
+        assert_eq!(b_after_update.times_used, 2);
     }
 
     #[test]

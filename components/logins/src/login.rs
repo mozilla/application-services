@@ -294,7 +294,82 @@ pub struct LoginFields {
     pub password_field: String,
 }
 
-impl LoginFields {
+/// LoginEntry fields that are stored encrypted
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SecureLoginFields {
+    // - Username cannot be null, use the empty string instead
+    // - Password can't be empty or null (enforced in the ValidateAndFixup code)
+    //
+    // This matches the desktop behavior:
+    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
+
+    // Because we store the json version of this in the DB, and that's the only place the json
+    // is used, we rename the fields to short names, just to reduce the overhead in the DB.
+    #[serde(rename = "u")]
+    pub username: String,
+    #[serde(rename = "p")]
+    pub password: String,
+}
+
+impl SecureLoginFields {
+    pub fn encrypt(&self, encdec: &dyn EncryptorDecryptor) -> Result<String> {
+        let string = serde_json::to_string(&self)?;
+        let cipherbytes = encdec
+            .encrypt(string.as_bytes().into())
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        let ciphertext = std::str::from_utf8(&cipherbytes)
+            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+        Ok(ciphertext.to_owned())
+    }
+
+    pub fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
+        let jsonbytes = encdec
+            .decrypt(ciphertext.as_bytes().into())
+            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        let json =
+            std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+        Ok(serde_json::from_str(json)?)
+    }
+}
+
+/// Login data specific to database records
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct RecordFields {
+    pub id: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
+/// A login handed over to the store API; ie a login not yet persisted
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
+pub struct LoginEntry {
+    // login fields
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_field: String,
+    pub password_field: String,
+
+    // secure fields
+    pub username: String,
+    pub password: String,
+}
+
+impl LoginEntry {
+    pub fn new(fields: LoginFields, sec_fields: SecureLoginFields) -> Self {
+        Self {
+            origin: fields.origin,
+            form_action_origin: fields.form_action_origin,
+            http_realm: fields.http_realm,
+            username_field: fields.username_field,
+            password_field: fields.password_field,
+
+            username: sec_fields.username,
+            password: sec_fields.password,
+        }
+    }
     /// Internal helper for validation and fixups of an "origin" stored as
     /// a string.
     fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
@@ -348,87 +423,88 @@ impl LoginFields {
     }
 }
 
-/// LoginEntry fields that are stored encrypted
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct SecureLoginFields {
-    // - Username cannot be null, use the empty string instead
-    // - Password can't be empty or null (enforced in the ValidateAndFixup code)
-    //
-    // This matches the desktop behavior:
-    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
-
-    // Because we store the json version of this in the DB, and that's the only place the json
-    // is used, we rename the fields to short names, just to reduce the overhead in the DB.
-    #[serde(rename = "u")]
-    pub username: String,
-    #[serde(rename = "p")]
-    pub password: String,
-}
-
-impl SecureLoginFields {
-    pub fn encrypt(&self, encdec: &dyn EncryptorDecryptor) -> Result<String> {
-        let string = serde_json::to_string(&self)?;
-        let cipherbytes = encdec
-            .encrypt(string.as_bytes().into())
-            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
-        let ciphertext = std::str::from_utf8(&cipherbytes)
-            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
-        Ok(ciphertext.to_owned())
-    }
-
-    pub fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
-        let jsonbytes = encdec
-            .decrypt(ciphertext.as_bytes().into())
-            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
-        let json =
-            std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
-        Ok(serde_json::from_str(json)?)
-    }
-}
-
-/// Login data specific to database records
+/// A login handed over from the store API, which has been persisted and contains persistence
+/// information such as id and time stamps
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
-pub struct RecordFields {
+pub struct Login {
+    // record fields
     pub id: String,
     pub time_created: i64,
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
-}
 
-/// A login entered by the user
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
-pub struct LoginEntry {
-    pub fields: LoginFields,
-    pub sec_fields: SecureLoginFields,
-}
+    // login fields
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_field: String,
+    pub password_field: String,
 
-/// A login stored in the database
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
-pub struct Login {
-    pub record: RecordFields,
-    pub fields: LoginFields,
-    pub sec_fields: SecureLoginFields,
+    // secure fields
+    pub username: String,
+    pub password: String,
 }
 
 impl Login {
+    pub fn new(record: RecordFields, fields: LoginFields, sec_fields: SecureLoginFields) -> Self {
+        Self {
+            id: record.id,
+            time_created: record.time_created,
+            time_password_changed: record.time_password_changed,
+            time_last_used: record.time_last_used,
+            times_used: record.times_used,
+
+            origin: fields.origin,
+            form_action_origin: fields.form_action_origin,
+            http_realm: fields.http_realm,
+            username_field: fields.username_field,
+            password_field: fields.password_field,
+
+            username: sec_fields.username,
+            password: sec_fields.password,
+        }
+    }
+
     #[inline]
     pub fn guid(&self) -> Guid {
-        Guid::from_string(self.record.id.clone())
+        Guid::from_string(self.id.clone())
     }
 
     pub fn entry(&self) -> LoginEntry {
         LoginEntry {
-            fields: self.fields.clone(),
-            sec_fields: self.sec_fields.clone(),
+            origin: self.origin.clone(),
+            form_action_origin: self.form_action_origin.clone(),
+            http_realm: self.http_realm.clone(),
+            username_field: self.username_field.clone(),
+            password_field: self.password_field.clone(),
+
+            username: self.username.clone(),
+            password: self.password.clone(),
         }
     }
 
     pub fn encrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<EncryptedLogin> {
+        let sec_fields = SecureLoginFields {
+            username: self.username,
+            password: self.password,
+        };
         Ok(EncryptedLogin {
-            record: self.record,
-            fields: self.fields,
-            sec_fields: self.sec_fields.encrypt(encdec)?,
+            record: RecordFields {
+                id: self.id,
+                time_created: self.time_created,
+                time_password_changed: self.time_password_changed,
+                time_last_used: self.time_last_used,
+                times_used: self.times_used,
+            },
+            fields: LoginFields {
+                origin: self.origin,
+                form_action_origin: self.form_action_origin,
+                http_realm: self.http_realm,
+                username_field: self.username_field,
+                password_field: self.password_field,
+            },
+            sec_fields: sec_fields.encrypt(encdec)?,
         })
     }
 }
@@ -454,11 +530,11 @@ impl EncryptedLogin {
     }
 
     pub fn decrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<Login> {
-        Ok(Login {
-            record: self.record,
-            fields: self.fields,
-            sec_fields: SecureLoginFields::decrypt(&self.sec_fields, encdec)?,
-        })
+        Ok(Login::new(
+            self.record,
+            self.fields,
+            SecureLoginFields::decrypt(&self.sec_fields, encdec)?,
+        ))
     }
 
     pub fn decrypt_fields(&self, encdec: &dyn EncryptorDecryptor) -> Result<SecureLoginFields> {
@@ -536,8 +612,7 @@ pub trait ValidateAndFixup {
         Self: Sized;
 }
 
-impl ValidateAndFixup for LoginFields {
-    /// Internal helper for doing validation and fixups.
+impl ValidateAndFixup for LoginEntry {
     fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
         // XXX TODO: we've definitely got more validation and fixups to add here!
 
@@ -662,13 +737,8 @@ impl ValidateAndFixup for LoginFields {
             }
         }
 
-        Ok(maybe_fixed)
-    }
-}
-
-impl ValidateAndFixup for SecureLoginFields {
-    /// We don't actually have fixups.
-    fn validate_and_fixup(&self, _fixup: bool) -> Result<Option<Self>> {
+        // secure fields
+        //
         // \r\n chars are valid in desktop for some reason, so we allow them here too.
         if self.username.contains('\0') {
             return Err(InvalidLogin::IllegalFieldValue {
@@ -685,26 +755,8 @@ impl ValidateAndFixup for SecureLoginFields {
             }
             .into());
         }
-        Ok(None)
-    }
-}
 
-impl ValidateAndFixup for LoginEntry {
-    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
-        let new_fields = self.fields.validate_and_fixup(fixup)?;
-        let new_sec_fields = self.sec_fields.validate_and_fixup(fixup)?;
-        Ok(match (new_fields, new_sec_fields) {
-            (Some(fields), Some(sec_fields)) => Some(Self { fields, sec_fields }),
-            (Some(fields), None) => Some(Self {
-                fields,
-                sec_fields: self.sec_fields.clone(),
-            }),
-            (None, Some(sec_fields)) => Some(Self {
-                fields: self.fields.clone(),
-                sec_fields,
-            }),
-            (None, None) => None,
-        })
+        Ok(maybe_fixed)
     }
 }
 
@@ -754,7 +806,7 @@ mod tests {
             "file://",
             "https://[::1]",
         ] {
-            assert_eq!(LoginFields::validate_and_fixup_origin(input)?, None);
+            assert_eq!(LoginEntry::validate_and_fixup_origin(input)?, None);
         }
 
         // And URLs which get normalized.
@@ -786,7 +838,7 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                LoginFields::validate_and_fixup_origin(input)?,
+                LoginEntry::validate_and_fixup_origin(input)?,
                 Some((*output).into())
             );
         }
@@ -803,257 +855,173 @@ mod tests {
         }
 
         let valid_login = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_empty_origin = LoginEntry {
-            fields: LoginFields {
-                origin: "".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_empty_password = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "".into(),
+            ..Default::default()
         };
 
         let login_with_form_submit_and_http_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                form_action_origin: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
+            username: "".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_without_form_submit_or_http_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            username: "".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_legacy_form_submit_and_http_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                form_action_origin: Some("".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            form_action_origin: Some("".into()),
+            username: "".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_null_http_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.\0com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.\0com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_null_username = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "\0".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "\0".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_null_password = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "username".into(),
-                password: "test\0".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "username".into(),
+            password: "test\0".into(),
+            ..Default::default()
         };
 
         let login_with_newline_origin = LoginEntry {
-            fields: LoginFields {
-                origin: "\rhttps://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "\rhttps://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_newline_username_field = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                username_field: "\n".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username_field: "\n".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_newline_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("foo\nbar".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("foo\nbar".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_newline_password = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test\n".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test\n".into(),
+            ..Default::default()
         };
 
         let login_with_period_username_field = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                username_field: ".".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username_field: ".".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_period_form_action_origin = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: Some(".".into()),
-                origin: "https://www.example.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            form_action_origin: Some(".".into()),
+            origin: "https://www.example.com".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_javascript_form_action_origin = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: Some("javascript:".into()),
-                origin: "https://www.example.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            form_action_origin: Some("javascript:".into()),
+            origin: "https://www.example.com".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_malformed_origin_parens = LoginEntry {
-            fields: LoginFields {
-                origin: " (".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: " (".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_host_unicode = LoginEntry {
-            fields: LoginFields {
-                origin: "http://💖.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "http://💖.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_origin_trailing_slash = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com/".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com/".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_origin_expanded_ipv6 = LoginEntry {
-            fields: LoginFields {
-                origin: "https://[0:0:0:0:0:0:1:1]".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://[0:0:0:0:0:0:1:1]".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_unknown_protocol = LoginEntry {
-            fields: LoginFields {
-                origin: "moz-proxy://127.0.0.1:8888".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "moz-proxy://127.0.0.1:8888".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let test_cases = [
@@ -1201,67 +1169,47 @@ mod tests {
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = LoginEntry {
-            fields: LoginFields {
-                origin: "http://example.com/foo?query=wtf#bar".into(),
-                form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "http://example.com/foo?query=wtf#bar".into(),
+            form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_host_unicode = LoginEntry {
-            fields: LoginFields {
-                origin: "http://😍.com".into(),
-                form_action_origin: Some("http://😍.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "http://😍.com".into(),
+            form_action_origin: Some("http://😍.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_period_fsu = LoginEntry {
-            fields: LoginFields {
-                origin: "https://example.com".into(),
-                form_action_origin: Some(".".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://example.com".into(),
+            form_action_origin: Some(".".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
         let login_with_empty_fsu = LoginEntry {
-            fields: LoginFields {
-                origin: "https://example.com".into(),
-                form_action_origin: Some("".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            origin: "https://example.com".into(),
+            form_action_origin: Some("".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let login_with_form_submit_and_http_realm = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                form_action_origin: Some("https://www.example.com".into()),
-                // If both http_realm and form_action_origin are specified, we drop
-                // the former when fixing up. So for this test we must have an
-                // invalid value in http_realm to ensure we don't validate a value
-                // we end up dropping.
-                http_realm: Some("\n".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "".into(),
-                password: "test".into(),
-            },
+            origin: "https://www.example.com".into(),
+            form_action_origin: Some("https://www.example.com".into()),
+            // If both http_realm and form_action_origin are specified, we drop
+            // the former when fixing up. So for this test we must have an
+            // invalid value in http_realm to ensure we don't validate a value
+            // we end up dropping.
+            http_realm: Some("\n".into()),
+            username: "".into(),
+            password: "test".into(),
+            ..Default::default()
         };
 
         let test_cases = [
@@ -1296,14 +1244,10 @@ mod tests {
         for tc in &test_cases {
             let login = tc.login.clone().fixup().expect("should work");
             if let Some(expected) = tc.fixedup_host {
-                assert_eq!(
-                    login.fields.origin, expected,
-                    "origin not fixed in {:#?}",
-                    tc
-                );
+                assert_eq!(login.origin, expected, "origin not fixed in {:#?}", tc);
             }
             assert_eq!(
-                login.fields.form_action_origin, tc.fixedup_form_action_origin,
+                login.form_action_origin, tc.fixedup_form_action_origin,
                 "form_action_origin not fixed in {:#?}",
                 tc,
             );
