@@ -11,10 +11,7 @@ use cli_support::fxa_creds::{
 };
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
-use logins::{
-    Login, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
-    ValidateAndFixup,
-};
+use logins::{Login, LoginEntry, LoginStore, LoginsSyncEngine, ValidateAndFixup};
 
 use prettytable::{row, Cell, Row, Table};
 use std::fs;
@@ -56,14 +53,13 @@ fn read_form_based_login() -> LoginEntry {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     LoginEntry {
-        fields: LoginFields {
-            username_field,
-            password_field,
-            form_action_origin,
-            http_realm: None,
-            origin,
-        },
-        sec_fields: SecureLoginFields { username, password },
+        username_field,
+        password_field,
+        form_action_origin,
+        http_realm: None,
+        origin,
+        username,
+        password,
     }
 }
 
@@ -75,14 +71,13 @@ fn read_auth_based_login() -> LoginEntry {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     LoginEntry {
-        fields: LoginFields {
-            username_field,
-            password_field,
-            form_action_origin: None,
-            http_realm,
-            origin,
-        },
-        sec_fields: SecureLoginFields { username, password },
+        username_field,
+        password_field,
+        form_action_origin: None,
+        http_realm,
+        origin,
+        username,
+        password,
     }
 }
 
@@ -96,12 +91,12 @@ fn update_string(field_name: &str, field: &mut String, extra: &str) -> bool {
     }
 }
 
-fn update_encrypted_fields(fields: &mut SecureLoginFields, extra: &str) {
-    if let Some(v) = prompt_string(format!("new username [now {}{}]", fields.username, extra)) {
-        fields.username = v;
+fn update_username_and_password(entry: &mut LoginEntry, extra: &str) {
+    if let Some(v) = prompt_string(format!("new username [now {}{}]", entry.username, extra)) {
+        entry.username = v;
     };
-    if let Some(v) = prompt_string(format!("new password [now {}{}]", fields.password, extra)) {
-        fields.password = v;
+    if let Some(v) = prompt_string(format!("new password [now {}{}]", entry.password, extra)) {
+        entry.password = v;
     };
 }
 
@@ -114,47 +109,44 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 }
 
 fn update_login(login: Login) -> LoginEntry {
-    let mut record = LoginEntry {
-        sec_fields: login.sec_fields,
-        fields: login.fields,
-    };
-    update_encrypted_fields(&mut record.sec_fields, ", leave blank to keep");
-    update_string("origin", &mut record.fields.origin, ", leave blank to keep");
+    let mut entry = login.entry();
+    update_username_and_password(&mut entry, ", leave blank to keep");
+    update_string("origin", &mut entry.origin, ", leave blank to keep");
 
     update_string(
         "username_field",
-        &mut record.fields.username_field,
+        &mut entry.username_field,
         ", leave blank to keep",
     );
     update_string(
         "password_field",
-        &mut record.fields.password_field,
+        &mut entry.password_field,
         ", leave blank to keep",
     );
 
     if prompt_bool(&format!(
         "edit form_action_origin? (now {}) [yN]",
-        string_opt_or(&record.fields.form_action_origin, "(none)")
+        string_opt_or(&entry.form_action_origin, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.fields.form_action_origin = prompt_string("form_action_origin");
+        entry.form_action_origin = prompt_string("form_action_origin");
     }
 
     if prompt_bool(&format!(
         "edit http_realm? (now {}) [yN]",
-        string_opt_or(&record.fields.http_realm, "(none)")
+        string_opt_or(&entry.http_realm, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.fields.http_realm = prompt_string("http_realm");
+        entry.http_realm = prompt_string("http_realm");
     }
 
-    if let Err(e) = record.check_valid() {
+    if let Err(e) = entry.check_valid() {
         log::warn!("Warning: produced invalid record: {}", e);
         // but we return it anyway!
     }
-    record
+    entry
 }
 
 fn prompt_bool(msg: &str) -> Option<bool> {
@@ -242,23 +234,23 @@ fn show_all(store: &LoginStore) -> Result<Vec<String>> {
         table.add_row(row![
             r->v.len(),
             Fr->&login.guid(),
-            &login.sec_fields.username,
-            &login.sec_fields.password,
-            &login.fields.origin,
+            &login.username,
+            &login.password,
+            &login.origin,
 
-            string_opt_or(&login.fields.form_action_origin, ""),
-            string_opt_or(&login.fields.http_realm, ""),
+            string_opt_or(&login.form_action_origin, ""),
+            string_opt_or(&login.http_realm, ""),
 
-            &login.fields.username_field,
-            &login.fields.password_field,
+            &login.username_field,
+            &login.password_field,
 
-            login.record.times_used,
-            timestamp_to_string(login.record.time_created),
-            timestamp_to_string(login.record.time_password_changed),
-            if login.record.time_last_used == 0 {
+            login.times_used,
+            timestamp_to_string(login.time_created),
+            timestamp_to_string(login.time_password_changed),
+            if login.time_last_used == 0 {
                 "Never".to_owned()
             } else {
-                timestamp_to_string(login.record.time_last_used)
+                timestamp_to_string(login.time_last_used)
             }
         ]);
         v.push(login.guid().to_string());

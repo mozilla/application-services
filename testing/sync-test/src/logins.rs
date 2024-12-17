@@ -4,24 +4,26 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{
-    ApiResult as LoginResult, Login, LoginEntry, LoginFields, LoginStore, SecureLoginFields,
-};
+use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
 use std::collections::HashMap;
 
 // helpers...
 // Doesn't check metadata fields
 pub fn assert_logins_equiv(a: &Login, b: &Login) {
     assert_eq!(b.guid(), a.guid(), "id mismatch");
-    assert_eq!(b.fields, a.fields);
-    assert_eq!(b.sec_fields, a.sec_fields);
+    assert_eq!(b.origin, a.origin);
+    assert_eq!(b.form_action_origin, a.form_action_origin);
+    assert_eq!(b.http_realm, a.http_realm);
+    assert_eq!(b.username_field, a.username_field);
+    assert_eq!(b.password_field, a.password_field);
+    assert_eq!(b.username, a.username);
+    assert_eq!(b.password, a.password);
 }
 
 pub fn times_used_for_id(s: &LoginStore, id: &str) -> i64 {
     s.get(id)
         .expect("get() failed")
         .expect("Login doesn't exist")
-        .record
         .times_used
 }
 
@@ -55,10 +57,7 @@ pub fn update_login<F: FnMut(&mut Login)>(
 ) -> LoginResult<Login> {
     let mut login = s.get(id)?.expect("No such login!");
     callback(&mut login);
-    let to_update = LoginEntry {
-        fields: login.fields,
-        sec_fields: login.sec_fields,
-    };
+    let to_update = login.entry();
     s.update(id, to_update)?;
     Ok(s.get(id)?.expect("Just updated this"))
 }
@@ -83,37 +82,29 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     let l0id = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "http://www.example.com".into(),
-                form_action_origin: Some("http://login.example.com".into()),
-                username_field: "uname".into(),
-                password_field: "pword".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username".into(),
-                password: "hunter2".into(),
-            },
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
         },
     )
     .expect("add l0")
     .guid();
 
     let login0_c0 = touch_login(&c0.logins_store, &l0id, 2).expect("touch0 c0");
-    assert_eq!(login0_c0.record.times_used, 3);
+    assert_eq!(login0_c0.times_used, 3);
 
     let login1_c0 = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "http://www.example.com".into(),
-                http_realm: Some("Login".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username".into(),
-                password: "sekret".into(),
-            },
+            origin: "http://www.example.com".into(),
+            http_realm: Some("Login".into()),
+            username: "cool_username".into(),
+            password: "sekret".into(),
+            ..Default::default()
         },
     )
     .expect("add l1");
@@ -144,18 +135,18 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
 
     // Change login0 on both
     update_login(&c1.logins_store, &l0id, |l| {
-        l.sec_fields.password = "testtesttest".into();
+        l.password = "testtesttest".into();
     })
     .unwrap();
 
     let login0_c0 = update_login(&c0.logins_store, &l0id, |l| {
-        l.fields.username_field = "users_name".into();
+        l.username_field = "users_name".into();
     })
     .unwrap();
 
     // and login1 on remote.
     let login1_c1 = update_login(&c1.logins_store, &l1id, |l| {
-        l.sec_fields.username = "less_cool_username".into();
+        l.username = "less_cool_username".into();
     })
     .unwrap();
 
@@ -173,15 +164,9 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     verify_login(
         &c0.logins_store,
         &Login {
-            fields: LoginFields {
-                username_field: "users_name".into(),
-                ..login0_c0.fields
-            },
-            sec_fields: SecureLoginFields {
-                username: login0_c0.sec_fields.username,
-                password: "testtesttest".into(),
-            },
-            record: login0_c0.record,
+            username_field: "users_name".into(),
+            password: "testtesttest".into(),
+            ..login0_c0
         },
     );
 
@@ -190,7 +175,6 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
             .get(&l0id)
             .unwrap()
             .unwrap()
-            .record
             .times_used,
         5, // initially 1, touched twice, updated twice (on two accounts!
         // doing this right requires 3WM)
@@ -204,17 +188,13 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login0 = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "http://www.example.com".into(),
-                form_action_origin: Some("http://login.example.com".into()),
-                username_field: "uname".into(),
-                password_field: "pword".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username".into(),
-                password: "hunter2".into(),
-            },
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
         },
     )
     .expect("add l0");
@@ -223,15 +203,11 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login1 = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "http://www.example.com".into(),
-                http_realm: Some("Login".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username".into(),
-                password: "sekret".into(),
-            },
+            origin: "http://www.example.com".into(),
+            http_realm: Some("Login".into()),
+            username: "cool_username".into(),
+            password: "sekret".into(),
+            ..Default::default()
         },
     )
     .expect("add l1");
@@ -240,15 +216,11 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login2 = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.org".into(),
-                http_realm: Some("Test".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username100".into(),
-                password: "123454321".into(),
-            },
+            origin: "https://www.example.org".into(),
+            http_realm: Some("Test".into()),
+            username: "cool_username100".into(),
+            password: "123454321".into(),
+            ..Default::default()
         },
     )
     .expect("add l2");
@@ -257,15 +229,11 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login3 = add_login(
         &c0.logins_store,
         LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.net".into(),
-                http_realm: Some("Http Realm".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "cool_username99".into(),
-                password: "aaaaa".into(),
-            },
+            origin: "https://www.example.net".into(),
+            http_realm: Some("Http Realm".into()),
+            username: "cool_username99".into(),
+            password: "aaaaa".into(),
+            ..Default::default()
         },
     )
     .expect("add l3");
@@ -311,7 +279,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     // case 3a. c0 modifies record (c1 will delete it after c0 syncs so the timestamps line up)
     log::info!("Updating {} on c0", l2id);
     let login2_new = update_login(&c0.logins_store, &l2id, |l| {
-        l.sec_fields.username = "foobar".into();
+        l.username = "foobar".into();
     })
     .unwrap();
 
@@ -331,7 +299,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Update {} on c0", l3id);
     // 4b
     update_login(&c0.logins_store, &l3id, |l| {
-        l.sec_fields.password = "quux".into();
+        l.password = "quux".into();
     })
     .unwrap();
 

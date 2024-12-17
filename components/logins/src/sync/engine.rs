@@ -719,43 +719,31 @@ mod tests {
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
 
         let to_add = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example.com".into()),
-                origin: "http://not-relevant-here.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
+            form_action_origin: Some("https://www.example.com".into()),
+            origin: "http://not-relevant-here.com".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Default::default()
         };
-        let first_id = store.add(to_add).expect("should insert first").record.id;
+        let first_id = store.add(to_add).expect("should insert first").id;
 
         let to_add = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example1.com".into()),
-                origin: "http://not-relevant-here.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test1".into(),
-                password: "test1".into(),
-            },
+            form_action_origin: Some("https://www.example1.com".into()),
+            origin: "http://not-relevant-here.com".into(),
+            username: "test1".into(),
+            password: "test1".into(),
+            ..Default::default()
         };
-        let second_id = store.add(to_add).expect("should insert second").record.id;
+        let second_id = store.add(to_add).expect("should insert second").id;
 
         let to_add = LoginEntry {
-            fields: LoginFields {
-                http_realm: Some("http://some-realm.com".into()),
-                origin: "http://not-relevant-here.com".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test1".into(),
-                password: "test1".into(),
-            },
+            http_realm: Some("http://some-realm.com".into()),
+            origin: "http://not-relevant-here.com".into(),
+            username: "test1".into(),
+            password: "test1".into(),
+            ..Default::default()
         };
-        let no_form_origin_id = store.add(to_add).expect("should insert second").record.id;
+        let no_form_origin_id = store.add(to_add).expect("should insert second").id;
 
         let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
@@ -840,15 +828,11 @@ mod tests {
                 .update(
                     "dummy_000001",
                     LoginEntry {
-                        fields: LoginFields {
-                            origin: "https://www.example2.com".into(),
-                            http_realm: Some("https://www.example2.com".into()),
-                            ..Default::default()
-                        },
-                        sec_fields: SecureLoginFields {
-                            username: "test".into(),
-                            password: "test".into(),
-                        },
+                        origin: "https://www.example2.com".into(),
+                        http_realm: Some("https://www.example2.com".into()),
+                        username: "test".into(),
+                        password: "test".into(),
+                        ..Default::default()
                     },
                 )
                 .unwrap();
