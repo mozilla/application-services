@@ -30,42 +30,40 @@ namespace logins {
     EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
 };
 
-/// The fields you can add or update.
-dictionary LoginFields {
+/// A login entry from the user, not linked to any database record.
+/// The add/update APIs input these.
+dictionary LoginEntry {
+    // login fields
     string origin;
     string? http_realm;
     string? form_action_origin;
     string username_field;
     string password_field;
-};
 
-/// Fields which are encrypted at rest.
-dictionary SecureLoginFields {
+    // secure login fields
     string password;
     string username;
 };
 
-/// Fields specific to database records
-dictionary RecordFields {
+/// A login stored in the database
+dictionary Login {
+    // record fields
     string id;
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-};
 
-/// A login entry from the user, not linked to any database record.
-/// The add/update APIs input these.
-dictionary LoginEntry {
-    LoginFields fields;
-    SecureLoginFields sec_fields;
-};
+    // login fields
+    string origin;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
 
-/// A login stored in the database
-dictionary Login {
-    RecordFields record;
-    LoginFields fields;
-    SecureLoginFields sec_fields;
+    // secure login fields
+    string password;
+    string username;
 };
 
 /// These are the errors returned by our public API.
