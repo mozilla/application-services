@@ -11,7 +11,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
 use crate::SecureLoginFields;
-use crate::{EncryptedLogin, LoginFields, RecordFields};
+use crate::{EncryptedLogin, LoginEntry, LoginFields, RecordFields};
 use serde_derive::*;
 use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
@@ -64,17 +64,34 @@ impl IncomingLogin {
         p: LoginPayload,
         encdec: &dyn EncryptorDecryptor,
     ) -> Result<Self> {
-        let fields = LoginFields {
+        let original_fields = LoginFields {
             origin: p.hostname,
             form_action_origin: p.form_submit_url,
             http_realm: p.http_realm,
             username_field: p.username_field,
             password_field: p.password_field,
         };
-        let sec_fields = SecureLoginFields {
+        let original_sec_fields = SecureLoginFields {
             username: p.username,
             password: p.password,
         };
+        // we do a bit of a dance here to maybe_fixup() the fields via LoginEntry
+        let original_login_entry = LoginEntry::new(original_fields, original_sec_fields);
+        let login_entry = original_login_entry
+            .maybe_fixup()?
+            .unwrap_or(original_login_entry);
+        let fields = LoginFields {
+            origin: login_entry.origin,
+            form_action_origin: login_entry.form_action_origin,
+            http_realm: login_entry.http_realm,
+            username_field: login_entry.username_field,
+            password_field: login_entry.password_field,
+        };
+        let sec_fields = SecureLoginFields {
+            username: login_entry.username,
+            password: login_entry.password,
+        };
+
         // We handle NULL in the DB for migrated databases and it's wasteful
         // to encrypt the common case of an empty map, so...
         let unknown = if p.unknown_fields.is_empty() {
@@ -93,11 +110,8 @@ impl IncomingLogin {
                     time_last_used: p.time_last_used,
                     times_used: p.times_used,
                 },
-                fields: fields.maybe_fixup()?.unwrap_or(fields),
-                sec_fields: sec_fields
-                    .maybe_fixup()?
-                    .unwrap_or(sec_fields)
-                    .encrypt(encdec)?,
+                fields,
+                sec_fields: sec_fields.encrypt(encdec)?,
             },
             unknown,
         })

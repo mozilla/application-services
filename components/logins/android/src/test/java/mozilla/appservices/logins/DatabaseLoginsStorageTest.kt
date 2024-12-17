@@ -46,33 +46,25 @@ class DatabaseLoginsStorageTest {
 
         store.add(
             LoginEntry(
-                fields = LoginFields(
-                    origin = "https://www.example.com",
-                    httpRealm = "Something",
-                    usernameField = "users_name",
-                    passwordField = "users_password",
-                    formActionOrigin = null,
-                ),
-                secFields = SecureLoginFields(
-                    username = "Foobar2000",
-                    password = "hunter2",
-                ),
+                origin = "https://www.example.com",
+                httpRealm = "Something",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                formActionOrigin = null,
+                username = "Foobar2000",
+                password = "hunter2",
             ),
         )
 
         store.add(
             LoginEntry(
-                fields = LoginFields(
-                    origin = "https://www.example.org",
-                    httpRealm = "",
-                    formActionOrigin = "https://www.example.org/login",
-                    usernameField = "users_name",
-                    passwordField = "users_password",
-                ),
-                secFields = SecureLoginFields(
-                    password = "MyVeryCoolPassword",
-                    username = "Foobar2000",
-                ),
+                origin = "https://www.example.org",
+                httpRealm = "",
+                formActionOrigin = "https://www.example.org/login",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                password = "MyVeryCoolPassword",
+                username = "Foobar2000",
             ),
         )
 
@@ -93,17 +85,13 @@ class DatabaseLoginsStorageTest {
 
         val login = store.add(
             LoginEntry(
-                fields = LoginFields(
-                    origin = "https://www.example.com",
-                    httpRealm = "Something",
-                    usernameField = "users_name",
-                    passwordField = "users_password",
-                    formActionOrigin = null,
-                ),
-                secFields = SecureLoginFields(
-                    username = "Foobar2000",
-                    password = "hunter2",
-                ),
+                origin = "https://www.example.com",
+                httpRealm = "Something",
+                usernameField = "users_name",
+                passwordField = "users_password",
+                formActionOrigin = null,
+                username = "Foobar2000",
+                password = "hunter2",
             ),
         )
 
@@ -112,17 +100,13 @@ class DatabaseLoginsStorageTest {
 
         // N.B. this is invalid due to `formActionOrigin` being an invalid url.
         val invalid = LoginEntry(
-            fields = LoginFields(
-                origin = "https://test.example.com",
-                formActionOrigin = "not a url",
-                httpRealm = "",
-                usernameField = "users_name",
-                passwordField = "users_password",
-            ),
-            secFields = SecureLoginFields(
-                username = "Foobar2000",
-                password = "hunter2",
-            ),
+            origin = "https://test.example.com",
+            formActionOrigin = "not a url",
+            httpRealm = "",
+            usernameField = "users_name",
+            passwordField = "users_password",
+            username = "Foobar2000",
+            password = "hunter2",
         )
 
         try {
@@ -138,8 +122,8 @@ class DatabaseLoginsStorageTest {
         assertNull(LoginsStoreMetrics.readQueryCount.testGetValue())
         assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
 
-        val record = store.get(login.record.id)!!
-        assertEquals(record.fields.origin, "https://www.example.com")
+        val record = store.get(login.id)!!
+        assertEquals(record.origin, "https://www.example.com")
 
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
         assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
@@ -153,13 +137,13 @@ class DatabaseLoginsStorageTest {
         val login = store.list()[0]
         // Wait 100ms so that touch is certain to change timeLastUsed.
         Thread.sleep(100)
-        store.touch(login.record.id)
+        store.touch(login.id)
 
-        val updatedLogin = store.get(login.record.id)
+        val updatedLogin = store.get(login.id)
 
         assertNotNull(updatedLogin)
-        assertEquals(login.record.timesUsed + 1, updatedLogin!!.record.timesUsed)
-        assert(updatedLogin.record.timeLastUsed > login.record.timeLastUsed)
+        assertEquals(login.timesUsed + 1, updatedLogin!!.timesUsed)
+        assert(updatedLogin.timeLastUsed > login.timeLastUsed)
 
         assertThrows(LoginsApiException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
 
@@ -171,11 +155,11 @@ class DatabaseLoginsStorageTest {
         val store = getTestStore()
         val login = store.list()[0]
 
-        assertNotNull(store.get(login.record.id))
-        assertTrue(store.delete(login.record.id))
-        assertNull(store.get(login.record.id))
-        assertFalse(store.delete(login.record.id))
-        assertNull(store.get(login.record.id))
+        assertNotNull(store.get(login.id))
+        assertTrue(store.delete(login.id))
+        assertNull(store.get(login.id))
+        assertFalse(store.delete(login.id))
+        assertNull(store.get(login.id))
 
         finishAndClose(store)
     }
@@ -189,8 +173,8 @@ class DatabaseLoginsStorageTest {
         test.wipeLocal()
         assertEquals(0, test.list().size)
 
-        assertNull(test.get(logins[0].record.id))
-        assertNull(test.get(logins[1].record.id))
+        assertNull(test.get(logins[0].id))
+        assertNull(test.get(logins[1].id))
 
         finishAndClose(test)
     }

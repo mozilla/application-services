@@ -59,7 +59,9 @@ impl TestClient {
         };
 
         let key = create_key().unwrap();
-        let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key.clone()))));
+        let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
+            StaticKeyManager::new(key.clone()),
+        )));
 
         Ok(Self {
             cli,
