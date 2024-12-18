@@ -32,7 +32,12 @@ def setupProject(name, projectProps) {
 
     settings.include(":$name")
 
-    project(":$name").projectDir = new File(rootDir, path)
+    // We prefer `appServicesRootDir` over `rootDir` to help us on the path to the monorepo.
+    // (They are the same in app-services but different in moz-central)
+    def maybeAppServicesRootDir = new File(rootDir, "services/app-services")
+    def appServicesRootDir = maybeAppServicesRootDir.isDirectory() ? maybeAppServicesRootDir : rootDir;
+
+    project(":$name").projectDir = new File(appServicesRootDir, path)
 
     // project(...) gives us a skeleton project that we can't set ext.* on
     gradle.beforeProject { project ->
@@ -43,6 +48,7 @@ def setupProject(name, projectProps) {
             project.ext.artifactId = artifactId
             // Expose the rest of the project properties, mostly for validation reasons.
             project.ext.configProps = projectProps
+            project.ext.appServicesRootDir = appServicesRootDir
         }
     }
 }
