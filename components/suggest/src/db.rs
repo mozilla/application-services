@@ -22,13 +22,14 @@ use crate::{
     geoname::GeonameCache,
     pocket::{split_keyword, KeywordConfidence},
     provider::SuggestionProvider,
+    query::FtsQuery,
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
         DownloadedExposureSuggestion, DownloadedFakespotSuggestion, DownloadedMdnSuggestion,
         DownloadedPocketSuggestion, DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
-    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
+    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, FtsMatchInfo, Suggestion},
     util::full_keyword,
     weather::WeatherCache,
     Result, SuggestionQuery,
@@ -722,11 +723,12 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    /// Fetches fakespot suggestions
+    /// Fetches Fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        self.conn.query_rows_and_then_cached(
-            r#"
+        let fts_query = query.fts_query();
+        let sql = r#"
             SELECT
+                s.id,
                 s.title,
                 s.url,
                 s.score,
@@ -753,29 +755,79 @@ impl<'a> SuggestDao<'a> {
                 fakespot_fts MATCH ?
             ORDER BY
                 s.score DESC
-            "#,
-            (&query.fts_query(),),
-            |row| {
-                let score = fakespot::FakespotScore::new(
-                    &query.keyword,
-                    row.get(9)?,
-                    row.get(10)?,
-                    row.get(2)?,
-                )
-                .as_suggest_score();
-                Ok(Suggestion::Fakespot {
-                    title: row.get(0)?,
-                    url: row.get(1)?,
-                    score,
-                    fakespot_grade: row.get(3)?,
-                    product_id: row.get(4)?,
-                    rating: row.get(5)?,
-                    total_reviews: row.get(6)?,
-                    icon: row.get(7)?,
-                    icon_mimetype: row.get(8)?,
-                })
-            },
-        )
+            "#
+        .to_string();
+
+        // Store the list of results plus the suggestion id for calculating the FTS match info
+        let mut results =
+            self.conn
+                .query_rows_and_then_cached(&sql, (&fts_query.match_arg,), |row| {
+                    let id: usize = row.get(0)?;
+                    let score = fakespot::FakespotScore::new(
+                        &query.keyword,
+                        row.get(10)?,
+                        row.get(11)?,
+                        row.get(3)?,
+                    )
+                    .as_suggest_score();
+                    Result::Ok((
+                        Suggestion::Fakespot {
+                            title: row.get(1)?,
+                            url: row.get(2)?,
+                            score,
+                            fakespot_grade: row.get(4)?,
+                            product_id: row.get(5)?,
+                            rating: row.get(6)?,
+                            total_reviews: row.get(7)?,
+                            icon: row.get(8)?,
+                            icon_mimetype: row.get(9)?,
+                            match_info: None,
+                        },
+                        id,
+                    ))
+                })?;
+        // Sort the results, then add the FTS match info to the first one
+        // For performance reasons, this is only calculated for the result with the highest score.
+        // We assume that only one that will be shown to the user and therefore the only one we'll
+        // collect metrics for.
+        results.sort();
+        if let Some((suggestion, id)) = results.first_mut() {
+            match suggestion {
+                Suggestion::Fakespot {
+                    match_info, title, ..
+                } => {
+                    *match_info = Some(self.fetch_fakespot_fts_match_info(&fts_query, *id, title)?);
+                }
+                _ => unreachable!(),
+            }
+        }
+        Ok(results
+            .into_iter()
+            .map(|(suggestion, _)| suggestion)
+            .collect())
+    }
+
+    fn fetch_fakespot_fts_match_info(
+        &self,
+        fts_query: &FtsQuery<'_>,
+        suggestion_id: usize,
+        title: &str,
+    ) -> Result<FtsMatchInfo> {
+        let prefix = if fts_query.is_prefix_query {
+            // If the query was a prefix match query then test if the query without the prefix
+            // match would have also matched.  If not, then this counts as a prefix match.
+            let sql = "SELECT 1 FROM fakespot_fts WHERE rowid = ? AND fakespot_fts MATCH ?";
+            let params = (&suggestion_id, &fts_query.match_arg_without_prefix_match);
+            !self.conn.exists(sql, params)?
+        } else {
+            // If not, then it definitely wasn't a prefix match
+            false
+        };
+
+        Ok(FtsMatchInfo {
+            prefix,
+            stemming: fts_query.match_required_stemming(title),
+        })
     }
 
     /// Fetches exposure suggestions
