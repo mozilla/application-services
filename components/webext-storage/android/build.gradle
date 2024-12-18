@@ -1,7 +1,7 @@
 // TODO: Uncomment this code when webext-storage component is integrated in android
 
-// apply from: "$rootDir/build-scripts/component-common.gradle"
-// apply from: "$rootDir/publish.gradle"
+// apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+// apply from: "$appServicesRootDir/publish.gradle"
 
 // dependencies {
 //     // Part of the public API.
