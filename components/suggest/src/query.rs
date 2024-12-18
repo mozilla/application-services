@@ -143,31 +143,37 @@ impl SuggestionQuery {
         }
     }
 
-    // Other Functionality
-
-    /// Parse the `keyword` field into a set of keywords.
-    ///
-    /// This is used when passing the keywords into an FTS search.  It:
-    ///   - Strips out any `():^*"` chars.  These are typically used for advanced searches, which
-    ///     we don't support and it would be weird to only support for FTS searches, which
-    ///     currently means Fakespot searches.
-    ///   - Splits on whitespace to get a list of individual keywords
-    ///
-    pub(crate) fn parse_keywords(&self) -> Vec<&str> {
-        self.keyword
-            .split([' ', '(', ')', ':', '^', '*', '"'])
-            .filter(|s| !s.is_empty())
-            .collect()
-    }
-
     /// Create an FTS query term for our keyword(s)
-    pub(crate) fn fts_query(&self) -> String {
-        let keywords = self.parse_keywords();
+    pub(crate) fn fts_query(&self) -> FtsQuery<'_> {
+        FtsQuery::new(&self.keyword)
+    }
+}
+
+pub struct FtsQuery<'a> {
+    pub sqlite_match: String,
+    pub prefix_match: bool,
+    keywords: Vec<&'a str>,
+}
+
+impl<'a> FtsQuery<'a> {
+    fn new(keyword: &'a str) -> Self {
+        // Parse the `keyword` field into a set of keywords.
+        //
+        // This is used when passing the keywords into an FTS search.  It:
+        //   - Strips out any `():^*"` chars.  These are typically used for advanced searches, which
+        //     we don't support and it would be weird to only support for FTS searches, which
+        //     currently means Fakespot searches.
+        //   - splits on whitespace to get a list of individual keywords
+        let keywords = Self::split_terms(keyword);
         if keywords.is_empty() {
-            return String::from(r#""""#);
+            return Self {
+                keywords,
+                sqlite_match: String::from(r#""""#),
+                prefix_match: false,
+            };
         }
         // Quote each term from `query` and join them together
-        let mut fts_query = keywords
+        let mut sqlite_match = keywords
             .iter()
             .map(|keyword| format!(r#""{keyword}""#))
             .collect::<Vec<_>>()
@@ -175,11 +181,50 @@ impl SuggestionQuery {
         // If the input is > 3 characters, and there's no whitespace at the end.
         // We want to append a `*` char to the end to do a prefix match on it.
         let total_chars = keywords.iter().fold(0, |count, s| count + s.len());
-        let query_ends_in_whitespace = self.keyword.ends_with(' ');
-        if (total_chars > 3) && !query_ends_in_whitespace {
-            fts_query.push('*');
+        let query_ends_in_whitespace = keyword.ends_with(' ');
+        let prefix_match = (total_chars > 3) && !query_ends_in_whitespace;
+        if prefix_match {
+            sqlite_match.push('*');
         }
-        fts_query
+        Self {
+            keywords,
+            prefix_match,
+            sqlite_match,
+        }
+    }
+
+    pub fn sqlite_match_without_prefix_match(&self) -> &str {
+        self.sqlite_match
+            .strip_suffix('*')
+            .unwrap_or(&self.sqlite_match)
+    }
+
+    /// Try to figure out if a FTS match required stemming
+    ///
+    /// To test this, we have to try to mimic the SQLite FTS logic. This code doesn't do it
+    /// perfectly, but it should return the correct result most of the time.
+    pub fn match_required_stemming(&self, title: &str) -> bool {
+        let title = title.to_lowercase();
+        let split_title = Self::split_terms(&title);
+
+        !self.keywords.iter().enumerate().all(|(i, keyword)| {
+            split_title.iter().any(|title_word| {
+                let last_keyword = i == self.keywords.len() - 1;
+
+                if last_keyword && self.prefix_match {
+                    title_word.starts_with(keyword)
+                } else {
+                    title_word == keyword
+                }
+            })
+        })
+    }
+
+    fn split_terms(phrase: &str) -> Vec<&str> {
+        phrase
+            .split([' ', '(', ')', ':', '^', '*', '"', ','])
+            .filter(|s| !s.is_empty())
+            .collect()
     }
 }
 
@@ -189,7 +234,7 @@ mod test {
 
     fn check_parse_keywords(input: &str, expected: Vec<&str>) {
         let query = SuggestionQuery::all_providers(input);
-        assert_eq!(query.parse_keywords(), expected);
+        assert_eq!(query.fts_query().keywords, expected);
     }
 
     #[test]
@@ -207,7 +252,7 @@ mod test {
 
     fn check_fts_query(input: &str, expected: &str) {
         let query = SuggestionQuery::all_providers(input);
-        assert_eq!(query.fts_query(), expected);
+        assert_eq!(query.fts_query().sqlite_match, expected);
     }
 
     #[test]
@@ -233,5 +278,25 @@ mod test {
         check_fts_query("", r#""""#);
         check_fts_query(" ", r#""""#);
         check_fts_query("()", r#""""#);
+    }
+
+    #[test]
+    fn test_fts_query_match_required_stemming() {
+        // These don't require stemming, since each keyword matches a term in the title
+        assert!(!FtsQuery::new("running shoes").match_required_stemming("running shoes"));
+        assert!(
+            !FtsQuery::new("running shoes").match_required_stemming("new balance running shoes")
+        );
+        // Case changes shouldn't matter
+        assert!(!FtsQuery::new("running shoes").match_required_stemming("Running Shoes"));
+        // This doesn't require stemming, since `:` is not part of the word
+        assert!(!FtsQuery::new("running shoes").match_required_stemming("Running: Shoes"));
+        // This requires the keywords to be stemmed in order to match
+        assert!(FtsQuery::new("run shoes").match_required_stemming("running shoes"));
+        // This didn't require stemming, since the last keyword was a prefix match
+        assert!(!FtsQuery::new("running sh").match_required_stemming("running shoes"));
+        // This does require stemming (we know it wasn't a prefix match since there's not enough
+        // characters).
+        assert!(FtsQuery::new("run").match_required_stemming("running shoes"));
     }
 }

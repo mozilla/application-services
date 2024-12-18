@@ -912,7 +912,11 @@ pub(crate) mod tests {
 
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use crate::{testing::*, SuggestionProvider};
+    use crate::{
+        suggestion::{FtsMatchInfo, FtsTermDistance},
+        testing::*,
+        SuggestionProvider,
+    };
 
     /// In-memory Suggest store for testing
     pub(crate) struct TestStore {
@@ -2258,30 +2262,58 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
-            vec![snowglobe_suggestion().with_fakespot_product_type_bonus(0.5)],
+            vec![snowglobe_suggestion(FtsMatchInfo {
+                prefix: false,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)
+            .with_fakespot_product_type_bonus(0.5)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: false,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
         // The snowglobe suggestion should come before the simpsons one, since `snow` is a partial
         // match on the product_type field.
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
             vec![
-                snowglobe_suggestion().with_fakespot_product_type_bonus(0.5),
-                simpsons_suggestion(),
+                snowglobe_suggestion(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                    term_distance: FtsTermDistance::Near,
+                },)
+                .with_fakespot_product_type_bonus(0.5),
+                simpsons_suggestion(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                    term_distance: FtsTermDistance::Near,
+                },),
             ],
         );
         // Test FTS by using a query where the keywords are separated in the source text
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons snow")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: false,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
         // Special characters should be stripped out
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpsons + snow")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: false,
+                // This is correctly incorrectly counted as stemming, since nothing matches the `+`
+                // character.  TODO: fix this be improving the tokenizer in `FtsQuery`.
+                stemming: true,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
 
         Ok(())
@@ -2309,8 +2341,18 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("snow")),
             vec![
-                simpsons_suggestion().with_fakespot_keyword_bonus(),
-                snowglobe_suggestion().with_fakespot_product_type_bonus(0.5),
+                simpsons_suggestion(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                    term_distance: FtsTermDistance::Near,
+                },)
+                .with_fakespot_keyword_bonus(),
+                snowglobe_suggestion(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                    term_distance: FtsTermDistance::Near,
+                },)
+                .with_fakespot_product_type_bonus(0.5),
             ],
         );
         Ok(())
@@ -2332,15 +2374,27 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simp")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: true,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simps")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: true,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("simpson")),
-            vec![simpsons_suggestion()],
+            vec![simpsons_suggestion(FtsMatchInfo {
+                prefix: false,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)],
         );
 
         Ok(())
@@ -2416,7 +2470,12 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::fakespot("globe")),
-            vec![snowglobe_suggestion().with_fakespot_product_type_bonus(0.5)],
+            vec![snowglobe_suggestion(FtsMatchInfo {
+                prefix: false,
+                stemming: false,
+                term_distance: FtsTermDistance::Near,
+            },)
+            .with_fakespot_product_type_bonus(0.5)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),

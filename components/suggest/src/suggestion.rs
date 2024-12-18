@@ -96,11 +96,33 @@ pub enum Suggestion {
         icon: Option<Vec<u8>>,
         icon_mimetype: Option<String>,
         score: f64,
+        match_info: FtsMatchInfo,
     },
     Exposure {
         suggestion_type: String,
         score: f64,
     },
+}
+
+/// Additional data about how an FTS match was made(https://bugzilla.mozilla.org/show_bug.cgi?id=1931373)
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FtsMatchInfo {
+    /// Was this a prefix match (`water b` matched against `water bottle`)
+    pub prefix: bool,
+    /// Did the match require stemming? (`run shows` matched against `running shoes`)
+    pub stemming: bool,
+    /// How far apart were the terms product title
+    pub term_distance: FtsTermDistance,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum FtsTermDistance {
+    // All terms in a 3-term chunk
+    Near,
+    // All terms in a 5-term chunk
+    Medium,
+    // No 5-term chunk that contains all the terms
+    Far,
 }
 
 impl PartialOrd for Suggestion {
@@ -183,6 +205,13 @@ impl Suggestion {
             | Self::Fakespot { score, .. }
             | Self::Exposure { score, .. } => *score,
             Self::Wikipedia { .. } => DEFAULT_SUGGESTION_SCORE,
+        }
+    }
+
+    pub fn fts_match_info(&self) -> Option<&FtsMatchInfo> {
+        match self {
+            Self::Fakespot { match_info, .. } => Some(match_info),
+            _ => None,
         }
     }
 }
