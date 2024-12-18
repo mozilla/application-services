@@ -28,7 +28,9 @@ use crate::{
         DownloadedPocketSuggestion, DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
-    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
+    suggestion::{
+        cook_raw_suggestion_url, AmpSuggestionType, FtsMatchInfo, FtsTermDistance, Suggestion,
+    },
     util::full_keyword,
     weather::WeatherCache,
     Result, SuggestionQuery,
@@ -724,7 +726,40 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        self.conn.query_rows_and_then_cached(
+        let fts_query = query.fts_query();
+        let mut params: Vec<&dyn ToSql> = vec![];
+
+        let was_prefix_match_sql = if fts_query.is_prefix_query {
+            // If the query was a prefix match query then test if the query without the prefix
+            // match would have also matched.  If not, then we should report it as a prefix match
+            // in the match info
+            params.push(&fts_query.match_arg_without_prefix_match);
+            "NOT EXISTS (SELECT 1 FROM fakespot_fts WHERE fakespot_fts MATCH ?)"
+        } else {
+            // If not, then it definitely wasn't a prefix match
+            "FALSE"
+        };
+
+        // Allocate storage outside the if statement for the NEAR match expressions.
+        let near1;
+        let near2;
+        let (near_1_match_sql, near_3_match_sql) = if fts_query.had_multiple_terms() {
+            // If then the original query had multiple terms then test there still would be a match
+            // with various NEAR clauses.
+            near1 = format!("NEAR({}, 1)", fts_query.match_arg);
+            near2 = format!("NEAR({}, 3)", fts_query.match_arg);
+            params.push(&near1);
+            params.push(&near2);
+            (
+                "EXISTS (SELECT 1 FROM fakespot_fts WHERE fakespot_fts MATCH ?)",
+                "EXISTS (SELECT 1 FROM fakespot_fts WHERE fakespot_fts MATCH ?)",
+            )
+        } else {
+            // There was only 1 term, then it it would be a match regardless of NEAR
+            ("TRUE", "TRUE")
+        };
+
+        let sql = format!(
             r#"
             SELECT
                 s.title,
@@ -737,7 +772,10 @@ impl<'a> SuggestDao<'a> {
                 i.data,
                 i.mimetype,
                 f.keywords,
-                f.product_type
+                f.product_type,
+                {was_prefix_match_sql},
+                {near_1_match_sql},
+                {near_3_match_sql}
             FROM
                 suggestions s
             JOIN
@@ -753,9 +791,13 @@ impl<'a> SuggestDao<'a> {
                 fakespot_fts MATCH ?
             ORDER BY
                 s.score DESC
-            "#,
-            (&query.fts_query(),),
-            |row| {
+            "#
+        );
+        params.push(&fts_query.match_arg);
+
+        self.conn
+            .query_rows_and_then_cached(&sql, params.as_slice(), |row| {
+                let title: String = row.get(0)?;
                 let score = fakespot::FakespotScore::new(
                     &query.keyword,
                     row.get(9)?,
@@ -763,8 +805,20 @@ impl<'a> SuggestDao<'a> {
                     row.get(2)?,
                 )
                 .as_suggest_score();
+                let match_info = FtsMatchInfo {
+                    prefix: row.get(11)?,
+                    stemming: fts_query.match_required_stemming(&title),
+                    term_distance: if row.get(12)? {
+                        FtsTermDistance::Near
+                    } else if row.get(13)? {
+                        FtsTermDistance::Medium
+                    } else {
+                        FtsTermDistance::Far
+                    },
+                };
+
                 Ok(Suggestion::Fakespot {
-                    title: row.get(0)?,
+                    title,
                     url: row.get(1)?,
                     score,
                     fakespot_grade: row.get(3)?,
@@ -773,9 +827,9 @@ impl<'a> SuggestDao<'a> {
                     total_reviews: row.get(6)?,
                     icon: row.get(7)?,
                     icon_mimetype: row.get(8)?,
+                    match_info,
                 })
-            },
-        )
+            })
     }
 
     /// Fetches exposure suggestions
