@@ -10,7 +10,7 @@ name = "dump"
 path = "src/dump/lib.rs"
 
 [dependencies]
-remote_settings = { path = "../../components/remote_settings" }
+remote_settings = { features = ["signatures"], path = "../../components/remote_settings" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 log = "0.4"
 clap = {version = "4.2", features = ["derive"]}

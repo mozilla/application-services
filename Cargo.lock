@@ -536,6 +536,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "canonical_json"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f89083fd014d71c47a718d7f4ac050864dac8587668dbe90baf9e261064c5710"
+dependencies = [
+ "hex",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.31",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4137,6 +4150,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
+ "canonical_json",
  "error-support",
  "expect-test",
  "firefox-versioning",
@@ -4145,6 +4159,7 @@ dependencies = [
  "mockall",
  "mockito",
  "parking_lot",
+ "rc_crypto",
  "regex",
  "rusqlite",
  "serde",
