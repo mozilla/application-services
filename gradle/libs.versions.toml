@@ -21,7 +21,7 @@ rust-android-gradle = "0.9.4"
 
 # AndroidX
 androidx-annotation = "1.9.1"
-androidx-core = "1.13.1" # Newer releases blocked on compileSDK >34
+androidx-core = "1.15.0"
 
 # JNA
 jna = "5.14.0"
