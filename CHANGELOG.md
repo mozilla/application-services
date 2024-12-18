@@ -3,6 +3,9 @@
 ### `rc_crypto`
 - New low level bindings for dealing with primary password.
 
+### Remote Settings
+- Added support of content signatures verification ([#6534](https://github.com/mozilla/application-services/pull/6534))
+
 [Full Changelog](In progress)
 
 # v135.0 (_2025-01-06_)
