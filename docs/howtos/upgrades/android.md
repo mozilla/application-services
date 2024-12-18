@@ -18,7 +18,7 @@ This specifies what we use to build our code.
 Keep this in sync with the version Firefox Android is using.
 Update the version number in:
 
-* `build.gradle`
+* `settings.gradle`
 * `taskcluster/docker/linux/Dockerfile`
 
 ## Target / minimum versions
@@ -27,14 +27,14 @@ These control which devices the library is compatible with and control which ver
 Keep this in sync with the version Firefox Android is using.
 Update the version number in:
 
-* `build.gradle`
+* `settings.gradle`
 
 # Android NDK (Native Development Kit)
 
 The Android NDK is the toolset we use for cross-compiling our Rust code so that Firefox Android can dynamically link to it.
 
 * Update the version number in:
-  * `build.gradle` (search for `ndkVersion`)
+  * `settings.gradle` (search for `ndkVersion`)
   * `taskcluster/docker/linux/Dockerfile` (search for `ANDROID_NDK_VERSION`)
   * `components/support/rc_crypto/nss/nss_build_common/src/lib.rs` (search for `ANDROID_NDK_VERSION`)
 * Update these docs by replacing the old version with the new one:

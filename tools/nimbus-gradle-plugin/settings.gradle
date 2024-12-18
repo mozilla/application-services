@@ -30,6 +30,7 @@ def calcVersion(buildconfig) {
 
 gradle.projectsLoaded { ->
     // Wait until root project is "loaded" before we set "config"
+    // XXX - there's no "config" here. This should be upgraded to use the same mechanism as the other components?
     // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
     // gradle files. This means that they can just access "config.<value>", and it'll function properly
     gradle.rootProject.ext.library = [

@@ -2,8 +2,6 @@
 
 buildscript {
     ext.build = [
-        ndkVersion: "28.0.13004108", // Keep it in sync in TC Dockerfile.
-
         // In general, we should aim to keep these in sync with AC
         compileSdkVersion: 35,
         targetSdkVersion: 35,
@@ -200,8 +198,7 @@ ext.rustTargets += ext.nativeRustTarget
 ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
-    group = "org.mozilla.appservices"
-    apply plugin: 'maven-publish'
+    // Note we apply some plugins to the subprojects in settings.gradle to help with the m-c migration.
 
     // Kotlin settings applicable to all modules.
     afterEvaluate{

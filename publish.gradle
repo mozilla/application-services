@@ -10,7 +10,7 @@ def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
 ext.configurePublish = {
-    def theGroupId = rootProject.ext.library.groupId
+    def theGroupId = rootProject.config.componentsGroupId
     def theArtifactId = project.ext.artifactId
     def theDescription = project.ext.description
 
@@ -42,7 +42,7 @@ ext.configurePublish = {
                     // For mavenLocal publishing workflow, increment the version number every publish.
                     // We only do this to the .pom file and not in $MEGAZORD_VERSION, because otherwise we
                     // would need to rebuild the megazord .so on every publish, even if nothing else had changed.
-                    version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                    version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
                     packaging = "aar"
 
                     license {

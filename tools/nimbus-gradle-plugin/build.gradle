@@ -34,7 +34,7 @@ repositories {
 // any tokens (values wrapped in `@`s) with the value for that key in the tokens object.
 processResources {
     filter ReplaceTokens, tokens: [
-            'project.version': rootProject.ext.library.version
+            'project.version': rootProject.config.componentsVersion
     ]
 }
 
@@ -91,10 +91,10 @@ publishing {
             from components.java
 
             pom {
-                groupId = rootProject.ext.library.groupId
+                groupId = rootProject.config.componentsGroupId
                 artifactId = archivesBaseName
                 description = project.ext.description
-                version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
 
                 licenses {
                     license {

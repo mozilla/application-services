@@ -12,22 +12,22 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
     defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+        ndkVersion config.ndkVersion
+        compileSdkVersion config.compileSdkVersion
+
+        minSdkVersion config.minSdkVersion
+        targetSdkVersion config.targetSdkVersion
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+            consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
 
@@ -39,7 +39,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
+    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 dependencies {
@@ -103,24 +103,32 @@ ext.configureUniFFIBindgen = { crateName ->
     def generateUniffiBindings = tasks.register("generateUniffiBindings") {
         def megazordNative = configurations.getByName("megazordNative")
         doFirst {
-            def libraryPath = megazordNative.asFileTree.matching {
-                include "${nativeRustTarget}/libmegazord.*"
-            }.singleFile
+            if (gradle.hasProperty("mozconfig")) {
+                def libraryPath = "${mozconfig.topobjdir}/dist/bin/libmegazord.so"
+                megazordNative = "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+                exec {
+                    workingDir project.rootDir
+                    commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
+                }
+            } else {
+                def libraryPath = megazordNative.asFileTree.matching {
+                    include "${nativeRustTarget}/libmegazord.*"
+                }.singleFile
 
-            if (libraryPath == null) {
-                throw new GradleException("libmegazord dynamic library path not found")
+                if (libraryPath == null) {
+                    throw new GradleException("libmegazord dynamic library path not found")
+                }
+                exec {
+                    workingDir project.rootDir
+                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
+                }
             }
-            exec {
-                workingDir project.rootDir
-                commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
-            }
-
         }
         outputs.dir uniffiOutDir
         // Re-generate when the native megazord library is rebuilt
         inputs.files megazordNative
         // Re-generate if our uniffi-bindgen tooling changes.
-        inputs.dir "${project.rootDir}/tools/embedded-uniffi-bindgen/"
+        inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
     }
 
     afterEvaluate {
@@ -130,7 +138,9 @@ ext.configureUniFFIBindgen = { crateName ->
             def compileTask = tasks["compile${variantName}Kotlin"]
 
             compileTask.dependsOn(generateUniffiBindings)
-            variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
+            if (!gradle.hasProperty("mozconfig")) { // XXX - needs uniffi-bindgen love in m-c
+                variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
+            }
         }
     }
 }

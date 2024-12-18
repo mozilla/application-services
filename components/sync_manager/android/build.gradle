@@ -2,8 +2,8 @@ plugins {
     alias libs.plugins.gradle.python.envs
 }
 
-apply from: "$rootDir/build-scripts/component-common.gradle"
-apply from: "$rootDir/publish.gradle"
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
