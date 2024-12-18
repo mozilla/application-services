@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 31;
+pub const VERSION: u32 = 32;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -131,14 +131,15 @@ CREATE TABLE fakespot_custom_details(
 
 CREATE VIRTUAL TABLE IF NOT EXISTS fakespot_fts USING FTS5(
   title,
+  suggestion_id,
   content='',
   contentless_delete=1,
   tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
 );
 
 CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
-  INSERT INTO fakespot_fts(rowid, title)
-    SELECT id, title
+  INSERT INTO fakespot_fts(rowid, title, suggestion_id)
+    SELECT id, title, id
     FROM suggestions
     WHERE id = new.suggestion_id;
 END;
@@ -593,6 +594,30 @@ CREATE TABLE geonames_alternates(
                 tx.execute_batch(
                     "
 CREATE INDEX geonames_alternates_geoname_id ON geonames_alternates(geoname_id);
+                    ",
+                )?;
+                Ok(())
+            }
+            31 => {
+                clear_database(tx)?;
+                tx.execute_batch(
+                    "
+DROP TABLE fakespot_fts;
+DROP TRIGGER fakespot_ai;
+CREATE VIRTUAL TABLE fakespot_fts USING FTS5(
+  title,
+  suggestion_id,
+  content='',
+  contentless_delete=1,
+  tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
+);
+
+CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
+  INSERT INTO fakespot_fts(rowid, title, suggestion_id)
+    SELECT id, title, id
+    FROM suggestions
+    WHERE id = new.suggestion_id;
+END;
                     ",
                 )?;
                 Ok(())
