@@ -4,7 +4,7 @@
 
 //! Test data that we use in many tests
 
-use crate::{testing::MockIcon, Suggestion};
+use crate::{suggestion::FtsMatchInfo, testing::MockIcon, Suggestion};
 use serde_json::json;
 use serde_json::Value as JsonValue;
 
@@ -466,7 +466,7 @@ pub fn snowglobe_fakespot() -> JsonValue {
     })
 }
 
-pub fn snowglobe_suggestion() -> Suggestion {
+pub fn snowglobe_suggestion(match_info: Option<FtsMatchInfo>) -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "B".into(),
         product_id: "amazon-ABC".into(),
@@ -477,6 +477,7 @@ pub fn snowglobe_suggestion() -> Suggestion {
         score: 0.3 + 0.00008,
         icon: Some("fakespot-icon-amazon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
+        match_info,
     }
 }
 
@@ -496,7 +497,7 @@ pub fn simpsons_fakespot() -> JsonValue {
     })
 }
 
-pub fn simpsons_suggestion() -> Suggestion {
+pub fn simpsons_suggestion(match_info: Option<FtsMatchInfo>) -> Suggestion {
     Suggestion::Fakespot {
         fakespot_grade: "A".into(),
         product_id: "vendorwithouticon-XYZ".into(),
@@ -507,6 +508,7 @@ pub fn simpsons_suggestion() -> Suggestion {
         score: 0.3 + 0.00009,
         icon: None,
         icon_mimetype: None,
+        match_info,
     }
 }
 
