@@ -49,6 +49,8 @@ pub enum Error {
     DatabaseError(#[from] rusqlite::Error),
     #[error("No attachment in given record: {0}")]
     RecordAttachmentMismatchError(String),
+    #[error("data could not be serialized: {0}")]
+    SerializationError(#[from] canonical_json::CanonicalJSONError),
 }
 
 // Define how our internal errors are handled and converted to external errors

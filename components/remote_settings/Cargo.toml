@@ -31,6 +31,7 @@ regex = "1.9"
 anyhow = "1.0"
 firefox-versioning = { path = "../support/firefox-versioning" }
 sha2 = "^0.10"
+canonical_json = "0.5"
 
 [build-dependencies]
 uniffi = { version = "0.28.2", features = ["build"] }

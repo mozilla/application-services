@@ -201,6 +201,16 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         )
     }
 
+    fn verify_signature(&self) -> Result<()> {
+        let mut inner = self.inner.lock();
+        let collection_url = inner.api_client.collection_url();
+        let timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
+        let records = inner.storage.get_records(&collection_url)?;
+        let metadata = inner.storage.get_collection_metadata(&collection_url)?;
+
+        Ok(())
+    }
+
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
     /// maximum size, so use care when fetching potentially large attachments.
     pub fn get_attachment(&self, record: RemoteSettingsRecord) -> Result<Vec<u8>> {
