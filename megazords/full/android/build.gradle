@@ -144,7 +144,7 @@ afterEvaluate {
     }
 }
 
-apply from: "$rootDir/publish.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
 ext.configurePublish()
 
 afterEvaluate {
