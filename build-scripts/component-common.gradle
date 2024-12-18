@@ -27,7 +27,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+            consumerProguardFiles "$appServicesRootDir/proguard-rules-consumer-jna.pro"
         }
     }
 
@@ -120,7 +120,7 @@ ext.configureUniFFIBindgen = { crateName ->
         // Re-generate when the native megazord library is rebuilt
         inputs.files megazordNative
         // Re-generate if our uniffi-bindgen tooling changes.
-        inputs.dir "${project.rootDir}/tools/embedded-uniffi-bindgen/"
+        inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
     }
 
     afterEvaluate {
