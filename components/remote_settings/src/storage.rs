@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{client::CollectionMetadata, Attachment, RemoteSettingsRecord, Result};
+use crate::{
+    client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord,
+    Result,
+};
 use camino::Utf8PathBuf;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json;
@@ -108,6 +111,39 @@ impl Storage {
         result
     }
 
+    /// Get cached content for this collection
+    ///
+    /// Returns None if no data is stored or if `collection_url` does not match the `collection_url` passed
+    /// to `set_collection_content`.
+    pub fn get_collection_metadata(
+        &self,
+        collection_url: &str,
+    ) -> Result<Option<(u64, CollectionMetadata)>> {
+        let mut stmt_metadata = self.conn.prepare(
+            "SELECT last_modified, signature, public_key, x5u FROM collection_metadata WHERE collection_url = ?",
+        )?;
+
+        if let Some((timestamp, metadata)) = stmt_metadata
+            .query_row(params![collection_url], |row| {
+                Ok((
+                    row.get::<_, u64>(0).unwrap_or_default(),
+                    CollectionMetadata {
+                        signature: CollectionSignature {
+                            signature: row.get(1).unwrap_or_default(),
+                            public_key: row.get(2).unwrap_or_default(),
+                            x5u: row.get(3).unwrap_or_default(),
+                        },
+                    },
+                ))
+            })
+            .optional()?
+        {
+            Ok(Some((timestamp, metadata)))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Get cached attachment data
     ///
     /// This returns the last attachment data sent to [Self::set_attachment].
@@ -143,7 +179,7 @@ impl Storage {
         }
     }
 
-    // TODO
+    /// Set cached content for this collection.
     pub fn set_collection_content(
         &mut self,
         collection_url: &str,
@@ -227,7 +263,7 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::Storage;
-    use crate::{client::CollectionMetadata, Attachment, RemoteSettingsRecord, Result};
+    use crate::{client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord, Result};
     use sha2::{Digest, Sha256};
 
     #[test]
@@ -656,6 +692,46 @@ mod tests {
         // Verify last modified timestamp
         let last_modified = storage.get_last_modified_timestamp(collection_url)?;
         assert_eq!(last_modified, Some(300));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_get_collection_content() -> Result<()> {
+        let mut storage = Storage::new(":memory:".into())?;
+
+        let collection_url = "https://example.com/api";
+        let initial_records = vec![RemoteSettingsRecord {
+            id: "2".to_string(),
+            last_modified: 200,
+            deleted: false,
+            attachment: None,
+            fields: serde_json::json!({"key": "value2"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        // Set initial records
+        storage.set_collection_content(
+            collection_url,
+            &initial_records,
+            1337,
+            CollectionMetadata {
+                signature: CollectionSignature {
+                    signature: "b64encodedsig".into(),
+                    public_key: "some public key".into(),
+                    x5u: "http://x5u/".into(),
+                },
+            }
+        )?;
+
+        let (timestamp, metadata) = storage.get_collection_metadata(collection_url)?.unwrap();
+
+        assert_eq!(timestamp, 1337);
+        assert_eq!(metadata.signature.signature, "b64encodedsig");
+        assert_eq!(metadata.signature.public_key, "some public key");
+        assert_eq!(metadata.signature.x5u, "http://x5u/");
 
         Ok(())
     }
