@@ -28,7 +28,9 @@ use crate::{
         DownloadedPocketSuggestion, DownloadedWikipediaSuggestion, Record, SuggestRecordId,
     },
     schema::{clear_database, SuggestConnectionInitializer},
-    suggestion::{cook_raw_suggestion_url, AmpSuggestionType, Suggestion},
+    suggestion::{
+        cook_raw_suggestion_url, AmpSuggestionType, FtsMatchInfo, FtsTermDistance, Suggestion,
+    },
     util::full_keyword,
     weather::WeatherCache,
     Result, SuggestionQuery,
@@ -724,9 +726,11 @@ impl<'a> SuggestDao<'a> {
 
     /// Fetches fakespot suggestions
     pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
+        let fts_query = query.fts_query();
         self.conn.query_rows_and_then_cached(
             r#"
             SELECT
+                s.id,
                 s.title,
                 s.url,
                 s.score,
@@ -754,28 +758,76 @@ impl<'a> SuggestDao<'a> {
             ORDER BY
                 s.score DESC
             "#,
-            (&query.fts_query(),),
+            (&fts_query.sqlite_match,),
             |row| {
+                let suggestion_id: usize = row.get(0)?;
+                let title: String = row.get(1)?;
                 let score = fakespot::FakespotScore::new(
                     &query.keyword,
-                    row.get(9)?,
                     row.get(10)?,
-                    row.get(2)?,
+                    row.get(11)?,
+                    row.get(3)?,
                 )
                 .as_suggest_score();
+                let match_info = FtsMatchInfo {
+                    prefix: fts_query.prefix_match
+                        && !self.fakespot_suggestion_matches_query(
+                            suggestion_id,
+                            fts_query.sqlite_match_without_prefix_match(),
+                            None,
+                        )?,
+                    stemming: fts_query.match_required_stemming(&title),
+                    term_distance: self
+                        .fakespot_term_distance(suggestion_id, &fts_query.sqlite_match)?,
+                };
+
                 Ok(Suggestion::Fakespot {
-                    title: row.get(0)?,
-                    url: row.get(1)?,
+                    title,
+                    url: row.get(2)?,
                     score,
-                    fakespot_grade: row.get(3)?,
-                    product_id: row.get(4)?,
-                    rating: row.get(5)?,
-                    total_reviews: row.get(6)?,
-                    icon: row.get(7)?,
-                    icon_mimetype: row.get(8)?,
+                    fakespot_grade: row.get(4)?,
+                    product_id: row.get(5)?,
+                    rating: row.get(6)?,
+                    total_reviews: row.get(7)?,
+                    icon: row.get(8)?,
+                    icon_mimetype: row.get(9)?,
+                    match_info,
                 })
             },
         )
+    }
+
+    fn fakespot_term_distance(
+        &self,
+        suggestion_id: usize,
+        match_phrase: &str,
+    ) -> Result<FtsTermDistance> {
+        if self.fakespot_suggestion_matches_query(suggestion_id, match_phrase, Some(3))? {
+            Ok(FtsTermDistance::Near)
+        } else if self.fakespot_suggestion_matches_query(suggestion_id, match_phrase, Some(5))? {
+            Ok(FtsTermDistance::Medium)
+        } else {
+            Ok(FtsTermDistance::Far)
+        }
+    }
+
+    fn fakespot_suggestion_matches_query(
+        &self,
+        suggestion_id: usize,
+        match_phrase: &str,
+        max_distance: Option<usize>,
+    ) -> Result<bool> {
+        let sql = "SELECT 1 FROM fakespot_fts WHERE rowid = ? AND fakespot_fts MATCH ?";
+        Ok(match max_distance {
+            Some(max_distance) => self.conn.exists(
+                sql,
+                (
+                    suggestion_id,
+                    format!("NEAR({match_phrase}, {max_distance})"),
+                ),
+            )?,
+            None => self.conn.exists(sql, (suggestion_id, match_phrase))?,
+        })
     }
 
     /// Fetches exposure suggestions
