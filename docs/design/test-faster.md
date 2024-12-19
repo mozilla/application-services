@@ -133,7 +133,7 @@ path = "src/tests.rs"
 and for a benchmark, add:
 
 ```toml
-[[test]]
+[[bench]]
 name = "mycrate-benches"
 path = "src/benches.rs"
 harness = false
