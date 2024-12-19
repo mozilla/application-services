@@ -11,6 +11,7 @@ exclude = ["/android", "/ios"]
 [features]
 default = []
 jexl = ["dep:jexl-eval"]
+signatures = ["dep:canonical_json", "dep:rc_crypto"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,7 +32,8 @@ regex = "1.9"
 anyhow = "1.0"
 firefox-versioning = { path = "../support/firefox-versioning" }
 sha2 = "^0.10"
-canonical_json = "0.5"
+canonical_json = { version = "0.5", optional = true }
+rc_crypto = { path = "../support/rc_crypto", optional = true }
 
 [build-dependencies]
 uniffi = { version = "0.28.2", features = ["build"] }
@@ -44,3 +46,4 @@ mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
+mock_instant = "0.5.1"

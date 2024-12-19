@@ -1,14 +1,11 @@
-
 use core::clone::Clone;
 
-use crate::{
-    RemoteSettingsRecord,
-    Result,
-};
+use crate::{RemoteSettingsRecord, Result};
 use canonical_json;
+use rc_crypto::contentsignature;
 use serde_json::{json, Value};
 
-
+/// Remove `deleted` and `attachment` fields if it is null.
 fn select_record_fields(value: &Value) -> Value {
     if let Value::Object(map) = value {
         let new_map = map
@@ -39,11 +36,35 @@ fn serialize_data(timestamp: u64, records: &[RemoteSettingsRecord]) -> Result<Ve
     Ok(data.as_bytes().to_vec())
 }
 
+/// Verify that the timestamp and records match the signature in the metadata.
+pub fn verify_signature(
+    timestamp: u64,
+    records: &[RemoteSettingsRecord],
+    signature: &[u8],
+    cert_chain_bytes: &[u8],
+    epoch_seconds: u64,
+    expected_root_hash: &str,
+    expected_leaf_cname: &str,
+) -> Result<()> {
+    let message = serialize_data(timestamp, records)?;
+    // Check that certificate chain is valid at specific date time, and
+    // that signature matches the input message.
+    contentsignature::verify(
+        &message,
+        &signature,
+        &cert_chain_bytes,
+        epoch_seconds,
+        expected_root_hash,
+        &expected_leaf_cname,
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{RemoteSettingsRecord, Attachment};
-    use serde_json::json;
     use super::serialize_data;
+    use crate::{Attachment, RemoteSettingsRecord};
+    use serde_json::json;
 
     #[test]
     fn test_records_canonicaljson_serialization() {
