@@ -747,6 +747,7 @@ pub struct ChangesetResponse {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 pub struct CollectionMetadata {
+    pub bucket: String,
     pub signature: CollectionSignature,
 }
 
@@ -1755,6 +1756,7 @@ mod test_new_client {
             changes: records.clone(),
             timestamp: 42,
             metadata: CollectionMetadata {
+                bucket: "main".into(),
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),
@@ -2041,6 +2043,7 @@ mod cached_data_tests {
             changes: expected_records.clone(),
             timestamp: 42,
             metadata: CollectionMetadata {
+                bucket: "main".into(),
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),
@@ -2220,6 +2223,7 @@ mod cached_data_tests {
             changes: expected_records.clone(),
             timestamp: 42,
             metadata: CollectionMetadata {
+                bucket: "main".into(),
                 signature: CollectionSignature {
                     signature: "b64sig".into(),
                     public_key: "public_key".into(),

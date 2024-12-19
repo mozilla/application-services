@@ -118,27 +118,25 @@ impl Storage {
     pub fn get_collection_metadata(
         &self,
         collection_url: &str,
-    ) -> Result<Option<(u64, CollectionMetadata)>> {
+    ) -> Result<Option<CollectionMetadata>> {
         let mut stmt_metadata = self.conn.prepare(
-            "SELECT last_modified, signature, public_key, x5u FROM collection_metadata WHERE collection_url = ?",
+            "SELECT signature, public_key, x5u FROM collection_metadata WHERE collection_url = ?",
         )?;
 
-        if let Some((timestamp, metadata)) = stmt_metadata
+        if let Some(metadata) = stmt_metadata
             .query_row(params![collection_url], |row| {
-                Ok((
-                    row.get::<_, u64>(0).unwrap_or_default(),
-                    CollectionMetadata {
-                        signature: CollectionSignature {
-                            signature: row.get(1).unwrap_or_default(),
-                            public_key: row.get(2).unwrap_or_default(),
-                            x5u: row.get(3).unwrap_or_default(),
-                        },
+                Ok(CollectionMetadata {
+                    bucket: "main".into(),
+                    signature: CollectionSignature {
+                        signature: row.get(0).unwrap_or_default(),
+                        public_key: row.get(1).unwrap_or_default(),
+                        x5u: row.get(2).unwrap_or_default(),
                     },
-                ))
+                })
             })
             .optional()?
         {
-            Ok(Some((timestamp, metadata)))
+            Ok(Some(metadata))
         } else {
             Ok(None)
         }
@@ -263,7 +261,10 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::Storage;
-    use crate::{client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord, Result};
+    use crate::{
+        client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord,
+        Result,
+    };
     use sha2::{Digest, Sha256};
 
     #[test]
@@ -718,17 +719,17 @@ mod tests {
             &initial_records,
             1337,
             CollectionMetadata {
+                bucket: "main".into(),
                 signature: CollectionSignature {
                     signature: "b64encodedsig".into(),
                     public_key: "some public key".into(),
                     x5u: "http://x5u/".into(),
                 },
-            }
+            },
         )?;
 
-        let (timestamp, metadata) = storage.get_collection_metadata(collection_url)?.unwrap();
+        let metadata = storage.get_collection_metadata(collection_url)?.unwrap();
 
-        assert_eq!(timestamp, 1337);
         assert_eq!(metadata.signature.signature, "b64encodedsig");
         assert_eq!(metadata.signature.public_key, "some public key");
         assert_eq!(metadata.signature.x5u, "http://x5u/");
