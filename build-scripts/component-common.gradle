@@ -60,19 +60,9 @@ ext.dependsOnTheMegazord = {
         api project(":full-megazord")
 
         // Add a JNA dependency, which is required by UniFFI.
-        //
-        // The tricky thing is getting the correct libjnidispatch library. Use the AAR version for
-        // normal builds, since that ensures the various Android libraries get packaged correctly when
-        // we build our own AAR.  Use the JAR version for tests, since that ensures the tests can load
-        // the native version.
         implementation(libs.jna) {
             artifact {
                 type = "aar"
-            }
-        }
-        testImplementation(libs.jna) {
-            artifact {
-                type = "jar"
             }
         }
     }
@@ -85,33 +75,15 @@ ext.dependsOnTheMegazord = {
         }
     }
 
-    // Wire up the megazordNative configuration to the output produced from the `full-megazord` project.
     dependencies {
-        megazordNative(project("path": ":full-megazord", "configuration": "megazordNative"))
+        megazordNative project("path": ":full-megazord", "configuration": "megazordNative")
+        implementation project("path": ":full-megazord", "configuration": "libsForTests")
     }
 
     afterEvaluate {
         android.libraryVariants.all { variant ->
             def variantName = variant.name.capitalize();
             def testTask = tasks["test${variantName}UnitTest"]
-            def processTestResTask = tasks["process${variantName}UnitTestJavaRes"]
-
-            // Copy the native libmegazord to the resource dir so that it can be loaded by JNA.
-            // Note: we have to manually copy the library to the output dir ourselves.  If we simply
-            // added the megazordNative directory to sourceSets.test.resources.srcDirs, then the
-            // android gradle plugin will refuse to copy it. For details see:
-            //
-            // * https://github.com/mozilla/application-services/pull/6476#issuecomment-2537227576
-            // * https://github.com/mozilla/glean/pull/2680#issuecomment-2056627683
-            def copyNativeMegazord = tasks.register("copy${variantName}NativeMegazord", Copy) {
-                from configurations.getByName("megazordNative")
-                into processTestResTask.destinationDir
-                // Make sure to run after the process java res task, otherwise that one may
-                // overwrite our work.
-                dependsOn(processTestResTask)
-            }
-
-            testTask.dependsOn(copyNativeMegazord)
         }
     }
 }
@@ -130,10 +102,9 @@ ext.configureUniFFIBindgen = { crateName ->
     // Call `uniffi-bindgen` to generate the Kotlin bindings
     def generateUniffiBindings = tasks.register("generateUniffiBindings") {
         def megazordNative = configurations.getByName("megazordNative")
-
         doFirst {
             def libraryPath = megazordNative.asFileTree.matching {
-                include "**/libmegazord.*"
+                include "${nativeRustTarget}/libmegazord.*"
             }.singleFile
 
             if (libraryPath == null) {
@@ -143,6 +114,7 @@ ext.configureUniFFIBindgen = { crateName ->
                 workingDir project.rootDir
                 commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
             }
+
         }
         outputs.dir uniffiOutDir
         // Re-generate when the native megazord library is rebuilt
