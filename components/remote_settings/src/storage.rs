@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{Attachment, RemoteSettingsRecord, Result};
+use crate::{
+    client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord,
+    Result,
+};
 use camino::Utf8PathBuf;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json;
@@ -34,7 +37,7 @@ impl Storage {
         Ok(storage)
     }
 
-    // Create the different tables for records and attachements for every new sqlite path
+    // Create the different tables for records and attachments for every new sqlite path
     fn initialize_database(&self) -> Result<()> {
         self.conn.execute_batch(
             "
@@ -51,6 +54,9 @@ impl Storage {
         CREATE TABLE IF NOT EXISTS collection_metadata (
             collection_url TEXT PRIMARY KEY,
             last_modified INTEGER,
+            signature TEXT,
+            public_key TEXT,
+            x5u TEXT,
             fetched BOOLEAN
         );
         ",
@@ -61,7 +67,7 @@ impl Storage {
     /// Get the last modified timestamp for the stored records
     ///
     /// Returns None if no records are stored or if `collection_url` does not match the
-    /// `collection_url` passed to `set_records`.
+    /// `collection_url` passed to `set_collection_content`.
     pub fn get_last_modified_timestamp(&self, collection_url: &str) -> Result<Option<u64>> {
         let mut stmt = self
             .conn
@@ -75,7 +81,7 @@ impl Storage {
     /// Get cached records for this collection
     ///
     /// Returns None if no records are stored or if `collection_url` does not match the `collection_url` passed
-    /// to `set_records`.
+    /// to `set_collection_content`.
     pub fn get_records(
         &mut self,
         collection_url: &str,
@@ -103,6 +109,37 @@ impl Storage {
 
         tx.commit()?;
         result
+    }
+
+    /// Get cached content for this collection
+    ///
+    /// Returns None if no data is stored or if `collection_url` does not match the `collection_url` passed
+    /// to `set_collection_content`.
+    pub fn get_collection_metadata(
+        &self,
+        collection_url: &str,
+    ) -> Result<Option<CollectionMetadata>> {
+        let mut stmt_metadata = self.conn.prepare(
+            "SELECT signature, public_key, x5u FROM collection_metadata WHERE collection_url = ?",
+        )?;
+
+        if let Some(metadata) = stmt_metadata
+            .query_row(params![collection_url], |row| {
+                Ok(CollectionMetadata {
+                    bucket: "main".into(),
+                    signature: CollectionSignature {
+                        signature: row.get(0).unwrap_or_default(),
+                        public_key: row.get(1).unwrap_or_default(),
+                        x5u: row.get(2).unwrap_or_default(),
+                    },
+                })
+            })
+            .optional()?
+        {
+            Ok(Some(metadata))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get cached attachment data
@@ -140,11 +177,13 @@ impl Storage {
         }
     }
 
-    /// Set the list of records stored in the database, clearing out any previously stored records
-    pub fn set_records(
+    /// Set cached content for this collection.
+    pub fn set_collection_content(
         &mut self,
         collection_url: &str,
         records: &Vec<RemoteSettingsRecord>,
+        timestamp: u64,
+        metadata: CollectionMetadata,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
 
@@ -152,25 +191,27 @@ impl Storage {
         tx.execute("DELETE FROM records", [])?;
         tx.execute("DELETE FROM collection_metadata", [])?;
 
-        // Find the max last_modified time while inserting records
-        let mut max_last_modified = 0;
+        tx.execute(
+            "INSERT OR REPLACE INTO collection_metadata \
+            (collection_url, last_modified, signature, public_key, x5u, fetched) \
+            VALUES (?, ?, ?, ?, ?, true)",
+            (
+                collection_url,
+                timestamp,
+                metadata.signature.signature,
+                metadata.signature.public_key,
+                metadata.signature.x5u,
+            ),
+        )?;
+
         {
             let mut stmt =
                 tx.prepare("INSERT INTO records (id, collection_url, data) VALUES (?, ?, ?)")?;
             for record in records {
-                max_last_modified = max_last_modified.max(record.last_modified);
                 let data = serde_json::to_vec(record)?;
-
                 stmt.execute(params![record.id, collection_url, data])?;
             }
         }
-
-        // Update the metadata
-        let fetched = true;
-        tx.execute(
-            "INSERT OR REPLACE INTO collection_metadata (collection_url, last_modified, fetched) VALUES (?, ?, ?)",
-            (collection_url, max_last_modified, fetched),
-        )?;
 
         tx.commit()?;
 
@@ -220,7 +261,10 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use super::Storage;
-    use crate::{Attachment, RemoteSettingsRecord, Result};
+    use crate::{
+        client::CollectionMetadata, client::CollectionSignature, Attachment, RemoteSettingsRecord,
+        Result,
+    };
     use sha2::{Digest, Sha256};
 
     #[test]
@@ -252,7 +296,12 @@ mod tests {
         ];
 
         // Set records
-        storage.set_records(collection_url, &records)?;
+        storage.set_collection_content(
+            collection_url,
+            &records,
+            300,
+            CollectionMetadata::default(),
+        )?;
 
         // Get records
         let fetched_records = storage.get_records(collection_url)?;
@@ -265,7 +314,7 @@ mod tests {
 
         // Get last modified timestamp
         let last_modified = storage.get_last_modified_timestamp(collection_url)?;
-        assert_eq!(last_modified, Some(200));
+        assert_eq!(last_modified, Some(300));
 
         Ok(())
     }
@@ -294,7 +343,12 @@ mod tests {
         let collection_url = "https://example.com/api";
 
         // Set empty records
-        storage.set_records(collection_url, &Vec::<RemoteSettingsRecord>::default())?;
+        storage.set_collection_content(
+            collection_url,
+            &Vec::<RemoteSettingsRecord>::default(),
+            42,
+            CollectionMetadata::default(),
+        )?;
 
         // Get records
         let fetched_records = storage.get_records(collection_url)?;
@@ -302,7 +356,7 @@ mod tests {
 
         // Get last modified timestamp when no records
         let last_modified = storage.get_last_modified_timestamp(collection_url)?;
-        assert_eq!(last_modified, Some(0));
+        assert_eq!(last_modified, Some(42));
 
         Ok(())
     }
@@ -489,7 +543,12 @@ mod tests {
             .expect("No attachment metadata for record");
 
         // Set records and attachment
-        storage.set_records(collection_url, &records)?;
+        storage.set_collection_content(
+            collection_url,
+            &records,
+            42,
+            CollectionMetadata::default(),
+        )?;
         storage.set_attachment(collection_url, &metadata.location, attachment)?;
 
         // Verify they are stored
@@ -538,8 +597,12 @@ mod tests {
         }];
 
         // Set records for collection_url1
-        storage.set_records(collection_url1, &records_collection_url1)?;
-
+        storage.set_collection_content(
+            collection_url1,
+            &records_collection_url1,
+            42,
+            CollectionMetadata::default(),
+        )?;
         // Verify records for collection_url1
         let fetched_records = storage.get_records(collection_url1)?;
         assert!(fetched_records.is_some());
@@ -548,7 +611,12 @@ mod tests {
         assert_eq!(fetched_records, records_collection_url1);
 
         // Set records for collection_url2, which will clear records for all collections
-        storage.set_records(collection_url2, &records_collection_url2)?;
+        storage.set_collection_content(
+            collection_url2,
+            &records_collection_url2,
+            300,
+            CollectionMetadata::default(),
+        )?;
 
         // Verify that records for collection_url1 have been cleared
         let fetched_records = storage.get_records(collection_url1)?;
@@ -565,7 +633,7 @@ mod tests {
         let last_modified1 = storage.get_last_modified_timestamp(collection_url1)?;
         assert_eq!(last_modified1, None);
         let last_modified2 = storage.get_last_modified_timestamp(collection_url2)?;
-        assert_eq!(last_modified2, Some(200));
+        assert_eq!(last_modified2, Some(300));
 
         Ok(())
     }
@@ -587,7 +655,12 @@ mod tests {
         }];
 
         // Set initial records
-        storage.set_records(collection_url, &initial_records)?;
+        storage.set_collection_content(
+            collection_url,
+            &initial_records,
+            42,
+            CollectionMetadata::default(),
+        )?;
 
         // Verify initial records
         let fetched_records = storage.get_records(collection_url)?;
@@ -605,7 +678,12 @@ mod tests {
                 .unwrap()
                 .clone(),
         }];
-        storage.set_records(collection_url, &updated_records)?;
+        storage.set_collection_content(
+            collection_url,
+            &updated_records,
+            300,
+            CollectionMetadata::default(),
+        )?;
 
         // Verify updated records
         let fetched_records = storage.get_records(collection_url)?;
@@ -614,7 +692,47 @@ mod tests {
 
         // Verify last modified timestamp
         let last_modified = storage.get_last_modified_timestamp(collection_url)?;
-        assert_eq!(last_modified, Some(200));
+        assert_eq!(last_modified, Some(300));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_storage_get_collection_content() -> Result<()> {
+        let mut storage = Storage::new(":memory:".into())?;
+
+        let collection_url = "https://example.com/api";
+        let initial_records = vec![RemoteSettingsRecord {
+            id: "2".to_string(),
+            last_modified: 200,
+            deleted: false,
+            attachment: None,
+            fields: serde_json::json!({"key": "value2"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        // Set initial records
+        storage.set_collection_content(
+            collection_url,
+            &initial_records,
+            1337,
+            CollectionMetadata {
+                bucket: "main".into(),
+                signature: CollectionSignature {
+                    signature: "b64encodedsig".into(),
+                    public_key: "some public key".into(),
+                    x5u: "http://x5u/".into(),
+                },
+            },
+        )?;
+
+        let metadata = storage.get_collection_metadata(collection_url)?.unwrap();
+
+        assert_eq!(metadata.signature.signature, "b64encodedsig");
+        assert_eq!(metadata.signature.public_key, "some public key");
+        assert_eq!(metadata.signature.x5u, "http://x5u/");
 
         Ok(())
     }
