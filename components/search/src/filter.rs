@@ -194,9 +194,13 @@ mod tests {
     use super::*;
     use crate::*;
     use once_cell::sync::Lazy;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_from_configuration_details_fallsback_to_defaults() {
+        // This test doesn't use `..Default::default()` as we want to
+        // be explicit about `JSONEngineBase` and handling `None`
+        // options/default values.
         let result = SearchEngineDefinition::from_configuration_details(
             "test",
             JSONEngineBase {
@@ -338,14 +342,8 @@ mod tests {
     static ENGINES_LIST: Lazy<Vec<SearchEngineDefinition>> = Lazy::new(|| {
         vec![
             SearchEngineDefinition {
-                aliases: Vec::new(),
-                charset: String::from("UTF-8"),
-                classification: SearchEngineClassification::General,
                 identifier: "engine1".to_string(),
-                partner_code: String::new(),
                 name: "Test".to_string(),
-                order_hint: None,
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
@@ -353,19 +351,13 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
             SearchEngineDefinition {
-                aliases: Vec::new(),
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
                 identifier: "engine2".to_string(),
-                partner_code: String::new(),
                 name: "Test 2".to_string(),
-                order_hint: None,
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/2".to_string(),
@@ -373,19 +365,13 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
             SearchEngineDefinition {
-                aliases: Vec::new(),
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
                 identifier: "engine3".to_string(),
-                partner_code: String::new(),
                 name: "Test 3".to_string(),
-                order_hint: None,
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/3".to_string(),
@@ -393,19 +379,13 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
             SearchEngineDefinition {
-                aliases: Vec::new(),
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
                 identifier: "engine4wildcardmatch".to_string(),
-                partner_code: String::new(),
                 name: "Test 4".to_string(),
-                order_hint: None,
-                telemetry_suffix: None,
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/4".to_string(),
@@ -413,9 +393,9 @@ mod tests {
                         params: Vec::new(),
                         search_term_param_name: None,
                     },
-                    suggestions: None,
-                    trending: None,
+                    ..Default::default()
                 },
+                ..Default::default()
             },
         ]
     });
@@ -431,13 +411,7 @@ mod tests {
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -460,31 +434,14 @@ mod tests {
                     default: "engine1".to_string(),
                     default_private: String::new(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["en-GB".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -507,31 +464,14 @@ mod tests {
                     default: "engine1".to_string(),
                     default_private: String::new(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["fi".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -554,31 +494,14 @@ mod tests {
                     default: "engine4*".to_string(),
                     default_private: String::new(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["fi".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -602,51 +525,23 @@ mod tests {
                         default: "engine4*".to_string(),
                         default_private: String::new(),
                         environment: JSONVariantEnvironment {
-                            all_regions_and_locales: false,
-                            excluded_locales: vec![],
-                            excluded_regions: vec![],
                             locales: vec!["fi".to_string()],
-                            regions: vec![],
-                            distributions: vec![],
-                            excluded_distributions: vec![],
-                            applications: vec![],
-                            channels: vec![],
-                            device_type: vec![],
-                            min_version: "".to_string(),
-                            max_version: "".to_string(),
-                            experiment: "".to_string(),
+                            ..Default::default()
                         },
                     },
                     JSONSpecificDefaultRecord {
                         default: "engine3".to_string(),
                         default_private: String::new(),
                         environment: JSONVariantEnvironment {
-                            all_regions_and_locales: false,
-                            excluded_locales: vec![],
-                            excluded_regions: vec![],
                             locales: vec!["fi".to_string()],
-                            regions: vec![],
-                            distributions: vec![],
-                            excluded_distributions: vec![],
-                            applications: vec![],
-                            channels: vec![],
-                            device_type: vec![],
-                            min_version: "".to_string(),
-                            max_version: "".to_string(),
-                            experiment: "".to_string(),
+                            ..Default::default()
                         },
                     },
                 ],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -671,14 +566,7 @@ mod tests {
                 specific_defaults: Vec::new(),
             }),
             &SearchUserEnvironment {
-                locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -702,31 +590,14 @@ mod tests {
                     default: String::new(),
                     default_private: "engine1".to_string(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["en-GB".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -750,31 +621,14 @@ mod tests {
                     default: String::new(),
                     default_private: "engine1".to_string(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["fi".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 
@@ -798,31 +652,14 @@ mod tests {
                     default: String::new(),
                     default_private: "engine4*".to_string(),
                     environment: JSONVariantEnvironment {
-                        all_regions_and_locales: false,
-                        excluded_locales: vec![],
-                        excluded_regions: vec![],
                         locales: vec!["fi".to_string()],
-                        regions: vec![],
-                        distributions: vec![],
-                        excluded_distributions: vec![],
-                        applications: vec![],
-                        channels: vec![],
-                        device_type: vec![],
-                        min_version: "".to_string(),
-                        max_version: "".to_string(),
-                        experiment: "".to_string(),
+                        ..Default::default()
                     },
                 }],
             }),
             &SearchUserEnvironment {
                 locale: "fi".into(),
-                region: "FR".into(),
-                update_channel: SearchUpdateChannel::Default,
-                distribution_id: String::new(),
-                experiment: String::new(),
-                app_name: SearchApplicationName::Firefox,
-                version: String::new(),
-                device_type: SearchDeviceType::None,
+                ..Default::default()
             },
         );
 

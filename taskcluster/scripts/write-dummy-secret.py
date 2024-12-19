@@ -11,7 +11,7 @@ import os
 
 
 def write_secret_to_file(path, secret):
-    path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../' + path))
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../" + path))
     try:
         os.makedirs(os.path.dirname(path))
     except OSError as error:
@@ -19,15 +19,19 @@ def write_secret_to_file(path, secret):
             raise
     print(f"Outputting secret to: {path}")
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         f.write(secret)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Store a dummy secret to a file")
 
-    parser.add_argument("-c", dest="content", action="store", help="content of the secret")
-    parser.add_argument("-f", dest="path", action="store", help="file to save secret to")
+    parser.add_argument(
+        "-c", dest="content", action="store", help="content of the secret"
+    )
+    parser.add_argument(
+        "-f", dest="path", action="store", help="file to save secret to"
+    )
 
     result = parser.parse_args()
 

@@ -24,10 +24,6 @@ android {
         }
     }
 
-    sourceSets {
-        test.jniLibs.srcDirs += "$buildDir/rustJniLibs/desktop"
-    }
-
     // Uncomment to include debug symbols in native library builds.
     // packagingOptions { doNotStrip "**/*.so" }
 }
@@ -36,21 +32,28 @@ kotlin {
     jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
 }
 
+// Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
+// sets of files produced by one component and consumed by another.
 configurations {
-    // There's an interaction between Gradle's resolution of dependencies with different types
-    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
-    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
-    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
-    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
-    // what's happening is that @aar type in `implementation` resolves to the @jar type in
-    // `testImplementation`, and that it wins the dependency resolution battle.
-    //
-    // A workaround is to add a new configuration which depends on the @jar type and to reference
-    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
-    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
-    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
-    // Success!
-    jnaForTest
+    // Native megazord library, this is the one compatible with the user's local machine.  We use it
+    // to run unit tests.
+    consumable("megazordNative")
+}
+
+// Wrap the cargoBuild task to copy the native library to an output dir
+//
+// This allows it to be piped in to a Gradle configuration.
+def cargoBuildNativeArtifacts = tasks.register("copyNativeMegazord", Copy) {
+    from layout.buildDirectory.dir("rustJniLibs/desktop")
+    into layout.buildDirectory.dir("nativeMegazord")
+
+    def nativeTarget = rootProject.ext.nativeRustTarget
+    dependsOn tasks["cargoBuild${nativeTarget.capitalize()}"]
+}
+
+artifacts {
+    // Connect task output to configurations
+    megazordNative(cargoBuildNativeArtifacts)
 }
 
 cargo {
@@ -82,15 +85,6 @@ cargo {
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
 }
 
-dependencies {
-    jnaForTest(libs.jna) {
-        artifact {
-            extension ="jar"
-            type = "jar"
-        }
-    }
-}
-
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
     android.libraryVariants.all { variant ->
@@ -104,9 +98,4 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publications` property.
-ext.configurePublish(
-        /* jnaForTestConfiguration= */ configurations.jnaForTest,
-)
+ext.configurePublish()

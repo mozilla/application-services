@@ -134,7 +134,6 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     pub fn get_records(&self, sync_if_empty: bool) -> Result<Option<Vec<RemoteSettingsRecord>>> {
         let mut inner = self.inner.lock();
         let collection_url = inner.api_client.collection_url();
-        let cached_records = inner.storage.get_records(&collection_url)?;
         let is_prod = inner.api_client.is_prod_server()?;
         let packaged_data = if is_prod {
             self.load_packaged_data()
@@ -142,32 +141,16 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             None
         };
 
-        // Case 1: We have no cached records
-        if cached_records.is_none() {
-            // Case 1a: Use packaged data if available (prod only)
-            if let Some(collection) = packaged_data {
-                inner
-                    .storage
-                    .set_records(&collection_url, &collection.data)?;
-                return Ok(Some(self.filter_records(collection.data)));
-            }
-            // Case 1b: No packaged data - fetch from remote if sync_if_empty
-            if sync_if_empty {
-                let records = inner.api_client.get_records(None)?;
-                inner.storage.set_records(&collection_url, &records)?;
-                return Ok(Some(self.filter_records(records)));
-            }
-            return Ok(None);
-        }
-
-        // Now we know we have cached records
-        let cached_records = cached_records.unwrap();
-        let cached_timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
-
-        // Case 2: We have packaged data and are in prod
+        // Case 1: The packaged data is more recent than the cache
+        //
+        // This happens when there's no cached data or when we get new packaged data because of a
+        // product update
         if let Some(packaged_data) = packaged_data {
-            if packaged_data.timestamp > cached_timestamp.unwrap_or(0) {
-                // Packaged data is newer
+            let cached_timestamp = inner
+                .storage
+                .get_last_modified_timestamp(&collection_url)?
+                .unwrap_or(0);
+            if packaged_data.timestamp > cached_timestamp {
                 inner
                     .storage
                     .set_records(&collection_url, &packaged_data.data)?;
@@ -175,17 +158,23 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             }
         }
 
-        // Case 3: Return cached data if we have it and either:
-        // - it's not empty
-        // - or we're not allowed to sync
-        if !cached_records.is_empty() || !sync_if_empty {
-            return Ok(Some(self.filter_records(cached_records)));
-        }
+        let cached_records = inner.storage.get_records(&collection_url)?;
 
-        // Case 4: Cache is empty and we're allowed to sync
-        let records = inner.api_client.get_records(None)?;
-        inner.storage.set_records(&collection_url, &records)?;
-        Ok(Some(self.filter_records(records)))
+        Ok(match (cached_records, sync_if_empty) {
+            // Case 2: We have cached records
+            //
+            // Note: we should return these even if it's an empty list and `sync_if_empty=true`.
+            // The "if empty" part refers to the cache being empty, not the list.
+            (Some(cached_records), _) => Some(self.filter_records(cached_records)),
+            // Case 3: sync_if_empty=true
+            (None, true) => {
+                let records = inner.api_client.get_records(None)?;
+                inner.storage.set_records(&collection_url, &records)?;
+                Some(self.filter_records(records))
+            }
+            // Case 4: Nothing to return
+            (None, false) => None,
+        })
     }
 
     pub fn sync(&self) -> Result<()> {
@@ -193,7 +182,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         let collection_url = inner.api_client.collection_url();
         let mtime = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let records = inner.api_client.get_records(mtime)?;
-        inner.storage.set_records(&collection_url, &records)
+        inner.storage.merge_records(&collection_url, &records)
     }
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
@@ -2108,55 +2097,6 @@ mod cached_data_tests {
         assert!(records.is_some(), "Empty cached records should be returned");
         let records = records.unwrap();
         assert!(records.is_empty(), "Cached records should be empty");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_cached_data_empty_sync_if_empty_true() -> Result<()> {
-        let collection_name = "test-collection";
-        let mut api_client = MockApiClient::new();
-        let mut storage = Storage::new(":memory:".into())?;
-
-        let collection_url = format!(
-            "https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/{}",
-            collection_name
-        );
-
-        // Mock get_records to return some data
-        let expected_records = vec![RemoteSettingsRecord {
-            id: "remote1".to_string(),
-            last_modified: 1000,
-            deleted: false,
-            attachment: None,
-            fields: serde_json::Map::new(),
-        }];
-        api_client
-            .expect_get_records()
-            .withf(|timestamp| timestamp.is_none())
-            .returning(move |_| Ok(expected_records.clone()));
-        api_client.expect_is_prod_server().returning(|| Ok(true));
-
-        // Set up empty cached records
-        let cached_records: Vec<RemoteSettingsRecord> = vec![];
-        storage.set_records(&collection_url, &cached_records)?;
-
-        api_client
-            .expect_collection_url()
-            .returning(move || collection_url.clone());
-
-        let rs_client =
-            RemoteSettingsClient::new_from_parts(collection_name.to_string(), storage, api_client);
-
-        // Call get_records with sync_if_empty = true
-        let records = rs_client.get_records(true)?;
-        assert!(
-            records.is_some(),
-            "Records should be fetched from the remote server"
-        );
-        let records = records.unwrap();
-        assert_eq!(records.len(), 1);
-        assert_eq!(records[0].id, "remote1");
 
         Ok(())
     }

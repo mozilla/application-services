@@ -8,38 +8,55 @@
 # Usage: ./automation/smoke-test-fenix.py
 
 import argparse
-import subprocess
+import sys
 import tempfile
-from pathlib import Path
-from shared import step_msg, fatal_err, run_cmd_checked, find_app_services_root, set_gradle_substitution_path
 
-parser = argparse.ArgumentParser(description="Run Fenix tests against this application-services working tree.")
+from shared import (
+    fatal_err,
+    find_app_services_root,
+    run_cmd_checked,
+    set_gradle_substitution_path,
+    step_msg,
+)
+
+parser = argparse.ArgumentParser(
+    description="Run Fenix tests against this application-services working tree."
+)
 
 group = parser.add_mutually_exclusive_group()
-group.add_argument("--use-local-repo",
-                    metavar="LOCAL_REPO_PATH",
-                    help="Use a local copy of fenix instead of cloning it.")
-group.add_argument("--remote-repo-url",
-                    metavar="REMOTE_REPO_URL",
-                    help="Clone a different fenix repository.")
+group.add_argument(
+    "--use-local-repo",
+    metavar="LOCAL_REPO_PATH",
+    help="Use a local copy of fenix instead of cloning it.",
+)
+group.add_argument(
+    "--remote-repo-url",
+    metavar="REMOTE_REPO_URL",
+    help="Clone a different fenix repository.",
+)
 group = parser.add_mutually_exclusive_group()
-group.add_argument("--use-local-ac-repo",
-                   metavar="LOCAL_AC_REPO_PATH",
-                   help="Use a local copy of a-c instead of latest release")
-group.add_argument("--remote-ac-repo-url",
-                   metavar="REMOTE_AC_REPO_URL",
-                   help="Use a clone of a-c repo instead of latest release.")
-parser.add_argument("--branch",
-                    help="Branch of fenix to use.")
-parser.add_argument("--ac-branch",
-                    default="main",
-                    help="Branch of android-components to use.")
-parser.add_argument("--action",
-                    # XXX TODO: it would be very nice to have a "launch the app" helper here as well.
-                    choices=["run-tests", "do-nothing"],
-                    help="Run the following action once fenix is set up.")
+group.add_argument(
+    "--use-local-ac-repo",
+    metavar="LOCAL_AC_REPO_PATH",
+    help="Use a local copy of a-c instead of latest release",
+)
+group.add_argument(
+    "--remote-ac-repo-url",
+    metavar="REMOTE_AC_REPO_URL",
+    help="Use a clone of a-c repo instead of latest release.",
+)
+parser.add_argument("--branch", help="Branch of fenix to use.")
+parser.add_argument(
+    "--ac-branch", default="main", help="Branch of android-components to use."
+)
+parser.add_argument(
+    "--action",
+    # XXX TODO: it would be very nice to have a "launch the app" helper here as well.
+    choices=["run-tests", "do-nothing"],
+    help="Run the following action once fenix is set up.",
+)
 
-DEFAULT_REMOTE_REPO_URL="https://github.com/mozilla-mobile/fenix.git"
+DEFAULT_REMOTE_REPO_URL = "https://github.com/mozilla-mobile/fenix.git"
 
 args = parser.parse_args()
 local_repo_path = args.use_local_repo
@@ -60,7 +77,9 @@ if repo_path is None:
     if fenix_branch is not None:
         run_cmd_checked(["git", "checkout", fenix_branch], cwd=repo_path)
 elif fenix_branch is not None:
-    fatal_err("Cannot specify fenix branch when using a local repo; check it out locally and try again.")
+    fatal_err(
+        "Cannot specify fenix branch when using a local repo; check it out locally and try again."
+    )
 
 ac_repo_path = local_ac_repo_path
 if ac_repo_path is None:
@@ -72,16 +91,23 @@ if ac_repo_path is None:
             run_cmd_checked(["git", "checkout", ac_branch], cwd=ac_repo_path)
 elif ac_branch is not None:
     fatal_err(
-        "Cannot specify a-c branch when using a local repo; check it out locally and try again.")
+        "Cannot specify a-c branch when using a local repo; check it out locally and try again."
+    )
 
 step_msg(f"Configuring {repo_path} to autopublish appservices")
-set_gradle_substitution_path(repo_path, "autoPublish.application-services.dir", find_app_services_root())
+set_gradle_substitution_path(
+    repo_path, "autoPublish.application-services.dir", find_app_services_root()
+)
 if ac_repo_path is not None:
-    step_msg(f"Configuring {repo_path} to autopublish android-components from {ac_repo_path}")
-    set_gradle_substitution_path(repo_path, "autoPublish.android-components.dir", ac_repo_path)
+    step_msg(
+        f"Configuring {repo_path} to autopublish android-components from {ac_repo_path}"
+    )
+    set_gradle_substitution_path(
+        repo_path, "autoPublish.android-components.dir", ac_repo_path
+    )
 
 if action == "do-nothing":
-    exit(0)
+    sys.exit(0)
 elif action == "run-tests" or action is None:
     # Fenix has unittest targets for a wide variety of different configurations.
     # It's not useful to us to run them all, so just pick the one that sounds like it's

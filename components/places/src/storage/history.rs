@@ -1290,7 +1290,8 @@ pub fn get_visited_into(
                  SELECT fetch_url_index
                  FROM moz_places h
                  JOIN to_fetch f ON h.url_hash = f.url_hash
-                   AND h.url = f.url",
+                   AND h.url = f.url
+                   AND (h.last_visit_date_local + h.last_visit_date_remote) != 0",
                 values_with_idx
             );
             let mut stmt = db.prepare(&sql)?;
@@ -1821,17 +1822,37 @@ mod tests {
         let u0 = Url::parse("https://www.example.com/1").unwrap();
         let u1 = Url::parse("https://www.example.com/12").unwrap();
         let u2 = Url::parse("https://www.example.com/123").unwrap();
+        let u3 = Url::parse("https://www.example.com/1234").unwrap();
+        let u4 = Url::parse("https://www.example.com/12345").unwrap();
 
-        let to_add = [&u0, &u1, &u2];
-        for &item in &to_add {
+        let to_add = [(&u0, false), (&u1, false), (&u2, false), (&u3, true)];
+        for (item, is_remote) in to_add {
             apply_observation(
                 &conn,
-                VisitObservation::new(item.clone()).with_visit_type(VisitType::Link),
+                VisitObservation::new(item.clone())
+                    .with_visit_type(VisitType::Link)
+                    .with_is_remote(is_remote),
             )
             .unwrap();
         }
+        // Bookmarked, so exists in `moz_places`;
+        // but doesn't have a last visit time, so shouldn't be visited.
+        insert_bookmark(
+            &conn,
+            crate::InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+                position: crate::BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: u4.clone(),
+                title: Some("Title".to_string()),
+            }
+            .into(),
+        )
+        .unwrap();
 
-        let mut results = [false; 10];
+        let mut results = [false; 12];
 
         let get_visited_request = [
             // 0 blank
@@ -1841,11 +1862,13 @@ mod tests {
             (4, u2),
             // 5 blank
             // Note: url for 6 is not visited.
-            (6, Url::parse("https://www.example.com/1234").unwrap()),
+            (6, Url::parse("https://www.example.com/123456").unwrap()),
             // 7 blank
             // Note: dupe is allowed
             (8, u1),
             // 9 is blank
+            (10, u3),
+            (11, u4),
         ];
 
         get_visited_into(&conn, &get_visited_request, &mut results).unwrap();
@@ -1860,6 +1883,8 @@ mod tests {
             false, // 7
             true,  // 8
             false, // 9
+            true,  // 10
+            false, // 11
         ];
 
         assert_eq!(expect, results);

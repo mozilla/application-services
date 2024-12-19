@@ -6,6 +6,7 @@ Support a 'release-artifacts' key which automatically sets up the artifacts
 under 'public/build' and adds the corresponding attribute needed by downstream
 release tasks.
 """
+
 import os
 
 from taskgraph.transforms.base import TransformSequence
@@ -13,7 +14,6 @@ from taskgraph.transforms.task import task_description_schema
 from taskgraph.util.schema import Schema
 from taskgraph.util.workertypes import worker_type_implementation
 from voluptuous import Extra, Optional, Required
-
 
 transforms = TransformSequence()
 
@@ -35,7 +35,9 @@ def add_release_artifacts(config, tasks):
             yield task
             continue
 
-        release_artifacts = task.setdefault("attributes", {}).setdefault("release-artifacts", [])
+        release_artifacts = task.setdefault("attributes", {}).setdefault(
+            "release-artifacts", []
+        )
 
         impl, _ = worker_type_implementation(config.graph_config, task["worker-type"])
         if impl == "generic-worker":
