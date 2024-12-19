@@ -4,6 +4,7 @@
  */
 
 use error_support::{ErrorHandling, GetErrorHandling};
+use relevancy::RelevancyApiError;
 use remote_settings::RemoteSettingsError;
 
 /// A list of errors that are internal to the component. This is the error
@@ -25,6 +26,9 @@ pub enum Error {
 
     #[error("Error from Remote Settings: {0}")]
     RemoteSettings(#[from] RemoteSettingsError),
+
+    #[error("Relevancy error: {0}")]
+    Relevancy(#[from] RelevancyApiError),
 
     #[error("Remote settings record is missing an attachment (id: u64)")]
     MissingAttachment(String),

@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use relevancy::RelevancyStore;
+use relevancy::{RelevancyApiError, RelevancyStore};
 use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
 
 use serde::de::DeserializeOwned;
@@ -193,16 +193,21 @@ impl SuggestStore {
     /// Queries the database for suggestions.
     pub fn set_relevancy_store(&self, store: Arc<RelevancyStore>) {
         // TODO: remove unwrap
-        store.bandit_init("suggest".to_string(), &[
-            "amp".to_string(),
-            "pocket".to_string(),
-            "wikipedia".to_string(),
-            "amo".to_string(),
-            "yelp".to_string(),
-            "mdn".to_string(),
-            "fakespot".to_string(),
-            "weather".to_string(),
-        ]).unwrap();
+        store
+            .bandit_init(
+                "suggest".to_string(),
+                &[
+                    "amp".to_string(),
+                    "pocket".to_string(),
+                    "wikipedia".to_string(),
+                    "amo".to_string(),
+                    "yelp".to_string(),
+                    "mdn".to_string(),
+                    "fakespot".to_string(),
+                    "weather".to_string(),
+                ],
+            )
+            .unwrap();
         *self.inner.relevancy_store.lock() = Some(store)
     }
 
@@ -228,7 +233,9 @@ impl SuggestStore {
         suggestion: Suggestion,
         selected: bool,
     ) -> SuggestApiResult<()> {
-        Ok(self.inner.handle_sugestion_action(suggestion.name(), selected)?)
+        Ok(self
+            .inner
+            .handle_sugestion_action(suggestion.name(), selected)?)
     }
 
     /// Handle if a suggestion was selected or not
@@ -238,7 +245,15 @@ impl SuggestStore {
         suggestion_type: String,
         selected: bool,
     ) -> SuggestApiResult<()> {
-        Ok(self.inner.handle_sugestion_action(suggestion_type, selected)?)
+        Ok(self
+            .inner
+            .handle_sugestion_action(suggestion_type, selected)?)
+    }
+
+    // Returns data for a bandit-arm combination
+    #[handle_error(Error)]
+    pub fn retrieve_bandit_data(&self, bandit: String, arm: String) -> SuggestApiResult {
+        Ok(self.inner.retrieve_bandit_data(bandit, arm)?)
     }
 
     /// Dismiss a suggestion
@@ -468,13 +483,22 @@ impl<S> SuggestStoreInner<S> {
 
         let mut relevancy_store = self.relevancy_store.lock();
         if let Some(relevancy_store) = &mut *relevancy_store {
-            let mut suggestion_map: HashMap<String, &mut Suggestion> = suggestions.iter_mut()
+            let mut suggestion_map: HashMap<String, &mut Suggestion> = suggestions
+                .iter_mut()
                 .map(|s| (s.name(), s))
                 .filter(|(name, _)| name != "exposure")
                 .collect();
             // TODO: remove unwrap()
-            let choice = relevancy_store.bandit_select("suggest".to_string(), &suggestion_map.keys().cloned().collect::<Vec<_>>()).unwrap();
-            suggestion_map.get_mut(&choice).expect("we know the key is present").set_score(1.0);
+            let choice = relevancy_store
+                .bandit_select(
+                    "suggest".to_string(),
+                    &suggestion_map.keys().cloned().collect::<Vec<_>>(),
+                )
+                .unwrap();
+            suggestion_map
+                .get_mut(&choice)
+                .expect("we know the key is present")
+                .set_score(1.0);
         }
 
         // Note: it's important that this is a stable sort to keep the intra-provider order stable.
@@ -495,9 +519,21 @@ impl<S> SuggestStoreInner<S> {
         let mut relevancy_store = self.relevancy_store.lock();
         if let Some(relevancy_store) = &mut *relevancy_store {
             // TODO: remove unwrap
-            relevancy_store.bandit_update("suggest".to_string(), suggestion_type, selected).unwrap();
+            relevancy_store.bandit_update("suggest".to_string(), suggestion_type, selected)?;
         }
         Ok(())
+    }
+
+    pub fn retrieve_bandit_data(&self, bandit: String, arm: String) -> Result<BanditData> {
+        let mut relevancy_store = self.relevancy_store.lock();
+        if let Some(relevancy_store) = &mut *relevancy_store {
+            let bandit_data = relevancy_store.get_bandit_data(bandit, arm)?;
+            Ok(bandit_data)
+        } else {
+            Err(Error::Relevancy(RelevancyApiError::new(
+                "error retrieving bandit data",
+            )))
+        }
     }
 
     fn dismiss_suggestion(&self, suggestion_url: String) -> Result<()> {

@@ -67,6 +67,11 @@ enum Commands {
     BanditNotSelected {
         suggestion_type: String,
     },
+    // retrieve data for a bandit-arm combination
+    BanditRetrieve {
+        bandit: String,
+        arm: String,
+    },
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -121,11 +126,11 @@ fn main() -> Result<()> {
         Commands::Query { provider, input } => query(&store, provider, input, cli.verbose),
         Commands::BanditSelected { suggestion_type } => {
             store.handle_suggestion_type_action(suggestion_type, true)?;
-
         }
         Commands::BanditNotSelected { suggestion_type } => {
             store.handle_suggestion_type_action(suggestion_type, false)?;
         }
+        Commands::BanditRetrieve { bandit, arm } => store.retrieve_bandit_data(bandit, arm),
     };
     Ok(())
 }
