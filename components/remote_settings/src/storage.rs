@@ -181,7 +181,7 @@ impl Storage {
         &mut self,
         collection_url: &str,
         records: &[RemoteSettingsRecord],
-        timestamp: u64,
+        last_modified: u64,
         metadata: CollectionMetadata,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
@@ -200,7 +200,7 @@ impl Storage {
         )?;
 
         Self::update_record_rows(&tx, collection_url, records)?;
-        Self::update_collection_metadata(&tx, collection_url, timestamp, metadata)?;
+        Self::update_collection_metadata(&tx, collection_url, last_modified, metadata)?;
         tx.commit()?;
         Ok(())
     }
