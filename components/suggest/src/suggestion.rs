@@ -145,7 +145,8 @@ impl Suggestion {
             Self::Fakespot { .. } => "fakespot",
             Self::Weather { .. } => "weather",
             Self::Exposure { .. } => "exposure",
-        }.to_string()
+        }
+        .to_string()
     }
 
     /// Get the raw URL for this suggestion, if present

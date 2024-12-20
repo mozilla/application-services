@@ -112,6 +112,9 @@ impl RelevancyStore {
     /// which represents uniform distribution.
     #[handle_error(Error)]
     pub fn bandit_init(&self, bandit: String, arms: &[String]) -> ApiResult<()> {
+        if arms.is_empty() {
+            return Err(Error::ArmListEmpty);
+        }
         self.db.read_write(|dao| {
             for arm in arms {
                 dao.initialize_multi_armed_bandit(&bandit, arm)?;
@@ -133,7 +136,7 @@ impl RelevancyStore {
     pub fn bandit_select(&self, bandit: String, arms: &[String]) -> ApiResult<String> {
         let mut cache = self.cache.lock();
         let mut best_sample = f64::MIN;
-        let mut selected_arm = String::new();
+        let mut selected_arm = None;
 
         for arm in arms {
             let (alpha, beta) = cache.get_beta_distribution(&bandit, arm, &self.db)?;
@@ -146,11 +149,14 @@ impl RelevancyStore {
 
             if sampled_prob > best_sample {
                 best_sample = sampled_prob;
-                selected_arm.clone_from(arm);
+                selected_arm = Some(arm.clone());
             }
         }
 
-        return Ok(selected_arm);
+        match selected_arm {
+            Some(arm) => Ok(arm),
+            None => Err(Error::ArmListEmpty),
+        }
     }
 
     /// Updates the bandit model's arm data based on user interaction (selection or non-selection).
@@ -408,6 +414,24 @@ mod test {
             most_selected_arm_name, "weather",
             "Thompson Sampling did not favor the best-performing arm"
         );
+    }
+
+    // Test a fairly common scenario when using Bandits with Suggest.
+    //
+    // We have a set of suggestion providers, but for a given query there are no suggestions.  In
+    // this case, bandit_select should return an error.
+    #[test]
+    fn test_bandit_select_with_no_items() {
+        let relevancy_store = setup_store("bandit_select_with_no_items");
+        let bandit = "suggest".to_string();
+        // initialize bandit
+        relevancy_store
+            .bandit_init(
+                bandit.clone(),
+                &["wiki".to_string(), "amp".to_string(), "weather".to_string()],
+            )
+            .unwrap();
+        assert!(relevancy_store.bandit_select(bandit.clone(), &[]).is_err());
     }
 
     #[test]

@@ -45,6 +45,9 @@ pub enum Error {
 
     #[error("Error retrieving bandit data for bandit {bandit} and arm {arm}")]
     BanditNotFound { bandit: String, arm: String },
+
+    #[error("The arm list was empty")]
+    ArmListEmpty,
 }
 
 /// Result enum for the public API
