@@ -29,6 +29,7 @@ def calcVersion(buildconfig) {
 }
 
 gradle.projectsLoaded { ->
+    // XXX - the above probably needs to be upgraded to actually use "config"??
     // Wait until root project is "loaded" before we set "config"
     // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
     // gradle files. This means that they can just access "config.<value>", and it'll function properly

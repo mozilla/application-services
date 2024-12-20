@@ -2,8 +2,6 @@
 
 buildscript {
     ext.build = [
-        ndkVersion: "27.2.12479018", // Keep it in sync in TC Dockerfile.
-
         // In general, we should aim to keep these in sync with AC
         compileSdkVersion: 35,
         targetSdkVersion: 35,
