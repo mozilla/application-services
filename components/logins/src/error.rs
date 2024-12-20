@@ -21,8 +21,17 @@ pub enum LoginsApiError {
     #[error("No record with guid exists (when one was required): {reason:?}")]
     NoSuchRecord { reason: String },
 
-    #[error("Encryption key is in the correct format, but is not the correct key.")]
-    IncorrectKey,
+    #[error("Encryption key is missing.")]
+    MissingKey,
+
+    #[error("Encryption key is not valid.")]
+    InvalidKey,
+
+    #[error("encryption failed: {reason}")]
+    EncryptionFailed { reason: String },
+
+    #[error("decryption failed: {reason}")]
+    DecryptionFailed { reason: String },
 
     #[error("{reason}")]
     Interrupted { reason: String },
@@ -55,8 +64,11 @@ pub enum Error {
     #[error("The logins tables are not empty")]
     NonEmptyTable,
 
-    #[error("local encryption key not set")]
-    EncryptionKeyMissing,
+    #[error("encryption failed: {0:?}")]
+    EncryptionFailed(String),
+
+    #[error("decryption failed: {0:?}")]
+    DecryptionFailed(String),
 
     #[error("Error synchronizing: {0}")]
     SyncAdapterError(#[from] sync15::Error),
@@ -136,8 +148,6 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("logins-migration")
             }
-            Self::CryptoError { .. } => ErrorHandling::convert(LoginsApiError::IncorrectKey)
-                .report_error("logins-crypto-error"),
             Self::Interrupted(_) => ErrorHandling::convert(LoginsApiError::Interrupted {
                 reason: self.to_string(),
             }),
