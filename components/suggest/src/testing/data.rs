@@ -116,6 +116,7 @@ pub fn california_suggestion(full_keyword: &str) -> Suggestion {
         icon: Some("california-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: full_keyword.into(),
+        score: crate::db::DEFAULT_SUGGESTION_SCORE,
     }
 }
 
@@ -146,6 +147,7 @@ pub fn caltech_suggestion(full_keyword: &str) -> Suggestion {
         icon: Some("caltech-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: full_keyword.into(),
+        score: crate::db::DEFAULT_SUGGESTION_SCORE,
     }
 }
 
@@ -447,6 +449,7 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
         icon: Some("multimatch-wiki-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: "multimatch".into(),
+        score: crate::db::DEFAULT_SUGGESTION_SCORE,
     }
 }
 

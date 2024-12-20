@@ -20,7 +20,7 @@ pub mod url_hash;
 
 use rand_distr::{Beta, Distribution};
 
-pub use db::RelevancyDb;
+pub use db::{BanditData, RelevancyDb};
 pub use error::{ApiResult, Error, RelevancyApiError, Result};
 pub use interest::{Interest, InterestVector};
 use parking_lot::Mutex;
@@ -28,7 +28,6 @@ pub use ranker::score;
 
 use error_support::handle_error;
 
-use db::BanditData;
 use std::collections::HashMap;
 
 uniffi::setup_scaffolding!();

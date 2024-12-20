@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use relevancy::RelevancyStore;
+use relevancy::{BanditData, RelevancyStore};
 use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
 
 use serde::de::DeserializeOwned;
@@ -237,7 +237,7 @@ impl SuggestStore {
 
     // Returns data for a bandit-arm combination
     #[handle_error(Error)]
-    pub fn retrieve_bandit_data(&self, bandit: String, arm: String) -> SuggestApiResult {
+    pub fn retrieve_bandit_data(&self, bandit: String, arm: String) -> SuggestApiResult<BanditData> {
         Ok(self.inner.retrieve_bandit_data(bandit, arm)?)
     }
 
@@ -532,9 +532,10 @@ impl<S> SuggestStoreInner<S> {
             let bandit_data = relevancy_store.get_bandit_data(bandit, arm)?;
             Ok(bandit_data)
         } else {
-            Err(Error::Relevancy(RelevancyApiError::new(
-                "error retrieving bandit data",
-            )))
+            todo!()
+            // Err(Error::Relevancy(RelevancyApiError::new(
+            //     "error retrieving bandit data",
+            // )))
         }
     }
 

@@ -5,8 +5,6 @@
 
 use chrono::Local;
 
-use crate::db::DEFAULT_SUGGESTION_SCORE;
-
 /// The template parameter for a timestamp in a "raw" sponsored suggestion URL.
 const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
 
