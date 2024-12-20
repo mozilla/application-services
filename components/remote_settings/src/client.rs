@@ -151,7 +151,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                 .get_last_modified_timestamp(&collection_url)?
                 .unwrap_or(0);
             if packaged_data.timestamp > cached_timestamp {
-                // Remove previously cached data (packaged data does not have tombstones).
+                // Remove previously cached data (packaged data does not have tombstones like diff responses do).
                 inner.storage.empty()?;
                 // Insert new packaged data.
                 inner.storage.insert_collection_content(
@@ -738,6 +738,7 @@ pub struct CollectionMetadata {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 pub struct CollectionSignature {
     pub signature: String,
+    /// X.509 certificate chain Url (x5u)
     pub x5u: String,
 }
 
@@ -747,6 +748,7 @@ pub struct CollectionSignature {
 pub struct RemoteSettingsRecord {
     pub id: String,
     pub last_modified: u64,
+    /// Tombstone flag (see https://remote-settings.readthedocs.io/en/latest/client-specifications.html#local-state)
     #[serde(default)]
     pub deleted: bool,
     pub attachment: Option<Attachment>,
