@@ -5,15 +5,14 @@ apply plugin: 'kotlin-android'
 android {
     namespace 'org.mozilla.appservices.full_megazord'
 
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
     defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+        ndkVersion config.ndkVersion
+        compileSdkVersion config.compileSdkVersion
+        minSdkVersion config.minSdkVersion
+        targetSdkVersion config.targetSdkVersion
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
     buildTypes {
@@ -29,7 +28,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
+    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
@@ -104,7 +103,7 @@ cargo {
     module = '..'
 
     // The Android NDK API level to target.
-    apiLevel = rootProject.ext.build['minSdkVersion']
+    apiLevel = rootProject.config.minSdkVersion
 
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
@@ -122,7 +121,7 @@ cargo {
     exec = { spec, toolchain ->
         rootProject.ext.cargoExec(spec, toolchain)
         // Only used in the full megazord (that is, in this project) at build time.
-        spec.environment("MEGAZORD_VERSION", rootProject.ext.library.version)
+        spec.environment("MEGAZORD_VERSION", config.componentsVersion)
     }
 
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
@@ -159,11 +158,11 @@ afterEvaluate {
                     extension "LICENSES.md"
                 }
                 pom {
-                    groupId = rootProject.ext.library.groupId
+                    groupId = rootProject.config.componentsGroupId
                     artifactId = "${project.ext.artifactId}-libsForTests"
                     description = project.ext.description
                     // For mavenLocal publishing workflow, increment the version number every publish.
-                    version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                    version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
                     packaging = "jar"
 
                     licenses {

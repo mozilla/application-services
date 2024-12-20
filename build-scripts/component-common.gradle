@@ -12,15 +12,15 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
     defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+        ndkVersion config.ndkVersion
+        compileSdkVersion config.compileSdkVersion
+
+        minSdkVersion config.minSdkVersion
+        targetSdkVersion config.targetSdkVersion
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
     buildTypes {
@@ -39,7 +39,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
+    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 dependencies {
