@@ -73,8 +73,7 @@ enum Commands {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
     env_logger::init_from_env(env_logger::Env::default().filter_or(
         "RUST_LOG",
@@ -94,7 +93,8 @@ async fn main() -> Result<()> {
         } => get_records(service, collection, sync_if_empty),
         Commands::DumpSync { path, dry_run } => {
             let downloader = CollectionDownloader::new(path);
-            downloader.run(dry_run).await
+            let runtime = tokio::runtime::Runtime::new()?;
+            runtime.block_on(downloader.run(dry_run))
         }
         Commands::DumpGet {
             bucket,
@@ -102,7 +102,8 @@ async fn main() -> Result<()> {
             path,
         } => {
             let downloader = CollectionDownloader::new(path);
-            downloader.download_single(&bucket, &collection_name).await
+            let runtime = tokio::runtime::Runtime::new()?;
+            runtime.block_on(downloader.download_single(&bucket, &collection_name))
         }
     }
 }
