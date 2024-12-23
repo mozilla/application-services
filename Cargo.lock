@@ -4150,6 +4150,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sql-support",
  "thiserror 1.0.31",
  "uniffi",
  "url",
