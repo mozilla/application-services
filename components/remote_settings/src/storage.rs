@@ -2,11 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{Attachment, RemoteSettingsRecord, Result};
 use camino::Utf8PathBuf;
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
 use serde_json;
 use sha2::{Digest, Sha256};
+
+use sql_support::{open_database::open_database_with_flags, ConnExt};
+
+use crate::{
+    schema::RemoteSettingsConnectionInitializer, Attachment, RemoteSettingsRecord, Result,
+};
 
 /// Internal storage type
 ///
@@ -27,35 +32,12 @@ pub struct Storage {
 
 impl Storage {
     pub fn new(path: Utf8PathBuf) -> Result<Self> {
-        let conn = Connection::open(path)?;
-        let storage = Self { conn };
-        storage.initialize_database()?;
-
-        Ok(storage)
-    }
-
-    // Create the different tables for records and attachements for every new sqlite path
-    fn initialize_database(&self) -> Result<()> {
-        self.conn.execute_batch(
-            "
-        CREATE TABLE IF NOT EXISTS records (
-            id TEXT PRIMARY KEY,
-            collection_url TEXT NOT NULL,
-            data BLOB NOT NULL
-        );
-       CREATE TABLE IF NOT EXISTS attachments (
-            id TEXT PRIMARY KEY,
-            collection_url TEXT NOT NULL,
-            data BLOB NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS collection_metadata (
-            collection_url TEXT PRIMARY KEY,
-            last_modified INTEGER,
-            fetched BOOLEAN
-        );
-        ",
+        let conn = open_database_with_flags(
+            path,
+            OpenFlags::default(),
+            &RemoteSettingsConnectionInitializer,
         )?;
-        Ok(())
+        Ok(Self { conn })
     }
 
     /// Get the last modified timestamp for the stored records
@@ -82,23 +64,21 @@ impl Storage {
     ) -> Result<Option<Vec<RemoteSettingsRecord>>> {
         let tx = self.conn.transaction()?;
 
-        let fetched: Option<bool> = tx
-            .prepare("SELECT fetched FROM collection_metadata WHERE collection_url = ?")?
-            .query_row(params![collection_url], |row| row.get(0))
-            .optional()?;
+        let fetched = tx.exists(
+            "SELECT 1 FROM collection_metadata WHERE collection_url = ?",
+            (collection_url,),
+        )?;
+        let result = if fetched {
+            // If fetched before, get the records from the records table
+            let records: Vec<RemoteSettingsRecord> = tx
+                .prepare("SELECT data FROM records WHERE collection_url = ?")?
+                .query_map(params![collection_url], |row| row.get::<_, Vec<u8>>(0))?
+                .map(|data| serde_json::from_slice(&data.unwrap()).unwrap())
+                .collect();
 
-        let result = match fetched {
-            Some(true) => {
-                // If fetched before, get the records from the records table
-                let records: Vec<RemoteSettingsRecord> = tx
-                    .prepare("SELECT data FROM records WHERE collection_url = ?")?
-                    .query_map(params![collection_url], |row| row.get::<_, Vec<u8>>(0))?
-                    .map(|data| serde_json::from_slice(&data.unwrap()).unwrap())
-                    .collect();
-
-                Ok(Some(records))
-            }
-            _ => Ok(None),
+            Ok(Some(records))
+        } else {
+            Ok(None)
         };
 
         tx.commit()?;
@@ -220,10 +200,9 @@ impl Storage {
         last_modified: u64,
     ) -> Result<()> {
         // Update the metadata
-        let fetched = true;
         tx.execute(
-            "INSERT OR REPLACE INTO collection_metadata (collection_url, last_modified, fetched) VALUES (?, ?, ?)",
-            (collection_url, last_modified, fetched),
+            "INSERT OR REPLACE INTO collection_metadata (collection_url, last_modified) VALUES (?, ?)",
+            (collection_url, last_modified),
         )?;
         Ok(())
     }

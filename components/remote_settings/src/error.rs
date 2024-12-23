@@ -25,6 +25,8 @@ pub enum RemoteSettingsError {
 /// Internal error class, this is what we use inside this crate
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Error opening database: {0}")]
+    OpenDatabase(#[from] sql_support::open_database::Error),
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
     #[error("Error writing downloaded attachment: {0}")]
