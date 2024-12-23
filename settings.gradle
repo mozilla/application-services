@@ -3,7 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import org.yaml.snakeyaml.Yaml
 
-includeBuild('tools/nimbus-gradle-plugin') {
+// We prefer `appServicesRootDir` over `rootDir` to help us on the path to the monorepo.
+// (They are the same in app-services but different in moz-central)
+def maybeAppServicesRootDir = new File(rootDir, "services/app-services")
+def appServicesRootDir = maybeAppServicesRootDir.isDirectory() ? maybeAppServicesRootDir : rootDir;
+
+
+includeBuild("$appServicesRootDir/tools/nimbus-gradle-plugin") {
     dependencySubstitution {
         substitute module("org.mozilla.appservices:tooling-nimbus-gradle") using(project(':'))
     }
@@ -20,7 +26,7 @@ buildscript {
 
 rootProject.name = "appservices"
 
-def setupProject(name, projectProps) {
+def setupProject(name, projectProps, appServicesRootDir) {
     def path = projectProps.path
     def description = projectProps.description
     def artifactId = projectProps.artifactId
@@ -32,7 +38,7 @@ def setupProject(name, projectProps) {
 
     settings.include(":$name")
 
-    project(":$name").projectDir = new File(rootDir, path)
+    project(":$name").projectDir = new File(appServicesRootDir, path)
 
     // project(...) gives us a skeleton project that we can't set ext.* on
     gradle.beforeProject { project ->
@@ -43,14 +49,15 @@ def setupProject(name, projectProps) {
             project.ext.artifactId = artifactId
             // Expose the rest of the project properties, mostly for validation reasons.
             project.ext.configProps = projectProps
+            project.ext.appServicesRootDir = appServicesRootDir
         }
     }
 }
 
 def yaml = new Yaml()
-def buildconfig = yaml.load(new File(rootDir, '.buildconfig-android.yml').newInputStream())
+def buildconfig = yaml.load(new File(appServicesRootDir, '.buildconfig-android.yml').newInputStream())
 buildconfig.projects.each { project ->
-    setupProject(project.key, project.value)
+    setupProject(project.key, project.value, appServicesRootDir)
 }
 
 Properties localProperties = new Properties();
@@ -66,14 +73,20 @@ if (file('local.properties').canRead()) {
 
 def calcVersion(buildconfig) {
     def local = gradle.rootProject.findProperty("local")
-    def version = new File(rootDir, 'version.txt').getText().trim()
 
-    if (gradle.rootProject.hasProperty("nightlyVersion")) {
+    if (gradle.hasProperty("mozconfig")) {
+        // We are in m-c - XXX - not clear what we want for version info once in m-c, but this seems sane for now?
+        def buildid = file("${gradle.mozconfig.topobjdir}/buildid.h").getText('utf-8').split()[2]
+        return "${gradle.mozconfig.substs.MOZ_APP_VERSION}-${buildid}"
+    } else if (gradle.rootProject.hasProperty("nightlyVersion")) {
+        // We are in app-services but building a "nightly" version to be consumed by Fenix.
         return gradle.rootProject.nightlyVersion
     } else if(local) {
+        // We are doing a local publish
         return '0.0.1-SNAPSHOT'
     } else {
-        return version
+        // A normal build from app-services.
+        return new File(rootDir, 'version.txt').getText().trim()
     }
 }
 
