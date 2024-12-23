@@ -101,6 +101,11 @@ ext.configureUniFFIBindgen = { crateName ->
 
     // Call `uniffi-bindgen` to generate the Kotlin bindings
     def generateUniffiBindings = tasks.register("generateUniffiBindings") {
+        if (gradle.hasProperty("mozconfig")) {
+            println("XXX - generateUniffiBindings for crate '$crateName' has been disabled while we work out the monorepo.")
+            println("XXX - this will cause kotlin compilation errors as it tries to find symbols in the uniffi generated code.")
+            return
+        }
         def megazordNative = configurations.getByName("megazordNative")
         doFirst {
             def libraryPath = megazordNative.asFileTree.matching {
@@ -130,7 +135,9 @@ ext.configureUniFFIBindgen = { crateName ->
             def compileTask = tasks["compile${variantName}Kotlin"]
 
             compileTask.dependsOn(generateUniffiBindings)
-            variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
+            if (!gradle.hasProperty("mozconfig")) { // XXX - needs uniffi-bindgen love in m-c
+                variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
+            }
         }
     }
 }
