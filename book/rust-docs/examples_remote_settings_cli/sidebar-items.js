@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_LOG_FILTER","DEFAULT_LOG_FILTER_VERBOSE"],"enum":["Commands","RemoteSettingsServerArg"],"fn":["build_service","get_records","main","sync"],"struct":["Cli"]};
