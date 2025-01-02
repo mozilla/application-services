@@ -111,7 +111,7 @@ impl Storage {
         result
     }
 
-    /// Get cached content for this collection
+    /// Get cached metadata for this collection
     ///
     /// Returns None if no data is stored or if `collection_url` does not match the `collection_url` passed
     /// to `insert_collection_content`.
@@ -854,7 +854,7 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_storage_get_collection_content() -> Result<()> {
+    fn test_storage_get_collection_metadata() -> Result<()> {
         let mut storage = Storage::new(":memory:".into())?;
 
         let collection_url = "https://example.com/api";
