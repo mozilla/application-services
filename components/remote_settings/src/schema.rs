@@ -27,10 +27,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     data BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS collection_metadata (
     collection_url TEXT PRIMARY KEY,
-    last_modified INTEGER,
-    bucket TEXT,
-    signature TEXT,
-    x5u TEXT);
+    last_modified INTEGER, bucket TEXT, signature TEXT, x5u TEXT);
 "#;
 
 /// Initializes an SQLite connection to the Remote Settings database, performing
