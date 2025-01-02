@@ -12,6 +12,9 @@
 
 [Full Changelog](In progress)
 
+### `rc_crypto`
+- New low level bindings for functions for key generation with persistence, for listing persisted keys, and for wrapping and unwrapping to get at the key material of stored keys.
+
 ## 🦊 What's Changed 🦊
 
 ### Glean
