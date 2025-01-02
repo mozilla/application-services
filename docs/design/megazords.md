@@ -57,11 +57,12 @@ the name of the component and the expected version number of the shared library.
 
 ## Unit Tests
 
-The full-megazord AAR contains compiled rust code that targets various Android platforms, and is not
+The full-megazord AAR contains compiled Rust code that targets various Android platforms, and is not
 suitable for running on a Desktop development machine. In order to support integration with unittest
-suites such as robolectric, each megazord has a corresponding Java ARchive (JAR) distribution named e.g.
-`full-megazord-forUnitTests.jar`. This contains the rust code compiled for various Desktop architectures,
-and consumers can add it to their classpath when running tests on a Desktop machine.
+suites such as robolectric, each Megazord has a corresponding Java ARchive (JAR) distribution named
+e.g. `full-megazord-libsForTests.jar`. This contains the compiled Megazord code as well as
+libjnidispatch, targetted at various Desktop architectures. Consumers can add it to their classpath
+when running tests on a Desktop machine.
 
 
 ## Gotchas and Rough Edges

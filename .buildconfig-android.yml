@@ -127,7 +127,7 @@ projects:
     publications:
     - name: full-megazord
       type: aar
-    - name: full-megazord-forUnitTests
+    - name: full-megazord-libsForTests
       type: jar
     description: Megazord containing all features
   tooling-nimbus-gradle:
