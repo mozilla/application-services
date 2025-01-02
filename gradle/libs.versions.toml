@@ -38,7 +38,7 @@ androidx-test-runner = "1.6.1"
 androidx-test-work = "2.9.1"
 
 # Third Party Testing
-junit = "5.11.3"
+junit = "5.11.4"
 mockito = "5.14.2"
 robolectric = "4.14.1"
 
