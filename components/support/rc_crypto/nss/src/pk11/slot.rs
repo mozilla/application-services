@@ -22,3 +22,11 @@ pub fn generate_random(data: &mut [u8]) -> Result<()> {
 pub(crate) fn get_internal_slot() -> Result<Slot> {
     unsafe { Slot::from_ptr(nss_sys::PK11_GetInternalSlot()) }
 }
+
+/// Safe wrapper around `PK11_GetInternalKeySlot` that
+/// de-allocates memory when the slot goes out of
+/// scope.
+#[cfg(feature = "keydb")]
+pub(crate) fn get_internal_key_slot() -> Result<Slot> {
+    unsafe { Slot::from_ptr(nss_sys::PK11_GetInternalKeySlot()) }
+}

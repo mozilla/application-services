@@ -14,6 +14,7 @@
 
 ### `rc_crypto`
 - New low level bindings for functions for key generation with persistence, for listing persisted keys, and for wrapping and unwrapping to get at the key material of stored keys.
+- new feature `keydb` which enables key persistence via `nss::ensure_initialized_with_profile_dir`
 
 ## 🦊 What's Changed 🦊
 
