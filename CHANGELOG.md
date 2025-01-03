@@ -2,6 +2,11 @@
 
 ### `rc_crypto`
 - New low level bindings for dealing with primary password.
+- New feature flag `keydb` in `rc_crypto/nss`, which enables NSS key persistence: `ensure_initialized_with_profile_dir(path: impl AsRef<Path>)` initializes NSS with a profile directory and appropriate flags to persist keys (and certificates) in its internal PKCS11 software implementation. This function must be called first; if `ensure_initialized` is called before, it will fail.
+- New methods for dealing with primary password and key persistence, available within the `keydb` feature:
+  * `authentication_with_primary_password_is_needed()`: checks whether a primary password is set and needs to be authenticated
+  * `authenticate_with_primary_password(primary_password: &str)`: method for authenticate NSS key store against a user-provided primary password
+  * `get_or_create_aes256_key(name: &str)`: retrieve a key by `name` from the internal NSS key store. If none exists, create one, persist, and return.
 
 ### Remote Settings
 - Added support of content signatures verification ([#6534](https://github.com/mozilla/application-services/pull/6534))

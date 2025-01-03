@@ -4,8 +4,8 @@
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
-    #[error("NSS could not be initialized")]
-    NSSInitFailure,
+    #[error("NSS could not be initialized: {0}")]
+    NSSInitFailure(String),
     #[error("NSS error: {0} {1}")]
     NSSError(i32, String),
     #[error("SSL error: {0} {1}")]
@@ -16,6 +16,10 @@ pub enum ErrorKind {
     InputError(String),
     #[error("Internal crypto error")]
     InternalError,
+    #[error("invalid key length")]
+    InvalidKeyLength,
+    #[error("Interior nul byte was found")]
+    NulError,
     #[error("Conversion error: {0}")]
     ConversionError(#[from] std::num::TryFromIntError),
     #[error("Base64 decode error: {0}")]

@@ -3234,6 +3234,7 @@ dependencies = [
  "base64 0.21.2",
  "error-support",
  "nss_sys",
+ "once_cell",
  "serde",
  "serde_derive",
  "thiserror 1.0.31",
