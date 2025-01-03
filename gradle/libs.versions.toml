@@ -34,12 +34,12 @@ ktlint = "0.50.0"
 androidx-test-core = "1.6.1"
 androidx-test-espresso = "3.6.1"
 androidx-test-junit = "1.2.1"
-androidx-test-runner = "1.6.1"
-androidx-test-work = "2.9.1"
+androidx-test-runner = "1.6.2"
+androidx-test-work = "2.10.0"
 
 # Third Party Testing
-junit = "5.11.3"
-mockito = "5.14.2"
+junit = "5.11.4"
+mockito = "5.15.2"
 robolectric = "4.14.1"
 
 # Miscellaneous Gradle plugins
