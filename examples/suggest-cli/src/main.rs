@@ -50,6 +50,8 @@ enum Commands {
     },
     /// Query against ingested data
     Query {
+        #[arg(long, action)]
+        fts_match_info: bool,
         #[clap(long, short)]
         provider: Option<SuggestionProviderArg>,
         /// Input to search
@@ -103,7 +105,11 @@ fn main() -> Result<()> {
             reingest,
             providers,
         } => ingest(&store, reingest, providers, cli.verbose),
-        Commands::Query { provider, input } => query(&store, provider, input, cli.verbose),
+        Commands::Query {
+            provider,
+            input,
+            fts_match_info,
+        } => query(&store, provider, input, fts_match_info, cli.verbose),
     };
     Ok(())
 }
@@ -178,6 +184,7 @@ fn query(
     store: &SuggestStore,
     provider: Option<SuggestionProviderArg>,
     input: String,
+    fts_match_info: bool,
     verbose: bool,
 ) {
     let query = SuggestionQuery {
@@ -195,6 +202,7 @@ fn query(
         print_header("No Results");
     } else {
         print_header("Results");
+        let count = results.suggestions.len();
         for suggestion in results.suggestions {
             let title = suggestion.title();
             let url = suggestion.url().unwrap_or("[no-url]");
@@ -203,7 +211,16 @@ fn query(
             } else {
                 "no icon"
             };
-            println!("{title} ({url}) ({icon})");
+            println!("* {title} ({url}) ({icon})");
+            if fts_match_info {
+                if let Some(match_info) = suggestion.fts_match_info() {
+                    println!("   {match_info:?}")
+                } else {
+                    println!("   <no match info>");
+                }
+                println!("+ {} other sugestions", count - 1);
+                break;
+            }
         }
     }
     if verbose {
