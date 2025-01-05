@@ -9,6 +9,9 @@ extern "C" {
     pub fn PK11_FreeSlot(slot: *mut PK11SlotInfo);
     pub fn PK11_GetInternalSlot() -> *mut PK11SlotInfo;
     pub fn PK11_GetInternalKeySlot() -> *mut PK11SlotInfo;
+    pub fn PK11_NeedUserInit(slot: *mut PK11SlotInfo) -> PRBool;
+    pub fn PK11_NeedLogin(slot: *mut PK11SlotInfo) -> PRBool;
+    pub fn PK11_CheckUserPassword(slot: *mut PK11SlotInfo, password: *const c_char) -> SECStatus;
     pub fn PK11_GenerateRandom(data: *mut c_uchar, len: c_int) -> SECStatus;
     pub fn PK11_FreeSymKey(key: *mut PK11SymKey);
     pub fn PK11_InitPin(
@@ -41,6 +44,7 @@ extern "C" {
         isPerm: PRBool,
         wincx: *mut c_void,
     ) -> *mut PK11SymKey;
+    pub fn PK11_SetSymKeyNickname(key: *mut PK11SymKey, name: *const c_char) -> SECStatus;
     pub fn PK11_Derive(
         baseKey: *mut PK11SymKey,
         mechanism: CK_MECHANISM_TYPE,

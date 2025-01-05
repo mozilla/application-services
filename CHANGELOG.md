@@ -1,5 +1,8 @@
 # v136.0 (In progress)
 
+### `rc_crypto`
+- New low level bindings for dealing with primary password.
+
 [Full Changelog](In progress)
 
 # v135.0 (_2025-01-06_)
