@@ -15,6 +15,9 @@ use sync15::Error as Sync15Error;
 // Errors we return via the public interface.
 #[derive(Debug, thiserror::Error)]
 pub enum LoginsApiError {
+    #[error("NSS initialization failed: {reason}")]
+    NSSInitializationFailed { reason: String },
+
     #[error("Invalid login: {reason}")]
     InvalidRecord { reason: String },
 
