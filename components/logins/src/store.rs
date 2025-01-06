@@ -197,12 +197,14 @@ impl LoginStore {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
     use more_asserts::*;
+    use nss::ensure_initialized;
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
@@ -332,6 +334,7 @@ mod test {
 
     #[test]
     fn test_sync_manager_registration() {
+        ensure_initialized();
         let store = Arc::new(LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap());
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);

@@ -22,7 +22,7 @@ pub fn initialize() {
     ensure_nss_initialized();
 }
 
-/// Global initialization routines for Rust components, when `keydb` feature is activated. Must be
+/// Global initialization routines for Rust components, when `logins/keydb` feature is activated. Must be
 /// called before any other calls to Rust components.
 ///
 /// Receives the path to the profile directory.

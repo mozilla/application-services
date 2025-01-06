@@ -215,6 +215,7 @@ where
     Ok(i64::deserialize(deserializer).unwrap_or_default().max(0))
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
     use super::*;
