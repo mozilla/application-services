@@ -51,6 +51,20 @@
 use crate::error::*;
 use std::sync::Arc;
 
+#[cfg(feature = "keydb")]
+use futures::executor::block_on;
+
+#[cfg(feature = "keydb")]
+use async_trait::async_trait;
+
+#[cfg(feature = "keydb")]
+use nss::assert_initialized as assert_nss_initialized;
+#[cfg(feature = "keydb")]
+use nss::pk11::sym_key::{
+    authenticate_with_primary_password, authentication_with_primary_password_is_needed,
+    get_or_create_aes256_key,
+};
+
 /// This is the generic EncryptorDecryptor trait, as handed over to the Store during initialization.
 /// Consumers can implement either this generic trait and bring in their own crypto, or leverage the
 /// ManagedEncryptorDecryptor below, which provides encryption algorithms out of the box.
@@ -160,6 +174,136 @@ impl KeyManager for StaticKeyManager {
     }
 }
 
+/// `PrimaryPasswordAuthenticator` is used in conjunction with `NSSKeyManager` to provide the
+/// primary password and the success or failure actions of the authentication process.
+#[cfg(feature = "keydb")]
+#[uniffi::export(with_foreign)]
+#[async_trait]
+pub trait PrimaryPasswordAuthenticator: Send + Sync {
+    /// Get a primary password for authentication, otherwise return the
+    /// AuthenticationCancelled error to cancel the authentication process.
+    async fn get_primary_password(&self) -> ApiResult<String>;
+    fn on_authentication_success(&self);
+    fn on_authentication_failure(&self);
+}
+
+/// Use the `NSSKeyManager` to use NSS for key management.
+///
+/// NSS stores keys in `key4.db` within the profile and wraps the key with a key derived from the
+/// primary password, if set. It defers to the provided `PrimaryPasswordAuthenticator`
+/// implementation to handle user authentication.  Note that if no primary password is set, the
+/// wrapping key is deterministically derived from an empty string.
+///
+/// Make sure to initialize NSS using `ensure_initialized_with_profile_dir` before creating a
+/// NSSKeyManager.
+///
+/// # Examples
+/// ```no_run
+/// use std::sync::Arc;
+/// use async_trait::async_trait;
+/// use logins::{PrimaryPasswordAuthenticator, LoginsApiError, NSSKeyManager};
+/// use logins::encryption::KeyManager;
+///
+/// struct MyPrimaryPasswordAuthenticator {}
+///
+/// #[async_trait]
+/// impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
+///     async fn get_primary_password(&self) -> Result<String, LoginsApiError> {
+///         // Most likely, you would want to prompt for a password.
+///         // let password = prompt_string("primary password").unwrap_or_default();
+///         Ok("secret".to_string())
+///     }
+///
+///     fn on_authentication_success(&self) {
+///         println!("success");
+///     }
+///
+///     fn on_authentication_failure(&self) {
+///         println!("this did not work, please try again:");
+///     }
+/// }
+/// let key_manager = NSSKeyManager::new(Arc::new(MyPrimaryPasswordAuthenticator {}));
+/// assert_eq!(key_manager.get_key().unwrap().len(), 63);
+/// ```
+#[cfg(feature = "keydb")]
+#[derive(uniffi::Object)]
+pub struct NSSKeyManager {
+    primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+}
+
+#[cfg(feature = "keydb")]
+impl NSSKeyManager {
+    /// Initialize new `NSSKeyManager` with a given `PrimaryPasswordAuthenticator`.
+    /// There must be a previous initializiation of NSS before initializing
+    /// `NSSKeyManager`, otherwise this panics.
+    pub fn new(primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
+        assert_nss_initialized();
+        Self {
+            primary_password_authenticator,
+        }
+    }
+}
+
+/// Identifier for the logins key, under which the key is stored in NSS.
+#[cfg(feature = "keydb")]
+static KEY_NAME: &str = "as-logins-key";
+
+// wrapp `authentication_with_primary_password_is_needed` into an ApiResult
+#[cfg(feature = "keydb")]
+fn api_authentication_with_primary_password_is_needed() -> ApiResult<bool> {
+    authentication_with_primary_password_is_needed().map_err(|e: nss::Error| {
+        LoginsApiError::NSSAuthenticationError {
+            reason: e.to_string(),
+        }
+    })
+}
+
+// wrapp `authenticate_with_primary_password` into an ApiResult
+#[cfg(feature = "keydb")]
+fn api_authenticate_with_primary_password(primary_password: &str) -> ApiResult<bool> {
+    authenticate_with_primary_password(primary_password).map_err(|e: nss::Error| {
+        LoginsApiError::NSSAuthenticationError {
+            reason: e.to_string(),
+        }
+    })
+}
+
+#[cfg(feature = "keydb")]
+impl KeyManager for NSSKeyManager {
+    fn get_key(&self) -> ApiResult<Vec<u8>> {
+        if api_authentication_with_primary_password_is_needed()? {
+            let primary_password =
+                block_on(self.primary_password_authenticator.get_primary_password())?;
+            let mut result = api_authenticate_with_primary_password(&primary_password)?;
+
+            if result {
+                self.primary_password_authenticator
+                    .on_authentication_success();
+            } else {
+                while !result {
+                    self.primary_password_authenticator
+                        .on_authentication_failure();
+
+                    let primary_password =
+                        block_on(self.primary_password_authenticator.get_primary_password())?;
+                    result = api_authenticate_with_primary_password(&primary_password)?;
+                }
+                self.primary_password_authenticator
+                    .on_authentication_success();
+            }
+        }
+
+        let key = get_or_create_aes256_key(KEY_NAME).expect("Could not get or create key via NSS");
+        let mut bytes: Vec<u8> = Vec::new();
+        serde_json::to_writer(
+            &mut bytes,
+            &jwcrypto::Jwk::new_direct_from_bytes(None, &key),
+        )
+        .unwrap();
+        Ok(bytes)
+    }
+}
+
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
     jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)
@@ -197,6 +341,7 @@ pub mod test_utils {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -291,5 +436,54 @@ mod test {
             check_canary(&canary, CANARY_TEXT, &bad_key).err().unwrap(),
             LoginsApiError::InvalidKey
         ));
+    }
+}
+
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod keydb_test {
+    use super::*;
+    use nss::ensure_initialized_with_profile_dir;
+    use std::path::PathBuf;
+
+    struct MockPrimaryPasswordAuthenticator {
+        password: String,
+    }
+
+    #[async_trait]
+    impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
+        async fn get_primary_password(&self) -> ApiResult<String> {
+            Ok(self.password.clone())
+        }
+        fn on_authentication_success(&self) {}
+        fn on_authentication_failure(&self) {}
+    }
+
+    fn profile_path() -> PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+    }
+
+    #[test]
+    fn test_ensure_initialized_with_profile_dir() {
+        ensure_initialized_with_profile_dir(profile_path());
+    }
+
+    #[test]
+    fn test_create_key() {
+        ensure_initialized_with_profile_dir(profile_path());
+        let key = create_key().unwrap();
+        assert_eq!(key.len(), 63)
+    }
+
+    #[test]
+    fn test_nss_key_manager() {
+        ensure_initialized_with_profile_dir(profile_path());
+        let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
+            password: "password".to_string(),
+        };
+        let nss_key_manager = NSSKeyManager {
+            primary_password_authenticator: Arc::new(mock_primary_password_authenticator),
+        };
+        assert_eq!(nss_key_manager.get_key().unwrap().len(), 63)
     }
 }

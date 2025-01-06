@@ -80,6 +80,7 @@ impl LocalLogin {
 
     // Only used by tests where we want to get the "raw" record - ie, a tombstone will still
     // be returned here, just with many otherwise invalid empty fields
+    #[cfg(not(feature = "keydb"))]
     #[cfg(test)]
     pub(crate) fn test_raw_from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
         EncryptedLogin::from_row(row)
@@ -377,13 +378,16 @@ impl EncryptedLogin {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
+    use nss::ensure_initialized;
 
     #[test]
     fn test_invalid_payload_timestamps() {
+        ensure_initialized();
         #[allow(clippy::unreadable_literal)]
         let bad_timestamp = 18446732429235952000u64;
         let bad_payload = IncomingBso::from_test_content(serde_json::json!({

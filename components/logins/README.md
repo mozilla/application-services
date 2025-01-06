@@ -91,7 +91,28 @@ To effectively work on the Logins component, you will need to be familiar with:
 
 Logins implements encrypted storage for login records on top of a consumer
 implemented EncryptorDecryptor, or via ManagedEncryptorDecryptor, using NSS
-based crypto algorithms (AES256-GCM). The storage schema is based on the one
+based crypto algorithms (AES256-GCM).
+
+The `EncryptorDecryptor` trait defines an interface for encrypting and decrypting data. It allows consumers to either implement their own encryption mechanism or use the built in functionality provided by the component.
+- **Implementations**:
+  The component provides a default implementation in the form of `ManagedEncryptorDecryptor`, which leverages NSS for encryption/decryption. This implementation delegates key retrieval to a `KeyManager`.
+
+The `KeyManager` trait abstracts the process of obtaining an encryption key. This allows encryption to be decoupled from the specifics of key storage or generation.
+- **Implementations**:
+    - `StaticKeyManager`, which is used in contexts where the key is fixed during runtime (e.g. in tests).
+    - `NSSKeyManager`, which uses this trait to dynamically obtain keys that may be wrapped with user-provided credentials.
+
+The `NSSKeyManager` is responsible for managing encryption keys via NSS. Its responsibilities include:
+- Checking if primary password authentication is needed.
+- Coordinating with `PrimaryPasswordAuthenticator` to obtain the primary password when required.
+- Retrieving or creating an AES-256 key that is wrapped with the primary password if one is set.
+- Serializing the key into a JSON format for use by encryption and decryption routines.
+
+The `PrimaryPasswordAuthenticator` is a foreign trait that is used to supply the primary password necessary for unlocking the NSS key database.
+
+See the header comment in [`src/encryption.rs`](./src/encryption.rs) for a more detailed explanation of encryption options and key management in the logins component.
+
+The storage schema is based on the one
 originally used in [Firefox for
 iOS](https://github.com/mozilla-mobile/firefox-ios/blob/faa6a2839abf4da2c54ff1b3291174b50b31ab2c/Storage/SQL/SQLiteLogins.swift),
 but with the following notable differences:

@@ -727,6 +727,7 @@ lazy_static! {
         format!("{} WHERE guid = :guid", &*CLONE_ENTIRE_MIRROR_SQL,);
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
@@ -892,6 +893,7 @@ pub mod test_utils {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
     use super::*;

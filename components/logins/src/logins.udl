@@ -69,6 +69,18 @@ dictionary Login {
 /// These are the errors returned by our public API.
 [Error]
 interface LoginsApiError {
+    /// NSS not initialized.
+    NSSUninitialized();
+
+    /// NSS error during authentication
+    NSSAuthenticationError(string reason);
+
+    /// error during authentication (in PrimaryPasswordAuthenticator)
+    AuthenticationError(string reason);
+
+    /// authentication has been cancelled.
+    AuthenticationCanceled();
+
     /// The login data supplied is invalid. The reason will indicate what's wrong with it.
     InvalidRecord(string reason);
 
