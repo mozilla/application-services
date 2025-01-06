@@ -177,7 +177,7 @@ pub fn ensure_nss_initialized_with_profile_dir(path: impl AsRef<Path>) -> Result
     }
 
     NSS_PROFILE_PATH
-        .set(format!("{:?}", path.as_ref()))
+        .set(path.as_ref().to_str().unwrap().to_string())
         .map_err(|error| ErrorKind::NSSInitFailure(format!("already initialized: {}", error)))?;
 
     Ok(())
