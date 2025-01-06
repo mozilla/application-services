@@ -8,6 +8,7 @@ exclude = ["/android", "/ios"]
 
 [features]
 default = []
+keydb = ["nss/keydb"]
 
 [dependencies]
 # TODO: we've enabled the "standalone-sync" feature - see the description
@@ -22,6 +23,7 @@ lazy_static = "1.4"
 url = "2.2"
 sql-support = { path = "../support/sql" }
 jwcrypto = { path = "../support/jwcrypto" }
+nss = { path = "../support/rc_crypto/nss", default-features = false }
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 rusqlite = { version = "0.31.0", features = ["limits", "unlock_notify"] }
