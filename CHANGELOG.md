@@ -1,4 +1,8 @@
-# v135.0 (In progress)
+# v136.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v135.0 (_2025-01-06_)
 
 ## ✨ What's New ✨
 
@@ -7,18 +11,14 @@
 
 ## 🦊 What's Changed 🦊
 
+### Glean
+- Updated to v63.0.0 ([bug 1933939](https://bugzilla.mozilla.org/show_bug.cgi?id=1933939))
+
 ### Places
 - `PlacesConnection::get_visited()` no longer considers unvisited-but-bookmarked pages to be visited, matching the behavior of both `get_visited_urls_in_range()` and Desktop ([#6527](https://github.com/mozilla/application-services/pull/6527)).
 
-[Full Changelog](In progress)
-
 ### `rc_crypto`
 - New low level bindings for functions for key generation with persistence, for listing persisted keys, and for wrapping and unwrapping to get at the key material of stored keys.
-
-## 🦊 What's Changed 🦊
-
-### Glean
-- Updated to v63.0.0 ([bug 1933939](https://bugzilla.mozilla.org/show_bug.cgi?id=1933939))
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -26,7 +26,9 @@
 - Exposed the bridged engine logic for use in desktop ([#6473](https://github.com/mozilla/application-services/pull/6473)).
   - This updated the signature of the `bridged_engine` function technically making this PR a breaking change though an imminent desktop patch will remove references to function calls with the old signature.
 
-# v134.0 (_2023-11-25_)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v134.0...v135.0)
+
+# v134.0 (_2024-11-25_)
 
 ## ✨ What's New ✨
 
