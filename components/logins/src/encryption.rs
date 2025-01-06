@@ -51,6 +51,16 @@
 use crate::error::*;
 use std::sync::Arc;
 
+#[cfg(feature = "keydb")]
+use nss::ensure_initialized_with_profile_dir;
+#[cfg(feature = "keydb")]
+use nss::pk11::sym_key::{
+    authenticate_with_primary_password, authentication_with_primary_password_is_needed,
+    get_or_create_aes256_key,
+};
+#[cfg(feature = "keydb")]
+use std::path::Path;
+
 /// This is the generic EncryptorDecryptor trait, as handed over to the Store during initialization.
 /// Consumers can implement either this generic trait and bring in their own crypto, or leverage the
 /// ManagedEncryptorDecryptor below, which provides encryption algorithms out of the box.
@@ -157,6 +167,73 @@ impl KeyManager for StaticKeyManager {
     #[handle_error(Error)]
     fn get_key(&self) -> ApiResult<Vec<u8>> {
         Ok(self.key.as_bytes().into())
+    }
+}
+
+/// The following is for Desktop
+
+#[cfg(feature = "keydb")]
+#[uniffi::export(with_foreign)]
+pub trait PrimaryPasswordAuthenticator: Send + Sync {
+    fn get_primary_password(&self) -> ApiResult<String>;
+}
+
+#[cfg(feature = "keydb")]
+#[derive(uniffi::Object)]
+pub struct NSSKeyManager {
+    primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+}
+
+#[cfg(feature = "keydb")]
+impl NSSKeyManager {
+    pub fn new(
+        path: impl AsRef<Path>,
+        primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+    ) -> ApiResult<Self> {
+        ensure_initialized_with_profile_dir(path)
+            .map_err(|_| LoginsApiError::NSSInitializationFailed)?;
+        Ok(Self {
+            primary_password_authenticator,
+        })
+    }
+}
+
+#[cfg(feature = "keydb")]
+static KEY_NAME: &str = "as-logins-key";
+
+#[cfg(feature = "keydb")]
+impl KeyManager for NSSKeyManager {
+    #[handle_error(Error)]
+    fn get_key(&self) -> ApiResult<Vec<u8>> {
+        match authentication_with_primary_password_is_needed() {
+            Ok(is_needed) => {
+                if is_needed {
+                    match self.primary_password_authenticator.get_primary_password() {
+                        Ok(primary_password) => {
+                            match authenticate_with_primary_password(&primary_password) {
+                                Ok(result) => {
+                                    if !result {
+                                        panic!("wrong password");
+                                    }
+                                }
+                                Err(_) => panic!("authentication failed"),
+                            };
+                        }
+                        Err(_) => panic!("could not get primary password"),
+                    }
+                }
+            }
+            Err(_) => panic!("primary password check failed"),
+        }
+
+        let key = get_or_create_aes256_key(KEY_NAME).expect("Could not get or create key via NSS");
+        let mut bytes: Vec<u8> = Vec::new();
+        serde_json::to_writer(
+            &mut bytes,
+            &jwcrypto::Jwk::new_direct_from_bytes(None, &key),
+        )
+        .unwrap();
+        Ok(bytes)
     }
 }
 
