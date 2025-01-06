@@ -12,7 +12,7 @@ path = "src/sync-pass.rs"
 
 [dev-dependencies]
 base64 = "0.21"
-logins = { path = "../../components/logins" }
+logins = { path = "../../components/logins", features = ["keydb"] }
 sync15 = { path = "../../components/sync15" }
 sync-guid = { path = "../../components/support/guid" }
 log = "0.4"
