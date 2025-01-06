@@ -18,5 +18,6 @@ tasks:
         from-deps:
             group-by: all
             unique-kinds: false
+            set-name: null
         run-on-tasks-for: []
         shipping-phase: ship
