@@ -1,5 +1,61 @@
 # v136.0 (In progress)
 
+### Logins
+The Logins component has been rewritten to use a newly introduced `EncryptorDecryptor` trait.
+
+#### BREAKING CHANGE
+The LoginsStore constructor and several API methods have been changed:
+
+The signatures of the constructors are extended as follows:
+```
+pub fn new(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self>
+pub fn new_from_db(db: LoginDb, encdec: Arc<dyn EncryptorDecryptor>) -> Self
+pub fn new_in_memory(encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self>
+```
+
+The methods do not require an encryption key argument anymore, and return `Login` objects instead of `EncryptedLogin`:
+```
+pub fn list(&self) -> ApiResult<Vec<Login>>
+pub fn get(&self, id: &str) -> ApiResult<Option<Login>>
+pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<Login>>
+pub fn find_login_to_update(&self, entry: LoginEntry) -> ApiResult<Option<Login>>
+pub fn update(&self, id: &str, entry: LoginEntry) -> ApiResult<Login>
+pub fn add(&self, entry: LoginEntry) -> ApiResult<Login>
+pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login>
+```
+
+The crypto primitives `encrypt`, `decrypt`, `encrypt_struct` and `decrypt_struct` are not exposed anymore via UniFFI, as well as `EncryptedLogin` will not be exposed anymore. In addition we also do not expose the structs `RecordFields`, `LoginFields` and `SecureLoginFields` anymore.
+
+Checking for the Existence of Logins for a given Base Domain In order to check for the existence of stored logins for a given base domain, we provide an additional store method, has_logins_by_base_domain(&self, base_domain: &str), which does not utilize the `EncryptorDecryptor`.
+
+##### SyncEngine
+The logins sync engine has been adapted for above EncryptorDecryptor trait and therefore does not support a `set_local_encryption_key` method anymore.
+
+##### Flattened Login Struct
+The flattened Login struct now does not expose internal structuring to the consumer:
+```
+Login {
+    // record fields
+    string id;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+
+    // login fields
+    string origin;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
+
+    // secure login fields
+    string password;
+    string username;
+}
+```
+
+
 ### `rc_crypto`
 - New low level bindings for dealing with primary password.
 - New feature flag `keydb` in `rc_crypto/nss`, which enables NSS key persistence: `ensure_initialized_with_profile_dir(path: impl AsRef<Path>)` initializes NSS with a profile directory and appropriate flags to persist keys (and certificates) in its internal PKCS11 software implementation. This function must be called first; if `ensure_initialized` is called before, it will fail.
