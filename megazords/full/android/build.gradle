@@ -126,6 +126,10 @@ cargo {
     }
 
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
+    // Add a build-id so that our code works with simpleperf
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1937916
+    generateBuildId = true
 }
 
 afterEvaluate {
