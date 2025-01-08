@@ -558,7 +558,7 @@ impl ApiClient for ViaductApiClient {
         url.query_pairs_mut().append_pair("_expected", "0");
         if let Some(timestamp) = timestamp {
             url.query_pairs_mut()
-                .append_pair("_since", &timestamp.to_string());
+                .append_pair("_since", &format!("\"{}\"", timestamp));
         }
 
         let resp = self.make_request(url)?;
