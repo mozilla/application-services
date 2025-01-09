@@ -24,9 +24,16 @@ pub fn add(&self, entry: LoginEntry) -> ApiResult<Login>
 pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login>
 ```
 
+New LoginsStore methods:
+```
+// Checking whether the database contains logins (does not utilize the `EncryptorDecryptor`):
+is_empty(&self) -> ApiResult<bool>
+// Checking for the Existence of Logins for a given base domain (also does not utilize the `EncryptorDecryptor`):
+has_logins_by_base_domain(&self, base_domain: &str) -> ApiResult<bool>
+```
+
 The crypto primitives `encrypt`, `decrypt`, `encrypt_struct` and `decrypt_struct` are not exposed anymore via UniFFI, as well as `EncryptedLogin` will not be exposed anymore. In addition we also do not expose the structs `RecordFields`, `LoginFields` and `SecureLoginFields` anymore.
 
-Checking for the Existence of Logins for a given Base Domain In order to check for the existence of stored logins for a given base domain, we provide an additional store method, has_logins_by_base_domain(&self, base_domain: &str), which does not utilize the `EncryptorDecryptor`.
 
 ##### SyncEngine
 The logins sync engine has been adapted for above EncryptorDecryptor trait and therefore does not support a `set_local_encryption_key` method anymore.
