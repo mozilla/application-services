@@ -68,10 +68,24 @@ open class LoginsStorage {
         }
     }
 
+    /// Check whether the database is empty.
+    open func isEmpty() throws -> Bool {
+        return try queue.sync {
+            try self.store.isEmpty()
+        }
+    }
+
     /// Get the entire list of records.
     open func list() throws -> [Login] {
         return try queue.sync {
             try self.store.list()
+        }
+    }
+
+    /// Check whether logins exist for some base domain.
+    open func hasLoginsByBaseDomain(baseDomain: String) throws -> Bool {
+        return try queue.sync {
+            try self.store.hasLoginsByBaseDomain(baseDomain: baseDomain)
         }
     }
 

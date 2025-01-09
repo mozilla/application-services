@@ -72,6 +72,11 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn is_empty(&self) -> ApiResult<bool> {
+        self.db.lock().get_all().map(|logins| logins.is_empty())
+    }
+
+    #[handle_error(Error)]
     pub fn list(&self) -> ApiResult<Vec<Login>> {
         self.db.lock().get_all().and_then(|logins| {
             logins

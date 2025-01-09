@@ -61,9 +61,23 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
     }
 
     @Throws(LoginsApiException::class)
+    fun isEmpty(): Boolean {
+        return readQueryCounters.measure {
+            store.isEmpty()
+        }
+    }
+
+    @Throws(LoginsApiException::class)
     fun list(): List<Login> {
         return readQueryCounters.measure {
             store.list()
+        }
+    }
+
+    @Throws(LoginsApiException::class)
+    fun hasLoginsByBaseDomain(baseDomain: String): Boolean {
+        return readQueryCounters.measure {
+            store.hasLoginsByBaseDomain(baseDomain)
         }
     }
 

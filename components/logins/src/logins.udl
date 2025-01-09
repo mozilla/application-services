@@ -150,6 +150,9 @@ interface LoginStore {
     void touch([ByRef] string id);
 
     [Throws=LoginsApiError]
+    boolean is_empty();
+
+    [Throws=LoginsApiError]
     sequence<Login> list();
 
     [Throws=LoginsApiError]
