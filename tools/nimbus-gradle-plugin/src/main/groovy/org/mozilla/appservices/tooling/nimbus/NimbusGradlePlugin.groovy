@@ -137,6 +137,7 @@ class NimbusPlugin implements Plugin<Project> {
     }
 
     def setupAssembleNimbusTools(Project project) {
+        def applicationServicesDir = project.nimbus.applicationServicesDir
         return project.tasks.register('assembleNimbusTools', NimbusAssembleToolsTask) { task ->
             group "Nimbus"
             description "Fetch the Nimbus FML tools from Application Services"
@@ -165,7 +166,7 @@ class NimbusPlugin implements Plugin<Project> {
             }
 
             onlyIf('`applicationServicesDir` == null') {
-                project.nimbus.applicationServicesDir.getOrNull() == null
+                applicationServicesDir.getOrNull() == null
             }
         }
     }
