@@ -80,6 +80,7 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
   browsing history
 * [push](components/push) - for applications to receive real-time updates via
   WebPush
+* [remote-settings](components/remote-settings) - for integrating with [Remote Settings](https://remote-settings.readthedocs.io/)
 * [support](components/support) - low-level utility libraries
   * [support/rc_crypto](components/rc_crypto) - handles cryptographic needs backed by Mozilla's
     [NSS](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS) library
