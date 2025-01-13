@@ -28,6 +28,10 @@ def main():
         [
             "cargo",
             "build",
+            # Need to specify both --package and --bin, or else cargo will enable the features for
+            # all binaries, which will probably lead to a failure when trying to build NSS.
+            "--package",
+            binary,
             "--bin",
             binary,
             "--release",
