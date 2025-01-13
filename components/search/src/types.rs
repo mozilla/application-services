@@ -188,8 +188,9 @@ pub struct SearchEngineDefinition {
     pub partner_code: String,
 
     /// Optional suffix that is appended to the search engine identifier
-    /// following a dash, i.e. `<identifier>-<suffix>`
-    pub telemetry_suffix: Option<String>,
+    /// following a dash, i.e. `<identifier>-<suffix>`. If it is an empty string
+    /// no dash should be appended.
+    pub telemetry_suffix: String,
 
     /// The URLs associated with the search engine.
     pub urls: SearchEngineUrls,
