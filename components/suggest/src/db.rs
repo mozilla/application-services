@@ -21,7 +21,7 @@ use crate::{
     fakespot,
     geoname::GeonameCache,
     pocket::{split_keyword, KeywordConfidence},
-    provider::SuggestionProvider,
+    provider::{AmpMatchingStrategy, SuggestionProvider},
     query::FtsQuery,
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
@@ -322,34 +322,66 @@ impl<'a> SuggestDao<'a> {
         query: &SuggestionQuery,
         suggestion_type: AmpSuggestionType,
     ) -> Result<Vec<Suggestion>> {
+        let strategy = query
+            .provider_constraints
+            .as_ref()
+            .and_then(|c| c.amp_alternative_matching.as_ref());
+        match strategy {
+            None => self.fetch_amp_suggestions_using_keywords(query, suggestion_type, true),
+            Some(AmpMatchingStrategy::NoKeywordExpansion) => {
+                self.fetch_amp_suggestions_using_keywords(query, suggestion_type, false)
+            }
+            Some(AmpMatchingStrategy::FtsAgainstFullKeywords) => {
+                self.fetch_amp_suggestions_using_fts(query, suggestion_type, "full_keywords")
+            }
+            Some(AmpMatchingStrategy::FtsAgainstTitle) => {
+                self.fetch_amp_suggestions_using_fts(query, suggestion_type, "title")
+            }
+        }
+    }
+
+    pub fn fetch_amp_suggestions_using_keywords(
+        &self,
+        query: &SuggestionQuery,
+        suggestion_type: AmpSuggestionType,
+        allow_keyword_expansion: bool,
+    ) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let provider = match suggestion_type {
             AmpSuggestionType::Mobile => SuggestionProvider::AmpMobile,
             AmpSuggestionType::Desktop => SuggestionProvider::Amp,
         };
+        let where_extra = if allow_keyword_expansion {
+            ""
+        } else {
+            "AND INSTR(CONCAT(fk.full_keyword, ' '), k.keyword) != 0"
+        };
         let suggestions = self.conn.query_rows_and_then_cached(
-            r#"
-            SELECT
-              s.id,
-              k.rank,
-              s.title,
-              s.url,
-              s.provider,
-              s.score,
-              fk.full_keyword
-            FROM
-              suggestions s
-            JOIN
-              keywords k
-              ON k.suggestion_id = s.id
-            LEFT JOIN
-              full_keywords fk
-              ON k.full_keyword_id = fk.id
-            WHERE
-              s.provider = :provider
-              AND k.keyword = :keyword
-            AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
-            "#,
+            &format!(
+                r#"
+                SELECT
+                  s.id,
+                  k.rank,
+                  s.title,
+                  s.url,
+                  s.provider,
+                  s.score,
+                  fk.full_keyword
+                FROM
+                  suggestions s
+                JOIN
+                  keywords k
+                  ON k.suggestion_id = s.id
+                LEFT JOIN
+                  full_keywords fk
+                  ON k.full_keyword_id = fk.id
+                WHERE
+                  s.provider = :provider
+                  AND k.keyword = :keyword
+                  {where_extra}
+                AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                "#
+            ),
             named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": provider
@@ -413,6 +445,96 @@ impl<'a> SuggestDao<'a> {
                             raw_url,
                             full_keyword: full_keyword_from_db
                                 .unwrap_or_else(|| full_keyword(keyword_lowercased, &keywords)),
+                            icon: row.get("icon")?,
+                            icon_mimetype: row.get("icon_mimetype")?,
+                            impression_url: row.get("impression_url")?,
+                            click_url: cooked_click_url,
+                            raw_click_url,
+                            score,
+                        })
+                    },
+                )
+            },
+        )?;
+        Ok(suggestions)
+    }
+
+    pub fn fetch_amp_suggestions_using_fts(
+        &self,
+        query: &SuggestionQuery,
+        suggestion_type: AmpSuggestionType,
+        fts_column: &str,
+    ) -> Result<Vec<Suggestion>> {
+        let fts_query = query.fts_query();
+        let match_arg = &fts_query.match_arg;
+        let provider = match suggestion_type {
+            AmpSuggestionType::Mobile => SuggestionProvider::AmpMobile,
+            AmpSuggestionType::Desktop => SuggestionProvider::Amp,
+        };
+        let suggestions = self.conn.query_rows_and_then_cached(
+            &format!(
+                r#"
+                SELECT
+                  s.id,
+                  s.title,
+                  s.url,
+                  s.provider,
+                  s.score
+                FROM
+                  suggestions s
+                JOIN
+                  amp_fts fts
+                  ON fts.rowid = s.id
+                WHERE
+                  s.provider = :provider
+                  AND amp_fts match '{fts_column}: {match_arg}'
+                AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                ORDER BY rank
+                LIMIT 1
+                "#
+            ),
+            named_params! {
+                ":provider": provider
+            },
+            |row| -> Result<Suggestion> {
+                let suggestion_id: i64 = row.get("id")?;
+                let title = row.get("title")?;
+                let raw_url: String = row.get("url")?;
+                let score: f64 = row.get("score")?;
+
+                self.conn.query_row_and_then(
+                    r#"
+                    SELECT
+                      amp.advertiser,
+                      amp.block_id,
+                      amp.iab_category,
+                      amp.impression_url,
+                      amp.click_url,
+                      i.data AS icon,
+                      i.mimetype AS icon_mimetype
+                    FROM
+                      amp_custom_details amp
+                    LEFT JOIN
+                      icons i ON amp.icon_id = i.id
+                    WHERE
+                      amp.suggestion_id = :suggestion_id
+                    "#,
+                    named_params! {
+                        ":suggestion_id": suggestion_id
+                    },
+                    |row| {
+                        let cooked_url = cook_raw_suggestion_url(&raw_url);
+                        let raw_click_url = row.get::<_, String>("click_url")?;
+                        let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
+
+                        Ok(Suggestion::Amp {
+                            block_id: row.get("block_id")?,
+                            advertiser: row.get("advertiser")?,
+                            iab_category: row.get("iab_category")?,
+                            title,
+                            url: cooked_url,
+                            raw_url,
+                            full_keyword: query.keyword.clone(),
                             icon: row.get("icon")?,
                             icon_mimetype: row.get("icon_mimetype")?,
                             impression_url: row.get("impression_url")?,
@@ -907,6 +1029,21 @@ impl<'a> SuggestDao<'a> {
         )?)
     }
 
+    pub fn is_amp_fts_data_ingested(&self, record_id: &SuggestRecordId) -> Result<bool> {
+        Ok(self.conn.exists(
+            r#"
+            SELECT 1
+            FROM suggestions s
+            JOIN amp_fts fts
+              ON fts.rowid = s.id
+            WHERE s.record_id = :record_id
+            "#,
+            named_params! {
+                ":record_id": record_id.as_str(),
+            },
+        )?)
+    }
+
     /// Inserts all suggestions from a downloaded AMO attachment into
     /// the database.
     pub fn insert_amo_suggestions(
@@ -947,6 +1084,7 @@ impl<'a> SuggestDao<'a> {
         &mut self,
         record_id: &SuggestRecordId,
         suggestions: &[DownloadedAmpWikipediaSuggestion],
+        enable_fts: bool,
     ) -> Result<()> {
         // Prepare statements outside of the loop.  This results in a large performance
         // improvement on a fresh ingest, since there are so many rows.
@@ -954,6 +1092,7 @@ impl<'a> SuggestDao<'a> {
         let mut amp_insert = AmpInsertStatement::new(self.conn)?;
         let mut wiki_insert = WikipediaInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
+        let mut fts_insert = AmpFtsInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
             let common_details = suggestion.common_details();
@@ -973,6 +1112,13 @@ impl<'a> SuggestDao<'a> {
                 DownloadedAmpWikipediaSuggestion::Wikipedia(wikipedia) => {
                     wiki_insert.execute(suggestion_id, wikipedia)?;
                 }
+            }
+            if enable_fts {
+                fts_insert.execute(
+                    suggestion_id,
+                    &common_details.full_keywords_joined(),
+                    &common_details.title,
+                )?;
             }
             let mut full_keyword_inserter = FullKeywordInserter::new(self.conn, suggestion_id);
             for keyword in common_details.keywords() {
@@ -1760,6 +1906,30 @@ impl<'conn> KeywordMetricsInsertStatement<'conn> {
         self.0
             .execute((record_id.as_str(), provider, max_len, max_word_count))
             .with_context("keyword metrics insert")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct AmpFtsInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+impl<'conn> AmpFtsInsertStatement<'conn> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
+        Ok(Self(conn.prepare(
+            "INSERT INTO amp_fts(rowid, full_keywords, title)
+             VALUES(?, ?, ?)
+             ",
+        )?))
+    }
+
+    pub(crate) fn execute(
+        &mut self,
+        suggestion_id: i64,
+        full_keywords: &str,
+        title: &str,
+    ) -> Result<()> {
+        self.0
+            .execute((suggestion_id, full_keywords, title))
+            .with_context("amp fts insert")?;
         Ok(())
     }
 }

@@ -131,6 +131,7 @@ impl SuggestionQuery {
                 exposure_suggestion_types: Some(
                     suggestion_types.iter().map(|s| s.to_string()).collect(),
                 ),
+                ..SuggestionProviderConstraints::default()
             }),
             ..Self::default()
         }
