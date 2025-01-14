@@ -361,6 +361,14 @@ impl SuggestIngestionConstraints {
                 .any(|t| *t == record.suggestion_type),
         }
     }
+
+    fn amp_matching_uses_fts(&self) -> bool {
+        self.provider_constraints
+            .as_ref()
+            .and_then(|c| c.amp_alternative_matching.as_ref())
+            .map(|constraints| constraints.uses_fts())
+            .unwrap_or(false)
+    }
 }
 
 /// The implementation of the store. This is generic over the Remote Settings
@@ -613,6 +621,8 @@ where
             if self.should_reprocess_record(dao, record, constraints)? {
                 log::trace!("Reingesting unchanged record ID: {}", record.id.as_str());
                 self.process_record(dao, record, constraints, context)?;
+            } else {
+                log::trace!("Skipping unchanged record ID: {}", record.id.as_str());
             }
         }
         for record in &changes.deleted {
@@ -638,7 +648,11 @@ where
         match &record.payload {
             SuggestRecord::AmpWikipedia => {
                 self.download_attachment(dao, record, context, |dao, record_id, suggestions| {
-                    dao.insert_amp_wikipedia_suggestions(record_id, suggestions)
+                    dao.insert_amp_wikipedia_suggestions(
+                        record_id,
+                        suggestions,
+                        constraints.amp_matching_uses_fts(),
+                    )
                 })?;
             }
             SuggestRecord::AmpMobile => {
@@ -752,6 +766,10 @@ where
                 // the current ingest do match the suggestion.
                 Ok(!dao.is_exposure_suggestion_ingested(&record.id)?
                     && constraints.matches_exposure_record(r))
+            }
+            SuggestRecord::AmpWikipedia => {
+                Ok(constraints.amp_matching_uses_fts()
+                    && !dao.is_amp_fts_data_ingested(&record.id)?)
             }
             _ => Ok(false),
         }
@@ -912,7 +930,29 @@ pub(crate) mod tests {
 
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use crate::{suggestion::FtsMatchInfo, testing::*, SuggestionProvider};
+    use crate::{
+        provider::AmpMatchingStrategy, suggestion::FtsMatchInfo, testing::*, SuggestionProvider,
+    };
+
+    // Extra methods for the tests
+    impl SuggestIngestionConstraints {
+        fn amp_with_fts() -> Self {
+            Self {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::FtsAgainstFullKeywords),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                ..Self::default()
+            }
+        }
+        fn amp_without_fts() -> Self {
+            Self {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..Self::default()
+            }
+        }
+    }
 
     /// In-memory Suggest store for testing
     pub(crate) struct TestStore {
@@ -1147,6 +1187,114 @@ pub(crate) mod tests {
         Ok(())
     }
 
+    #[test]
+    fn amp_no_keyword_expansion() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                // Setup the keywords such that:
+                //   * There's a `chicken` keyword, which is not a substring of any full
+                //     keywords (i.e. it was the result of keyword expansion).
+                //   * There's a `los pollos ` keyword with an extra space
+                .with_record(
+                    "data",
+                    "1234",
+                    los_pollos_amp().merge(json!({
+                        "keywords": ["los", "los pollos", "los pollos ", "los pollos hermanos", "chicken"],
+                        "full_keywords": [("los pollos", 3), ("los pollos hermanos", 2)],
+                    }))
+                )
+                .with_icon(los_pollos_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::all_providers());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery {
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::NoKeywordExpansion),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                // Should not match, because `chicken` is not a substring of a full keyword.
+                // i.e. it was added because of keyword expansion.
+                ..SuggestionQuery::amp("chicken")
+            }),
+            vec![],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery {
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::NoKeywordExpansion),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                // Should match, even though "los pollos " technically is not a substring
+                // because there's an extra space.  The reason these keywords are in the DB is
+                // because we want to keep showing the current suggestion when the user types
+                // the space key.
+                ..SuggestionQuery::amp("los pollos ")
+            }),
+            vec![los_pollos_suggestion("los pollos")],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amp_fts_against_full_keywords() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                // Make sure there's full keywords to match against
+                .with_record(
+                    "data",
+                    "1234",
+                    los_pollos_amp().merge(json!({
+                        "keywords": ["los", "los pollos", "los pollos ", "los pollos hermanos"],
+                        "full_keywords": [("los pollos", 3), ("los pollos hermanos", 1)],
+                    })),
+                )
+                .with_icon(los_pollos_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::amp_with_fts());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery {
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::FtsAgainstFullKeywords),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                // "Hermanos" should match, even though it's not listed in the keywords,
+                // because this strategy uses an FTS match against the full keyword list.
+                ..SuggestionQuery::amp("Hermanos")
+            }),
+            vec![los_pollos_suggestion("Hermanos")],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amp_fts_against_title() -> anyhow::Result<()> {
+        before_each();
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record("data", "1234", los_pollos_amp())
+                .with_icon(los_pollos_icon()),
+        );
+        store.ingest(SuggestIngestionConstraints::amp_with_fts());
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery {
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::FtsAgainstTitle),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                // "Albuquerque" should match, even though it's not listed in the keywords,
+                // because this strategy uses an FTS match against the title
+                ..SuggestionQuery::amp("Albuquerque")
+            }),
+            vec![los_pollos_suggestion("Albuquerque")],
+        );
+        Ok(())
+    }
+
     /// Tests ingesting a data attachment containing a single suggestion,
     /// instead of an array of suggestions.
     #[test]
@@ -1209,6 +1357,43 @@ pub(crate) mod tests {
             [ Suggestion::Amp { title, url, .. } ] if title == "Penne for Your Thoughts" && url == "https://penne.biz"
         ));
 
+        Ok(())
+    }
+
+    #[test]
+    fn reingest_amp_after_fts_constraint_changes() -> anyhow::Result<()> {
+        before_each();
+
+        // Ingest with FTS enabled, this will populate the FTS table
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(
+                    "data",
+                    "data-1",
+                    json!([los_pollos_amp().merge(json!({
+                        "keywords": ["los", "los pollos", "los pollos ", "los pollos hermanos"],
+                        "full_keywords": [("los pollos", 3), ("los pollos hermanos", 1)],
+                    }))]),
+                )
+                .with_icon(los_pollos_icon()),
+        );
+        // Ingest without FTS
+        store.ingest(SuggestIngestionConstraints::amp_without_fts());
+        // Ingest again with FTS
+        store.ingest(SuggestIngestionConstraints::amp_with_fts());
+
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery {
+                provider_constraints: Some(SuggestionProviderConstraints {
+                    amp_alternative_matching: Some(AmpMatchingStrategy::FtsAgainstFullKeywords),
+                    ..SuggestionProviderConstraints::default()
+                }),
+                // "Hermanos" should match, even though it's not listed in the keywords,
+                // because this strategy uses an FTS match against the full keyword list.
+                ..SuggestionQuery::amp("Hermanos")
+            }),
+            vec![los_pollos_suggestion("Hermanos")],
+        );
         Ok(())
     }
 
@@ -2538,6 +2723,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string(), "bbb".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -2810,6 +2996,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -2847,6 +3034,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -2946,6 +3134,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["bbb".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -2979,6 +3168,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -3029,6 +3219,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
@@ -3063,6 +3254,7 @@ pub(crate) mod tests {
             providers: Some(vec![SuggestionProvider::Exposure]),
             provider_constraints: Some(SuggestionProviderConstraints {
                 exposure_suggestion_types: Some(vec!["aaa".to_string()]),
+                ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });

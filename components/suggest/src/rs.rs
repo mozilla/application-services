@@ -31,7 +31,7 @@
 //!     the new suggestion in their results, and return `Suggestion::T` variants
 //!     as needed.
 
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 use remote_settings::{Attachment, RemoteSettingsRecord};
 use serde::{Deserialize, Deserializer};
@@ -435,6 +435,23 @@ impl DownloadedSuggestionCommonDetails {
                 full_keyword,
             },
         )
+    }
+
+    /// Get the full keywords as a single string
+    pub fn full_keywords_joined(&self) -> String {
+        let parts: HashSet<_> = self
+            .full_keywords
+            .iter()
+            .flat_map(|(s, _)| s.split_whitespace())
+            .collect();
+        let mut result = String::new();
+        for (i, part) in parts.into_iter().enumerate() {
+            if i != 0 {
+                result.push(' ');
+            }
+            result.push_str(part);
+        }
+        result
     }
 }
 
