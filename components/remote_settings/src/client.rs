@@ -57,7 +57,7 @@ const HEADER_RETRY_AFTER: &str = "Retry-After";
 /// certificates chains used in content signatures verification were produced from our root certificate.
 /// See https://bugzilla.mozilla.org/show_bug.cgi?id=1940903 to align with desktop implementation.
 #[cfg(feature = "signatures")]
-const ROOT_CERT_SHA256_HASH_PROD: &str = "97:E8:BA:9C:F1:2F:B3:DE:53:CC:42:A4:E6:57:7E:D6:4D:F4:93:C2:47:B4:14:FE:A0:36:81:8D:38:23:56:0E";
+const ROOT_CERT_SHA256_HASH_PROD: &str = "C8:A8:0E:9A:FA:EF:4E:21:9B:6F:B5:D7:A7:1D:0F:10:12:23:BA:C5:00:1A:C2:8F:9B:0D:43:DC:59:A1:06:DB";
 #[cfg(feature = "signatures")]
 const ROOT_CERT_SHA256_HASH_NONPROD: &str = "3C:01:44:6A:BE:90:36:CE:A9:A0:9A:CA:A3:A5:20:AC:62:8F:20:A7:AE:32:CE:86:1C:B2:EF:B7:0F:A0:C7:45";
 
