@@ -31,12 +31,15 @@
 //!     the new suggestion in their results, and return `Suggestion::T` variants
 //!     as needed.
 
-use std::{collections::HashSet, fmt};
+use std::fmt;
 
 use remote_settings::{Attachment, RemoteSettingsRecord};
 use serde::{Deserialize, Deserializer};
 
-use crate::{db::SuggestDao, error::Error, provider::SuggestionProvider, Result};
+use crate::{
+    db::SuggestDao, error::Error, provider::SuggestionProvider,
+    query::full_keywords_to_fts_content, Result,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Collection {
@@ -437,21 +440,8 @@ impl DownloadedSuggestionCommonDetails {
         )
     }
 
-    /// Get the full keywords as a single string
-    pub fn full_keywords_joined(&self) -> String {
-        let parts: HashSet<_> = self
-            .full_keywords
-            .iter()
-            .flat_map(|(s, _)| s.split_whitespace())
-            .collect();
-        let mut result = String::new();
-        for (i, part) in parts.into_iter().enumerate() {
-            if i != 0 {
-                result.push(' ');
-            }
-            result.push_str(part);
-        }
-        result
+    pub fn full_keywords_fts_column(&self) -> String {
+        full_keywords_to_fts_content(self.full_keywords.iter().map(|(s, _)| s.as_str()))
     }
 }
 

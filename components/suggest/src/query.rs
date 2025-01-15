@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::collections::HashSet;
+
 use crate::{LabeledTimingSample, Suggestion, SuggestionProvider, SuggestionProviderConstraints};
 
 /// A query for suggestions to show in the address bar.
@@ -226,9 +228,31 @@ impl<'a> FtsQuery<'a> {
     }
 }
 
+/// Given a list of full keywords, create an FTS string to match against.
+///
+/// Creates a string with de-duped keywords.
+pub fn full_keywords_to_fts_content<'a>(
+    full_keywords: impl IntoIterator<Item = &'a str>,
+) -> String {
+    let parts: HashSet<_> = full_keywords
+        .into_iter()
+        .flat_map(str::split_whitespace)
+        .map(str::to_lowercase)
+        .collect();
+    let mut result = String::new();
+    for (i, part) in parts.into_iter().enumerate() {
+        if i != 0 {
+            result.push(' ');
+        }
+        result.push_str(&part);
+    }
+    result
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::collections::HashMap;
 
     fn check_parse_keywords(input: &str, expected: Vec<&str>) {
         let query = SuggestionQuery::all_providers(input);
@@ -296,5 +320,26 @@ mod test {
         // This does require stemming (we know it wasn't a prefix match since there's not enough
         // characters).
         assert!(FtsQuery::new("run").match_required_stemming("running shoes"));
+    }
+
+    #[test]
+    fn test_full_keywords_to_fts_content() {
+        check_full_keywords_to_fts_content(["a", "b", "c"], "a b c");
+        check_full_keywords_to_fts_content(["a", "b c"], "a b c");
+        check_full_keywords_to_fts_content(["a", "b c a"], "a b c");
+        check_full_keywords_to_fts_content(["a", "b C A"], "a b c");
+    }
+
+    fn check_full_keywords_to_fts_content<const N: usize>(input: [&str; N], expected: &str) {
+        let mut expected_counts = HashMap::<&str, usize>::new();
+        let mut actual_counts = HashMap::<&str, usize>::new();
+        for term in expected.split_whitespace() {
+            *expected_counts.entry(term).or_default() += 1;
+        }
+        let fts_content = full_keywords_to_fts_content(input);
+        for term in fts_content.split_whitespace() {
+            *actual_counts.entry(term).or_default() += 1;
+        }
+        assert_eq!(actual_counts, expected_counts);
     }
 }
