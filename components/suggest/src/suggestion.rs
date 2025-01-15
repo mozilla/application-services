@@ -38,6 +38,7 @@ pub enum Suggestion {
         click_url: String,
         raw_click_url: String,
         score: f64,
+        fts_match_info: Option<FtsMatchInfo>,
     },
     Pocket {
         title: String,

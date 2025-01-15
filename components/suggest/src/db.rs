@@ -22,7 +22,7 @@ use crate::{
     geoname::GeonameCache,
     pocket::{split_keyword, KeywordConfidence},
     provider::{AmpMatchingStrategy, SuggestionProvider},
-    query::FtsQuery,
+    query::{full_keywords_to_fts_content, FtsQuery},
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedAmpWikipediaSuggestion,
         DownloadedExposureSuggestion, DownloadedFakespotSuggestion, DownloadedMdnSuggestion,
@@ -451,6 +451,7 @@ impl<'a> SuggestDao<'a> {
                             click_url: cooked_click_url,
                             raw_click_url,
                             score,
+                            fts_match_info: None,
                         })
                     },
                 )
@@ -498,7 +499,7 @@ impl<'a> SuggestDao<'a> {
             },
             |row| -> Result<Suggestion> {
                 let suggestion_id: i64 = row.get("id")?;
-                let title = row.get("title")?;
+                let title: String = row.get("title")?;
                 let raw_url: String = row.get("url")?;
                 let score: f64 = row.get("score")?;
 
@@ -526,6 +527,12 @@ impl<'a> SuggestDao<'a> {
                         let cooked_url = cook_raw_suggestion_url(&raw_url);
                         let raw_click_url = row.get::<_, String>("click_url")?;
                         let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
+                        let match_info = self.fetch_amp_fts_match_info(
+                            &fts_query,
+                            suggestion_id,
+                            fts_column,
+                            &title,
+                        )?;
 
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
@@ -541,12 +548,56 @@ impl<'a> SuggestDao<'a> {
                             click_url: cooked_click_url,
                             raw_click_url,
                             score,
+                            fts_match_info: Some(match_info),
                         })
                     },
                 )
             },
         )?;
         Ok(suggestions)
+    }
+
+    fn fetch_amp_fts_match_info(
+        &self,
+        fts_query: &FtsQuery<'_>,
+        suggestion_id: i64,
+        fts_column: &str,
+        title: &str,
+    ) -> Result<FtsMatchInfo> {
+        let fts_content = match fts_column {
+            "title" => title.to_lowercase(),
+            "full_keywords" => {
+                let full_keyword_list: Vec<String> = self.conn.query_rows_and_then(
+                    "
+                    SELECT fk.full_keyword
+                    FROM full_keywords fk
+                    JOIN keywords k on fk.id == k.full_keyword_id
+                    WHERE k.suggestion_id = ?
+                    ",
+                    (suggestion_id,),
+                    |row| row.get(0),
+                )?;
+                full_keywords_to_fts_content(full_keyword_list.iter().map(String::as_str))
+            }
+            // fts_column comes from the code above and we know there's only 2 possibilities
+            _ => unreachable!(),
+        };
+
+        let prefix = if fts_query.is_prefix_query {
+            // If the query was a prefix match query then test if the query without the prefix
+            // match would have also matched.  If not, then this counts as a prefix match.
+            let sql = "SELECT 1 FROM amp_fts WHERE rowid = ? AND amp_fts MATCH ?";
+            let params = (&suggestion_id, &fts_query.match_arg_without_prefix_match);
+            !self.conn.exists(sql, params)?
+        } else {
+            // If not, then it definitely wasn't a prefix match
+            false
+        };
+
+        Ok(FtsMatchInfo {
+            prefix,
+            stemming: fts_query.match_required_stemming(&fts_content),
+        })
     }
 
     /// Fetches Suggestions of type Wikipedia provider that match the given query
@@ -1116,7 +1167,7 @@ impl<'a> SuggestDao<'a> {
             if enable_fts {
                 fts_insert.execute(
                     suggestion_id,
-                    &common_details.full_keywords_joined(),
+                    &common_details.full_keywords_fts_column(),
                     &common_details.title,
                 )?;
             }

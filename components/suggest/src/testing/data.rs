@@ -31,7 +31,10 @@ pub fn los_pollos_icon() -> MockIcon {
     }
 }
 
-pub fn los_pollos_suggestion(full_keyword: &str) -> Suggestion {
+pub fn los_pollos_suggestion(
+    full_keyword: &str,
+    fts_match_info: Option<FtsMatchInfo>,
+) -> Suggestion {
     Suggestion::Amp {
         title: "Los Pollos Hermanos - Albuquerque".into(),
         url: "https://www.lph-nm.biz".into(),
@@ -46,6 +49,7 @@ pub fn los_pollos_suggestion(full_keyword: &str) -> Suggestion {
         raw_click_url: "https://example.com/click_url".into(),
         score: 0.3,
         full_keyword: full_keyword.to_string(),
+        fts_match_info,
     }
 }
 
@@ -71,7 +75,10 @@ pub fn good_place_eats_icon() -> MockIcon {
     }
 }
 
-pub fn good_place_eats_suggestion(full_keyword: &str) -> Suggestion {
+pub fn good_place_eats_suggestion(
+    full_keyword: &str,
+    fts_match_info: Option<FtsMatchInfo>,
+) -> Suggestion {
     Suggestion::Amp {
         title: "Lasagna Come Out Tomorrow".into(),
         url: "https://www.lasagna.restaurant".into(),
@@ -86,6 +93,7 @@ pub fn good_place_eats_suggestion(full_keyword: &str) -> Suggestion {
         click_url: "https://example.com/click_url".into(),
         raw_click_url: "https://example.com/click_url".into(),
         score: 0.2,
+        fts_match_info,
     }
 }
 
@@ -164,7 +172,7 @@ pub fn a1a_amp_mobile() -> JsonValue {
     })
 }
 
-pub fn a1a_suggestion(full_keyword: &str) -> Suggestion {
+pub fn a1a_suggestion(full_keyword: &str, fts_match_info: Option<FtsMatchInfo>) -> Suggestion {
     Suggestion::Amp {
         title: "A1A Car Wash".into(),
         url: "https://www.a1a-wash.biz".into(),
@@ -179,6 +187,7 @@ pub fn a1a_suggestion(full_keyword: &str) -> Suggestion {
         raw_click_url: "https://example.com/click_url".into(),
         score: 0.3,
         full_keyword: full_keyword.to_string(),
+        fts_match_info,
     }
 }
 

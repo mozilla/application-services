@@ -1044,7 +1044,7 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")],
+            vec![los_pollos_suggestion("los", None)],
         );
         Ok(())
     }
@@ -1106,11 +1106,11 @@ pub(crate) mod tests {
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")]
+            vec![los_pollos_suggestion("los", None)]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
-            vec![good_place_eats_suggestion("lasagna")]
+            vec![good_place_eats_suggestion("lasagna", None)]
         );
 
         Ok(())
@@ -1161,14 +1161,14 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
             // This keyword comes from the provided full_keywords list
-            vec![los_pollos_suggestion("los pollos")],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
             // Good place eats did not have full keywords, so this one is calculated with the
             // keywords.rs code
-            vec![good_place_eats_suggestion("lasagna")],
+            vec![good_place_eats_suggestion("lasagna", None)],
         );
 
         assert_eq!(
@@ -1181,7 +1181,7 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp_mobile("a1a")),
             // This keyword comes from the provided full_keywords list.
-            vec![a1a_suggestion("A1A Car Wash")],
+            vec![a1a_suggestion("A1A Car Wash", None)],
         );
 
         Ok(())
@@ -1232,7 +1232,7 @@ pub(crate) mod tests {
                 // the space key.
                 ..SuggestionQuery::amp("los pollos ")
             }),
-            vec![los_pollos_suggestion("los pollos")],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
         Ok(())
     }
@@ -1263,9 +1263,15 @@ pub(crate) mod tests {
                 }),
                 // "Hermanos" should match, even though it's not listed in the keywords,
                 // because this strategy uses an FTS match against the full keyword list.
-                ..SuggestionQuery::amp("Hermanos")
+                ..SuggestionQuery::amp("hermanos")
             }),
-            vec![los_pollos_suggestion("Hermanos")],
+            vec![los_pollos_suggestion(
+                "hermanos",
+                Some(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                })
+            )],
         );
         Ok(())
     }
@@ -1288,9 +1294,15 @@ pub(crate) mod tests {
                 }),
                 // "Albuquerque" should match, even though it's not listed in the keywords,
                 // because this strategy uses an FTS match against the title
-                ..SuggestionQuery::amp("Albuquerque")
+                ..SuggestionQuery::amp("albuquerque")
             }),
-            vec![los_pollos_suggestion("Albuquerque")],
+            vec![los_pollos_suggestion(
+                "albuquerque",
+                Some(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                })
+            )],
         );
         Ok(())
     }
@@ -1310,7 +1322,7 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")],
+            vec![los_pollos_suggestion("los", None)],
         );
 
         Ok(())
@@ -1390,9 +1402,15 @@ pub(crate) mod tests {
                 }),
                 // "Hermanos" should match, even though it's not listed in the keywords,
                 // because this strategy uses an FTS match against the full keyword list.
-                ..SuggestionQuery::amp("Hermanos")
+                ..SuggestionQuery::amp("hermanos")
             }),
-            vec![los_pollos_suggestion("Hermanos")],
+            vec![los_pollos_suggestion(
+                "hermanos",
+                Some(FtsMatchInfo {
+                    prefix: false,
+                    stemming: false,
+                }),
+            )],
         );
         Ok(())
     }
@@ -1533,11 +1551,11 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")],
+            vec![los_pollos_suggestion("los", None)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
-            vec![good_place_eats_suggestion("lasagna")],
+            vec![good_place_eats_suggestion("lasagna", None)],
         );
         // Re-ingest without los-pollos and good place eat's icon.  The suggest store should
         // recognize that they're missing and delete them.
@@ -1626,7 +1644,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("la")),
-            vec![good_place_eats_suggestion("lasagna"),]
+            vec![good_place_eats_suggestion("lasagna", None),]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("multimatch")),
@@ -1653,7 +1671,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
-            vec![good_place_eats_suggestion("lasagna")],
+            vec![good_place_eats_suggestion("lasagna", None)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers_except(
@@ -2046,16 +2064,16 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("amp wiki match")),
             vec![
-                los_pollos_suggestion("amp wiki match").with_score(0.3),
+                los_pollos_suggestion("amp wiki match", None).with_score(0.3),
                 // Wikipedia entries default to a 0.2 score
                 california_suggestion("amp wiki match"),
-                good_place_eats_suggestion("amp wiki match").with_score(0.1),
+                good_place_eats_suggestion("amp wiki match", None).with_score(0.1),
             ]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("amp wiki match").limit(2)),
             vec![
-                los_pollos_suggestion("amp wiki match").with_score(0.3),
+                los_pollos_suggestion("amp wiki match", None).with_score(0.3),
                 california_suggestion("amp wiki match"),
             ]
         );
@@ -2105,11 +2123,11 @@ pub(crate) mod tests {
         // The query results should be exactly the same for both the Amp and AmpMobile data
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp_mobile("las")),
-            vec![good_place_eats_suggestion("lasagna")]
+            vec![good_place_eats_suggestion("lasagna", None)]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("las")),
-            vec![good_place_eats_suggestion("lasagna")]
+            vec![good_place_eats_suggestion("lasagna", None)]
         );
         Ok(())
     }
@@ -2168,7 +2186,7 @@ pub(crate) mod tests {
         // This should have been ingested
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")]
+            vec![los_pollos_suggestion("los", None)]
         );
         // This should not have been ingested, since it wasn't in the providers list
         assert_eq!(
@@ -2212,7 +2230,7 @@ pub(crate) mod tests {
         // Test that the valid record was read
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
-            vec![good_place_eats_suggestion("lasagna")]
+            vec![good_place_eats_suggestion("lasagna", None)]
         );
         // Test that the invalid record was skipped
         assert_eq!(store.fetch_suggestions(SuggestionQuery::amp("lo")), vec![]);
@@ -2641,7 +2659,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los")],
+            vec![los_pollos_suggestion("los", None)],
         );
         // Test deleting one of the records
         store
