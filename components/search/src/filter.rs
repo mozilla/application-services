@@ -40,7 +40,7 @@ impl JSONEngineUrl {
 impl From<JSONEngineUrls> for SearchEngineUrls {
     fn from(urls: JSONEngineUrls) -> Self {
         Self {
-            search: urls.search.into(),
+            search: urls.search.unwrap_or_default().into(),
             suggestions: urls.suggestions.map(|suggestions| suggestions.into()),
             trending: urls.trending.map(|trending| trending.into()),
         }
@@ -65,7 +65,7 @@ impl JSONEngineUrls {
     /// `preferred` object.
     fn merge(original: Self, preferred: JSONEngineUrls) -> Self {
         Self {
-            search: JSONEngineUrl::merge(original.search, preferred.search),
+            search: JSONEngineUrls::maybe_merge_urls(original.search, preferred.search),
             suggestions: JSONEngineUrls::maybe_merge_urls(
                 original.suggestions,
                 preferred.suggestions,
@@ -264,12 +264,12 @@ mod tests {
                 name: "Test".to_string(),
                 partner_code: None,
                 urls: JSONEngineUrls {
-                    search: JSONEngineUrl {
+                    search: Some(JSONEngineUrl {
                         base: Some("https://example.com".to_string()),
                         method: None,
                         params: None,
                         search_term_param_name: None,
-                    },
+                    }),
                     suggestions: None,
                     trending: None,
                 },
@@ -319,7 +319,7 @@ mod tests {
         name: "Test".to_string(),
         partner_code: Some("firefox".to_string()),
         urls: JSONEngineUrls {
-            search: JSONEngineUrl {
+            search: Some(JSONEngineUrl {
                 base: Some("https://example.com".to_string()),
                 method: Some(crate::JSONEngineMethod::Post),
                 params: Some(vec![SearchUrlParam {
@@ -328,7 +328,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("baz".to_string()),
-            },
+            }),
             suggestions: Some(JSONEngineUrl {
                 base: Some("https://example.com/suggestions".to_string()),
                 method: Some(crate::JSONEngineMethod::Get),
@@ -431,7 +431,7 @@ mod tests {
                 partner_code: Some("trek".to_string()),
                 telemetry_suffix: Some("star".to_string()),
                 urls: Some(JSONEngineUrls {
-                    search: JSONEngineUrl {
+                    search: Some(JSONEngineUrl {
                         base: Some("https://example.com/variant".to_string()),
                         method: Some(JSONEngineMethod::Get),
                         params: Some(vec![SearchUrlParam {
@@ -440,7 +440,7 @@ mod tests {
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("ship".to_string()),
-                    },
+                    }),
                     suggestions: Some(JSONEngineUrl {
                         base: Some("https://example.com/suggestions-variant".to_string()),
                         method: Some(JSONEngineMethod::Get),
