@@ -59,7 +59,7 @@ pub(crate) struct JSONEngineUrl {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineUrls {
     /// The URL to use for searches.
-    pub search: JSONEngineUrl,
+    pub search: Option<JSONEngineUrl>,
 
     /// The URL to use for suggestions.
     pub suggestions: Option<JSONEngineUrl>,
