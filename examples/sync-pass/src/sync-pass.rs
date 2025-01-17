@@ -10,13 +10,11 @@ use cli_support::fxa_creds::{
     get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
 };
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
-use logins::encryption::{create_key, EncryptorDecryptor};
-use logins::{
-    EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
-    ValidateAndFixup,
-};
+use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
+use logins::{Login, LoginEntry, LoginStore, LoginsSyncEngine, ValidateAndFixup};
+
 use prettytable::{row, Cell, Row, Table};
-use rusqlite::OptionalExtension;
+use std::fs;
 use std::sync::Arc;
 use sync15::{
     client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
@@ -55,14 +53,13 @@ fn read_form_based_login() -> LoginEntry {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     LoginEntry {
-        fields: LoginFields {
-            username_field,
-            password_field,
-            form_action_origin,
-            http_realm: None,
-            origin,
-        },
-        sec_fields: SecureLoginFields { username, password },
+        username_field,
+        password_field,
+        form_action_origin,
+        http_realm: None,
+        origin,
+        username,
+        password,
     }
 }
 
@@ -74,14 +71,13 @@ fn read_auth_based_login() -> LoginEntry {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     LoginEntry {
-        fields: LoginFields {
-            username_field,
-            password_field,
-            form_action_origin: None,
-            http_realm,
-            origin,
-        },
-        sec_fields: SecureLoginFields { username, password },
+        username_field,
+        password_field,
+        form_action_origin: None,
+        http_realm,
+        origin,
+        username,
+        password,
     }
 }
 
@@ -95,12 +91,12 @@ fn update_string(field_name: &str, field: &mut String, extra: &str) -> bool {
     }
 }
 
-fn update_encrypted_fields(fields: &mut SecureLoginFields, extra: &str) {
-    if let Some(v) = prompt_string(format!("new username [now {}{}]", fields.username, extra)) {
-        fields.username = v;
+fn update_username_and_password(entry: &mut LoginEntry, extra: &str) {
+    if let Some(v) = prompt_string(format!("new username [now {}{}]", entry.username, extra)) {
+        entry.username = v;
     };
-    if let Some(v) = prompt_string(format!("new password [now {}{}]", fields.password, extra)) {
-        fields.password = v;
+    if let Some(v) = prompt_string(format!("new password [now {}{}]", entry.password, extra)) {
+        entry.password = v;
     };
 }
 
@@ -112,48 +108,45 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
     string_opt(o).unwrap_or(or)
 }
 
-fn update_login(login: EncryptedLogin, encdec: &EncryptorDecryptor) -> LoginEntry {
-    let mut record = LoginEntry {
-        sec_fields: login.decrypt_fields(encdec).unwrap(),
-        fields: login.fields,
-    };
-    update_encrypted_fields(&mut record.sec_fields, ", leave blank to keep");
-    update_string("origin", &mut record.fields.origin, ", leave blank to keep");
+fn update_login(login: Login) -> LoginEntry {
+    let mut entry = login.entry();
+    update_username_and_password(&mut entry, ", leave blank to keep");
+    update_string("origin", &mut entry.origin, ", leave blank to keep");
 
     update_string(
         "username_field",
-        &mut record.fields.username_field,
+        &mut entry.username_field,
         ", leave blank to keep",
     );
     update_string(
         "password_field",
-        &mut record.fields.password_field,
+        &mut entry.password_field,
         ", leave blank to keep",
     );
 
     if prompt_bool(&format!(
         "edit form_action_origin? (now {}) [yN]",
-        string_opt_or(&record.fields.form_action_origin, "(none)")
+        string_opt_or(&entry.form_action_origin, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.fields.form_action_origin = prompt_string("form_action_origin");
+        entry.form_action_origin = prompt_string("form_action_origin");
     }
 
     if prompt_bool(&format!(
         "edit http_realm? (now {}) [yN]",
-        string_opt_or(&record.fields.http_realm, "(none)")
+        string_opt_or(&entry.http_realm, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.fields.http_realm = prompt_string("http_realm");
+        entry.http_realm = prompt_string("http_realm");
     }
 
-    if let Err(e) = record.check_valid() {
+    if let Err(e) = entry.check_valid() {
         log::warn!("Warning: produced invalid record: {}", e);
         // but we return it anyway!
     }
-    record
+    entry
 }
 
 fn prompt_bool(msg: &str) -> Option<bool> {
@@ -210,7 +203,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<String>> {
+fn show_all(store: &LoginStore) -> Result<Vec<String>> {
     let logins = store.list()?;
 
     let mut table = prettytable::Table::new();
@@ -238,27 +231,26 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
     let mut logins_copy = logins.clone();
     logins_copy.sort_by_key(|a| a.guid());
     for login in logins.iter() {
-        let sec_fields = login.decrypt_fields(encdec).unwrap();
         table.add_row(row![
             r->v.len(),
             Fr->&login.guid(),
-            &sec_fields.username,
-            &sec_fields.password,
-            &login.fields.origin,
+            &login.username,
+            &login.password,
+            &login.origin,
 
-            string_opt_or(&login.fields.form_action_origin, ""),
-            string_opt_or(&login.fields.http_realm, ""),
+            string_opt_or(&login.form_action_origin, ""),
+            string_opt_or(&login.http_realm, ""),
 
-            &login.fields.username_field,
-            &login.fields.password_field,
+            &login.username_field,
+            &login.password_field,
 
-            login.record.times_used,
-            timestamp_to_string(login.record.time_created),
-            timestamp_to_string(login.record.time_password_changed),
-            if login.record.time_last_used == 0 {
+            login.times_used,
+            timestamp_to_string(login.time_created),
+            timestamp_to_string(login.time_password_changed),
+            if login.time_last_used == 0 {
                 "Never".to_owned()
             } else {
-                timestamp_to_string(login.record.time_last_used)
+                timestamp_to_string(login.time_last_used)
             }
         ]);
         v.push(login.guid().to_string());
@@ -267,12 +259,8 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
     Ok(v)
 }
 
-fn prompt_record_id(
-    s: &LoginStore,
-    encdec: &EncryptorDecryptor,
-    action: &str,
-) -> Result<Option<String>> {
-    let index_to_id = show_all(s, encdec)?;
+fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
+    let index_to_id = show_all(s)?;
     let input = if let Some(input) = prompt_usize(format!("Enter (idx) of record to {}", action)) {
         input
     } else {
@@ -285,51 +273,32 @@ fn prompt_record_id(
     Ok(Some(index_to_id[input].as_str().into()))
 }
 
-fn open_database(db_path: &str) -> Result<(LoginStore, EncryptorDecryptor, String)> {
-    let store = LoginStore::new(db_path)?;
-    // Get or create an encryption key to use
-    let encryption_key = match get_encryption_key(&store) {
-        Some(s) => s,
-        None => {
-            log::warn!("Creating new encryption key");
+fn open_database(db_path: &str) -> Result<LoginStore> {
+    let encryption_key = get_or_create_encryption_key()?;
+    let encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
+        StaticKeyManager::new(encryption_key),
+    )));
+    let store = LoginStore::new(db_path, encdec)?;
+    Ok(store)
+}
+
+fn get_or_create_encryption_key() -> Result<String> {
+    match get_encryption_key() {
+        Ok(encryption_key) => Ok(encryption_key),
+        Err(_) => {
             let encryption_key = create_key()?;
-            set_encryption_key(&store, &encryption_key)?;
-            encryption_key
+            set_encryption_key(encryption_key.clone())?;
+            Ok(encryption_key)
         }
-    };
-    Ok((
-        store,
-        EncryptorDecryptor::new(&encryption_key)?,
-        encryption_key,
-    ))
+    }
 }
 
-// Use loginsSyncMeta as a quick and dirty solution to store the encryption key
-fn get_encryption_key(store: &LoginStore) -> Option<String> {
-    store
-        .db
-        .lock()
-        .query_row(
-            "SELECT value FROM loginsSyncMeta WHERE key = 'sync-pass-key'",
-            [],
-            |r| r.get(0),
-        )
-        .optional()
-        .unwrap()
+fn get_encryption_key() -> Result<String, std::io::Error> {
+    fs::read_to_string("logins.jwk")
 }
 
-fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
-    store
-        .db
-        .lock()
-        .execute(
-            "
-        INSERT INTO  loginsSyncMeta (key, value)
-        VALUES ('sync-pass-key', ?)
-        ",
-            [&key],
-        )
-        .map(|_| ())
+fn set_encryption_key(encryption_key: String) -> Result<(), std::io::Error> {
+    fs::write("logins.jwk", encryption_key)
 }
 
 fn do_sync(
@@ -338,12 +307,8 @@ fn do_sync(
     access_token: String,
     sync_key: String,
     tokenserver_url: url::Url,
-    local_encryption_key: String,
 ) -> Result<String> {
-    let mut engine = LoginsSyncEngine::new(Arc::clone(&store))?;
-    engine
-        .set_local_encryption_key(&local_encryption_key)
-        .unwrap();
+    let engine = LoginsSyncEngine::new(Arc::clone(&store))?;
 
     let storage_init = &Sync15StorageClientInit {
         key_id,
@@ -411,12 +376,11 @@ fn main() -> Result<()> {
     log::debug!("db: {:?}", db_path);
     // Lets not log the encryption key, it's just not a good habit to be in.
 
-    let (store, encdec, encryption_key) = open_database(db_path)?;
-    let store = Arc::new(store);
+    let store = Arc::new(open_database(db_path)?);
 
     log::info!("Store has {} passwords", store.list()?.len());
 
-    if let Err(e) = show_all(&store, &encdec) {
+    if let Err(e) = show_all(&store) {
         log::warn!("Failed to show initial login data! {}", e);
     }
 
@@ -425,13 +389,13 @@ fn main() -> Result<()> {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
-                if let Err(e) = store.add(record, &encryption_key) {
+                if let Err(e) = store.add(record) {
                     log::warn!("Failed to create record! {}", e);
                 }
             }
             'D' | 'd' => {
                 log::info!("Deleting record");
-                match prompt_record_id(&store, &encdec, "delete") {
+                match prompt_record_id(&store, "delete") {
                     Ok(Some(id)) => {
                         if let Err(e) = store.delete(&id) {
                             log::warn!("Failed to delete record! {}", e);
@@ -445,7 +409,7 @@ fn main() -> Result<()> {
             }
             'U' | 'u' => {
                 log::info!("Updating record fields");
-                match prompt_record_id(&store, &encdec, "update") {
+                match prompt_record_id(&store, "update") {
                     Err(e) => {
                         log::warn!("Failed to get record ID! {}", e);
                     }
@@ -461,7 +425,7 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        if let Err(e) = store.update(&id, update_login(login_record.clone(), &encdec), &encryption_key) {
+                        if let Err(e) = store.update(&id, update_login(login_record.clone())) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }
@@ -489,7 +453,6 @@ fn main() -> Result<()> {
                     cli_fxa.client_init.access_token.clone(),
                     sync_key,
                     cli_fxa.client_init.tokenserver_url.clone(),
-                    encryption_key.clone(),
                 ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
@@ -501,7 +464,7 @@ fn main() -> Result<()> {
                 }
             }
             'V' | 'v' => {
-                if let Err(e) = show_all(&store, &encdec) {
+                if let Err(e) = show_all(&store) {
                     log::warn!("Failed to dump passwords? This is probably bad! {}", e);
                 }
             }
@@ -520,7 +483,7 @@ fn main() -> Result<()> {
             }
             'T' | 't' => {
                 log::info!("Touching (bumping use count) for a record");
-                match prompt_record_id(&store, &encdec, "update") {
+                match prompt_record_id(&store, "update") {
                     Err(e) => {
                         log::warn!("Failed to get record ID! {}", e);
                     }

@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{EncryptedLogin, Login, LoginEntry};
+use crate::login::{Login, LoginEntry};
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
@@ -48,48 +48,81 @@ fn create_sync_engine(
 
 pub struct LoginStore {
     pub db: Mutex<LoginDb>,
+    pub encdec: Arc<dyn EncryptorDecryptor>,
 }
 
 impl LoginStore {
     #[handle_error(Error)]
-    pub fn new(path: impl AsRef<Path>) -> ApiResult<Self> {
+    pub fn new(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
         let db = Mutex::new(LoginDb::open(path)?);
-        Ok(Self { db })
+        Ok(Self { db, encdec })
     }
 
-    pub fn new_from_db(db: LoginDb) -> Self {
-        Self { db: Mutex::new(db) }
+    pub fn new_from_db(db: LoginDb, encdec: Arc<dyn EncryptorDecryptor>) -> Self {
+        Self {
+            db: Mutex::new(db),
+            encdec,
+        }
     }
 
     #[handle_error(Error)]
-    pub fn new_in_memory() -> ApiResult<Self> {
+    pub fn new_in_memory(encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
         let db = Mutex::new(LoginDb::open_in_memory()?);
-        Ok(Self { db })
+        Ok(Self { db, encdec })
     }
 
     #[handle_error(Error)]
-    pub fn list(&self) -> ApiResult<Vec<EncryptedLogin>> {
-        self.db.lock().get_all()
+    pub fn is_empty(&self) -> ApiResult<bool> {
+        self.db.lock().get_all().map(|logins| logins.is_empty())
     }
 
     #[handle_error(Error)]
-    pub fn get(&self, id: &str) -> ApiResult<Option<EncryptedLogin>> {
-        self.db.lock().get_by_id(id)
+    pub fn list(&self) -> ApiResult<Vec<Login>> {
+        self.db.lock().get_all().and_then(|logins| {
+            logins
+                .into_iter()
+                .map(|login| login.decrypt(self.encdec.as_ref()))
+                .collect()
+        })
     }
 
     #[handle_error(Error)]
-    pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<EncryptedLogin>> {
-        self.db.lock().get_by_base_domain(base_domain)
+    pub fn get(&self, id: &str) -> ApiResult<Option<Login>> {
+        match self.db.lock().get_by_id(id) {
+            Ok(result) => match result {
+                Some(enc_login) => enc_login.decrypt(self.encdec.as_ref()).map(Some),
+                None => Ok(None),
+            },
+            Err(err) => Err(err),
+        }
     }
 
     #[handle_error(Error)]
-    pub fn find_login_to_update(
-        &self,
-        entry: LoginEntry,
-        enc_key: &str,
-    ) -> ApiResult<Option<Login>> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().find_login_to_update(entry, &encdec)
+    pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<Login>> {
+        self.db
+            .lock()
+            .get_by_base_domain(base_domain)
+            .and_then(|logins| {
+                logins
+                    .into_iter()
+                    .map(|login| login.decrypt(self.encdec.as_ref()))
+                    .collect()
+            })
+    }
+
+    #[handle_error(Error)]
+    pub fn has_logins_by_base_domain(&self, base_domain: &str) -> ApiResult<bool> {
+        self.db
+            .lock()
+            .get_by_base_domain(base_domain)
+            .map(|logins| !logins.is_empty())
+    }
+
+    #[handle_error(Error)]
+    pub fn find_login_to_update(&self, entry: LoginEntry) -> ApiResult<Option<Login>> {
+        self.db
+            .lock()
+            .find_login_to_update(entry, self.encdec.as_ref())
     }
 
     #[handle_error(Error)]
@@ -119,21 +152,27 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().update(id, entry, &encdec)
+    pub fn update(&self, id: &str, entry: LoginEntry) -> ApiResult<Login> {
+        self.db
+            .lock()
+            .update(id, entry, self.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
-    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().add(entry, &encdec)
+    pub fn add(&self, entry: LoginEntry) -> ApiResult<Login> {
+        self.db
+            .lock()
+            .add(entry, self.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
-    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> ApiResult<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().add_or_update(entry, &encdec)
+    pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login> {
+        self.db
+            .lock()
+            .add_or_update(entry, self.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
     }
 
     // This allows the embedding app to say "make this instance available to
@@ -161,62 +200,48 @@ impl LoginStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
-    use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
-    fn assert_logins_equiv(a: &LoginEntry, b: &EncryptedLogin) {
-        let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
-        assert_eq!(a.fields, b.fields);
-        assert_eq!(b_e.username, a.sec_fields.username);
-        assert_eq!(b_e.password, a.sec_fields.password);
+    fn assert_logins_equiv(a: &LoginEntry, b: &Login) {
+        assert_eq!(a.origin, b.origin);
+        assert_eq!(a.form_action_origin, b.form_action_origin);
+        assert_eq!(a.http_realm, b.http_realm);
+        assert_eq!(a.username_field, b.username_field);
+        assert_eq!(a.password_field, b.password_field);
+        assert_eq!(b.username, a.username);
+        assert_eq!(b.password, a.password);
     }
 
     #[test]
     fn test_general() {
-        let store = LoginStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
         let a = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                form_action_origin: Some("https://www.example.com".into()),
-                username_field: "user_input".into(),
-                password_field: "pass_input".into(),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "coolperson21".into(),
-                password: "p4ssw0rd".into(),
-            },
+            origin: "https://www.example.com".into(),
+            form_action_origin: Some("https://www.example.com".into()),
+            username_field: "user_input".into(),
+            password_field: "pass_input".into(),
+            username: "coolperson21".into(),
+            password: "p4ssw0rd".into(),
+            ..Default::default()
         };
 
         let b = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example2.com".into(),
-                http_realm: Some("Some String Here".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "asdf".into(),
-                password: "fdsa".into(),
-            },
+            origin: "https://www.example2.com".into(),
+            http_realm: Some("Some String Here".into()),
+            username: "asdf".into(),
+            password: "fdsa".into(),
+            ..Default::default()
         };
-        let a_id = store
-            .add(a.clone(), &TEST_ENCRYPTION_KEY)
-            .expect("added a")
-            .record
-            .id;
-        let b_id = store
-            .add(b.clone(), &TEST_ENCRYPTION_KEY)
-            .expect("added b")
-            .record
-            .id;
+        let a_id = store.add(a.clone()).expect("added a").id;
+        let b_id = store.add(b.clone()).expect("added b").id;
 
         let a_from_db = store
             .get(&a_id)
@@ -224,10 +249,10 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.record.time_created, start_us);
-        assert_ge!(a_from_db.record.time_password_changed, start_us);
-        assert_ge!(a_from_db.record.time_last_used, start_us);
-        assert_eq!(a_from_db.record.times_used, 1);
+        assert_ge!(a_from_db.time_created, start_us);
+        assert_ge!(a_from_db.time_password_changed, start_us);
+        assert_ge!(a_from_db.time_last_used, start_us);
+        assert_eq!(a_from_db.times_used, 1);
 
         let b_from_db = store
             .get(&b_id)
@@ -235,10 +260,10 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
-        assert_ge!(b_from_db.record.time_created, start_us);
-        assert_ge!(b_from_db.record.time_password_changed, start_us);
-        assert_ge!(b_from_db.record.time_last_used, start_us);
-        assert_eq!(b_from_db.record.times_used, 1);
+        assert_ge!(b_from_db.time_created, start_us);
+        assert_ge!(b_from_db.time_password_changed, start_us);
+        assert_ge!(b_from_db.time_last_used, start_us);
+        assert_eq!(b_from_db.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
@@ -259,11 +284,21 @@ mod test {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
+        let has_logins = store
+            .has_logins_by_base_domain("example2.com")
+            .expect("Expect a result for this origin");
+        assert!(has_logins);
+
         let list = store
             .get_by_base_domain("example2.com")
             .expect("Expect a list for this origin");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
+
+        let has_logins = store
+            .has_logins_by_base_domain("www.example.com")
+            .expect("Expect a result for this origin");
+        assert!(!has_logins);
 
         let list = store
             .get_by_base_domain("www.example.com")
@@ -272,15 +307,13 @@ mod test {
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = LoginEntry {
-            sec_fields: SecureLoginFields {
-                username: b.sec_fields.username.to_owned(),
-                password: "newpass".into(),
-            },
+            username: b.username.to_owned(),
+            password: "newpass".into(),
             ..b
         };
 
         store
-            .update(&b_id, b2.clone(), &TEST_ENCRYPTION_KEY)
+            .update(&b_id, b2.clone())
             .expect("update b should work");
 
         let b_after_update = store
@@ -289,17 +322,17 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&b2, &b_after_update);
-        assert_ge!(b_after_update.record.time_created, start_us);
-        assert_le!(b_after_update.record.time_created, now_us);
-        assert_ge!(b_after_update.record.time_password_changed, now_us);
-        assert_ge!(b_after_update.record.time_last_used, now_us);
+        assert_ge!(b_after_update.time_created, start_us);
+        assert_le!(b_after_update.time_created, now_us);
+        assert_ge!(b_after_update.time_password_changed, now_us);
+        assert_ge!(b_after_update.time_last_used, now_us);
         // Should be two even though we updated twice
-        assert_eq!(b_after_update.record.times_used, 2);
+        assert_eq!(b_after_update.times_used, 2);
     }
 
     #[test]
     fn test_sync_manager_registration() {
-        let store = Arc::new(LoginStore::new_in_memory().unwrap());
+        let store = Arc::new(LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap());
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);
         Arc::clone(&store).register_with_sync_manager();
