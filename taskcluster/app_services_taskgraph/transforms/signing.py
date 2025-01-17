@@ -28,7 +28,7 @@ def build_upstream_artifacts(config, tasks):
                     "paths": publications_to_artifact_paths(
                         version, module_info["publications"]
                     ),
-                    "formats": ["autograph_gpg"],
+                    "formats": ["gcp_prod_autograph_gpg"],
                 }
             ]
         }
