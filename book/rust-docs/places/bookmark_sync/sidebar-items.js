@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SyncedBookmarkKind","SyncedBookmarkValidity"],"mod":["engine","record"]};
