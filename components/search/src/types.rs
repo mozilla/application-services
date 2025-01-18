@@ -208,7 +208,7 @@ pub struct SearchEngineDefinition {
     /// The higher the number, the nearer to the front it should be.
     /// If the number is not specified, other methods of sorting may be relied
     /// upon (e.g. alphabetical).
-    pub order_hint: Option<u8>,
+    pub order_hint: Option<u32>,
 }
 
 /// Details of the search engines to display to the user, generated as a result

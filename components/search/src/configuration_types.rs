@@ -253,11 +253,28 @@ pub(crate) struct JSONDefaultEnginesRecord {
     pub specific_defaults: Vec<JSONSpecificDefaultRecord>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct JSONEngineOrder {
+    /// The specific environment to match for this record.
+    pub environment: JSONVariantEnvironment,
+
+    /// The order of the engines for the associated environment. If engines are
+    /// present for the user but not included in this list, they will follow
+    /// after the ones in this list in alphabetical order. If an individual entry
+    /// is suffixed with a star, matching is applied on a \"starts with\" basis.
+    #[serde(default)]
+    pub order: Vec<String>,
+}
+
 /// Represents the engine orders record.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineOrdersRecord {
-    // TODO: Implementation.
+    /// When a user's instance matches the defined environments, the associated
+    /// engine order will be applied. The array is ordered, when multiple entries
+    /// match on environments, the later entry will override earlier entries.
+    pub orders: Vec<JSONEngineOrder>,
 }
 
 /// Represents an individual record in the raw search configuration.

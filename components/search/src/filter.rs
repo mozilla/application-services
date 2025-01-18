@@ -132,6 +132,7 @@ pub(crate) fn filter_engine_configuration(
     user_environment.version = user_environment.version.to_lowercase();
 
     let mut default_engines_record = None;
+    let mut engine_orders_record = None;
 
     for record in configuration {
         match record {
@@ -142,8 +143,8 @@ pub(crate) fn filter_engine_configuration(
             JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
                 default_engines_record = Some(default_engines);
             }
-            JSONSearchConfigurationRecords::EngineOrders(_engine_orders) => {
-                // TODO: Implementation.
+            JSONSearchConfigurationRecords::EngineOrders(engine_orders) => {
+                engine_orders_record = Some(engine_orders)
             }
             JSONSearchConfigurationRecords::Unknown => {
                 // Prevents panics if a new record type is added in future.
@@ -153,6 +154,19 @@ pub(crate) fn filter_engine_configuration(
 
     let (default_engine_id, default_private_engine_id) =
         determine_default_engines(&engines, default_engines_record, &user_environment);
+
+
+    if let Some(orders_record) = engine_orders_record {
+        for order_data in &orders_record.orders {
+            if matches_user_environment(&order_data.environment, &user_environment) {
+                set_engine_order(&mut engines, &order_data.order);
+            }
+        }
+    }
+
+    engines.sort_by(|a, b| {
+        sort(default_engine_id.as_ref(), default_private_engine_id.as_ref(), a, b)
+    });
 
     Ok(RefinedSearchConfig {
         engines,
@@ -215,11 +229,11 @@ fn determine_default_engines(
             if let Some(specific_default) = specific_default {
                 // Check the engine is present in the list of engines before
                 // we return it as default.
-                if let Some(engine_id) = find_engine_with_match(engines, specific_default.default) {
+                if let Some(engine_id) = find_engine_id_with_match(engines, specific_default.default) {
                     default_engine_id.replace(engine_id);
                 }
                 if let Some(private_engine_id) =
-                    find_engine_with_match(engines, specific_default.default_private)
+                    find_engine_id_with_match(engines, specific_default.default_private)
                 {
                     default_engine_private_id.replace(private_engine_id);
                 }
@@ -252,7 +266,18 @@ fn find_engine_id(engines: &[SearchEngineDefinition], engine_id: String) -> Opti
     }
 }
 
-fn find_engine_with_match(
+fn set_engine_order(engines: &mut [SearchEngineDefinition], ordered_engines: &[String]) {
+    let mut order_number = ordered_engines.len();
+
+    for engine_id in ordered_engines {
+        if let Some(found_engine) = find_engine_with_match_mut(engines, engine_id) {
+            found_engine.order_hint = Some(order_number as u32);
+            order_number -= 1;
+        }
+    }
+}
+
+fn find_engine_id_with_match(
     engines: &[SearchEngineDefinition],
     engine_id_match: String,
 ) -> Option<String> {
@@ -270,6 +295,49 @@ fn find_engine_with_match(
         .iter()
         .find(|e| e.identifier == engine_id_match)
         .map(|e| e.identifier.clone())
+}
+
+fn find_engine_with_match_mut<'a>(
+    engines: &'a mut [SearchEngineDefinition],
+    engine_id_match: &String,
+) -> Option<&'a mut SearchEngineDefinition> {
+    if engine_id_match.is_empty() {
+        return None;
+    }
+    if let Some(match_no_star) = engine_id_match.strip_suffix('*') {
+        return engines
+            .iter_mut()
+            .find(|e| e.identifier.starts_with(match_no_star))
+    }
+
+    engines
+        .iter_mut()
+        .find(|e| e.identifier == *engine_id_match)
+}
+
+fn get_priority(
+    engine: &SearchEngineDefinition,
+    default_engine_id: Option<&String>,
+    default_private_engine_id: Option<&String>,
+    ) -> u32 {
+    if Some(&engine.identifier) == default_engine_id {
+        return u32::MAX;
+    }
+    if Some(&engine.identifier) == default_private_engine_id {
+        return u32::MAX - 1;
+    }
+    engine.order_hint.unwrap_or(0)
+}
+
+fn sort(
+    default_engine_id: Option<&String>,
+    default_private_engine_id: Option<&String>,
+    a: &SearchEngineDefinition,
+    b: &SearchEngineDefinition
+) -> std::cmp::Ordering {
+    let b_index = get_priority(b, default_engine_id, default_private_engine_id);
+    let a_index = get_priority(a, default_engine_id, default_private_engine_id);
+    b_index.cmp(&a_index)
 }
 
 #[cfg(test)]
