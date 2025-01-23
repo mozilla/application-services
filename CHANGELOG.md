@@ -23,6 +23,8 @@
 ### `init_rust_components`
 - new component to provide Rust initialization routines, initially aimed at initializing NSS
 
+- Our dependency on `rusqlite` was updated from 0.31.0 to 0.33.0. This crate uses `libsqlite3-sys`, and was also upgraded from 0.28.0 to 0.31.0. If you are using `libsqlite3-sys` in other parts of your dependency tree, you may have to upgrade it manually to continue compiling.
+
 ### Android
 - Upgraded NDK from r27c to r28. ([#6588](https://github.com/mozilla/application-services/pull/6588))
 
@@ -96,7 +98,6 @@ Login {
     string username;
 }
 ```
-
 
 ### `rc_crypto`
 - New low level bindings for dealing with primary password.
