@@ -15,7 +15,7 @@ crate-type = ["lib"]
 libsqlite3-sys = { version = "0.31.0", features = ["bundled"] }
 
 [build-dependencies]
-nss_build_common = {path = "../nss_build_common"}
+nss_build_common = { path = "../nss_build_common" }
 
 [features]
 default = []
