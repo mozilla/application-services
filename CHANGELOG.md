@@ -62,7 +62,6 @@ Login {
 }
 ```
 
-
 ### `rc_crypto`
 - New low level bindings for dealing with primary password.
 - New feature flag `keydb` in `rc_crypto/nss`, which enables NSS key persistence: `ensure_initialized_with_profile_dir(path: impl AsRef<Path>)` initializes NSS with a profile directory and appropriate flags to persist keys (and certificates) in its internal PKCS11 software implementation. This function must be called first; if `ensure_initialized` is called before, it will fail.
@@ -73,6 +72,10 @@ Login {
 
 ### Remote Settings
 - Added support of content signatures verification ([#6534](https://github.com/mozilla/application-services/pull/6534))
+
+#### Upgraded `rusqlite` 0.31 → 0.33.
+
+Our dependency on `rusqlite` was updated from 0.31.0 to 0.33.0. This crate uses `libsqlite3-sys`, and was also upgraded from 0.28.0 to 0.31.0. If you are using `libsqlite3-sys` in other parts of your dependency tree, you may have to upgrade it manually to continue compiling.
 
 [Full Changelog](In progress)
 
