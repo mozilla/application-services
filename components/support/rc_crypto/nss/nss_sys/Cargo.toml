@@ -12,7 +12,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(__appsvc_ci_hack)'] }
 crate-type = ["lib"]
 
 [dependencies]
-libsqlite3-sys = { version = "0.28.0", features = ["bundled"] }
+libsqlite3-sys = { version = "0.31.0", features = ["bundled"] }
 
 [build-dependencies]
 nss_build_common = {path = "../nss_build_common"}
