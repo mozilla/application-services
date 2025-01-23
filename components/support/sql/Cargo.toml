@@ -20,7 +20,7 @@ tempfile = "3.1.0"
 parking_lot = ">=0.11,<=0.12"
 # disable for m-c :(
 # prettytable-rs = { version = "0.10", optional = true }
-rusqlite = { version = "0.31.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
+rusqlite = { version = "0.33.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
 
 [dev-dependencies]
 env_logger = {version = "0.10", default-features = false}

@@ -22,7 +22,7 @@ lazy_static = "1.4"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1"
 caseless = "0.2"
-rusqlite = { version = "0.31.0", features = ["functions", "window", "bundled", "unlock_notify"] }
+rusqlite = { version = "0.33.0", features = ["functions", "window", "bundled", "unlock_notify"] }
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
 bitflags = "1.2"

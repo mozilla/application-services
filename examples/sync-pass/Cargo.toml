@@ -27,7 +27,7 @@ tempfile = "3"
 serde_json = "1.0"
 url = "2.2"
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
-rusqlite = { version = "0.31.0", features = ["limits"] }
+rusqlite = { version = "0.33.0", features = ["limits"] }
 init_rust_components = { path = "../../components/init_rust_components", features = ["keydb"] }
 
 [dependencies]
