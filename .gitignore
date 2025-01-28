@@ -1,6 +1,7 @@
 website/build
 target
 credentials.json
+logins.jwk
 *-engine.json
 *.db
 .*.swp

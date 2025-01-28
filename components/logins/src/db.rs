@@ -212,7 +212,7 @@ impl LoginDb {
     pub fn find_login_to_update(
         &self,
         look: LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<Option<Login>> {
         let look = look.fixup()?;
         let logins = self
@@ -223,13 +223,9 @@ impl LoginDb {
         Ok(logins
             // First, try to match the username
             .iter()
-            .find(|login| login.sec_fields.username == look.sec_fields.username)
+            .find(|login| login.username == look.username)
             // Fall back on a blank username
-            .or_else(|| {
-                logins
-                    .iter()
-                    .find(|login| login.sec_fields.username.is_empty())
-            })
+            .or_else(|| logins.iter().find(|login| login.username.is_empty()))
             // Clone the login to avoid ref issues when returning across the FFI
             .cloned())
     }
@@ -355,11 +351,19 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
+    pub fn add(
+        &self,
+        entry: LoginEntry,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<EncryptedLogin> {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         let new_entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
+        let sec_fields = SecureLoginFields {
+            username: new_entry.username,
+            password: new_entry.password,
+        };
         let result = EncryptedLogin {
             record: RecordFields {
                 id: guid.to_string(),
@@ -368,8 +372,14 @@ impl LoginDb {
                 time_last_used: now_ms,
                 times_used: 1,
             },
-            fields: new_entry.fields,
-            sec_fields: new_entry.sec_fields.encrypt(encdec)?,
+            fields: LoginFields {
+                origin: new_entry.origin,
+                form_action_origin: new_entry.form_action_origin,
+                http_realm: new_entry.http_realm,
+                username_field: new_entry.username_field,
+                password_field: new_entry.password_field,
+            },
+            sec_fields: sec_fields.encrypt(encdec)?,
         };
         let tx = self.unchecked_transaction()?;
         self.insert_new_login(&result)?;
@@ -381,7 +391,7 @@ impl LoginDb {
         &self,
         sguid: &str,
         entry: LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<EncryptedLogin> {
         let guid = Guid::new(sguid);
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -398,8 +408,8 @@ impl LoginDb {
             // Try to detect if sync is enabled by checking if there are any mirror logins
             let has_mirror_row: bool =
                 self.db.query_one("SELECT EXISTS (SELECT 1 FROM loginsM)")?;
-            let has_http_realm = entry.fields.http_realm.is_some();
-            let has_form_action_origin = entry.fields.form_action_origin.is_some();
+            let has_http_realm = entry.http_realm.is_some();
+            let has_form_action_origin = entry.form_action_origin.is_some();
             report_error!(
                 "logins-duplicate-in-update",
                 "(mirror: {has_mirror_row}, realm: {has_http_realm}, form_origin: {has_form_action_origin})");
@@ -411,27 +421,36 @@ impl LoginDb {
 
         // We must read the existing record so we can correctly manage timePasswordChanged.
         let existing = match self.get_by_id(sguid)? {
-            Some(e) => e,
+            Some(e) => e.decrypt(encdec)?,
             None => return Err(Error::NoSuchRecord(sguid.to_owned())),
         };
-        let time_password_changed =
-            if existing.decrypt_fields(encdec)?.password == entry.sec_fields.password {
-                existing.record.time_password_changed
-            } else {
-                now_ms
-            };
+        let time_password_changed = if existing.password == entry.password {
+            existing.time_password_changed
+        } else {
+            now_ms
+        };
 
         // Make the final object here - every column will be updated.
+        let sec_fields = SecureLoginFields {
+            username: entry.username,
+            password: entry.password,
+        };
         let result = EncryptedLogin {
             record: RecordFields {
-                id: existing.record.id,
-                time_created: existing.record.time_created,
+                id: existing.id,
+                time_created: existing.time_created,
                 time_password_changed,
                 time_last_used: now_ms,
-                times_used: existing.record.times_used + 1,
+                times_used: existing.times_used + 1,
             },
-            fields: entry.fields,
-            sec_fields: entry.sec_fields.encrypt(encdec)?,
+            fields: LoginFields {
+                origin: entry.origin,
+                form_action_origin: entry.form_action_origin,
+                http_realm: entry.http_realm,
+                username_field: entry.username_field,
+                password_field: entry.password_field,
+            },
+            sec_fields: sec_fields.encrypt(encdec)?,
         };
 
         self.update_existing_login(&result)?;
@@ -442,12 +461,12 @@ impl LoginDb {
     pub fn add_or_update(
         &self,
         entry: LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<EncryptedLogin> {
         // Make sure to fixup the entry first, in case that changes the username
         let entry = entry.fixup()?;
         match self.find_login_to_update(entry.clone(), encdec)? {
-            Some(login) => self.update(&login.record.id, entry, encdec),
+            Some(login) => self.update(&login.id, entry, encdec),
             None => self.add(entry, encdec),
         }
     }
@@ -456,7 +475,7 @@ impl LoginDb {
         &self,
         guid: &Guid,
         entry: LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<LoginEntry> {
         let entry = entry.fixup()?;
         self.check_for_dupes(guid, &entry, encdec)?;
@@ -467,7 +486,7 @@ impl LoginDb {
         &self,
         guid: &Guid,
         entry: &LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<()> {
         if self.dupe_exists(guid, entry, encdec)? {
             return Err(InvalidLogin::DuplicateLogin.into());
@@ -479,7 +498,7 @@ impl LoginDb {
         &self,
         guid: &Guid,
         entry: &LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<bool> {
         Ok(self.find_dupe(guid, entry, encdec)?.is_some())
     }
@@ -488,12 +507,12 @@ impl LoginDb {
         &self,
         guid: &Guid,
         entry: &LoginEntry,
-        encdec: &EncryptorDecryptor,
+        encdec: &dyn EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
         for possible in self.get_by_entry_target(entry)? {
             if possible.guid() != *guid {
                 let pos_sec_fields = possible.decrypt_fields(encdec)?;
-                if pos_sec_fields.username == entry.sec_fields.username {
+                if pos_sec_fields.username == entry.username {
                     return Ok(Some(possible.guid()));
                 }
             }
@@ -542,13 +561,10 @@ impl LoginDb {
                 common_cols = schema::COMMON_COLS
             );
         }
-        match (
-            entry.fields.form_action_origin.as_ref(),
-            entry.fields.http_realm.as_ref(),
-        ) {
+        match (entry.form_action_origin.as_ref(), entry.http_realm.as_ref()) {
             (Some(form_action_origin), None) => {
                 let params = named_params! {
-                    ":origin": &entry.fields.origin,
+                    ":origin": &entry.origin,
                     ":form_action_origin": form_action_origin,
                 };
                 self.db
@@ -558,7 +574,7 @@ impl LoginDb {
             }
             (None, Some(http_realm)) => {
                 let params = named_params! {
-                    ":origin": &entry.fields.origin,
+                    ":origin": &entry.origin,
                     ":http_realm": http_realm,
                 };
                 self.db
@@ -879,45 +895,40 @@ pub mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::TEST_ENCRYPTOR;
+    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::sync::merge::LocalLogin;
-    use crate::SecureLoginFields;
     use std::{thread, time};
 
     #[test]
     fn test_username_dupe_semantics() {
         let mut login = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..LoginFields::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "sekret".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
         };
 
         let db = LoginDb::open_in_memory().unwrap();
-        db.add(login.clone(), &TEST_ENCRYPTOR)
+        db.add(login.clone(), &*TEST_ENCDEC)
             .expect("should be able to add first login");
 
         // We will reject new logins with the same username value...
         let exp_err = "Invalid login: Login already exists";
         assert_eq!(
-            db.add(login.clone(), &TEST_ENCRYPTOR)
+            db.add(login.clone(), &*TEST_ENCDEC)
                 .unwrap_err()
                 .to_string(),
             exp_err
         );
 
         // Add one with an empty username - not a dupe.
-        login.sec_fields.username = "".to_string();
-        db.add(login.clone(), &TEST_ENCRYPTOR)
+        login.username = "".to_string();
+        db.add(login.clone(), &*TEST_ENCDEC)
             .expect("empty login isn't a dupe");
 
         assert_eq!(
-            db.add(login, &TEST_ENCRYPTOR).unwrap_err().to_string(),
+            db.add(login, &*TEST_ENCDEC).unwrap_err().to_string(),
             exp_err
         );
 
@@ -931,19 +942,15 @@ mod tests {
         let added = db
             .add(
                 LoginEntry {
-                    fields: LoginFields {
-                        form_action_origin: Some("http://😍.com".into()),
-                        origin: "http://😍.com".into(),
-                        http_realm: None,
-                        username_field: "😍".into(),
-                        password_field: "😍".into(),
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "😍".into(),
-                        password: "😍".into(),
-                    },
+                    form_action_origin: Some("http://😍.com".into()),
+                    origin: "http://😍.com".into(),
+                    http_realm: None,
+                    username_field: "😍".into(),
+                    password_field: "😍".into(),
+                    username: "😍".into(),
+                    password: "😍".into(),
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
         let fetched = db
@@ -958,7 +965,7 @@ mod tests {
         );
         assert_eq!(fetched.fields.username_field, "😍");
         assert_eq!(fetched.fields.password_field, "😍");
-        let sec_fields = fetched.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        let sec_fields = fetched.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "😍");
         assert_eq!(sec_fields.password, "😍");
     }
@@ -969,18 +976,14 @@ mod tests {
         let added = db
             .add(
                 LoginEntry {
-                    fields: LoginFields {
-                        form_action_origin: None,
-                        origin: "http://😍.com".into(),
-                        http_realm: Some("😍😍".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "😍".into(),
-                        password: "😍".into(),
-                    },
+                    form_action_origin: None,
+                    origin: "http://😍.com".into(),
+                    http_realm: Some("😍😍".into()),
+                    username: "😍".into(),
+                    password: "😍".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
         let fetched = db
@@ -1015,17 +1018,12 @@ mod tests {
         for h in good.iter().chain(bad.iter()) {
             db.add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: (*h).into(),
-                        http_realm: Some((*h).into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        password: "test".into(),
-                        ..Default::default()
-                    },
+                    origin: (*h).into(),
+                    http_realm: Some((*h).into()),
+                    password: "test".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
         }
@@ -1104,17 +1102,13 @@ mod tests {
     fn test_add() {
         let db = LoginDb::open_in_memory().unwrap();
         let to_add = LoginEntry {
-            fields: LoginFields {
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test_user".into(),
-                password: "test_password".into(),
-            },
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test_user".into(),
+            password: "test_password".into(),
+            ..Default::default()
         };
-        let login = db.add(to_add, &TEST_ENCRYPTOR).unwrap();
+        let login = db.add(to_add, &*TEST_ENCDEC).unwrap();
         let login2 = db.get_by_id(&login.record.id).unwrap().unwrap();
 
         assert_eq!(login.fields.origin, login2.fields.origin);
@@ -1128,33 +1122,25 @@ mod tests {
         let login = db
             .add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("https://www.example.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "user1".into(),
-                        password: "password1".into(),
-                    },
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user1".into(),
+                    password: "password1".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
         db.update(
             &login.record.id,
             LoginEntry {
-                fields: LoginFields {
-                    origin: "https://www.example2.com".into(),
-                    http_realm: Some("https://www.example2.com".into()),
-                    ..login.fields
-                },
-                sec_fields: SecureLoginFields {
-                    username: "user2".into(),
-                    password: "password2".into(),
-                },
+                origin: "https://www.example2.com".into(),
+                http_realm: Some("https://www.example2.com".into()),
+                username: "user2".into(),
+                password: "password2".into(),
+                ..Default::default() // TODO: check and fix if needed
             },
-            &TEST_ENCRYPTOR,
+            &*TEST_ENCDEC,
         )
         .unwrap();
 
@@ -1165,7 +1151,7 @@ mod tests {
             login2.fields.http_realm,
             Some("https://www.example2.com".into())
         );
-        let sec_fields = login2.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        let sec_fields = login2.decrypt_fields(&*TEST_ENCDEC).unwrap();
         assert_eq!(sec_fields.username, "user2");
         assert_eq!(sec_fields.password, "password2");
     }
@@ -1176,17 +1162,13 @@ mod tests {
         let login = db
             .add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("https://www.example.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "user1".into(),
-                        password: "password1".into(),
-                    },
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user1".into(),
+                    password: "password1".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
         // Simulate touch happening at another "time"
@@ -1203,17 +1185,13 @@ mod tests {
         let login = db
             .add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("https://www.example.com".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "test_user".into(),
-                        password: "test_password".into(),
-                    },
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test_user".into(),
+                    password: "test_password".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
 
@@ -1237,22 +1215,18 @@ mod tests {
 
         fn make_entry(username: &str, password: &str) -> LoginEntry {
             LoginEntry {
-                fields: LoginFields {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("the website".into()),
-                    ..Default::default()
-                },
-                sec_fields: SecureLoginFields {
-                    username: username.into(),
-                    password: password.into(),
-                },
+                origin: "https://www.example.com".into(),
+                http_realm: Some("the website".into()),
+                username: username.into(),
+                password: password.into(),
+                ..Default::default()
             }
         }
 
         fn make_saved_login(db: &LoginDb, username: &str, password: &str) -> Login {
-            db.add(make_entry(username, password), &TEST_ENCRYPTOR)
+            db.add(make_entry(username, password), &*TEST_ENCDEC)
                 .unwrap()
-                .decrypt(&TEST_ENCRYPTOR)
+                .decrypt(&*TEST_ENCDEC)
                 .unwrap()
         }
 
@@ -1262,7 +1236,7 @@ mod tests {
             let login = make_saved_login(&db, "user", "pass");
             assert_eq!(
                 Some(login),
-                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                db.find_login_to_update(make_entry("user", "pass"), &*TEST_ENCDEC)
                     .unwrap(),
             );
         }
@@ -1275,38 +1249,30 @@ mod tests {
             // Non-match because the http_realm is different
             db.add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        http_realm: Some("the other website".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "user".into(),
-                        password: "pass".into(),
-                    },
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("the other website".into()),
+                    username: "user".into(),
+                    password: "pass".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
             // Non-match because it uses form_action_origin instead of http_realm
             db.add(
                 LoginEntry {
-                    fields: LoginFields {
-                        origin: "https://www.example.com".into(),
-                        form_action_origin: Some("https://www.example.com/".into()),
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "user".into(),
-                        password: "pass".into(),
-                    },
+                    origin: "https://www.example.com".into(),
+                    form_action_origin: Some("https://www.example.com/".into()),
+                    username: "user".into(),
+                    password: "pass".into(),
+                    ..Default::default()
                 },
-                &TEST_ENCRYPTOR,
+                &*TEST_ENCDEC,
             )
             .unwrap();
             assert_eq!(
                 None,
-                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                db.find_login_to_update(make_entry("user", "pass"), &*TEST_ENCDEC)
                     .unwrap(),
             );
         }
@@ -1317,7 +1283,7 @@ mod tests {
             let login = make_saved_login(&db, "", "pass");
             assert_eq!(
                 Some(login),
-                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                db.find_login_to_update(make_entry("user", "pass"), &*TEST_ENCDEC)
                     .unwrap(),
             );
         }
@@ -1329,7 +1295,7 @@ mod tests {
             let username_match = make_saved_login(&db, "user", "pass");
             assert_eq!(
                 Some(username_match),
-                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                db.find_login_to_update(make_entry("user", "pass"), &*TEST_ENCDEC)
                     .unwrap(),
             );
         }
@@ -1340,14 +1306,11 @@ mod tests {
             assert!(db
                 .find_login_to_update(
                     LoginEntry {
-                        fields: LoginFields {
-                            http_realm: None,
-                            form_action_origin: None,
-                            ..LoginFields::default()
-                        },
+                        http_realm: None,
+                        form_action_origin: None,
                         ..LoginEntry::default()
                     },
-                    &TEST_ENCRYPTOR
+                    &*TEST_ENCDEC
                 )
                 .is_err());
         }
@@ -1358,17 +1321,17 @@ mod tests {
             // without triggering a DuplicateLogin error
             let db = LoginDb::open_in_memory().unwrap();
             let login = make_saved_login(&db, "user", "pass");
-            let mut dupe = login.clone().encrypt(&TEST_ENCRYPTOR).unwrap();
+            let mut dupe = login.clone().encrypt(&*TEST_ENCDEC).unwrap();
             dupe.record.id = "different-guid".to_string();
             db.insert_new_login(&dupe).unwrap();
 
             let mut entry = login.entry();
-            entry.sec_fields.password = "pass2".to_string();
-            db.update(&login.record.id, entry, &TEST_ENCRYPTOR).unwrap();
+            entry.password = "pass2".to_string();
+            db.update(&login.id, entry, &*TEST_ENCDEC).unwrap();
 
             let mut entry = login.entry();
-            entry.sec_fields.password = "pass3".to_string();
-            db.add_or_update(entry, &TEST_ENCRYPTOR).unwrap();
+            entry.password = "pass3".to_string();
+            db.add_or_update(entry, &*TEST_ENCDEC).unwrap();
         }
     }
 }

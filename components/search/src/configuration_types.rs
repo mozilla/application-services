@@ -59,7 +59,7 @@ pub(crate) struct JSONEngineUrl {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineUrls {
     /// The URL to use for searches.
-    pub search: JSONEngineUrl,
+    pub search: Option<JSONEngineUrl>,
 
     /// The URL to use for suggestions.
     pub suggestions: Option<JSONEngineUrl>,
@@ -81,6 +81,7 @@ pub(crate) struct JSONEngineBase {
     /// The classification of search engine according to the main search types
     /// (e.g. general, shopping, travel, dictionary). Currently, only marking as
     /// a general search engine is supported.
+    #[serde(default)]
     pub classification: SearchEngineClassification,
 
     /// The user visible name for the search engine.
@@ -182,6 +183,15 @@ pub(crate) struct JSONEngineVariant {
 
     /// The urls for this variant.
     pub urls: Option<JSONEngineUrls>,
+
+    /// This section describes subvariations of this search engine that may occur
+    /// depending on the user's environment. The last subvariant that matches
+    /// the user's environment will be applied to the engine.
+    ///
+    /// Note: sub-variants are only supported in a top-level variant. You cannot
+    /// have nested sub-variants.
+    #[serde(default)]
+    pub sub_variants: Vec<JSONEngineVariant>,
 }
 
 /// Represents an individual engine record in the configuration.

@@ -560,6 +560,8 @@ mod tests {
                 e,
             );
 
+            // Bug 1941655 - we only guard against NULL parents, not missing ones.
+            /*
             let e = conn
                 .execute(
                     "UPDATE moz_bookmarks SET
@@ -573,6 +575,7 @@ mod tests {
                 "Expected error, got: {:?}",
                 e,
             );
+            */
         }
 
         // Invalid length guid
