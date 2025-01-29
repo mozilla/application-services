@@ -409,7 +409,7 @@ fn run_sync(
         match result.result {
             Err(e) => {
                 log::warn!("Sync failed! {}", e);
-                log::warn!("BT: {:?}", error_support::backtrace::Backtrace);
+                log::warn!("BT: {:?}", error_support::backtrace::Backtrace::new());
                 error_to_report = Some(e);
             }
             Ok(()) => log::info!("Sync was successful!"),

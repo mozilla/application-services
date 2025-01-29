@@ -129,7 +129,7 @@ impl CollectionDownloader {
         for entry in WalkDir::new(dumps_dir).min_depth(2).max_depth(2) {
             let entry = entry?;
             if entry.file_type().is_file()
-                && entry.path().extension().map_or(false, |ext| ext == "json")
+                && entry.path().extension().is_some_and(|ext| ext == "json")
             {
                 // Get bucket name from parent directory
                 let bucket = entry
