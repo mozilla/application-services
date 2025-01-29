@@ -16,6 +16,18 @@ pub mod backtrace {
 
     pub struct Backtrace;
 
+    impl Backtrace {
+        pub fn new() -> Self {
+            Backtrace
+        }
+    }
+
+    impl Default for Backtrace {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl fmt::Debug for Backtrace {
         #[cold]
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -86,7 +98,7 @@ macro_rules! define_error_wrapper {
             #[cfg(feature = "backtrace")]
             #[cold]
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                let mut bt = self.backtrace.unwrap().lock().unwrap();
+                let mut bt = self.backtrace.as_ref().unwrap().lock().unwrap();
                 bt.resolve();
                 write!(f, "{:?}\n\n{}", bt, self.kind)
             }

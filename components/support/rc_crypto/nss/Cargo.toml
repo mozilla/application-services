@@ -21,3 +21,4 @@ once_cell = { version = "1.20.2", optional = true }
 default = []
 gecko = ["nss_sys/gecko"]
 keydb = ["dep:once_cell"]
+backtrace = ["error-support/backtrace"]
