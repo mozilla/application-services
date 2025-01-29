@@ -10,4 +10,5 @@ suggest-debug-ingestion-sizes = ["run", "-p", "suggest", "--bin", "debug_ingesti
 relevancy = ["run", "-p", "examples-relevancy-cli", "--"]
 suggest = ["run", "-p", "examples-suggest-cli", "--"]
 remote-settings = ["run", "-p", "examples-remote-settings-cli", "--"]
+example = ["run", "-p", "examples-example-cli", "--"]
 start-bindings = ["run", "-p", "start-bindings", "--"]

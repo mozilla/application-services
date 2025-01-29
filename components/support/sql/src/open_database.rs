@@ -29,7 +29,11 @@
 ///
 ///  See the autofill DB code for an example.
 ///
-use std::{borrow::Cow, path::Path};
+use std::{
+    borrow::Cow,
+    path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use rusqlite::{
     Connection, Error as RusqliteError, ErrorCode, OpenFlags, Transaction, TransactionBehavior,
@@ -252,6 +256,17 @@ fn get_schema_version(conn: &Connection) -> Result<u32> {
 fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
     conn.set_pragma("user_version", version)?;
     Ok(())
+}
+
+// Get a unique in-memory database path
+//
+// This can be very useful for testing.
+pub fn unique_in_memory_db_path() -> String {
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    format!(
+        "file:in-memory-db-{}?mode=memory&cache=shared",
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 // It would be nice for this to be #[cfg(test)], but that doesn't allow it to be used in tests for
