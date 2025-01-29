@@ -1,19 +1,21 @@
 apply plugin: 'com.android.library'
-apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
+
+if (!gradle.hasProperty("mozconfig")) {
+    apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
+}
 
 android {
     namespace 'org.mozilla.appservices.full_megazord'
 
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
     defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+        ndkVersion config.ndkVersion
+        compileSdkVersion config.compileSdkVersion
+        minSdkVersion config.minSdkVersion
+        targetSdkVersion config.targetSdkVersion
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
     buildTypes {
@@ -29,7 +31,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(rootProject.ext.build.jvmTargetCompatibility)
+    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
@@ -70,66 +72,67 @@ dependencies {
     }
 }
 
-// Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
-// into our own megazord-desktopLibraries JAR.
-def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
-    from zipTree(configurations.jna.singleFile).matching {
-        include "**/libjnidispatch.*"
-    }
-    into layout.buildDirectory.dir("libjnidispatch").get()
-}
-
-def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
-    archiveBaseName = "full-megazord-libsForTests"
-
-    from extractLibJniDispatch
-    from layout.buildDirectory.dir("rustJniLibs/desktop")
-    dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
-}
-
-def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
-    from layout.buildDirectory.dir("rustJniLibs/desktop")
-    into layout.buildDirectory.dir("megazordNative")
-}
-
-
-artifacts {
-    // Connect task output to the configurations
-    libsForTests(packageLibsForTest)
-    megazordNative(copyMegazordNative)
-}
-
-cargo {
-    // The directory of the Cargo.toml to build.
-    module = '..'
-
-    // The Android NDK API level to target.
-    apiLevel = rootProject.ext.build['minSdkVersion']
-
-    // Where Cargo writes its outputs.
-    targetDirectory = '../../../target'
-
-    libname = 'megazord'
-
-    // The Cargo targets to invoke.  The mapping from short name to target
-    // triple is defined by the `rust-android-gradle` plugin.
-    targets = rootProject.ext.rustTargets
-
-    // Perform release builds (which should have debug info, due to
-    // `debug = true` in Cargo.toml).
-    profile = "release"
-
-    exec = { spec, toolchain ->
-        rootProject.ext.cargoExec(spec, toolchain)
-        // Only used in the full megazord (that is, in this project) at build time.
-        spec.environment("MEGAZORD_VERSION", rootProject.ext.library.version)
+if (!gradle.hasProperty("mozconfig")) {
+    // Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
+    // into our own megazord-desktopLibraries JAR.
+    def extractLibJniDispatch = tasks.register("extractLibJniDispatch", Copy) {
+        from zipTree(configurations.jna.singleFile).matching {
+            include "**/libjnidispatch.*"
+        }
+        into layout.buildDirectory.dir("libjnidispatch").get()
     }
 
-    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+    def packageLibsForTest = tasks.register("packageLibsForTest", Jar) {
+        archiveBaseName = "full-megazord-libsForTests"
 
-    // Add a build-id so that our code works with simpleperf
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1937916
-    generateBuildId = true
+        from extractLibJniDispatch
+        from layout.buildDirectory.dir("rustJniLibs/desktop")
+        dependsOn tasks["cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"]
+    }
+
+    def copyMegazordNative = tasks.register("copyMegazordNative", Copy) {
+        from layout.buildDirectory.dir("rustJniLibs/desktop")
+        into layout.buildDirectory.dir("megazordNative")
+    }
+
+    artifacts {
+        // Connect task output to configurations
+        libsForTests(packageLibsForTest)
+        megazordNative(copyMegazordNative)
+    }
+
+    cargo {
+        // The directory of the Cargo.toml to build.
+        module = '..'
+
+        // The Android NDK API level to target.
+        apiLevel = rootProject.config.minSdkVersion
+
+        // Where Cargo writes its outputs.
+        targetDirectory = '../../../target'
+
+        libname = 'megazord'
+
+        // The Cargo targets to invoke.  The mapping from short name to target
+        // triple is defined by the `rust-android-gradle` plugin.
+        targets = rootProject.ext.rustTargets
+
+        // Perform release builds (which should have debug info, due to
+        // `debug = true` in Cargo.toml).
+        profile = "release"
+
+        exec = { spec, toolchain ->
+            rootProject.ext.cargoExec(spec, toolchain)
+            // Only used in the full megazord (that is, in this project) at build time.
+            spec.environment("MEGAZORD_VERSION", config.componentsVersion)
+        }
+
+        extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
+        // Add a build-id so that our code works with simpleperf
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1937916
+        generateBuildId = true
+    }
 }
 
 afterEvaluate {
@@ -139,57 +142,61 @@ afterEvaluate {
         variant.productFlavors.each {
             productFlavor += "${it.name.capitalize()}"
         }
-        def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
+        if (!gradle.hasProperty("mozconfig")) {
+            def buildType = "${variant.buildType.name.capitalize()}"
+            tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
+        }
     }
 }
 
-apply from: "$rootDir/publish.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
 ext.configurePublish()
 
-afterEvaluate {
-    publishing {
-        publications {
-            // Publish a second package named `full-megazord-libsForTests` to Maven with the
-            // `libsForTests` output.  This contains the same content as our `libsForTests`
-            // configuration. Publishing it allows the android-components code to depend on it.
-            libsForTests(MavenPublication) {
-                artifact tasks['packageLibsForTest']
-                artifact file("${projectDir}/../DEPENDENCIES.md"), {
-                    extension "LICENSES.md"
-                }
-                pom {
-                    groupId = rootProject.ext.library.groupId
-                    artifactId = "${project.ext.artifactId}-libsForTests"
-                    description = project.ext.description
-                    // For mavenLocal publishing workflow, increment the version number every publish.
-                    version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
-                    packaging = "jar"
+if (!gradle.hasProperty("mozconfig")) {
+    afterEvaluate {
+        publishing {
+            publications {
+                // Publish a second package named `full-megazord-libsForTests` to Maven with the
+                // `libsForTests` output.  This contains the same content as our `libsForTests`
+                // configuration. Publishing it allows the android-components code to depend on it.
+                libsForTests(MavenPublication) {
+                    artifact tasks['packageLibsForTest']
+                    artifact file("${projectDir}/../DEPENDENCIES.md"), {
+                        extension "LICENSES.md"
+                    }
+                    pom {
+                        groupId = rootProject.config.componentsGroupId
+                        artifactId = "${project.ext.artifactId}-libsForTests"
+                        description = project.ext.description
+                        // For mavenLocal publishing workflow, increment the version number every publish.
+                        version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                        packaging = "jar"
 
-                    licenses {
-                        license {
-                            name = libLicense
-                            url = libLicenseUrl
+                        licenses {
+                            license {
+                                name = libLicense
+                                url = libLicenseUrl
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                name = 'Sync Team'
+                                email = 'sync-team@mozilla.com'
+                            }
+                        }
+
+                        scm {
+                            connection = libVcsUrl
+                            developerConnection = libVcsUrl
+                            url = libUrl
                         }
                     }
 
-                    developers {
-                        developer {
-                            name = 'Sync Team'
-                            email = 'sync-team@mozilla.com'
-                        }
-                    }
-
-                    scm {
-                        connection = libVcsUrl
-                        developerConnection = libVcsUrl
-                        url = libUrl
-                    }
+                    // This is never the publication we want to use when publishing a
+                    // parent project with us as a child `project()` dependency.
+                    alias = true
                 }
-
-                // This is never the publication we want to use when publishing a
-                // parent project with us as a child `project()` dependency.
-                alias = true
             }
         }
     }

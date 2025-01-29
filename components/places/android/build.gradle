@@ -2,9 +2,8 @@ plugins {
     alias libs.plugins.gradle.python.envs
 }
 
-apply from: "$rootDir/build-scripts/component-common.gradle"
-apply from: "$rootDir/build-scripts/protobuf-common.gradle"
-apply from: "$rootDir/publish.gradle"
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
 
 ext.gleanNamespace = "mozilla.telemetry.glean"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
