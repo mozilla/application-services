@@ -128,8 +128,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
         let include_r: bool = self
             .feature_properties()
             .into_iter()
-            .map(|prop| self.oracle.find(&prop.typ()).is_resource_id(&prop.default))
-            .any(|v| v);
+            .any(|prop| self.oracle.find(&prop.typ()).is_resource_id(&prop.default));
         if include_r {
             imports.push(format!("{}.R", self.fm.about.resource_package_name()))
         }
