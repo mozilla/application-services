@@ -19,22 +19,24 @@
 ///        writable it will panic, meaning that if you support ReadOnly connections, they must
 ///        be created after a writable connection is open.
 ///      - If the database file exists and the connection is writable, open_database() will open
-///        it and call prepare(), upgrade_from() for each upgrade that needs to be applied, then
+///        it and call prepare(), upgrade() for each upgrade that needs to be applied, then
 ///        finish(). As above, a read-only connection will panic if upgrades are necessary, so
 ///        you should ensure the first connection opened is writable.
-///      - If the database file is corrupt, or upgrade_from() returns [`Error::Corrupt`], the
+///      - If the database file is corrupt, or upgrade() returns [`Error::Corrupt`], the
 ///        database file will be removed and replaced with a new DB.
 ///      - If the connection is not writable, `finish()` will be called (ie, `finish()`, like
 ///        `prepare()`, is called for all connections)
 ///
 ///  See the autofill DB code for an example.
 ///
-use crate::ConnExt;
+use std::{borrow::Cow, path::Path};
+
 use rusqlite::{
     Connection, Error as RusqliteError, ErrorCode, OpenFlags, Transaction, TransactionBehavior,
 };
-use std::path::Path;
 use thiserror::Error;
+
+use crate::ConnExt;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -76,8 +78,8 @@ pub trait ConnectionInitializer {
     // Initialize a newly created database to END_VERSION
     fn init(&self, tx: &Transaction<'_>) -> Result<()>;
 
-    // Upgrade schema from version -> version + 1
-    fn upgrade_from(&self, conn: &Transaction<'_>, version: u32) -> Result<()>;
+    // Upgrade schema from `version-1` to `version `
+    fn upgrade(&self, conn: &Transaction<'_>, version: u32) -> Result<()>;
 
     // Runs immediately after creation for all types of connections. If writable,
     // will *not* be in the transaction created for the "only writable" functions above.
@@ -148,8 +150,8 @@ fn do_open_database_with_flags<CI: ConnectionInitializer, P: AsRef<Path>>(
                     CI::NAME,
                     current_version + 1
                 );
-                connection_initializer.upgrade_from(&tx, current_version)?;
                 current_version += 1;
+                connection_initializer.upgrade(&tx, current_version)?;
             }
         }
         log::debug!("{}: finishing writable database open", CI::NAME);
@@ -314,16 +316,16 @@ pub mod test_utils {
             .map_err(|e| e.into())
         }
 
-        fn upgrade_from(&self, conn: &Transaction<'_>, version: u32) -> Result<()> {
+        fn upgrade(&self, conn: &Transaction<'_>, version: u32) -> Result<()> {
             match version {
                 // This upgrade forces the database to be replaced by returning
                 // `Error::Corrupt`.
-                1 => {
-                    self.push_call("upgrade_from_v1");
+                2 => {
+                    self.push_call("upgrade_to_v2");
                     Err(Error::Corrupt)
                 }
-                2 => {
-                    self.push_call("upgrade_from_v2");
+                3 => {
+                    self.push_call("upgrade_to_v3");
                     conn.execute_batch(
                         "
                         ALTER TABLE my_old_table_name RENAME TO my_table;
@@ -331,8 +333,8 @@ pub mod test_utils {
                     )?;
                     Ok(())
                 }
-                3 => {
-                    self.push_call("upgrade_from_v3");
+                4 => {
+                    self.push_call("upgrade_to_v4");
 
                     if self.buggy_v3_upgrade {
                         conn.execute_batch("ILLEGAL_SQL_CODE")?;
@@ -404,10 +406,10 @@ pub mod test_utils {
             let tx = conn.transaction().unwrap();
             let mut current_version = get_schema_version(&tx).unwrap();
             while current_version < version {
-                self.connection_initializer
-                    .upgrade_from(&tx, current_version)
-                    .unwrap();
                 current_version += 1;
+                self.connection_initializer
+                    .upgrade(&tx, current_version)
+                    .unwrap();
             }
             set_schema_version(&tx, current_version).unwrap();
             self.connection_initializer.finish(&tx).unwrap();
@@ -426,7 +428,10 @@ pub mod test_utils {
 
         pub fn assert_schema_matches_new_database(&self) {
             let db = self.open();
-            let new_db = open_memory_database(&self.connection_initializer).unwrap();
+            let new_db = match open_memory_database(&self.connection_initializer) {
+                Ok(db) => db,
+                Err(e) => panic!("Creating new database failed:\n{e}"),
+            };
 
             compare_sql_maps("table", get_sql(&db, "table"), get_sql(&new_db, "table"));
             compare_sql_maps("index", get_sql(&db, "index"), get_sql(&new_db, "index"));
@@ -471,11 +476,29 @@ pub mod test_utils {
         }
         for key in old_db_keys {
             assert_eq!(
-                old_items.get(key).unwrap(),
-                new_items.get(key).unwrap(),
+                old_items.get(key).unwrap().as_deref().map(normalize),
+                new_items.get(key).unwrap().as_deref().map(normalize),
                 "sql differs for {type_} {key}"
             );
         }
+    }
+
+    /// Normalize SQL code by changing all whitespace to a single space.
+    fn normalize(sql: &str) -> String {
+        sql.split('\'')
+            .enumerate()
+            .map(|(i, part)| {
+                // Only normalize the even parts.  Odd parts are either inside a string literal.
+                // Note: SQLite uses a double quote (`''`) as the escape, which works with this
+                // system.  We'll just end up normalizing the empty string, which doesn't hurt
+                // anything.
+                if (i % 2) == 0 {
+                    Cow::Owned(part.split_whitespace().collect::<Vec<_>>().join(" "))
+                } else {
+                    Cow::Borrowed(part)
+                }
+            })
+            .collect()
     }
 }
 
@@ -523,8 +546,8 @@ mod test {
         check_final_data(&conn);
         db_file.connection_initializer.check_calls(vec![
             "prep",
-            "upgrade_from_v2",
-            "upgrade_from_v3",
+            "upgrade_to_v3",
+            "upgrade_to_v4",
             "finish",
         ]);
     }
@@ -629,7 +652,7 @@ mod test {
         check_final_data(&conn);
         db_file.connection_initializer.check_calls(vec![
             "prep",
-            "upgrade_from_v1",
+            "upgrade_to_v2",
             "prep",
             "init",
             "finish",

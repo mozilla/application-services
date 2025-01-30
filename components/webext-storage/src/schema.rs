@@ -39,9 +39,9 @@ impl MigrationLogic for WebExtMigrationLogin {
         Ok(())
     }
 
-    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
+    fn upgrade(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
         match version {
-            1 => upgrade_from_1(db),
+            2 => upgrade_to_2(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),
         }
     }
@@ -58,7 +58,7 @@ fn define_functions(c: &Connection) -> MigrationResult<()> {
     Ok(())
 }
 
-fn upgrade_from_1(db: &Connection) -> MigrationResult<()> {
+fn upgrade_to_2(db: &Connection) -> MigrationResult<()> {
     // We changed a not null constraint
     db.execute_batch("ALTER TABLE storage_sync_mirror RENAME TO old_mirror;")?;
     // just re-run the full schema commands to recreate the able.

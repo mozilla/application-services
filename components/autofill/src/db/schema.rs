@@ -98,13 +98,13 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
         Ok(db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?)
     }
 
-    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> Result<()> {
+    fn upgrade(&self, db: &Transaction<'_>, version: u32) -> Result<()> {
         match version {
             // AutofillDB has a slightly strange version history, so we start on v0.  See
-            // upgrade_from_v0() for more details.
-            0 => upgrade_from_v0(db),
-            1 => upgrade_from_v1(db),
-            2 => upgrade_from_v2(db),
+            // upgrade_to_v1() for more details.
+            1 => upgrade_to_v1(db),
+            2 => upgrade_to_v2(db),
+            3 => upgrade_to_v3(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -126,7 +126,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn upgrade_from_v0(db: &Connection) -> Result<()> {
+fn upgrade_to_v1(db: &Connection) -> Result<()> {
     // This is a bit painful - there are (probably 3) databases out there
     // that have a schema of 0.
     // These databases have a `cc_number` but we need them to have a
@@ -157,7 +157,7 @@ fn upgrade_from_v0(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn upgrade_from_v1(db: &Connection) -> Result<()> {
+fn upgrade_to_v2(db: &Connection) -> Result<()> {
     // Alter cc_number_enc using the 12-step generalized procedure described here:
     // https://sqlite.org/lang_altertable.html
     // Note that all our triggers are TEMP triggers so do not exist when
@@ -191,7 +191,7 @@ fn upgrade_from_v1(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn upgrade_from_v2(db: &Connection) -> Result<()> {
+fn upgrade_to_v3(db: &Connection) -> Result<()> {
     db.execute_batch("ALTER TABLE addresses_data ADD COLUMN name TEXT NOT NULL DEFAULT ''")?;
 
     let mut stmt =

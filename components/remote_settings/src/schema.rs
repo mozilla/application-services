@@ -12,7 +12,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
-///     [`RemoteSettingsConnectionInitializer::upgrade_from`].
+///     [`RemoteSettingsConnectionInitializer::upgrade`].
 pub const VERSION: u32 = 2;
 
 /// The current remote settings database schema.
@@ -56,14 +56,14 @@ impl ConnectionInitializer for RemoteSettingsConnectionInitializer {
         Ok(())
     }
 
-    fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+    fn upgrade(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
             // Upgrade from a database created before this crate used sql-support.
-            0 => {
+            1 => {
                 tx.execute("ALTER TABLE collection_metadata DROP column fetched", ())?;
                 Ok(())
             }
-            1 => {
+            2 => {
                 tx.execute("ALTER TABLE collection_metadata ADD COLUMN bucket TEXT", ())?;
                 tx.execute(
                     "ALTER TABLE collection_metadata ADD COLUMN signature TEXT",

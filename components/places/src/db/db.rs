@@ -53,8 +53,8 @@ impl ConnectionInitializer for PlacesInitializer {
         Ok(schema::init(tx)?)
     }
 
-    fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
-        Ok(schema::upgrade_from(tx, version)?)
+    fn upgrade(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+        Ok(schema::upgrade_from(tx, version - 1)?)
     }
 
     fn prepare(&self, conn: &Connection, db_empty: bool) -> open_database::Result<()> {
