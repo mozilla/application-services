@@ -1,0 +1,25 @@
+[package]
+name = "tabs-cli"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "tabs-sync"
+path = "src/tabs-sync.rs"
+
+[dependencies]
+base64 = "0.21"
+tabs = { path = "../../tabs" }
+serde_json = "1"
+log = "0.4"
+anyhow = "1.0"
+chrono = "0.4"
+structopt = "0.3"
+cli-support = { path = "../../support/cli" }
+url = "2.2"
+interrupt-support = { path = "../../support/interrupt" }
+sync15 = { path = "../../sync15", features = ["sync-engine"] }
+viaduct-reqwest = { path = "../../support/viaduct-reqwest" }

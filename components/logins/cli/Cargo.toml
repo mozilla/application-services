@@ -1,0 +1,30 @@
+[package]
+name = "logins-cli"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "sync-pass"
+path = "src/sync-pass.rs"
+
+[dependencies]
+base64 = "0.21"
+logins = { path = "../../logins" }
+sync15 = { path = "../../sync15" }
+sync-guid = { path = "../../support/guid" }
+log = "0.4"
+sql-support = { path = "../../support/sql" }
+anyhow = "1.0"
+prettytable-rs = "0.10"
+fxa-client = { path = "../../fxa-client" }
+chrono = "0.4"
+clap = "4"
+cli-support = { path = "../../support/cli" }
+tempfile = "3"
+serde_json = "1.0"
+url = "2.2"
+viaduct-reqwest = { path = "../../support/viaduct-reqwest" }
+rusqlite = { version = "0.31.0", features = ["limits"] }
