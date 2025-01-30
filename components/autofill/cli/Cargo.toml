@@ -1,0 +1,27 @@
+[package]
+name = "autofill-utils"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "autofill-utils"
+path = "src/autofill-utils.rs"
+
+[dependencies]
+anyhow = "1.0"
+autofill = { path = "../" }
+cli-support = { path = "../../support/cli" }
+fxa-client = { path = "../../fxa-client" }
+error-support = { path = "../../support/error" }
+interrupt-support = { path = "../../support/interrupt" } # XXX - should be removed once we do interrupts correctly!
+log = "0.4"
+rusqlite = { version = "0.31.0", features = ["functions", "bundled", "serde_json", "unlock_notify"]}
+serde_json = "1"
+sql-support = { path = "../../support/sql" }
+structopt = "0.3"
+sync-guid = { path = "../../support/guid", features = ["rusqlite_support", "random"] }
+sync15 = { path = "../../sync15" }
+viaduct-reqwest = { path = "../../support/viaduct-reqwest" }

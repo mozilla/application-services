@@ -1,5 +1,5 @@
 [package]
-name = "examples-remote-settings-cli"
+name = "remote-settings-cli"
 version = "0.1.0"
 license = "MPL-2.0"
 edition = "2021"
@@ -10,8 +10,8 @@ name = "dump"
 path = "src/dump/lib.rs"
 
 [dependencies]
-remote_settings = { features = ["signatures"], path = "../../components/remote_settings" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+remote_settings = { features = ["signatures"], path = "../../remote_settings" }
+viaduct-reqwest = { path = "../../support/viaduct-reqwest" }
 log = "0.4"
 clap = {version = "4.2", features = ["derive"]}
 anyhow = "1.0"

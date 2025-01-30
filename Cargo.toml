@@ -15,6 +15,7 @@ members = [
     "components/remote_settings",
     "components/search",
     "components/suggest",
+    "components/support/cli",
     "components/support/error",
     "components/support/error/tests",
     "components/support/find-places-db",
@@ -52,6 +53,7 @@ members = [
     "tools/start-bindings",
     "tools/uniffi-bindgen-library-mode",
     "automation/swift-components-docs",
+    "components/*/cli",
 
     "examples/*/",
     "testing/separated/*/",

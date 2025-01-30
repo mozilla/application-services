@@ -296,6 +296,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "autofill-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "autofill",
+ "cli-support",
+ "error-support",
+ "fxa-client",
+ "interrupt-support",
+ "log",
+ "rusqlite",
+ "serde_json",
+ "sql-support",
+ "structopt",
+ "sync-guid",
+ "sync15",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "axum"
 version = "0.6.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1409,26 +1429,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example-autofill-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "autofill",
- "cli-support",
- "error-support",
- "fxa-client",
- "interrupt-support",
- "log",
- "rusqlite",
- "serde_json",
- "sql-support",
- "structopt",
- "sync-guid",
- "sync15",
- "viaduct-reqwest",
-]
-
-[[package]]
 name = "example-places-autocomplete"
 version = "0.1.0"
 dependencies = [
@@ -1448,31 +1448,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "example-places-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cli-support",
- "ctrlc",
- "error-support",
- "fxa-client",
- "interrupt-support",
- "log",
- "places",
- "serde",
- "serde_derive",
- "serde_json",
- "sql-support",
- "structopt",
- "sync-guid",
- "sync15",
- "tempfile",
- "types",
- "url",
- "viaduct-reqwest",
-]
-
-[[package]]
 name = "example-push-livetest"
 version = "0.1.0"
 dependencies = [
@@ -1480,113 +1455,6 @@ dependencies = [
  "push",
  "tempfile",
  "viaduct",
- "viaduct-reqwest",
-]
-
-[[package]]
-name = "example-sync-pass"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.21.2",
- "chrono",
- "clap 4.2.2",
- "cli-support",
- "fxa-client",
- "log",
- "logins",
- "prettytable-rs",
- "rusqlite",
- "serde_json",
- "sql-support",
- "sync-guid",
- "sync15",
- "tempfile",
- "url",
- "viaduct-reqwest",
-]
-
-[[package]]
-name = "example-tabs-sync"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.21.2",
- "chrono",
- "cli-support",
- "interrupt-support",
- "log",
- "serde_json",
- "structopt",
- "sync15",
- "tabs",
- "url",
- "viaduct-reqwest",
-]
-
-[[package]]
-name = "examples-fxa-client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 4.2.2",
- "cli-support",
- "fxa-client",
- "log",
- "simple_logger",
- "sync15",
- "url",
- "viaduct-reqwest",
-]
-
-[[package]]
-name = "examples-relevancy-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 4.2.2",
- "cli-support",
- "env_logger",
- "interrupt-support",
- "log",
- "places",
- "relevancy",
- "sync15",
- "viaduct-reqwest",
-]
-
-[[package]]
-name = "examples-remote-settings-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 4.2.2",
- "env_logger",
- "futures",
- "indicatif",
- "log",
- "remote_settings",
- "reqwest 0.12.4",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 1.0.31",
- "tokio",
- "viaduct-reqwest",
- "walkdir",
- "zip",
-]
-
-[[package]]
-name = "examples-suggest-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 4.2.2",
- "env_logger",
- "log",
- "remote_settings",
- "suggest",
  "viaduct-reqwest",
 ]
 
@@ -1861,6 +1729,21 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
+name = "fxa-client-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "cli-support",
+ "fxa-client",
+ "log",
+ "simple_logger",
+ "sync15",
+ "url",
  "viaduct-reqwest",
 ]
 
@@ -2828,6 +2711,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "logins-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.2",
+ "chrono",
+ "clap 4.2.2",
+ "cli-support",
+ "fxa-client",
+ "log",
+ "logins",
+ "prettytable-rs",
+ "rusqlite",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "tempfile",
+ "url",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "lzma-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3701,6 +3607,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "places-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cli-support",
+ "ctrlc",
+ "error-support",
+ "fxa-client",
+ "interrupt-support",
+ "log",
+ "places",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "structopt",
+ "sync-guid",
+ "sync15",
+ "tempfile",
+ "types",
+ "url",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4143,6 +4074,44 @@ dependencies = [
  "thiserror 1.0.31",
  "uniffi",
  "url",
+]
+
+[[package]]
+name = "relevancy-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "cli-support",
+ "env_logger",
+ "interrupt-support",
+ "log",
+ "places",
+ "relevancy",
+ "sync15",
+ "viaduct-reqwest",
+]
+
+[[package]]
+name = "remote-settings-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "env_logger",
+ "futures",
+ "indicatif",
+ "log",
+ "remote_settings",
+ "reqwest 0.12.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.31",
+ "tokio",
+ "viaduct-reqwest",
+ "walkdir",
+ "zip",
 ]
 
 [[package]]
@@ -4903,6 +4872,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "suggest-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "env_logger",
+ "log",
+ "remote_settings",
+ "suggest",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "swift_components_docs"
 version = "0.1.0"
 dependencies = [
@@ -5061,6 +5043,24 @@ dependencies = [
  "types",
  "uniffi",
  "url",
+]
+
+[[package]]
+name = "tabs-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.2",
+ "chrono",
+ "cli-support",
+ "interrupt-support",
+ "log",
+ "serde_json",
+ "structopt",
+ "sync15",
+ "tabs",
+ "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
