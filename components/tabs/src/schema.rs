@@ -83,11 +83,11 @@ impl MigrationLogic for TabsMigrationLogic {
         Ok(())
     }
 
-    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
+    fn upgrade(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
         match version {
-            3 | 4 => upgrade_simple_commands_drop(db),
-            2 => upgrade_from_v2(db),
-            1 => upgrade_from_v1(db),
+            2 => upgrade_to_v2(db),
+            3 => upgrade_to_v3(db),
+            4 | 5 => upgrade_simple_commands_drop(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),
         }
     }
@@ -102,12 +102,12 @@ fn upgrade_simple_commands_drop(db: &Connection) -> MigrationResult<()> {
     Ok(())
 }
 
-fn upgrade_from_v2(db: &Connection) -> MigrationResult<()> {
+fn upgrade_to_v3(db: &Connection) -> MigrationResult<()> {
     db.execute_batch(CREATE_PENDING_REMOTE_DELETE_TABLE_SQL)?;
     Ok(())
 }
 
-fn upgrade_from_v1(db: &Connection) -> MigrationResult<()> {
+fn upgrade_to_v2(db: &Connection) -> MigrationResult<()> {
     // The previous version stored the entire payload in one row
     // and cleared on each sync -- it's fine to just drop it
     db.execute_batch("DROP TABLE tabs;")?;
@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tabs_db_upgrade_from_v1() {
+    fn test_tabs_db_upgrade_to_v2() {
         let db_file = MigratedDatabaseFile::new(TabsMigrationLogic, CREATE_V1_SCHEMA_SQL);
         db_file.run_all_upgrades();
         // Verify we can open the DB just fine, since migration is essentially a drop

@@ -26,11 +26,11 @@ impl open_database::ConnectionInitializer for PushConnectionInitializer {
         Ok(())
     }
 
-    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+    fn upgrade(&self, db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
-            0 => db.execute_batch(CREATE_TABLE_PUSH_SQL)?,
             1 => db.execute_batch(CREATE_TABLE_PUSH_SQL)?,
-            2 => {
+            2 => db.execute_batch(CREATE_TABLE_PUSH_SQL)?,
+            3 => {
                 // We dropped the `uaid` and `native_id` columns and added a constraint that scope
                 // must not be an empty string and must be unique.
                 let sql = format!(

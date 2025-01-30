@@ -12,7 +12,7 @@ use sql_support::open_database::{self, ConnectionInitializer};
 ///
 ///  1. Bump this version.
 ///  2. Add a migration from the old version to the new version in
-///     [`RelevancyConnectionInitializer::upgrade_from`].
+///     [`RelevancyConnectionInitializer::upgrade`].
 pub const VERSION: u32 = 15;
 
 /// The current database schema.
@@ -64,35 +64,36 @@ impl ConnectionInitializer for RelevancyConnectionInitializer {
         Ok(db.execute_batch(SQL)?)
     }
 
-    fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+    fn upgrade(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
         match version {
             // Upgrades 1-12 are missing because we started with version 13, because of a
             // copy-and-paste error.
-            13 => {
+            14 => {
                 tx.execute(
                     "
-    CREATE TABLE user_interest(
-        kind INTEGER NOT NULL,
-        interest_code INTEGER NOT NULL,
-        count INTEGER NOT NULL,
-        PRIMARY KEY (kind, interest_code)
-    ) WITHOUT ROWID;
+                CREATE TABLE user_interest(
+                    kind INTEGER NOT NULL,
+                    interest_code INTEGER NOT NULL,
+                    count INTEGER NOT NULL,
+                    PRIMARY KEY (kind, interest_code)
+                ) WITHOUT ROWID;
                 ",
                     (),
                 )?;
                 Ok(())
             }
-            14 => {
+            15 => {
                 tx.execute(
-                    "CREATE TABLE multi_armed_bandit(
-        bandit TEXT NOT NULL,
-        arm TEXT NOT NULL,
-        alpha INTEGER NOT NULL,
-        beta INTEGER NOT NULL,
-        clicks INTEGER NOT NULL,
-        impressions INTEGER NOT NULL,
-        PRIMARY KEY (bandit, arm)
-    ) WITHOUT ROWID;",
+                    "
+                    CREATE TABLE multi_armed_bandit(
+                        bandit TEXT NOT NULL,
+                        arm TEXT NOT NULL,
+                        alpha INTEGER NOT NULL,
+                        beta INTEGER NOT NULL,
+                        clicks INTEGER NOT NULL,
+                        impressions INTEGER NOT NULL,
+                        PRIMARY KEY (bandit, arm)
+                    ) WITHOUT ROWID;",
                     (),
                 )?;
                 Ok(())
