@@ -14,7 +14,7 @@ uniffi = { version = "0.28.2" }
 thiserror = "1.0"
 bhttp = "0.3"
 parking_lot = "0.12"
-rusqlite = { version = "0.31.0", features = ["bundled"] }
+rusqlite = { version = "0.33.0", features = ["bundled"] }
 
 [dependencies.ohttp]
 version = "0.5.1"
