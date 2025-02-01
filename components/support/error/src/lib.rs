@@ -44,6 +44,8 @@ pub use reporting::{
     report_breadcrumb, report_error_to_app, set_application_error_reporter,
     unset_application_error_reporter, ApplicationErrorReporter,
 };
+// These are exposed specifically for tests
+pub use reporting::{ArcReporterAdapter, TestErrorReporter};
 
 pub use error_support_macros::handle_error;
 
