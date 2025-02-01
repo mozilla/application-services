@@ -555,13 +555,12 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with NULL parent");
             assert!(
-                e.to_string().contains("update: item without parent"),
+                e.to_string().contains("update: nonexistent parent"),
                 "Expected error, got: {:?}",
                 e,
             );
 
             // Bug 1941655 - we only guard against NULL parents, not missing ones.
-            /*
             let e = conn
                 .execute(
                     "UPDATE moz_bookmarks SET
@@ -571,11 +570,10 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with nonexistent parent");
             assert!(
-                e.to_string().contains("update: item without parent"),
+                e.to_string().contains("update: nonexistent parent"),
                 "Expected error, got: {:?}",
                 e,
             );
-            */
         }
 
         // Invalid length guid

@@ -61,12 +61,15 @@ BEGIN
     WHERE NEW.guid = 'root________'
       AND NEW.parent IS NOT NULL;
 
-    SELECT throw('update: item without parent')
+    SELECT throw(format(
+        'update: nonexistent parent: old_parent=%d, new_parent=%d, operation=%q',
+        OLD.parent,
+        NEW.parent,
+        CASE WHEN NEW.syncChangeCounter > 0 THEN 'sync' ELSE 'user' END
+    ))
     WHERE NEW.guid <> 'root________'
-      AND NEW.parent IS NULL;
--- bug 1941655, this seemingly more correct check causes obscure problems.
---      AND NOT EXISTS(
---          SELECT 1 FROM moz_bookmarks WHERE id = NEW.parent);
+    AND NOT EXISTS(
+        SELECT 1 FROM moz_bookmarks WHERE id = NEW.parent);
 
     SELECT throw(format('update: old type=%d; new=%d', OLD.type, NEW.type))
     WHERE OLD.type <> NEW.type;

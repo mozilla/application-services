@@ -498,6 +498,14 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     // when we apply the new local structure. This `INSERT` is a full table
     // scan on `itemsToApply`. The no-op `WHERE` clause is necessary to
     // avoid a parsing ambiguity.
+    // On conflict, we only update the parent if the new parent GUID actually
+    // exists in moz_bookmarks. This avoids referencing a non-existent parent,
+    // which would trigger an error. If the incoming parent is NULL or invalid,
+    // we keep the existing parent. That preserves any valid local parent info,
+    // and avoids forcing a fallback to the root prematurely. For newly inserted
+    // items (the "INSERT" path), we already set the parent to the root as a
+    // placeholder, and a later "fix up" step reattaches them to the correct
+    // parent once it's guaranteed to exist.
     log::debug!("Upserting new items");
     scope.err_if_interrupted()?;
     db.execute_batch(&format!(
@@ -519,6 +527,14 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
          FROM itemsToApply
          WHERE 1
          ON CONFLICT(id) DO UPDATE SET
+         parent = CASE
+            WHEN excluded.parent IS NOT NULL
+                AND EXISTS(SELECT 1 FROM moz_bookmarks WHERE guid = excluded.parent)
+            -- If the incoming parent GUID already exists in moz_bookmarks, use it.
+            THEN (SELECT id FROM moz_bookmarks WHERE guid = excluded.parent)
+
+            ELSE moz_bookmarks.parent
+            END,
            title = excluded.title,
            dateAdded = excluded.dateAdded,
            lastModified = excluded.lastModified,
@@ -4326,6 +4342,211 @@ mod tests {
         // it's parent too.
         assert!(outgoing.contains(&"bookmarkEEEE".into()));
         assert!(outgoing.contains(&"folderCCCCCC".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parent_constraints() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        // Step 1: Insert a valid bookmark under 'unfiled'
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                "children": [{
+                    "guid": "bookmarkAAAA",
+                    "title": "Valid Bookmark",
+                    "url": "http://example.com/"
+                }]
+            }),
+        );
+
+        // Step 2: Try to update `parent` to a non-existent ID
+        let result = writer.execute(
+            "UPDATE moz_bookmarks SET parent=999999 WHERE guid='bookmarkAAAA'",
+            [],
+        );
+
+        // Step 3: Assert that the update failed
+        assert!(
+            result.is_err(),
+            "Expected error when setting parent to non-existent ID, but update succeeded!"
+        );
+
+        // Step 4: Check if the error message contains expected text
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("update: nonexistent parent"),
+                "Expected error 'update: nonexistent parent', but got: {}",
+                error_msg
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parent_sync_scenarios() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
+        let remote_modified = local_modified.as_millis() as f64 / 1000f64;
+
+        // Setup initial structure
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    "guid": "folderAAAAAA",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "Test Folder",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                    "children": [{
+                        "guid": "bookmarkBBBB",
+                        "title": "Test Bookmark",
+                        "url": "http://example.com/",
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }]
+                }]
+            }),
+        );
+
+        // Test Case 1: Try to sync with non-existent parent
+        let _outgoing = apply_incoming(
+            &api,
+            ServerTimestamp::from_float_seconds(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["folderAAAAAA"],  // Keep original structure
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "Test Folder",
+                "children": ["bookmarkBBBB"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "nonexistentGUID",  // Try to set non-existent parent
+                "parentName": "Invalid Parent",
+                "title": "Updated Title",
+                "bmkUri": "http://example.com/",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }]),
+        );
+
+        // Verify bookmark kept its original parent
+        let original_parent: String = writer.query_row(
+            "SELECT b2.guid
+             FROM moz_bookmarks b1
+             JOIN moz_bookmarks b2 ON b1.parent = b2.id
+             WHERE b1.guid = 'bookmarkBBBB'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        assert_eq!(
+            original_parent, "folderAAAAAA",
+            "Bookmark should keep its original parent when sync specifies invalid parent"
+        );
+
+        // Test Case 2: Create another folder and try to move to valid parent
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    "guid": "folderCCCCCC",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "Another Folder",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }]
+            }),
+        );
+
+        // Try to move bookmark to new valid folder
+        let _outgoing = apply_incoming(
+            &api,
+            ServerTimestamp::from_float_seconds(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["folderAAAAAA", "folderCCCCCC"],  // Include both folders under menu
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "Test Folder",
+                "children": [],  // Now empty since bookmark moved
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "folderCCCCCC",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "Another Folder",
+                "children": ["bookmarkBBBB"],  // Bookmark is now here
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "folderCCCCCC",
+                "parentName": "Another Folder",
+                "title": "Updated Title Again",
+                "bmkUri": "http://example.com/",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }]),
+        );
+
+        // Verify bookmark moved to new parent
+        let new_parent: String = writer.query_row(
+            "SELECT b2.guid
+             FROM moz_bookmarks b1
+             JOIN moz_bookmarks b2 ON b1.parent = b2.id
+             WHERE b1.guid = 'bookmarkBBBB'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        assert_eq!(
+            new_parent, "folderCCCCCC",
+            "Bookmark should move to new parent when sync specifies valid parent"
+        );
+
+        // Verify sync status is normal
+        let bm = get_raw_bookmark(&writer, &"bookmarkBBBB".into())
+            .expect("must work")
+            .expect("must exist");
+        assert_eq!(bm._sync_status, SyncStatus::Normal, "bookmarkBBBB");
+        assert_eq!(bm._sync_change_counter, 0, "bookmarkBBBB");
+
         Ok(())
     }
 }
