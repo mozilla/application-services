@@ -5,6 +5,7 @@
 //! This module defines the functions for managing the filtering of the configuration.
 
 use crate::environment_matching::matches_user_environment;
+use crate::sort_helpers;
 use crate::{
     error::Error, JSONDefaultEnginesRecord, JSONEngineBase, JSONEngineRecord, JSONEngineUrl,
     JSONEngineUrls, JSONEngineVariant, JSONSearchConfigurationRecords, RefinedSearchConfig,
@@ -125,6 +126,7 @@ pub(crate) fn filter_engine_configuration(
     user_environment.version = user_environment.version.to_lowercase();
 
     let mut default_engines_record = None;
+    let mut engine_orders_record = None;
 
     for record in configuration {
         match record {
@@ -135,8 +137,8 @@ pub(crate) fn filter_engine_configuration(
             JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
                 default_engines_record = Some(default_engines);
             }
-            JSONSearchConfigurationRecords::EngineOrders(_engine_orders) => {
-                // TODO: Implementation.
+            JSONSearchConfigurationRecords::EngineOrders(engine_orders) => {
+                engine_orders_record = Some(engine_orders)
             }
             JSONSearchConfigurationRecords::Unknown => {
                 // Prevents panics if a new record type is added in future.
@@ -146,6 +148,23 @@ pub(crate) fn filter_engine_configuration(
 
     let (default_engine_id, default_private_engine_id) =
         determine_default_engines(&engines, default_engines_record, &user_environment);
+
+    if let Some(orders_record) = engine_orders_record {
+        for order_data in &orders_record.orders {
+            if matches_user_environment(&order_data.environment, &user_environment) {
+                sort_helpers::set_engine_order(&mut engines, &order_data.order);
+            }
+        }
+    }
+
+    engines.sort_by(|a, b| {
+        sort_helpers::sort(
+            default_engine_id.as_ref(),
+            default_private_engine_id.as_ref(),
+            a,
+            b,
+        )
+    });
 
     Ok(RefinedSearchConfig {
         engines,
@@ -208,11 +227,13 @@ fn determine_default_engines(
             if let Some(specific_default) = specific_default {
                 // Check the engine is present in the list of engines before
                 // we return it as default.
-                if let Some(engine_id) = find_engine_with_match(engines, specific_default.default) {
+                if let Some(engine_id) =
+                    find_engine_id_with_match(engines, specific_default.default)
+                {
                     default_engine_id.replace(engine_id);
                 }
                 if let Some(private_engine_id) =
-                    find_engine_with_match(engines, specific_default.default_private)
+                    find_engine_id_with_match(engines, specific_default.default_private)
                 {
                     default_engine_private_id.replace(private_engine_id);
                 }
@@ -245,7 +266,7 @@ fn find_engine_id(engines: &[SearchEngineDefinition], engine_id: String) -> Opti
     }
 }
 
-fn find_engine_with_match(
+fn find_engine_id_with_match(
     engines: &[SearchEngineDefinition],
     engine_id_match: String,
 ) -> Option<String> {
