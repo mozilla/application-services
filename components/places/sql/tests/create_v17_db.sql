@@ -289,4 +289,7 @@ VALUES(3, 1, 2, 0, 1, 1, 1, 'bmk_guid____');
 INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, guid)
 VALUES(4, 3, 2, 1, 1, 1, 'sep_guid____');
 
+INSERT INTO moz_bookmarks(id, type, parent, position, dateAdded, lastModified, guid)
+VALUES(5, 2, 1, 0, 1, 1, 'unfiled_____');
+
 PRAGMA user_version = 17;

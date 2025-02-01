@@ -23,6 +23,7 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
+use error_support::breadcrumb;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::Row;
 use sql_support::ConnExt;
@@ -492,6 +493,32 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
                 Ok(())
         }
     ).ok(); // We ignore the error because it's expected, users should not have entries with the same id that have different types
+
+    // We check if any users have any undetected orphaned bookmarks and
+    // log them appropiately
+    let orphaned_count: i64 = db.query_row(
+        "WITH RECURSIVE orphans(id) AS (
+           SELECT b.id
+           FROM moz_bookmarks b
+           WHERE b.parent IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent
+             )
+           UNION
+           SELECT c.id
+           FROM moz_bookmarks c
+           JOIN orphans o ON c.parent = o.id
+         )
+         SELECT COUNT(*) FROM orphans;",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if orphaned_count > 0 {
+        log::warn!("Found {} orphaned bookmarks during sync", orphaned_count);
+        breadcrumb!("bookmarks-sync: found local orphaned bookmarks");
+        error_support::report_error!("bookmarks-sync", "orphaned bookmarks {}", orphaned_count);
+    }
 
     // Insert and update items, temporarily using the Places root for new
     // items' parent IDs, and -1 for positions. We'll fix these up later,

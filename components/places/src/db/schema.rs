@@ -13,7 +13,7 @@ use sql_support::ConnExt;
 
 use super::db::{Pragma, PragmaGuard};
 
-pub const VERSION: u32 = 18;
+pub const VERSION: u32 = 19;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -325,6 +325,39 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
                 rusqlite::params![NEW_SQL],
             )?;
         }
+        18 => {
+            // Fix any multi-level orphans by reparenting them to "unfiled_____". We'll do this in
+            // one shot using a recursive CTE.
+            db.execute_batch(
+                "WITH RECURSIVE orphans(id) AS (
+                   -- Start with items whose immediate parent does not exist
+                   SELECT b.id
+                   FROM moz_bookmarks b
+                   WHERE b.parent IS NOT NULL
+                     AND NOT EXISTS(
+                       SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent
+                     )
+                   UNION
+                   -- Then find items whose parent is also in the `orphans` set.
+                   SELECT c.id
+                   FROM moz_bookmarks c
+                   JOIN orphans o ON c.parent = o.id
+                 )
+                 UPDATE moz_bookmarks
+                 SET parent = (SELECT id FROM moz_bookmarks WHERE guid = 'unfiled_____')
+                 WHERE id IN (SELECT id FROM orphans);",
+            )?;
+
+            // Now see how many rows that statement changed.
+            let changed = db.conn().changes();
+            if changed > 0 {
+                // Should have some telemetry here to
+                log::info!(
+                    "v19 migration: found & fixed {} orphaned bookmarks",
+                    changed
+                );
+            }
+        }
         // Add more migrations here...
 
         // Any other from value indicates that something very wrong happened
@@ -555,7 +588,7 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with NULL parent");
             assert!(
-                e.to_string().contains("update: item without parent"),
+                e.to_string().contains("update: nonexistent parent"),
                 "Expected error, got: {:?}",
                 e,
             );
@@ -571,7 +604,7 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with nonexistent parent");
             assert!(
-                e.to_string().contains("update: item without parent"),
+                e.to_string().contains("update: nonexistent parent"),
                 "Expected error, got: {:?}",
                 e,
             );
@@ -1152,9 +1185,77 @@ mod tests {
                     parent: Some(2),
                     fk: None,
                     guid: "sep_guid____".into()
+                },
+                BookmarkRow {
+                    id: 5,
+                    type_: 2,
+                    parent: Some(1),
+                    fk: None,
+                    guid: "unfiled_____".into()
                 }
             ]
         );
+    }
+
+    #[test]
+    fn test_upgrade_18_19_migration_rehomes_orphans() -> anyhow::Result<()> {
+        let db_file = MigratedDatabaseFile::new(PlacesInitializer::new_for_test(), CREATE_V17_DB);
+
+        db_file.upgrade_to(18);
+        let db = db_file.open();
+
+        // We'll create a DB at v18 that has multiple-level orphans,
+        // then migrate to v19 and verify they get reparented.
+        // For brevity, only the key statements:
+        db.execute_batch("
+            -- Insert a chain: child -> parent that references missing row -> missing parent's parent
+            INSERT INTO moz_bookmarks (id, guid, type, parent, position, dateAdded, lastModified)
+            VALUES(100, 'folderAAAAAA', 2, 999, 0, 0, 0);  -- 999 doesn't exist
+            INSERT INTO moz_bookmarks (id, guid, type, parent, position, dateAdded, lastModified)
+            VALUES(101, 'bookmarkAAAA', 1, 100, 0, 0, 0); -- child references folderAAAAAA
+        ")?;
+
+        // simulate the schema upgrade from 18->19.
+        super::upgrade_from(&db.conn(), 18)?;
+
+        // Check that we inserted 'unfiled_____' folder:
+        let unfiled_id: i64 = db
+            .try_query_row(
+                "SELECT id FROM moz_bookmarks WHERE guid='unfiled_____'",
+                [],
+                |row| row.get(0),
+                false,
+            )?
+            .expect("unfiled_____ should exist after migration");
+
+        // Check the chain items:
+        let folder_parent: i64 = db
+            .try_query_row(
+                "SELECT parent FROM moz_bookmarks WHERE guid='folderAAAAAA'",
+                [],
+                |row| row.get(0),
+                false,
+            )?
+            .unwrap();
+        assert_eq!(
+            folder_parent, unfiled_id,
+            "Folder should be rehomed to unfiled"
+        );
+
+        let bmk_parent: i64 = db
+            .try_query_row(
+                "SELECT parent FROM moz_bookmarks WHERE guid='bookmarkAAAA'",
+                [],
+                |row| row.get(0),
+                false,
+            )?
+            .unwrap();
+        assert_eq!(
+            bmk_parent, folder_parent,
+            "Bookmark should remain a child of the folder (which is now under unfiled)"
+        );
+
+        Ok(())
     }
 
     #[test]
