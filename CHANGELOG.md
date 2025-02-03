@@ -1,4 +1,8 @@
-# v136.0 (In progress)
+# v137.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v136.0 (_2025-02-03_)
 
 ### Logins
 The Logins component has been rewritten to use a newly introduced `EncryptorDecryptor` trait.
@@ -74,7 +78,7 @@ Login {
 ### Remote Settings
 - Added support of content signatures verification ([#6534](https://github.com/mozilla/application-services/pull/6534))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v135.0...v136.0)
 
 # v135.0 (_2025-01-06_)
 
