@@ -8,6 +8,7 @@ members = [
     "components/crashtest",
     "components/fxa-client",
     "components/logins",
+    "components/merino",
     "components/nimbus",
     "components/places",
     "components/push",
