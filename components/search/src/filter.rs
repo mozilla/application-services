@@ -348,11 +348,20 @@ mod tests {
             search: Some(JSONEngineUrl {
                 base: Some("https://example.com".to_string()),
                 method: Some(crate::JSONEngineMethod::Post),
-                params: Some(vec![SearchUrlParam {
-                    name: "param".to_string(),
-                    value: Some("test param".to_string()),
-                    experiment_config: None,
-                }]),
+                params: Some(vec![
+                    SearchUrlParam {
+                        name: "param".to_string(),
+                        value: Some("test param".to_string()),
+                        enterprise_value: None,
+                        experiment_config: None,
+                    },
+                    SearchUrlParam {
+                        name: "enterprise-name".to_string(),
+                        value: None,
+                        enterprise_value: Some("enterprise-value".to_string()),
+                        experiment_config: None,
+                    },
+                ]),
                 search_term_param_name: Some("baz".to_string()),
             }),
             suggestions: Some(JSONEngineUrl {
@@ -361,6 +370,7 @@ mod tests {
                 params: Some(vec![SearchUrlParam {
                     name: "suggest-name".to_string(),
                     value: None,
+                    enterprise_value: None,
                     experiment_config: Some("suggest-experiment-value".to_string()),
                 }]),
                 search_term_param_name: Some("suggest".to_string()),
@@ -371,6 +381,7 @@ mod tests {
                 params: Some(vec![SearchUrlParam {
                     name: "trend-name".to_string(),
                     value: Some("trend-value".to_string()),
+                    enterprise_value: None,
                     experiment_config: None,
                 }]),
                 search_term_param_name: None,
@@ -413,11 +424,20 @@ mod tests {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
                         method: "POST".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "param".to_string(),
-                            value: Some("test param".to_string()),
-                            experiment_config: None,
-                        }],
+                        params: vec![
+                            SearchUrlParam {
+                                name: "param".to_string(),
+                                value: Some("test param".to_string()),
+                                enterprise_value: None,
+                                experiment_config: None,
+                            },
+                            SearchUrlParam {
+                                name: "enterprise-name".to_string(),
+                                value: None,
+                                enterprise_value: Some("enterprise-value".to_string()),
+                                experiment_config: None,
+                            },
+                        ],
                         search_term_param_name: Some("baz".to_string()),
                     },
                     suggestions: Some(SearchEngineUrl {
@@ -426,6 +446,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "suggest-name".to_string(),
                             value: None,
+                            enterprise_value: None,
                             experiment_config: Some("suggest-experiment-value".to_string()),
                         }],
                         search_term_param_name: Some("suggest".to_string()),
@@ -436,6 +457,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "trend-name".to_string(),
                             value: Some("trend-value".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: None,
@@ -465,6 +487,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "variant".to_string(),
                             value: Some("test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("ship".to_string()),
@@ -475,6 +498,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "suggest-variant".to_string(),
                             value: Some("sugg test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("variant".to_string()),
@@ -485,6 +509,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "trend-variant".to_string(),
                             value: Some("trend test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("trend".to_string()),
@@ -514,6 +539,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "variant".to_string(),
                             value: Some("test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("ship".to_string()),
@@ -524,6 +550,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "suggest-variant".to_string(),
                             value: Some("sugg test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("variant".to_string()),
@@ -534,6 +561,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "trend-variant".to_string(),
                             value: Some("trend test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
@@ -563,6 +591,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "variant".to_string(),
                             value: Some("test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("ship".to_string()),
@@ -573,6 +602,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "suggest-variant".to_string(),
                             value: Some("sugg test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("variant".to_string()),
@@ -583,6 +613,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "trend-variant".to_string(),
                             value: Some("trend test variant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("trend".to_string()),
@@ -609,6 +640,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "subvariant".to_string(),
                             value: Some("test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("shuttle".to_string()),
@@ -619,6 +651,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "suggest-subvariant".to_string(),
                             value: Some("sugg test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("subvariant".to_string()),
@@ -629,6 +662,7 @@ mod tests {
                         params: Some(vec![SearchUrlParam {
                             name: "trend-subvariant".to_string(),
                             value: Some("trend test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("subtrend".to_string()),
@@ -657,6 +691,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "subvariant".to_string(),
                             value: Some("test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("shuttle".to_string()),
@@ -667,6 +702,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "suggest-subvariant".to_string(),
                             value: Some("sugg test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subvariant".to_string()),
@@ -677,6 +713,7 @@ mod tests {
                         params: vec![SearchUrlParam {
                             name: "trend-subvariant".to_string(),
                             value: Some("trend test subvariant".to_string()),
+                            enterprise_value: None,
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subtrend".to_string()),
