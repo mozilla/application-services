@@ -1176,56 +1176,55 @@ mod tests {
             "Should have set the configuration successfully. {:?}",
             config_result
         );
-        let expected_engines = vec![
-            SearchEngineDefinition {
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
-                identifier: "test".to_string(),
-                name: "Test".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                    },
-                    ..Default::default()
+
+        let test_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "test".to_string(),
+            name: "Test".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
                 },
                 ..Default::default()
             },
-            SearchEngineDefinition {
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
-                identifier: "distro-default".to_string(),
-                name: "Distribution Default".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                    },
-                    ..Default::default()
+            ..Default::default()
+        };
+        let distro_default_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "distro-default".to_string(),
+            name: "Distribution Default".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
                 },
                 ..Default::default()
             },
-            SearchEngineDefinition {
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
-                identifier: "private-default-FR".to_string(),
-                name: "Private default FR".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                    },
-                    ..Default::default()
+            ..Default::default()
+        };
+        let private_default_fr_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "private-default-FR".to_string(),
+            name: "Private default FR".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
                 },
                 ..Default::default()
             },
-        ];
+            ..Default::default()
+        };
 
         let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
             distribution_id: "test-distro".to_string(),
@@ -1239,7 +1238,11 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             RefinedSearchConfig {
-                engines: expected_engines.clone(),
+                engines: vec![
+                    distro_default_engine.clone(),
+                    private_default_fr_engine.clone(),
+                    test_engine.clone(),
+                ],
                 app_default_engine_id: Some("distro-default".to_string()),
                 app_private_default_engine_id: None
             },
@@ -1259,7 +1262,11 @@ mod tests {
         assert_eq!(
             result.unwrap(),
             RefinedSearchConfig {
-                engines: expected_engines,
+                engines: vec![
+                    test_engine,
+                    private_default_fr_engine,
+                    distro_default_engine,
+                ],
                 app_default_engine_id: Some("test".to_string()),
                 app_private_default_engine_id: Some("private-default-FR".to_string())
             },
@@ -1274,6 +1281,25 @@ mod tests {
         let engine_order_config = Arc::clone(&selector).set_search_config(
             json!({
               "data": [
+                {
+                  "recordType": "engine",
+                  "identifier": "after-defaults",
+                  "base": {
+                    "name": "after-defaults",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com",
+                        "method": "GET"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true,
+                    }
+                  }],
+                },
                 {
                   "recordType": "engine",
                   "identifier": "b-engine",
@@ -1314,9 +1340,9 @@ mod tests {
                 },
                 {
                   "recordType": "engine",
-                  "identifier": "c-engine",
+                  "identifier": "default-engine",
                   "base": {
-                    "name": "c-engine",
+                    "name": "default-engine",
                     "classification": "general",
                     "urls": {
                       "search": {
@@ -1332,25 +1358,38 @@ mod tests {
                   }],
                 },
                 {
+                  "recordType": "engine",
+                  "identifier": "default-private-engine",
+                  "base": {
+                    "name": "default-private-engine",
+                    "classification": "general",
+                    "urls": {
+                      "search": {
+                        "base": "https://example.com",
+                        "method": "GET"
+                      }
+                    }
+                  },
+                  "variants": [{
+                    "environment": {
+                      "allRegionsAndLocales": true,
+                    }
+                  }],
+                },
+                {
+                  "recordType": "defaultEngines",
+                  "globalDefault": "default-engine",
+                  "globalDefaultPrivate": "default-private-engine",
+                },
+                {
                   "recordType": "engineOrders",
                   "orders": [
                     {
-                       "environment": {"distributions": ["distro"] },
-                       "order": ["a-engine", "b-engine", "c-engine"],
-                    },
-                    {
                       "environment": {
-                        "distributions": ["distro"],
                         "locales": ["en-CA"],
                         "regions": ["CA"],
                       },
-                      "order": ["c-engine", "b-engine", "a-engine"],
-                    },
-                    {
-                      "environment": {
-                        "distributions": ["distro-2"],
-                      },
-                      "order": ["a-engine", "b-engine"],
+                      "order": ["after-defaults"],
                     },
                   ],
                 },
@@ -1387,58 +1426,18 @@ mod tests {
 
         assert_actual_engines_equals_expected(
             Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-                distribution_id: "distro".to_string(),
-                locale: "fr".into(),
-                region: "FR".into(),
-                ..Default::default()
-            }),
-            vec![
-                "a-engine".to_string(),
-                "b-engine".to_string(),
-                "c-engine".to_string(),
-            ],
-            "Should match engine orders with the distro distribution.",
-        );
-
-        assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-                distribution_id: "distro".to_string(),
                 locale: "en-CA".into(),
                 region: "CA".into(),
                 ..Default::default()
             }),
             vec![
-                "c-engine".to_string(),
-                "b-engine".to_string(),
-                "a-engine".to_string(),
-            ],
-            "Should match engine orders with the distro distribution and en-CA locale and CA region.",
-        );
-
-        assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-                distribution_id: "distro-2".to_string(),
-                ..Default::default()
-            }),
-            vec![
+                "default-engine".to_string(),
+                "default-private-engine".to_string(),
+                "after-defaults".to_string(),
                 "a-engine".to_string(),
                 "b-engine".to_string(),
-                "c-engine".to_string(),
             ],
-            "Should order the first two engines correctly matching distro-2 distribution",
-        );
-
-        assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-                distribution_id: "no match distro".to_string(),
-                ..Default::default()
-            }),
-            vec![
-                "a-engine".to_string(),
-                "b-engine".to_string(),
-                "c-engine".to_string(),
-            ],
-            "Should be in alphabetical order when no environments matched.",
+            "Should order the default engine first, default private engine second, and the rest of the engines based on order hint then alphabetically."
         );
 
         let starts_with_wiki_config = Arc::clone(&selector).set_search_config(
@@ -1468,7 +1467,7 @@ mod tests {
                   "recordType": "engine",
                   "identifier": "wiki-uk",
                   "base": {
-                    "name": "wiki-u",
+                    "name": "wiki-uk",
                     "classification": "general",
                     "urls": {
                       "search": {
@@ -1577,127 +1576,6 @@ mod tests {
                 "engine-2".to_string(),
             ],
             "Should list the wiki-uk engine and other engines in correct orders with the en-GB and GB locale region environment."
-        );
-
-        let defaults_config = Arc::clone(&selector).set_search_config(
-            json!({
-              "data": [
-                {
-                  "recordType": "engine",
-                  "identifier": "b-engine",
-                  "base": {
-                    "name": "b-engine",
-                    "classification": "general",
-                    "urls": {
-                      "search": {
-                        "base": "https://example.com",
-                        "method": "GET"
-                      }
-                    }
-                  },
-                  "variants": [{
-                    "environment": {
-                      "allRegionsAndLocales": true,
-                    }
-                  }],
-                },
-                {
-                  "recordType": "engine",
-                  "identifier": "a-engine",
-                  "base": {
-                    "name": "a-engine",
-                    "classification": "general",
-                    "urls": {
-                      "search": {
-                        "base": "https://example.com",
-                        "method": "GET"
-                      }
-                    }
-                  },
-                  "variants": [{
-                    "environment": {
-                      "allRegionsAndLocales": true,
-                    }
-                  }],
-                },
-                {
-                  "recordType": "engine",
-                  "identifier": "default-engine",
-                  "base": {
-                    "name": "default-engine",
-                    "classification": "general",
-                    "urls": {
-                      "search": {
-                        "base": "https://example.com",
-                        "method": "GET"
-                      }
-                    }
-                  },
-                  "variants": [{
-                    "environment": {
-                      "allRegionsAndLocales": true,
-                    }
-                  }],
-                },
-                {
-                  "recordType": "engine",
-                  "identifier": "default-private-engine",
-                  "base": {
-                    "name": "default-private-engine",
-                    "classification": "general",
-                    "urls": {
-                      "search": {
-                        "base": "https://example.com",
-                        "method": "GET"
-                      }
-                    }
-                  },
-                  "variants": [{
-                    "environment": {
-                      "allRegionsAndLocales": true,
-                    }
-                  }],
-                },
-                {
-                  "recordType": "defaultEngines",
-                  "globalDefault": "default-engine",
-                  "globalDefaultPrivate": "default-private-engine",
-                },
-                {
-                  "recordType": "engineOrders",
-                  "orders": [
-                    {
-                      "environment": {
-                        "locales": ["en-CA"],
-                        "regions": ["CA"],
-                      },
-                      "order": ["a-engine", "b-engine"],
-                    },
-                  ],
-                },
-              ]
-            })
-            .to_string(),
-        );
-        assert!(
-            defaults_config.is_ok(),
-            "Should have set the configuration successfully. {:?}",
-            defaults_config
-        );
-
-        assert_actual_engines_equals_expected(
-            Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
-                locale: "en-CA".into(),
-                region: "CA".into(),
-                ..Default::default()
-            }),
-            vec![
-                "default-engine".to_string(),
-                "default-private-engine".to_string(),
-                "a-engine".to_string(),
-                "b-engine".to_string(),
-            ],
-            "Should order the default engine first, default private engine second, and the rest of the engines in the correct order."
         );
     }
 }

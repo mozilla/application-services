@@ -259,8 +259,8 @@ pub(crate) struct JSONEngineOrder {
     /// The specific environment to match for this record.
     pub environment: JSONVariantEnvironment,
 
-    /// The order of the engines for the associated environment. If engines are
-    /// present for the user but not included in this list, they will follow
+    /// The order of engine identifiers for the associated environment. If engines
+    /// are present for the user but not included in this list, they will follow
     /// after the ones in this list in alphabetical order. If an individual entry
     /// is suffixed with a star, matching is applied on a "starts with" basis.
     #[serde(default)]

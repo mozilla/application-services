@@ -1,3 +1,10 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! This module defines functions for sorting search engines based on priority
+//! and order hints, falling back to alphabetical sorting when neither is provided.
+
 use crate::SearchEngineDefinition;
 
 pub(crate) fn set_engine_order(engines: &mut [SearchEngineDefinition], ordered_engines: &[String]) {
@@ -21,6 +28,8 @@ pub(crate) fn sort(
     let a_index = get_priority(a, default_engine_id, default_private_engine_id);
     let order = b_index.cmp(&a_index);
 
+    // TODO: update the comparison to use ICU4X when it's available.
+    // See Bug 1945295: https://bugzilla.mozilla.org/show_bug.cgi?id=1945295
     // If order is equal and order_hint is None for both, fall back to alphabetical sorting
     if order == std::cmp::Ordering::Equal {
         return a.identifier.cmp(&b.identifier);
@@ -76,60 +85,74 @@ mod tests {
     }
 
     #[test]
+    fn test_find_engine_with_match_mut_starts_with() {
+        let mut engines = vec![
+            create_engine("wiki-ca", None),
+            create_engine("wiki-uk", None),
+            create_engine("test-engine", None),
+        ];
+        let found_engine = find_engine_with_match_mut(&mut engines, &"wiki*".to_string());
+
+        assert_eq!(
+            found_engine.unwrap().identifier,
+            "wiki-ca",
+            "Should match the first engine that starts with 'wiki'."
+        );
+    }
+
+    #[test]
     fn test_set_engine_order_full_list() {
         let mut engines = vec![
-            create_engine("a-engine", None),
-            create_engine("b-engine", None),
-            create_engine("c-engine", None),
+            create_engine("last-engine", None),
+            create_engine("secondary-engine", None),
+            create_engine("primary-engine", None),
         ];
-        set_engine_order(
-            &mut engines,
-            &vec![
-                "c-engine".to_string(),
-                "b-engine".to_string(),
-                "a-engine".to_string(),
-            ],
-        );
-        let expected_order = vec![
-            ("a-engine", Some(1)),
-            ("b-engine", Some(2)),
-            ("c-engine", Some(3)),
+        let ordered_engines_list = vec![
+            "primary-engine".to_string(),
+            "secondary-engine".to_string(),
+            "last-engine".to_string(),
         ];
-        let actual_order: Vec<(&str, Option<u32>)> = engines
+        set_engine_order(&mut engines, &ordered_engines_list);
+
+        let expected_order_hints = vec![
+            ("last-engine", Some(1)),
+            ("secondary-engine", Some(2)),
+            ("primary-engine", Some(3)),
+        ];
+        let actual_order_hints: Vec<(&str, Option<u32>)> = engines
             .iter()
             .map(|e| (e.identifier.as_str(), e.order_hint))
             .collect();
 
         assert_eq!(
-            actual_order, expected_order,
-            "Should have the correct order hints assigned when all eninges are in the order list."
+            actual_order_hints, expected_order_hints,
+            "Should assign correct order hints when all engines are in the ordered engines list, the first engine with the highest and decreasing for each next engine."
         )
     }
 
     #[test]
     fn test_set_engine_order_partial_list() {
         let mut engines = vec![
-            create_engine("a-engine", None),
-            create_engine("b-engine", None),
-            create_engine("c-engine", None),
+            create_engine("secondary-engine", None),
+            create_engine("primary-engine", None),
+            create_engine("no-order-hint-engine", None),
         ];
-        set_engine_order(
-            &mut engines,
-            &vec!["b-engine".to_string(), "a-engine".to_string()],
-        );
+        let ordered_engines_list =
+            vec!["primary-engine".to_string(), "secondary-engine".to_string()];
+        set_engine_order(&mut engines, &ordered_engines_list);
 
-        let actual_order: Vec<(&str, Option<u32>)> = engines
+        let expected_order_hints = vec![
+            ("secondary-engine", Some(1)),
+            ("primary-engine", Some(2)),
+            ("no-order-hint-engine", None),
+        ];
+        let actual_order_hints: Vec<(&str, Option<u32>)> = engines
             .iter()
             .map(|e| (e.identifier.as_str(), e.order_hint))
             .collect();
-        let expected_order = vec![
-            ("a-engine", Some(1)),
-            ("b-engine", Some(2)),
-            ("c-engine", None),
-        ];
         assert_eq!(
-            actual_order, expected_order,
-            "Should have correct order hints assigned when a few of the engines are in the order list."
+            actual_order_hints, expected_order_hints,
+            "Should assign correct order hints when some of the engines are in the ordered engines list, the first engine with the highest and decreasing for each next engine."
         )
     }
 
@@ -244,6 +267,7 @@ mod tests {
 
     #[test]
     fn test_sort_engines_non_ascii_without_order_hint() {
-        // TODO: See Bug 1945295: https://bugzilla.mozilla.org/show_bug.cgi?id=1945295
+        // TODO: update the comparison to use ICU4X when it's available.
+        // See Bug 1945295: https://bugzilla.mozilla.org/show_bug.cgi?id=1945295
     }
 }
