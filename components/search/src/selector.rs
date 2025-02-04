@@ -263,6 +263,14 @@ mod tests {
                           "name": "trending-name",
                           "experimentConfig": "trending-experiment-value",
                         }]
+                      },
+                      "searchForm": {
+                        "base": "https://example.com/search-form",
+                        "method": "GET",
+                        "params": [{
+                          "name": "search-form-name",
+                          "value": "search-form-value",
+                        }]
                       }
                     }
                   },
@@ -360,7 +368,18 @@ mod tests {
                                     )
                                 }],
                                 search_term_param_name: None
-                            })
+                            }),
+                            search_form: Some(SearchEngineUrl {
+                                base: "https://example.com/search-form".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "search-form-name".to_string(),
+                                    value: Some("search-form-value".to_string()),
+                                    experiment_config: None,
+                                    enterprise_value: None,
+                                }],
+                                search_term_param_name: None,
+                            }),
                         },
                         ..Default::default()
                     },
@@ -382,7 +401,8 @@ mod tests {
                                 search_term_param_name: Some("search".to_string())
                             },
                             suggestions: None,
-                            trending: None
+                            trending: None,
+                            search_form: None
                         }
                     }
                 ),
@@ -427,6 +447,14 @@ mod tests {
                         "params": [{
                           "name": "area",
                           "experimentConfig": "area-param",
+                        }]
+                      },
+                      "searchForm": {
+                        "base": "https://example.com/search-form",
+                        "method": "GET",
+                        "params": [{
+                          "name": "search-form-name",
+                          "value": "search-form-value",
                         }]
                       }
                     }
@@ -542,7 +570,18 @@ mod tests {
                                     experiment_config: Some("area-param".to_string())
                                 }],
                                 search_term_param_name: None
-                            })
+                            }),
+                            search_form: Some(SearchEngineUrl {
+                                base: "https://example.com/search-form".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "search-form-name".to_string(),
+                                    value: Some("search-form-value".to_string()),
+                                    enterprise_value: None,
+                                    experiment_config: None,
+                                }],
+                                search_term_param_name: None,
+                            }),
                         },
                         ..Default::default()
                     },
@@ -606,6 +645,14 @@ mod tests {
                         "params": [{
                           "name": "area",
                           "experimentConfig": "area-param",
+                        }]
+                      },
+                      "searchForm": {
+                        "base": "https://example.com/search-form",
+                        "method": "GET",
+                        "params": [{
+                          "name": "search-form-name",
+                          "value": "search-form-value",
                         }]
                       }
                     }
@@ -720,7 +767,18 @@ mod tests {
                                 experiment_config: Some("area-param".to_string())
                             }],
                             search_term_param_name: None
-                        })
+                        }),
+                        search_form: Some(SearchEngineUrl {
+                            base: "https://example.com/search-form".to_string(),
+                            method: "GET".to_string(),
+                            params: vec![SearchUrlParam {
+                                name: "search-form-name".to_string(),
+                                value: Some("search-form-value".to_string()),
+                                enterprise_value: None,
+                                experiment_config: None,
+                            }],
+                            search_term_param_name: None,
+                        }),
                     },
                     ..Default::default()
                 }),
@@ -782,7 +840,18 @@ mod tests {
                                 experiment_config: Some("area-param".to_string())
                             }],
                             search_term_param_name: None
-                        })
+                        }),
+                        search_form: Some(SearchEngineUrl {
+                            base: "https://example.com/search-form".to_string(),
+                            method: "GET".to_string(),
+                            params: vec![SearchUrlParam {
+                                name: "search-form-name".to_string(),
+                                value: Some("search-form-value".to_string()),
+                                enterprise_value: None,
+                                experiment_config: None,
+                            }],
+                            search_term_param_name: None,
+                        }),
                     },
                     ..Default::default()
                 }),

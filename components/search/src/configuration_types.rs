@@ -66,6 +66,9 @@ pub(crate) struct JSONEngineUrls {
 
     /// The URL to use for trending suggestions.
     pub trending: Option<JSONEngineUrl>,
+
+    /// The URL of the search engine homepage.
+    pub search_form: Option<JSONEngineUrl>,
 }
 
 /// Represents the engine base section of the configuration.
