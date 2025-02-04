@@ -241,6 +241,10 @@ mod tests {
                       "search": {
                         "base": "https://example.com/1",
                         "method": "GET",
+                        "params": [{
+                          "name": "search-name",
+                          "enterpriseValue": "enterprise-value",
+                        }],
                         "searchTermParamName": "q"
                       },
                       "suggestions": {
@@ -325,7 +329,12 @@ mod tests {
                             search: SearchEngineUrl {
                                 base: "https://example.com/1".to_string(),
                                 method: "GET".to_string(),
-                                params: Vec::new(),
+                                params: vec![SearchUrlParam {
+                                    name: "search-name".to_string(),
+                                    value: None,
+                                    enterprise_value: Some("enterprise-value".to_string()),
+                                    experiment_config: None
+                                }],
                                 search_term_param_name: Some("q".to_string())
                             },
                             suggestions: Some(SearchEngineUrl {
@@ -334,6 +343,7 @@ mod tests {
                                 params: vec![SearchUrlParam {
                                     name: "suggestion-name".to_string(),
                                     value: Some("suggestion-value".to_string()),
+                                    enterprise_value: None,
                                     experiment_config: None
                                 }],
                                 search_term_param_name: Some("suggest".to_string())
@@ -344,6 +354,7 @@ mod tests {
                                 params: vec![SearchUrlParam {
                                     name: "trending-name".to_string(),
                                     value: None,
+                                    enterprise_value: None,
                                     experiment_config: Some(
                                         "trending-experiment-value".to_string()
                                     )
@@ -505,6 +516,7 @@ mod tests {
                                 params: vec![SearchUrlParam {
                                     name: "mission".to_string(),
                                     value: Some("ongoing".to_string()),
+                                    enterprise_value: None,
                                     experiment_config: None
                                 }],
                                 search_term_param_name: Some("q".to_string())
@@ -515,6 +527,7 @@ mod tests {
                                 params: vec![SearchUrlParam {
                                     name: "type".to_string(),
                                     value: Some("space".to_string()),
+                                    enterprise_value: None,
                                     experiment_config: None
                                 }],
                                 search_term_param_name: Some("suggest".to_string())
@@ -525,6 +538,7 @@ mod tests {
                                 params: vec![SearchUrlParam {
                                     name: "area".to_string(),
                                     value: None,
+                                    enterprise_value: None,
                                     experiment_config: Some("area-param".to_string())
                                 }],
                                 search_term_param_name: None
@@ -680,6 +694,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "variant-param-name".to_string(),
                                 value: Some("variant-param-value".to_string()),
+                                enterprise_value: None,
                                 experiment_config: None
                             }],
                             search_term_param_name: Some("q".to_string())
@@ -690,6 +705,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "type".to_string(),
                                 value: Some("space".to_string()),
+                                enterprise_value: None,
                                 experiment_config: None
                             }],
                             search_term_param_name: Some("suggest".to_string())
@@ -700,6 +716,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "area".to_string(),
                                 value: None,
+                                enterprise_value: None,
                                 experiment_config: Some("area-param".to_string())
                             }],
                             search_term_param_name: None
@@ -739,6 +756,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "en-ca-param-name".to_string(),
                                 value: Some("en-ca-param-value".to_string()),
+                                enterprise_value: None,
                                 experiment_config: None
                             }],
                             search_term_param_name: Some("q".to_string())
@@ -749,6 +767,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "type".to_string(),
                                 value: Some("space".to_string()),
+                                enterprise_value: None,
                                 experiment_config: None
                             }],
                             search_term_param_name: Some("suggest".to_string())
@@ -759,6 +778,7 @@ mod tests {
                             params: vec![SearchUrlParam {
                                 name: "area".to_string(),
                                 value: None,
+                                enterprise_value: None,
                                 experiment_config: Some("area-param".to_string())
                             }],
                             search_term_param_name: None

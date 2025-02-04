@@ -92,10 +92,15 @@ pub struct SearchUserEnvironment {
 pub struct SearchUrlParam {
     /// The name of the parameter in the url.
     pub name: String,
+
     /// The parameter value, this may be a static value, or additionally contain
     /// a parameter replacement, e.g. `{inputEncoding}`. For the partner code
     /// parameter, this field should be `{partnerCode}`.
     pub value: Option<String>,
+
+    /// Same as value but only used if Services.polices.isEnterprise is true. Overrides other parameters of the same name.
+    pub enterprise_value: Option<String>,
+
     /// The value for the parameter will be derived from the equivalent experiment
     /// configuration value.
     /// Only desktop uses this currently.
