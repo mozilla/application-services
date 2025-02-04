@@ -139,6 +139,9 @@ pub struct SearchEngineUrls {
 
     /// The URL to use for trending suggestions.
     pub trending: Option<SearchEngineUrl>,
+
+    /// The URL of the search engine homepage.
+    pub search_form: Option<SearchEngineUrl>,
 }
 
 /// The list of acceptable classifications for a search engine.

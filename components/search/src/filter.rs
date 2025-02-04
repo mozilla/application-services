@@ -45,6 +45,7 @@ impl From<JSONEngineUrls> for SearchEngineUrls {
             search: urls.search.unwrap_or_default().into(),
             suggestions: urls.suggestions.map(|suggestions| suggestions.into()),
             trending: urls.trending.map(|trending| trending.into()),
+            search_form: urls.search_form.map(|search_form| search_form.into()),
         }
     }
 }
@@ -63,7 +64,13 @@ impl SearchEngineUrls {
         if let Some(trending_url) = &preferred.trending {
             match &mut self.trending {
                 Some(trend) => trend.merge(trending_url),
-                None => self.suggestions = Some(trending_url.clone().into()),
+                None => self.trending = Some(trending_url.clone().into()),
+            };
+        }
+        if let Some(search_form_url) = &preferred.search_form {
+            match &mut self.search_form {
+                Some(search_form) => search_form.merge(search_form_url),
+                None => self.search_form = Some(search_form_url.clone().into()),
             };
         }
     }
@@ -296,6 +303,7 @@ mod tests {
                     }),
                     suggestions: None,
                     trending: None,
+                    search_form: None,
                 },
             },
             &JSONEngineVariant {
@@ -332,7 +340,8 @@ mod tests {
                         search_term_param_name: None,
                     },
                     suggestions: None,
-                    trending: None
+                    trending: None,
+                    search_form: None
                 }
             }
         )
@@ -381,6 +390,17 @@ mod tests {
                 params: Some(vec![SearchUrlParam {
                     name: "trend-name".to_string(),
                     value: Some("trend-value".to_string()),
+                    enterprise_value: None,
+                    experiment_config: None,
+                }]),
+                search_term_param_name: None,
+            }),
+            search_form: Some(JSONEngineUrl {
+                base: Some("https://example.com/search_form".to_string()),
+                method: Some(crate::JSONEngineMethod::Get),
+                params: Some(vec![SearchUrlParam {
+                    name: "search-form-name".to_string(),
+                    value: Some("search-form-value".to_string()),
                     enterprise_value: None,
                     experiment_config: None,
                 }]),
@@ -461,7 +481,18 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: None,
-                    })
+                    }),
+                    search_form: Some(SearchEngineUrl {
+                        base: "https://example.com/search_form".to_string(),
+                        method: "GET".to_string(),
+                        params: vec![SearchUrlParam {
+                            name: "search-form-name".to_string(),
+                            value: Some("search-form-value".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }],
+                        search_term_param_name: None,
+                    }),
                 }
             }
         )
@@ -514,6 +545,17 @@ mod tests {
                         }]),
                         search_term_param_name: Some("trend".to_string()),
                     }),
+                    search_form: Some(JSONEngineUrl {
+                        base: Some("https://example.com/search_form".to_string()),
+                        method: Some(crate::JSONEngineMethod::Get),
+                        params: Some(vec![SearchUrlParam {
+                            name: "search-form-name".to_string(),
+                            value: Some("search-form-value".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }]),
+                        search_term_param_name: None,
+                    }),
                 }),
                 sub_variants: vec![],
             },
@@ -565,7 +607,18 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
-                    })
+                    }),
+                    search_form: Some(SearchEngineUrl {
+                        base: "https://example.com/search_form".to_string(),
+                        method: "GET".to_string(),
+                        params: vec![SearchUrlParam {
+                            name: "search-form-name".to_string(),
+                            value: Some("search-form-value".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }],
+                        search_term_param_name: None,
+                    }),
                 }
             }
         )
@@ -618,6 +671,17 @@ mod tests {
                         }]),
                         search_term_param_name: Some("trend".to_string()),
                     }),
+                    search_form: Some(JSONEngineUrl {
+                        base: Some("https://example.com/search-form-variant".to_string()),
+                        method: Some(crate::JSONEngineMethod::Get),
+                        params: Some(vec![SearchUrlParam {
+                            name: "search-form-variant".to_string(),
+                            value: Some("search form variant".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }]),
+                        search_term_param_name: None,
+                    }),
                 }),
                 // This would be the list of sub-variants for this part of the
                 // configuration, however it is not used as the actual sub-variant
@@ -666,6 +730,17 @@ mod tests {
                             experiment_config: None,
                         }]),
                         search_term_param_name: Some("subtrend".to_string()),
+                    }),
+                    search_form: Some(JSONEngineUrl {
+                        base: Some("https://example.com/search-form-subvariant".to_string()),
+                        method: Some(crate::JSONEngineMethod::Get),
+                        params: Some(vec![SearchUrlParam {
+                            name: "search-form-subvariant".to_string(),
+                            value: Some("search form subvariant".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }]),
+                        search_term_param_name: None,
                     }),
                 }),
                 sub_variants: vec![],
@@ -717,7 +792,18 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subtrend".to_string()),
-                    })
+                    }),
+                    search_form: Some(SearchEngineUrl {
+                        base: "https://example.com/search-form-subvariant".to_string(),
+                        method: "GET".to_string(),
+                        params: vec![SearchUrlParam {
+                            name: "search-form-subvariant".to_string(),
+                            value: Some("search form subvariant".to_string()),
+                            enterprise_value: None,
+                            experiment_config: None,
+                        }],
+                        search_term_param_name: None,
+                    }),
                 }
             }
         )
