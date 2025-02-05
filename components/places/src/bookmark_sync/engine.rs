@@ -135,9 +135,7 @@ fn update_local_items_in_places(
     ops: &CompletionOps<'_>,
 ) -> Result<()> {
     // Build a table of new and updated items.
-    // XXX - all `log::info` calls here should be `log::debug`, but they have been bumped
-    // in an attempt to narrow down bug 1941655.
-    log::info!("Staging apply remote item ops");
+    log::debug!("Staging apply remote item ops");
     sql_support::each_sized_chunk(
         &ops.apply_remote_items,
         sql_support::default_max_variable_number() / 3,
@@ -206,7 +204,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Staging change GUID ops");
+    log::debug!("Staging change GUID ops");
     sql_support::each_sized_chunk(
         &ops.change_guids,
         sql_support::default_max_variable_number() / 2,
@@ -252,7 +250,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Staging apply new local structure ops");
+    log::debug!("Staging apply new local structure ops");
     sql_support::each_sized_chunk(
         &ops.apply_new_local_structure,
         sql_support::default_max_variable_number() / 2,
@@ -285,7 +283,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Removing tombstones for revived items");
+    log::debug!("Removing tombstones for revived items");
     sql_support::each_chunk_mapped(
         &ops.delete_local_tombstones,
         |op| op.guid().as_str(),
@@ -303,7 +301,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Inserting new tombstones for non-syncable and invalid items");
+    log::debug!("Inserting new tombstones for non-syncable and invalid items");
     sql_support::each_chunk_mapped(
         &ops.insert_local_tombstones,
         |op| op.remote_node().guid.as_str().to_owned(),
@@ -321,7 +319,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Flag frecencies for removed bookmark URLs as stale");
+    log::debug!("Flag frecencies for removed bookmark URLs as stale");
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -345,7 +343,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Removing deleted items from Places");
+    log::debug!("Removing deleted items from Places");
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -363,19 +361,19 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Changing GUIDs");
+    log::debug!("Changing GUIDs");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM changeGuidOps")?;
 
-    log::info!("Applying remote items");
+    log::debug!("Applying remote items");
     apply_remote_items(db, scope, now)?;
 
     // Fires the `applyNewLocalStructure` trigger.
-    log::info!("Applying new local structure");
+    log::debug!("Applying new local structure");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM applyNewLocalStructureOps")?;
 
-    log::info!("Resetting change counters for items that shouldn't be uploaded");
+    log::debug!("Resetting change counters for items that shouldn't be uploaded");
     sql_support::each_chunk_mapped(
         &ops.set_local_merged,
         |op| op.merged_node.guid.as_str(),
@@ -394,7 +392,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Bumping change counters for items that should be uploaded");
+    log::debug!("Bumping change counters for items that should be uploaded");
     sql_support::each_chunk_mapped(
         &ops.set_local_unmerged,
         |op| op.merged_node.guid.as_str(),
@@ -413,7 +411,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    log::info!("Flagging applied remote items as merged");
+    log::debug!("Flagging applied remote items as merged");
     sql_support::each_chunk_mapped(
         &ops.set_remote_merged,
         |op| op.guid().as_str(),
@@ -431,7 +429,6 @@ fn update_local_items_in_places(
             Ok(())
         },
     )?;
-    log::info!("update_local_items_in_places complete");
 
     Ok(())
 }
@@ -1163,7 +1160,6 @@ impl<'a> Merger<'a> {
     }
 
     pub(crate) fn merge(&mut self) -> Result<()> {
-        log::info!("starting merge"); // should be `::debug` but `::info` for bug 1941655,
         use dogear::Store;
         if !db_has_changes(self.db)? {
             return Ok(());
@@ -1172,7 +1168,7 @@ impl<'a> Merger<'a> {
         let driver = Driver::default();
         self.prepare()?;
         let result = self.merge_with_driver(&driver, &MergeInterruptee(self.scope));
-        log::info!("merge completed: {:?}", result); // should be `::debug` but `::info` for bug 1941655,
+        log::debug!("merge completed: {:?}", result);
 
         // Record telemetry in all cases, even if the merge fails.
         if let Some(ref mut telem) = self.telem {
@@ -1537,7 +1533,6 @@ impl dogear::Store for Merger<'_> {
     }
 
     fn apply(&mut self, root: MergedRoot<'_>) -> Result<()> {
-        log::info!("starting apply"); // should be `::debug` but `::info` for bug 1941655,
         let ops = root.completion_ops_with_signal(&MergeInterruptee(self.scope))?;
 
         if ops.is_empty() {
@@ -1565,7 +1560,7 @@ impl dogear::Store for Merger<'_> {
         log::debug!("Updating local items in Places");
         update_local_items_in_places(self.db, self.scope, self.local_time, &ops)?;
 
-        log::info!("Staging items to upload"); // should be `::debug` but `::info` for bug 1941655,
+        log::debug!("Staging items to upload");
         stage_items_to_upload(
             self.db,
             self.scope,
@@ -1577,7 +1572,6 @@ impl dogear::Store for Merger<'_> {
         if let Some(tx) = tx {
             tx.commit()?;
         }
-        log::info!("apply is complete"); // should be `::debug` but `::info` for bug 1941655,
         Ok(())
     }
 }
