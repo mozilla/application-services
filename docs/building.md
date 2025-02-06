@@ -108,7 +108,7 @@ The following instructions assume that you are building `application-services` f
    1. Configure the required versions of NDK
   `Configure menu > System Settings > Android SDK > SDK Tools > NDK > Show Package Details > NDK (Side by side)`
         - 27.0.12077973 (required by Fenix; note: a specific NDK version isn't configured, this maps to default [NDK version](https://developer.android.com/studio/projects/install-ndk#default-ndk-per-agp) for the [AGP version](https://searchfox.org/mozilla-central/source/mobile/android/android-components/plugins/dependencies/src/main/java/DependenciesPlugin.kt#33))
-        - 27.2.12479018 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
+        - 28.0.13004108 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
 1. If you are on Windows using WSL - drop to the section below, [Windows setup
 for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceeding.
 1. Check dependencies, environment variables

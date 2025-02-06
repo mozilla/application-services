@@ -2,6 +2,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Android
+- Upgraded NDK from r27c to r28. ([#6588](https://github.com/mozilla/application-services/pull/6588))
+
 ### Glean
 - Updated to v63.1.0 ([#6584](https://github.com/mozilla/application-services/pull/6584))
 

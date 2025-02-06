@@ -17,7 +17,7 @@ Here are the steps that worked for me:
   for each target platform are in your `$PATH`. On my Mac with Android Studio the
   config was as follows:
     ```
-    export NDK_ROOT="$HOME/Library/Android/sdk/ndk/27.2.12479018"
+    export NDK_ROOT="$HOME/Library/Android/sdk/ndk/28.0.13004108"
     export NDK_PLATFORM="$NDK_ROOT/platforms/android-25"
     export PATH="$PATH:$NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/bin"
     export PATH="$PATH:$NDK_ROOT/toolchains/aarch64-linux-android-4.9/prebuilt/darwin-x86_64/bin"
