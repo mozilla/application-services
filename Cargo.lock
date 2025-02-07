@@ -4543,15 +4543,19 @@ dependencies = [
 name = "search"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
  "error-support",
  "firefox-versioning",
+ "mockito",
  "once_cell",
  "parking_lot",
  "pretty_assertions",
+ "remote_settings",
  "serde",
  "serde_json",
  "thiserror 1.0.31",
  "uniffi",
+ "viaduct-reqwest",
 ]
 
 [[package]]
