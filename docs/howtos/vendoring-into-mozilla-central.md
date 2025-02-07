@@ -92,6 +92,7 @@ For example, you might end up with something like:
 # application-services overrides to make updating them all simpler.
 interrupt-support = { path = "../application-services/components/support/interrupt" }
 relevancy = { path = "../application-services/components/relevancy" }
+search = { path = "../application-services/components/search" }
 suggest = { path = "../application-services/components/suggest" }
 sql-support = { path = "../application-services/components/support/sql" }
 sync15 = { path = "../application-services/components/sync15" }
