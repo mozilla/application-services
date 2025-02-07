@@ -1561,6 +1561,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 4.2.2",
+ "cli-support",
  "env_logger",
  "futures",
  "indicatif",
@@ -1583,6 +1584,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 4.2.2",
+ "cli-support",
  "env_logger",
  "log",
  "remote_settings",

@@ -13,7 +13,7 @@ use suggest::{
     SuggestionProvider, SuggestionProviderConstraints, SuggestionQuery,
 };
 
-static DB_PATH: &str = "suggest.db";
+static DB_FILENAME: &str = "suggest.db";
 
 const DEFAULT_LOG_FILTER: &str = "suggest::store=info";
 const DEFAULT_LOG_FILTER_VERBOSE: &str = "suggest::store=trace";
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
 
 fn build_store(cli: &Cli) -> Arc<SuggestStore> {
     Arc::new(SuggestStoreBuilder::default())
-        .data_path(DB_PATH.to_string())
+        .data_path(cli_support::cli_data_path(DB_FILENAME))
         .remote_settings_server(match cli.remote_settings_server {
             None => RemoteSettingsServer::Prod,
             Some(RemoteSettingsServerArg::Dev) => RemoteSettingsServer::Dev,

@@ -6,6 +6,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+cli-support = { path = "../cli-support" }
 remote_settings = { path = "../../components/remote_settings" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 log = "0.4"

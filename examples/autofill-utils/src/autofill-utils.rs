@@ -48,13 +48,8 @@ fn update_i64(field_name: &str, field: i64) -> i64 {
 #[structopt(name = "autofill-utils", about = "Command-line utilities for autofill")]
 pub struct Opts {
     /// Sets the path to the database
-    #[structopt(
-        name = "database_path",
-        long,
-        short = "d",
-        default_value = "./autofill.db"
-    )]
-    pub database_path: String,
+    #[structopt(name = "database_path", long, short = "d")]
+    pub database_path: Option<String>,
 
     /// Disables all logging (useful for performance evaluation)
     #[structopt(name = "no-logging", long)]
@@ -496,10 +491,13 @@ fn main() -> Result<()> {
         cli_support::init_trace_logging();
     }
 
-    let db_path = opts.database_path.clone();
-    let store = Store::new(db_path)?;
+    let db_path = opts
+        .database_path
+        .clone()
+        .unwrap_or_else(|| cli_support::cli_data_path("autofill.db"));
+    let store = Store::new(&db_path)?;
 
-    let key = get_encryption_key(&store, &opts.database_path, &opts)?;
+    let key = get_encryption_key(&store, &db_path, &opts)?;
     log::trace!("Using encryption key {}", key);
 
     match opts.cmd {
