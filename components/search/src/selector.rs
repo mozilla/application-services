@@ -4,18 +4,20 @@
 
 //! This module defines the main `SearchEngineSelector`.
 
-use crate::filter::filter_engine_configuration;
+use crate::filter::filter_engine_configuration_impl;
 use crate::{
     error::Error, JSONSearchConfiguration, RefinedSearchConfig, SearchApiResult,
     SearchUserEnvironment,
 };
 use error_support::handle_error;
 use parking_lot::Mutex;
+use remote_settings::{RemoteSettingsClient, RemoteSettingsContext, RemoteSettingsService};
 use std::sync::Arc;
 
 #[derive(Default)]
 pub(crate) struct SearchEngineSelectorInner {
     configuration: Option<JSONSearchConfiguration>,
+    search_config_client: Option<Arc<RemoteSettingsClient>>,
 }
 
 /// SearchEngineSelector parses the JSON configuration for
@@ -29,6 +31,28 @@ impl SearchEngineSelector {
     #[uniffi::constructor]
     pub fn new() -> Self {
         Self(Mutex::default())
+    }
+
+    /// Sets the RemoteSettingsService to use. The selector will create the
+    /// relevant remote settings client(s) from the service.
+    ///
+    /// # Params:
+    ///   - `service`: The remote settings service instance for the application.
+    ///   - `options`: The remote settings options to be passed to the client(s).
+    ///   - `apply_engine_overrides`: Whether or not to apply overrides from
+    ///                               `search-config-v2-overrides` to the selected
+    ///                               engines. Should be false unless the application
+    ///                               supports the click URL feature.
+    #[handle_error(Error)]
+    pub fn use_remote_settings_server(
+        self: Arc<Self>,
+        service: &Arc<RemoteSettingsService>,
+        options: Option<RemoteSettingsContext>,
+        #[allow(unused_variables)] apply_engine_overrides: bool,
+    ) -> SearchApiResult<()> {
+        self.0.lock().search_config_client =
+            Some(service.make_client("search-config-v2".to_string(), options)?);
+        Ok(())
     }
 
     /// Sets the search configuration from the given string. If the configuration
@@ -58,11 +82,27 @@ impl SearchEngineSelector {
         self: Arc<Self>,
         user_environment: SearchUserEnvironment,
     ) -> SearchApiResult<RefinedSearchConfig> {
+        if let Some(client) = &self.0.lock().search_config_client {
+            // Remote settings ships dumps of the collections, so it is highly
+            // unlikely that we'll ever hit the case where we have no records.
+            // However, just in case of an issue that does causes us to receive
+            // no records, we will raise an error so that the application can
+            // handle or record it appropriately.
+            let records = client.get_records(false);
+            if let Some(records) = records {
+                if records.is_empty() {
+                    return Err(Error::SearchConfigNoRecords);
+                }
+                return filter_engine_configuration_impl(user_environment, &records);
+            } else {
+                return Err(Error::SearchConfigNoRecords);
+            }
+        }
         let data = match &self.0.lock().configuration {
             None => return Err(Error::SearchConfigNotSpecified),
             Some(configuration) => configuration.data.clone(),
         };
-        filter_engine_configuration(user_environment, data)
+        return filter_engine_configuration_impl(user_environment, &data);
     }
 }
 
@@ -70,7 +110,10 @@ impl SearchEngineSelector {
 mod tests {
     use super::*;
     use crate::{types::*, SearchApiError};
+    use env_logger;
+    use mockito::mock;
     use pretty_assertions::assert_eq;
+    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsServer};
     use serde_json::json;
 
     #[test]
@@ -1577,5 +1620,301 @@ mod tests {
             ],
             "Should list the wiki-uk engine and other engines in correct orders with the en-GB and GB locale region environment."
         );
+    }
+
+    fn setup_remote_settings_test() -> Arc<SearchEngineSelector> {
+        let _ = env_logger::builder().try_init();
+        viaduct_reqwest::use_reqwest_backend();
+
+        let config = RemoteSettingsConfig2 {
+            server: Some(RemoteSettingsServer::Custom {
+                url: mockito::server_url(),
+            }),
+            bucket_name: Some(String::from("main")),
+        };
+        let service =
+            Arc::new(RemoteSettingsService::new(String::from(":memory:"), config).unwrap());
+
+        let selector = Arc::new(SearchEngineSelector::new());
+
+        let settings_result = Arc::clone(&selector).use_remote_settings_server(
+            &service,
+            Some(RemoteSettingsContext {
+                ..Default::default()
+            }),
+            false,
+        );
+        assert!(
+            settings_result.is_ok(),
+            "Should have set the client successfully. {:?}",
+            settings_result
+        );
+
+        let sync_result = Arc::clone(&service).sync();
+        assert!(
+            sync_result.is_ok(),
+            "Should have completed the sync successfully. {:?}",
+            sync_result
+        );
+
+        selector
+    }
+
+    #[test]
+    fn test_remote_settings_no_records_throws_error() {
+        let m = mock(
+            "GET",
+            "/v1/buckets/main/collections/search-config-v2/changeset?_expected=0",
+        )
+        .with_body(
+            json!({
+                      "metadata": {
+                        "id": "search-config-v2",
+                        "last_modified": 1000,
+                        "bucket": "main",
+                        "signature": {
+                          "x5u": "fake",
+                          "signature": "fake",
+                        },
+                      },
+                      "timestamp": 1000,
+                      "changes": [
+            ]})
+            .to_string(),
+        )
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test();
+
+        let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_err(),
+            "Should throw an error when a configuration has not been specified before filtering"
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No records received from remote settings"));
+        m.expect(1).assert();
+    }
+
+    fn response_body() -> String {
+        json!({
+          "metadata": {
+            "id": "search-config-v2",
+            "last_modified": 1000,
+            "bucket": "main",
+            "signature": {
+              "x5u": "fake",
+              "signature": "fake",
+            },
+          },
+          "timestamp": 1000,
+          "changes": [
+            {
+              "recordType": "engine",
+              "identifier": "test",
+              "base": {
+                "name": "Test",
+                "classification": "general",
+                "urls": {
+                  "search": {
+                    "base": "https://example.com",
+                    "method": "GET",
+                  }
+                }
+              },
+              "variants": [{
+                "environment": {
+                  "allRegionsAndLocales": true
+                }
+              }],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0d7",
+              "schema": 1001,
+              "last_modified": 1000
+            },
+            {
+              "recordType": "engine",
+              "identifier": "distro-default",
+              "base": {
+                "name": "Distribution Default",
+                "classification": "general",
+                "urls": {
+                  "search": {
+                    "base": "https://example.com",
+                    "method": "GET"
+                  }
+                }
+              },
+              "variants": [{
+                "environment": {
+                  "allRegionsAndLocales": true
+                }
+              }],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0d8",
+              "schema": 1002,
+              "last_modified": 1000
+            },
+            {
+              "recordType": "engine",
+              "identifier": "private-default-FR",
+              "base": {
+                "name": "Private default FR",
+                "classification": "general",
+                "urls": {
+                  "search": {
+                    "base": "https://example.com",
+                    "method": "GET"
+                  }
+                }
+              },
+              "variants": [{
+                "environment": {
+                  "allRegionsAndLocales": true,
+                }
+              }],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0d9",
+              "schema": 1003,
+              "last_modified": 1000
+            },
+            {
+              "recordType": "defaultEngines",
+              "globalDefault": "test",
+              "specificDefaults": [{
+                "environment": {
+                  "distributions": ["test-distro"],
+                },
+                "default": "distro-default"
+              }, {
+                "environment": {
+                  "regions": ["fr"]
+                },
+                "defaultPrivate": "private-default-FR"
+              }],
+              "id": "c5dcd1da-7126-4abb-846b-ec85b0d4d0e0",
+              "schema": 1004,
+              "last_modified": 1000,
+            }
+          ]
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn test_filter_with_remote_settings() {
+        let m = mock(
+            "GET",
+            "/v1/buckets/main/collections/search-config-v2/changeset?_expected=0",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("etag", "\"1000\"")
+        .create();
+
+        let selector = setup_remote_settings_test();
+
+        let test_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "test".to_string(),
+            name: "Test".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let private_default_fr_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "private-default-FR".to_string(),
+            name: "Private default FR".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let distro_default_engine = SearchEngineDefinition {
+            charset: "UTF-8".to_string(),
+            classification: SearchEngineClassification::General,
+            identifier: "distro-default".to_string(),
+            name: "Distribution Default".to_string(),
+            urls: SearchEngineUrls {
+                search: SearchEngineUrl {
+                    base: "https://example.com".to_string(),
+                    method: "GET".to_string(),
+                    params: Vec::new(),
+                    search_term_param_name: None,
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            distribution_id: "test-distro".to_string(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec![
+                    distro_default_engine.clone(),
+                    private_default_fr_engine.clone(),
+                    test_engine.clone(),
+                ],
+                app_default_engine_id: Some("distro-default".to_string()),
+                app_private_default_engine_id: None
+            },
+            "Should have selected the default engine for the matching specific default"
+        );
+
+        let result = Arc::clone(&selector).filter_engine_configuration(SearchUserEnvironment {
+            region: "fr".into(),
+            distribution_id: String::new(),
+            ..Default::default()
+        });
+        assert!(
+            result.is_ok(),
+            "Should have filtered the configuration without error. {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap(),
+            RefinedSearchConfig {
+                engines: vec![
+                    test_engine.clone(),
+                    private_default_fr_engine.clone(),
+                    distro_default_engine.clone(),
+                ],
+                app_default_engine_id: Some("test".to_string()),
+                app_private_default_engine_id: Some("private-default-FR".to_string())
+            },
+            "Should have selected the private default engine for the matching specific default"
+        );
+        m.expect(1).assert();
     }
 }

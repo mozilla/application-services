@@ -5,12 +5,13 @@
 //! This module defines the functions for managing the filtering of the configuration.
 
 use crate::environment_matching::matches_user_environment;
-use crate::sort_helpers;
 use crate::{
     error::Error, JSONDefaultEnginesRecord, JSONEngineBase, JSONEngineRecord, JSONEngineUrl,
     JSONEngineUrls, JSONEngineVariant, JSONSearchConfigurationRecords, RefinedSearchConfig,
     SearchEngineDefinition, SearchEngineUrl, SearchEngineUrls, SearchUserEnvironment,
 };
+use crate::{sort_helpers, JSONEngineOrdersRecord};
+use remote_settings::RemoteSettingsRecord;
 
 impl From<JSONEngineUrl> for SearchEngineUrl {
     fn from(url: JSONEngineUrl) -> Self {
@@ -121,62 +122,140 @@ impl SearchEngineDefinition {
     }
 }
 
-pub(crate) fn filter_engine_configuration(
-    user_environment: SearchUserEnvironment,
-    configuration: Vec<JSONSearchConfigurationRecords>,
-) -> Result<RefinedSearchConfig, Error> {
-    let mut engines = Vec::new();
+pub(crate) struct FilterRecordsResult {
+    engines: Vec<SearchEngineDefinition>,
+    default_engines_record: Option<JSONDefaultEnginesRecord>,
+    engine_orders_record: Option<JSONEngineOrdersRecord>,
+}
 
+pub(crate) trait Filter {
+    fn filter_records(
+        &self,
+        user_environment: &SearchUserEnvironment,
+    ) -> Result<FilterRecordsResult, Error>;
+}
+
+impl Filter for Vec<RemoteSettingsRecord> {
+    fn filter_records(
+        &self,
+        user_environment: &SearchUserEnvironment,
+    ) -> Result<FilterRecordsResult, Error> {
+        let mut engines = Vec::new();
+        let mut default_engines_record = None;
+        let mut engine_orders_record = None;
+
+        for record in self {
+            // TODO: Bug 1947241 - Find a way to avoid having to serialise the records
+            // back to strings and then deserilise them into the records that we want.
+            let stringified = serde_json::to_string(&record.fields)?;
+            match record.fields.get("recordType") {
+                Some(val) if *val == "engine" => {
+                    let engine_config: Option<JSONEngineRecord> =
+                        serde_json::from_str(&stringified)?;
+                    if let Some(engine_config) = engine_config {
+                        let result =
+                            maybe_extract_engine_config(user_environment, Box::new(engine_config));
+                        engines.extend(result);
+                    }
+                }
+                Some(val) if *val == "defaultEngines" => {
+                    default_engines_record = serde_json::from_str(&stringified)?;
+                }
+                Some(val) if *val == "engineOrders" => {
+                    engine_orders_record = serde_json::from_str(&stringified)?;
+                }
+                // These cases are acceptable - we expect the potential for new
+                // record types/options so that we can be flexible.
+                Some(_val) => {}
+                None => {}
+            }
+        }
+
+        Ok(FilterRecordsResult {
+            engines,
+            default_engines_record,
+            engine_orders_record,
+        })
+    }
+}
+
+impl Filter for Vec<JSONSearchConfigurationRecords> {
+    fn filter_records(
+        &self,
+        user_environment: &SearchUserEnvironment,
+    ) -> Result<FilterRecordsResult, Error> {
+        let mut engines = Vec::new();
+        let mut default_engines_record = None;
+        let mut engine_orders_record = None;
+
+        for record in self {
+            match record {
+                JSONSearchConfigurationRecords::Engine(engine) => {
+                    let result = maybe_extract_engine_config(user_environment, engine.clone());
+                    engines.extend(result);
+                }
+                JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
+                    default_engines_record = Some(default_engines);
+                }
+                JSONSearchConfigurationRecords::EngineOrders(engine_orders) => {
+                    engine_orders_record = Some(engine_orders)
+                }
+                JSONSearchConfigurationRecords::Unknown => {
+                    // Prevents panics if a new record type is added in future.
+                }
+            }
+        }
+
+        Ok(FilterRecordsResult {
+            engines,
+            default_engines_record: default_engines_record.cloned(),
+            engine_orders_record: engine_orders_record.cloned(),
+        })
+    }
+}
+
+pub(crate) fn filter_engine_configuration_impl(
+    user_environment: SearchUserEnvironment,
+    configuration: &impl Filter,
+) -> Result<RefinedSearchConfig, Error> {
     let mut user_environment = user_environment.clone();
     user_environment.locale = user_environment.locale.to_lowercase();
     user_environment.region = user_environment.region.to_lowercase();
     user_environment.version = user_environment.version.to_lowercase();
 
-    let mut default_engines_record = None;
-    let mut engine_orders_record = None;
+    let filtered_result = configuration.filter_records(&user_environment);
 
-    for record in configuration {
-        match record {
-            JSONSearchConfigurationRecords::Engine(engine) => {
-                let result = maybe_extract_engine_config(&user_environment, engine);
-                engines.extend(result);
-            }
-            JSONSearchConfigurationRecords::DefaultEngines(default_engines) => {
-                default_engines_record = Some(default_engines);
-            }
-            JSONSearchConfigurationRecords::EngineOrders(engine_orders) => {
-                engine_orders_record = Some(engine_orders)
-            }
-            JSONSearchConfigurationRecords::Unknown => {
-                // Prevents panics if a new record type is added in future.
-            }
-        }
-    }
+    filtered_result.map(|result| {
+        let (default_engine_id, default_private_engine_id) = determine_default_engines(
+            &result.engines,
+            result.default_engines_record,
+            &user_environment,
+        );
 
-    let (default_engine_id, default_private_engine_id) =
-        determine_default_engines(&engines, default_engines_record, &user_environment);
+        let mut engines = result.engines.clone();
 
-    if let Some(orders_record) = engine_orders_record {
-        for order_data in &orders_record.orders {
-            if matches_user_environment(&order_data.environment, &user_environment) {
-                sort_helpers::set_engine_order(&mut engines, &order_data.order);
+        if let Some(orders_record) = result.engine_orders_record {
+            for order_data in &orders_record.orders {
+                if matches_user_environment(&order_data.environment, &user_environment) {
+                    sort_helpers::set_engine_order(&mut engines, &order_data.order);
+                }
             }
         }
-    }
 
-    engines.sort_by(|a, b| {
-        sort_helpers::sort(
-            default_engine_id.as_ref(),
-            default_private_engine_id.as_ref(),
-            a,
-            b,
-        )
-    });
+        engines.sort_by(|a, b| {
+            sort_helpers::sort(
+                default_engine_id.as_ref(),
+                default_private_engine_id.as_ref(),
+                a,
+                b,
+            )
+        });
 
-    Ok(RefinedSearchConfig {
-        engines,
-        app_default_engine_id: default_engine_id,
-        app_private_default_engine_id: default_private_engine_id,
+        RefinedSearchConfig {
+            engines,
+            app_default_engine_id: default_engine_id,
+            app_private_default_engine_id: default_private_engine_id,
+        }
     })
 }
 
