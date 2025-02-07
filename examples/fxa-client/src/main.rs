@@ -11,7 +11,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use cli_support::fxa_creds;
 use fxa_client::{FirefoxAccount, FxaConfig, FxaServer};
 
-static CREDENTIALS_PATH: &str = "credentials.json";
+static CREDENTIALS_FILENAME: &str = "credentials.json";
 static CLIENT_ID: &str = "a2270f727f45f648";
 static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
 
@@ -111,10 +111,14 @@ fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };
-    fxa_creds::get_cli_fxa(config, CREDENTIALS_PATH, scopes).map(|cli| cli.account)
+    fxa_creds::get_cli_fxa(config, &credentials_path(), scopes).map(|cli| cli.account)
 }
 
 pub fn persist_fxa_state(acct: &FirefoxAccount) -> Result<()> {
     let json = acct.to_json().unwrap();
-    Ok(fs::write(CREDENTIALS_PATH, json)?)
+    Ok(fs::write(credentials_path(), json)?)
+}
+
+fn credentials_path() -> String {
+    cli_support::cli_data_path(CREDENTIALS_FILENAME)
 }

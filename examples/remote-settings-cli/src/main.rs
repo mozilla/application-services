@@ -117,12 +117,11 @@ fn build_service(cli: &Cli) -> Result<RemoteSettingsService> {
         }),
         bucket_name: cli.bucket.clone(),
     };
-    Ok(RemoteSettingsService::new(
-        cli.storage_dir
-            .clone()
-            .unwrap_or_else(|| "remote-settings-data".into()),
-        config,
-    )?)
+    let storage_dir = cli
+        .storage_dir
+        .clone()
+        .unwrap_or_else(|| cli_support::cli_data_subdir("remote-settings-data"));
+    Ok(RemoteSettingsService::new(storage_dir, config)?)
 }
 
 fn sync(service: RemoteSettingsService, collections: Vec<String>) -> Result<()> {

@@ -5,6 +5,8 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+use std::path::{Path, PathBuf};
+
 pub mod fxa_creds;
 pub mod prompt;
 
@@ -26,4 +28,38 @@ pub fn init_logging() {
     } else {
         "info"
     })
+}
+
+pub fn cli_data_dir() -> String {
+    data_path(None).to_string_lossy().to_string()
+}
+
+pub fn cli_data_subdir(relative_path: &str) -> String {
+    data_path(Some(relative_path)).to_string_lossy().to_string()
+}
+
+pub fn cli_data_path(filename: &str) -> String {
+    data_path(None).join(filename).to_string_lossy().to_string()
+}
+
+fn data_path(relative_path: Option<&str>) -> PathBuf {
+    let dir = workspace_root_dir().join(".cli-data");
+    let dir = match relative_path {
+        None => dir,
+        Some(relative_path) => dir.join(relative_path),
+    };
+    std::fs::create_dir_all(&dir).expect("Error creating dir {dir:?}");
+    dir
+}
+
+pub fn workspace_root_dir() -> PathBuf {
+    let cargo_output = std::process::Command::new(env!("CARGO"))
+        .arg("locate-project")
+        .arg("--workspace")
+        .arg("--message-format=plain")
+        .output()
+        .unwrap()
+        .stdout;
+    let cargo_toml_path = Path::new(std::str::from_utf8(&cargo_output).unwrap().trim());
+    cargo_toml_path.parent().unwrap().to_path_buf()
 }
