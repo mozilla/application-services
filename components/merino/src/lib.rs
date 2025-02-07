@@ -1,1 +1,2 @@
-pub mod merino;
+pub mod curation;
+uniffi::setup_scaffolding!();
