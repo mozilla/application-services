@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 // Locales supported by Merino Curated Reccomendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Enum)]
+#[derive(Debug, Serialize, PartialEq, uniffi::Enum)]
 pub enum Locale {
     #[serde(rename = "fr")]
     Fr,
@@ -48,7 +48,7 @@ pub struct SectionSettings {
 }
 
 // Information required to request curated recommendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Serialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsRequest {
     pub locale: Locale,
     #[uniffi(default = None)]
@@ -70,7 +70,7 @@ pub struct CuratedRecommendationsRequest {
 }
 
 // Response schema for a list of curated recommendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsResponse {
     #[serde(rename = "recommendedAt")]
     pub recommended_at: i32,
@@ -80,7 +80,7 @@ pub struct CuratedRecommendationsResponse {
 }
 
 // Multiple list of curated recoummendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct Feeds {
     #[uniffi(default = None)]
     pub need_to_know: Option<CuratedRecommendationsBucket>,
@@ -125,7 +125,7 @@ pub struct Feeds {
 }
 
 // Curated Recommendation Information
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct ReccomendationDataItem {
     #[serde(rename = "corpusItemId")]
     pub corpus_item_id: String,
@@ -148,15 +148,15 @@ pub struct ReccomendationDataItem {
 }
 
 // Ranked list of curated recommendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsBucket {
     pub recommendations: Vec<ReccomendationDataItem>,
-    #[uniffi(default = None)] 
+    #[uniffi(default = None)]
     pub title: Option<String>,
 }
 
 // Fakespot product reccomendations
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct FakespotFeed {
     pub products: Vec<FakespotProduct>,
     #[serde(rename = "defaultCategoryName")]
@@ -169,7 +169,7 @@ pub struct FakespotFeed {
 }
 
 // Fakespot product details
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct FakespotProduct {
     id: String,
     title: String,
@@ -180,7 +180,7 @@ pub struct FakespotProduct {
 }
 
 // Fakespot CTA
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct FakespotCta {
     #[serde(rename = "ctaCopy")]
     pub cta_copy: String,
@@ -188,13 +188,13 @@ pub struct FakespotCta {
 }
 
 // Ranked list of curated recommendations with responsive layout configs
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct FeedSection {
     #[serde(rename = "receivedFeedRank")]
     pub received_feed_rank: i32,
     pub recommendations: Vec<ReccomendationDataItem>,
     pub title: String,
-    #[uniffi(default = None)] 
+    #[uniffi(default = None)]
     pub subtitle: Option<String>,
     pub layout: Layout,
     #[serde(rename = "isFollowed")]
@@ -204,7 +204,7 @@ pub struct FeedSection {
 }
 
 // Representation of a responsive layout configuration with multiple column layouts
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct Layout {
     pub name: String,
     #[serde(rename = "responsiveLayouts")]
@@ -212,14 +212,14 @@ pub struct Layout {
 }
 
 // Layout configurations within a column
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct ResponsiveLayout {
     #[serde(rename = "columnCount")]
     pub column_count: i32,
     pub tiles: Vec<Tile>,
 }
 // Properties for a single tile in a responsive layout
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct Tile {
     pub size: String,
     pub position: i32,
