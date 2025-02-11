@@ -307,6 +307,6 @@ task autoPublishForLocalDevelopment(type: Exec) {
 
 task printNdkVersion {
     doLast {
-        println project.ext.build.ndkVersion
+        println config.ndkVersion
     }
 }
