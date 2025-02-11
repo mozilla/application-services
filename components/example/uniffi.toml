@@ -1,0 +1,5 @@
+# Make sure to specify a Kotlin package name for your component.
+# We've traditionally used the form `mozilla.appservices.[name]` for package
+# names.
+[bindings.kotlin]
+package_name = "mozilla.appservices.example_component"

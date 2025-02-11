@@ -1429,6 +1429,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-component"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "interrupt-support",
+ "log",
+ "parking_lot",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sql-support",
+ "thiserror 1.0.31",
+ "uniffi",
+ "url",
+ "viaduct",
+]
+
+[[package]]
 name = "example-places-autocomplete"
 version = "0.1.0"
 dependencies = [
@@ -1521,6 +1539,18 @@ dependencies = [
  "sync15",
  "tabs",
  "url",
+ "viaduct-reqwest",
+]
+
+[[package]]
+name = "examples-example-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "cli-support",
+ "env_logger",
+ "example-component",
  "viaduct-reqwest",
 ]
 
