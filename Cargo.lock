@@ -2827,6 +2827,7 @@ dependencies = [
  "lazy_static",
  "log",
  "more-asserts",
+ "nss",
  "parking_lot",
  "rusqlite",
  "serde",

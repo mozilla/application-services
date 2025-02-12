@@ -69,6 +69,9 @@ dictionary Login {
 /// These are the errors returned by our public API.
 [Error]
 interface LoginsApiError {
+    /// NSS initialization failed.
+    NSSInitializationFailed(string reason);
+
     /// The login data supplied is invalid. The reason will indicate what's wrong with it.
     InvalidRecord(string reason);
 
