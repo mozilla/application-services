@@ -377,3 +377,34 @@ mod test {
         ));
     }
 }
+
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod keydb_test {
+    use super::*;
+    use anyhow::Result;
+    use std::env;
+
+    struct TestPrimaryPasswordAuthenticator {}
+
+    impl PrimaryPasswordAuthenticator for TestPrimaryPasswordAuthenticator {
+        fn get_primary_password(&self) -> Result<String, LoginsApiError> {
+            panic!("no primary password should be used in test")
+        }
+    }
+
+    #[test]
+    fn test_nss_key_manager() {
+        let profile_path = env::current_dir().unwrap();
+        let primary_password_authenticator = Arc::new(TestPrimaryPasswordAuthenticator {});
+        let key_manager =
+            Arc::new(NSSKeyManager::new(profile_path, primary_password_authenticator).unwrap());
+        let encdec = ManagedEncryptorDecryptor { key_manager };
+        let cleartext = "secret";
+        let ciphertext = encdec.encrypt(cleartext.as_bytes().into()).unwrap();
+        assert_eq!(
+            encdec.decrypt(ciphertext.clone()).unwrap(),
+            cleartext.as_bytes()
+        );
+    }
+}
