@@ -18,7 +18,7 @@ fxa-client = { path = "../../components/fxa-client" }
 error-support = { path = "../../components/support/error" }
 interrupt-support = { path = "../../components/support/interrupt" } # XXX - should be removed once we do interrupts correctly!
 log = "0.4"
-rusqlite = { version = "0.31.0", features = ["functions", "bundled", "serde_json", "unlock_notify"]}
+rusqlite = { version = "0.33.0", features = ["functions", "bundled", "serde_json", "unlock_notify"]}
 serde_json = "1"
 sql-support = { path = "../../components/support/sql" }
 structopt = "0.3"

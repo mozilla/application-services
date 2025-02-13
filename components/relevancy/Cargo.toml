@@ -17,7 +17,7 @@ md-5 = "0.10"
 parking_lot = ">=0.11,<=0.12"
 rand = "0.8"
 rand_distr = "0.4"
-rusqlite = { version = "0.31.0", features = ["bundled"] }
+rusqlite = { version = "0.33.0", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_path_to_error = "0.1"
