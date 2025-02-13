@@ -24,6 +24,7 @@ use dogear::{
     UploadTombstone,
 };
 use interrupt_support::SqlInterruptScope;
+use rusqlite::ErrorCode;
 use rusqlite::Row;
 use sql_support::ConnExt;
 use std::cell::RefCell;
@@ -490,14 +491,42 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
         }
     ).ok(); // We ignore the error because it's expected, users should not have entries with the same id that have different types
 
+    // Same as above but we check if any users have any undetected orphaned bookmarks and
+    // report them appropiately
+    let orphaned_count: i64 = db.query_row(
+        "WITH RECURSIVE orphans(id) AS (
+           SELECT b.id
+           FROM moz_bookmarks b
+           WHERE b.parent IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent
+             )
+           UNION
+           SELECT c.id
+           FROM moz_bookmarks c
+           JOIN orphans o ON c.parent = o.id
+         )
+         SELECT COUNT(*) FROM orphans;",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if orphaned_count > 0 {
+        log::warn!("Found {} orphaned bookmarks during sync", orphaned_count);
+        error_support::report_error!(
+            "places-sync-bookmarks-orphaned",
+            "found local orphaned bookmarks {}",
+            orphaned_count
+        );
+    }
+
     // Insert and update items, temporarily using the Places root for new
     // items' parent IDs, and -1 for positions. We'll fix these up later,
     // when we apply the new local structure. This `INSERT` is a full table
     // scan on `itemsToApply`. The no-op `WHERE` clause is necessary to
     // avoid a parsing ambiguity.
     log::debug!("Upserting new items");
-    scope.err_if_interrupted()?;
-    db.execute_batch(&format!(
+    let upsert_sql = format!(
         "INSERT INTO moz_bookmarks(id, guid, parent,
                                    position, type, fk, title,
                                    dateAdded,
@@ -524,7 +553,25 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
         root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
         type_fragment = ItemTypeFragment("newKind"),
         sync_status = SyncStatus::Normal as u8,
-    ))?;
+    );
+
+    scope.err_if_interrupted()?;
+    let result = db.execute_batch(&upsert_sql);
+
+    // In trying to debug bug 1935797 - relaxing the trigger caused a spike on
+    // guid collisions, we want to report on this error before the actual upsert to see
+    // if we can discern any obvious signs
+    if let Err(rusqlite::Error::SqliteFailure(e, _)) = &result {
+        if e.code == ErrorCode::ConstraintViolation {
+            // This is a real collision that the sync code couldn't unify or fix.
+            error_support::report_error!(
+                "places-sync-bookmarks-guid-collision",
+                "GUID collision during bookmark sync upsert"
+            );
+        }
+    }
+    // Return the original result
+    result?;
 
     log::debug!("Flagging frecencies for recalculation");
     scope.err_if_interrupted()?;
@@ -4320,6 +4367,101 @@ mod tests {
         // it's parent too.
         assert!(outgoing.contains(&"bookmarkEEEE".into()));
         assert!(outgoing.contains(&"folderCCCCCC".into()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_db_level_unique_guid_violation() -> Result<()> {
+        use error_support::{
+            set_application_error_reporter, ArcReporterAdapter, TestErrorReporter,
+        };
+        // Use the test reporting apparatus to validate that we can capture reporting errors
+        let test_reporter = Arc::new(TestErrorReporter::new());
+        set_application_error_reporter(Box::new(ArcReporterAdapter::new(Arc::clone(
+            &test_reporter,
+        ))));
+
+        let api = new_mem_api();
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock();
+
+        conn.execute_batch(
+            r#"
+            INSERT INTO moz_places(url, guid, title, frecency)
+            VALUES
+                ('http://example.com/', 'testPlaceGuidAAAA', 'Example site', 0)
+            "#,
+        )?;
+
+        // Insert a local row in moz_bookmarks with guid="collisionGUI"
+        // so we already have that GUID in the table.
+        conn.execute_batch(&format!(
+            r#"
+        INSERT INTO moz_bookmarks(guid, parent, fk, position, type)
+        VALUES (
+            'collisionGUI',
+            (SELECT id FROM moz_bookmarks WHERE guid = '{unfiled}'),
+            (SELECT id FROM moz_places WHERE guid = 'testPlaceGuidAAAA'),
+            0,
+            1  -- type=1 => bookmark
+        );
+        "#,
+            unfiled = BookmarkRootGuid::Unfiled.as_guid(),
+        ))?;
+
+        // Insert a row into itemsToApply that will cause an insert
+        // with the same guid="collisionGUI".
+        // localId is NULL, so the engine sees it as a "new" local item,
+        // and remoteId could be any integer. We set newKind=1 => "bookmark."
+        conn.execute(
+            r#"
+        INSERT INTO itemsToApply(
+            mergedGuid,
+            localId,
+            remoteId,
+            remoteGuid,
+            newKind,
+            newLevel,
+            newTitle,
+            newPlaceId,
+            oldPlaceId,
+            localDateAdded,
+            remoteDateAdded,
+            lastModified
+        )
+        VALUES (
+            ?1,        -- mergedGuid
+            NULL,      -- localId => so it doesn't unify
+            999,       -- remoteId => arbitrary
+            ?1,        -- remoteGuid
+            1,         -- newKind=1 => bookmark
+            0,         -- level
+            'New Title',   -- newTitle
+            1234,          -- newPlaceId => arbitrary
+            NULL,          -- oldPlaceId
+            1000,          -- localDateAdded
+            2000,          -- remoteDateAdded
+            2000           -- lastModified
+        )
+        "#,
+            [&"collisionGUI"],
+        )?;
+
+        // Call apply_remote_items directly.
+        // This tries "INSERT INTO moz_bookmarks(guid='collisionGUI')"
+        // and should fail with a unique constraint.
+        let scope = conn.begin_interrupt_scope()?;
+        let _ = apply_remote_items(&conn, &scope, Timestamp(999));
+        // Check if we reported the expected error
+        let errors = test_reporter.get_errors();
+        assert!(
+            errors.iter().any(|(type_name, message)| {
+                type_name == "places-sync-bookmarks-guid-collision"
+                    && message.contains("GUID collision during bookmark sync upsert")
+            }),
+            "Expected to find pre-collision error report in: {errors:?}"
+        );
+
         Ok(())
     }
 }
