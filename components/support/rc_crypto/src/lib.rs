@@ -52,8 +52,8 @@ pub use ece;
 
 pub use crate::error::{Error, ErrorKind, Result};
 
-/// Only required to be called if you intend to use this library in conjunction
-/// with the `hawk` or the `ece` crate.
+/// Only required to be called if you intend to either use this library in conjunction with the
+/// `hawk` or the `ece` cratem, or use any functionality based on nss.
 pub fn ensure_initialized() {
     nss::ensure_initialized();
     #[cfg(any(feature = "hawk", feature = "ece"))]

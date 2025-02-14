@@ -8,6 +8,14 @@
 ### Glean
 - Updated to v63.1.0 ([#6584](https://github.com/mozilla/application-services/pull/6584))
 
+### `rc_crypto`
+- Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
+
+#### BREAKING CHANGE:
+you now need to call `rc_crypto::ensure_initialized()` before any calls to
+functions which depend on NSS.
+
+
 [Full Changelog](In progress)
 
 # v136.0 (_2025-02-03_)
