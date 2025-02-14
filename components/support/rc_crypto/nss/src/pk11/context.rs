@@ -8,7 +8,7 @@ use crate::{
         sym_key::import_sym_key,
         types::{Context, SymKey},
     },
-    util::{ensure_nss_initialized, map_nss_secstatus, ScopedPtr},
+    util::{expect_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
 use std::ptr;
 
@@ -52,7 +52,7 @@ impl From<&HashAlgorithm> for nss_sys::SECOidTag {
 }
 
 pub fn hash_buf(algorithm: &HashAlgorithm, data: &[u8]) -> Result<Vec<u8>> {
-    ensure_nss_initialized();
+    expect_nss_initialized()?;
     let result_len = usize::try_from(algorithm.result_len())?;
     let mut out = vec![0u8; result_len];
     let data_len = i32::try_from(data.len())?;
@@ -76,7 +76,7 @@ pub fn hmac_sign(digest_alg: &HashAlgorithm, sym_key_bytes: &[u8], data: &[u8]) 
 
 /// Similar to hash_buf except the consumer has to provide the digest context.
 fn hash_buf_with_context(context: &Context, data: &[u8]) -> Result<Vec<u8>> {
-    ensure_nss_initialized();
+    expect_nss_initialized()?;
     map_nss_secstatus(|| unsafe { nss_sys::PK11_DigestBegin(context.as_mut_ptr()) })?;
     let data_len = u32::try_from(data.len())?;
     map_nss_secstatus(|| unsafe {
@@ -106,7 +106,7 @@ pub fn create_context_by_sym_key(
     operation: nss_sys::CK_ATTRIBUTE_TYPE,
     sym_key: &SymKey,
 ) -> Result<Context> {
-    ensure_nss_initialized();
+    expect_nss_initialized()?;
     let param = nss_sys::SECItem {
         type_: nss_sys::SECItemType::siBuffer as u32,
         data: ptr::null_mut(),
