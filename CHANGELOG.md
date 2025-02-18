@@ -4,6 +4,11 @@
 
 # v137.0 (_2025-03-03_)
 
+## ✨ What's New ✨
+
+### Merino
+- added a client for merino curated recommendations endpoint
+
 ## 🦊 What's Changed 🦊
 
 ### `init_rust_components`
