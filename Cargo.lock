@@ -3001,9 +3001,14 @@ dependencies = [
 name = "merino"
 version = "0.1.0"
 dependencies = [
+ "error-support",
+ "log",
  "serde",
  "serde_json",
+ "thiserror 1.0.31",
  "uniffi",
+ "url",
+ "viaduct",
 ]
 
 [[package]]
