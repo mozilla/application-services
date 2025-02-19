@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer};
+use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
 
 use serde::de::DeserializeOwned;
 
@@ -98,7 +98,11 @@ impl SuggestStoreBuilder {
     }
 
     #[handle_error(Error)]
-    pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
+    #[uniffi::method(default(rs_service=None))]
+    pub fn build(
+        &self,
+        #[allow(unused)] rs_service: Option<Arc<RemoteSettingsService>>,
+    ) -> SuggestApiResult<Arc<SuggestStore>> {
         let inner = self.0.lock();
         let extensions_to_load = inner.extensions_to_load.clone();
         let data_path = inner
