@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-use remote_settings::RemoteSettingsServer;
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
 use suggest::{
     AmpMatchingStrategy, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder,
     SuggestionProvider, SuggestionProviderConstraints, SuggestionQuery,
@@ -145,6 +145,14 @@ fn main() -> Result<()> {
 }
 
 fn build_store(cli: &Cli) -> Arc<SuggestStore> {
+    let remote_settings_service = RemoteSettingsService::new(
+        cli_support::cli_data_path(DB_FILENAME),
+        RemoteSettingsConfig2 {
+            server: None,
+            bucket_name: None,
+        },
+    )
+    .unwrap();
     Arc::new(SuggestStoreBuilder::default())
         .data_path(cli_support::cli_data_path(DB_FILENAME))
         .remote_settings_server(match cli.remote_settings_server {
@@ -158,7 +166,7 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
                 .clone()
                 .unwrap_or_else(|| "main".to_owned()),
         )
-        .build()
+        .build(&remote_settings_service)
         .unwrap_or_else(|e| panic!("Error building store: {e}"))
 }
 

@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
+use remote_settings::{self, RemoteSettingsServer, RemoteSettingsService};
 
 use serde::de::DeserializeOwned;
 
@@ -24,8 +24,8 @@ use crate::{
     metrics::{MetricsContext, SuggestIngestionMetrics, SuggestQueryMetrics},
     provider::{SuggestionProvider, SuggestionProviderConstraints, DEFAULT_INGEST_PROVIDERS},
     rs::{
-        Client, Collection, DownloadedExposureRecord, Record, RemoteSettingsClient,
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRecordType,
+        Client, Collection, DownloadedExposureRecord, Record, SuggestAttachment, SuggestRecord,
+        SuggestRecordId, SuggestRecordType, SuggestRemoteSettingsClient,
     },
     suggestion::AmpSuggestionType,
     QueryWithMetricsResult, Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -107,19 +107,14 @@ impl SuggestStoreBuilder {
     }
 
     #[handle_error(Error)]
-    pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
+    pub fn build(&self, rs_service: &RemoteSettingsService) -> SuggestApiResult<Arc<SuggestStore>> {
         let inner = self.0.lock();
         let extensions_to_load = inner.extensions_to_load.clone();
         let data_path = inner
             .data_path
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
-
-        let client = RemoteSettingsClient::new(
-            inner.remote_settings_server.clone(),
-            inner.remote_settings_bucket_name.clone(),
-            None,
-        )?;
+        let client = SuggestRemoteSettingsClient::new(rs_service)?;
 
         Ok(Arc::new(SuggestStore {
             inner: SuggestStoreInner::new(data_path, extensions_to_load, client),
@@ -169,30 +164,19 @@ pub enum InterruptKind {
 ///    on the first launch.
 #[derive(uniffi::Object)]
 pub struct SuggestStore {
-    inner: SuggestStoreInner<RemoteSettingsClient>,
+    inner: SuggestStoreInner<SuggestRemoteSettingsClient>,
 }
 
 #[uniffi::export]
 impl SuggestStore {
     /// Creates a Suggest store.
     #[handle_error(Error)]
-    #[uniffi::constructor(default(settings_config = None))]
+    #[uniffi::constructor()]
     pub fn new(
         path: &str,
-        settings_config: Option<RemoteSettingsConfig>,
+        remote_settings_service: Arc<RemoteSettingsService>,
     ) -> SuggestApiResult<Self> {
-        let client = match settings_config {
-            Some(settings_config) => RemoteSettingsClient::new(
-                settings_config.server,
-                settings_config.bucket_name,
-                settings_config.server_url,
-                // Note: collection name is ignored, since we fetch from multiple collections
-                // (fakespot-suggest-products and quicksuggest).  No consumer sets it to a
-                // non-default value anyways.
-            )?,
-            None => RemoteSettingsClient::new(None, None, None)?,
-        };
-
+        let client = SuggestRemoteSettingsClient::new(&remote_settings_service)?;
         Ok(Self {
             inner: SuggestStoreInner::new(path.to_owned(), vec![], client),
         })
@@ -578,8 +562,7 @@ where
         // For each collection, fetch all records
         for (collection, record_types) in record_types_by_collection {
             breadcrumb!("Ingesting collection {}", collection.name());
-            let records =
-                write_scope.write(|dao| self.settings_client.get_records(collection, dao))?;
+            let records = write_scope.write(|_| self.settings_client.get_records(collection))?;
 
             // For each record type in that collection, calculate the changes and pass them to
             // [Self::ingest_records]
@@ -852,9 +835,9 @@ where
         let mut context = MetricsContext::default();
         let ingested_records = writer.read(|dao| dao.get_ingested_records()).unwrap();
         let records = writer
-            .write(|dao| {
+            .write(|_| {
                 self.settings_client
-                    .get_records(ingest_record_type.collection(), dao)
+                    .get_records(ingest_record_type.collection())
             })
             .unwrap();
 
