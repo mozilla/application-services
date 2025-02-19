@@ -372,9 +372,10 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
     /// Downloads an attachment from [attachment_location]. NOTE: there are no guarantees about a
     /// maximum size, so use care when fetching potentially large attachments.
-    pub fn get_attachment(&self, record: RemoteSettingsRecord) -> Result<Vec<u8>> {
+    pub fn get_attachment(&self, record: &RemoteSettingsRecord) -> Result<Vec<u8>> {
         let metadata = record
             .attachment
+            .as_ref()
             .ok_or_else(|| Error::RecordAttachmentMismatchError("No attachment metadata".into()))?;
 
         let mut inner = self.inner.lock();
@@ -2427,7 +2428,7 @@ mod test_packaged_metadata {
             fields: serde_json::json!({}).as_object().unwrap().clone(),
         };
 
-        let attachment_data = rs_client.get_attachment(record)?;
+        let attachment_data = rs_client.get_attachment(&record)?;
 
         // Verify we got the expected data
         let expected_data = std::fs::read(file_path)?;
@@ -2483,7 +2484,7 @@ mod test_packaged_metadata {
             fields: serde_json::json!({}).as_object().unwrap().clone(),
         };
 
-        let attachment_data = rs_client.get_attachment(record)?;
+        let attachment_data = rs_client.get_attachment(&record)?;
 
         // Verify we got the mock API data, not the packaged data
         assert_eq!(attachment_data, vec![1, 2, 3, 4, 5]);
