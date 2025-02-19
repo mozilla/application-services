@@ -200,7 +200,7 @@ impl RemoteSettingsClient {
     ///   - This method will throw if there is a network or other error when fetching the
     ///     attachment data.
     #[handle_error(Error)]
-    pub fn get_attachment(&self, record: RemoteSettingsRecord) -> ApiResult<Vec<u8>> {
+    pub fn get_attachment(&self, record: &RemoteSettingsRecord) -> ApiResult<Vec<u8>> {
         self.internal.get_attachment(record)
     }
 }
