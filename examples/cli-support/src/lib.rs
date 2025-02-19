@@ -5,7 +5,12 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
 
 pub mod fxa_creds;
 pub mod prompt;
@@ -67,4 +72,13 @@ pub fn workspace_root_dir() -> PathBuf {
         .stdout;
     let cargo_toml_path = Path::new(std::str::from_utf8(&cargo_output).unwrap().trim());
     cargo_toml_path.parent().unwrap().to_path_buf()
+}
+
+pub fn remote_settings_service() -> Arc<RemoteSettingsService> {
+    Arc::new(RemoteSettingsService::new(
+        data_path(Some("remote-settings"))
+            .to_string_lossy()
+            .to_string(),
+        RemoteSettingsConfig2::default(),
+    ))
 }
