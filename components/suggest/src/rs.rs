@@ -31,14 +31,17 @@
 //!     the new suggestion in their results, and return `Suggestion::T` variants
 //!     as needed.
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
-use remote_settings::{Attachment, RemoteSettingsRecord};
-use serde::{Deserialize, Deserializer};
+use remote_settings::{
+    Attachment, RemoteSettingsClient, RemoteSettingsError, RemoteSettingsRecord,
+    RemoteSettingsService,
+};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 use crate::{
-    db::SuggestDao, error::Error, provider::SuggestionProvider,
-    query::full_keywords_to_fts_content, Result,
+    error::Error, provider::SuggestionProvider, query::full_keywords_to_fts_content, Result,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -69,45 +72,28 @@ pub(crate) trait Client {
     /// client-side filtering.
     ///
     /// Records that can't be parsed as [SuggestRecord] are ignored.
-    fn get_records(&self, collection: Collection, dao: &mut SuggestDao) -> Result<Vec<Record>>;
+    fn get_records(&self, collection: Collection) -> Result<Vec<Record>>;
 
     fn download_attachment(&self, record: &Record) -> Result<Vec<u8>>;
 }
 
 /// Implements the [Client] trait using a real remote settings client
-pub struct RemoteSettingsClient {
+pub struct SuggestRemoteSettingsClient {
     // Create a separate client for each collection name
-    quicksuggest_client: remote_settings::RemoteSettings,
-    fakespot_client: remote_settings::RemoteSettings,
+    quicksuggest_client: Arc<RemoteSettingsClient>,
+    fakespot_client: Arc<RemoteSettingsClient>,
 }
 
-impl RemoteSettingsClient {
-    pub fn new(
-        server: Option<remote_settings::RemoteSettingsServer>,
-        bucket_name: Option<String>,
-        server_url: Option<String>,
-    ) -> Result<Self> {
+impl SuggestRemoteSettingsClient {
+    pub fn new(rs_service: &RemoteSettingsService, ) -> Result<Self> {
         Ok(Self {
-            quicksuggest_client: remote_settings::RemoteSettings::new(
-                remote_settings::RemoteSettingsConfig {
-                    server: server.clone(),
-                    bucket_name: bucket_name.clone(),
-                    collection_name: "quicksuggest".to_owned(),
-                    server_url: server_url.clone(),
-                },
-            )?,
-            fakespot_client: remote_settings::RemoteSettings::new(
-                remote_settings::RemoteSettingsConfig {
-                    server,
-                    bucket_name,
-                    collection_name: "fakespot-suggest-products".to_owned(),
-                    server_url,
-                },
-            )?,
+            quicksuggest_client: rs_service.make_client("quicksuggest".to_owned())?,
+            fakespot_client: rs_service
+                .make_client("fakespot-suggest-products".to_owned())?,
         })
     }
 
-    fn client_for_collection(&self, collection: Collection) -> &remote_settings::RemoteSettings {
+    fn client_for_collection(&self, collection: Collection) -> &RemoteSettingsClient {
         match collection {
             Collection::Fakespot => &self.fakespot_client,
             Collection::Quicksuggest => &self.quicksuggest_client,
@@ -115,39 +101,29 @@ impl RemoteSettingsClient {
     }
 }
 
-impl Client for RemoteSettingsClient {
-    fn get_records(&self, collection: Collection, dao: &mut SuggestDao) -> Result<Vec<Record>> {
+impl Client for SuggestRemoteSettingsClient {
+    fn get_records(&self, collection: Collection) -> Result<Vec<Record>> {
         // For now, handle the cache manually.  Once 6328 is merged, we should be able to delegate
         // this to remote_settings.
         let client = self.client_for_collection(collection);
-        let cache = dao.read_cached_rs_data(collection.name());
-        let last_modified = match &cache {
-            Some(response) => response.last_modified,
-            None => 0,
-        };
-        let response = match cache {
-            None => client.get_records()?,
-            Some(cache) => remote_settings::cache::merge_cache_and_response(
-                cache,
-                client.get_records_since(last_modified)?,
-            ),
-        };
-        if last_modified != response.last_modified {
-            dao.write_cached_rs_data(collection.name(), &response);
+        client.sync()?;
+        let response = client.get_records(false);
+        match response {
+            Some(r) => Ok(r
+                .into_iter()
+                .filter_map(|r| Record::new(r, collection).ok())
+                .collect()),
+            None => Err(Error::RemoteSettings(RemoteSettingsError::Other {
+                reason: "Unable to get records".to_owned(),
+            })),
         }
-
-        Ok(response
-            .records
-            .into_iter()
-            .filter_map(|r| Record::new(r, collection).ok())
-            .collect())
     }
 
     fn download_attachment(&self, record: &Record) -> Result<Vec<u8>> {
         match &record.attachment {
-            Some(a) => Ok(self
+            Some(_a) => Ok(self
                 .client_for_collection(record.collection)
-                .get_attachment(&a.location)?),
+                .get_attachment(record.clone().into())?),
             None => Err(Error::MissingAttachment(record.id.to_string())),
         }
     }
@@ -181,11 +157,23 @@ impl Record {
     }
 }
 
+impl From<Record> for RemoteSettingsRecord {
+    fn from(record: Record) -> Self {
+        RemoteSettingsRecord {
+            id: record.id.to_string(),
+            last_modified: record.last_modified,
+            deleted: false,
+            attachment: record.attachment,
+            fields: record.payload.to_json_map(),
+        }
+    }
+}
+
 /// A record in the Suggest Remote Settings collection.
 ///
 /// Most Suggest records don't carry inline fields except for `type`.
 /// Suggestions themselves are typically stored in each record's attachment.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub(crate) enum SuggestRecord {
     #[serde(rename = "icon")]
@@ -212,6 +200,15 @@ pub(crate) enum SuggestRecord {
     Exposure(DownloadedExposureRecord),
     #[serde(rename = "geonames")]
     Geonames,
+}
+
+impl SuggestRecord {
+    fn to_json_map(&self) -> Map<String, Value> {
+        match serde_json::to_value(self) {
+            Ok(Value::Object(map)) => map,
+            _ => unreachable!(),
+        }
+    }
 }
 
 /// Enum for the different record types that can be consumed.
@@ -564,7 +561,7 @@ pub(crate) struct DownloadedFakespotSuggestion {
 }
 
 /// An exposure suggestion record's inline data
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct DownloadedExposureRecord {
     pub suggestion_type: String,
 }
@@ -644,11 +641,11 @@ impl FullOrPrefixKeywords<String> {
 }
 
 /// Global Suggest configuration data to ingest from a configuration record
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct DownloadedGlobalConfig {
     pub configuration: DownloadedGlobalConfigInner,
 }
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct DownloadedGlobalConfigInner {
     /// The maximum number of times the user can click "Show less frequently"
     /// for a suggestion in the UI.

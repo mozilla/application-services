@@ -9,7 +9,6 @@ use serde_json::json;
 use serde_json::Value as JsonValue;
 
 use crate::{
-    db::SuggestDao,
     error::Error,
     rs::{Client, Collection, Record, SuggestRecordId, SuggestRecordType},
     testing::JsonExt,
@@ -264,7 +263,7 @@ pub struct MockIcon {
 }
 
 impl Client for MockRemoteSettingsClient {
-    fn get_records(&self, collection: Collection, _db: &mut SuggestDao) -> Result<Vec<Record>> {
+    fn get_records(&self, collection: Collection) -> Result<Vec<Record>> {
         Ok(self
             .records
             .iter()
