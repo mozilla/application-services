@@ -5,7 +5,10 @@
 use std::sync::Arc;
 
 use clap::Parser;
-use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
+use cli_support::{
+    fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE},
+    remote_settings_service,
+};
 use env_logger::Builder;
 use interrupt_support::NeverInterrupts;
 use places::{ConnectionType, PlacesApi};
@@ -46,6 +49,7 @@ fn main() -> Result<()> {
     println!("================== Initializing Relevancy ===================");
     let relevancy_store = RelevancyStore::new(
         "file:relevancy-cli-relevancy?mode=memory&cache=shared".to_owned(),
+        remote_settings_service(),
     )?;
     relevancy_store.ensure_interest_data_populated()?;
 
