@@ -39,6 +39,7 @@ text, the list view has been slimmed down and a detail view has been added.
 
 ### Remote Settings
 - Several methods `RemoteSettingsService` are now infallible, which is a breaking change for Swift code.
+    - `RelevancyStore` constructor
     - `RemoteSettingsService` constructor
     - `RemoteSettingsService::make_client()`
     - `SearchEngineSelector::use_remote_settings_server()`
