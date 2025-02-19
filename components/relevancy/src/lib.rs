@@ -47,7 +47,6 @@ impl RelevancyStore {
     ///
     /// This is non-blocking since databases and other resources are lazily opened.
     #[uniffi::constructor(default(remote_settings_service=None))]
-
     pub fn new(
         db_path: String,
         #[allow(unused)] remote_settings_service: Option<
