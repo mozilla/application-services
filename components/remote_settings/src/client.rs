@@ -74,14 +74,14 @@ struct CollectionData {
 pub struct RemoteSettingsClient<C = ViaductApiClient> {
     // This is immutable, so it can be outside the mutex
     collection_name: String,
-    #[cfg(feature = "jexl")]
-    jexl_filter: JexlFilter,
     inner: Mutex<RemoteSettingsClientInner<C>>,
 }
 
 struct RemoteSettingsClientInner<C> {
     storage: Storage,
     api_client: C,
+    #[cfg(feature = "jexl")]
+    jexl_filter: JexlFilter,
 }
 
 // Add your local packaged data you want to work with here
@@ -123,11 +123,11 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     ) -> Self {
         Self {
             collection_name,
-            #[cfg(feature = "jexl")]
-            jexl_filter,
             inner: Mutex::new(RemoteSettingsClientInner {
                 storage,
                 api_client,
+                #[cfg(feature = "jexl")]
+                jexl_filter,
             }),
         }
     }
@@ -149,12 +149,16 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
     /// Filters records based on the presence and evaluation of `filter_expression`.
     #[cfg(feature = "jexl")]
-    fn filter_records(&self, records: Vec<RemoteSettingsRecord>) -> Vec<RemoteSettingsRecord> {
+    fn filter_records(
+        &self,
+        records: Vec<RemoteSettingsRecord>,
+        inner: &RemoteSettingsClientInner<C>,
+    ) -> Vec<RemoteSettingsRecord> {
         records
             .into_iter()
             .filter(|record| match record.fields.get("filter_expression") {
                 Some(serde_json::Value::String(filter_expr)) => {
-                    self.jexl_filter.evaluate(filter_expr).unwrap_or(false)
+                    inner.jexl_filter.evaluate(filter_expr).unwrap_or(false)
                 }
                 _ => true, // Include records without a valid filter expression by default
             })
@@ -162,7 +166,11 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     #[cfg(not(feature = "jexl"))]
-    fn filter_records(&self, records: Vec<RemoteSettingsRecord>) -> Vec<RemoteSettingsRecord> {
+    fn filter_records(
+        &self,
+        records: Vec<RemoteSettingsRecord>,
+        _inner: &RemoteSettingsClientInner<C>,
+    ) -> Vec<RemoteSettingsRecord> {
         records
     }
 
@@ -199,7 +207,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                     packaged_data.timestamp,
                     CollectionMetadata::default(),
                 )?;
-                return Ok(Some(self.filter_records(packaged_data.data)));
+                return Ok(Some(self.filter_records(packaged_data.data, &inner)));
             }
         }
 
@@ -210,7 +218,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             //
             // Note: we should return these even if it's an empty list and `sync_if_empty=true`.
             // The "if empty" part refers to the cache being empty, not the list.
-            (Some(cached_records), _) => Some(self.filter_records(cached_records)),
+            (Some(cached_records), _) => Some(self.filter_records(cached_records, &inner)),
             // Case 3: sync_if_empty=true
             (None, true) => {
                 let changeset = inner.api_client.fetch_changeset(None)?;
@@ -220,7 +228,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                     changeset.timestamp,
                     changeset.metadata,
                 )?;
-                Some(self.filter_records(changeset.changes))
+                Some(self.filter_records(changeset.changes, &inner))
             }
             // Case 4: Nothing to return
             (None, false) => None,

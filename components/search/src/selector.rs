@@ -11,7 +11,7 @@ use crate::{
 };
 use error_support::handle_error;
 use parking_lot::Mutex;
-use remote_settings::{RemoteSettingsClient, RemoteSettingsContext, RemoteSettingsService};
+use remote_settings::{RemoteSettingsClient, RemoteSettingsService};
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -47,11 +47,10 @@ impl SearchEngineSelector {
     pub fn use_remote_settings_server(
         self: Arc<Self>,
         service: &Arc<RemoteSettingsService>,
-        options: Option<RemoteSettingsContext>,
         #[allow(unused_variables)] apply_engine_overrides: bool,
     ) -> SearchApiResult<()> {
         self.0.lock().search_config_client =
-            Some(service.make_client("search-config-v2".to_string(), options)?);
+            Some(service.make_client("search-config-v2".to_string())?);
         Ok(())
     }
 
@@ -1631,19 +1630,14 @@ mod tests {
                 url: mockito::server_url(),
             }),
             bucket_name: Some(String::from("main")),
+            app_context: Some(RemoteSettingsContext::default()),
         };
         let service =
             Arc::new(RemoteSettingsService::new(String::from(":memory:"), config).unwrap());
 
         let selector = Arc::new(SearchEngineSelector::new());
 
-        let settings_result = Arc::clone(&selector).use_remote_settings_server(
-            &service,
-            Some(RemoteSettingsContext {
-                ..Default::default()
-            }),
-            false,
-        );
+        let settings_result = Arc::clone(&selector).use_remote_settings_server(&service, false);
         assert!(
             settings_result.is_ok(),
             "Should have set the client successfully. {:?}",

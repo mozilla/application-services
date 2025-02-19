@@ -116,6 +116,7 @@ fn build_service(cli: &Cli) -> Result<RemoteSettingsService> {
             RemoteSettingsServerArg::Prod => RemoteSettingsServer::Prod,
         }),
         bucket_name: cli.bucket.clone(),
+        app_context: None,
     };
     let storage_dir = cli
         .storage_dir
@@ -128,7 +129,7 @@ fn sync(service: RemoteSettingsService, collections: Vec<String>) -> Result<()> 
     // Create a bunch of clients so that sync() syncs their collections
     let _clients = collections
         .into_iter()
-        .map(|collection| Ok(service.make_client(collection, None)?))
+        .map(|collection| Ok(service.make_client(collection)?))
         .collect::<Result<Vec<_>>>()?;
     service.sync()?;
     Ok(())
@@ -139,7 +140,7 @@ fn get_records(
     collection: String,
     sync_if_empty: bool,
 ) -> Result<()> {
-    let client = service.make_client(collection, None)?;
+    let client = service.make_client(collection)?;
     match client.get_records(sync_if_empty) {
         Some(records) => {
             for record in records {
