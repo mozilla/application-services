@@ -62,9 +62,7 @@ BEGIN
       AND NEW.parent IS NOT NULL;
 
     SELECT throw(format(
-        'update: nonexistent parent: old_parent=%d, new_parent=%d, operation=%q',
-        OLD.parent,
-        NEW.parent,
+        'update: item without parent: operation=%q',
         CASE WHEN NEW.syncChangeCounter > 0 THEN 'sync' ELSE 'user' END
     ))
     WHERE NEW.guid <> 'root________'
