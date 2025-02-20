@@ -198,8 +198,10 @@ ext.rustTargets += ext.nativeRustTarget
 ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
-    // Note we apply some plugins to the subprojects in settings.gradle to help with the m-c migration.
-
+    group = "org.mozilla.appservices"
+    if (!gradle.hasProperty("mozconfig")) {
+        apply plugin: 'maven-publish'
+    }
     // Kotlin settings applicable to all modules.
     afterEvaluate{
         if (it.hasProperty('android')) {
