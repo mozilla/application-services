@@ -364,7 +364,18 @@ fn update_local_items_in_places(
 
     log::debug!("Changing GUIDs");
     scope.err_if_interrupted()?;
-    db.execute_batch("DELETE FROM changeGuidOps")?;
+    let result = db.execute_batch("DELETE FROM changeGuidOps");
+    // Due to bug 1935797, guid collisions are happening in some step of bookmarks
+    // but not clear if it's the "fixup" step, so we catch and log to sentry
+    if let Err(rusqlite::Error::SqliteFailure(e, _)) = &result {
+        if e.code == ErrorCode::ConstraintViolation {
+            error_support::report_error!(
+                "places-sync-bookmarks-guid-collision",
+                "changeGuidOps ran into guid collision violation"
+            );
+        }
+    }
+    result?;
 
     log::debug!("Applying remote items");
     apply_remote_items(db, scope, now)?;
@@ -373,6 +384,35 @@ fn update_local_items_in_places(
     log::debug!("Applying new local structure");
     scope.err_if_interrupted()?;
     db.execute_batch("DELETE FROM applyNewLocalStructureOps")?;
+
+    // Similar to the check in apply_remote_items, however we do a post check
+    // to see if dogear was unable to fix up the issue
+    let orphaned_count: i64 = db.query_row(
+        "WITH RECURSIVE orphans(id) AS (
+           SELECT b.id
+           FROM moz_bookmarks b
+           WHERE b.parent IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM moz_bookmarks p WHERE p.id = b.parent
+             )
+           UNION
+           SELECT c.id
+           FROM moz_bookmarks c
+           JOIN orphans o ON c.parent = o.id
+         )
+         SELECT COUNT(*) FROM orphans;",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if orphaned_count > 0 {
+        log::warn!("Found {} orphaned bookmarks after sync", orphaned_count);
+        error_support::report_error!(
+            "places-sync-bookmarks-orphaned",
+            "found local orphaned bookmarks after we applied new local structure ops: {}",
+            orphaned_count,
+        );
+    }
 
     log::debug!("Resetting change counters for items that shouldn't be uploaded");
     sql_support::each_chunk_mapped(
@@ -491,8 +531,8 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
         }
     ).ok(); // We ignore the error because it's expected, users should not have entries with the same id that have different types
 
-    // Same as above but we check if any users have any undetected orphaned bookmarks and
-    // report them appropiately
+    // Due to bug 1935797, we need to check if any users have any
+    // undetected orphaned bookmarks and report them
     let orphaned_count: i64 = db.query_row(
         "WITH RECURSIVE orphans(id) AS (
            SELECT b.id
@@ -513,9 +553,8 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
 
     if orphaned_count > 0 {
         log::warn!("Found {} orphaned bookmarks during sync", orphaned_count);
-        error_support::report_error!(
-            "places-sync-bookmarks-orphaned",
-            "found local orphaned bookmarks {}",
+        error_support::breadcrumb!(
+            "places-sync-bookmarks-orphaned: found local orphans before upsert {}",
             orphaned_count
         );
     }
@@ -559,7 +598,7 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     let result = db.execute_batch(&upsert_sql);
 
     // In trying to debug bug 1935797 - relaxing the trigger caused a spike on
-    // guid collisions, we want to report on this error before the actual upsert to see
+    // guid collisions, we want to report on this during the upsert to see
     // if we can discern any obvious signs
     if let Err(rusqlite::Error::SqliteFailure(e, _)) = &result {
         if e.code == ErrorCode::ConstraintViolation {

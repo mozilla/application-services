@@ -555,7 +555,7 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with NULL parent");
             assert!(
-                e.to_string().contains("update: nonexistent parent"),
+                e.to_string().contains("update: item without parent"),
                 "Expected error, got: {:?}",
                 e,
             );
@@ -571,7 +571,7 @@ mod tests {
                 )
                 .expect_err("should fail to update folder with nonexistent parent");
             assert!(
-                e.to_string().contains("update: nonexistent parent"),
+                e.to_string().contains("update: item without parent"),
                 "Expected error, got: {:?}",
                 e,
             );
