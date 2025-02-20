@@ -44,8 +44,10 @@ fn main() -> Result<()> {
     }
     builder.init();
     println!("================== Initializing Relevancy ===================");
-    let relevancy_store =
-        RelevancyStore::new("file:relevancy-cli-relevancy?mode=memory&cache=shared".to_owned());
+    let relevancy_store = RelevancyStore::new(
+        "file:relevancy-cli-relevancy?mode=memory&cache=shared".to_owned(),
+        None,
+    );
     relevancy_store.ensure_interest_data_populated()?;
 
     println!("==================== Downloading History ====================");

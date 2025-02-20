@@ -158,7 +158,7 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
                 .clone()
                 .unwrap_or_else(|| "main".to_owned()),
         )
-        .build()
+        .build(None)
         .unwrap_or_else(|e| panic!("Error building store: {e}"))
 }
 
