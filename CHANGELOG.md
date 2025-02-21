@@ -8,6 +8,9 @@
 ### Glean
 - Updated to v63.1.0 ([#6584](https://github.com/mozilla/application-services/pull/6584))
 
+### Nimbus SDK ⛅️🔬🔭
+- Enable enrollment status telemetry ([#6606](https://github.com/mozilla/application-services/pull/6606))
+
 [Full Changelog](In progress)
 
 # v136.0 (_2025-02-03_)
