@@ -256,7 +256,6 @@ nimbus_events:
       - chumphreys@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
-    disabled: true
   is_ready:
     type: event
     description: >
