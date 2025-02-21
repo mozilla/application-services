@@ -15,7 +15,7 @@ kotlin-compiler = "1.9.24"
 kotlinx-coroutines = "1.8.0"
 
 # Mozilla
-android-components = "133.0"
+android-components = "135.0.1"
 glean = "63.1.0"
 rust-android-gradle = "0.9.6"
 
@@ -27,7 +27,7 @@ androidx-core = "1.15.0"
 jna = "5.14.0"
 
 # Linting and Static Analysis
-detekt = "1.23.7"
+detekt = "1.23.8"
 ktlint = "0.50.0"
 
 # AndroidX Testing
@@ -38,7 +38,7 @@ androidx-test-runner = "1.6.2"
 androidx-test-work = "2.10.0"
 
 # Third Party Testing
-junit = "5.11.4"
+junit = "5.12.0"
 mockito = "5.15.2"
 robolectric = "4.14.1"
 
