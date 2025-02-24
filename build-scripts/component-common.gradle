@@ -91,7 +91,10 @@ ext.dependsOnTheMegazord = {
 // Shared logic for projects that use UniFFI-generated bindings
 //
 // Make sure to also call dependsOnTheMegazord()
-ext.configureUniFFIBindgen = { crateName ->
+//
+// If present, libraryBuildDir should be a directory provider that contains the megazord library
+// files.
+ext.configureUniFFIBindgen = { crateName, libraryBuildDir = null ->
     // This will store the uniffi-bindgen generated files for our component
     def uniffiOutDir = layout.buildDirectory.dir("generated/uniffi/")
 
@@ -103,21 +106,28 @@ ext.configureUniFFIBindgen = { crateName ->
     def generateUniffiBindings = tasks.register("generateUniffiBindings") {
         def megazordNative = configurations.getByName("megazordNative")
         doFirst {
+            def libraryPath
             if (gradle.hasProperty("mozconfig")) {
-                def libraryPath = "${mozconfig.topobjdir}/dist/bin/libmegazord.so"
+                libraryPath = "${mozconfig.topobjdir}/dist/bin/libmegazord.so"
+            } else {
+                if (libraryBuildDir == null) {
+                    libraryPath = megazordNative.asFileTree.matching {
+                        include "${nativeRustTarget}/libmegazord.*"
+                    }.singleFile
+                } else {
+                    libraryPath = libraryBuildDir.get().asFileTree.matching {
+                        include "${nativeRustTarget}/libmegazord.*"
+                    }.singleFile
+                }
+            }
+
+            if (gradle.hasProperty("mozconfig")) {
                 megazordNative = "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
                 exec {
                     workingDir project.rootDir
                     commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
                 }
             } else {
-                def libraryPath = megazordNative.asFileTree.matching {
-                    include "${nativeRustTarget}/libmegazord.*"
-                }.singleFile
-
-                if (libraryPath == null) {
-                    throw new GradleException("libmegazord dynamic library path not found")
-                }
                 exec {
                     workingDir project.rootDir
                     commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
@@ -126,20 +136,23 @@ ext.configureUniFFIBindgen = { crateName ->
         }
         outputs.dir uniffiOutDir
         // Re-generate when the native megazord library is rebuilt
-        inputs.files megazordNative
+        if (libraryBuildDir == null) {
+            inputs.files megazordNative
+        } else {
+            inputs.files libraryBuildDir
+        }
         // Re-generate if our uniffi-bindgen tooling changes.
         inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
     }
 
     afterEvaluate {
-        def megazordNative = configurations.getByName("megazordNative")
         android.libraryVariants.all { variant ->
             def variantName = variant.name.capitalize();
             def compileTask = tasks["compile${variantName}Kotlin"]
 
             compileTask.dependsOn(generateUniffiBindings)
             if (!gradle.hasProperty("mozconfig")) { // XXX - needs uniffi-bindgen love in m-c
-                variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
+                variant.registerJavaGeneratingTask(generateUniffiBindings, uniffiOutDir.get().asFile)
             }
         }
     }

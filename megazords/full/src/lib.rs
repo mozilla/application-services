@@ -5,6 +5,8 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+uniffi::setup_scaffolding!();
+
 use std::ffi::CString;
 use std::os::raw::c_char;
 
@@ -24,6 +26,13 @@ pub use tabs;
 pub use viaduct;
 // TODO: Uncomment this code when webext-storage component is integrated in android
 // pub use webext_storage;
+
+/// Initialization of the megazord crate. Must be called before any other calls to application
+/// service components.
+#[uniffi::export]
+pub fn initialize() {
+    println!("Initializing full megazord");
+}
 
 /// In order to support the use case of consumers who don't know about megazords
 /// and don't need our e.g. networking or logging, we consider initialization
