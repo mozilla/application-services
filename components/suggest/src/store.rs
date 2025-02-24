@@ -80,6 +80,15 @@ impl SuggestStoreBuilder {
         self
     }
 
+    pub fn remote_settings_service(
+        self: Arc<Self>,
+        _rs_service: Arc<RemoteSettingsService>,
+    ) -> Arc<Self> {
+        // When #6607 lands, this will set the remote settings service.
+        // For now, it just exists so we can move consumers over to the new API ahead of time.
+        self
+    }
+
     /// Add an sqlite3 extension to load
     ///
     /// library_name should be the name of the library without any extension, for example `libmozsqlite3`.
@@ -98,11 +107,7 @@ impl SuggestStoreBuilder {
     }
 
     #[handle_error(Error)]
-    #[uniffi::method(default(rs_service=None))]
-    pub fn build(
-        &self,
-        #[allow(unused)] rs_service: Option<Arc<RemoteSettingsService>>,
-    ) -> SuggestApiResult<Arc<SuggestStore>> {
+    pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
         let inner = self.0.lock();
         let extensions_to_load = inner.extensions_to_load.clone();
         let data_path = inner
