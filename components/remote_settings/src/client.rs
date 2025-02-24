@@ -85,9 +85,13 @@ struct RemoteSettingsClientInner<C> {
 }
 
 // Add your local packaged data you want to work with here
+//
+// To download the dump, run:
+//   $ cargo remote-settings dump-get --bucket main --collection-name <collection name>
 impl<C: ApiClient> RemoteSettingsClient<C> {
     // One line per bucket + collection
     packaged_collections! {
+        ("main", "search-config-v2"),
         ("main", "search-telemetry-v2"),
         ("main", "regions"),
     }
