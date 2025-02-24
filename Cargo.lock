@@ -2924,6 +2924,7 @@ dependencies = [
  "suggest",
  "sync_manager",
  "tabs",
+ "uniffi",
  "viaduct",
 ]
 
@@ -2958,6 +2959,7 @@ dependencies = [
  "sync15",
  "sync_manager",
  "tabs",
+ "uniffi",
  "viaduct",
  "viaduct-reqwest",
 ]

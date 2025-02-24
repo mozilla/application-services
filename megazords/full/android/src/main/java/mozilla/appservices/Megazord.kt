@@ -5,6 +5,7 @@
 package mozilla.appservices
 
 import org.mozilla.appservices.full_megazord.BuildConfig
+import org.mozilla.appservices.full_megazord.initialize
 
 class Megazord {
     companion object {
@@ -12,6 +13,7 @@ class Megazord {
         fun init() {
             System.setProperty("mozilla.appservices.megazord.library", "megazord")
             System.setProperty("mozilla.appservices.megazord.version", BuildConfig.LIBRARY_VERSION)
+            initialize()
         }
     }
 }

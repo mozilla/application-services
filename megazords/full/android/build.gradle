@@ -72,6 +72,8 @@ dependencies {
     }
 }
 
+ext.configureUniFFIBindgen("full_megazord")
+
 if (!gradle.hasProperty("mozconfig")) {
     // Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
     // into our own megazord-desktopLibraries JAR.

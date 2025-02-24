@@ -5,6 +5,8 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+uniffi::setup_scaffolding!();
+
 pub use as_ohttp_client;
 pub use autofill;
 pub use crashtest;
@@ -21,3 +23,10 @@ pub use sync15;
 pub use sync_manager;
 pub use tabs;
 pub use viaduct_reqwest;
+
+/// Initialization of the megazord crate. Must be called before any other calls to application
+/// service components.
+#[uniffi::export]
+pub fn initialize() {
+    println!("Initializing ios megazord");
+}
