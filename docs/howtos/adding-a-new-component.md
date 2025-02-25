@@ -40,7 +40,7 @@ things are configured properly. This will also have the side-effect of updating
 
 ## The Android Bindings
 
-Run the `start-bindings android <your_crate_name> <component_description>` command to auto-generate the initial code.  Follow the directions in the output.
+Run the `cargo start-bindings android <your_crate_name> <component_description>` command to auto-generate the initial code.  Follow the directions in the output.
 
 You will end up with a directory structure something like this:
 
@@ -84,8 +84,8 @@ You can run the tests with `./gradlew <your_crate_name>:test`
 
 ## The iOS Bindings
 
-* Run the `start-bindings ios <your_crate_name>` command to auto-generate the initial code
-* Run `start-bindings ios-focus <your_crate_name>` if you also want to expose your component to Focus.
+* Run the `cargo start-bindings ios <your_crate_name>` command to auto-generate the initial code
+* Run `cargo start-bindings ios-focus <your_crate_name>` if you also want to expose your component to Focus.
 * Follow the directions in the output.
 
 
