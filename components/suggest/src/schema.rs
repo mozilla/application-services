@@ -23,18 +23,13 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 32;
+pub const VERSION: u32 = 33;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
 CREATE TABLE meta(
     key TEXT PRIMARY KEY,
     value NOT NULL
-) WITHOUT ROWID;
-
-CREATE TABLE rs_cache(
-    collection TEXT PRIMARY KEY,
-    data TEXT NOT NULL
 ) WITHOUT ROWID;
 
 CREATE TABLE ingested_records(
@@ -616,6 +611,12 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 )?;
                 Ok(())
             }
+            32 => {
+                // Drop rs_cache since it's no longer needed.
+                clear_database(tx)?;
+                tx.execute_batch("DROP TABLE rs_cache;")?;
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
@@ -643,7 +644,6 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
         "geonames_metrics",
         "ingested_records",
         "keywords_metrics",
-        "rs_cache",
     ];
     for t in conditional_tables {
         let table_exists = db.exists("SELECT 1 FROM sqlite_master WHERE name = ?", [t])?;
@@ -802,10 +802,6 @@ PRAGMA user_version=16;
             "INSERT INTO ingested_records(id, collection, type, last_modified) VALUES(?, ?, ?, ?)",
             ("record-id", "quicksuggest", "record-type", 1),
         )?;
-        conn.execute(
-            "INSERT INTO rs_cache(collection, data) VALUES(?, ?)",
-            ("quicksuggest", "some data"),
-        )?;
         conn.close().expect("Connection should be closed");
 
         // Finish upgrading to the current version.
@@ -818,11 +814,6 @@ PRAGMA user_version=16;
             conn.query_one::<i32>("SELECT count(*) FROM ingested_records")?,
             0,
             "ingested_records should be empty"
-        );
-        assert_eq!(
-            conn.query_one::<i32>("SELECT count(*) FROM rs_cache")?,
-            0,
-            "rs_cache should be empty"
         );
         conn.close().expect("Connection should be closed");
 

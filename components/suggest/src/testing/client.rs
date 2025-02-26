@@ -272,7 +272,7 @@ impl Client for MockRemoteSettingsClient {
             .collect())
     }
 
-    fn download_attachment(&self, record: Record) -> Result<Vec<u8>> {
+    fn download_attachment(&self, record: &Record) -> Result<Vec<u8>> {
         match &record.attachment {
             None => Err(Error::MissingAttachment(record.id.to_string())),
             Some(a) => Ok(self
