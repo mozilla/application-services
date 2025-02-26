@@ -74,7 +74,7 @@ pub(crate) trait Client {
     /// Records that can't be parsed as [SuggestRecord] are ignored.
     fn get_records(&self, collection: Collection) -> Result<Vec<Record>>;
 
-    fn download_attachment(&self, record: Record) -> Result<Vec<u8>>;
+    fn download_attachment(&self, record: &Record) -> Result<Vec<u8>>;
 }
 
 /// Implements the [Client] trait using a real remote settings client
@@ -102,8 +102,6 @@ impl SuggestRemoteSettingsClient {
 
 impl Client for SuggestRemoteSettingsClient {
     fn get_records(&self, collection: Collection) -> Result<Vec<Record>> {
-        // For now, handle the cache manually.  Once 6328 is merged, we should be able to delegate
-        // this to remote_settings.
         let client = self.client_for_collection(collection);
         client.sync()?;
         let response = client.get_records(false);
@@ -118,10 +116,10 @@ impl Client for SuggestRemoteSettingsClient {
         }
     }
 
-    fn download_attachment(&self, record: Record) -> Result<Vec<u8>> {
+    fn download_attachment(&self, record: &Record) -> Result<Vec<u8>> {
         let converted_record: RemoteSettingsRecord = record.clone().into();
         match &record.attachment {
-            Some(_a) => Ok(self
+            Some(_) => Ok(self
                 .client_for_collection(record.collection)
                 .get_attachment(&converted_record)?),
             None => Err(Error::MissingAttachment(record.id.to_string())),

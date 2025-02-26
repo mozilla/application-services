@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{self, RemoteSettingsServer, RemoteSettingsService};
+use remote_settings::{self, RemoteSettingsError, RemoteSettingsServer, RemoteSettingsService};
 
 use serde::de::DeserializeOwned;
 
@@ -42,6 +42,7 @@ pub struct SuggestStoreBuilder(Mutex<SuggestStoreBuilderInner>);
 struct SuggestStoreBuilderInner {
     data_path: Option<String>,
     remote_settings_server: Option<RemoteSettingsServer>,
+    remote_settings_service: Option<Arc<RemoteSettingsService>>,
     remote_settings_bucket_name: Option<String>,
     extensions_to_load: Vec<Sqlite3Extension>,
 }
@@ -82,10 +83,11 @@ impl SuggestStoreBuilder {
 
     pub fn remote_settings_service(
         self: Arc<Self>,
-        _rs_service: Arc<RemoteSettingsService>,
+        rs_service: Arc<RemoteSettingsService>,
     ) -> Arc<Self> {
         // When #6607 lands, this will set the remote settings service.
         // For now, it just exists so we can move consumers over to the new API ahead of time.
+        self.0.lock().remote_settings_service = Some(rs_service);
         self
     }
 
@@ -107,18 +109,24 @@ impl SuggestStoreBuilder {
     }
 
     #[handle_error(Error)]
-    pub fn build(&self, rs_service: &RemoteSettingsService) -> SuggestApiResult<Arc<SuggestStore>> {
+    pub fn build(&self) -> SuggestApiResult<Arc<SuggestStore>> {
         let inner = self.0.lock();
         let extensions_to_load = inner.extensions_to_load.clone();
         let data_path = inner
             .data_path
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
-        let client = SuggestRemoteSettingsClient::new(rs_service)?;
 
-        Ok(Arc::new(SuggestStore {
-            inner: SuggestStoreInner::new(data_path, extensions_to_load, client),
-        }))
+        if let Some(rs_service) = &inner.remote_settings_service {
+            let client = SuggestRemoteSettingsClient::new(rs_service)?;
+            Ok(Arc::new(SuggestStore {
+                inner: SuggestStoreInner::new(data_path, extensions_to_load, client),
+            }))
+        } else {
+            Err(Error::RemoteSettings(RemoteSettingsError::Other {
+                reason: "Unable to create client".to_string(),
+            }))
+        }
     }
 }
 
@@ -661,9 +669,8 @@ where
                     // malformed, so skip to the next record.
                     return Ok(());
                 };
-                let data = context.measure_download(|| {
-                    self.settings_client.download_attachment(record.clone())
-                })?;
+                let data = context
+                    .measure_download(|| self.settings_client.download_attachment(record))?;
                 dao.put_icon(icon_id, &data, &attachment.mimetype)?;
             }
             SuggestRecord::Amo => {
@@ -733,8 +740,8 @@ where
             return Ok(());
         };
 
-        let attachment_data = context
-            .measure_download(|| self.settings_client.download_attachment(record.clone()))?;
+        let attachment_data =
+            context.measure_download(|| self.settings_client.download_attachment(record))?;
         match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
             Ok(attachment) => ingestion_handler(dao, &record.id, attachment.suggestions()),
             // If the attachment doesn't match our expected schema, just skip it.  It's possible
