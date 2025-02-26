@@ -1,8 +1,8 @@
-[ExternalExport="remote_settings"]
-typedef extern RemoteSettingsConfig;
+[External="remote_settings"]
+typedef record RemoteSettingsConfig;
 
-[ExternalExport="remote_settings"]
-typedef extern RemoteSettingsServer;
+[External="remote_settings"]
+typedef enum RemoteSettingsServer;
 
 dictionary CalculatedAttributes {
     i32? days_since_install;

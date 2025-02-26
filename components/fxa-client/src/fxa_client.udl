@@ -1,7 +1,5 @@
-
-
 [External="sync15"]
-typedef extern DeviceType;
+typedef enum DeviceType;
 
 /// # Firefox Accounts Client
 ///
