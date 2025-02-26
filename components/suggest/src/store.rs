@@ -661,8 +661,9 @@ where
                     // malformed, so skip to the next record.
                     return Ok(());
                 };
-                let data = context
-                    .measure_download(|| self.settings_client.download_attachment(record))?;
+                let data = context.measure_download(|| {
+                    self.settings_client.download_attachment(record.clone())
+                })?;
                 dao.put_icon(icon_id, &data, &attachment.mimetype)?;
             }
             SuggestRecord::Amo => {
@@ -732,8 +733,8 @@ where
             return Ok(());
         };
 
-        let attachment_data =
-            context.measure_download(|| self.settings_client.download_attachment(record))?;
+        let attachment_data = context
+            .measure_download(|| self.settings_client.download_attachment(record.clone()))?;
         match serde_json::from_slice::<SuggestAttachment<T>>(&attachment_data) {
             Ok(attachment) => ingestion_handler(dao, &record.id, attachment.suggestions()),
             // If the attachment doesn't match our expected schema, just skip it.  It's possible

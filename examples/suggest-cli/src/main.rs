@@ -7,7 +7,9 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
+use remote_settings::{
+    RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsServer, RemoteSettingsService,
+};
 use suggest::{
     AmpMatchingStrategy, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder,
     SuggestionProvider, SuggestionProviderConstraints, SuggestionQuery,
@@ -150,6 +152,7 @@ fn build_store(cli: &Cli) -> Arc<SuggestStore> {
         RemoteSettingsConfig2 {
             server: None,
             bucket_name: None,
+            app_context: Some(RemoteSettingsContext::default()),
         },
     )
     .unwrap();

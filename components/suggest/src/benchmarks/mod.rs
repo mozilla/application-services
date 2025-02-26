@@ -20,8 +20,8 @@ use std::{
 use tempfile::TempDir;
 
 use crate::{SuggestIngestionConstraints, SuggestStore};
-use remote_settings::RemoteSettingsConfig2;
-use remote_settings::RemoteSettingsService;
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+
 use std::sync::Arc;
 
 pub mod client;
@@ -82,6 +82,7 @@ fn new_store() -> SuggestStore {
         let rs_config = RemoteSettingsConfig2 {
             bucket_name: None,
             server: None,
+            app_context: Some(RemoteSettingsContext::default()),
         };
         let remote_settings_service =
             Arc::new(RemoteSettingsService::new("".to_string(), rs_config).unwrap());
@@ -98,6 +99,7 @@ fn new_store() -> SuggestStore {
     let rs_config = RemoteSettingsConfig2 {
         bucket_name: None,
         server: None,
+        app_context: Some(RemoteSettingsContext::default()),
     };
     let remote_settings_service =
         Arc::new(RemoteSettingsService::new("".to_string(), rs_config).unwrap());

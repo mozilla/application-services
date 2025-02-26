@@ -96,7 +96,7 @@ impl rs::Client for RemoteSettingsBenchmarkClient {
             .collect())
     }
 
-    fn download_attachment(&self, record: &rs::Record) -> Result<Vec<u8>> {
+    fn download_attachment(&self, record: rs::Record) -> Result<Vec<u8>> {
         match &record.attachment {
             Some(a) => match self.attachments.get(&a.location) {
                 Some(data) => Ok(data.clone()),
