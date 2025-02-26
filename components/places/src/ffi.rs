@@ -22,7 +22,6 @@ pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
-use crate::UniffiCustomTypeConverter;
 use crate::VisitObservation;
 use crate::VisitType;
 use crate::{PlacesApi, PlacesDb};
@@ -54,10 +53,9 @@ pub type BookmarkFolder = crate::storage::bookmarks::fetch::Folder;
 pub type BookmarkSeparator = crate::storage::bookmarks::fetch::Separator;
 pub use crate::storage::bookmarks::fetch::BookmarkData;
 
-impl UniffiCustomTypeConverter for Url {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<url::Url> {
+uniffi::custom_type!(Url, String, {
+    remote,
+    try_lift: |val| {
         match Url::parse(val.as_str()) {
             Ok(url) => Ok(url),
             Err(e) => Err(PlacesApiError::UrlParseFailed {
@@ -65,48 +63,28 @@ impl UniffiCustomTypeConverter for Url {
             }
             .into()),
         }
-    }
+    },
+    lower: |obj| obj.into(),
+});
 
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.into()
-    }
-}
+uniffi::custom_type!(PlacesTimestamp, i64, {
+    remote,
+    try_lift: |val| Ok(PlacesTimestamp(val as u64)),
+    lower: |obj| obj.as_millis() as i64,
+});
 
-impl UniffiCustomTypeConverter for PlacesTimestamp {
-    type Builtin = i64;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        Ok(PlacesTimestamp(val as u64))
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.as_millis() as i64
-    }
-}
-
-impl UniffiCustomTypeConverter for VisitTransitionSet {
-    type Builtin = i32;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+uniffi::custom_type!(VisitTransitionSet, i32, {
+    try_lift: |val| {
         Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
-    }
+    },
+    lower: |obj| VisitTransitionSet::into_u16(obj) as i32,
+});
 
-    fn from_custom(obj: Self) -> Self::Builtin {
-        VisitTransitionSet::into_u16(obj) as i32
-    }
-}
-
-impl UniffiCustomTypeConverter for Guid {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Guid> {
-        Ok(Guid::new(val.as_str()))
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.into()
-    }
-}
+uniffi::custom_type!(Guid, String, {
+    remote,
+    try_lift: |val| Ok(Guid::new(val.as_str())),
+    lower: |obj| obj.into(),
+});
 
 // Check for multiple write connections open at the same time
 //
