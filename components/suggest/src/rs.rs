@@ -74,7 +74,7 @@ pub(crate) trait Client {
     /// Records that can't be parsed as [SuggestRecord] are ignored.
     fn get_records(&self, collection: Collection) -> Result<Vec<Record>>;
 
-    fn download_attachment(&self, record: &Record) -> Result<Vec<u8>>;
+    fn download_attachment(&self, record: Record) -> Result<Vec<u8>>;
 }
 
 /// Implements the [Client] trait using a real remote settings client
@@ -85,11 +85,10 @@ pub struct SuggestRemoteSettingsClient {
 }
 
 impl SuggestRemoteSettingsClient {
-    pub fn new(rs_service: &RemoteSettingsService, ) -> Result<Self> {
+    pub fn new(rs_service: &RemoteSettingsService) -> Result<Self> {
         Ok(Self {
             quicksuggest_client: rs_service.make_client("quicksuggest".to_owned())?,
-            fakespot_client: rs_service
-                .make_client("fakespot-suggest-products".to_owned())?,
+            fakespot_client: rs_service.make_client("fakespot-suggest-products".to_owned())?,
         })
     }
 
@@ -119,11 +118,12 @@ impl Client for SuggestRemoteSettingsClient {
         }
     }
 
-    fn download_attachment(&self, record: &Record) -> Result<Vec<u8>> {
+    fn download_attachment(&self, record: Record) -> Result<Vec<u8>> {
+        let converted_record: RemoteSettingsRecord = record.clone().into();
         match &record.attachment {
             Some(_a) => Ok(self
                 .client_for_collection(record.collection)
-                .get_attachment(record.clone().into())?),
+                .get_attachment(&converted_record)?),
             None => Err(Error::MissingAttachment(record.id.to_string())),
         }
     }
@@ -163,7 +163,7 @@ impl From<Record> for RemoteSettingsRecord {
             id: record.id.to_string(),
             last_modified: record.last_modified,
             deleted: false,
-            attachment: record.attachment,
+            attachment: record.attachment.clone(),
             fields: record.payload.to_json_map(),
         }
     }
