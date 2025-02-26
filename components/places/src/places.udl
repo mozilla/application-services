@@ -22,6 +22,7 @@ enum ConnectionType {
     "Sync", // ideally we wouldn't need to expose this and should guard against it being used (it's internal only)
 };
 
+[Remote]
 interface SqlInterruptHandle {
      void interrupt();
 };

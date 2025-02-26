@@ -41,11 +41,11 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Mozilla Public License 2.0: uniffi_checksum_derive</name>
+    <name>Mozilla Public License 2.0: uniffi_core</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Mozilla Public License 2.0: uniffi_core</name>
+    <name>Mozilla Public License 2.0: uniffi_internal_macros</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
@@ -54,10 +54,6 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Mozilla Public License 2.0: uniffi_meta</name>
-    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
-  </license>
-  <license>
-    <name>Mozilla Public License 2.0: uniffi_testing</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
@@ -75,18 +71,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: anyhow</name>
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: askama</name>
-    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: askama_derive</name>
-    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: askama_escape</name>
-    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: autocfg</name>
@@ -281,6 +265,10 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: once_map</name>
+    <url>https://github.com/a1phyr/once_map/blob/master/LICENCE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: parking_lot</name>
     <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
@@ -349,8 +337,24 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: rinja</name>
+    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rinja_derive</name>
+    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rinja_parser</name>
+    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: rkv</name>
     <url>https://github.com/mozilla/rkv/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rustc-hash</name>
+    <url>https://github.com/rust-lang/rustc-hash/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rustix</name>
