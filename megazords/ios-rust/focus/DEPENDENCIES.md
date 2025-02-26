@@ -48,11 +48,10 @@ The following text applies to code linked from these dependencies:
 [uniffi](https://github.com/mozilla/uniffi-rs),
 [uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
 [uniffi_build](https://github.com/mozilla/uniffi-rs),
-[uniffi_checksum_derive](https://github.com/mozilla/uniffi-rs),
 [uniffi_core](https://github.com/mozilla/uniffi-rs),
+[uniffi_internal_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
-[uniffi_testing](https://github.com/mozilla/uniffi-rs),
 [uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
@@ -437,9 +436,6 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 The following text applies to code linked from these dependencies:
 [ahash](https://github.com/tkaitchuck/ahash),
 [anyhow](https://github.com/dtolnay/anyhow),
-[askama](https://github.com/djc/askama),
-[askama_derive](https://github.com/djc/askama),
-[askama_escape](https://github.com/djc/askama),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -502,6 +498,7 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
+[once_map](https://github.com/a1phyr/once_map),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
@@ -518,7 +515,11 @@ The following text applies to code linked from these dependencies:
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
 [reqwest](https://github.com/seanmonstar/reqwest),
+[rinja](https://github.com/rinja-rs/rinja),
+[rinja_derive](https://github.com/rinja-rs/rinja),
+[rinja_parser](https://github.com/rinja-rs/rinja),
 [rkv](https://github.com/mozilla/rkv),
+[rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
 [ryu](https://github.com/dtolnay/ryu),
 [scopeguard](https://github.com/bluss/scopeguard),

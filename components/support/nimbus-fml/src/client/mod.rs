@@ -149,10 +149,9 @@ impl FmlClient {
 pub(crate) type JsonObject = serde_json::Map<String, serde_json::Value>;
 
 #[cfg(feature = "uniffi-bindings")]
-impl UniffiCustomTypeConverter for JsonObject {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+uniffi::custom_type!(JsonObject, String, {
+    remote,
+    try_lift: |val| {
         let json: serde_json::Value = serde_json::from_str(&val)?;
 
         match json.as_object() {
@@ -161,38 +160,23 @@ impl UniffiCustomTypeConverter for JsonObject {
                 "Unexpected JSON-non-object in the bagging area"
             )),
         }
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        serde_json::Value::Object(obj).to_string()
-    }
-}
+    },
+    lower: |obj| serde_json::Value::Object(obj).to_string(),
+});
 
 #[cfg(feature = "uniffi-bindings")]
-impl UniffiCustomTypeConverter for Url {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        Ok(Self::from_str(&val)?)
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.as_str().to_string()
-    }
-}
+uniffi::custom_type!(Url, String, {
+    remote,
+    try_lift: |val| Ok(Self::from_str(&val)?),
+    lower: |obj| obj.as_str().to_string(),
+});
 
 #[cfg(feature = "uniffi-bindings")]
-impl UniffiCustomTypeConverter for EmailAddress {
-    type Builtin = String;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        Ok(Self::from_str(val.as_str())?)
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.as_str().to_string()
-    }
-}
+uniffi::custom_type!(EmailAddress, String, {
+    remote,
+    try_lift: |val| Ok(Self::from_str(val.as_str())?),
+    lower: |obj| obj.as_str().to_string(),
+});
 
 #[cfg(feature = "uniffi-bindings")]
 uniffi::include_scaffolding!("fml");
