@@ -5,6 +5,7 @@ edition = "2021"
 description = "Library for search service related components."
 readme = "README.md"
 license = "MPL-2.0"
+exclude = ["/ios"]
 
 [dependencies]
 env_logger = { version = "0.10.0", default-features = false, optional = true }

@@ -17,4 +17,4 @@ pub use crate::types::*;
 pub use selector::SearchEngineSelector;
 pub type SearchApiResult<T> = std::result::Result<T, error::SearchApiError>;
 
-uniffi::setup_scaffolding!();
+uniffi::setup_scaffolding!("search");

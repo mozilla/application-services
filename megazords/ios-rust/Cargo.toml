@@ -26,3 +26,4 @@ sync15 = {path = "../../components/sync15"}
 error-support = { path = "../../components/support/error" }
 sync_manager = { path = "../../components/sync_manager" }
 as-ohttp-client = { path = "../../components/as-ohttp-client" }
+search = { path = "../../components/search" }
