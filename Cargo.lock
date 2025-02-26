@@ -2954,6 +2954,7 @@ dependencies = [
  "push",
  "remote_settings",
  "rust-log-forwarder",
+ "search",
  "suggest",
  "sync15",
  "sync_manager",
