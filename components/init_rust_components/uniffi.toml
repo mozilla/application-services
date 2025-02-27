@@ -1,0 +1,6 @@
+[bindings.kotlin]
+package_name = "mozilla.appservices.init_rust_components"
+
+[bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "init_rust_componentsFFI"

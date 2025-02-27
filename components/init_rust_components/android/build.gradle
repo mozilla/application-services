@@ -1,0 +1,10 @@
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
+apply from: "$appServicesRootDir/publish.gradle"
+
+android {
+    namespace 'org.mozilla.appservices.init_rust_components'
+}
+
+ext.configureUniFFIBindgen("init_rust_components")
+ext.dependsOnTheMegazord()
+ext.configurePublish()
