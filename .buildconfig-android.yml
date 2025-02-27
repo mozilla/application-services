@@ -144,3 +144,10 @@ projects:
     - name: init_rust_components
       type: aar
     description: Initialize Rust components
+  search:
+    path: components/search/android
+    artifactId: search
+    publications:
+    - name: search
+      type: aar
+    description: search-description
