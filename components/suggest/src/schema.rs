@@ -613,7 +613,6 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
             }
             32 => {
                 // Drop rs_cache since it's no longer needed.
-                clear_database(tx)?;
                 tx.execute_batch("DROP TABLE rs_cache;")?;
                 Ok(())
             }
@@ -792,11 +791,10 @@ PRAGMA user_version=16;
         let db_file =
             MigratedDatabaseFile::new(SuggestConnectionInitializer::default(), V16_SCHEMA);
 
-        // Upgrade to v25, the first version with with `ingested_records` and
-        // `rs_cache` tables.
+        // Upgrade to v25, the first version with with `ingested_records` tables.
         db_file.upgrade_to(25);
 
-        // Insert some ingested records and cache data.
+        // Insert some ingested records.
         let conn = db_file.open();
         conn.execute(
             "INSERT INTO ingested_records(id, collection, type, last_modified) VALUES(?, ?, ?, ?)",
@@ -808,7 +806,7 @@ PRAGMA user_version=16;
         db_file.upgrade_to(VERSION);
         db_file.assert_schema_matches_new_database();
 
-        // `ingested_records` and `rs_cache` should be empty.
+        // `ingested_records` should be empty.
         let conn = db_file.open();
         assert_eq!(
             conn.query_one::<i32>("SELECT count(*) FROM ingested_records")?,
