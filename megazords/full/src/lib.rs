@@ -19,6 +19,7 @@ pub use places;
 pub use push;
 pub use remote_settings;
 pub use rust_log_forwarder;
+pub use search;
 pub use suggest;
 pub use sync_manager;
 pub use tabs;
