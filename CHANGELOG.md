@@ -2,6 +2,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### `init_rust_components`
+- new component to provide Rust initialization routines, initially aimed at initializing NSS
+
 ### Android
 - Upgraded NDK from r27c to r28. ([#6588](https://github.com/mozilla/application-services/pull/6588))
 

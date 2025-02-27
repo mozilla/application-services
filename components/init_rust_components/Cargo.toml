@@ -1,0 +1,8 @@
+[package]
+name = "init_rust_components"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+uniffi = "0.28.2"
