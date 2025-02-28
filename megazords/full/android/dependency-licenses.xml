@@ -65,10 +65,6 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Apache License 2.0: ahash</name>
-    <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: android-tzdata</name>
     <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
   </license>
@@ -393,6 +389,10 @@ the details of which are reproduced below.
     <url>https://github.com/RustCrypto/hashes/blob/master/sha2/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: shlex</name>
+    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+  </license>
+  <license>
     <name>Apache License 2.0: siphasher</name>
     <url>https://github.com/jedisct1/rust-siphash/blob/master/COPYING</url>
   </license>
@@ -505,10 +505,6 @@ the details of which are reproduced below.
     <url>https://github.com/hsivonen/write16/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: zerocopy</name>
-    <url>https://github.com/google/zerocopy/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>MIT License: aho-corasick</name>
     <url>https://github.com/BurntSushi/aho-corasick/blob/master/LICENSE-MIT</url>
   </license>
@@ -615,6 +611,10 @@ the details of which are reproduced below.
   <license>
     <name>BSD-3-Clause License: protobuf</name>
     <url>https://github.com/protocolbuffers/protobuf/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>Zlib License: foldhash</name>
+    <url>https://github.com/orlp/foldhash/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Unicode-3.0 License: icu_collections</name>
