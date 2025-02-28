@@ -29,7 +29,9 @@ def main(args):
     )
     subprocess.run(["cargo", "clean"], cwd=appservices_path, check=False)
     subprocess.run(["./gradlew", "clean"], cwd=appservices_path, check=False)
-    subprocess.run(["./gradlew", "clean"], cwd=ff_android_path / "android-components", check=False)
+    subprocess.run(
+        ["./gradlew", "clean"], cwd=ff_android_path / "android-components", check=False
+    )
     subprocess.run(["./gradlew", "clean"], cwd=ff_android_path / "fenix", check=False)
 
 

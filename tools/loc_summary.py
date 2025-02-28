@@ -94,8 +94,10 @@ def get_loc_summary(path):
 def print_loc_summaries(paths):
     summaries = [get_loc_summary(path) for path in paths]
     headers = ["Path", "Shared", "Android", "iOS", "Total", "Shared %"]
-    nameWidth = max(len(headers[0]), max(len(summary["path"]) for summary in summaries)) # noqa: PLW3301
-    numWidth = max( # noqa: PLW3301
+    nameWidth = max(
+        len(headers[0]), max(len(summary["path"]) for summary in summaries)
+    )  # noqa: PLW3301
+    numWidth = max(  # noqa: PLW3301
         max(len(h) for h in headers[1:]),
         max(len(str(summary["all"])) for summary in summaries),
     )
