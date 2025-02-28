@@ -1045,7 +1045,9 @@ class WorkspaceMetadata(object):
         )
         deps = set()
         for target in targets:
-            this_target = "x86_64-apple-darwin" if target == "fake-target-for-ios" else target
+            this_target = (
+                "x86_64-apple-darwin" if target == "fake-target-for-ios" else target
+            )
             buildPlan = subprocess_run_cargo(
                 cargo_args
                 + (
