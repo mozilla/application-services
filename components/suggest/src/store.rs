@@ -569,7 +569,7 @@ where
         // For each collection, fetch all records
         for (collection, record_types) in record_types_by_collection {
             breadcrumb!("Ingesting collection {}", collection.name());
-            let records = write_scope.write(|_| self.settings_client.get_records(collection))?;
+            let records = self.settings_client.get_records(collection)?;
 
             // For each record type in that collection, calculate the changes and pass them to
             // [Self::ingest_records]
@@ -841,11 +841,9 @@ where
         let writer = &self.dbs().unwrap().writer;
         let mut context = MetricsContext::default();
         let ingested_records = writer.read(|dao| dao.get_ingested_records()).unwrap();
-        let records = writer
-            .write(|_| {
-                self.settings_client
-                    .get_records(ingest_record_type.collection())
-            })
+        let records = self
+            .settings_client
+            .get_records(ingest_record_type.collection())
             .unwrap();
 
         let changes = RecordChanges::new(
