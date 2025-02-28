@@ -7,8 +7,25 @@ buildscript {
     dependencies {
         classpath 'org.yaml:snakeyaml:2.2'
     }
-    repositories {
-        mavenCentral()
+    if (!gradle.root.hasProperty("mozconfig")) {
+        // in app-services
+        repositories {
+            mavenCentral()
+        }
+    } else {
+        // big copy/paste from mobile/android/shared-settings.gradle.
+        gradle.ext.mozconfig = gradle.root.mozconfig
+
+        repositories {
+            gradle.mozconfig.substs.GRADLE_MAVEN_REPOSITORIES.each { repository ->
+                maven {
+                    url = repository
+                    if (gradle.mozconfig.substs.ALLOW_INSECURE_GRADLE_REPOSITORIES) {
+                        allowInsecureProtocol = true
+                    }
+                }
+            }
+        }
     }
 }
 
