@@ -63,7 +63,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   else
     # From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
     curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public%2Fdist.tar.bz2"
-    SHA256="7a1c49eb2fd6a1b36989d8b52e0dbeb2c89e6575e6281d0496912edd24231a41"
+    SHA256="11d6fd246c7da110b01f10155150649505444139ad54677c33fee88e6dc00493"
     echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
     tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
     NSS_DIST_DIR=$(abspath "dist")
