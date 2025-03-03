@@ -1,4 +1,4 @@
-# v137.0 (In progress)
+# v137.0 (_2025-03-03_)
 
 ## 🦊 What's Changed 🦊
 
@@ -14,7 +14,7 @@
 ### Nimbus SDK ⛅️🔬🔭
 - Enable enrollment status telemetry ([#6606](https://github.com/mozilla/application-services/pull/6606))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v136.0...v137.0)
 
 # v136.0 (_2025-02-03_)
 
