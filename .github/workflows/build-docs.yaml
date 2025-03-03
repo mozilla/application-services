@@ -21,6 +21,7 @@ jobs:
           echo 'rust.targets=linux-x86-64' > local.properties
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
+          rustup toolchain install
 
       - name: Build Dependencies
         env:
