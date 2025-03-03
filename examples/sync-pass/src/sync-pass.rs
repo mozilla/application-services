@@ -12,6 +12,7 @@ use cli_support::fxa_creds::{
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
 use logins::{Login, LoginEntry, LoginStore, LoginsSyncEngine, ValidateAndFixup};
+use nss::ensure_initialized;
 
 use prettytable::{row, Cell, Row, Table};
 use std::fs;
@@ -344,6 +345,8 @@ fn do_sync(
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
     viaduct_reqwest::use_reqwest_backend();
+
+    ensure_initialized();
 
     let matches = clap::Command::new("sync_pass_sql")
         .about("CLI login syncing tool")

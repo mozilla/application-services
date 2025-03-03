@@ -18,6 +18,8 @@ pub use nss::pbkdf2::HashAlgorithm;
 ///
 /// ```
 /// use rc_crypto::pbkdf2;
+/// use nss::ensure_initialized;
+/// ensure_initialized();
 /// let password = b"password";
 /// let salt = b"salt";
 /// let mut out = vec![0u8; 32];
@@ -44,8 +46,11 @@ pub fn derive(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nss::ensure_initialized;
+
     #[test]
     fn test_generate_correct_out() {
+        ensure_initialized();
         let expected = "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b";
         let mut out = vec![0u8; 32];
         let password = b"password";
@@ -56,6 +61,7 @@ mod tests {
 
     #[test]
     fn test_longer_key() {
+        ensure_initialized();
         let expected = "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b4dbf3a2f3dad3377264bb7b8e8330d4efc7451418617dabef683735361cdc18c";
         let password = b"password";
         let salt = b"salt";
@@ -66,6 +72,7 @@ mod tests {
 
     #[test]
     fn test_more_iterations() {
+        ensure_initialized();
         let expected = "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43";
         let password = b"password";
         let salt = b"salt";
@@ -76,6 +83,7 @@ mod tests {
 
     #[test]
     fn test_odd_length() {
+        ensure_initialized();
         let expected = "ad35240ac683febfaf3cd49d845473fbbbaa2437f5f82d5a415ae00ac76c6bfccf";
         let password = b"password";
         let salt = b"salt";
@@ -86,6 +94,7 @@ mod tests {
 
     #[test]
     fn test_nulls() {
+        ensure_initialized();
         let expected = "e25d526987819f966e324faa4a";
         let password = b"passw\x00rd";
         let salt = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
@@ -96,6 +105,7 @@ mod tests {
 
     #[test]
     fn test_password_null() {
+        ensure_initialized();
         let expected = "62384466264daadc4144018c6bd864648272b34da8980d31521ffcce92ae003b";
         let password = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
         let salt = b"salt";
@@ -106,6 +116,7 @@ mod tests {
 
     #[test]
     fn test_empty_password() {
+        ensure_initialized();
         let expected = "f135c27993baf98773c5cdb40a5706ce6a345cde61b000a67858650cd6a324d7";
         let mut out = vec![0u8; 32];
         let password = b"";
@@ -116,6 +127,7 @@ mod tests {
 
     #[test]
     fn test_empty_salt() {
+        ensure_initialized();
         let expected = "c1232f10f62715fda06ae7c0a2037ca19b33cf103b727ba56d870c11f290a2ab";
         let mut out = vec![0u8; 32];
         let password = b"password";
@@ -126,6 +138,7 @@ mod tests {
 
     #[test]
     fn test_tiny_out() {
+        ensure_initialized();
         let expected = "12";
         let mut out = vec![0u8; 1];
         let password = b"password";
@@ -136,6 +149,7 @@ mod tests {
 
     #[test]
     fn test_rejects_zero_iterations() {
+        ensure_initialized();
         let mut out = vec![0u8; 32];
         let password = b"password";
         let salt = b"salt";
@@ -144,6 +158,7 @@ mod tests {
 
     #[test]
     fn test_rejects_empty_out() {
+        ensure_initialized();
         let mut out = vec![0u8; 0];
         let password = b"password";
         let salt = b"salt";
@@ -152,6 +167,7 @@ mod tests {
 
     #[test]
     fn test_rejects_gaigantic_salt() {
+        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let salt = vec![0; (u32::MAX as usize) + 1];
             let mut out = vec![0u8; 1];
@@ -161,6 +177,7 @@ mod tests {
     }
     #[test]
     fn test_rejects_gaigantic_password() {
+        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let password = vec![0; (u32::MAX as usize) + 1];
             let mut out = vec![0u8; 1];
@@ -171,6 +188,7 @@ mod tests {
 
     #[test]
     fn test_rejects_gaigantic_out() {
+        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let password = b"password";
             let mut out = vec![0; (u32::MAX as usize) + 1];
@@ -181,6 +199,7 @@ mod tests {
 
     #[test]
     fn test_rejects_gaigantic_iterations() {
+        ensure_initialized();
         let password = b"password";
         let mut out = vec![0; 32];
         let salt = b"salt";
