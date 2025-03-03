@@ -46,3 +46,4 @@ mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
+nss = { path = "../support/rc_crypto/nss" }

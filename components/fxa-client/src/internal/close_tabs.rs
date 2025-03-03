@@ -164,6 +164,7 @@ mod tests {
     use std::{collections::HashSet, sync::Arc};
 
     use mockall::predicate::{always, eq};
+    use nss::ensure_initialized;
     use serde_json::json;
 
     use crate::{
@@ -191,6 +192,7 @@ mod tests {
     }
 
     fn setup() -> FirefoxAccount {
+        ensure_initialized();
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         fxa.state.force_refresh_token(RefreshToken {

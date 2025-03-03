@@ -26,7 +26,7 @@ use crate::error::*;
 /// contents of each, but NOT in constant time with respect to the lengths of
 /// `a` and `b`.
 pub fn verify_slices_are_equal(a: &[u8], b: &[u8]) -> Result<()> {
-    if nss::secport::secure_memcmp(a, b) {
+    if nss::secport::secure_memcmp(a, b)? {
         Ok(())
     } else {
         Err(ErrorKind::InternalError.into())
@@ -36,8 +36,11 @@ pub fn verify_slices_are_equal(a: &[u8], b: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nss::ensure_initialized;
+
     #[test]
     fn does_compare() {
+        ensure_initialized();
         assert!(verify_slices_are_equal(b"bobo", b"bobo").is_ok());
         assert!(verify_slices_are_equal(b"bobo", b"obob").is_err());
         assert!(verify_slices_are_equal(b"bobo", b"notbobo").is_err());

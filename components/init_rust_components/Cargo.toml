@@ -3,6 +3,9 @@ name = "init_rust_components"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+keydb = ["nss/keydb"]
 
 [dependencies]
 uniffi = "0.28.2"
+nss = { path = "../support/rc_crypto/nss" }
