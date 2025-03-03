@@ -13,11 +13,14 @@ advice on designing and structuring the actual Rust code, and follow the
 introduces any new dependencies.
 
 Use [UniFFI](https://mozilla.github.io/uniffi-rs/) to define how your crate's
-API will get exposed to foreign-language bindings. Place the following in your `Cargo.toml`:
+API will get exposed to foreign-language bindings. Lookup the installed uniffi
+version on other packages (eg `grep uniffi
+components/init_rust_components/Cargo.toml`) and use the same version. Place
+the following in your `Cargo.toml`:
 
 ```
 [dependencies]
-uniffi = { workspace = true }
+uniffi = { version = "<current uniffi version>" }
 ```
 
 New components should prefer using the
@@ -26,7 +29,7 @@ a UDL file based approach.  If you do use a UDL file, add this to `Cargo.toml` a
 
 ```
 [build-dependencies]
-uniffi = { workspace = true }
+uniffi = { version = "<current uniffi version>" }
 ```
 
 Include your new crate in the `application-services` workspace, by adding

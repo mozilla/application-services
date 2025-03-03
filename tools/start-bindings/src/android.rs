@@ -102,7 +102,7 @@ fn write_file(contents: impl AsRef<str>, path: &Utf8Path) -> Result<()> {
     create_dir_all(path.parent().unwrap())?;
 
     let mut file = File::create(path)?;
-    write!(file, "{contents}")?;
+    writeln!(file, "{contents}")?;
     println!("{path} generated");
 
     Ok(())
@@ -135,7 +135,7 @@ fn update_buildconfig(
     .render()?;
 
     let mut file = File::options().append(true).open(&path)?;
-    write!(file, "{fragment}")?;
+    writeln!(file, "{fragment}")?;
     println!("{path} updated");
 
     Ok(())
