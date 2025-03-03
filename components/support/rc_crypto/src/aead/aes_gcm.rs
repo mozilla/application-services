@@ -83,6 +83,7 @@ fn aes_gcm(
 #[cfg(test)]
 mod test {
     use super::*;
+    use nss::ensure_initialized;
 
     // Test vector from the AES-GCM spec.
     const NONCE_HEX: &str = "cafebabefacedbaddecaf888";
@@ -96,6 +97,7 @@ mod test {
 
     #[test]
     fn test_decrypt() {
+        ensure_initialized();
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
         let mut ciphertext_and_tag = hex::decode(CIPHERTEXT_HEX).unwrap();
@@ -113,6 +115,7 @@ mod test {
 
     #[test]
     fn test_encrypt() {
+        ensure_initialized();
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
         let cleartext = hex::decode(CLEARTEXT_HEX).unwrap();
@@ -131,6 +134,7 @@ mod test {
 
     #[test]
     fn test_roundtrip() {
+        ensure_initialized();
         let key_bytes = hex::decode(KEY_HEX).unwrap();
         let key = aead::Key::new(&AES_256_GCM, &key_bytes).unwrap();
         let cleartext = hex::decode(CLEARTEXT_HEX).unwrap();

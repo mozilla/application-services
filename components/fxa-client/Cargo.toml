@@ -27,6 +27,7 @@ anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
 uniffi = { version = "0.28.2" }
 payload-support = { path = "../support/payload" }
+nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
 uniffi = { version = "0.28.2", features = ["build"] }
