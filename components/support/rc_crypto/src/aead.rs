@@ -191,6 +191,7 @@ impl Direction {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nss::ensure_initialized;
 
     static ALL_ALGORITHMS: &[&Algorithm] = &[
         &LEGACY_SYNC_AES_256_CBC_HMAC_SHA256,
@@ -201,6 +202,7 @@ mod test {
 
     #[test]
     fn test_roundtrip() {
+        ensure_initialized();
         for algorithm in ALL_ALGORITHMS {
             let mut cleartext_bytes = vec![0u8; 127];
             crate::rand::fill(&mut cleartext_bytes).unwrap();
@@ -224,6 +226,7 @@ mod test {
 
     #[test]
     fn test_cant_open_with_mismatched_key() {
+        ensure_initialized();
         let mut key_bytes_1 = vec![0u8; AES_256_GCM.key_len()];
         crate::rand::fill(&mut key_bytes_1).unwrap();
 
@@ -244,6 +247,7 @@ mod test {
 
     #[test]
     fn test_cant_open_modified_ciphertext() {
+        ensure_initialized();
         for algorithm in ALL_ALGORITHMS {
             let mut key_bytes = vec![0u8; algorithm.key_len()];
             crate::rand::fill(&mut key_bytes).unwrap();
@@ -268,6 +272,7 @@ mod test {
 
     #[test]
     fn test_cant_open_with_incorrect_associated_data() {
+        ensure_initialized();
         for algorithm in ALL_ALGORITHMS_THAT_SUPPORT_AAD {
             let mut key_bytes = vec![0u8; algorithm.key_len()];
             crate::rand::fill(&mut key_bytes).unwrap();
@@ -291,6 +296,7 @@ mod test {
 
     #[test]
     fn test_cant_use_incorrectly_sized_key() {
+        ensure_initialized();
         for algorithm in ALL_ALGORITHMS {
             let key_bytes = vec![0u8; algorithm.key_len() - 1];
             let result = Key::new(algorithm, &key_bytes);
@@ -304,6 +310,7 @@ mod test {
 
     #[test]
     fn test_cant_use_incorrectly_sized_nonce() {
+        ensure_initialized();
         for algorithm in ALL_ALGORITHMS {
             let nonce_bytes = vec![0u8; algorithm.nonce_len() - 1];
             let result = Nonce::try_assume_unique_for_key(algorithm, &nonce_bytes);

@@ -14,6 +14,12 @@
 ### Nimbus SDK ⛅️🔬🔭
 - Enable enrollment status telemetry ([#6606](https://github.com/mozilla/application-services/pull/6606))
 
+### `nss`
+- Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
+
+#### BREAKING CHANGE:
+Applications need to call `nss::ensure_initialized()` before using any component that depends on NSS.
+
 [Full Changelog](In progress)
 
 # v136.0 (_2025-02-03_)

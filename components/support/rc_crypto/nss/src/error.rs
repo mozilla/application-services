@@ -4,6 +4,8 @@
 
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
+    #[error("NSS has not been initialized")]
+    NSSUninitialized,
     #[error("NSS could not be initialized: {0}")]
     NSSInitFailure(String),
     #[error("NSS error: {0} {1}")]

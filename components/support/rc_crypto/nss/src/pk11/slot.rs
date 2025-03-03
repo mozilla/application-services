@@ -5,12 +5,12 @@
 use crate::{
     error::*,
     pk11::types::Slot,
-    util::{ensure_nss_initialized, map_nss_secstatus, ScopedPtr},
+    util::{expect_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
 
 pub fn generate_random(data: &mut [u8]) -> Result<()> {
     // `NSS_Init` will initialize the RNG with data from `/dev/urandom`.
-    ensure_nss_initialized();
+    expect_nss_initialized()?;
     let len = i32::try_from(data.len())?;
     map_nss_secstatus(|| unsafe { nss_sys::PK11_GenerateRandom(data.as_mut_ptr(), len) })?;
     Ok(())
