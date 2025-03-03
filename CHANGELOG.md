@@ -5,6 +5,14 @@
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.10 ([#6640](https://github.com/mozilla/application-services/pull/6640))
 
+### `nss`
+- Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
+
+#### BREAKING CHANGE:
+Components need to call `nss::ensure_initialized()` before using any component
+that depends on NSS. Applications can depend on the `init_rust_components`
+component to handle initialization.
+
 [Full Changelog](In progress)
 
 # v137.0 (_2025-03-03_)

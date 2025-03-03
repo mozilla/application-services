@@ -256,6 +256,7 @@ mod test {
     use super::PushDb;
     use crate::internal::crypto::get_random_bytes;
     use crate::internal::storage::{db::Storage, record::PushRecord};
+    use nss::ensure_initialized;
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
@@ -287,6 +288,8 @@ mod test {
 
     #[test]
     fn basic() -> Result<()> {
+        ensure_initialized();
+
         let db = get_db()?;
         let chid = &get_uuid()?;
         let rec = prec(chid);
@@ -314,6 +317,8 @@ mod test {
 
     #[test]
     fn delete() -> Result<()> {
+        ensure_initialized();
+
         let db = get_db()?;
         let chid = &get_uuid()?;
         let rec = prec(chid);
@@ -327,6 +332,8 @@ mod test {
 
     #[test]
     fn delete_all_records() -> Result<()> {
+        ensure_initialized();
+
         let db = get_db()?;
         let chid = &get_uuid()?;
         let rec = prec(chid);
@@ -350,6 +357,8 @@ mod test {
 
     #[test]
     fn meta() -> Result<()> {
+        ensure_initialized();
+
         use super::Storage;
         let db = get_db()?;
         let no_rec = db.get_uaid()?;
@@ -364,6 +373,8 @@ mod test {
 
     #[test]
     fn dash() -> Result<()> {
+        ensure_initialized();
+
         let db = get_db()?;
         let chid = "deadbeef-0000-0000-0000-decafbad12345678";
 

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
+use crate::ErrorKind::NSSUninitialized;
 use nss_sys::*;
 use std::{ffi::CString, os::raw::c_char, sync::Once};
 
@@ -21,7 +22,38 @@ static NSS_INIT: Once = Once::new();
 #[cfg(feature = "keydb")]
 static NSS_PROFILE_PATH: OnceCell<String> = OnceCell::new();
 
+// Check whether either thr Rust-internal NSS initialization has run, or NSS has been initialized
+// in the outside.
+#[cfg(not(feature = "keydb"))]
+fn is_nss_initialized() -> bool {
+    NSS_INIT.is_completed() || unsafe { NSS_IsInitialized() == PR_TRUE }
+}
+
+// Check whether either thr Rust-internal NSS initialization has run, or NSS has been initialized
+// in the outside.
+// nss can be initialized either by `ensure_nss_initialized` or by
+// `ensure_initialized_with_profile_dir` (by using the `keydb` feature)
+#[cfg(feature = "keydb")]
+fn is_nss_initialized() -> bool {
+    NSS_INIT.is_completed()
+        || NSS_PROFILE_PATH.get().is_some()
+        || unsafe { NSS_IsInitialized() == PR_TRUE }
+}
+
+pub fn expect_nss_initialized() -> Result<()> {
+    if is_nss_initialized() {
+        Ok(())
+    } else {
+        Err(NSSUninitialized.into())
+    }
+}
+
 pub fn ensure_nss_initialized() {
+    #[cfg(feature = "keydb")]
+    if NSS_PROFILE_PATH.get().is_some() {
+        return;
+    }
+
     NSS_INIT.call_once(|| {
         let version_ptr = CString::new(COMPATIBLE_NSS_VERSION).unwrap();
         if unsafe { NSS_VersionCheck(version_ptr.as_ptr()) == PR_FALSE } {

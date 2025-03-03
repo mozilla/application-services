@@ -29,9 +29,12 @@ pub fn fill(dest: &mut [u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nss::ensure_initialized;
 
     #[test]
     fn random_fill() {
+        ensure_initialized();
+
         let mut out = vec![0u8; 64];
         assert!(fill(&mut out).is_ok());
         // This check could *in theory* fail if we randomly generate all zeroes
@@ -46,6 +49,8 @@ mod tests {
 
     #[test]
     fn random_fill_empty() {
+        ensure_initialized();
+
         let mut out = vec![0u8; 0];
         assert!(fill(&mut out).is_ok());
         assert_eq!(out, vec![0u8; 0]);
@@ -53,6 +58,8 @@ mod tests {
 
     #[test]
     fn random_fill_oddly_sized_arrays() {
+        ensure_initialized();
+
         let sizes: [usize; 4] = [61, 63, 65, 67];
         for size in &sizes {
             let mut out = vec![0u8; *size];
@@ -63,6 +70,8 @@ mod tests {
 
     #[test]
     fn random_fill_rejects_attempts_to_fill_gigantic_arrays() {
+        ensure_initialized();
+
         let max_size: usize = i32::MAX as usize;
         let mut out = vec![0u8; max_size + 1];
         assert!(fill(&mut out).is_err());

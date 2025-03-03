@@ -48,9 +48,11 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
 mod tests {
     use super::*;
     use crate::digest;
+    use nss::ensure_initialized;
 
     #[test]
     fn hkdf_produces_correct_result() {
+        ensure_initialized();
         let secret = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
         let salt = hex::decode("000102030405060708090a0b0c").unwrap();
         let info = hex::decode("f0f1f2f3f4f5f6f7f8f9").unwrap();
@@ -66,6 +68,7 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_gigantic_salt() {
+        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let salt_bytes = vec![0; (u32::MAX as usize) + 1];
             let salt = hmac::SigningKey {
@@ -79,6 +82,7 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_gigantic_secret() {
+        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
             let secret = vec![0; (u32::MAX as usize) + 1];
@@ -92,6 +96,7 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_gigantic_output_buffers() {
+        ensure_initialized();
         let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
         let mut out = vec![0u8; 8160 + 1]; // RFC maximum (hashlen * 255) + 1
         assert!(extract_and_expand(&salt, b"secret", b"info", &mut out).is_err());
@@ -99,6 +104,7 @@ mod tests {
 
     #[test]
     fn hkdf_rejects_zero_length_output_buffer() {
+        ensure_initialized();
         let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
         let mut out = vec![0u8; 0];
         assert!(extract_and_expand(&salt, b"secret", b"info", &mut out).is_err());
@@ -106,6 +112,7 @@ mod tests {
 
     #[test]
     fn hkdf_can_produce_small_output() {
+        ensure_initialized();
         let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
         let mut out = vec![0u8; 1];
         assert!(extract_and_expand(&salt, b"secret", b"info", &mut out).is_ok());
@@ -113,6 +120,7 @@ mod tests {
 
     #[test]
     fn hkdf_accepts_zero_length_info() {
+        ensure_initialized();
         let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
         let mut out = vec![0u8; 32];
         assert!(extract_and_expand(&salt, b"secret", b"", &mut out).is_ok());
@@ -120,6 +128,7 @@ mod tests {
 
     #[test]
     fn hkdf_expand_rejects_short_prk() {
+        ensure_initialized();
         let prk = hmac::SigningKey::new(&digest::SHA256, b"too short"); // must be >= HashLen
         let mut out = vec![0u8; 8];
         assert!(expand(&prk, b"info", &mut out).is_ok());
