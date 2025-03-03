@@ -28,6 +28,8 @@ jobs:
       - name: Set up repository and install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          # Prepend ~/.cargo/bin to the path, so it overrides the system installed version
+          export PATH="$HOME/.cargo/bin:$PATH"
           source $HOME/.cargo/env
           rustup toolchain install
 
