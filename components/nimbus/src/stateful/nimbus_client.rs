@@ -432,7 +432,7 @@ impl NimbusClient {
     fn get_installation_date(&self, db: &Database, writer: &mut Writer) -> Result<DateTime<Utc>> {
         // we first check our context
         if let Some(context_installation_date) = self.app_context.installation_date {
-            let res = DateTime::<Utc>::from_naive_utc_and_offset(
+            let res = DateTime::<Utc>::from_utc(
                 NaiveDateTime::from_timestamp_opt(context_installation_date / 1_000, 0).unwrap(),
                 Utc,
             );
