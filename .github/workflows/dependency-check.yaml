@@ -52,6 +52,7 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
+          rustup toolchain install
       - name: Run Cargo Audit
         run: |
             # cargo-audit 0.20 is giving us trouble in CI - it's failing to build the package.
