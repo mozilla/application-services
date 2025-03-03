@@ -86,7 +86,7 @@ jobs:
 
           # Clone the gyp repository
           git clone https://chromium.googlesource.com/external/gyp.git tools/gyp
-          
+
           # Navigate to gyp directory and install it
           cd tools/gyp
           python3 setup.py install
@@ -94,7 +94,7 @@ jobs:
 
           # Install the required dependencies on macOS (replace tcl with tcl-tk)
           brew install ninja zlib tcl-tk python
-          
+
           # Ensure the environment for desktop is correctly set up
           # NSS for desktop has to be setup to build megazord
           ./libs/verify-desktop-environment.sh
@@ -180,14 +180,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libclang-dev tcl ninja-build
-          
+
           python3 -m venv venv
           source venv/bin/activate
           python3 -m pip install --upgrade pip setuptools six
 
           # Clone the gyp repository
           git clone https://chromium.googlesource.com/external/gyp.git tools/gyp
-          
+
           # Navigate to gyp directory and install it
           cd tools/gyp
           python3 setup.py install
@@ -207,7 +207,7 @@ jobs:
           ./generate_docs.sh
 
       - name: Upload docs artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: kotlin-docs
           path: "automation/kotlin-components-docs/build/dokka"
@@ -219,7 +219,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       - name: Prepare documentation
         run: |
           mkdir -p gh-pages
