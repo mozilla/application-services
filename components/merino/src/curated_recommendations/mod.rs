@@ -14,7 +14,8 @@ pub use models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
 #[derive(uniffi::Object)]
 pub struct CuratedRecommendationsClient {
     inner: CuratedRecommendationsClientInner<http::HttpClient>,
-    base_host: String, // e.g. "https://merino.services.mozilla.com"
+    base_host: String,
+    user_agent_header: String,
 }
 
 struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
@@ -25,10 +26,11 @@ struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
 impl CuratedRecommendationsClient {
     #[uniffi::constructor]
     #[handle_error(Error)]
-    pub fn new(base_host: String) -> ApiResult<Self> {
+    pub fn new(base_host: String, user_agent_header: String) -> ApiResult<Self> {
         Ok(Self {
             inner: CuratedRecommendationsClientInner::new()?,
             base_host,
+            user_agent_header,
         })
     }
 
@@ -36,10 +38,9 @@ impl CuratedRecommendationsClient {
     pub fn get_curated_recommendations(
         &self,
         request: &CuratedRecommendationsRequest,
-        user_agent_header: &str,
     ) -> ApiResult<CuratedRecommendationsResponse> {
         self.inner
-            .get_curated_recommendations(request, user_agent_header, &self.base_host)
+            .get_curated_recommendations(request, &self.user_agent_header, &self.base_host)
     }
 }
 
@@ -58,8 +59,12 @@ impl<T: http::HttpClientTrait> CuratedRecommendationsClientInner<T> {
         user_agent_header: &str,
         base_host: &str,
     ) -> Result<CuratedRecommendationsResponse> {
-        self.http_client
-            .make_curated_recommendation_request(request, user_agent_header, base_host)
+        let full_url = format!("{}/api/v1/curated-recommendations", base_host);
+        self.http_client.make_curated_recommendation_request(
+            request,
+            user_agent_header,
+            full_url.as_str(),
+        )
     }
 }
 

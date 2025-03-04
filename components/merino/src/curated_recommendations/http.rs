@@ -7,7 +7,7 @@ use super::models::{CuratedRecommendationsRequest, CuratedRecommendationsRespons
 use url::Url;
 use viaduct::{header_names, Request, Response};
 
-pub struct HttpClient {}
+pub struct HttpClient;
 
 impl HttpClient {
     pub fn new() -> Self {
@@ -18,13 +18,13 @@ impl HttpClient {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        base_host: &str, // e.g. "https://merino.services.mozilla.com"
+        url: &str,
     ) -> Result<CuratedRecommendationsResponse, Error> {
-        let full_url = format!("{}/api/v1/curated-recommendations", base_host);
-        let url = Url::parse(&full_url)?;
+        let url = Url::parse(&url)?;
         log::trace!("making request: {url}");
         let response: Response = Request::post(url)
             .header(header_names::ACCEPT, "application/json")?
+            .header(header_names::ACCEPT_ENCODING, "gzip")?
             .header(header_names::USER_AGENT, user_agent_header)?
             .json(request)
             .send()?;
@@ -64,7 +64,7 @@ pub trait HttpClientTrait {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        base_host: &str,
+        url: &str,
     ) -> super::error::Result<CuratedRecommendationsResponse>;
 }
 
@@ -73,8 +73,8 @@ impl HttpClientTrait for HttpClient {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        base_host: &str,
+        url: &str,
     ) -> super::error::Result<CuratedRecommendationsResponse> {
-        self.make_curated_recommendation_request(request, user_agent_header, base_host)
+        self.make_curated_recommendation_request(request, user_agent_header, url)
     }
 }
