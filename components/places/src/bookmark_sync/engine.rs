@@ -364,18 +364,7 @@ fn update_local_items_in_places(
 
     log::debug!("Changing GUIDs");
     scope.err_if_interrupted()?;
-    let result = db.execute_batch("DELETE FROM changeGuidOps");
-    // Due to bug 1935797, guid collisions are happening in some step of bookmarks
-    // but not clear if it's the "fixup" step, so we catch and log to sentry
-    if let Err(rusqlite::Error::SqliteFailure(e, _)) = &result {
-        if e.code == ErrorCode::ConstraintViolation {
-            error_support::report_error!(
-                "places-sync-bookmarks-guid-collision",
-                "changeGuidOps ran into guid collision violation"
-            );
-        }
-    }
-    result?;
+    db.execute_batch("DELETE FROM changeGuidOps")?;
 
     log::debug!("Applying remote items");
     apply_remote_items(db, scope, now)?;
@@ -501,35 +490,49 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
                             WHERE newPlaceId NOT NULL)",
     )?;
 
-    // We read the `itemsToApply` table to detect we have incoming bookmarks with a different
-    // type than the existing bookmarks with the same id
-    // This is temporary to help debug https://bugzilla.mozilla.org/show_bug.cgi?id=1876320
-    log::debug!("Checking for incoming data that has a different type than existing data.");
-    scope.err_if_interrupted()?;
-    db.query_row(
-        &format!(
-            "SELECT b.type as oldtype, it.newPlaceId as newFk
-                FROM itemsToApply it
-                JOIN moz_bookmarks b
-                ON it.localId = b.id
-                WHERE {type_fragment} != b.type
-            ",
-            type_fragment = ItemTypeFragment("it.newKind")
-        ),
-        [],
-        |row| -> std::result::Result<(), rusqlite::Error> {
-            let fk = row.get::<_, Option<u64>>("newFk")?;
-            let typ = row.get::<_, u8>("oldtype")?;
-            error_support::report_error!(
-                "places-sync-bookmarks",
-                "Incoming bookmark item with type {typ} has a different type than the one persisted. fk is {fk_val}",
-                fk_val = match fk {
-                    Some(_) => "non null",
-                    None => "null"
-                });
-                Ok(())
+    // Due to bug 1935797, we try to add additional logging on what exact
+    // guids are colliding as it could shed light on what's going on
+    log::debug!("Checking for potential GUID collisions before upserting items");
+    let collision_check_sql = "
+        SELECT ia.localId, ia.mergedGuid, ia.remoteGuid, b.id, b.guid
+        FROM itemsToApply ia
+        JOIN moz_bookmarks b ON ia.mergedGuid = b.guid
+        WHERE (ia.localId IS NULL OR ia.localId != b.id)
+    ";
+
+    let potential_collisions: Vec<(Option<i64>, String, String, i64, String)> = db
+        .prepare(collision_check_sql)?
+        .query_map([], |row| {
+            let ia_local_id: Option<i64> = row.get(0)?;
+            let ia_merged_guid: String = row.get(1)?;
+            let ia_remote_guid: String = row.get(2)?;
+            let bmk_id: i64 = row.get(3)?;
+            let bmk_guid: String = row.get(4)?;
+            Ok((
+                ia_local_id,
+                ia_merged_guid,
+                ia_remote_guid,
+                bmk_id,
+                bmk_guid,
+            ))
+        })?
+        .filter_map(|entry| entry.ok())
+        .collect();
+
+    if !potential_collisions.is_empty() {
+        // Log details about the collisions
+        for (ia_local_id, ia_merged_guid, ia_remote_guid, bmk_id, bmk_guid) in &potential_collisions
+        {
+            error_support::breadcrumb!(
+                "Found GUID collision: ia_localId={:?}, ia_mergedGuid={}, ia_remoteGuid={}, mb_id={}, mb_guid={}",
+                ia_local_id,
+                ia_merged_guid,
+                ia_remote_guid,
+                bmk_id,
+                bmk_guid
+            );
         }
-    ).ok(); // We ignore the error because it's expected, users should not have entries with the same id that have different types
+    }
 
     // Due to bug 1935797, we need to check if any users have any
     // undetected orphaned bookmarks and report them
@@ -602,10 +605,10 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
     // if we can discern any obvious signs
     if let Err(rusqlite::Error::SqliteFailure(e, _)) = &result {
         if e.code == ErrorCode::ConstraintViolation {
-            // This is a real collision that the sync code couldn't unify or fix.
             error_support::report_error!(
-                "places-sync-bookmarks-guid-collision",
-                "GUID collision during bookmark sync upsert"
+                "places-sync-bookmarks-constraint-violation",
+                "Hit a constraint violation {:?}",
+                result
             );
         }
     }
@@ -4495,12 +4498,11 @@ mod tests {
         let errors = test_reporter.get_errors();
         assert!(
             errors.iter().any(|(type_name, message)| {
-                type_name == "places-sync-bookmarks-guid-collision"
-                    && message.contains("GUID collision during bookmark sync upsert")
+                type_name == "places-sync-bookmarks-constraint-violation"
+                    && message.contains("UNIQUE constraint failed: moz_bookmarks.guid")
             }),
             "Expected to find pre-collision error report in: {errors:?}"
         );
-
         Ok(())
     }
 }
