@@ -24,16 +24,25 @@ impl RemoteSettingsBenchmarkClient {
             remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
-                collection_name: "quicksuggest".to_owned(),
+                collection_name: rs::Collection::Amp.name().to_owned(),
                 server_url: None,
             })?,
-            rs::Collection::Quicksuggest,
+            rs::Collection::Amp,
         )?;
         new_benchmark_client.fetch_data_with_client(
             remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
-                collection_name: "fakespot-suggest-products".to_owned(),
+                collection_name: rs::Collection::Other.name().to_owned(),
+                server_url: None,
+            })?,
+            rs::Collection::Other,
+        )?;
+        new_benchmark_client.fetch_data_with_client(
+            remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
+                server: None,
+                bucket_name: None,
+                collection_name: rs::Collection::Fakespot.name().to_owned(),
                 server_url: None,
             })?,
             rs::Collection::Fakespot,
