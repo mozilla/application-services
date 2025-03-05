@@ -1,5 +1,10 @@
 # v138.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### Android
+- Upgraded Kotlin compiler from 1.9.24 to 2.1.10 ([#6640](https://github.com/mozilla/application-services/pull/6640))
+
 [Full Changelog](In progress)
 
 # v137.0 (_2025-03-03_)
