@@ -40,6 +40,9 @@ impl RemoteSettingsService {
     /// This is typically done early in the application-startup process
     pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> Result<Self> {
         let storage_dir = storage_dir.into();
+        if storage_dir != ":memory:" {
+            std::fs::create_dir(&storage_dir)?;
+        }
         let base_url = config
             .server
             .unwrap_or(RemoteSettingsServer::Prod)
