@@ -10,11 +10,12 @@ mod models;
 pub use error::{ApiResult, Error, Result};
 use error_support::handle_error;
 pub use models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
+use url::Url;
 
 #[derive(uniffi::Object)]
-pub struct CuratedRecommendationsClient {
+struct CuratedRecommendationsClient {
     inner: CuratedRecommendationsClientInner<http::HttpClient>,
-    base_host: String,
+    endpoint_url: Url,
     user_agent_header: String,
 }
 
@@ -26,10 +27,15 @@ struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
 impl CuratedRecommendationsClient {
     #[uniffi::constructor]
     #[handle_error(Error)]
-    pub fn new(base_host: String, user_agent_header: String) -> ApiResult<Self> {
+    pub fn new(base_host: Option<String>, user_agent_header: String) -> ApiResult<Self> {
+        let base_host =
+            base_host.unwrap_or_else(|| "https://merino.services.mozilla.com".to_string());
+        let url = format!("{}/api/v1/curated-recommendations", base_host);
+        let endpoint_url = Url::parse(&url)?;
+
         Ok(Self {
             inner: CuratedRecommendationsClientInner::new()?,
-            base_host,
+            endpoint_url,
             user_agent_header,
         })
     }
@@ -40,14 +46,14 @@ impl CuratedRecommendationsClient {
         request: &CuratedRecommendationsRequest,
     ) -> ApiResult<CuratedRecommendationsResponse> {
         self.inner
-            .get_curated_recommendations(request, &self.user_agent_header, &self.base_host)
+            .get_curated_recommendations(request, &self.user_agent_header, &self.endpoint_url)
     }
 }
 
 impl CuratedRecommendationsClientInner<http::HttpClient> {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            http_client: http::HttpClient::new(),
+            http_client: http::HttpClient,
         })
     }
 }
@@ -57,13 +63,12 @@ impl<T: http::HttpClientTrait> CuratedRecommendationsClientInner<T> {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        base_host: &str,
+        endpoint_url: &Url,
     ) -> Result<CuratedRecommendationsResponse> {
-        let full_url = format!("{}/api/v1/curated-recommendations", base_host);
         self.http_client.make_curated_recommendation_request(
             request,
             user_agent_header,
-            full_url.as_str(),
+            endpoint_url.clone(),
         )
     }
 }
@@ -90,7 +95,7 @@ mod tests {
             &self,
             _request: &CuratedRecommendationsRequest,
             _user_agent_header: &str,
-            _base_host: &str,
+            _base_host: Url,
         ) -> Result<CuratedRecommendationsResponse> {
             Ok(CuratedRecommendationsResponse {
                 recommended_at: 1740764371347,
@@ -165,7 +170,7 @@ mod tests {
             &self,
             _request: &CuratedRecommendationsRequest,
             _user_agent_header: &str,
-            _base_host: &str,
+            _base_host: Url,
         ) -> Result<CuratedRecommendationsResponse> {
             Err(Error::Validation {
                 code: 422,
@@ -181,7 +186,7 @@ mod tests {
             &self,
             _request: &CuratedRecommendationsRequest,
             _user_agent_header: &str,
-            _base_host: &str,
+            _base_host: Url,
         ) -> Result<CuratedRecommendationsResponse> {
             Err(Error::Server {
                 code: 500,
@@ -197,7 +202,7 @@ mod tests {
             &self,
             _request: &CuratedRecommendationsRequest,
             _user_agent_header: &str,
-            _base_host: &str,
+            _base_host: Url,
         ) -> Result<CuratedRecommendationsResponse> {
             Err(Error::BadRequest {
                 code: 400,
@@ -230,7 +235,7 @@ mod tests {
         let response_result = client_inner.get_curated_recommendations(
             &request,
             "Rust-HTTP-Client/0.1",
-            "https://merino.services.mozilla.com",
+            &Url::parse("https://merino.services.mozilla.com").unwrap(),
         );
 
         assert!(response_result.is_ok(), "Expected a successful response");
@@ -290,7 +295,7 @@ mod tests {
         let response = client_inner.get_curated_recommendations(
             &request,
             "Rust-HTTP-Client/0.1",
-            "https://merino.services.mozilla.com",
+            &Url::parse("https://merino.services.mozilla.com").unwrap(),
         );
         assert!(response.is_err());
 
@@ -325,7 +330,7 @@ mod tests {
         let response = client_inner.get_curated_recommendations(
             &request,
             "Rust-HTTP-Client/0.1",
-            "https://merino.services.mozilla.com",
+            &Url::parse("https://merino.services.mozilla.com").unwrap(),
         );
         assert!(response.is_err());
 
@@ -360,7 +365,7 @@ mod tests {
         let response = client_inner.get_curated_recommendations(
             &request,
             "Rust-HTTP-Client/0.1",
-            "https://merino.services.mozilla.com",
+            &Url::parse("https://merino.services.mozilla.com").unwrap(),
         );
         assert!(response.is_err());
 

@@ -10,17 +10,12 @@ use viaduct::{header_names, Request, Response};
 pub struct HttpClient;
 
 impl HttpClient {
-    pub fn new() -> Self {
-        Self {}
-    }
-
     pub fn make_curated_recommendation_request(
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        url: &str,
+        url: Url,
     ) -> Result<CuratedRecommendationsResponse, Error> {
-        let url = Url::parse(&url)?;
         log::trace!("making request: {url}");
         let response: Response = Request::post(url)
             .header(header_names::ACCEPT, "application/json")?
@@ -64,7 +59,7 @@ pub trait HttpClientTrait {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        url: &str,
+        url: Url,
     ) -> super::error::Result<CuratedRecommendationsResponse>;
 }
 
@@ -73,7 +68,7 @@ impl HttpClientTrait for HttpClient {
         &self,
         request: &CuratedRecommendationsRequest,
         user_agent_header: &str,
-        url: &str,
+        url: Url,
     ) -> super::error::Result<CuratedRecommendationsResponse> {
         self.make_curated_recommendation_request(request, user_agent_header, url)
     }
