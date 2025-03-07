@@ -2933,6 +2933,7 @@ dependencies = [
  "suggest",
  "sync_manager",
  "tabs",
+ "uniffi",
  "viaduct",
 ]
 
