@@ -9,6 +9,7 @@ members = [
     "components/example",
     #"components/example/cli",
     "components/fxa-client",
+    "components/init_rust_components",
     "components/logins",
     "components/merino",
     "components/nimbus",
@@ -95,6 +96,7 @@ default-members = [
     "components/autofill",
     "components/crashtest",
     "components/fxa-client",
+    "components/init_rust_components",
     "components/logins",
     "components/nimbus",
     "components/places",
@@ -123,8 +125,8 @@ default-members = [
     "components/tabs",
     "components/viaduct",
     "components/webext-storage",
-# Disabled for intermittent failures; see SDK-233 and #3909 for details.
-#    "testing/sync-test",
+    # Disabled for intermittent failures; see SDK-233 and #3909 for details.
+    #    "testing/sync-test",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
     "tools/uniffi-bindgen-library-mode",

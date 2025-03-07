@@ -1,6 +1,23 @@
-# v137.0 (In progress)
+# v138.0 (In progress)
 
 ## 🦊 What's Changed 🦊
+
+### Android
+- Upgraded Kotlin compiler from 1.9.24 to 2.1.10 ([#6640](https://github.com/mozilla/application-services/pull/6640))
+
+[Full Changelog](In progress)
+
+# v137.0 (_2025-03-03_)
+
+## ✨ What's New ✨
+
+### Merino
+- added a client for merino curated recommendations endpoint
+
+## 🦊 What's Changed 🦊
+
+### `init_rust_components`
+- new component to provide Rust initialization routines, initially aimed at initializing NSS
 
 ### Android
 - Upgraded NDK from r27c to r28. ([#6588](https://github.com/mozilla/application-services/pull/6588))
@@ -10,8 +27,7 @@
 
 ### Nimbus SDK ⛅️🔬🔭
 - Enable enrollment status telemetry ([#6606](https://github.com/mozilla/application-services/pull/6606))
-
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v136.0...v137.0)
 
 # v136.0 (_2025-02-03_)
 

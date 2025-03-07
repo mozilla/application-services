@@ -10,7 +10,6 @@ exclude = ["/android", "/ios"]
 
 [features]
 default = []
-jexl = ["dep:jexl-eval"]
 signatures = ["dep:canonical_json", "dep:rc_crypto"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -28,7 +27,7 @@ viaduct = { path = "../viaduct" }
 url = "2"
 camino = "1.0"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
-jexl-eval = { version = "0.3.0", optional = true }
+jexl-eval = { version = "0.3.0" }
 regex = "1.9"
 anyhow = "1.0"
 firefox-versioning = { path = "../support/firefox-versioning" }

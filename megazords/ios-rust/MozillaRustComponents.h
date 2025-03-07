@@ -21,3 +21,4 @@
 #import "as_ohttp_clientFFI.h"
 #import "suggestFFI.h"
 #import "rustlogforwarderFFI.h"
+#import "searchFFI.h"

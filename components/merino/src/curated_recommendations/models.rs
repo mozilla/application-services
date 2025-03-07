@@ -4,7 +4,7 @@
  */
 use serde::{Deserialize, Serialize};
 
-// Locales supported by Merino Curated Reccomendations
+// Locales supported by Merino Curated Recommendations
 #[derive(Debug, Serialize, PartialEq, uniffi::Enum)]
 pub enum Locale {
     #[serde(rename = "fr")]
@@ -40,11 +40,11 @@ pub enum Locale {
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
 pub struct SectionSettings {
     #[serde(rename = "sectionId")]
-    section_id: String,
+    pub section_id: String,
     #[serde(rename = "isFollowed")]
-    is_followed: bool,
+    pub is_followed: bool,
     #[serde(rename = "isBlocked")]
-    is_blocked: bool,
+    pub is_blocked: bool,
 }
 
 // Information required to request curated recommendations
@@ -53,7 +53,7 @@ pub struct CuratedRecommendationsRequest {
     pub locale: Locale,
     #[uniffi(default = None)]
     pub region: Option<String>,
-    #[uniffi(default = None)]
+    #[uniffi(default = "Some(100)")]
     pub count: Option<i32>,
     #[uniffi(default = None)]
     pub topics: Option<Vec<String>>,
@@ -67,19 +67,40 @@ pub struct CuratedRecommendationsRequest {
     #[serde(rename = "experimentBranch")]
     #[uniffi(default = None)]
     pub experiment_branch: Option<String>,
+    #[serde(rename = "enableInterestPicker")]
+    #[uniffi(default = false)]
+    pub enable_interest_picker: bool,
 }
 
 // Response schema for a list of curated recommendations
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsResponse {
     #[serde(rename = "recommendedAt")]
-    pub recommended_at: i32,
-    pub data: Vec<ReccomendationDataItem>,
+    pub recommended_at: i64,
+    pub data: Vec<RecommendationDataItem>,
     #[uniffi(default = None)]
     pub feeds: Option<Feeds>,
+    #[serde(rename = "interestPicker")]
+    #[uniffi(default = None)]
+    pub interest_picker: Option<InterestPicker>,
 }
 
-// Multiple list of curated recoummendations
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+pub struct InterestPicker {
+    #[serde(rename = "receivedFeedRank")]
+    pub received_feed_rank: i32,
+    pub title: String,
+    pub subtitle: String,
+    pub sections: Vec<InterestPickerSection>,
+}
+
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+pub struct InterestPickerSection {
+    #[serde(rename = "sectionId")]
+    pub section_id: String,
+}
+
+// Multiple list of curated recommendations
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct Feeds {
     #[uniffi(default = None)]
@@ -126,7 +147,7 @@ pub struct Feeds {
 
 // Curated Recommendation Information
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
-pub struct ReccomendationDataItem {
+pub struct RecommendationDataItem {
     #[serde(rename = "corpusItemId")]
     pub corpus_item_id: String,
     #[serde(rename = "scheduledCorpusItemId")]
@@ -141,16 +162,18 @@ pub struct ReccomendationDataItem {
     pub is_time_sensitive: bool,
     #[serde(rename = "imageUrl")]
     pub image_url: String,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: Option<String>,
     #[serde(rename = "tileId")]
-    pub tile_id: i32,
+    pub tile_id: i64,
     #[serde(rename = "receivedRank")]
-    pub received_rank: i32,
+    pub received_rank: i64,
 }
 
 // Ranked list of curated recommendations
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsBucket {
-    pub recommendations: Vec<ReccomendationDataItem>,
+    pub recommendations: Vec<RecommendationDataItem>,
     #[uniffi(default = None)]
     pub title: Option<String>,
 }
@@ -192,7 +215,7 @@ pub struct FakespotCta {
 pub struct FeedSection {
     #[serde(rename = "receivedFeedRank")]
     pub received_feed_rank: i32,
-    pub recommendations: Vec<ReccomendationDataItem>,
+    pub recommendations: Vec<RecommendationDataItem>,
     pub title: String,
     #[uniffi(default = None)]
     pub subtitle: Option<String>,
