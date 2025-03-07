@@ -40,21 +40,21 @@ use remote_settings::{
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{
-    error::Error, provider::SuggestionProvider, query::full_keywords_to_fts_content, Result,
-};
+use crate::{error::Error, query::full_keywords_to_fts_content, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Collection {
-    Quicksuggest,
+    Amp,
     Fakespot,
+    Other,
 }
 
 impl Collection {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Quicksuggest => "quicksuggest",
+            Self::Amp => "quicksuggest-amp",
             Self::Fakespot => "fakespot-suggest-products",
+            Self::Other => "quicksuggest-other",
         }
     }
 }
@@ -80,22 +80,25 @@ pub(crate) trait Client {
 /// Implements the [Client] trait using a real remote settings client
 pub struct SuggestRemoteSettingsClient {
     // Create a separate client for each collection name
-    quicksuggest_client: Arc<RemoteSettingsClient>,
+    amp_client: Arc<RemoteSettingsClient>,
+    other_client: Arc<RemoteSettingsClient>,
     fakespot_client: Arc<RemoteSettingsClient>,
 }
 
 impl SuggestRemoteSettingsClient {
     pub fn new(rs_service: &RemoteSettingsService) -> Result<Self> {
         Ok(Self {
-            quicksuggest_client: rs_service.make_client("quicksuggest".to_owned())?,
-            fakespot_client: rs_service.make_client("fakespot-suggest-products".to_owned())?,
+            amp_client: rs_service.make_client(Collection::Amp.name().to_owned())?,
+            other_client: rs_service.make_client(Collection::Other.name().to_owned())?,
+            fakespot_client: rs_service.make_client(Collection::Fakespot.name().to_owned())?,
         })
     }
 
     fn client_for_collection(&self, collection: Collection) -> &RemoteSettingsClient {
         match collection {
+            Collection::Amp => &self.amp_client,
+            Collection::Other => &self.other_client,
             Collection::Fakespot => &self.fakespot_client,
-            Collection::Quicksuggest => &self.quicksuggest_client,
         }
     }
 }
@@ -176,8 +179,10 @@ impl From<Record> for RemoteSettingsRecord {
 pub(crate) enum SuggestRecord {
     #[serde(rename = "icon")]
     Icon,
-    #[serde(rename = "data")]
-    AmpWikipedia,
+    #[serde(rename = "amp")]
+    Amp,
+    #[serde(rename = "wikipedia")]
+    Wikipedia,
     #[serde(rename = "amo-suggestions")]
     Amo,
     #[serde(rename = "pocket-suggestions")]
@@ -190,8 +195,6 @@ pub(crate) enum SuggestRecord {
     Weather,
     #[serde(rename = "configuration")]
     GlobalConfig(DownloadedGlobalConfig),
-    #[serde(rename = "amp-mobile-suggestions")]
-    AmpMobile,
     #[serde(rename = "fakespot-suggestions")]
     Fakespot,
     #[serde(rename = "exposure-suggestions")]
@@ -215,14 +218,14 @@ impl SuggestRecord {
 #[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum SuggestRecordType {
     Icon,
-    AmpWikipedia,
+    Amp,
+    Wikipedia,
     Amo,
     Pocket,
     Yelp,
     Mdn,
     Weather,
     GlobalConfig,
-    AmpMobile,
     Fakespot,
     Exposure,
     Geonames,
@@ -232,14 +235,14 @@ impl From<&SuggestRecord> for SuggestRecordType {
     fn from(suggest_record: &SuggestRecord) -> Self {
         match suggest_record {
             SuggestRecord::Amo => Self::Amo,
-            SuggestRecord::AmpWikipedia => Self::AmpWikipedia,
+            SuggestRecord::Amp => Self::Amp,
+            SuggestRecord::Wikipedia => Self::Wikipedia,
             SuggestRecord::Icon => Self::Icon,
             SuggestRecord::Mdn => Self::Mdn,
             SuggestRecord::Pocket => Self::Pocket,
             SuggestRecord::Weather => Self::Weather,
             SuggestRecord::Yelp => Self::Yelp,
             SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
-            SuggestRecord::AmpMobile => Self::AmpMobile,
             SuggestRecord::Fakespot => Self::Fakespot,
             SuggestRecord::Exposure(_) => Self::Exposure,
             SuggestRecord::Geonames => Self::Geonames,
@@ -261,14 +264,14 @@ impl SuggestRecordType {
     pub fn all() -> &'static [SuggestRecordType] {
         &[
             Self::Icon,
-            Self::AmpWikipedia,
+            Self::Amp,
+            Self::Wikipedia,
             Self::Amo,
             Self::Pocket,
             Self::Yelp,
             Self::Mdn,
             Self::Weather,
             Self::GlobalConfig,
-            Self::AmpMobile,
             Self::Fakespot,
             Self::Exposure,
             Self::Geonames,
@@ -278,24 +281,17 @@ impl SuggestRecordType {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Icon => "icon",
-            Self::AmpWikipedia => "data",
+            Self::Amp => "amp",
+            Self::Wikipedia => "wikipedia",
             Self::Amo => "amo-suggestions",
             Self::Pocket => "pocket-suggestions",
             Self::Yelp => "yelp-suggestions",
             Self::Mdn => "mdn-suggestions",
             Self::Weather => "weather",
             Self::GlobalConfig => "configuration",
-            Self::AmpMobile => "amp-mobile-suggestions",
             Self::Fakespot => "fakespot-suggestions",
             Self::Exposure => "exposure-suggestions",
             Self::Geonames => "geonames",
-        }
-    }
-
-    pub fn collection(&self) -> Collection {
-        match self {
-            Self::Fakespot => Collection::Fakespot,
-            _ => Collection::Quicksuggest,
         }
     }
 }
@@ -354,22 +350,15 @@ impl fmt::Display for SuggestRecordId {
     }
 }
 
-/// Fields that are common to all downloaded suggestions.
+/// An AMP suggestion to ingest from an AMP attachment.
 #[derive(Clone, Debug, Default, Deserialize)]
-pub(crate) struct DownloadedSuggestionCommonDetails {
+pub(crate) struct DownloadedAmpSuggestion {
     pub keywords: Vec<String>,
     pub title: String,
     pub url: String,
     pub score: Option<f64>,
     #[serde(default)]
     pub full_keywords: Vec<(String, usize)>,
-}
-
-/// An AMP suggestion to ingest from an AMP-Wikipedia attachment.
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(crate) struct DownloadedAmpSuggestion {
-    #[serde(flatten)]
-    pub common_details: DownloadedSuggestionCommonDetails,
     pub advertiser: String,
     #[serde(rename = "id")]
     pub block_id: i32,
@@ -380,63 +369,55 @@ pub(crate) struct DownloadedAmpSuggestion {
     pub icon_id: String,
 }
 
-/// A Wikipedia suggestion to ingest from an AMP-Wikipedia attachment.
+/// A Wikipedia suggestion to ingest from a Wikipedia attachment.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct DownloadedWikipediaSuggestion {
-    #[serde(flatten)]
-    pub common_details: DownloadedSuggestionCommonDetails,
+    pub keywords: Vec<String>,
+    pub title: String,
+    pub url: String,
+    pub score: Option<f64>,
+    #[serde(default)]
+    pub full_keywords: Vec<(String, usize)>,
     #[serde(rename = "icon")]
     pub icon_id: String,
 }
 
-/// A suggestion to ingest from an AMP-Wikipedia attachment downloaded from
-/// Remote Settings.
-#[derive(Clone, Debug)]
-pub(crate) enum DownloadedAmpWikipediaSuggestion {
-    Amp(DownloadedAmpSuggestion),
-    Wikipedia(DownloadedWikipediaSuggestion),
+/// Iterate over all AMP/Wikipedia-style keywords.
+pub fn iterate_keywords<'a>(
+    keywords: &'a [String],
+    full_keywords: &'a [(String, usize)],
+) -> impl Iterator<Item = AmpKeyword<'a>> {
+    let full_keywords_iter = full_keywords
+        .iter()
+        .flat_map(|(full_keyword, repeat_for)| {
+            std::iter::repeat(Some(full_keyword.as_str())).take(*repeat_for)
+        })
+        .chain(std::iter::repeat(None)); // In case of insufficient full keywords, just fill in with infinite `None`s
+                                         //
+    keywords
+        .iter()
+        .zip(full_keywords_iter)
+        .enumerate()
+        .map(move |(i, (keyword, full_keyword))| AmpKeyword {
+            rank: i,
+            keyword,
+            full_keyword,
+        })
 }
 
-impl DownloadedAmpWikipediaSuggestion {
-    /// Returns the details that are common to AMP and Wikipedia suggestions.
-    pub fn common_details(&self) -> &DownloadedSuggestionCommonDetails {
-        match self {
-            Self::Amp(DownloadedAmpSuggestion { common_details, .. }) => common_details,
-            Self::Wikipedia(DownloadedWikipediaSuggestion { common_details, .. }) => common_details,
-        }
-    }
-
-    /// Returns the provider of this suggestion.
-    pub fn provider(&self) -> SuggestionProvider {
-        match self {
-            DownloadedAmpWikipediaSuggestion::Amp(_) => SuggestionProvider::Amp,
-            DownloadedAmpWikipediaSuggestion::Wikipedia(_) => SuggestionProvider::Wikipedia,
-        }
-    }
-}
-
-impl DownloadedSuggestionCommonDetails {
-    /// Iterate over all keywords for this suggestion
+impl DownloadedAmpSuggestion {
     pub fn keywords(&self) -> impl Iterator<Item = AmpKeyword<'_>> {
-        let full_keywords = self
-            .full_keywords
-            .iter()
-            .flat_map(|(full_keyword, repeat_for)| {
-                std::iter::repeat(Some(full_keyword.as_str())).take(*repeat_for)
-            })
-            .chain(std::iter::repeat(None)); // In case of insufficient full keywords, just fill in with infinite `None`s
-                                             //
-        self.keywords.iter().zip(full_keywords).enumerate().map(
-            move |(i, (keyword, full_keyword))| AmpKeyword {
-                rank: i,
-                keyword,
-                full_keyword,
-            },
-        )
+        iterate_keywords(&self.keywords, &self.full_keywords)
     }
 
     pub fn full_keywords_fts_column(&self) -> String {
         full_keywords_to_fts_content(self.full_keywords.iter().map(|(s, _)| s.as_str()))
+    }
+}
+
+impl DownloadedWikipediaSuggestion {
+    pub fn keywords(&self) -> impl Iterator<Item = AmpKeyword<'_>> {
+        iterate_keywords(&self.keywords, &self.full_keywords)
     }
 }
 
@@ -445,44 +426,6 @@ pub(crate) struct AmpKeyword<'a> {
     pub rank: usize,
     pub keyword: &'a str,
     pub full_keyword: Option<&'a str>,
-}
-
-impl<'de> Deserialize<'de> for DownloadedAmpWikipediaSuggestion {
-    fn deserialize<D>(
-        deserializer: D,
-    ) -> std::result::Result<DownloadedAmpWikipediaSuggestion, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // AMP and Wikipedia suggestions use the same schema. To separate them,
-        // we use a "maybe tagged" outer enum with tagged and untagged variants,
-        // and a "tagged" inner enum.
-        //
-        // Wikipedia suggestions will deserialize successfully into the tagged
-        // variant. AMP suggestions will try the tagged variant, fail, and fall
-        // back to the untagged variant.
-        //
-        // This approach works around serde-rs/serde#912.
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum MaybeTagged {
-            Tagged(Tagged),
-            Untagged(DownloadedAmpSuggestion),
-        }
-
-        #[derive(Deserialize)]
-        #[serde(tag = "advertiser")]
-        enum Tagged {
-            #[serde(rename = "Wikipedia")]
-            Wikipedia(DownloadedWikipediaSuggestion),
-        }
-
-        Ok(match MaybeTagged::deserialize(deserializer)? {
-            MaybeTagged::Tagged(Tagged::Wikipedia(wikipedia)) => Self::Wikipedia(wikipedia),
-            MaybeTagged::Untagged(amp) => Self::Amp(amp),
-        })
-    }
 }
 
 /// An AMO suggestion to ingest from an attachment
@@ -665,24 +608,21 @@ mod test {
 
     #[test]
     fn test_full_keywords() {
-        let suggestion = DownloadedAmpWikipediaSuggestion::Amp(DownloadedAmpSuggestion {
-            common_details: DownloadedSuggestionCommonDetails {
-                keywords: vec![
-                    String::from("f"),
-                    String::from("fo"),
-                    String::from("foo"),
-                    String::from("foo b"),
-                    String::from("foo ba"),
-                    String::from("foo bar"),
-                ],
-                full_keywords: vec![(String::from("foo"), 3), (String::from("foo bar"), 3)],
-                ..DownloadedSuggestionCommonDetails::default()
-            },
+        let suggestion = DownloadedAmpSuggestion {
+            keywords: vec![
+                String::from("f"),
+                String::from("fo"),
+                String::from("foo"),
+                String::from("foo b"),
+                String::from("foo ba"),
+                String::from("foo bar"),
+            ],
+            full_keywords: vec![(String::from("foo"), 3), (String::from("foo bar"), 3)],
             ..DownloadedAmpSuggestion::default()
-        });
+        };
 
         assert_eq!(
-            Vec::from_iter(suggestion.common_details().keywords()),
+            Vec::from_iter(suggestion.keywords()),
             vec![
                 AmpKeyword {
                     rank: 0,
@@ -720,25 +660,22 @@ mod test {
 
     #[test]
     fn test_missing_full_keywords() {
-        let suggestion = DownloadedAmpWikipediaSuggestion::Amp(DownloadedAmpSuggestion {
-            common_details: DownloadedSuggestionCommonDetails {
-                keywords: vec![
-                    String::from("f"),
-                    String::from("fo"),
-                    String::from("foo"),
-                    String::from("foo b"),
-                    String::from("foo ba"),
-                    String::from("foo bar"),
-                ],
-                // Only the first 3 keywords have full keywords associated with them
-                full_keywords: vec![(String::from("foo"), 3)],
-                ..DownloadedSuggestionCommonDetails::default()
-            },
+        let suggestion = DownloadedAmpSuggestion {
+            keywords: vec![
+                String::from("f"),
+                String::from("fo"),
+                String::from("foo"),
+                String::from("foo b"),
+                String::from("foo ba"),
+                String::from("foo bar"),
+            ],
+            // Only the first 3 keywords have full keywords associated with them
+            full_keywords: vec![(String::from("foo"), 3)],
             ..DownloadedAmpSuggestion::default()
-        });
+        };
 
         assert_eq!(
-            Vec::from_iter(suggestion.common_details().keywords()),
+            Vec::from_iter(suggestion.keywords()),
             vec![
                 AmpKeyword {
                     rank: 0,

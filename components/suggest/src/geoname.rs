@@ -487,15 +487,28 @@ impl<'conn> GeonameMetricsInsertStatement<'conn> {
 pub(crate) mod tests {
     use super::*;
     use crate::{
-        provider::SuggestionProvider, store::tests::TestStore, testing::*,
+        provider::SuggestionProvider,
+        rs::{Collection, SuggestRecordType},
+        store::tests::TestStore,
+        testing::*,
         SuggestIngestionConstraints,
     };
+    use serde_json::Value as JsonValue;
 
     pub(crate) const LONG_NAME: &str = "aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt uuu vvv www x yyy zzz";
 
+    pub(crate) fn geoname_mock_record(id: &str, json: JsonValue) -> MockRecord {
+        MockRecord {
+            collection: Collection::Other,
+            record_type: SuggestRecordType::Geonames,
+            id: id.to_string(),
+            inline_data: None,
+            attachment: Some(MockAttachment::Json(json)),
+        }
+    }
+
     pub(crate) fn new_test_store() -> TestStore {
-        TestStore::new(MockRemoteSettingsClient::default().with_record(
-            "geonames",
+        TestStore::new(MockRemoteSettingsClient::default().with_record(geoname_mock_record(
             "geonames-0",
             json!({
                 "max_alternate_name_length": LONG_NAME.len(),
@@ -684,7 +697,7 @@ pub(crate) mod tests {
                     },
                 ],
             }),
-        ))
+        )))
     }
 
     pub(crate) fn waterloo_al() -> Geoname {
@@ -1288,24 +1301,22 @@ pub(crate) mod tests {
         // metrics so the other values don't matter.
         let mut store = TestStore::new(
             MockRemoteSettingsClient::default()
-                .with_record(
-                    "geonames",
+                .with_record(geoname_mock_record(
                     "geonames-0",
                     json!({
                         "max_alternate_name_length": 10,
                         "max_alternate_name_word_count": 5,
                         "geonames": []
                     }),
-                )
-                .with_record(
-                    "geonames",
+                ))
+                .with_record(geoname_mock_record(
                     "geonames-1",
                     json!({
                         "max_alternate_name_length": 20,
                         "max_alternate_name_word_count": 2,
                         "geonames": []
                     }),
-                ),
+                )),
         );
 
         // Ingest weather to also ingest geonames.
@@ -1324,7 +1335,7 @@ pub(crate) mod tests {
         // Delete the first record. The metrics should change.
         store
             .client_mut()
-            .delete_record("quicksuggest", "geonames-0");
+            .delete_record(geoname_mock_record("geonames-0", json!({})));
         store.ingest(SuggestIngestionConstraints {
             providers: Some(vec![SuggestionProvider::Weather]),
             ..SuggestIngestionConstraints::all_providers()
@@ -1337,15 +1348,14 @@ pub(crate) mod tests {
         })?;
 
         // Add a new record. The metrics should change again.
-        store.client_mut().add_record(
-            "geonames",
+        store.client_mut().add_record(geoname_mock_record(
             "geonames-3",
             json!({
                 "max_alternate_name_length": 15,
                 "max_alternate_name_word_count": 3,
                 "geonames": []
             }),
-        );
+        ));
         store.ingest(SuggestIngestionConstraints {
             providers: Some(vec![SuggestionProvider::Weather]),
             ..SuggestIngestionConstraints::all_providers()
@@ -1394,7 +1404,7 @@ pub(crate) mod tests {
         // Delete the record.
         store
             .client_mut()
-            .delete_record("quicksuggest", "geonames-0");
+            .delete_record(geoname_mock_record("geonames-0", json!({})));
         store.ingest(SuggestIngestionConstraints {
             providers: Some(vec![SuggestionProvider::Weather]),
             ..SuggestIngestionConstraints::all_providers()
