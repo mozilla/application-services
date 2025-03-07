@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use crate::{db::SuggestDao, error::Error, rs, Result};
+use crate::{error::Error, rs, Result};
 
 /// Remotes settings client for benchmarking
 ///
@@ -87,11 +87,7 @@ impl RemoteSettingsBenchmarkClient {
 }
 
 impl rs::Client for RemoteSettingsBenchmarkClient {
-    fn get_records(
-        &self,
-        collection: rs::Collection,
-        _db: &mut SuggestDao,
-    ) -> Result<Vec<rs::Record>> {
+    fn get_records(&self, collection: rs::Collection) -> Result<Vec<rs::Record>> {
         Ok(self
             .records
             .iter()

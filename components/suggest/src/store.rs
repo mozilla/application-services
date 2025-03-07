@@ -12,7 +12,7 @@ use std::{
 use error_support::{breadcrumb, handle_error};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use remote_settings::{self, RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
+use remote_settings::{self, RemoteSettingsError, RemoteSettingsServer, RemoteSettingsService};
 
 use serde::de::DeserializeOwned;
 
@@ -24,8 +24,8 @@ use crate::{
     metrics::{MetricsContext, SuggestIngestionMetrics, SuggestQueryMetrics},
     provider::{SuggestionProvider, SuggestionProviderConstraints, DEFAULT_INGEST_PROVIDERS},
     rs::{
-        Client, Collection, DownloadedExposureRecord, Record, RemoteSettingsClient,
-        SuggestAttachment, SuggestRecord, SuggestRecordId, SuggestRecordType,
+        Client, Collection, DownloadedExposureRecord, Record, SuggestAttachment, SuggestRecord,
+        SuggestRecordId, SuggestRecordType, SuggestRemoteSettingsClient,
     },
     suggestion::AmpSuggestionType,
     QueryWithMetricsResult, Result, SuggestApiResult, Suggestion, SuggestionQuery,
@@ -42,6 +42,7 @@ pub struct SuggestStoreBuilder(Mutex<SuggestStoreBuilderInner>);
 struct SuggestStoreBuilderInner {
     data_path: Option<String>,
     remote_settings_server: Option<RemoteSettingsServer>,
+    remote_settings_service: Option<Arc<RemoteSettingsService>>,
     remote_settings_bucket_name: Option<String>,
     extensions_to_load: Vec<Sqlite3Extension>,
 }
@@ -82,10 +83,9 @@ impl SuggestStoreBuilder {
 
     pub fn remote_settings_service(
         self: Arc<Self>,
-        _rs_service: Arc<RemoteSettingsService>,
+        rs_service: Arc<RemoteSettingsService>,
     ) -> Arc<Self> {
-        // When #6607 lands, this will set the remote settings service.
-        // For now, it just exists so we can move consumers over to the new API ahead of time.
+        self.0.lock().remote_settings_service = Some(rs_service);
         self
     }
 
@@ -114,15 +114,17 @@ impl SuggestStoreBuilder {
             .data_path
             .clone()
             .ok_or_else(|| Error::SuggestStoreBuilder("data_path not specified".to_owned()))?;
-
-        let client = RemoteSettingsClient::new(
-            inner.remote_settings_server.clone(),
-            inner.remote_settings_bucket_name.clone(),
-            None,
-        )?;
-
+        let rs_service = inner.remote_settings_service.clone().ok_or_else(|| {
+            Error::RemoteSettings(RemoteSettingsError::Other {
+                reason: "remote_settings_service_not_specified".to_string(),
+            })
+        })?;
         Ok(Arc::new(SuggestStore {
-            inner: SuggestStoreInner::new(data_path, extensions_to_load, client),
+            inner: SuggestStoreInner::new(
+                data_path,
+                extensions_to_load,
+                SuggestRemoteSettingsClient::new(&rs_service)?,
+            ),
         }))
     }
 }
@@ -169,30 +171,19 @@ pub enum InterruptKind {
 ///    on the first launch.
 #[derive(uniffi::Object)]
 pub struct SuggestStore {
-    inner: SuggestStoreInner<RemoteSettingsClient>,
+    inner: SuggestStoreInner<SuggestRemoteSettingsClient>,
 }
 
 #[uniffi::export]
 impl SuggestStore {
     /// Creates a Suggest store.
     #[handle_error(Error)]
-    #[uniffi::constructor(default(settings_config = None))]
+    #[uniffi::constructor()]
     pub fn new(
         path: &str,
-        settings_config: Option<RemoteSettingsConfig>,
+        remote_settings_service: Arc<RemoteSettingsService>,
     ) -> SuggestApiResult<Self> {
-        let client = match settings_config {
-            Some(settings_config) => RemoteSettingsClient::new(
-                settings_config.server,
-                settings_config.bucket_name,
-                settings_config.server_url,
-                // Note: collection name is ignored, since we fetch from multiple collections
-                // (fakespot-suggest-products and quicksuggest).  No consumer sets it to a
-                // non-default value anyways.
-            )?,
-            None => RemoteSettingsClient::new(None, None, None)?,
-        };
-
+        let client = SuggestRemoteSettingsClient::new(&remote_settings_service)?;
         Ok(Self {
             inner: SuggestStoreInner::new(path.to_owned(), vec![], client),
         })
@@ -578,8 +569,7 @@ where
         // For each collection, fetch all records
         for (collection, record_types) in record_types_by_collection {
             breadcrumb!("Ingesting collection {}", collection.name());
-            let records =
-                write_scope.write(|dao| self.settings_client.get_records(collection, dao))?;
+            let records = self.settings_client.get_records(collection)?;
 
             // For each record type in that collection, calculate the changes and pass them to
             // [Self::ingest_records]
@@ -851,11 +841,9 @@ where
         let writer = &self.dbs().unwrap().writer;
         let mut context = MetricsContext::default();
         let ingested_records = writer.read(|dao| dao.get_ingested_records()).unwrap();
-        let records = writer
-            .write(|dao| {
-                self.settings_client
-                    .get_records(ingest_record_type.collection(), dao)
-            })
+        let records = self
+            .settings_client
+            .get_records(ingest_record_type.collection())
             .unwrap();
 
         let changes = RecordChanges::new(

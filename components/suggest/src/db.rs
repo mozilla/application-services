@@ -7,11 +7,10 @@ use std::{cell::OnceCell, path::Path, sync::Arc};
 
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use parking_lot::{Mutex, MutexGuard};
-use remote_settings::RemoteSettingsResponse;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
-    Connection, OptionalExtension,
+    Connection,
 };
 use sql_support::{open_database, repeat_sql_vars, ConnExt};
 
@@ -201,52 +200,6 @@ impl<'a> SuggestDao<'a> {
     // =============== Low level API ===============
     //
     //  These methods implement CRUD operations
-
-    pub fn read_cached_rs_data(&self, collection: &str) -> Option<RemoteSettingsResponse> {
-        match self.try_read_cached_rs_data(collection) {
-            Ok(result) => result,
-            Err(e) => {
-                // Return None on failure . If the cached data is corrupted, maybe because the
-                // RemoteSettingsResponse schema changed, then we want to just continue on.  This also matches
-                // the proposed API from #6328, so it should be easier to adapt this code once
-                // that's merged.
-                error_support::report_error!("suggest-rs-cache-read", "{e}");
-                None
-            }
-        }
-    }
-
-    pub fn write_cached_rs_data(&mut self, collection: &str, data: &RemoteSettingsResponse) {
-        if let Err(e) = self.try_write_cached_rs_data(collection, data) {
-            // Return None on failure for the same reason as in [Self::read_cached_rs_data]
-            error_support::report_error!("suggest-rs-cache-write", "{e}");
-        }
-    }
-
-    fn try_read_cached_rs_data(&self, collection: &str) -> Result<Option<RemoteSettingsResponse>> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("SELECT data FROM rs_cache WHERE collection = ?")?;
-        let data = stmt
-            .query_row((collection,), |row| row.get::<_, Vec<u8>>(0))
-            .optional()?;
-        match data {
-            Some(data) => Ok(Some(rmp_serde::decode::from_slice(data.as_slice())?)),
-            None => Ok(None),
-        }
-    }
-
-    fn try_write_cached_rs_data(
-        &mut self,
-        collection: &str,
-        data: &RemoteSettingsResponse,
-    ) -> Result<()> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("INSERT OR REPLACE INTO rs_cache(collection, data) VALUES(?, ?)")?;
-        stmt.execute((collection, rmp_serde::encode::to_vec(data)?))?;
-        Ok(())
-    }
 
     pub fn get_ingested_records(&self) -> Result<Vec<IngestedRecord>> {
         let mut stmt = self
