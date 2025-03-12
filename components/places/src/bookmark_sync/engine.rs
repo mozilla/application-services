@@ -591,6 +591,19 @@ fn apply_remote_items(db: &PlacesDb, scope: &SqlInterruptScope, now: Timestamp) 
            dateAdded = excluded.dateAdded,
            lastModified = excluded.lastModified,
            fk = excluded.fk,
+           syncStatus = {sync_status}
+       /* Due to bug 1935797, we found scenarios where users had bookmarks with GUIDs that matched
+        * incoming records BUT for one reason or another dogear doesn't believe it exists locally
+        * This handles the case where we try to insert a new bookmark with a GUID that already exists,
+        * updating the existing record instead of failing with a constraint violation.
+        * Usually the above conflict will catch most of these scenarios and there's no issue of
+        * any dupes being added here since users that hit this before would've just failed the bookmark sync
+        */
+        ON CONFLICT(guid) DO UPDATE SET
+           title = excluded.title,
+           dateAdded = excluded.dateAdded,
+           lastModified = excluded.lastModified,
+           fk = excluded.fk,
            syncStatus = {sync_status}",
         root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
         type_fragment = ItemTypeFragment("newKind"),
@@ -4412,8 +4425,14 @@ mod tests {
         Ok(())
     }
 
+    /*
+     * Due to bug 1935797, Users were running into a state where in itemsToApply
+     * localID = None/Null, but mergedGuid was something already locally in the
+     * tree -- this lead to an uptick of guid collision issues in `apply_remote_items`
+     * below is an example of a 'user' going into this state and the new code fixing it
+     */
     #[test]
-    fn test_db_level_unique_guid_violation() -> Result<()> {
+    fn test_handle_unique_guid_violation() -> Result<()> {
         use error_support::{
             set_application_error_reporter, ArcReporterAdapter, TestErrorReporter,
         };
@@ -4442,13 +4461,13 @@ mod tests {
         INSERT INTO moz_bookmarks(guid, parent, fk, position, type)
         VALUES (
             'collisionGUI',
-            (SELECT id FROM moz_bookmarks WHERE guid = '{unfiled}'),
+            (SELECT id FROM moz_bookmarks WHERE guid = '{menu}'),
             (SELECT id FROM moz_places WHERE guid = 'testPlaceGuidAAAA'),
             0,
             1  -- type=1 => bookmark
         );
         "#,
-            unfiled = BookmarkRootGuid::Unfiled.as_guid(),
+            menu = BookmarkRootGuid::Menu.as_guid(),
         ))?;
 
         // Insert a row into itemsToApply that will cause an insert
@@ -4479,7 +4498,7 @@ mod tests {
             1,         -- newKind=1 => bookmark
             0,         -- level
             'New Title',   -- newTitle
-            1234,          -- newPlaceId => arbitrary
+            1,             -- newPlaceId
             NULL,          -- oldPlaceId
             1000,          -- localDateAdded
             2000,          -- remoteDateAdded
@@ -4491,17 +4510,23 @@ mod tests {
 
         // Call apply_remote_items directly.
         // This tries "INSERT INTO moz_bookmarks(guid='collisionGUI')"
-        // and should fail with a unique constraint.
+        // and should NOT fail with a unique constraint.
         let scope = conn.begin_interrupt_scope()?;
-        let _ = apply_remote_items(&conn, &scope, Timestamp(999));
-        // Check if we reported the expected error
-        let errors = test_reporter.get_errors();
-        assert!(
-            errors.iter().any(|(type_name, message)| {
-                type_name == "places-sync-bookmarks-constraint-violation"
-                    && message.contains("UNIQUE constraint failed: moz_bookmarks.guid")
+        apply_remote_items(&conn, &scope, Timestamp(999))?;
+
+        // Assert the tree still looks valid after applying
+        assert_local_json_tree(
+            &conn,
+            &BookmarkRootGuid::Menu.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                // should only be one child
+                "children": [{
+                    "guid": "collisionGUI",
+                    "title": "New Title", // title was updated from remote
+                    "url": "http://example.com/",
+                }],
             }),
-            "Expected to find pre-collision error report in: {errors:?}"
         );
         Ok(())
     }
