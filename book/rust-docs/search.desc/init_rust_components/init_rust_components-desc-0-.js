@@ -1,0 +1,1 @@
+searchState.loadedDescShard("init_rust_components", 0, "Initialization of the megazord crate. Must be called …")

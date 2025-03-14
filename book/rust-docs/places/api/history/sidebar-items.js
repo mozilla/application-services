@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RedirectSourceType"],"fn":["can_add_url","insert","visit_uri"],"struct":["AddablePlaceInfo","AddableVisit"]};
