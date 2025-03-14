@@ -21,8 +21,12 @@ ext.configurePublish = {
     publishing {
         publications {
             aar(MavenPublication) {
-                project.afterEvaluate {
-                    from components.release
+                // This doesn't work in m-c, but the entire "publish" flow will almost certainly need rethinking there,
+                // so just paper over this for now.
+                if (!gradle.root.hasProperty("mozconfig")) {
+                    project.afterEvaluate {
+                        from components.release
+                    }
                 }
 
                 if (isMegazord) {
