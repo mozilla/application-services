@@ -105,6 +105,7 @@ fn aes_cbc(
 #[cfg(test)]
 mod test {
     use super::*;
+    use nss::ensure_initialized;
 
     // These are the test vectors used by the sync15 crate, but concatenated
     // together rather than split into individual pieces.
@@ -132,6 +133,7 @@ mod test {
 
     #[test]
     fn test_decrypt() {
+        ensure_initialized();
         let key_bytes = STANDARD.decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
         let ciphertext_and_tag = STANDARD.decode(CIPHERTEXT_AND_TAG_B64).unwrap();
@@ -148,6 +150,7 @@ mod test {
 
     #[test]
     fn test_encrypt() {
+        ensure_initialized();
         let key_bytes = STANDARD.decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
         let cleartext = STANDARD.decode(CLEARTEXT_B64).unwrap();
@@ -164,6 +167,7 @@ mod test {
 
     #[test]
     fn test_roundtrip() {
+        ensure_initialized();
         let key_bytes = STANDARD.decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
         let cleartext = STANDARD.decode(CLEARTEXT_B64).unwrap();
@@ -183,6 +187,7 @@ mod test {
 
     #[test]
     fn test_decrypt_fails_with_wrong_aes_key() {
+        ensure_initialized();
         let mut key_bytes = STANDARD.decode(KEY_B64).unwrap();
         key_bytes[1] = b'X';
 
@@ -202,6 +207,7 @@ mod test {
 
     #[test]
     fn test_decrypt_fails_with_wrong_hmac_key() {
+        ensure_initialized();
         let mut key_bytes = STANDARD.decode(KEY_B64).unwrap();
         key_bytes[60] = b'X';
 
@@ -221,6 +227,7 @@ mod test {
 
     #[test]
     fn test_decrypt_fails_with_modified_ciphertext() {
+        ensure_initialized();
         let key_bytes = STANDARD.decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
         let iv = STANDARD.decode(IV_B64).unwrap();
@@ -240,6 +247,7 @@ mod test {
 
     #[test]
     fn test_decrypt_fails_with_modified_tag() {
+        ensure_initialized();
         let key_bytes = STANDARD.decode(KEY_B64).unwrap();
         let key = aead::Key::new(&LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes).unwrap();
         let iv = STANDARD.decode(IV_B64).unwrap();

@@ -51,6 +51,14 @@
 use crate::error::*;
 use std::sync::Arc;
 
+#[cfg(feature = "keydb")]
+use nss::expect_initialized as expect_nss_initialized;
+#[cfg(feature = "keydb")]
+use nss::pk11::sym_key::{
+    authenticate_with_primary_password, authentication_with_primary_password_is_needed,
+    get_or_create_aes256_key,
+};
+
 /// This is the generic EncryptorDecryptor trait, as handed over to the Store during initialization.
 /// Consumers can implement either this generic trait and bring in their own crypto, or leverage the
 /// ManagedEncryptorDecryptor below, which provides encryption algorithms out of the box.
@@ -160,6 +168,81 @@ impl KeyManager for StaticKeyManager {
     }
 }
 
+/// `PrimaryPasswordAuthenticator` is used in conjunction with `NSSKeyManager` to provide the
+/// primary password, if available.
+#[cfg(feature = "keydb")]
+#[uniffi::export(with_foreign)]
+pub trait PrimaryPasswordAuthenticator: Send + Sync {
+    fn get_primary_password(&self) -> ApiResult<String>;
+}
+
+/// Use the `NSSKeyManager` to use NSS for key management.
+/// NSS stores keys in `key4.db` within the profile and wraps the key with a key derived from the
+/// primary password, if set.
+/// Note that if no primary password is set, the wrapping key is deterministically derived from an
+/// empty string.
+#[cfg(feature = "keydb")]
+#[derive(uniffi::Object)]
+pub struct NSSKeyManager {
+    primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+}
+
+#[cfg(feature = "keydb")]
+impl NSSKeyManager {
+    /// Initialize new `NSSKeyManager` with a given profile path and
+    /// `PrimaryPasswordAuthenticator`. Initialization can fail due to insufficient profile path,
+    /// or if NSS has already been initialized without a profile path. A `NSSInitializationFailed`
+    /// error is returned in that case.
+    pub fn new(
+        primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+    ) -> ApiResult<Self> {
+        expect_nss_initialized().map_err(|_| LoginsApiError::NSSUninitialized {})?;
+        Ok(Self {
+            primary_password_authenticator,
+        })
+    }
+}
+
+/// Identifier for the logins key, under which the key is stored in NSS.
+#[cfg(feature = "keydb")]
+static KEY_NAME: &str = "as-logins-key";
+
+#[cfg(feature = "keydb")]
+impl KeyManager for NSSKeyManager {
+    #[handle_error(Error)]
+    fn get_key(&self) -> ApiResult<Vec<u8>> {
+        match authentication_with_primary_password_is_needed() {
+            Ok(is_needed) => {
+                if is_needed {
+                    match self.primary_password_authenticator.get_primary_password() {
+                        Ok(primary_password) => {
+                            match authenticate_with_primary_password(&primary_password) {
+                                Ok(result) => {
+                                    if !result {
+                                        panic!("wrong password");
+                                    }
+                                }
+                                Err(_) => panic!("authentication failed"),
+                            };
+                        }
+                        Err(_) => panic!("could not get primary password"),
+                    }
+                }
+            }
+            Err(_) => panic!("primary password check failed"),
+        }
+
+        let key = get_or_create_aes256_key(KEY_NAME).expect("Could not get or create key via NSS");
+        let mut bytes: Vec<u8> = Vec::new();
+        serde_json::to_writer(
+            &mut bytes,
+            &jwcrypto::Jwk::new_direct_from_bytes(None, &key),
+        )
+        .unwrap();
+        Ok(bytes)
+    }
+}
+
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
     jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)
@@ -200,9 +283,11 @@ pub mod test_utils {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nss::ensure_initialized;
 
     #[test]
     fn test_static_key_manager() {
+        ensure_initialized();
         let key = create_key().unwrap();
         let key_manager = StaticKeyManager { key: key.clone() };
         assert_eq!(key.as_bytes(), key_manager.get_key().unwrap());
@@ -210,6 +295,7 @@ mod test {
 
     #[test]
     fn test_managed_encdec_with_invalid_key() {
+        ensure_initialized();
         let key_manager = Arc::new(StaticKeyManager {
             key: "bad_key".to_owned(),
         });
@@ -222,6 +308,7 @@ mod test {
 
     #[test]
     fn test_managed_encdec_with_missing_key() {
+        ensure_initialized();
         struct MyKeyManager {}
         impl KeyManager for MyKeyManager {
             fn get_key(&self) -> ApiResult<Vec<u8>> {
@@ -238,6 +325,7 @@ mod test {
 
     #[test]
     fn test_managed_encdec() {
+        ensure_initialized();
         let key = create_key().unwrap();
         let key_manager = Arc::new(StaticKeyManager { key });
         let encdec = ManagedEncryptorDecryptor { key_manager };
@@ -272,6 +360,7 @@ mod test {
 
     #[test]
     fn test_canary_functionality() {
+        ensure_initialized();
         const CANARY_TEXT: &str = "Arbitrary sequence of text";
         let key = create_key().unwrap();
         let canary = create_canary(CANARY_TEXT, &key).unwrap();

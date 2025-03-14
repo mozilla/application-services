@@ -389,6 +389,8 @@ mod test {
     use lazy_static::lazy_static;
     use std::sync::{Mutex, MutexGuard};
 
+    use nss::ensure_initialized;
+
     use crate::Store;
 
     lazy_static! {
@@ -431,6 +433,7 @@ mod test {
         pm.registration_id = Some("native-id".to_string());
         Ok(pm)
     }
+
     #[test]
     fn basic() -> Result<()> {
         let _m = get_lock(&MTX);
@@ -493,6 +496,8 @@ mod test {
 
     #[test]
     fn full() -> Result<()> {
+        ensure_initialized();
+
         let _m = get_lock(&MTX);
         rc_crypto::ensure_initialized();
         let ctx = MockConnection::connect_context();
@@ -564,6 +569,8 @@ mod test {
 
     #[test]
     fn test_aesgcm_decryption() -> Result<()> {
+        ensure_initialized();
+
         let _m = get_lock(&MTX);
         rc_crypto::ensure_initialized();
 
