@@ -82,6 +82,10 @@ pub(crate) fn decrypt_jwe(jwe: &CompactJwe, jwk: Jwk) -> Result<String> {
 fn test_simple_roundtrip() {
     // We should be able to round-trip data.
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
+    use nss::ensure_initialized;
+
+    ensure_initialized();
+
     let jwk = Jwk::new_direct_key(Some("my key".to_string())).unwrap();
     let data = "to be, or not 🐝🐝";
     let encrypted = encrypt_to_jwe(
@@ -100,7 +104,11 @@ fn test_simple_roundtrip() {
 fn test_modified_ciphertext() {
     // Modifying the ciphertext will fail.
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
+    use nss::ensure_initialized;
     use std::str::FromStr;
+
+    ensure_initialized();
+
     let jwk = Jwk::new_direct_key(Some("my key".to_string())).unwrap();
     let data = "to be, or not 🐝🐝";
     let encrypted = encrypt_to_jwe(
@@ -157,6 +165,10 @@ fn test_iv() {
     // Encrypting the same thing twice should give different payloads due to
     // different IV.
     use super::{encrypt_to_jwe, EncryptionParameters};
+    use nss::ensure_initialized;
+
+    ensure_initialized();
+
     let jwk = Jwk::new_direct_key(Some("my key".to_string())).unwrap();
     let data = "to be, or not 🐝🐝";
     let e1 = encrypt_to_jwe(
@@ -202,6 +214,10 @@ fn test_jose() {
     // `Nonce::try_assume_unique_for_key()` to allow a longer key, but we don't
     // want to do that until we have evidence it's actually spec compliant.)
     use super::{decrypt_jwe, DecryptionParameters};
+    use nss::ensure_initialized;
+
+    ensure_initialized();
+
     let jwk = Jwk::new_direct_from_bytes(None, "asecret256bitkeyasecret256bitkey".as_bytes());
     let ciphertext = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..nhKdQEKqoKPzfCda.rQOj0Nfs6wO5Gj4Quw.CMJFS9YBADLLePdj1sssSg";
     let decrypted = decrypt_jwe(ciphertext, DecryptionParameters::Direct { jwk }).unwrap();
@@ -225,6 +241,9 @@ fn test_bad_key() {
 fn test_bad_key_type() {
     use super::{encrypt_to_jwe, EncryptionParameters};
     use crate::error::JwCryptoError;
+    use nss::ensure_initialized;
+
+    ensure_initialized();
 
     let jwk = Jwk::new_direct_key(Some("my key".to_string())).unwrap();
     let data = b"The big brown fox fell down";
@@ -243,9 +262,12 @@ fn test_bad_key_type() {
 #[test]
 fn test_bad_key_type_direct() {
     use super::{EncryptionAlgorithm, EphemeralKeyPair};
+    use nss::ensure_initialized;
     use rc_crypto::agreement;
 
     use crate::error::JwCryptoError;
+
+    ensure_initialized();
 
     let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
     let jwk = crate::ec::extract_pub_key_jwk(&key_pair).unwrap();

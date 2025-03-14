@@ -57,9 +57,11 @@ pub fn create_autofill_key() -> ApiResult<String> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nss::ensure_initialized;
 
     #[test]
     fn test_encrypt() {
+        ensure_initialized();
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         let cleartext = "secret";
         let ciphertext = ed.encrypt(cleartext, "secret").unwrap();
@@ -73,6 +75,7 @@ mod test {
 
     #[test]
     fn test_decryption_errors() {
+        ensure_initialized();
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
             ed.decrypt("invalid-ciphertext", "invalid").unwrap_err(),
