@@ -99,7 +99,7 @@ class NimbusTests {
         // Glean needs to be initialized for the experiments API to accept enrollment events, so we
         // init it with a mock client so we don't upload anything.
         val mockClient: PingUploader = mock()
-        `when`(mockClient.upload(any(), any(), any())).thenReturn(
+        `when`(mockClient.upload(any())).thenReturn(
             HttpStatus(200),
         )
         Glean.initialize(
