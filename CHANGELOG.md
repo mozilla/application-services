@@ -17,6 +17,9 @@ program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
 ([#6571](https://github.com/mozilla/application-services/pull/6571))
 
+### Android
+- Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
+
 # v138.0 (_2025-03-31_)
 
 ## ⚠️ Breaking Changes ⚠️
