@@ -4,6 +4,7 @@
 
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
+- Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
 ### Glean
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
