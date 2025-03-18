@@ -63,13 +63,6 @@ projects:
     - name: httpconfig
       type: aar
     description: Component allowing the configuration of Rust HTTP stack.
-  native-support:
-    path: components/support/android
-    artifactId: native-support
-    publications:
-    - name: native-support
-      type: aar
-    description: Shared native code utilities for rust component kotlin.
   push:
     path: components/push/android
     artifactId: push

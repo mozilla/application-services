@@ -6,8 +6,6 @@ package mozilla.appservices.httpconfig
 
 import com.sun.jna.Callback
 import com.sun.jna.Library
-import mozilla.appservices.support.native.RustBuffer
-import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.httpconfig.BuildConfig
 
 @Suppress("FunctionNaming", "TooGenericExceptionThrown")
