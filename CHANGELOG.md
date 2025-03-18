@@ -2,6 +2,11 @@
 
 [Full Changelog](In progress)
 
+## 🦊 What's Changed 🦊
+
+### Glean
+- Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
+
 ### Logins
 New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
 Given a `PrimaryPasswordAuthenticator` implementation, the NSS keystore is used
