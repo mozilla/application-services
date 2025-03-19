@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_cryptographer_backend() {
-        crate::ensure_initialized();
+        crate::ensure_initialized().unwrap();
         ece::crypto::test_cryptographer(RcCryptoCryptographer);
     }
 }
