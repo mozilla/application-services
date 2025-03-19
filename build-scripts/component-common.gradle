@@ -108,7 +108,7 @@ ext.configureUniFFIBindgen = { crateName ->
                 megazordNative = "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
                 exec {
                     workingDir project.rootDir
-                    commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
+                    commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
                 }
             } else {
                 def libraryPath = megazordNative.asFileTree.matching {
@@ -120,7 +120,7 @@ ext.configureUniFFIBindgen = { crateName ->
                 }
                 exec {
                     workingDir project.rootDir
-                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get()
+                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
                 }
             }
         }
