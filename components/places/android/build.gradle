@@ -5,7 +5,12 @@ plugins {
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 apply from: "$appServicesRootDir/publish.gradle"
 
-ext.gleanNamespace = "mozilla.telemetry.glean"
+ext {
+    gleanNamespace = "mozilla.telemetry.glean"
+    if (gradle.hasProperty("mozconfig")) {
+        gleanPythonEnvDir = gradle.mozconfig.substs.GRADLE_GLEAN_PARSER_VENV
+    }
+}
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 android {
