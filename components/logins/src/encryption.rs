@@ -303,6 +303,7 @@ pub mod test_utils {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -397,5 +398,51 @@ mod test {
             check_canary(&canary, CANARY_TEXT, &bad_key).err().unwrap(),
             LoginsApiError::InvalidKey
         ));
+    }
+}
+
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod keydb_test {
+    use super::*;
+    use nss::ensure_initialized_with_profile_dir;
+
+    struct MockPrimaryPasswordAuthenticator {
+        password: String,
+    }
+
+    impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
+        fn get_primary_password(&self) -> ApiResult<String> {
+            Ok(self.password.clone())
+        }
+        fn on_authentication_success(&self) {}
+        fn on_authentication_failure(&self) {}
+    }
+
+    #[test]
+    fn test_ensure_initialized_with_profile_dir() {
+        ensure_initialized_with_profile_dir("./test-profile")
+            .expect("Could not initialize profile dir.");
+    }
+
+    #[test]
+    fn test_create_key() {
+        ensure_initialized_with_profile_dir("./test-profile")
+            .expect("Could not initialize profile dir.");
+        let key = create_key().unwrap();
+        assert_eq!(key.len(), 63)
+    }
+
+    #[test]
+    fn test_nss_key_manager() {
+        ensure_initialized_with_profile_dir("./test-profile")
+            .expect("Could not initialize profile dir.");
+        let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
+            password: "secure".to_string(),
+        };
+        let nss_key_manager = NSSKeyManager {
+            primary_password_authenticator: Arc::new(mock_primary_password_authenticator),
+        };
+        assert_eq!(nss_key_manager.get_key().unwrap().len(), 63)
     }
 }
