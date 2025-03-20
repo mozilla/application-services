@@ -17,9 +17,9 @@ tasks:
         description: swiftformat
         fetch:
             type: static-url
-            url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.51.9/swiftformat.zip
-            sha256: f5db4d7e1cc0e0daf77266983bad5931fb95f6ffcecf08fa1aa19fdbb7c53fc4
-            size: 1656725
+            url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.55.5/swiftformat.zip
+            sha256: efdd7bde8a3989070d50b41f05745b2af6f771506f6a8317351b5c177a7e9732
+            size: 2011524
     nss-artifact:
         description: fetches the built NSS artifacts from NSS CI
         fetch:
