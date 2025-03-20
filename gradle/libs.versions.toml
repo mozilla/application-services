@@ -11,7 +11,7 @@ android-plugin = "8.9.0"
 protobuf = "4.29.0"
 
 # Kotlin
-kotlin-compiler = "2.1.10"
+kotlin-compiler = "2.1.20"
 kotlinx-coroutines = "1.10.1"
 
 # Mozilla

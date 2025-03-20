@@ -3,7 +3,7 @@
 ## 🦊 What's Changed 🦊
 
 ### Android
-- Upgraded Kotlin compiler from 1.9.24 to 2.1.10 ([#6640](https://github.com/mozilla/application-services/pull/6640))
+- Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
