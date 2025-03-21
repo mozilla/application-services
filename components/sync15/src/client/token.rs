@@ -245,14 +245,14 @@ struct TokenProviderImpl<TF: TokenFetcher> {
 }
 
 impl<TF: TokenFetcher> TokenProviderImpl<TF> {
-    fn new(fetcher: TF) -> Result<Self> {
+    fn new(fetcher: TF) -> Self {
         // We check this at the real entrypoint of the application, but tests
         // can/do bypass that, so check this here too.
-        rc_crypto::ensure_initialized()?;
-        Ok(TokenProviderImpl {
+        rc_crypto::ensure_initialized();
+        TokenProviderImpl {
             fetcher,
             current_state: RefCell::new(TokenState::NoToken),
-        })
+        }
     }
 
     // Uses our fetcher to grab a new token and if successful, derives other
@@ -405,7 +405,7 @@ impl TokenProvider {
     pub fn new(url: Url, access_token: String, key_id: String) -> Result<Self> {
         let fetcher = TokenServerFetcher::new(url, access_token, key_id);
         Ok(Self {
-            imp: TokenProviderImpl::new(fetcher)?,
+            imp: TokenProviderImpl::new(fetcher),
         })
     }
 
@@ -448,7 +448,7 @@ mod tests {
         }
     }
 
-    fn make_tsc<FF, FN>(fetch: FF, now: FN) -> Result<TokenProviderImpl<TestFetcher<FF, FN>>>
+    fn make_tsc<FF, FN>(fetch: FF, now: FN) -> TokenProviderImpl<TestFetcher<FF, FN>>
     where
         FF: Fn() -> Result<TokenFetchResult>,
         FN: Fn() -> SystemTime,
@@ -476,7 +476,7 @@ mod tests {
             })
         };
 
-        let tsc = make_tsc(fetch, SystemTime::now).unwrap();
+        let tsc = make_tsc(fetch, SystemTime::now);
 
         let e = tsc.api_endpoint().expect("should work");
         assert_eq!(e, "api_endpoint".to_string());
@@ -497,7 +497,7 @@ mod tests {
             Err(ErrorKind::BackoffError(when))
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
-        let tsc = make_tsc(fetch, || now.get()).unwrap();
+        let tsc = make_tsc(fetch, || now.get());
 
         tsc.api_endpoint().expect_err("should bail");
         // XXX - check error type.
@@ -534,7 +534,7 @@ mod tests {
             })
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
-        let tsc = make_tsc(fetch, || now.get()).unwrap();
+        let tsc = make_tsc(fetch, || now.get());
 
         tsc.api_endpoint().expect("should get a valid token");
         assert_eq!(counter.get(), 1);
