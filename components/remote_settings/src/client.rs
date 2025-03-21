@@ -1994,7 +1994,6 @@ mod test_signatures {
     use crate::RemoteSettingsContext;
 
     use super::*;
-    use nss::ensure_initialized;
 
     const VALID_CERTIFICATE: &str = "\
 -----BEGIN CERTIFICATE-----
@@ -2159,7 +2158,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_valid_signature() -> Result<()> {
-        ensure_initialized();
         run_client_sync(
             &[],
             &[],
@@ -2174,7 +2172,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_valid_signature_after_retry() -> Result<()> {
-        ensure_initialized();
         run_client_sync(
             &vec![RemoteSettingsRecord {
                 id: "bad-record".to_string(),
@@ -2195,7 +2192,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_invalid_signature_value() -> Result<()> {
-        ensure_initialized();
         let err = run_client_sync(
             &[],
             &[],
@@ -2213,7 +2209,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_invalid_certificate_value() -> Result<()> {
-        ensure_initialized();
         let err = run_client_sync(
             &[],
             &[],
@@ -2235,7 +2230,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_invalid_signature_expired_cert() -> Result<()> {
-        ensure_initialized();
         let december_20_2024 = 1734651582;
 
         let err = run_client_sync(
@@ -2259,7 +2253,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_invalid_signature_invalid_data() -> Result<()> {
-        ensure_initialized();
         // The signature is valid for an empty list of records.
         let records = vec![RemoteSettingsRecord {
             id: "unexpected-data".to_string(),
@@ -2286,7 +2279,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_invalid_signature_invalid_signer_name() -> Result<()> {
-        ensure_initialized();
         let err = run_client_sync(
             &[],
             &[],

@@ -70,11 +70,9 @@ impl<'a> UnparsedPublicKey<'a> {
 mod tests {
     use super::*;
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use nss::ensure_initialized;
 
     #[test]
     fn test_ecdsa_p384_sha384_verify() {
-        ensure_initialized();
         // Test generated with JS DOM's WebCrypto.
         let pub_key_bytes = URL_SAFE_NO_PAD.decode(
             "BMZj_xHOfLQn5DIEQcYUkyASDWo8O30gWdkWXHHHWN5owKhGWplYHEb4PLf3DkFTg_smprr-ApdULy3NV10x8IZ0EfVaUZdXvTquH1kiw2PxD7fhqiozMXUaSuZI5KBE6w",

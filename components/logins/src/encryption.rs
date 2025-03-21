@@ -200,11 +200,9 @@ pub mod test_utils {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
 
     #[test]
     fn test_static_key_manager() {
-        ensure_initialized();
         let key = create_key().unwrap();
         let key_manager = StaticKeyManager { key: key.clone() };
         assert_eq!(key.as_bytes(), key_manager.get_key().unwrap());
@@ -212,7 +210,6 @@ mod test {
 
     #[test]
     fn test_managed_encdec_with_invalid_key() {
-        ensure_initialized();
         let key_manager = Arc::new(StaticKeyManager {
             key: "bad_key".to_owned(),
         });
@@ -225,7 +222,6 @@ mod test {
 
     #[test]
     fn test_managed_encdec_with_missing_key() {
-        ensure_initialized();
         struct MyKeyManager {}
         impl KeyManager for MyKeyManager {
             fn get_key(&self) -> ApiResult<Vec<u8>> {
@@ -242,7 +238,6 @@ mod test {
 
     #[test]
     fn test_managed_encdec() {
-        ensure_initialized();
         let key = create_key().unwrap();
         let key_manager = Arc::new(StaticKeyManager { key });
         let encdec = ManagedEncryptorDecryptor { key_manager };
@@ -277,7 +272,6 @@ mod test {
 
     #[test]
     fn test_canary_functionality() {
-        ensure_initialized();
         const CANARY_TEXT: &str = "Arbitrary sequence of text";
         let key = create_key().unwrap();
         let canary = create_canary(CANARY_TEXT, &key).unwrap();

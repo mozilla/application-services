@@ -6,11 +6,11 @@ use crate::{
     ec::{PrivateKey, PublicKey},
     error::*,
     pk11::types::SymKey,
-    util::{expect_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
+    util::{ensure_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
 };
 
 pub fn ecdh_agreement(priv_key: &PrivateKey, pub_key: &PublicKey) -> Result<Vec<u8>> {
-    expect_nss_initialized()?;
+    ensure_nss_initialized();
     if priv_key.curve() != pub_key.curve() {
         return Err(ErrorKind::InternalError.into());
     }

@@ -20,7 +20,6 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import mozilla.appservices.init_rust_components.initialize as InitializeRustComponents
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 @RunWith(RobolectricTestRunner::class)
@@ -33,11 +32,11 @@ class DatabaseLoginsStorageTest {
     @get:Rule
     val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
 
+    protected val encryptionKey = createKey()
+
     fun createTestStore(): DatabaseLoginsStorage {
-        InitializeRustComponents()
         Megazord.init()
         val dbPath = dbFolder.newFile()
-        val encryptionKey = createKey()
         val keyManager = createStaticKeyManager(key = encryptionKey)
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath, keyManager = keyManager)
     }

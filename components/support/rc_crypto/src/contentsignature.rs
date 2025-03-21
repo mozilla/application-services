@@ -157,7 +157,6 @@ pub fn verify(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nss::ensure_initialized;
 
     const ROOT_HASH: &str = "3C:01:44:6A:BE:90:36:CE:A9:A0:9A:CA:A3:A5:20:AC:62:8F:20:A7:AE:32:CE:86:1C:B2:EF:B7:0F:A0:C7:45";
     const VALID_CERT_CHAIN: &[u8] = b"\
@@ -284,7 +283,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
     #[test]
     fn test_decode_root_hash() {
-        ensure_initialized();
         assert!(decode_root_hash("meh!").is_err());
         assert!(decode_root_hash("3C:rr:44").is_err());
 

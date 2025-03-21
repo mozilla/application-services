@@ -263,7 +263,6 @@ impl<'a> TryFrom<&'a HashMap<String, String>> for PushPayload<'a> {
 #[cfg(test)]
 mod crypto_tests {
     use super::*;
-    use nss::ensure_initialized;
 
     // generate unit test key
     fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
@@ -302,8 +301,6 @@ mod crypto_tests {
 
     #[test]
     fn test_decrypt_aesgcm() {
-        ensure_initialized();
-
         // The following comes from the delivered message body
         let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuw\
                           qm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
@@ -320,8 +317,6 @@ mod crypto_tests {
 
     #[test]
     fn test_fail_decrypt_aesgcm() {
-        ensure_initialized();
-
         let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_\
                           YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         let dh = "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c";
@@ -332,8 +327,6 @@ mod crypto_tests {
 
     #[test]
     fn test_decrypt_aes128gcm() {
-        ensure_initialized();
-
         let ciphertext = "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-\
              4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJw\
              TlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXz\

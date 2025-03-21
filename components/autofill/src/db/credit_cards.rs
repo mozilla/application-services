@@ -236,7 +236,6 @@ pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
     use crate::encryption::EncryptorDecryptor;
-    use nss::ensure_initialized;
     use sync15::bso::IncomingBso;
 
     pub fn get_all(
@@ -294,7 +293,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_create_and_read() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -354,7 +352,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_missing_guid() {
-        ensure_initialized();
         let db = new_mem_db();
         let guid = Guid::random();
         let result = get_credit_card(&db, &guid);
@@ -367,7 +364,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_read_all() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -432,7 +428,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_update() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -475,7 +470,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_update_internal_credit_card() -> Result<()> {
-        ensure_initialized();
         let mut db = new_mem_db();
         let tx = db.transaction()?;
 
@@ -528,7 +522,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_delete() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
         let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
 
@@ -596,7 +589,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_scrub_encrypted_credit_card_data() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
         let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
         let mut saved_credit_cards = Vec::with_capacity(10);
@@ -625,7 +617,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_trigger_on_create() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
         let tx = db.unchecked_transaction()?;
         let guid = Guid::random();
@@ -660,7 +651,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_trigger_on_delete() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
         let tx = db.unchecked_transaction()?;
         let guid = Guid::random();
@@ -692,7 +682,6 @@ pub(crate) mod tests {
 
     #[test]
     fn test_credit_card_touch() -> Result<()> {
-        ensure_initialized();
         let db = new_mem_db();
         let saved_credit_card = add_credit_card(
             &db,

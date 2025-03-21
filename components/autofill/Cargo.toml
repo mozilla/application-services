@@ -30,7 +30,6 @@ url = { version = "2.2", features = ["serde"] }
 [dev-dependencies]
 env_logger = { version = "0.10", default-features = false }
 libsqlite3-sys = { version = "0.28.0" }
-nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
 uniffi = { version = "0.28.2", features=["build"]}

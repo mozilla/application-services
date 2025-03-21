@@ -254,7 +254,6 @@ impl InputKeyMaterial {
 mod tests {
     use super::*;
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use nss::ensure_initialized;
 
     // Test vectors copied from:
     // https://chromium.googlesource.com/chromium/src/+/56f1232/components/test/data/webcrypto/ecdh.json#5
@@ -294,7 +293,6 @@ mod tests {
 
     #[test]
     fn test_static_agreement() {
-        ensure_initialized();
         let pub_key_raw = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         let peer_pub_key = UnparsedPublicKey::new(&ECDH_P256, &pub_key_raw);
         let prv_key = load_priv_key_2();
@@ -308,7 +306,6 @@ mod tests {
 
     #[test]
     fn test_ephemeral_agreement_roundtrip() {
-        ensure_initialized();
         let (our_prv_key, our_pub_key) =
             KeyPair::<Ephemeral>::generate(&ECDH_P256).unwrap().split();
         let (their_prv_key, their_pub_key) =
@@ -330,7 +327,6 @@ mod tests {
 
     #[test]
     fn test_compute_public_key() {
-        ensure_initialized();
         let (prv_key, pub_key) = KeyPair::<Static>::generate(&ECDH_P256).unwrap().split();
         let computed_pub_key = prv_key.compute_public_key().unwrap();
         assert_eq!(
@@ -341,7 +337,6 @@ mod tests {
 
     #[test]
     fn test_compute_public_key_known_values() {
-        ensure_initialized();
         let prv_key = load_priv_key_1();
         let pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
         let computed_pub_key = prv_key.compute_public_key().unwrap();
@@ -354,7 +349,6 @@ mod tests {
 
     #[test]
     fn test_keys_byte_representations_roundtrip() {
-        ensure_initialized();
         let key_pair = KeyPair::<Static>::generate(&ECDH_P256).unwrap();
         let prv_key = key_pair.private_key;
         let extracted_pub_key = prv_key.compute_public_key().unwrap();
@@ -373,7 +367,6 @@ mod tests {
 
     #[test]
     fn test_agreement_rejects_invalid_pubkeys() {
-        ensure_initialized();
         let prv_key = load_priv_key_2();
 
         let mut invalid_pub_key = URL_SAFE_NO_PAD.decode(PUB_KEY_1_B64).unwrap();
