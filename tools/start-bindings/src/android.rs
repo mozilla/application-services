@@ -5,9 +5,10 @@
 use std::{
     fs::{create_dir_all, read_to_string, File},
     io::Write,
+    process::Command,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use camino::Utf8Path;
 use rinja::Template;
 
@@ -54,6 +55,10 @@ pub fn generate_android(crate_name: String, description: String) -> Result<()> {
         &crate_name,
         &android_root,
         &description,
+    )?;
+    update_megazord_lib_rs(
+        &metadata.android_megazord_root.join("src/lib.rs"),
+        &crate_name,
     )?;
 
     println!();
@@ -104,6 +109,23 @@ fn write_file(contents: impl AsRef<str>, path: &Utf8Path) -> Result<()> {
     let mut file = File::create(path)?;
     writeln!(file, "{contents}")?;
     println!("{path} generated");
+
+    Ok(())
+}
+
+fn update_megazord_lib_rs(lib_path: &Utf8Path, crate_name: &str) -> Result<()> {
+    let content = read_to_string(lib_path)?;
+    let mut lines: Vec<String> = content.split("\n").map(str::to_string).collect();
+    let first_use_line = lines
+        .iter()
+        .position(|line| line.starts_with("pub use"))
+        .ok_or_else(|| anyhow!("Couldn't find a `pub use` line in {lib_path}"))?;
+    lines.insert(first_use_line, format!("pub use {crate_name};"));
+    write_file(lines.join("\n"), lib_path)?;
+    Command::new("cargo")
+        .args(["fmt", "-pmegazord"])
+        .spawn()?
+        .wait()?;
 
     Ok(())
 }
