@@ -3,83 +3,131 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::ErrorKind::NSSUninitialized;
 use nss_sys::*;
-use std::{ffi::CString, os::raw::c_char, sync::Once};
+use std::{ffi::CString, os::raw::c_char};
+
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 #[cfg(feature = "keydb")]
 use crate::pk11::slot;
-#[cfg(feature = "keydb")]
-use once_cell::sync::OnceCell;
-#[cfg(feature = "keydb")]
-use std::{fs, path::Path};
 
 // This is the NSS version that this crate is claiming to be compatible with.
 // We check it at runtime using `NSS_VersionCheck`.
 pub const COMPATIBLE_NSS_VERSION: &str = "3.26";
 
-static NSS_INIT: Once = Once::new();
-#[cfg(feature = "keydb")]
-static NSS_PROFILE_PATH: OnceCell<String> = OnceCell::new();
-
-// Check whether either thr Rust-internal NSS initialization has run, or NSS has been initialized
-// in the outside.
-#[cfg(not(feature = "keydb"))]
-fn is_nss_initialized() -> bool {
-    NSS_INIT.is_completed() || unsafe { NSS_IsInitialized() == PR_TRUE }
+pub fn assert_nss_initialized() {
+    INITIALIZED.get().expect("NSS not initialized");
 }
 
-// Check whether either thr Rust-internal NSS initialization has run, or NSS has been initialized
-// in the outside.
-// nss can be initialized either by `ensure_nss_initialized` or by
-// `ensure_initialized_with_profile_dir` (by using the `keydb` feature)
-#[cfg(feature = "keydb")]
-fn is_nss_initialized() -> bool {
-    NSS_INIT.is_completed()
-        || NSS_PROFILE_PATH.get().is_some()
-        || unsafe { NSS_IsInitialized() == PR_TRUE }
-}
-
-pub fn expect_nss_initialized() -> Result<()> {
-    if is_nss_initialized() {
-        Ok(())
-    } else {
-        Err(NSSUninitialized.into())
-    }
-}
-
-pub fn ensure_nss_initialized() {
+// This and many other nss init code were either taken directly from or are inspired by
+// https://github.com/mozilla/neqo/blob/b931a289eee7d62c0815535f01cfa34c5a929f9d/neqo-crypto/src/lib.rs#L73-L77
+enum NssLoaded {
+    External,
+    NoDb,
     #[cfg(feature = "keydb")]
-    if NSS_PROFILE_PATH.get().is_some() {
-        return;
+    Db,
+}
+
+static INITIALIZED: OnceLock<NssLoaded> = OnceLock::new();
+
+fn assert_compatible_version() {
+    let min_ver = CString::new(COMPATIBLE_NSS_VERSION).unwrap();
+    if unsafe { NSS_VersionCheck(min_ver.as_ptr()) } == PR_FALSE {
+        panic!("Incompatible NSS version!")
+    }
+}
+
+fn init_once(profile_path: Option<PathBuf>) -> NssLoaded {
+    assert_compatible_version();
+
+    if unsafe { NSS_IsInitialized() != PR_FALSE } {
+        return NssLoaded::External;
     }
 
-    NSS_INIT.call_once(|| {
-        let version_ptr = CString::new(COMPATIBLE_NSS_VERSION).unwrap();
-        if unsafe { NSS_VersionCheck(version_ptr.as_ptr()) == PR_FALSE } {
-            panic!("Incompatible NSS version!")
+    match profile_path {
+        #[cfg(feature = "keydb")]
+        Some(path) => {
+            if !path.is_dir() {
+                panic!("missing profile directory {:?}", path);
+            }
+            let pathstr = path.to_str().expect("invalid path");
+            let dircstr = CString::new(pathstr).expect("could not build CString from path");
+            let empty = CString::new("").expect("could not build empty CString");
+            let flags = NSS_INIT_FORCEOPEN | NSS_INIT_OPTIMIZESPACE;
+
+            let context = unsafe {
+                NSS_InitContext(
+                    dircstr.as_ptr(),
+                    empty.as_ptr(),
+                    empty.as_ptr(),
+                    empty.as_ptr(),
+                    std::ptr::null_mut(),
+                    flags,
+                )
+            };
+            if context.is_null() {
+                let error = get_last_error();
+                panic!("could not initialize context: {}", error);
+            }
+
+            let slot = slot::get_internal_key_slot().expect("could not get internal key slot");
+
+            if unsafe { PK11_NeedUserInit(slot.as_mut_ptr()) } == nss_sys::PR_TRUE {
+                let result = unsafe {
+                    PK11_InitPin(
+                        slot.as_mut_ptr(),
+                        std::ptr::null_mut(),
+                        std::ptr::null_mut(),
+                    )
+                };
+                if result != SECStatus::SECSuccess {
+                    let error = get_last_error();
+                    panic!("could not initialize context: {}", error);
+                }
+            }
+
+            NssLoaded::Db
         }
-        let empty = CString::default();
-        let flags = NSS_INIT_READONLY
-            | NSS_INIT_NOCERTDB
-            | NSS_INIT_NOMODDB
-            | NSS_INIT_FORCEOPEN
-            | NSS_INIT_OPTIMIZESPACE;
-        let context = unsafe {
-            NSS_InitContext(
-                empty.as_ptr(),
-                empty.as_ptr(),
-                empty.as_ptr(),
-                empty.as_ptr(),
-                std::ptr::null_mut(),
-                flags,
-            )
-        };
-        if context.is_null() {
-            let error = get_last_error();
-            panic!("Could not initialize NSS: {}", error);
+
+        #[cfg(not(feature = "keydb"))]
+        Some(_) => panic!("Use the keydb feature to enable nss initialization with profile path"),
+
+        None => {
+            let empty = CString::default();
+            let flags = NSS_INIT_READONLY
+                | NSS_INIT_NOCERTDB
+                | NSS_INIT_NOMODDB
+                | NSS_INIT_FORCEOPEN
+                | NSS_INIT_OPTIMIZESPACE;
+            let context = unsafe {
+                NSS_InitContext(
+                    empty.as_ptr(),
+                    empty.as_ptr(),
+                    empty.as_ptr(),
+                    empty.as_ptr(),
+                    std::ptr::null_mut(),
+                    flags,
+                )
+            };
+            if context.is_null() {
+                let error = get_last_error();
+                panic!("Could not initialize NSS: {}", error);
+            }
+
+            NssLoaded::NoDb
         }
-    })
+    }
+}
+
+/// Initialize NSS. This only executes the initialization routines once, so if there is any chance
+/// that this is invoked twice, that's OK.
+///
+/// # Errors
+///
+/// When NSS initialization fails.
+pub fn ensure_nss_initialized() {
+    INITIALIZED.get_or_init(|| init_once(None));
 }
 
 /// Use this function to initialize NSS if you want to manage keys with NSS.
@@ -89,98 +137,8 @@ pub fn ensure_nss_initialized() {
 /// If it has been called previously with a different path, it will fail.
 /// If `ensure_initialized` has been called before, it will also fail.
 #[cfg(feature = "keydb")]
-pub fn ensure_nss_initialized_with_profile_dir(path: impl AsRef<Path>) -> Result<()> {
-    match path.as_ref().to_str() {
-        Some(path) => {
-            if let Some(old_path) = NSS_PROFILE_PATH.get() {
-                if old_path == path {
-                    return Ok(());
-                } else {
-                    return Err(ErrorKind::NSSInitFailure(format!(
-                        "already initialized with profile: {}",
-                        old_path
-                    ))
-                    .into());
-                }
-            }
-        }
-        None => {
-            return Err(ErrorKind::NSSInitFailure(format!(
-                "invalid profile path: {:?}",
-                path.as_ref()
-            ))
-            .into());
-        }
-    }
-
-    if NSS_INIT.is_completed() {
-        return Err(ErrorKind::NSSInitFailure(
-            "NSS has been already initialized without profile".to_string(),
-        )
-        .into());
-    }
-
-    let version_ptr = CString::new(COMPATIBLE_NSS_VERSION).unwrap();
-    if unsafe { NSS_VersionCheck(version_ptr.as_ptr()) == PR_FALSE } {
-        panic!("Incompatible NSS version!")
-    }
-
-    if fs::metadata(path.as_ref()).is_err() {
-        return Err(ErrorKind::NSSInitFailure(format!(
-            "invalid profile path: {:?}",
-            path.as_ref()
-        ))
-        .into());
-    }
-
-    // path must be valid unicode at this point because we just checked its metadata
-    let c_path: CString =
-        CString::new(path.as_ref().to_str().unwrap()).map_err(|_| ErrorKind::NulError)?;
-    let empty = CString::default();
-    let flags = NSS_INIT_FORCEOPEN | NSS_INIT_OPTIMIZESPACE;
-
-    let context = unsafe {
-        NSS_InitContext(
-            c_path.as_ptr(),
-            empty.as_ptr(),
-            empty.as_ptr(),
-            empty.as_ptr(),
-            std::ptr::null_mut(),
-            flags,
-        )
-    };
-    if context.is_null() {
-        let error = get_last_error();
-        return Err(
-            ErrorKind::NSSInitFailure(format!("could not initialize context: {}", error)).into(),
-        );
-    }
-
-    let slot = slot::get_internal_key_slot().map_err(|error| {
-        ErrorKind::NSSInitFailure(format!("could not get internal key slot: {}", error))
-    })?;
-
-    if unsafe { PK11_NeedUserInit(slot.as_mut_ptr()) } == nss_sys::PR_TRUE {
-        let result = unsafe {
-            PK11_InitPin(
-                slot.as_mut_ptr(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            )
-        };
-        if result != SECStatus::SECSuccess {
-            let error = get_last_error();
-            return Err(
-                ErrorKind::NSSInitFailure(format!("could not initialize pin: {}", error)).into(),
-            );
-        }
-    }
-
-    NSS_PROFILE_PATH
-        .set(format!("{:?}", path.as_ref()))
-        .map_err(|error| ErrorKind::NSSInitFailure(format!("already initialized: {}", error)))?;
-
-    Ok(())
+pub fn ensure_nss_initialized_with_profile_dir<P: Into<PathBuf>>(dir: P) {
+    INITIALIZED.get_or_init(|| init_once(Some(dir.into())));
 }
 
 pub fn map_nss_secstatus<F>(callback: F) -> Result<()>
@@ -276,15 +234,49 @@ pub(crate) unsafe fn sec_item_as_slice(sec_item: &mut SECItem) -> Result<&mut [u
 }
 
 #[cfg(test)]
-#[cfg(feature = "keydb")]
 mod test {
     use super::*;
+    use std::thread;
 
     #[test]
     #[should_panic]
-    fn test_ensure_nss_initialized_with_profile_dir_with_previously_call_to_ensure_nss_initialized()
-    {
+    fn test_assert_initialized_should_panic() {
+        assert_nss_initialized();
+    }
+
+    #[test]
+    fn test_assert_initialized() {
         ensure_nss_initialized();
-        ensure_nss_initialized_with_profile_dir("./").unwrap();
+        assert_nss_initialized();
+    }
+
+    #[cfg(feature = "keydb")]
+    #[test]
+    fn test_assert_initialized_with_profile_dir() {
+        ensure_nss_initialized_with_profile_dir("./");
+        assert_nss_initialized();
+    }
+
+    #[test]
+    fn test_ensure_initialized_multithread() {
+        let threads: Vec<_> = (0..2)
+            .map(|_| thread::spawn(ensure_nss_initialized))
+            .collect();
+
+        for handle in threads {
+            handle.join().unwrap();
+        }
+    }
+
+    #[cfg(feature = "keydb")]
+    #[test]
+    fn test_ensure_initialized_with_profile_dir_multithread() {
+        let threads: Vec<_> = (0..2)
+            .map(|_| thread::spawn(move || ensure_nss_initialized_with_profile_dir("./")))
+            .collect();
+
+        for handle in threads {
+            handle.join().unwrap();
+        }
     }
 }

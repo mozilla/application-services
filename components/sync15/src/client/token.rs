@@ -245,14 +245,14 @@ struct TokenProviderImpl<TF: TokenFetcher> {
 }
 
 impl<TF: TokenFetcher> TokenProviderImpl<TF> {
-    fn new(fetcher: TF) -> Result<Self> {
+    fn new(fetcher: TF) -> Self {
         // We check this at the real entrypoint of the application, but tests
         // can/do bypass that, so check this here too.
-        rc_crypto::ensure_initialized()?;
-        Ok(TokenProviderImpl {
+        rc_crypto::ensure_initialized();
+        TokenProviderImpl {
             fetcher,
             current_state: RefCell::new(TokenState::NoToken),
-        })
+        }
     }
 
     // Uses our fetcher to grab a new token and if successful, derives other
@@ -402,11 +402,11 @@ pub struct TokenProvider {
 }
 
 impl TokenProvider {
-    pub fn new(url: Url, access_token: String, key_id: String) -> Result<Self> {
+    pub fn new(url: Url, access_token: String, key_id: String) -> Self {
         let fetcher = TokenServerFetcher::new(url, access_token, key_id);
-        Ok(Self {
-            imp: TokenProviderImpl::new(fetcher)?,
-        })
+        Self {
+            imp: TokenProviderImpl::new(fetcher),
+        }
     }
 
     pub fn hashed_uid(&self) -> Result<String> {
@@ -454,7 +454,7 @@ mod tests {
         FN: Fn() -> SystemTime,
     {
         let fetcher: TestFetcher<FF, FN> = TestFetcher { fetch, now };
-        TokenProviderImpl::new(fetcher)
+        Ok(TokenProviderImpl::new(fetcher))
     }
 
     #[test]

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::util::{expect_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr};
+use crate::util::{assert_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr};
 use crate::{
     error::*,
     pk11::{
@@ -26,7 +26,7 @@ pub fn pbkdf2_key_derive(
     hash_algorithm: HashAlgorithm,
     out: &mut [u8],
 ) -> Result<()> {
-    expect_nss_initialized()?;
+    assert_nss_initialized();
     let oid_tag = match hash_algorithm {
         HashAlgorithm::SHA256 => SECOidTag::SEC_OID_HMAC_SHA256 as u32,
         HashAlgorithm::SHA384 => SECOidTag::SEC_OID_HMAC_SHA384 as u32,

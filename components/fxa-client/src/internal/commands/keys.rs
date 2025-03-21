@@ -46,7 +46,7 @@ impl PrivateCommandKeys {
 
 impl PrivateCommandKeys {
     pub fn from_random() -> Result<Self> {
-        rc_crypto::ensure_initialized()?;
+        rc_crypto::ensure_initialized();
         let (key_pair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
         Ok(Self {
             p256key: key_pair.raw_components()?,
@@ -155,7 +155,7 @@ struct EncryptedCommandPayload {
 
 impl EncryptedCommandPayload {
     pub(crate) fn decrypt<T: DeserializeOwned>(self, keys: &PrivateCommandKeys) -> Result<T> {
-        rc_crypto::ensure_initialized()?;
+        rc_crypto::ensure_initialized();
         let encrypted = URL_SAFE_NO_PAD.decode(self.encrypted)?;
         let decrypted = ece::decrypt(keys.p256key(), keys.auth_secret(), &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
@@ -166,7 +166,7 @@ fn encrypt_payload<T: Serialize>(
     payload: &T,
     keys: PublicCommandKeys,
 ) -> Result<EncryptedCommandPayload> {
-    rc_crypto::ensure_initialized()?;
+    rc_crypto::ensure_initialized();
     let bytes = serde_json::to_vec(payload)?;
     let public_key = URL_SAFE_NO_PAD.decode(keys.public_key())?;
     let auth_secret = URL_SAFE_NO_PAD.decode(keys.auth_secret())?;
