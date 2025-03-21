@@ -1,0 +1,12 @@
+1742594427709	SessionStore	DEBUG	Successful file read of clean file
+1742594427709	SessionStore	DEBUG	Completed SessionFile.read() with result.origin: clean
+1742594427709	SessionStore	DEBUG	isAutomaticRestoreEnabled: true
+1742594427709	SessionStore	DEBUG	Previous shutdown ok? false, reason: N/A
+1742594428108	SessionStore	DEBUG	initSession willRestore: true, SessionStartup.sessionType: 2
+1742594428108	SessionStore	DEBUG	initSession, will autorestore
+1742594428108	SessionStore	DEBUG	Restored 0 closed windows
+1742594428108	SessionStore	DEBUG	restoreWindows will restore 1 windows
+1742594428109	SessionStore	DEBUG	restoreWindow, will restore 0 tabs and 0 tab groups, restoreTabsLazily: true
+1742594428109	SessionStore	DEBUG	sessionstore-windows-restored
+1742594428116	SessionStore	DEBUG	All 1 windows restored
+1742594428275	SessionStore	DEBUG	initialState contains 0 pinned tabs

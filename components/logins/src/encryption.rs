@@ -406,6 +406,7 @@ mod test {
 mod keydb_test {
     use super::*;
     use nss::ensure_initialized_with_profile_dir;
+    use std::path::PathBuf;
 
     struct MockPrimaryPasswordAuthenticator {
         password: String,
@@ -419,15 +420,19 @@ mod keydb_test {
         fn on_authentication_failure(&self) {}
     }
 
+    fn profile_path() -> PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile/")
+    }
+
     #[test]
     fn test_ensure_initialized_with_profile_dir() {
-        ensure_initialized_with_profile_dir("./test-profile")
+        ensure_initialized_with_profile_dir(profile_path())
             .expect("Could not initialize profile dir.");
     }
 
     #[test]
     fn test_create_key() {
-        ensure_initialized_with_profile_dir("./test-profile")
+        ensure_initialized_with_profile_dir(profile_path())
             .expect("Could not initialize profile dir.");
         let key = create_key().unwrap();
         assert_eq!(key.len(), 63)
@@ -435,10 +440,10 @@ mod keydb_test {
 
     #[test]
     fn test_nss_key_manager() {
-        ensure_initialized_with_profile_dir("./test-profile")
+        ensure_initialized_with_profile_dir(profile_path())
             .expect("Could not initialize profile dir.");
         let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
-            password: "secure".to_string(),
+            password: "password".to_string(),
         };
         let nss_key_manager = NSSKeyManager {
             primary_password_authenticator: Arc::new(mock_primary_password_authenticator),
