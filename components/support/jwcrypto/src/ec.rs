@@ -177,11 +177,7 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
 #[test]
 fn test_encrypt_decrypt_jwe_ecdh_es() {
     use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
-    use nss::ensure_initialized;
     use rc_crypto::agreement;
-
-    ensure_initialized();
-
     let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
     let jwk = extract_pub_key_jwk(&key_pair).unwrap();
     let data = b"The big brown fox jumped over... What?";
@@ -207,10 +203,6 @@ fn test_encrypt_decrypt_jwe_ecdh_es() {
 fn test_bad_key_type() {
     use super::{encrypt_to_jwe, EncryptionParameters};
     use crate::error::JwCryptoError;
-    use nss::ensure_initialized;
-
-    ensure_initialized();
-
     let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
     let jwk = extract_pub_key_jwk(&key_pair).unwrap();
     let data = b"The big brown fox fell down";

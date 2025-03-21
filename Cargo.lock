@@ -282,7 +282,6 @@ dependencies = [
  "lazy_static",
  "libsqlite3-sys",
  "log",
- "nss",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -1515,7 +1514,6 @@ dependencies = [
  "fxa-client",
  "log",
  "logins",
- "nss",
  "prettytable-rs",
  "rusqlite",
  "serde_json",
@@ -1883,7 +1881,6 @@ dependencies = [
  "log",
  "mockall",
  "mockito",
- "nss",
  "parking_lot",
  "payload-support",
  "rate-limiter",
@@ -2526,7 +2523,6 @@ dependencies = [
 name = "init_rust_components"
 version = "0.1.0"
 dependencies = [
- "nss",
  "uniffi",
 ]
 
@@ -2713,7 +2709,6 @@ dependencies = [
  "base64 0.21.2",
  "error-support",
  "log",
- "nss",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -2870,7 +2865,6 @@ dependencies = [
  "lazy_static",
  "log",
  "more-asserts",
- "nss",
  "parking_lot",
  "rusqlite",
  "serde",
@@ -4005,7 +3999,6 @@ dependencies = [
  "log",
  "mockall",
  "mockito",
- "nss",
  "rc_crypto",
  "rusqlite",
  "serde",
@@ -4236,7 +4229,6 @@ dependencies = [
  "log",
  "mockall",
  "mockito",
- "nss",
  "parking_lot",
  "rc_crypto",
  "regex",
@@ -5036,7 +5028,6 @@ dependencies = [
  "interrupt-support",
  "lazy_static",
  "log",
- "nss",
  "payload-support",
  "rc_crypto",
  "serde",

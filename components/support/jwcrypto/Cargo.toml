@@ -17,6 +17,3 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 thiserror = "1.0"
-
-[dev-dependencies]
-nss = { path = "../rc_crypto/nss" }

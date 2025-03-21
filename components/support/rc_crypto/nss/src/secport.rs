@@ -2,16 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::*;
-use crate::util::expect_nss_initialized;
+use crate::util::ensure_nss_initialized;
 use std::os::raw::c_void;
 
-pub fn secure_memcmp(a: &[u8], b: &[u8]) -> Result<bool> {
-    expect_nss_initialized()?;
+pub fn secure_memcmp(a: &[u8], b: &[u8]) -> bool {
+    ensure_nss_initialized();
     // NSS_SecureMemcmp will compare N elements fron our slices,
     // so make sure they are the same length first.
     if a.len() != b.len() {
-        return Ok(false);
+        return false;
     }
     let result = unsafe {
         nss_sys::NSS_SecureMemcmp(
@@ -20,5 +19,5 @@ pub fn secure_memcmp(a: &[u8], b: &[u8]) -> Result<bool> {
             a.len(),
         )
     };
-    Ok(result == 0)
+    result == 0
 }

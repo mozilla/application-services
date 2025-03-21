@@ -94,7 +94,6 @@ pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nss::ensure_initialized;
 
     const KEY: &[u8] = b"key";
     const MESSAGE: &[u8] = b"The quick brown fox jumps over the lazy dog";
@@ -102,7 +101,6 @@ mod tests {
 
     #[test]
     fn hmac_sign() {
-        ensure_initialized();
         let key = SigningKey::new(&digest::SHA256, KEY);
         let signature = sign(&key, MESSAGE).unwrap();
         let expected_signature = hex::decode(SIGNATURE_HEX).unwrap();
@@ -112,7 +110,6 @@ mod tests {
 
     #[test]
     fn hmac_sign_gives_different_signatures_for_different_keys() {
-        ensure_initialized();
         let key = SigningKey::new(&digest::SHA256, b"another key");
         let signature = sign(&key, MESSAGE).unwrap();
         let expected_signature = hex::decode(SIGNATURE_HEX).unwrap();
@@ -121,7 +118,6 @@ mod tests {
 
     #[test]
     fn hmac_sign_gives_different_signatures_for_different_messages() {
-        ensure_initialized();
         let key = SigningKey::new(&digest::SHA256, KEY);
         let signature = sign(&key, b"a different message").unwrap();
         let expected_signature = hex::decode(SIGNATURE_HEX).unwrap();
@@ -130,7 +126,6 @@ mod tests {
 
     #[test]
     fn hmac_verify() {
-        ensure_initialized();
         let key = VerificationKey::new(&digest::SHA256, KEY);
         let expected_signature = hex::decode(SIGNATURE_HEX).unwrap();
         assert!(verify(&key, MESSAGE, &expected_signature).is_ok());
@@ -138,7 +133,6 @@ mod tests {
 
     #[test]
     fn hmac_verify_fails_with_incorrect_signature() {
-        ensure_initialized();
         let key = VerificationKey::new(&digest::SHA256, KEY);
         let signature = hex::decode(SIGNATURE_HEX).unwrap();
         for i in 0..signature.len() {
@@ -150,7 +144,6 @@ mod tests {
 
     #[test]
     fn hmac_verify_fails_with_incorrect_key() {
-        ensure_initialized();
         let key = VerificationKey::new(&digest::SHA256, b"wrong key");
         let signature = hex::decode(SIGNATURE_HEX).unwrap();
         assert!(verify(&key, MESSAGE, &signature).is_err());
@@ -158,7 +151,6 @@ mod tests {
 
     #[test]
     fn hmac_sign_cleanly_rejects_gigantic_keys() {
-        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let key_bytes = vec![0; (u32::MAX as usize) + 1];
             // Direct construction of SigningKey to avoid instantiating the array.
@@ -172,7 +164,6 @@ mod tests {
 
     #[test]
     fn hmac_verify_cleanly_rejects_gigantic_keys() {
-        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let key_bytes = vec![0; (u32::MAX as usize) + 1];
             // Direct construction of VerificationKey to avoid instantiating the array.
@@ -189,7 +180,6 @@ mod tests {
 
     #[test]
     fn hmac_sign_cleanly_rejects_gigantic_messages() {
-        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let key = SigningKey::new(&digest::SHA256, KEY);
             let message = vec![0; (u32::MAX as usize) + 1];
@@ -199,7 +189,6 @@ mod tests {
 
     #[test]
     fn hmac_verify_cleanly_rejects_gigantic_messages() {
-        ensure_initialized();
         if (u32::MAX as usize) < usize::MAX {
             let key = VerificationKey::new(&digest::SHA256, KEY);
             let signature = hex::decode(SIGNATURE_HEX).unwrap();
