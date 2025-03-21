@@ -28,5 +28,5 @@ pub fn initialize() {
 #[cfg(feature = "keydb")]
 #[uniffi::export]
 pub fn initialize(profile_path: String) {
-    ensure_nss_initialized_with_profile_dir(profile_path).expect("could not initialize NSS")
+    ensure_nss_initialized_with_profile_dir(profile_path);
 }

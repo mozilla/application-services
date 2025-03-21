@@ -279,12 +279,12 @@ impl SetupStorageClient for Sync15StorageClient {
 
 impl Sync15StorageClient {
     pub fn new(init_params: Sync15StorageClientInit) -> error::Result<Sync15StorageClient> {
-        rc_crypto::ensure_initialized()?;
+        rc_crypto::ensure_initialized();
         let tsc = token::TokenProvider::new(
             init_params.tokenserver_url,
             init_params.access_token,
             init_params.key_id,
-        )?;
+        );
         Ok(Sync15StorageClient {
             tsc,
             backoff: new_backoff_listener(),

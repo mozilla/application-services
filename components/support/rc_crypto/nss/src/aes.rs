@@ -5,7 +5,7 @@
 use crate::{
     error::*,
     pk11::sym_key::import_sym_key,
-    util::{expect_nss_initialized, map_nss_secstatus, ScopedPtr},
+    util::{assert_nss_initialized, map_nss_secstatus, ScopedPtr},
 };
 use std::{
     mem,
@@ -81,7 +81,7 @@ pub fn common_crypt(
     params: &mut nss_sys::SECItem,
     operation: Operation,
 ) -> Result<Vec<u8>> {
-    expect_nss_initialized()?;
+    assert_nss_initialized();
     // Most of the following code is inspired by the Firefox WebCrypto implementation:
     // https://searchfox.org/mozilla-central/rev/f46e2bf881d522a440b30cbf5cf8d76fc212eaf4/dom/crypto/WebCryptoTask.cpp#566
     // CKA_ENCRYPT always is fine.

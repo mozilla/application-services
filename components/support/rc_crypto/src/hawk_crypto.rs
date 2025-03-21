@@ -93,7 +93,8 @@ mod test {
     // Based on rust-hawk's hash_consistency. This fails if we've messed up the hashing.
     #[test]
     fn test_hawk_hashing() {
-        crate::ensure_initialized().unwrap();
+        crate::ensure_initialized();
+
         let mut hasher1 = hawk::PayloadHasher::new("text/plain", hawk::SHA256).unwrap();
         hasher1.update("pày").unwrap();
         hasher1.update("load").unwrap();
@@ -123,7 +124,8 @@ mod test {
     // Based on rust-hawk's test_make_mac. This fails if we've messed up the signing.
     #[test]
     fn test_hawk_signing() {
-        crate::ensure_initialized().unwrap();
+        crate::ensure_initialized();
+
         let key = hawk::Key::new(
             [
                 11u8, 19, 228, 209, 79, 189, 200, 59, 166, 47, 86, 254, 235, 184, 120, 197, 75,
