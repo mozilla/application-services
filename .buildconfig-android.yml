@@ -144,3 +144,10 @@ projects:
     - name: search
       type: aar
     description: search-description
+  merino:
+    path: components/merino/android
+    artifactId: merino
+    publications:
+    - name: merino
+      type: aar
+    description: A client for merino APIs
