@@ -7,7 +7,7 @@ use crate::util::get_last_error;
 use crate::{
     error::*,
     pk11::{context::HashAlgorithm, slot, types::SymKey},
-    util::{assert_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
+    util::{expect_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
 };
 #[cfg(feature = "keydb")]
 use std::ffi::{c_char, CString};
@@ -23,7 +23,7 @@ pub fn hkdf_expand(
     info: &[u8],
     len: usize,
 ) -> Result<Vec<u8>> {
-    assert_nss_initialized();
+    expect_nss_initialized()?;
     let mech = digest_alg.as_hkdf_mechanism();
     // Most of the following code is inspired by the Firefox WebCrypto implementation:
     // https://searchfox.org/mozilla-central/rev/ee3905439acbf81e9c829ece0b46d09d2fa26c5c/dom/crypto/WebCryptoTask.cpp#2530-2597
@@ -76,7 +76,7 @@ pub(crate) fn import_sym_key(
     operation: nss_sys::CK_ATTRIBUTE_TYPE,
     buf: &[u8],
 ) -> Result<SymKey> {
-    assert_nss_initialized();
+    expect_nss_initialized()?;
     let mut item = nss_sys::SECItem {
         type_: nss_sys::SECItemType::siBuffer as u32,
         data: buf.as_ptr() as *mut c_uchar,
