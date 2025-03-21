@@ -131,7 +131,7 @@ pub fn get_calculated_attributes(
     let mut days_since_update: Option<i32> = None;
     let now = Utc::now();
     let days_since_install: Option<i32> = installation_date.map(|installation_date| {
-        let installation_date = DateTime::<Utc>::from_naive_utc_and_offset(
+        let installation_date = DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_opt(installation_date / 1_000, 0).unwrap(),
             Utc,
         );
