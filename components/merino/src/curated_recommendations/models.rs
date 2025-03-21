@@ -53,7 +53,7 @@ pub struct CuratedRecommendationsRequest {
     pub locale: Locale,
     #[uniffi(default = None)]
     pub region: Option<String>,
-    #[uniffi(default = "Some(100)")]
+    #[uniffi(default = Some(100))]
     pub count: Option<i32>,
     #[uniffi(default = None)]
     pub topics: Option<Vec<String>>,
@@ -151,7 +151,7 @@ pub struct RecommendationDataItem {
     #[serde(rename = "corpusItemId")]
     pub corpus_item_id: String,
     #[serde(rename = "scheduledCorpusItemId")]
-    pub schdeuled_corpus_item_id: String,
+    pub scheduled_corpus_item_id: String,
     pub url: String,
     pub title: String,
     pub excerpt: String,
@@ -178,7 +178,7 @@ pub struct CuratedRecommendationsBucket {
     pub title: Option<String>,
 }
 
-// Fakespot product reccomendations
+// Fakespot product recommendations
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct FakespotFeed {
     pub products: Vec<FakespotProduct>,
