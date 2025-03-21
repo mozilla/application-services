@@ -16,6 +16,16 @@ component to handle initialization.
 ### `rc_crypto`
 - `ensure_initialized()` now returns a Result
 
+### Logins
+New trait `NSSKeyManager`, which provides an NSS-backed key manager. Given a
+`PrimaryPasswordAuthenticator` implementation, the NSS keystore is used to
+store and retrieve the login encryption key. These features are only available
+when the Logins component is compiled with the `keydb` feature. The
+`sync-pass` example has been adapted to use the NSSKeyManager. The example
+program can be called with an FX profile path in which the key is stored in the
+file key4.db and secured with a possibly set primary password.
+([#6571](https://github.com/mozilla/application-services/pull/6571))
+
 [Full Changelog](In progress)
 
 # v137.0 (_2025-03-03_)
