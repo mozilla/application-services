@@ -1,5 +1,5 @@
 plugins {
-    alias libs.plugins.gradle.python.envs
+    alias libs.plugins.python.envs.plugin
 }
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
@@ -17,7 +17,7 @@ dependencies {
 
     implementation libs.mozilla.glean
 
-    testImplementation libs.mozilla.glean.native.tests
+    testImplementation libs.mozilla.glean.forUnitTests
 }
 
 ext.configureUniFFIBindgen("fxa_client")
