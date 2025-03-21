@@ -236,7 +236,7 @@ impl FxAClient for Client {
             "grant_type": "fxa-credentials",
             "access_type": "offline",
         });
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)?
             .body(body)
             .build()?;
         Ok(self.make_request(request)?.json()?)
@@ -273,7 +273,7 @@ impl FxAClient for Client {
         });
         let key = derive_auth_key_from_session_token(session_token)?;
         let url = config.token_endpoint()?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)?
             .body(parameters)
             .build()?;
         self.make_request(request)?.json().map_err(Into::into)
@@ -288,7 +288,7 @@ impl FxAClient for Client {
         let parameters = serde_json::to_value(auth_params)?;
         let key = derive_auth_key_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/oauth/authorization")?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)?
             .body(parameters)
             .build()?;
 
@@ -318,7 +318,7 @@ impl FxAClient for Client {
         let duplicate_body = json!({
             "reason": "migration"
         });
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)?
             .body(duplicate_body)
             .build()?;
 
@@ -428,7 +428,7 @@ impl FxAClient for Client {
     ) -> Result<Vec<GetAttachedClientResponse>> {
         let url = config.auth_url_path("v1/account/attached_clients")?;
         let key = derive_auth_key_from_session_token(session_token)?;
-        let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HawkRequestBuilder::new(Method::Get, url, &key)?.build()?;
         Ok(self.make_request(request)?.json()?)
     }
 
@@ -445,7 +445,7 @@ impl FxAClient for Client {
         });
         let url = config.auth_url_path("v1/account/scoped-key-data")?;
         let key = derive_auth_key_from_session_token(session_token)?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)?
             .body(body)
             .build()?;
         self.make_request(request)?.json().map_err(|e| e.into())
@@ -497,7 +497,7 @@ impl Client {
         let url = config.token_endpoint()?;
         if let Some(session_token) = session_token {
             let key = derive_auth_key_from_session_token(session_token)?;
-            let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            let request = HawkRequestBuilder::new(Method::Post, url, &key)?
                 .body(body)
                 .build()?;
 
@@ -605,14 +605,14 @@ struct HawkRequestBuilder<'a> {
 }
 
 impl<'a> HawkRequestBuilder<'a> {
-    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
-        rc_crypto::ensure_initialized();
-        HawkRequestBuilder {
+    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Result<Self> {
+        rc_crypto::ensure_initialized()?;
+        Ok(HawkRequestBuilder {
             url,
             method,
             body: None,
             hkdf_sha256_key,
-        }
+        })
     }
 
     // This class assumes that the content being sent it always of the type

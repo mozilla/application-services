@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::util::assert_nss_initialized;
+use crate::util::expect_nss_initialized;
 
 use nss_sys::PRErrorCode;
 
@@ -33,7 +33,7 @@ pub fn verify_code_signing_certificate_chain(
     root_sha256_hash: &[u8],
     hostname: &str,
 ) -> Result<()> {
-    assert_nss_initialized();
+    expect_nss_initialized()?;
 
     let mut cert_lens: Vec<u16> = vec![];
     for certificate in &certificates {

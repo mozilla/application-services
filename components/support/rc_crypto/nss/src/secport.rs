@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::util::assert_nss_initialized;
+use crate::util::expect_nss_initialized;
 use std::os::raw::c_void;
 
 pub fn secure_memcmp(a: &[u8], b: &[u8]) -> Result<bool> {
-    assert_nss_initialized();
+    expect_nss_initialized()?;
     // NSS_SecureMemcmp will compare N elements fron our slices,
     // so make sure they are the same length first.
     if a.len() != b.len() {
