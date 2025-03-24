@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 34;
+pub const VERSION: u32 = 35;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -83,6 +83,7 @@ CREATE TABLE suggestions(
     provider INTEGER NOT NULL,
     title TEXT NOT NULL,
     url TEXT NOT NULL,
+    dismissal_key TEXT,
     score REAL NOT NULL
 );
 
@@ -229,9 +230,30 @@ CREATE TABLE geonames_metrics(
     max_name_word_count INTEGER NOT NULL
 ) WITHOUT ROWID;
 
-CREATE TABLE dismissed_suggestions (
-    url TEXT PRIMARY KEY
+-- For suggestions dismissed using the deprecated API prior to the introduction
+-- of dismissal keys, `provider` is zero and `dismissal_key` is the dismissed
+-- suggestion's URL.
+CREATE TABLE dismissed_suggestions_2(
+    provider INTEGER NOT NULL,
+    dismissal_key TEXT NOT NULL,
+    PRIMARY KEY (provider, dismissal_key)
 ) WITHOUT ROWID;
+
+CREATE INDEX dismissed_suggestions_2_dismissal_key ON dismissed_suggestions_2(dismissal_key);
+
+-- Keeps track of each suggestion's secondary dismissal keys. The main purpose
+-- of secondary dismissal keys is to allow a suggestion's primary dismissal key
+-- to change over time while ensuring it remains dismissed under the prior keys.
+-- The mapping from suggestions to secondary keys is therefore one to many.
+-- Primary dismissal keys are stored in `suggestions`.
+CREATE TABLE dismissal_keys(
+    suggestion_id INTEGER NOT NULL,
+    dismissal_key TEXT NOT NULL,
+    FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+    PRIMARY KEY (suggestion_id, dismissal_key)
+) WITHOUT ROWID;
+
+CREATE INDEX dismissal_keys_dismissal_key ON dismissal_keys(dismissal_key);
 ";
 
 /// Initializes an SQLite connection to the Suggest database, performing
@@ -624,6 +646,61 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 clear_database(tx)?;
                 Ok(())
             }
+            34 => {
+                clear_database(tx)?;
+
+                // Create the tables related to the new dismissal API and move
+                // the contents of `dismissed_suggestions` into the new table.
+                tx.execute_batch(
+                    r#"
+                    DROP INDEX suggestions_record_id;
+                    DROP TABLE suggestions;
+
+                    CREATE TABLE suggestions(
+                        id INTEGER PRIMARY KEY,
+                        record_id TEXT NOT NULL,
+                        provider INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        url TEXT NOT NULL,
+                        dismissal_key TEXT,
+                        score REAL NOT NULL
+                    );
+
+                    CREATE INDEX suggestions_record_id ON suggestions(record_id);
+
+                    CREATE TABLE dismissed_suggestions_2(
+                        provider INTEGER NOT NULL,
+                        dismissal_key TEXT NOT NULL,
+                        PRIMARY KEY (provider, dismissal_key)
+                    ) WITHOUT ROWID;
+
+                    CREATE INDEX dismissed_suggestions_2_dismissal_key ON dismissed_suggestions_2(dismissal_key);
+
+                    INSERT INTO dismissed_suggestions_2(
+                        provider,
+                        dismissal_key
+                    )
+                    SELECT
+                        0 AS provider,
+                        url AS dismissal_key
+                    FROM
+                        dismissed_suggestions;
+
+                    DROP TABLE dismissed_suggestions;
+
+                    CREATE TABLE dismissal_keys(
+                        suggestion_id INTEGER NOT NULL,
+                        dismissal_key TEXT NOT NULL,
+                        FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+                        PRIMARY KEY (suggestion_id, dismissal_key)
+                    ) WITHOUT ROWID;
+
+                    CREATE INDEX dismissal_keys_dismissal_key ON dismissal_keys(dismissal_key);
+                    "#,
+                )?;
+
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
@@ -664,6 +741,7 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::SuggestionProvider;
     use sql_support::open_database::test_utils::MigratedDatabaseFile;
 
     // Snapshot of the v16 schema.  We use this to test that we can migrate from there to the
@@ -821,6 +899,166 @@ PRAGMA user_version=16;
             0,
             "ingested_records should be empty"
         );
+        conn.close().expect("Connection should be closed");
+
+        Ok(())
+    }
+
+    #[test]
+    fn to_35_suggestions_table() -> anyhow::Result<()> {
+        // This migration drops and recreates the `suggestions` table. Make sure
+        // the `ON DELETE CASCADE` actions of other tables' foreign keys that
+        // reference `suggestions` still work when a row is deleted from it.
+        //
+        // Relevant documentation is https://sqlite.org/foreignkeys.html
+        // sections 4.3 and 5.
+
+        let db_file =
+            MigratedDatabaseFile::new(SuggestConnectionInitializer::default(), V16_SCHEMA);
+        db_file.upgrade_to(35);
+        db_file.assert_schema_matches_new_database();
+
+        let conn = db_file.open();
+
+        // Insert a Wikipedia suggestion.
+        let suggestion_id = conn.query_row(
+            "INSERT INTO suggestions(record_id, provider, title, url, score)
+            VALUES(?, ?, ?, ?, ?)
+            RETURNING id",
+            (
+                "record-0",
+                SuggestionProvider::Wikipedia as u8,
+                "Suggestion 1",
+                "https://example.com/1",
+                0.2,
+            ),
+            |row| row.get::<_, i64>(0),
+        )?;
+        conn.execute(
+            "INSERT INTO wikipedia_custom_details(suggestion_id, icon_id)
+            VALUES(?, ?)",
+            (suggestion_id, "icon-id"),
+        )?;
+
+        // Sanity check that the suggestion exists.
+        assert_eq!(
+            conn.query_row(
+                "SELECT count(*) FROM suggestions WHERE id = ?",
+                [suggestion_id],
+                |row| row.get::<_, i64>(0)
+            )?,
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT count(*) FROM wikipedia_custom_details WHERE suggestion_id = ?",
+                [suggestion_id],
+                |row| row.get::<_, i64>(0)
+            )?,
+            1
+        );
+
+        // Delete the `suggestions` row.
+        conn.execute("DELETE FROM suggestions WHERE id = ?", [suggestion_id])?;
+
+        // The suggestion should be deleted from both the `suggestions` and
+        // Wikipedia tables since Wikipedia has a foreign key on
+        // `suggestions(id)` with an `ON DELETE CASCADE` action.
+        assert_eq!(
+            conn.query_row(
+                "SELECT count(*) FROM suggestions WHERE id = ?",
+                [suggestion_id],
+                |row| row.get::<_, i64>(0)
+            )?,
+            0
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT count(*) FROM wikipedia_custom_details WHERE suggestion_id = ?",
+                [suggestion_id],
+                |row| row.get::<_, i64>(0)
+            )?,
+            0
+        );
+
+        conn.close().expect("Connection should be closed");
+
+        Ok(())
+    }
+
+    #[test]
+    fn to_35_dismissed_suggestions_2_nonempty() -> anyhow::Result<()> {
+        // This migration creates `dismissed_suggestions_2` and copies the
+        // contents of `dismissed_suggestions` into it. Make sure that works
+        // correctly when `dismissed_suggestions` is not empty.
+
+        // Start with the v16 schema and then upgrade to 34.
+        let db_file =
+            MigratedDatabaseFile::new(SuggestConnectionInitializer::default(), V16_SCHEMA);
+        db_file.upgrade_to(34);
+
+        // Insert some dismissals.
+        let conn = db_file.open();
+        for i in 0..3 {
+            conn.execute(
+                "INSERT INTO dismissed_suggestions(url) VALUES(?)",
+                [format!("https://example.com/{i}")],
+            )?;
+        }
+        conn.close().expect("Connection should be closed");
+
+        // Upgrade to 35.
+        db_file.upgrade_to(35);
+        db_file.assert_schema_matches_new_database();
+
+        let conn = db_file.open();
+
+        // `dismissed_suggestions_2` should contain the URLs from
+        // `dismissed_suggestions`.
+        assert_eq!(
+            conn.query_rows_and_then(
+                "SELECT provider, dismissal_key
+                 FROM dismissed_suggestions_2
+                 ORDER BY provider ASC, dismissal_key ASC",
+                (),
+                |row| -> anyhow::Result<(u8, String)> { Ok((row.get(0)?, row.get(1)?)) }
+            )?,
+            vec![
+                (0, "https://example.com/0".to_string()),
+                (0, "https://example.com/1".to_string()),
+                (0, "https://example.com/2".to_string()),
+            ]
+        );
+
+        conn.close().expect("Connection should be closed");
+
+        Ok(())
+    }
+
+    #[test]
+    fn to_35_dismissed_suggestions_2_empty() -> anyhow::Result<()> {
+        // This migration creates `dismissed_suggestions_2` and copies the
+        // contents of `dismissed_suggestions` into it. Make sure that works
+        // correctly when `dismissed_suggestions` is empty.
+
+        let db_file =
+            MigratedDatabaseFile::new(SuggestConnectionInitializer::default(), V16_SCHEMA);
+        db_file.upgrade_to(35);
+        db_file.assert_schema_matches_new_database();
+
+        let conn = db_file.open();
+
+        assert_eq!(
+            conn.query_rows_and_then(
+                "SELECT provider, dismissal_key
+                 FROM dismissed_suggestions_2
+                 ORDER BY provider ASC, dismissal_key ASC",
+                (),
+                |row| -> anyhow::Result<(u8, String)> { Ok((row.get(0)?, row.get(1)?)) }
+            )?,
+            vec![]
+        );
+
         conn.close().expect("Connection should be closed");
 
         Ok(())

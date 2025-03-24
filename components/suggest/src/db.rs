@@ -45,6 +45,36 @@ pub const PROVIDER_CONFIG_META_KEY_PREFIX: &str = "provider_config_";
 // Default value when Suggestion does not have a value for score
 pub const DEFAULT_SUGGESTION_SCORE: f64 = 0.2;
 
+// SQL subquery that can be used in `WHERE` clauses to filter out dismissed
+// suggestions. Assumptions:
+//
+// * `s` is the `suggestions` table
+// * `:provider` is the provider whose suggestions are being fetched
+const FILTER_OUT_DISMISSED_SUGGESTIONS_SQL: &str = r#"
+    NOT EXISTS (
+        SELECT
+            1
+        FROM
+            dismissed_suggestions_2 d
+        LEFT JOIN
+            dismissal_keys k
+            ON k.dismissal_key = d.dismissal_key
+        WHERE
+            CASE d.provider
+            WHEN 0 THEN
+                -- When the suggestion's URL was dismissed with the old URL-based API
+                d.dismissal_key = s.url
+            WHEN :provider THEN
+                -- When the suggestion was dismissed by its primary dismissal key
+                d.dismissal_key = s.dismissal_key
+                -- When the suggestion was dismissed by a secondary dismissal key
+                OR k.suggestion_id = s.id
+                -- When the suggestion was dismissed by URL fallback
+                OR (k.suggestion_id IS NULL AND d.dismissal_key = s.url)
+            END
+    )
+"#;
+
 /// The database connection type.
 #[derive(Clone, Copy)]
 pub(crate) enum ConnectionType {
@@ -294,6 +324,7 @@ impl<'a> SuggestDao<'a> {
                   s.title,
                   s.url,
                   s.provider,
+                  s.dismissal_key,
                   s.score,
                   fk.full_keyword
                 FROM
@@ -308,7 +339,7 @@ impl<'a> SuggestDao<'a> {
                   s.provider = :provider
                   AND k.keyword = :keyword
                   {where_extra}
-                AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                  AND {FILTER_OUT_DISMISSED_SUGGESTIONS_SQL}
                 "#
             ),
             named_params! {
@@ -319,6 +350,7 @@ impl<'a> SuggestDao<'a> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url: String = row.get("url")?;
+                let dismissal_key: Option<String> = row.get("dismissal_key")?;
                 let score: f64 = row.get("score")?;
                 let full_keyword_from_db: Option<String> = row.get("full_keyword")?;
 
@@ -380,6 +412,7 @@ impl<'a> SuggestDao<'a> {
                             click_url: cooked_click_url,
                             raw_click_url,
                             score,
+                            dismissal_key,
                             fts_match_info: None,
                         })
                     },
@@ -404,6 +437,7 @@ impl<'a> SuggestDao<'a> {
                   s.title,
                   s.url,
                   s.provider,
+                  s.dismissal_key,
                   s.score
                 FROM
                   suggestions s
@@ -413,7 +447,7 @@ impl<'a> SuggestDao<'a> {
                 WHERE
                   s.provider = :provider
                   AND amp_fts match '{fts_column}: {match_arg}'
-                AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                  AND {FILTER_OUT_DISMISSED_SUGGESTIONS_SQL}
                 ORDER BY rank
                 LIMIT 1
                 "#
@@ -425,6 +459,7 @@ impl<'a> SuggestDao<'a> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title: String = row.get("title")?;
                 let raw_url: String = row.get("url")?;
+                let dismissal_key: Option<String> = row.get("dismissal_key")?;
                 let score: f64 = row.get("score")?;
 
                 self.conn.query_row_and_then(
@@ -472,6 +507,7 @@ impl<'a> SuggestDao<'a> {
                             click_url: cooked_click_url,
                             raw_click_url,
                             score,
+                            dismissal_key,
                             fts_match_info: Some(match_info),
                         })
                     },
@@ -528,22 +564,25 @@ impl<'a> SuggestDao<'a> {
     pub fn fetch_wikipedia_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
         let suggestions = self.conn.query_rows_and_then_cached(
-            r#"
-            SELECT
-              s.id,
-              k.rank,
-              s.title,
-              s.url
-            FROM
-              suggestions s
-            JOIN
-              keywords k
-              ON k.suggestion_id = s.id
-            WHERE
-              s.provider = :provider
-              AND k.keyword = :keyword
-              AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
-            "#,
+            &format!(
+                r#"
+                SELECT
+                  s.id,
+                  k.rank,
+                  s.title,
+                  s.url,
+                  s.dismissal_key
+                FROM
+                  suggestions s
+                JOIN
+                  keywords k
+                  ON k.suggestion_id = s.id
+                WHERE
+                  s.provider = :provider
+                  AND k.keyword = :keyword
+                  AND {FILTER_OUT_DISMISSED_SUGGESTIONS_SQL}
+                "#,
+            ),
             named_params! {
                 ":keyword": keyword_lowercased,
                 ":provider": SuggestionProvider::Wikipedia
@@ -552,6 +591,7 @@ impl<'a> SuggestDao<'a> {
                 let suggestion_id: i64 = row.get("id")?;
                 let title = row.get("title")?;
                 let raw_url = row.get::<_, String>("url")?;
+                let dismissal_key: Option<String> = row.get("dismissal_key")?;
 
                 let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
                     "SELECT keyword FROM keywords
@@ -590,6 +630,7 @@ impl<'a> SuggestDao<'a> {
                     full_keyword: full_keyword(keyword_lowercased, &keywords),
                     icon,
                     icon_mimetype,
+                    dismissal_key,
                 })
             },
         )?;
@@ -607,7 +648,8 @@ impl<'a> SuggestDao<'a> {
         let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
         let suggestions_limit = query.limit.unwrap_or(-1);
         self.conn.query_rows_and_then_cached(
-            r#"
+            &format!(
+                r#"
                 SELECT
                   s.id,
                   MAX(k.rank) AS rank,
@@ -625,7 +667,7 @@ impl<'a> SuggestDao<'a> {
                   k.keyword_prefix = :keyword_prefix
                   AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
                   AND s.provider = :provider
-                  AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                  AND {FILTER_OUT_DISMISSED_SUGGESTIONS_SQL}
                 GROUP BY
                   s.id
                 ORDER BY
@@ -634,6 +676,7 @@ impl<'a> SuggestDao<'a> {
                 LIMIT
                   :suggestions_limit
                 "#,
+            ),
             &[
                 (":keyword_prefix", &keyword_prefix as &dyn ToSql),
                 (":keyword_suffix", &keyword_suffix as &dyn ToSql),
@@ -706,33 +749,35 @@ impl<'a> SuggestDao<'a> {
         let suggestions = self
             .conn
             .query_rows_and_then_cached(
-                r#"
-            SELECT
-              s.id,
-              MAX(k.rank) AS rank,
-              s.title,
-              s.url,
-              s.provider,
-              s.score,
-              k.confidence,
-              k.keyword_suffix
-            FROM
-              suggestions s
-            JOIN
-              prefix_keywords k
-              ON k.suggestion_id = s.id
-            WHERE
-              k.keyword_prefix = :keyword_prefix
-              AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
-              AND s.provider = :provider
-              AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
-            GROUP BY
-              s.id,
-              k.confidence
-            ORDER BY
-              s.score DESC,
-              rank DESC
-            "#,
+                &format!(
+                    r#"
+                    SELECT
+                      s.id,
+                      MAX(k.rank) AS rank,
+                      s.title,
+                      s.url,
+                      s.provider,
+                      s.score,
+                      k.confidence,
+                      k.keyword_suffix
+                    FROM
+                      suggestions s
+                    JOIN
+                      prefix_keywords k
+                      ON k.suggestion_id = s.id
+                    WHERE
+                      k.keyword_prefix = :keyword_prefix
+                      AND (k.keyword_suffix BETWEEN :keyword_suffix AND :keyword_suffix || x'FFFF')
+                      AND s.provider = :provider
+                      AND {FILTER_OUT_DISMISSED_SUGGESTIONS_SQL}
+                    GROUP BY
+                      s.id,
+                      k.confidence
+                    ORDER BY
+                      s.score DESC,
+                      rank DESC
+                    "#,
+                ),
                 named_params! {
                     ":keyword_prefix": keyword_prefix,
                     ":keyword_suffix": keyword_suffix,
@@ -1036,6 +1081,7 @@ impl<'a> SuggestDao<'a> {
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score,
+                None,
                 SuggestionProvider::Amo,
             )?;
             amo_insert.execute(suggestion_id, suggestion)?;
@@ -1066,13 +1112,19 @@ impl<'a> SuggestDao<'a> {
         let mut amp_insert = AmpInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
         let mut fts_insert = AmpFtsInsertStatement::new(self.conn)?;
+        let mut dismissal_keys_insert = DismissalKeysInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
+            let split_dismissal_keys = suggestion
+                .dismissal_keys
+                .as_ref()
+                .and_then(|ks| ks.split_first());
             let suggestion_id = suggestion_insert.execute(
                 record_id,
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score.unwrap_or(DEFAULT_SUGGESTION_SCORE),
+                split_dismissal_keys.map(|(first, _)| first.as_str()),
                 SuggestionProvider::Amp,
             )?;
             amp_insert.execute(suggestion_id, suggestion)?;
@@ -1097,6 +1149,9 @@ impl<'a> SuggestDao<'a> {
                     keyword.rank,
                 )?;
             }
+            if let Some(rest) = split_dismissal_keys.map(|(_, rest)| rest) {
+                dismissal_keys_insert.execute(suggestion_id, rest)?;
+            }
         }
         Ok(())
     }
@@ -1112,19 +1167,28 @@ impl<'a> SuggestDao<'a> {
         let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
         let mut wiki_insert = WikipediaInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
+        let mut dismissal_keys_insert = DismissalKeysInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
+            let split_dismissal_keys = suggestion
+                .dismissal_keys
+                .as_ref()
+                .and_then(|ks| ks.split_first());
             let suggestion_id = suggestion_insert.execute(
                 record_id,
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score.unwrap_or(DEFAULT_SUGGESTION_SCORE),
+                split_dismissal_keys.map(|(first, _)| first.as_str()),
                 SuggestionProvider::Wikipedia,
             )?;
             wiki_insert.execute(suggestion_id, suggestion)?;
             for keyword in suggestion.keywords() {
                 // Don't update `full_keywords`, see bug 1876217.
                 keyword_insert.execute(suggestion_id, keyword.keyword, None, keyword.rank)?;
+            }
+            if let Some(rest) = split_dismissal_keys.map(|(_, rest)| rest) {
+                dismissal_keys_insert.execute(suggestion_id, rest)?;
             }
         }
         Ok(())
@@ -1146,6 +1210,7 @@ impl<'a> SuggestDao<'a> {
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score,
+                None,
                 SuggestionProvider::Pocket,
             )?;
             for ((rank, keyword), confidence) in suggestion
@@ -1191,6 +1256,7 @@ impl<'a> SuggestDao<'a> {
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score,
+                None,
                 SuggestionProvider::Mdn,
             )?;
             mdn_insert.execute(suggestion_id, suggestion)?;
@@ -1222,6 +1288,7 @@ impl<'a> SuggestDao<'a> {
                 &suggestion.title,
                 &suggestion.url,
                 suggestion.score,
+                None,
                 SuggestionProvider::Fakespot,
             )?;
             fakespot_insert.execute(suggestion_id, suggestion)?;
@@ -1249,6 +1316,7 @@ impl<'a> SuggestDao<'a> {
                 "", // title, not used by exposure suggestions
                 "", // url, not used by exposure suggestions
                 DEFAULT_SUGGESTION_SCORE,
+                None,
                 SuggestionProvider::Exposure,
             )?;
             exposure_insert.execute(suggestion_id, suggestion_type)?;
@@ -1284,19 +1352,25 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    pub fn insert_dismissal(&self, url: &str) -> Result<()> {
+    pub fn insert_dismissal(
+        &self,
+        provider: Option<SuggestionProvider>,
+        dismissal_key: &str,
+    ) -> Result<()> {
         self.conn.execute(
-            "INSERT OR IGNORE INTO dismissed_suggestions(url)
-             VALUES(:url)",
+            "INSERT OR IGNORE INTO dismissed_suggestions_2(provider, dismissal_key)
+             VALUES(:provider, :dismissal_key)",
             named_params! {
-                ":url": url,
+                ":provider": provider.map(|p| p as u8).unwrap_or(0),
+                ":dismissal_key": dismissal_key,
             },
         )?;
         Ok(())
     }
 
     pub fn clear_dismissals(&self) -> Result<()> {
-        self.conn.execute("DELETE FROM dismissed_suggestions", ())?;
+        self.conn
+            .execute("DELETE FROM dismissed_suggestions_2", ())?;
         Ok(())
     }
 
@@ -1540,9 +1614,10 @@ impl<'conn> SuggestionInsertStatement<'conn> {
                  title,
                  url,
                  score,
+                 dismissal_key,
                  provider
              )
-             VALUES(?, ?, ?, ?, ?)
+             VALUES(?, ?, ?, ?, ?, ?)
              RETURNING id",
         )?))
     }
@@ -1554,11 +1629,19 @@ impl<'conn> SuggestionInsertStatement<'conn> {
         title: &str,
         url: &str,
         score: f64,
+        dismissal_key: Option<&str>,
         provider: SuggestionProvider,
     ) -> Result<i64> {
         self.0
             .query_row(
-                (record_id.as_str(), title, url, score, provider as u8),
+                (
+                    record_id.as_str(),
+                    title,
+                    url,
+                    score,
+                    dismissal_key,
+                    provider as u8,
+                ),
                 |row| row.get(0),
             )
             .with_context("suggestion insert")
@@ -1879,6 +1962,27 @@ impl<'conn> AmpFtsInsertStatement<'conn> {
         self.0
             .execute((suggestion_id, full_keywords, title))
             .with_context("amp fts insert")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct DismissalKeysInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+impl<'conn> DismissalKeysInsertStatement<'conn> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
+        Ok(Self(conn.prepare(
+            "INSERT INTO dismissal_keys(suggestion_id, dismissal_key)
+             VALUES(?, ?)
+             ",
+        )?))
+    }
+
+    pub(crate) fn execute(&mut self, suggestion_id: i64, dismissal_keys: &[String]) -> Result<()> {
+        for key in dismissal_keys {
+            self.0
+                .execute((suggestion_id, key))
+                .with_context("dismissal keys insert")?;
+        }
         Ok(())
     }
 }

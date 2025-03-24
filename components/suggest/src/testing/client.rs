@@ -46,6 +46,7 @@ impl MockRemoteSettingsClient {
 
     /// Add a record to the mock data
     pub fn add_record(&mut self, mock_record: MockRecord) -> &mut Self {
+        self.last_modified_timestamp += 1;
         self.insert_attachment(&mock_record);
         self.records.push(self.record_from_mock(mock_record));
         self
@@ -61,13 +62,12 @@ impl MockRemoteSettingsClient {
             .iter()
             .position(|r| mock_record.matches_record(r))
             .unwrap_or_else(|| panic!("update_record: {} not found", mock_record.qualified_id()));
-
+        self.last_modified_timestamp += 1;
         self.insert_attachment(&mock_record);
-
-        let mut record = self.record_from_mock(mock_record);
-        record.last_modified += 1;
-        self.records.splice(index..=index, std::iter::once(record));
-
+        self.records.splice(
+            index..=index,
+            std::iter::once(self.record_from_mock(mock_record)),
+        );
         self
     }
 
@@ -78,6 +78,7 @@ impl MockRemoteSettingsClient {
             .iter()
             .position(|r| mock_record.matches_record(r))
             .unwrap_or_else(|| panic!("delete_record: {} not found", mock_record.qualified_id()));
+        self.last_modified_timestamp += 1;
         self.records.remove(index);
         self.attachments.remove(&mock_record.qualified_id());
         self

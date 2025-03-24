@@ -367,6 +367,8 @@ pub(crate) struct DownloadedAmpSuggestion {
     pub impression_url: String,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    /// The first key is the primary dismissal key.
+    pub dismissal_keys: Option<Vec<String>>,
 }
 
 /// A Wikipedia suggestion to ingest from a Wikipedia attachment.
@@ -380,6 +382,8 @@ pub(crate) struct DownloadedWikipediaSuggestion {
     pub full_keywords: Vec<(String, usize)>,
     #[serde(rename = "icon")]
     pub icon_id: String,
+    /// The first key is the primary dismissal key.
+    pub dismissal_keys: Option<Vec<String>>,
 }
 
 /// Iterate over all AMP/Wikipedia-style keywords.

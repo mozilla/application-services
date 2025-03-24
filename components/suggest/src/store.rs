@@ -203,6 +203,16 @@ impl SuggestStore {
         self.inner.query(query)
     }
 
+    /// Dismiss a suggestion.
+    ///
+    /// Dismissed suggestions will not be returned again.
+    #[handle_error(Error)]
+    pub fn dismiss(&self, suggestion: Suggestion) -> SuggestApiResult<()> {
+        self.inner.dismiss(suggestion)
+    }
+
+    /// Deprecated: Use `dismiss` instead.
+    ///
     /// Dismiss a suggestion
     ///
     /// Dismissed suggestions will not be returned again
@@ -442,10 +452,19 @@ impl<S> SuggestStoreInner<S> {
         })
     }
 
+    fn dismiss(&self, suggestion: Suggestion) -> Result<()> {
+        if let Some(key) = suggestion.dismissal_key() {
+            self.dbs()?
+                .writer
+                .write(|dao| dao.insert_dismissal(Some(suggestion.provider()), key))?;
+        }
+        Ok(())
+    }
+
     fn dismiss_suggestion(&self, suggestion_url: String) -> Result<()> {
         self.dbs()?
             .writer
-            .write(|dao| dao.insert_dismissal(&suggestion_url))
+            .write(|dao| dao.insert_dismissal(None, &suggestion_url))
     }
 
     fn clear_dismissed_suggestions(&self) -> Result<()> {
@@ -1005,6 +1024,10 @@ pub(crate) mod tests {
             self.inner
                 .fetch_geonames(query, match_name_prefix, geoname_type, filter)
                 .expect("Error fetching geonames")
+        }
+
+        pub fn dismiss(&self, suggestion: Suggestion) {
+            self.inner.dismiss(suggestion).unwrap();
         }
     }
 
@@ -2398,11 +2421,1210 @@ pub(crate) mod tests {
         }
 
         // After dismissing the suggestions, the next query shouldn't return them
-        assert_eq!(store.fetch_suggestions(query.clone()).len(), 0);
+        assert_eq!(store.fetch_suggestions(query.clone()), vec![]);
 
         // Clearing the dismissals should cause them to be returned again
         store.inner.clear_dismissed_suggestions()?;
         assert_eq!(store.fetch_suggestions(query.clone()).len(), 5);
+
+        Ok(())
+    }
+
+    #[test]
+    fn amp_dismiss_by_url() -> anyhow::Result<()> {
+        before_each();
+
+        let record_id = "amp-record-1";
+
+        // When an AMP suggestion doesn't specify `dismissal_keys`, the default
+        // should be dismissal by URL. Test two cases: when it's not specified
+        // at all and when it's an empty array.
+        for dismissal_keys_json in [json!({}), json!({ "dismissal_keys": [] })] {
+            // Make a store with some suggestions.
+            let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+                SuggestionProvider::Amp.record(
+                    record_id,
+                    json!([
+                        amp_json(&["amp1"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp2"]),
+                        amp_json(&["amp3"]).merge(dismissal_keys_json.clone()),
+                    ]),
+                ),
+            ));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // The suggestions should be fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+                vec![amp_suggestion(&["amp1"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+                vec![amp_suggestion(&["amp3"])]
+            );
+
+            // Dismiss `amp1`. It shouldn't be fetchable anymore.
+            store.dismiss(amp_suggestion(&["amp1"]));
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+                vec![]
+            );
+
+            // The other suggestions should remain fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+                vec![amp_suggestion(&["amp3"])]
+            );
+
+            // Update the record so it contains the previous suggestions and
+            // some new suggestions.
+            store
+                .client_mut()
+                .update_record(SuggestionProvider::Amp.record(
+                    record_id,
+                    json!([
+                        // same
+                        amp_json(&["amp1"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp2"]),
+                        amp_json(&["amp3"]).merge(dismissal_keys_json.clone()),
+                        // new
+                        amp_json(&["amp4"]),
+                        amp_json(&["amp5"]).merge(dismissal_keys_json.clone()),
+                    ]),
+                ));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // The dismissed suggestion still shouldn't be fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+                vec![]
+            );
+
+            // The other suggestions should be fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+                vec![amp_suggestion(&["amp3"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+
+            // Dismiss `amp3`. It shouldn't be fetchable anymore.
+            store.dismiss(amp_suggestion(&["amp3"]));
+
+            for kw in ["amp1", "amp3"] {
+                assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+            }
+
+            // The other suggestions should remain fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+
+            // Delete the record and ingest.
+            store
+                .client_mut()
+                .delete_record(SuggestionProvider::Amp.record(record_id, json!([])));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // Now add the record back exactly as it was.
+            store
+                .client_mut()
+                .add_record(SuggestionProvider::Amp.record(
+                    record_id,
+                    json!([
+                        amp_json(&["amp1"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp2"]),
+                        amp_json(&["amp3"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp4"]),
+                        amp_json(&["amp5"]).merge(dismissal_keys_json.clone()),
+                    ]),
+                ));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // The dismisseed suggestions still shouldn't be fetchable.
+            for kw in ["amp1", "amp3"] {
+                assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+            }
+
+            // The other suggestions should remain fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+
+            // Delete the record and ingest.
+            store
+                .client_mut()
+                .delete_record(SuggestionProvider::Amp.record(record_id, json!([])));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // Now add the record back again but use a new ID.
+            store
+                .client_mut()
+                .add_record(SuggestionProvider::Amp.record(
+                    "new-amp-record",
+                    json!([
+                        amp_json(&["amp1"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp2"]),
+                        amp_json(&["amp3"]).merge(dismissal_keys_json.clone()),
+                        amp_json(&["amp4"]),
+                        amp_json(&["amp5"]).merge(dismissal_keys_json.clone()),
+                    ]),
+                ));
+            store.ingest(SuggestIngestionConstraints {
+                providers: Some(vec![SuggestionProvider::Amp]),
+                ..SuggestIngestionConstraints::all_providers()
+            });
+
+            // The dismisseed suggestions still shouldn't be fetchable.
+            for kw in ["amp1", "amp3"] {
+                assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+            }
+
+            // The other suggestions should remain fetchable.
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+
+            // Clear dismissed suggestions.
+            store.inner.clear_dismissed_suggestions()?;
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+                vec![amp_suggestion(&["amp1"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+                vec![amp_suggestion(&["amp2"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+                vec![amp_suggestion(&["amp3"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+                vec![amp_suggestion(&["amp4"])]
+            );
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+                vec![amp_suggestion(&["amp5"])]
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn amp_dismiss_by_key() -> anyhow::Result<()> {
+        before_each();
+
+        let record_id = "amp-record-1";
+        let key1 = "dismissal-key-1";
+        let key2 = "dismissal-key-2";
+
+        // Make a store with some suggestions with various dismissal keys.
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key2] })),
+                ]),
+            ),
+        ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // The suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+
+        // Dismiss `amp1`. Suggestions with its dismissal key, `key1`, shouldn't
+        // be fetchable anymore.
+        store.dismiss(amp_suggestion_with_dismissal_key(key1, &["amp1"]));
+        for kw in ["amp1", "amp3"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should remain fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+
+        // Update the record with the same suggestions plus some new suggestions
+        // with various dismissal keys.
+        store
+            .client_mut()
+            .update_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    // same
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key2] })),
+                    // new
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp6"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp7"]),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Suggestions with dismissal key `key1` still shouldn't be fetchable,
+        // even the new suggestion.
+        for kw in ["amp1", "amp3", "amp5"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp6"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion(&["amp7"])]
+        );
+
+        // Dismiss `key2`.
+        store.dismiss(amp_suggestion_with_dismissal_key(key2, &["amp4"]));
+
+        // Suggestions with dismissal keys `key1` and `key2` shouldn't be
+        // fetchable.
+        for kw in ["amp1", "amp3", "amp4", "amp5", "amp6"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion(&["amp7"])]
+        );
+
+        // Delete the record and ingest.
+        store
+            .client_mut()
+            .delete_record(SuggestionProvider::Amp.record(record_id, json!([])));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Now add the record back exactly as it was.
+        store
+            .client_mut()
+            .add_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp6"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp7"]),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Suggestions with dismissal keys `key1` and `key2` still shouldn't be
+        // fetchable.
+        for kw in ["amp1", "amp3", "amp4", "amp5", "amp6"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion(&["amp7"])]
+        );
+
+        // Delete the record and ingest.
+        store
+            .client_mut()
+            .delete_record(SuggestionProvider::Amp.record(record_id, json!([])));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Now add the record back again but use a new ID.
+        store
+            .client_mut()
+            .add_record(SuggestionProvider::Amp.record(
+                "new-amp-record",
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp6"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp7"]),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Suggestions with dismissal keys `key1` and `key2` still shouldn't be
+        // fetchable.
+        for kw in ["amp1", "amp3", "amp4", "amp5", "amp6"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion(&["amp7"])]
+        );
+
+        // Clear dismissed suggestions.
+        store.inner.clear_dismissed_suggestions()?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp6"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion(&["amp7"])]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn amp_dismiss_changed_keys() -> anyhow::Result<()> {
+        before_each();
+
+        let record_id = "amp-record-1";
+        let key1 = "dismissal-key-1";
+        let key2 = "dismissal-key-2";
+
+        // Make a store with a few suggestions without dismissal keys so that
+        // they'll be dismissed by URL.
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]),
+                    amp_json(&["amp2"]),
+                    amp_json(&["amp3"]),
+                ]),
+            ),
+        ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // The suggestions should be fetchable initially.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion(&["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+
+        // Dismiss `amp1`. It shouldn't be fetchable anymore.
+        store.dismiss(amp_suggestion(&["amp1"]));
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![]
+        );
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+
+        // Update the record so it contains the previous suggestions, now with a
+        // dismissal key, and new suggestions with various dismissal keys.
+        store
+            .client_mut()
+            .update_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key2] })),
+                    amp_json(&["amp6"]),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // The dismissed suggestion still shouldn't be fetchable even though it
+        // was dismissed by URL and it now has a dismissal key.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![]
+        );
+
+        // The other previous suggestions should be fetchable because their keys
+        // weren't dismissed; only `amp1` was dismissed by URL.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp3"])]
+        );
+
+        // The new suggestions should also be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion(&["amp6"])]
+        );
+
+        // Dismiss `amp2`. Now all suggestions with dismissal key `key1` should
+        // not be fetchable.
+        store.dismiss(amp_suggestion_with_dismissal_key(key1, &["amp2"]));
+        for kw in ["amp1", "amp2", "amp3"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The suggestions with different dismissal keys should still be
+        // fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion(&["amp6"])]
+        );
+
+        // Add a new record with a new suggestion with dismissal key `key1`.
+        store
+            .client_mut()
+            .add_record(SuggestionProvider::Amp.record(
+                "amp-record-2",
+                json!([amp_json(&["amp7"]).merge(json!({ "dismissal_keys": [key1] })),]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // The new suggestion should not be fetchable since it has the same
+        // dismissal key, `key1`, as the previously dismissed suggestions.
+        for kw in ["amp1", "amp2", "amp3", "amp7"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The suggestions with different dismissal keys should still be
+        // fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion(&["amp6"])]
+        );
+
+        // Dismiss `amp4`. The suggestions with `key2` should not be fetchable.
+        store.dismiss(amp_suggestion_with_dismissal_key(key2, &["amp4"]));
+        for kw in ["amp4", "amp5"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // `amp6` should remain fetchable since it's dismissed by URL fallback.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion(&["amp6"])]
+        );
+
+        // Update the main record so that everything is the same as before
+        // except the suggestions that had `key2` no longer have it.
+        store
+            .client_mut()
+            .update_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": ["a-new-key"] })),
+                    amp_json(&["amp5"]),
+                    amp_json(&["amp6"]),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Those suggestions should now be fetchable because, even though their
+        // old dismissal keys are still in the dismissed-suggestions table, they
+        // are no longer associated with them.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key("a-new-key", &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion(&["amp5"])]
+        );
+
+        // Clear dismissed suggestions.
+        store.inner.clear_dismissed_suggestions()?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key("a-new-key", &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion(&["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion(&["amp6"])]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn amp_dismiss_secondary_keys() -> anyhow::Result<()> {
+        before_each();
+
+        let record_id = "amp-record-1";
+        let key1 = "dismissal-key-1";
+        let key2 = "dismissal-key-2";
+        let key3 = "dismissal-key-3";
+
+        // Make a store with some suggestions with secondary dismissal keys.
+        let mut store = TestStore::new(MockRemoteSettingsClient::default().with_record(
+            SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key2, key1] })),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key2, key1, key3] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key3, key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key3] })),
+                ]),
+            ),
+        ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // All suggestions should be fetchable initially.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+
+        // Dismiss `amp2`. Its primary (first) dismissal key is `key2`, so it
+        // should be used for dismissal.
+        store.dismiss(amp_suggestion_with_dismissal_key(key2, &["amp2"]));
+
+        // Suggestions with `key2` in their dismissal keys shouldn't be
+        // fetchable.
+        for kw in ["amp2", "amp3", "amp4"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The suggestion without `key2` in its dismissal keys should be
+        // fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+
+        // Update the record with the same suggestions plus some new suggestions
+        // with various dismissal keys.
+        store
+            .client_mut()
+            .update_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    // same
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key2, key1] })),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key2, key1, key3] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key3, key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key3] })),
+                    // new
+                    amp_json(&["amp6"]).merge(json!({ "dismissal_keys": [key2, key3] })),
+                    amp_json(&["amp7"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp8"]).merge(json!({ "dismissal_keys": [key3, key1] })),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Suggestions with `key2` in their dismissal keys shouldn't be
+        // fetchable.
+        for kw in ["amp2", "amp3", "amp4", "amp6"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The suggestion without `key2` in its dismissal keys should be
+        // fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp7"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp8")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp8"])]
+        );
+
+        // Dismiss `key1`.
+        store.dismiss(amp_suggestion_with_dismissal_key(key1, &["amp7"]));
+
+        // Suggestions with dismissal keys `key1` and `key2` shouldn't be
+        // fetchable.
+        for kw in ["amp1", "amp2", "amp3", "amp4", "amp6", "amp7", "amp8"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+
+        // Delete the record and ingest.
+        store
+            .client_mut()
+            .delete_record(SuggestionProvider::Amp.record(record_id, json!([])));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Now add the record back exactly as it was.
+        store
+            .client_mut()
+            .add_record(SuggestionProvider::Amp.record(
+                record_id,
+                json!([
+                    amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key2, key1] })),
+                    amp_json(&["amp3"]).merge(json!({ "dismissal_keys": [key2, key1, key3] })),
+                    amp_json(&["amp4"]).merge(json!({ "dismissal_keys": [key3, key2] })),
+                    amp_json(&["amp5"]).merge(json!({ "dismissal_keys": [key3] })),
+                    amp_json(&["amp6"]).merge(json!({ "dismissal_keys": [key2, key3] })),
+                    amp_json(&["amp7"]).merge(json!({ "dismissal_keys": [key1] })),
+                    amp_json(&["amp8"]).merge(json!({ "dismissal_keys": [key3, key1] })),
+                ]),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Suggestions with dismissal keys `key1` and `key2` still shouldn't be
+        // fetchable.
+        for kw in ["amp1", "amp2", "amp3", "amp4", "amp6", "amp7", "amp8"] {
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(kw)), vec![]);
+        }
+
+        // The other suggestions should remain fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+
+        // Clear dismissed suggestions.
+        store.inner.clear_dismissed_suggestions()?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp4")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp4"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp5")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp5"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp6")),
+            vec![amp_suggestion_with_dismissal_key(key2, &["amp6"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp7")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp7"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp8")),
+            vec![amp_suggestion_with_dismissal_key(key3, &["amp8"])]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn amp_dismiss_deprecated_api_without_provider() -> anyhow::Result<()> {
+        before_each();
+
+        let url = "https://example.com/abc";
+
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(SuggestionProvider::Amp.record(
+                    "amp-record-1",
+                    json!([
+                        amp_json(&["amp1"]).merge(json!({ "url": url })),
+                        amp_json(&["amp2"]),
+                    ]),
+                ))
+                .with_record(SuggestionProvider::Wikipedia.record(
+                    "wikipedia-record-1",
+                    json!([
+                        wikipedia_json(&["wiki1"]).merge(json!({ "url": url })),
+                        wikipedia_json(&["wiki2"]),
+                    ]),
+                )),
+        );
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        let amp1 = Suggestion::Amp {
+            title: "AMP suggestion - amp1".into(),
+            url: url.into(),
+            raw_url: url.into(),
+            icon: None,
+            icon_mimetype: None,
+            block_id: 0,
+            advertiser: "AMP Advertiser".into(),
+            iab_category: "5 - Shopping".into(),
+            impression_url: "https://example.com/amp/impression/amp1".into(),
+            click_url: "https://example.com/amp/click/amp1".into(),
+            raw_click_url: "https://example.com/amp/click/amp1".into(),
+            score: 0.3,
+            full_keyword: "amp full keyword".into(),
+            fts_match_info: None,
+            dismissal_key: None,
+        };
+
+        let wiki1 = Suggestion::Wikipedia {
+            title: "Wikipedia suggestion - wiki1".into(),
+            url: url.into(),
+            icon: None,
+            icon_mimetype: None,
+            full_keyword: "wiki1".into(),
+            dismissal_key: None,
+        };
+
+        // All suggestions should be fetchable initially.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp1]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki1")),
+            vec![wiki1]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![wikipedia_suggestion(&["wiki2"])]
+        );
+
+        // Dismiss `url` using the deprecated API. This will create a row in the
+        // dismissed-suggestions table with a `provider` of zero.
+        store.inner.dismiss_suggestion(url.to_string())?;
+
+        // Suggestions whose URL is `url` shouldn't be fetchable regardless of
+        // provider.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("wiki1")),
+            vec![]
+        );
+
+        // Other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion(&["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![wikipedia_suggestion(&["wiki2"])]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn dismiss_same_key_different_providers() -> anyhow::Result<()> {
+        before_each();
+
+        let key1 = "dismissal-key-1";
+
+        // Make a store with two types of suggestions, some of which have the
+        // same dismissal keys.
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(SuggestionProvider::Amp.record(
+                    "amp-record-1",
+                    json!([
+                        amp_json(&["amp1"]).merge(json!({ "dismissal_keys": [key1] })),
+                        amp_json(&["amp2"]).merge(json!({ "dismissal_keys": [key1] })),
+                        amp_json(&["amp3"]),
+                    ]),
+                ))
+                .with_record(SuggestionProvider::Wikipedia.record(
+                    "wikipedia-record-1",
+                    json!([
+                        wikipedia_json(&["wiki1"]).merge(json!({ "dismissal_keys": [key1] })),
+                        wikipedia_json(&["wiki2"]).merge(json!({ "dismissal_keys": [key1] })),
+                        wikipedia_json(&["wiki3"]),
+                    ]),
+                )),
+        );
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // All suggestions should be fetchable initially.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki1")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki3")),
+            vec![wikipedia_suggestion(&["wiki3"])]
+        );
+
+        // Dismiss `amp1`.
+        store.dismiss(amp_suggestion_with_dismissal_key(key1, &["amp1"]));
+
+        // AMP suggestions with dismissal key `key1` shouldn't be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![]
+        );
+
+        // The AMP suggestion without `key1` should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+
+        // All Wikipedia suggestions should be fetchable, even those with
+        // `key1`, since they're from a different provider.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki1")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki3")),
+            vec![wikipedia_suggestion(&["wiki3"])]
+        );
+
+        // Dismiss `wiki1`.
+        store.dismiss(wikipedia_suggestion_with_dismissal_key(key1, &["wiki1"]));
+
+        // The dismissed AMP suggestions should still not be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![]
+        );
+
+        // Wikipedia suggestions with `key1` should not be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki1")),
+            vec![]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![]
+        );
+
+        // Other suggestions should be fetchable.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki3")),
+            vec![wikipedia_suggestion(&["wiki3"])]
+        );
+
+        // Clear dismissed suggestions.
+        store.inner.clear_dismissed_suggestions()?;
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp1")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp2")),
+            vec![amp_suggestion_with_dismissal_key(key1, &["amp2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::amp("amp3")),
+            vec![amp_suggestion(&["amp3"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki1")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki1"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki2")),
+            vec![wikipedia_suggestion_with_dismissal_key(key1, &["wiki2"])]
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::wikipedia("wiki3")),
+            vec![wikipedia_suggestion(&["wiki3"])]
+        );
 
         Ok(())
     }
