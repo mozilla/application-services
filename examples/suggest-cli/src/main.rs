@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-use remote_settings::RemoteSettingsServer;
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
 use suggest::{
     AmpMatchingStrategy, SuggestIngestionConstraints, SuggestStore, SuggestStoreBuilder,
     SuggestionProvider, SuggestionProviderConstraints, SuggestionQuery,
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
         },
     ));
     viaduct_reqwest::use_reqwest_backend();
-    let store = build_store(&cli);
+    let store = build_store(&cli)?;
     match cli.command {
         Commands::Ingest {
             reingest,
@@ -142,22 +142,25 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn build_store(cli: &Cli) -> Arc<SuggestStore> {
-    Arc::new(SuggestStoreBuilder::default())
+fn build_store(cli: &Cli) -> Result<Arc<SuggestStore>> {
+    Ok(Arc::new(SuggestStoreBuilder::default())
         .data_path(cli_support::cli_data_path(DB_FILENAME))
-        .remote_settings_server(match cli.remote_settings_server {
-            None => RemoteSettingsServer::Prod,
-            Some(RemoteSettingsServerArg::Dev) => RemoteSettingsServer::Dev,
-            Some(RemoteSettingsServerArg::Stage) => RemoteSettingsServer::Stage,
-            Some(RemoteSettingsServerArg::Prod) => RemoteSettingsServer::Prod,
-        })
-        .remote_settings_bucket_name(
-            cli.remote_settings_bucket
-                .clone()
-                .unwrap_or_else(|| "main".to_owned()),
-        )
-        .build()
-        .unwrap_or_else(|e| panic!("Error building store: {e}"))
+        .remote_settings_service(build_remote_settings_service(cli)?)
+        .build()?)
+}
+
+fn build_remote_settings_service(cli: &Cli) -> Result<Arc<RemoteSettingsService>> {
+    let config = RemoteSettingsConfig2 {
+        server: cli.remote_settings_server.as_ref().map(|s| match s {
+            RemoteSettingsServerArg::Dev => RemoteSettingsServer::Dev,
+            RemoteSettingsServerArg::Stage => RemoteSettingsServer::Stage,
+            RemoteSettingsServerArg::Prod => RemoteSettingsServer::Prod,
+        }),
+        bucket_name: cli.remote_settings_bucket.clone(),
+        app_context: None,
+    };
+    let storage_dir = cli_support::cli_data_subdir("remote-settings-data");
+    Ok(Arc::new(RemoteSettingsService::new(storage_dir, config)?))
 }
 
 fn ingest(
