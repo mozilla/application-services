@@ -4,6 +4,14 @@
 
 # v138.0 (_2025-03-31_)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Remote Settings
+- Removed fields from `RemoteSettingsContext`.  The goal is to create a common set of fields between
+  the Rust and Desktop clients.  Consumers will need to update their code to stop sending these
+  fields.  Also, all fileds now default to `None/null/nil`.
+- Made `RemoteSettingsContext::form_factor` and `RemoteSettingsContext::country` top-level fields.
+
 ## 🦊 What's Changed 🦊
 
 ### Android
