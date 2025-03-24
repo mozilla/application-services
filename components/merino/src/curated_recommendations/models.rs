@@ -86,6 +86,7 @@ pub struct CuratedRecommendationsResponse {
 }
 
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+// Specifies the display order (receivedFeedRank) and a list of sections (referenced by sectionId) for interest bubbles.
 pub struct InterestPicker {
     #[serde(rename = "receivedFeedRank")]
     pub received_feed_rank: i32,
@@ -100,7 +101,7 @@ pub struct InterestPickerSection {
     pub section_id: String,
 }
 
-// Multiple list of curated recommendations
+// Multiple lists of curated recommendations
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
 pub struct Feeds {
     #[uniffi(default = None)]
