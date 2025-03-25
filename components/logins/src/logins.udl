@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+[Custom]
+typedef i64 ServerTimestamp;
+
 namespace logins {
     /// We expose the crypto primitives on the namespace
 
@@ -153,10 +156,16 @@ interface LoginStore {
     boolean delete([ByRef] string id);
 
     [Throws=LoginsApiError]
+    boolean delete_local([ByRef] string id);
+
+    [Throws=LoginsApiError]
     void wipe_local();
 
     [Throws=LoginsApiError, Self=ByArc]
     void reset();
+
+    [Throws=LoginsApiError, Self=ByArc]
+    void set_last_sync(ServerTimestamp last_sync);
 
     [Throws=LoginsApiError]
     void touch([ByRef] string id);

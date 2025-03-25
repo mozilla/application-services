@@ -6,6 +6,7 @@ use crate::testing::TestGroup;
 use anyhow::Result;
 use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
 use std::collections::HashMap;
+use sync15::ServerTimestamp;
 
 // helpers...
 // Doesn't check metadata fields
@@ -171,11 +172,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     );
 
     assert_eq!(
-        c0.logins_store
-            .get(&l0id)
-            .unwrap()
-            .unwrap()
-            .times_used,
+        c0.logins_store.get(&l0id).unwrap().unwrap().times_used,
         5, // initially 1, touched twice, updated twice (on two accounts!
         // doing this right requires 3WM)
         "Times used is wrong (final)"
@@ -331,12 +328,98 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     verify_missing_login(&c0.logins_store, &l2id);
 }
 
+// This test verifies that the delete_local function deletes a login without propogating the
+// deletion to the server
+fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
+    log::info!("Add some logins to client0");
+
+    // Add a login
+    let login0 = add_login(
+        &c0.logins_store,
+        LoginEntry {
+            origin: "http://www.example2.com".into(),
+            form_action_origin: Some("http://login.example2.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
+        },
+    )
+    .expect("add l0");
+
+    let l0id = login0.guid();
+
+    // Sync the first device where the login was added
+    log::info!("Syncing client0 -- inital sync");
+    sync_logins(c0).expect("c0 sync to work");
+
+    // Sync the second device
+    log::info!("Syncing client1 -- inital sync");
+    sync_logins(c1).expect("c0 sync to work");
+
+    // Verify that the login exists on both devices
+    verify_login(&c0.logins_store, &login0);
+    verify_login(&c1.logins_store, &login0);
+
+    // Delete the login on the first device
+    log::info!("Performing local delete {} from c0", l0id);
+    assert!(c0
+        .logins_store
+        .delete_local(&l0id)
+        .expect("Local delete should work"));
+
+    // Verify that the login no longer exists on the first device
+    verify_missing_login(&c0.logins_store, &l0id);
+
+    // Sync the first device
+    log::info!("Syncing client0 -- post local deletion");
+    sync_logins(c0).expect("c0 sync to work");
+
+    // Sync the second device
+    log::info!("Syncing client1 -- post local deletion");
+    sync_logins(c1).expect("c1 sync to work");
+
+    // The following verification checks ensure that the delete_local call removed the login
+    // from the first device without propogating that change to the sync server.
+
+    // Verify that the login is missing from the first device.
+    verify_missing_login(&c0.logins_store, &l0id);
+
+    // Verify that the login still exists on the second device
+    verify_login(&c1.logins_store, &login0);
+
+    // Reset the last sync date for the logins sync engine. This will allow the previously synced
+    // and then locally deleted record to be downloaded to the first client.
+    c0.logins_store
+        .clone()
+        .set_last_sync(ServerTimestamp(0))
+        .expect("last sync to be set");
+
+    // Sync the first device
+    log::info!("Syncing client0 -- post c0 reset");
+    sync_logins(c0).expect("c0 sync to work");
+
+    // Sync the second device
+    log::info!("Syncing client1 -- post c0 reset");
+    sync_logins(c1).expect("c1 sync to work");
+
+    // Verify that the login exists on both devices
+    verify_login(&c0.logins_store, &login0);
+    verify_login(&c1.logins_store, &login0);
+
+    // Clear the stores
+    _ = c0.logins_store.wipe_local();
+    _ = c1.logins_store.wipe_local();
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "logins",
         vec![
             ("test_login_general", test_login_general),
             ("test_login_deletes", test_login_deletes),
+            ("test_login_local_delete", test_login_local_delete),
         ],
     )
 }
