@@ -4,11 +4,11 @@
 
 use crate::error::*;
 use crate::pk11::types::{Certificate, PublicKey};
-use crate::util::{expect_nss_initialized, sec_item_as_slice, ScopedPtr};
+use crate::util::{assert_nss_initialized, sec_item_as_slice, ScopedPtr};
 use nss_sys::{CERT_ExtractPublicKey, CERT_GetDefaultCertDB, CERT_NewTempCertificate};
 
 pub fn extract_ec_public_key(der: &[u8]) -> Result<Vec<u8>> {
-    expect_nss_initialized()?;
+    assert_nss_initialized();
 
     let certdb = unsafe { CERT_GetDefaultCertDB() };
     let mut data = nss_sys::SECItem {

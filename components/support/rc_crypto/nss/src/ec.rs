@@ -10,7 +10,7 @@ use crate::{
         slot,
         types::{Pkcs11Object, PrivateKey as PK11PrivateKey, PublicKey as PK11PublicKey},
     },
-    util::{expect_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
+    util::{assert_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -98,7 +98,7 @@ fn create_ec_point_for_coordinates(x: &[u8], y: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn generate_keypair(curve: Curve) -> Result<(PrivateKey, PublicKey)> {
-    expect_nss_initialized()?;
+    assert_nss_initialized();
     // 1. Create EC params
     let params_buf = create_ec_params_for_curve(curve)?;
     let mut params = nss_sys::SECItem {
@@ -248,7 +248,7 @@ impl PrivateKey {
     pub fn import(ec_key: &EcKey) -> Result<Self> {
         // The following code is adapted from:
         // https://searchfox.org/mozilla-central/rev/66086345467c69685434dd1c5177b30a7511b1a5/dom/crypto/CryptoKey.cpp#652
-        expect_nss_initialized()?;
+        assert_nss_initialized();
         let curve = ec_key.curve();
         let ec_params = create_ec_params_for_curve(curve)?;
         Self::from_nss_params(curve, &ec_params, &ec_key.public_key, &ec_key.private_key)

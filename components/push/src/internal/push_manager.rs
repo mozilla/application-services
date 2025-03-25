@@ -497,9 +497,9 @@ mod test {
     #[test]
     fn full() -> Result<()> {
         ensure_initialized();
+        rc_crypto::ensure_initialized();
 
         let _m = get_lock(&MTX);
-        rc_crypto::ensure_initialized().unwrap();
         let ctx = MockConnection::connect_context();
         ctx.expect().returning(|_| Default::default());
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
@@ -570,9 +570,9 @@ mod test {
     #[test]
     fn test_aesgcm_decryption() -> Result<()> {
         ensure_initialized();
+        rc_crypto::ensure_initialized();
 
         let _m = get_lock(&MTX);
-        rc_crypto::ensure_initialized().unwrap();
 
         let ctx = MockConnection::connect_context();
         ctx.expect().returning(|_| Default::default());
@@ -643,8 +643,10 @@ mod test {
 
     #[test]
     fn test_duplicate_subscription_requests() -> Result<()> {
+        ensure_initialized();
+        rc_crypto::ensure_initialized();
+
         let _m = get_lock(&MTX);
-        rc_crypto::ensure_initialized().unwrap();
 
         let ctx = MockConnection::connect_context();
         ctx.expect().returning(|_| Default::default());

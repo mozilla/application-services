@@ -228,6 +228,9 @@ fn test_jose() {
 fn test_bad_key() {
     use super::{decrypt_jwe, DecryptionParameters};
     use crate::error::JwCryptoError;
+    use nss::ensure_initialized;
+
+    ensure_initialized();
 
     let jwk = Jwk::new_direct_from_bytes(None, "a_wrong256bitkeya_wrong256bitkey".as_bytes());
     let ciphertext = "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..nhKdQEKqoKPzfCda.rQOj0Nfs6wO5Gj4Quw.CMJFS9YBADLLePdj1sssSg";
