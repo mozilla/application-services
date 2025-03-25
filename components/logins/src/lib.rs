@@ -19,7 +19,21 @@ mod util;
 use crate::encryption::{
     EncryptorDecryptor, KeyManager, ManagedEncryptorDecryptor, StaticKeyManager,
 };
+use sync15::ServerTimestamp;
 uniffi::include_scaffolding!("logins");
+
+// for the UDL
+impl UniffiCustomTypeConverter for ServerTimestamp {
+    type Builtin = i64;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        Ok(Self(val as i64))
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        obj.as_millis()
+    }
+}
 
 pub use crate::db::LoginDb;
 use crate::encryption::{check_canary, create_canary, create_key};

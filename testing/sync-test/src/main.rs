@@ -5,6 +5,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
+use nss::ensure_initialized;
 use std::sync::Arc;
 use std::{collections::HashSet, process};
 use structopt::StructOpt;
@@ -28,6 +29,8 @@ macro_rules! cleanup_clients {
 
 pub fn init_testing() {
     viaduct_reqwest::use_reqwest_backend();
+    ensure_initialized();
+
     // Enable backtraces.
     std::env::set_var("RUST_BACKTRACE", "1");
     // Turn on trace logging for everything except for a few crates (mostly from

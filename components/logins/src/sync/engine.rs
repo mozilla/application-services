@@ -279,7 +279,7 @@ impl LoginsSyncEngine {
         self.fetch_outgoing()
     }
 
-    fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
+    pub fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
         log::debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis();
         db.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
