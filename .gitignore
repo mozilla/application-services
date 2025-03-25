@@ -9,6 +9,7 @@ logins.jwk
 *.db-wal
 *~
 .vscode/
+credentials.json
 
 # Android stuff.
 *.iml

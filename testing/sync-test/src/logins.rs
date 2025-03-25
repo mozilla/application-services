@@ -4,8 +4,12 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{ApiResult as LoginResult, Login, LoginEntry, LoginStore};
-use std::collections::HashMap;
+use logins::{
+    encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager},
+    ApiResult as LoginResult, Login, LoginEntry, LoginStore,
+};
+use std::sync::Arc;
+use std::{collections::hash_map::RandomState, collections::HashMap};
 
 // helpers...
 // Doesn't check metadata fields
@@ -72,6 +76,13 @@ pub fn touch_login(s: &LoginStore, id: &str, times: usize) -> LoginResult<Login>
 pub fn sync_logins(client: &mut TestClient) -> Result<()> {
     let local_encryption_keys = HashMap::new();
     client.sync(&["passwords".to_string()], local_encryption_keys)
+}
+
+pub fn sync_logins_with_failure(
+    client: &mut TestClient,
+) -> Result<HashMap<String, String, RandomState>> {
+    let local_encryption_keys = HashMap::new();
+    client.sync_with_failure(&["passwords".to_string()], local_encryption_keys)
 }
 
 // Actual tests.
@@ -171,11 +182,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     );
 
     assert_eq!(
-        c0.logins_store
-            .get(&l0id)
-            .unwrap()
-            .unwrap()
-            .times_used,
+        c0.logins_store.get(&l0id).unwrap().unwrap().times_used,
         5, // initially 1, touched twice, updated twice (on two accounts!
         // doing this right requires 3WM)
         "Times used is wrong (final)"
@@ -331,12 +338,124 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     verify_missing_login(&c0.logins_store, &l2id);
 }
 
+fn test_delete_undecryptable_records_for_remote_replacement(
+    c0: &mut TestClient,
+    c1: &mut TestClient,
+) {
+    log::info!("Add a login to client0");
+
+    // Add a login
+    let login0 = add_login(
+        &c0.logins_store,
+        LoginEntry {
+            origin: "http://www.example2.com".into(),
+            form_action_origin: Some("http://login.example2.com".into()),
+            username_field: "uname".into(),
+            password_field: "pword".into(),
+            username: "cool_username".into(),
+            password: "hunter2".into(),
+            ..Default::default()
+        },
+    )
+    .expect("add login0");
+
+    // Sync the first device where the login was added
+    log::info!("Syncing client0 -- inital sync");
+    sync_logins(c0).expect("c0 sync to work");
+
+    // Sync the second device
+    log::info!("Syncing client1 -- inital sync");
+    sync_logins(c1).expect("c0 sync to work");
+
+    // Verify that the login exists on both devices
+    verify_login(&c0.logins_store, &login0);
+    verify_login(&c1.logins_store, &login0);
+
+    // Add a login with a different EncryptorDecryptor to replicate having a stored login that cannot be decrypted
+    // with the EncryptorDecryptor property of the store
+    let key = create_key().unwrap();
+    let new_encdec = Arc::new(ManagedEncryptorDecryptor::new(Arc::new(
+        StaticKeyManager::new(key.clone()),
+    )));
+
+    log::info!("Add another login to client0");
+
+    let login1 = c0
+        .logins_store
+        .db
+        .lock()
+        .add(
+            LoginEntry {
+                origin: "http://www.example3.com".into(),
+                form_action_origin: Some("http://login.example3.com".into()),
+                username_field: "uname".into(),
+                password_field: "pword".into(),
+                username: "cool_username".into(),
+                password: "hunter2".into(),
+                ..Default::default()
+            },
+            &*new_encdec,
+        )
+        .expect("add login1");
+    let l1id = login1.guid();
+
+    // Check that the corrupted login exists on first device
+    // The db retrieval function is being used instead of the store function so that we
+    // can provided our own EncryptorDecryptor.
+    let retrieved_login = c0
+        .logins_store
+        .db
+        .lock()
+        .get_by_id(&l1id)
+        .expect("get_by_id returns successfully")
+        .expect("login to be retrieved")
+        .decrypt(&*new_encdec)
+        .expect("decryption to succeed");
+    assert_eq!(retrieved_login.guid(), l1id);
+
+    // Check that syncing after adding a corrupted login fails with a decryption error
+    let failures = sync_logins_with_failure(c0).expect("sync to complete with failures");
+    let login_failures = failures.get("passwords");
+    assert!(login_failures.is_some());
+    assert!(login_failures.unwrap().contains("decryption failed"));
+
+    // Execute the verification logic to remove the corrupted login
+    log::info!("Verify logins");
+    c0.logins_store
+        .clone()
+        .delete_undecryptable_records_for_remote_replacement()
+        .expect("stored logins to be verified");
+
+    // Verify that the corrupted login has been removed
+    verify_missing_login(&c0.logins_store, &l1id);
+
+    // Sync the first device after verification
+    log::info!("Syncing client0 -- after verification");
+    sync_logins(c0).expect("c0 sync to work");
+
+    // Sync the second device after verification
+    log::info!("Syncing client1 -- after verification");
+    sync_logins(c1).expect("c0 sync to work");
+
+    // Verify that the first login record still exists on both devices
+    verify_login(&c0.logins_store, &login0);
+    verify_login(&c1.logins_store, &login0);
+
+    // Clear the stores
+    _ = c0.logins_store.wipe_local();
+    _ = c1.logins_store.wipe_local();
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "logins",
         vec![
             ("test_login_general", test_login_general),
             ("test_login_deletes", test_login_deletes),
+            (
+                "test_delete_undecryptable_records_for_remote_replacement",
+                test_delete_undecryptable_records_for_remote_replacement,
+            ),
         ],
     )
 }

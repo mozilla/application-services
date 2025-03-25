@@ -9,7 +9,10 @@ use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
-use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
+use sync15::{
+    engine::{EngineSyncAssociation, SyncEngine, SyncEngineId},
+    ServerTimestamp,
+};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -133,6 +136,19 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn delete(&self, id: &str) -> ApiResult<bool> {
         self.db.lock().delete(id)
+    }
+
+    #[handle_error(Error)]
+    pub fn delete_undecryptable_records_for_remote_replacement(self: Arc<Self>) -> ApiResult<()> {
+        // This function was created for the iOS logins verification logic that will
+        // remove records that prevent logins syncing. Once the verification logic is
+        // removed from iOS, this function can be removed from the store.
+        self.db
+            .lock()
+            .delete_undecryptable_records_for_remote_replacement(self.encdec.as_ref())?;
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+        engine.set_last_sync(&self.db.lock(), ServerTimestamp(0))?;
+        Ok(())
     }
 
     #[handle_error(Error)]

@@ -260,6 +260,13 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
         },
     },
+    "openssl": {
+        "license": {"check": "Apache-2.0"},
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/sfackler/rust-openssl/refs/heads/master/openssl/LICENSE-APACHE",
+        },
+    },
     "bhttp": {
         "license": {"check": "MIT OR Apache-2.0"},
         "license_file": {

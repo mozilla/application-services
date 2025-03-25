@@ -7,7 +7,7 @@ use cli_support::fxa_creds::CliFxa;
 use fxa_client::{Device, FxaConfig, FxaServer};
 use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
 use logins::LoginStore;
-use std::collections::HashMap;
+use std::collections::{hash_map::RandomState, HashMap};
 use std::sync::Arc;
 use sync15::{
     client::{SetupStorageClient, Sync15StorageClient},
@@ -113,6 +113,42 @@ impl TestClient {
         );
         self.persisted_state = Some(result.persisted_state);
         Ok(())
+    }
+
+    pub fn sync_with_failure(
+        &mut self,
+        engines: &[String],
+        local_encryption_keys: HashMap<String, String>,
+    ) -> Result<HashMap<String, String, RandomState>> {
+        // ensure all our engines are registered.
+        self.autofill_store.clone().register_with_sync_manager();
+        self.tabs_store.clone().register_with_sync_manager();
+        self.logins_store.clone().register_with_sync_manager();
+        let params = SyncParams {
+            reason: SyncReason::User,
+            engines: SyncEngineSelection::Some {
+                engines: engines.to_vec(),
+            },
+            enabled_changes: HashMap::new(),
+            local_encryption_keys,
+            auth_info: self.cli.as_auth_info(),
+            persisted_state: self.persisted_state.take(),
+            device_settings: DeviceSettings {
+                fxa_device_id: self.device.id.clone(),
+                name: self.device.display_name.clone(),
+                kind: self.device.device_type,
+            },
+        };
+        let result = self.sync_manager.sync(params)?;
+        // Syncs initiated with this function should fail otherwise `sync` should be used.
+        assert!(
+            result.status.is_ok(),
+            "Service status is not OK: {:?}",
+            result.status
+        );
+        assert!(!result.failures.is_empty(), "No engine failures");
+        self.persisted_state = Some(result.persisted_state);
+        Ok(result.failures)
     }
 
     pub fn fully_wipe_server(&mut self) -> Result<()> {
