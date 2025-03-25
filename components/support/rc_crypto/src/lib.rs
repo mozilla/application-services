@@ -54,7 +54,9 @@ pub use crate::error::{Error, ErrorKind, Result};
 
 /// Only required to be called if you intend to use this library in conjunction
 /// with the `hawk` or the `ece` crate.
-pub fn ensure_initialized() {
+pub fn ensure_initialized() -> Result<()> {
+    nss::expect_initialized()?;
+
     #[cfg(any(feature = "hawk", feature = "ece"))]
     {
         static INIT_ONCE: std::sync::Once = std::sync::Once::new();
@@ -65,4 +67,6 @@ pub fn ensure_initialized() {
             crate::ece_crypto::init();
         });
     }
+
+    Ok(())
 }
