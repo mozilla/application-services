@@ -86,7 +86,9 @@ impl<T: http::HttpClientTrait> CuratedRecommendationsClientInner<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curated_recommendations::models::{MerinoLocale, RecommendationDataItem, SectionSettings};
+    use crate::curated_recommendations::models::{
+        MerinoLocale, RecommendationDataItem, SectionSettings,
+    };
 
     struct FakeHttpClientSuccess;
 
