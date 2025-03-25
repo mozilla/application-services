@@ -16,8 +16,8 @@ pub mod pk11;
 pub mod pkixc;
 pub mod secport;
 pub use crate::error::{Error, ErrorKind, Result};
+pub use util::assert_nss_initialized as assert_initialized;
 pub use util::ensure_nss_initialized as ensure_initialized;
-pub use util::expect_nss_initialized as expect_initialized;
 
 #[cfg(feature = "keydb")]
 pub use util::ensure_nss_initialized_with_profile_dir as ensure_initialized_with_profile_dir;

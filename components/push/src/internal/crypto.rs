@@ -182,8 +182,7 @@ fn extract_value(val: &str, target: &str) -> Option<Vec<u8>> {
 
 impl Cryptography for Crypto {
     fn generate_key() -> error::Result<Key> {
-        rc_crypto::ensure_initialized()
-            .map_err(|e| error::PushError::CryptoError(e.to_string()))?;
+        rc_crypto::ensure_initialized();
 
         let key = RcCryptoLocalKeyPair::generate_random()?;
         let components = key.raw_components()?;
@@ -195,8 +194,7 @@ impl Cryptography for Crypto {
     }
 
     fn decrypt(key: &Key, push_payload: PushPayload<'_>) -> error::Result<Decrypted> {
-        rc_crypto::ensure_initialized()
-            .map_err(|e| error::PushError::CryptoError(e.to_string()))?;
+        rc_crypto::ensure_initialized();
         // convert the private key into something useful.
         let d_salt = extract_value(push_payload.salt, "salt");
         let d_dh = extract_value(push_payload.dh, "dh");
