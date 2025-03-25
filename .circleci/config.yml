@@ -13,7 +13,7 @@ commands:
   # Our minimum supported rust version is specified here.
   setup-rust-min-version:
     steps:
-      - run: rustup override set 1.76.0
+      - run: rustup override set 1.82.0
 
   full-checkout:
     steps:
