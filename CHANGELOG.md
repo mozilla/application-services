@@ -9,6 +9,14 @@
 ### Glean
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
+### `nss`
+- Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
+
+#### BREAKING CHANGE:
+Components need to call `nss::ensure_initialized()` before using any component
+that depends on NSS. Applications can depend on the `init_rust_components`
+component to handle initialization.
+
 [Full Changelog](In progress)
 
 # v137.0 (_2025-03-03_)

@@ -267,6 +267,7 @@ mod tests {
     use crate::sync::common::tests::*;
 
     use interrupt_support::NeverInterrupts;
+    use nss::ensure_initialized;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
@@ -338,6 +339,7 @@ mod tests {
 
     #[test]
     fn test_stage_incoming() -> Result<()> {
+        ensure_initialized();
         let _ = env_logger::try_init();
         let mut db = new_syncable_mem_db();
         struct TestCase {
@@ -434,6 +436,7 @@ mod tests {
 
     #[test]
     fn test_change_record_guid() -> Result<()> {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
         let ri = IncomingCreditCardsImpl {
@@ -455,6 +458,7 @@ mod tests {
 
     #[test]
     fn test_get_incoming() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let ci = IncomingCreditCardsImpl {
@@ -469,6 +473,7 @@ mod tests {
 
     #[test]
     fn test_incoming_tombstone() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let ci = IncomingCreditCardsImpl {
@@ -479,6 +484,7 @@ mod tests {
 
     #[test]
     fn test_local_data_scrubbed() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let ci = IncomingCreditCardsImpl {
@@ -494,6 +500,7 @@ mod tests {
 
     #[test]
     fn test_staged_to_mirror() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let ci = IncomingCreditCardsImpl {
@@ -508,6 +515,7 @@ mod tests {
 
     #[test]
     fn test_find_dupe() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
@@ -543,6 +551,7 @@ mod tests {
     // cycle.
     #[test]
     fn test_find_dupe_applied() {
+        ensure_initialized();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
@@ -591,6 +600,7 @@ mod tests {
 
     #[test]
     fn test_get_incoming_unknown_fields() {
+        ensure_initialized();
         let json = test_json_record('D');
         let cc_payload = serde_json::from_value::<CreditCardPayload>(json).unwrap();
         // The incoming payload should've correctly deserialized any unknown_fields into a Map<String,Value>

@@ -244,6 +244,7 @@ mod tests {
     use crate::db::schema::create_empty_sync_temp_tables;
     use crate::encryption::EncryptorDecryptor;
     use crate::sync::{IncomingBso, UnknownFields};
+    use nss::ensure_initialized;
     use sql_support::ConnExt;
 
     impl InternalCreditCard {
@@ -275,6 +276,7 @@ mod tests {
 
     #[test]
     fn test_credit_card_engine_apply_timestamp() -> Result<()> {
+        ensure_initialized();
         let mut credit_card_engine = create_engine();
         let test_key = crate::encryption::create_autofill_key().unwrap();
         credit_card_engine
@@ -302,6 +304,7 @@ mod tests {
 
     #[test]
     fn test_credit_card_engine_get_sync_assoc() -> Result<()> {
+        ensure_initialized();
         let credit_card_engine = create_engine();
 
         let result = credit_card_engine.get_sync_assoc();
@@ -333,6 +336,7 @@ mod tests {
 
     #[test]
     fn test_engine_sync_reset() -> Result<()> {
+        ensure_initialized();
         let engine = create_engine();
         let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
 

@@ -16,9 +16,11 @@ android {
 
 dependencies {
     // Part of the public API.
+    api project(':init_rust_components')
     api project(':sync15')
 
     implementation libs.mozilla.glean
+    implementation project(':init_rust_components')
 
     testImplementation libs.mozilla.glean.native.tests
     testImplementation libs.test.core
