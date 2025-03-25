@@ -645,6 +645,24 @@ impl LoginDb {
         Ok(exists)
     }
 
+    pub fn delete_local(&self, id: &str) -> Result<bool> {
+        let tx = self.unchecked_transaction_imm()?;
+        let exists = self.exists(id)?;
+
+        self.execute(
+            "DELETE FROM loginsL WHERE guid = :guid",
+            named_params! { ":guid": id },
+        )?;
+
+        self.execute(
+            "DELETE FROM loginsM WHERE guid = :guid",
+            named_params! { ":guid": id },
+        )?;
+
+        tx.commit()?;
+        Ok(exists)
+    }
+
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
         self.execute_cached(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
@@ -897,6 +915,7 @@ pub mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::test_utils::{get_local_guids, get_mirror_guids};
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::sync::merge::LocalLogin;
     use nss::ensure_initialized;
@@ -1218,6 +1237,32 @@ mod tests {
         assert_eq!(local_login.fields.form_action_origin, None);
 
         assert!(!db.exists(login.guid_str()).unwrap());
+    }
+
+    #[test]
+    fn test_delete_local() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory().unwrap();
+        let login = db
+            .add(
+                LoginEntry {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test_user".into(),
+                    password: "test_password".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+
+        assert!(db.delete_local(login.guid_str()).unwrap());
+
+        let local_guids = get_local_guids(&db);
+        assert_eq!(local_guids.len(), 0);
+
+        let mirror_guids = get_mirror_guids(&db);
+        assert_eq!(mirror_guids.len(), 0);
     }
 
     mod test_find_login_to_update {

@@ -59,6 +59,7 @@ members = [
 
     "examples/*/",
     "testing/separated/*/",
+    "testing/sync-test",
     "components/support/firefox-versioning",
 ]
 

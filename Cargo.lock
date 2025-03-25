@@ -5075,6 +5075,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "sync-test"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "autofill",
+ "base64 0.21.2",
+ "cli-support",
+ "env_logger",
+ "fxa-client",
+ "interrupt-support",
+ "lazy_static",
+ "log",
+ "logins",
+ "nss",
+ "rand",
+ "restmail-client",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "structopt",
+ "sync-guid",
+ "sync15",
+ "sync_manager",
+ "tabs",
+ "url",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "sync15"
 version = "0.1.0"
 dependencies = [
