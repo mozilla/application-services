@@ -37,3 +37,5 @@ uniffi = { version = "0.29.0", features = ["build"] }
 more-asserts = "0.2"
 tempfile = "3.2.0"
 env_logger = { version = "0.10", default-features = false }
+nss = { path = "../support/rc_crypto/nss" }
+

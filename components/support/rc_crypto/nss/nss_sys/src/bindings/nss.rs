@@ -15,6 +15,7 @@ extern "C" {
         initParams: *mut NSSInitParameters,
         flags: PRUint32,
     ) -> *mut NSSInitContext;
+    pub fn NSS_IsInitialized() -> PRBool;
 }
 
 pub const NSS_INIT_READONLY: u32 = 1;

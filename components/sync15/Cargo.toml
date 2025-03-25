@@ -66,6 +66,7 @@ viaduct = { path = "../viaduct", optional = true }
 
 [dev-dependencies]
 env_logger = { version = "0.10", default-features = false }
+nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features=["build"]}
