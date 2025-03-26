@@ -139,8 +139,10 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn delete_local_for_remote_replacement(&self, id: &str) -> ApiResult<bool> {
-        self.db.lock().delete_local_for_remote_replacement(id)
+    pub fn verify_logins(self: Arc<Self>) -> ApiResult<bool> {
+        self.db.lock().verify_logins(self.encdec.as_ref())?;
+
+        Ok(self.set_last_sync(ServerTimestamp(0)).is_ok())
     }
 
     #[handle_error(Error)]
