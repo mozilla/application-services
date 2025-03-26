@@ -645,7 +645,7 @@ impl LoginDb {
         Ok(exists)
     }
 
-    pub fn delete_local(&self, id: &str) -> Result<bool> {
+    pub fn delete_local_for_remote_replacement(&self, id: &str) -> Result<bool> {
         let tx = self.unchecked_transaction_imm()?;
         let exists = self.exists(id)?;
 
@@ -1240,8 +1240,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_local() {
-        ensure_initialized();
+    fn test_delete_local_for_remote_replacement() {
         let db = LoginDb::open_in_memory().unwrap();
         let login = db
             .add(
@@ -1256,7 +1255,9 @@ mod tests {
             )
             .unwrap();
 
-        assert!(db.delete_local(login.guid_str()).unwrap());
+        assert!(db
+            .delete_local_for_remote_replacement(login.guid_str())
+            .unwrap());
 
         let local_guids = get_local_guids(&db);
         assert_eq!(local_guids.len(), 0);
