@@ -41,7 +41,6 @@ text, the list view has been slimmed down and a detail view has been added.
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
 
-
 ## ⚠️ Breaking Changes ⚠️
 
 ### `nss`
