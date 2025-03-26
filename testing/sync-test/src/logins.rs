@@ -366,7 +366,7 @@ fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Performing local delete {} from c0", l0id);
     assert!(c0
         .logins_store
-        .delete_local(&l0id)
+        .delete_local_for_remote_replacement(&l0id)
         .expect("Local delete should work"));
 
     // Verify that the login no longer exists on the first device
@@ -380,8 +380,9 @@ fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Syncing client1 -- post local deletion");
     sync_logins(c1).expect("c1 sync to work");
 
-    // The following verification checks ensure that the delete_local call removed the login
-    // from the first device without propogating that change to the sync server.
+    // The following verification checks ensure that the delete_local_for_remote_replacement
+    // call removed the login from the first device without propogating that change to the
+    // sync server.
 
     // Verify that the login is missing from the first device.
     verify_missing_login(&c0.logins_store, &l0id);

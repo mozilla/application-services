@@ -139,8 +139,8 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn delete_local(&self, id: &str) -> ApiResult<bool> {
-        self.db.lock().delete_local(id)
+    pub fn delete_local_for_remote_replacement(&self, id: &str) -> ApiResult<bool> {
+        self.db.lock().delete_local_for_remote_replacement(id)
     }
 
     #[handle_error(Error)]
