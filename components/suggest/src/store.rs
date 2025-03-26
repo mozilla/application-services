@@ -2009,6 +2009,38 @@ pub(crate) mod tests {
             .has_location_sign(false)
             .subject_exact_match(false)],
         );
+        // Test for prefix match.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen D")),
+            vec![ramen_suggestion(
+                "ramen Delivery",
+                "https://www.yelp.com/search?find_desc=ramen+Delivery"
+            )
+            .has_location_sign(false)],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen I")),
+            vec![ramen_suggestion(
+                "ramen In",
+                "https://www.yelp.com/search?find_desc=ramen"
+            )],
+        );
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen Y")),
+            vec![
+                ramen_suggestion("ramen", "https://www.yelp.com/search?find_desc=ramen")
+                    .has_location_sign(false)
+            ],
+        );
+        // Prefix match is available only for last words.
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::yelp("ramen I Tokyo")),
+            vec![ramen_suggestion(
+                "ramen I Tokyo",
+                "https://www.yelp.com/search?find_desc=ramen&find_loc=I+Tokyo"
+            )
+            .has_location_sign(false)],
+        );
 
         Ok(())
     }
