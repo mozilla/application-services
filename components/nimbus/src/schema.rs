@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Result};
+use remote_settings::RemoteSettingsRecord;
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -102,39 +103,25 @@ impl ExperimentMetadata for Experiment {
     }
 }
 
-pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
-    // We first encode the response into a `serde_json::Value`
-    // to allow us to deserialize each experiment individually,
-    // omitting any malformed experiments
-    let value: Value = match serde_json::from_str(payload) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(NimbusError::JSONError(
-                "value = nimbus::schema::parse_experiments::serde_json::from_str".into(),
-                e.to_string(),
-            ))
-        }
-    };
-    let data = value
-        .get("data")
-        .ok_or(NimbusError::InvalidExperimentFormat)?;
+pub fn parse_experiments(records: Vec<RemoteSettingsRecord>) -> Result<Vec<Experiment>> {
+    // XXX: In the future it would be nice if this lxived in its own versioned crate so that
+    // the schema could be decoupled from the sdk so that it can be iterated on while the
+    // sdk depends on a particular version of the schema through the Cargo.toml.
     let mut res = Vec::new();
-    for exp in data
-        .as_array()
-        .ok_or(NimbusError::InvalidExperimentFormat)?
-    {
-        // XXX: In the future it would be nice if this lived in its own versioned crate so that
-        // the schema could be decoupled from the sdk so that it can be iterated on while the
-        // sdk depends on a particular version of the schema through the Cargo.toml.
-        match serde_json::from_value::<Experiment>(exp.clone()) {
-            Ok(exp) => res.push(exp),
-            Err(e) => {
-                log::trace!("Malformed experiment data: {:#?}", exp);
-                log::warn!(
-                    "Malformed experiment found! Experiment {},  Error: {}",
-                    exp.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
-                    e
-                );
+    for record in records {
+        if let Some(Value::Array(exp_data)) = record.fields.get("data") {
+            for entry in exp_data {
+                match serde_json::from_value::<Experiment>(entry.clone()) {
+                    Ok(exp) => res.push(exp),
+                    Err(e) => {
+                        log::trace!("Malformed experiment data: {:#?}", record.fields);
+                        log::warn!(
+                            "Malformed experiment found! Experiment {},  Error: {}",
+                            record.id,
+                            e
+                        );
+                    }
+                }
             }
         }
     }

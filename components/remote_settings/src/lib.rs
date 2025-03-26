@@ -125,6 +125,11 @@ impl RemoteSettingsService {
     }
 }
 
+impl RemoteSettingsService {
+    pub fn client_url(&self) -> Url {
+        self.internal.client_url()
+    }
+}
 /// Client for a single Remote Settings collection
 ///
 /// Use [RemoteSettingsService::make_client] to create these.

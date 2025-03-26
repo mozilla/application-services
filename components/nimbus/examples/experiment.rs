@@ -17,10 +17,11 @@ fn main() -> Result<()> {
             MetricsHandler,
         },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-        NimbusTargetingHelper, RemoteSettingsConfig, RemoteSettingsServer,
+        NimbusTargetingHelper, RemoteSettingsServer,
     };
-    use std::collections::HashMap;
+    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
     use std::io::prelude::*;
+    use std::{collections::HashMap, sync::Arc};
 
     pub struct NoopMetricsHandler;
 
@@ -217,14 +218,13 @@ fn main() -> Result<()> {
     log::info!("Database directory is {}", db_path);
 
     // initiate the optional config
-    let config = RemoteSettingsConfig {
-        server: Some(RemoteSettingsServer::Custom {
-            url: server_url.to_string(),
-        }),
-        server_url: None,
+    let config = RemoteSettingsConfig2 {
+        server: None,
         bucket_name: None,
-        collection_name: collection_name.to_string(),
+        app_context: None,
     };
+
+    let remote_settings_services = RemoteSettingsService::new("TODO".to_owned(), config)?;
 
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(
@@ -232,8 +232,9 @@ fn main() -> Result<()> {
         Default::default(),
         Default::default(),
         db_path,
-        Some(config),
         Box::new(NoopMetricsHandler),
+        Some(collection_name.to_string()),
+        Some(Arc::new(remote_settings_services)),
     )?;
     log::info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
