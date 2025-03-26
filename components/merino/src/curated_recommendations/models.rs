@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 // Locales supported by Merino Curated Recommendations
 #[derive(Debug, Serialize, PartialEq, uniffi::Enum)]
-pub enum MerinoLocale {
+pub enum CuratedRecommendationLocale {
     #[serde(rename = "fr")]
     Fr,
     #[serde(rename = "fr-FR")]
@@ -50,7 +50,7 @@ pub struct SectionSettings {
 // Information required to request curated recommendations
 #[derive(Debug, Serialize, PartialEq, uniffi::Record)]
 pub struct CuratedRecommendationsRequest {
-    pub locale: MerinoLocale,
+    pub locale: CuratedRecommendationLocale,
     #[uniffi(default = None)]
     pub region: Option<String>,
     #[uniffi(default = Some(100))]

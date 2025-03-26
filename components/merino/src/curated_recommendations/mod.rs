@@ -87,7 +87,7 @@ impl<T: http::HttpClientTrait> CuratedRecommendationsClientInner<T> {
 mod tests {
     use super::*;
     use crate::curated_recommendations::models::{
-        MerinoLocale, RecommendationDataItem, SectionSettings,
+        CuratedRecommendationLocale, RecommendationDataItem, SectionSettings,
     };
 
     struct FakeHttpClientSuccess;
@@ -219,7 +219,7 @@ mod tests {
         let client_inner = CuratedRecommendationsClientInner::new_with_client(fake_client);
 
         let request = CuratedRecommendationsRequest {
-            locale: MerinoLocale::EnUs,
+            locale: CuratedRecommendationLocale::EnUs,
             region: Some("US".parse().unwrap()),
             count: Option::from(4),
             topics: Some(vec!["business".into()]),
@@ -283,7 +283,7 @@ mod tests {
         let client_inner = CuratedRecommendationsClientInner::new_with_client(fake_client);
 
         let request = CuratedRecommendationsRequest {
-            locale: MerinoLocale::Fr,
+            locale: CuratedRecommendationLocale::Fr,
             region: None,
             count: None,
             topics: None,
@@ -318,7 +318,7 @@ mod tests {
         let client_inner = CuratedRecommendationsClientInner::new_with_client(fake_client);
 
         let request = CuratedRecommendationsRequest {
-            locale: MerinoLocale::Fr,
+            locale: CuratedRecommendationLocale::Fr,
             region: None,
             count: None,
             topics: None,
@@ -353,7 +353,7 @@ mod tests {
         let client_inner = CuratedRecommendationsClientInner::new_with_client(fake_client);
 
         let request = CuratedRecommendationsRequest {
-            locale: MerinoLocale::Fr,
+            locale: CuratedRecommendationLocale::Fr,
             region: None,
             count: None,
             topics: None,
