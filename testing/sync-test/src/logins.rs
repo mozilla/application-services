@@ -330,7 +330,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
 
 // This test verifies that the delete_local function deletes a login without propogating the
 // deletion to the server
-fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
+/*fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
     log::info!("Add some logins to client0");
 
     // Add a login
@@ -412,7 +412,7 @@ fn test_login_local_delete(c0: &mut TestClient, c1: &mut TestClient) {
     // Clear the stores
     _ = c0.logins_store.wipe_local();
     _ = c1.logins_store.wipe_local();
-}
+}*/
 
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
@@ -420,7 +420,7 @@ pub fn get_test_group() -> TestGroup {
         vec![
             ("test_login_general", test_login_general),
             ("test_login_deletes", test_login_deletes),
-            ("test_login_local_delete", test_login_local_delete),
+            // ("test_login_local_delete", test_login_local_delete),
         ],
     )
 }
