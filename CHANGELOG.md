@@ -10,7 +10,7 @@
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
 ### Logins
-- Added a function to locally delete a specified login record. ([#6667](https://github.com/mozilla/application-services/pull/6667))
+- Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
 
 ## ⚠️ Breaking Changes ⚠️
 
