@@ -158,6 +158,14 @@ interface LoginStore {
     [Throws=LoginsApiError, Self=ByArc]
     void reset();
 
+    /// The `verify_logins` function locally deletes stored logins that cannot be decrypted and sets the last sync
+    /// time to 0 so any existing server records can be downloaded and overwrite the locally deleted records.
+    ///
+    /// NB: This function was created to unblock iOS logins users who are unable to sync logins and should not be used
+    /// outside of this use case.
+    [Throws=LoginsApiError, Self=ByArc]
+    boolean verify_logins();
+
     [Throws=LoginsApiError]
     void touch([ByRef] string id);
 

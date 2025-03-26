@@ -35,7 +35,6 @@ file key4.db and secured with a possibly set primary password.
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
 
-
 ## ⚠️ Breaking Changes ⚠️
 
 ### `nss`

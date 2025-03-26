@@ -645,22 +645,50 @@ impl LoginDb {
         Ok(exists)
     }
 
-    pub fn delete_local_for_remote_replacement(&self, id: &str) -> Result<bool> {
+    pub fn verify_logins(&self, encdec: &dyn EncryptorDecryptor) -> Result<bool> {
+        // Retrieve a list of guids for logins that cannot be decrypted
+        let corrupted_logins = self
+            .get_all()?
+            .into_iter()
+            .filter(|login| login.clone().decrypt(encdec).is_err())
+            .collect::<Vec<_>>();
+        let ids = corrupted_logins
+            .iter()
+            .map(|login| login.guid_str())
+            .collect::<Vec<_>>();
+
+        Ok(self
+            .delete_local_records_for_remote_replacement(ids)
+            .is_ok())
+    }
+
+    pub fn delete_local_records_for_remote_replacement(&self, ids: Vec<&str>) -> Result<()> {
         let tx = self.unchecked_transaction_imm()?;
-        let exists = self.exists(id)?;
 
-        self.execute(
-            "DELETE FROM loginsL WHERE guid = :guid",
-            named_params! { ":guid": id },
-        )?;
+        sql_support::each_chunk(&ids, |chunk, _| -> Result<()> {
+            self.execute(
+                &format!(
+                    "DELETE FROM loginsL WHERE guid IN ({guids})",
+                    guids = sql_support::repeat_sql_values(chunk.len())
+                ),
+                rusqlite::params_from_iter(chunk),
+            )?;
+            Ok(())
+        })?;
 
-        self.execute(
-            "DELETE FROM loginsM WHERE guid = :guid",
-            named_params! { ":guid": id },
-        )?;
+        sql_support::each_chunk(&ids, |chunk, _| -> Result<()> {
+            self.execute(
+                &format!(
+                    "DELETE FROM loginsM WHERE guid IN ({guids})",
+                    guids = sql_support::repeat_sql_values(chunk.len())
+                ),
+                rusqlite::params_from_iter(chunk),
+            )?;
+            Ok(())
+        })?;
 
         tx.commit()?;
-        Ok(exists)
+        Ok(())
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
@@ -1255,9 +1283,8 @@ mod tests {
             )
             .unwrap();
 
-        assert!(db
-            .delete_local_for_remote_replacement(login.guid_str())
-            .unwrap());
+        db.delete_local_records_for_remote_replacement(vec![login.guid_str()])
+            .unwrap();
 
         let local_guids = get_local_guids(&db);
         assert_eq!(local_guids.len(), 0);
