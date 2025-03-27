@@ -8,7 +8,6 @@ license = "MPL-2.0"
 [dependencies]
 anyhow = "1.0"
 fxa-client = { path = "../../components/fxa-client" }
-remote_settings = { path = "../../components/remote_settings" }
 sync_manager = { path = "../../components/sync_manager" }
 log = "0.4"
 sync15 = { path = "../../components/sync15", features=["sync-client"] }
