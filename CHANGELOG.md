@@ -28,6 +28,11 @@ text, the list view has been slimmed down and a detail view has been added.
 ### Android
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
+## ⚠️ Breaking Changes ⚠️
+
+## Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
 # v138.0 (_2025-03-31_)
 
 ## ⚠️ Breaking Changes ⚠️

@@ -122,7 +122,7 @@ fn build_service(cli: &Cli) -> Result<RemoteSettingsService> {
         .storage_dir
         .clone()
         .unwrap_or_else(|| cli_support::cli_data_subdir("remote-settings-data"));
-    Ok(RemoteSettingsService::new(storage_dir, config)?)
+    Ok(RemoteSettingsService::new(storage_dir, config))
 }
 
 fn sync(service: RemoteSettingsService, collections: Vec<String>) -> Result<()> {
