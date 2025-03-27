@@ -17,6 +17,7 @@
 ## Remote Settings
 - The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
   This integrates better with JS, which expects all IO to happen inside async functions.
+- Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))

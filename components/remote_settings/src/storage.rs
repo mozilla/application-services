@@ -4,7 +4,7 @@
 
 use crate::{
     client::CollectionMetadata, client::CollectionSignature,
-    schema::RemoteSettingsConnectionInitializer, Attachment, RemoteSettingsRecord, Result,
+    schema::RemoteSettingsConnectionInitializer, Attachment, Error, RemoteSettingsRecord, Result,
 };
 use camino::Utf8PathBuf;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
@@ -28,28 +28,40 @@ use sql_support::{open_database::open_database_with_flags, ConnExt};
 /// the previous config.
 pub struct Storage {
     path: Utf8PathBuf,
-    // conn is opened lazily, so that we can defer any IO until it's actually needed (and hopefully
-    // running in a worker queue on JS).
-    conn: Option<Connection>,
+    conn: ConnectionCell,
 }
 
 impl Storage {
     pub fn new(path: Utf8PathBuf) -> Result<Self> {
-        Ok(Self { path, conn: None })
+        Ok(Self {
+            path,
+            conn: ConnectionCell::Uninitialized,
+        })
     }
 
     fn transaction(&mut self) -> Result<Transaction<'_>> {
-        if self.conn.is_none() {
-            if self.path != ":memory:" && std::fs::exists(&self.path)? {
-                std::fs::create_dir(&self.path)?;
+        match &self.conn {
+            ConnectionCell::Uninitialized => {
+                if self.path != ":memory:" && std::fs::exists(&self.path)? {
+                    std::fs::create_dir(&self.path)?;
+                }
+                self.conn = ConnectionCell::Initialized(open_database_with_flags(
+                    &self.path,
+                    OpenFlags::default(),
+                    &RemoteSettingsConnectionInitializer,
+                )?);
             }
-            self.conn = Some(open_database_with_flags(
-                &self.path,
-                OpenFlags::default(),
-                &RemoteSettingsConnectionInitializer,
-            )?);
+            ConnectionCell::Initialized(_) => (),
+            ConnectionCell::Closed => return Err(Error::DatabaseClosed),
         }
-        Ok(self.conn.as_mut().unwrap().transaction()?)
+        match &mut self.conn {
+            ConnectionCell::Initialized(conn) => Ok(conn.transaction()?),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn close(&mut self) {
+        self.conn = ConnectionCell::Closed;
     }
 
     /// Get the last modified timestamp for the stored records
@@ -281,6 +293,13 @@ impl Storage {
         tx.commit()?;
         Ok(())
     }
+}
+
+/// Stores the SQLite connection, which is lazily constructed and can be closed/shutdown.
+enum ConnectionCell {
+    Uninitialized,
+    Initialized(Connection),
+    Closed,
 }
 
 #[cfg(test)]
