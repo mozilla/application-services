@@ -12,6 +12,11 @@ program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
 ([#6571](https://github.com/mozilla/application-services/pull/6571))
 
+## ⚠️ Breaking Changes ⚠️
+
+## Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
 # v138.0 (_2025-03-31_)
 
 ## ⚠️ Breaking Changes ⚠️

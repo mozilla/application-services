@@ -48,11 +48,10 @@ impl RemoteSettingsService {
     ///
     /// This is typically done early in the application-startup process
     #[uniffi::constructor]
-    #[handle_error(Error)]
-    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> ApiResult<Self> {
-        Ok(Self {
-            internal: service::RemoteSettingsService::new(storage_dir, config)?,
-        })
+    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> Self {
+        Self {
+            internal: service::RemoteSettingsService::new(storage_dir, config),
+        }
     }
 
     /// Create a new Remote Settings client
