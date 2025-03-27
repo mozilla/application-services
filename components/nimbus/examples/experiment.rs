@@ -17,7 +17,7 @@ fn main() -> Result<()> {
             MetricsHandler,
         },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-        NimbusTargetingHelper, RemoteSettingsServer,
+        NimbusTargetingHelper,
     };
     use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
     use std::io::prelude::*;

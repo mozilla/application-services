@@ -530,15 +530,17 @@ impl NimbusClient {
         let value: Value = serde_json::from_str(&experiment_json)
             .map_err(|e| NimbusError::JSONError("Parsing JSON Value".into(), e.to_string()))?;
 
-        let mut obj = value.as_object().ok_or_else(||NimbusError::JSONError("value.as_object".into(), "".to_string()))?.clone();
-        
+        let mut obj = value
+            .as_object()
+            .ok_or_else(|| NimbusError::JSONError("value.as_object".into(), "".to_string()))?
+            .clone();
+
         obj.insert("id".to_owned(), Value::String("123".to_owned()));
         obj.insert("last_modified".to_owned(), Value::Number(1234.into()));
-        let record: RemoteSettingsRecord = serde_json::from_value(
-            Value::Object(obj.clone())
-                
-        )
-        .map_err(|e| NimbusError::JSONError("Deserializing `experiment obj`".into(), e.to_string()))?;
+        let record: RemoteSettingsRecord = serde_json::from_value(Value::Object(obj.clone()))
+            .map_err(|e| {
+                NimbusError::JSONError("Deserializing `experiment obj`".into(), e.to_string())
+            })?;
 
         let new_experiments = parse_experiments(vec![record])?;
         let db = self.db()?;

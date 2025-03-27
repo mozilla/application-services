@@ -11,7 +11,7 @@ use rkv::StoreOptions;
 use nimbus::{
     error::Result,
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    AppContext, NimbusClient, RemoteSettingsConfig, RemoteSettingsServer,
+    AppContext, NimbusClient, RemoteSettingsServer,
 };
 
 pub struct NoopMetricsHandler;
