@@ -1,5 +1,10 @@
 # v138.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+## Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
 ## 🦊 What's Changed 🦊
 
 ### Android
