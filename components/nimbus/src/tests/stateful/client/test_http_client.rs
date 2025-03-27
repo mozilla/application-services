@@ -3,14 +3,14 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::schema::parse_experiments;
-use crate::{Branch, BucketConfig, Experiment, FeatureConfig, NimbusError, RandomizationUnit};
+use crate::{Branch, BucketConfig, Experiment, FeatureConfig, RandomizationUnit};
 
 #[test]
 fn test_fetch_experiments_from_schema() {
     // There are three experiments defined here, one has a "newer" schema version
     // in order to test filtering of unsupported schema versions, one is malformed, and one
     // should parse correctly.
-    let result = parse_experiments(&response_body()).unwrap();
+    let result = parse_experiments(vec![serde_json::from_str(&record_data()).unwrap()]).unwrap();
 
     assert_eq!(result.len(), 2);
     let exp = &result[0];
@@ -59,20 +59,12 @@ fn test_fetch_experiments_from_schema() {
     )
 }
 
-#[test]
-fn test_malformed_payload() {
-    let payload = r#"
-        { "datar" : [} ]]
-    "#;
-
-    let result = parse_experiments(payload).unwrap_err();
-    assert!(matches!(result, NimbusError::JSONError(_, _)));
-}
-
 // This response body includes a matching schema version, a non-matching schema version,
 // and a malformed experiment.
-fn response_body() -> String {
-    r#"{ "data": [
+fn record_data() -> String {
+    r#"{ "id": "123",
+         "last_modified": 1234567,
+         "data": [
         {
             "schemaVersion": "1.0.0",
             "slug": "mobile-a-a-example",
