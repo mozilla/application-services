@@ -20,25 +20,22 @@ pub mod url_hash;
 
 use rand_distr::{Beta, Distribution};
 
-use std::{collections::HashMap, sync::Arc};
-
-use parking_lot::Mutex;
-use remote_settings::{RemoteSettingsClient, RemoteSettingsService};
-
 pub use db::RelevancyDb;
 pub use error::{ApiResult, Error, RelevancyApiError, Result};
 pub use interest::{Interest, InterestVector};
+use parking_lot::Mutex;
 pub use ranker::score;
 
 use error_support::handle_error;
 
 use db::BanditData;
+use std::collections::HashMap;
 
 uniffi::setup_scaffolding!();
 
 #[derive(uniffi::Object)]
 pub struct RelevancyStore {
-    inner: RelevancyStoreInner<Arc<RemoteSettingsClient>>,
+    inner: RelevancyStoreInner<remote_settings::RemoteSettings>,
 }
 
 /// Top-level API for the Relevancy component
@@ -50,12 +47,9 @@ impl RelevancyStore {
     /// This is non-blocking since databases and other resources are lazily opened.
     #[uniffi::constructor]
     #[handle_error(Error)]
-    pub fn new(db_path: String, remote_settings: Arc<RemoteSettingsService>) -> ApiResult<Self> {
+    pub fn new(db_path: String) -> ApiResult<Self> {
         Ok(Self {
-            inner: RelevancyStoreInner::new(
-                db_path,
-                remote_settings.make_client(rs::REMOTE_SETTINGS_COLLECTION.to_string())?,
-            ),
+            inner: RelevancyStoreInner::new(db_path, rs::create_client()?),
         })
     }
 

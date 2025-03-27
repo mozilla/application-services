@@ -763,7 +763,6 @@ dependencies = [
  "env_logger",
  "fxa-client",
  "log",
- "remote_settings",
  "sync15",
  "sync_manager",
  "url",
