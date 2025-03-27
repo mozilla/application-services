@@ -16,7 +16,7 @@ kotlinx-coroutines = "1.10.1"
 
 # Mozilla
 android-components = "135.0.1"
-glean = "64.0.0"
+glean = "63.1.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
