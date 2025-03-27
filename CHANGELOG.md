@@ -22,6 +22,7 @@ file key4.db and secured with a possibly set primary password.
 ## Remote Settings
 - The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
   This integrates better with JS, which expects all IO to happen inside async functions.
+- Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
 
 # v138.0 (_2025-03-31_)
 
