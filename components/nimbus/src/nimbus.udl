@@ -1,8 +1,8 @@
 [External="remote_settings"]
 typedef interface RemoteSettingsService;
 
-[ExternalExport="remote_settings"]
-typedef extern RemoteSettingsServer;
+[External="remote_settings"]
+typedef interface RemoteSettingsServer;
 
 [External="remote_settings"]
 typedef record RemoteSettingsRecord;

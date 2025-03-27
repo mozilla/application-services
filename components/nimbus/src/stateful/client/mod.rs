@@ -34,7 +34,7 @@ pub(crate) fn create_client(
                 }
                 _ => match collection_name {
                     Some(collection_name) => Box::new(rs_service.make_client(collection_name)?),
-                    _ => todo!(),
+                    _ => return Err(NimbusError::InternalError("collection name required")),
                 },
             }
         }

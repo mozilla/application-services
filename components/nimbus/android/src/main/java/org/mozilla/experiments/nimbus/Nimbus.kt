@@ -69,6 +69,7 @@ open class Nimbus(
     appInfo: NimbusAppInfo,
     coenrollingFeatureIds: List<String>,
     server: NimbusServerSettings?,
+    remoteSettingsService: RemoteSettingsService,
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate,
@@ -160,13 +161,6 @@ open class Nimbus(
         val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
         // Initialize Nimbus
-        val remoteSettingsConfig = server?.let {
-            RemoteSettingsConfig2(
-                server = RemoteSettingsServer.Custom(it.url.toString()),
-            )
-        }
-
-        val remoteSettingsService = RemoteSettingsService(dataDir, remoteSettingsConfig)
 
         val collectionName = it.collection
 

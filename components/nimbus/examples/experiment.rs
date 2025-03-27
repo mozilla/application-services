@@ -224,7 +224,7 @@ fn main() -> Result<()> {
         app_context: None,
     };
 
-    let remote_settings_services = RemoteSettingsService::new("TODO".to_owned(), config)?;
+    let remote_settings_services = RemoteSettingsService::new("nimbus".to_owned(), config)?;
 
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(

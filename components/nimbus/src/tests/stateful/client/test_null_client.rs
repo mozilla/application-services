@@ -23,8 +23,9 @@ fn test_null_client() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        None,
         Box::new(metrics),
+        None,
+        None,
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

@@ -526,17 +526,21 @@ impl NimbusClient {
         Ok(res)
     }
 
-    pub fn set_experiments_locally(&self, records: &str) -> Result<()> {
-        let records: Vec<RemoteSettingsRecord> = match serde_json::from_str(records) {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(NimbusError::JSONError(
-                    "value = nimbus::schema::parse_experiments::serde_json::from_str".into(),
-                    e.to_string(),
-                ))
-            }
-        };
-        let new_experiments = parse_experiments(records)?;
+    pub fn set_experiments_locally(&self, experiment_json: String) -> Result<()> {
+        let value: Value = serde_json::from_str(&experiment_json)
+            .map_err(|e| NimbusError::JSONError("Parsing JSON Value".into(), e.to_string()))?;
+
+        let mut obj = value.as_object().ok_or_else(||NimbusError::JSONError("value.as_object".into(), "".to_string()))?.clone();
+        
+        obj.insert("id".to_owned(), Value::String("123".to_owned()));
+        obj.insert("last_modified".to_owned(), Value::Number(1234.into()));
+        let record: RemoteSettingsRecord = serde_json::from_value(
+            Value::Object(obj.clone())
+                
+        )
+        .map_err(|e| NimbusError::JSONError("Deserializing `experiment obj`".into(), e.to_string()))?;
+
+        let new_experiments = parse_experiments(vec![record])?;
         let db = self.db()?;
         let mut writer = db.write()?;
         write_pending_experiments(db, &mut writer, new_experiments)?;
