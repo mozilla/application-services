@@ -16,6 +16,7 @@ use crate::{
     AppContext, EnrollmentStatus, TargetingAttributes,
 };
 use chrono::Utc;
+use remote_settings::RemoteSettingsContext;
 use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -280,7 +281,7 @@ fn test_targeting_active_experiments_equivalency() {
     // Here's our valid jexl statement
     let expression_statement = "'test' in active_experiments";
     // A matching context that includes the appropriate specific context
-    let mut targeting_attributes: TargetingAttributes = AppContext {
+    let mut targeting_attributes: TargetingAttributes = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -335,7 +336,7 @@ fn test_targeting_active_experiments_exists() {
     // Here's our valid jexl statement
     let expression_statement = "'test' in active_experiments";
     // A matching context that includes the appropriate specific context
-    let mut targeting_attributes: TargetingAttributes = AppContext {
+    let mut targeting_attributes: TargetingAttributes = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -379,7 +380,7 @@ fn test_targeting_is_already_enrolled() {
     // Here's our valid jexl statement
     let expression_statement = "is_already_enrolled";
     // A matching context that includes the appropriate specific context
-    let ac = AppContext {
+    let ac = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -486,7 +487,7 @@ fn test_bucket_sample() {
     for (start, count, total, expected) in cases {
         let expr = format!("0|bucketSample({start}, {count}, {total})");
         println!("{}", expr);
-        let targeting_attributes: TargetingAttributes = AppContext {
+        let targeting_attributes: TargetingAttributes = RemoteSettingsContext {
             app_name: "nimbus_test".into(),
             app_id: "nimbus-test".into(),
             channel: "test".into(),

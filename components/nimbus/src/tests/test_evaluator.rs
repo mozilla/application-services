@@ -7,13 +7,14 @@ use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
     evaluate_enrollment,
     evaluator::{choose_branch, is_experiment_available, targeting},
-    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
-    Result, TargetingAttributes,
+    AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit, Result,
+    TargetingAttributes,
 };
+use remote_settings::RemoteSettingsContext;
 use serde_json::{json, Map, Value};
 
 pub fn ta_with_locale(locale: String) -> TargetingAttributes {
-    let app_ctx = AppContext {
+    let app_ctx = RemoteSettingsContext {
         #[cfg(feature = "stateful")]
         locale: Some(locale),
         ..Default::default()
@@ -114,7 +115,7 @@ fn test_geo_targeting_fails_properly() -> Result<()> {
 fn test_minimum_version_targeting_passes() -> Result<()> {
     // Here's our valid jexl statement
     let expression_statement = "app_version|versionCompare('96.!') >= 0";
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("97pre.1.0-beta.1".into()),
         ..Default::default()
     };
@@ -127,7 +128,7 @@ fn test_minimum_version_targeting_passes() -> Result<()> {
 fn test_minimum_version_targeting_fails() -> Result<()> {
     // Here's our valid jexl statement
     let expression_statement = "app_version|versionCompare('96+.0') >= 0";
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
@@ -144,15 +145,17 @@ fn test_minimum_version_targeting_fails() -> Result<()> {
 #[test]
 fn test_targeting_specific_version() -> Result<()> {
     // Here's our valid jexl statement that targets **only** 96 versions
+
+    use remote_settings::RemoteSettingsContext;
     let expression_statement =
         "(app_version|versionCompare('96.!') >= 0) && (app_version|versionCompare('97.!') < 0)";
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
     // OK 96.1 is a 96 version
     assert_eq!(targeting(expression_statement, &ctx.into()), None);
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("97.1".into()),
         ..Default::default()
     };
@@ -164,7 +167,7 @@ fn test_targeting_specific_version() -> Result<()> {
         })
     );
 
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("95.1".into()),
         ..Default::default()
     };
@@ -182,7 +185,7 @@ fn test_targeting_specific_version() -> Result<()> {
 #[test]
 fn test_targeting_invalid_transform() -> Result<()> {
     let expression_statement = "app_version|invalid_transform('96+.0')";
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_version: Some("96.1".into()),
         ..Default::default()
     };
@@ -203,11 +206,13 @@ fn test_targeting_invalid_transform() -> Result<()> {
 #[test]
 fn test_targeting() {
     // Here's our valid jexl statement
+
+    use remote_settings::RemoteSettingsContext;
     let expression_statement =
         "app_id == '1010' && (app_version|versionCompare('4.0') >= 0 || app_build == \"1234\")";
 
     // A matching context testing the logical AND + OR of the expression
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -219,7 +224,7 @@ fn test_targeting() {
     assert_eq!(targeting(expression_statement, &ctx.into()), None);
 
     // A matching context testing the logical OR of the expression
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -231,7 +236,7 @@ fn test_targeting() {
     assert_eq!(targeting(expression_statement, &ctx.into()), None);
 
     // A matching context testing the other branch of the logical OR
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -243,7 +248,7 @@ fn test_targeting() {
     assert_eq!(targeting(expression_statement, &ctx.into()), None);
 
     // A non-matching context testing the logical AND of the expression
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "not_nimbus_test".to_string(),
         app_id: "org.example.app".to_string(),
         channel: "test".to_string(),
@@ -260,7 +265,7 @@ fn test_targeting() {
     ));
 
     // A non-matching context testing the logical OR of the expression
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "not_nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -287,7 +292,7 @@ fn test_targeting_custom_targeting_attributes() {
     custom_targeting_attributes.insert("is_first_run".into(), json!(true));
     custom_targeting_attributes.insert("ios_version".into(), json!("8.8"));
     // A matching context that includes the appropriate specific context
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -299,7 +304,7 @@ fn test_targeting_custom_targeting_attributes() {
     assert_eq!(targeting(expression_statement, &ctx.into()), None);
 
     // A matching context without the specific context
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "nimbus_test".to_string(),
         app_id: "1010".to_string(),
         channel: "test".to_string(),
@@ -402,7 +407,7 @@ fn test_is_experiment_available() {
 
     // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
     // or `channel` doesn't match the experiment, then the client won't be enrolled.
-    let th = AppContext {
+    let th = RemoteSettingsContext {
         app_name: "NimbusTest".to_string(),
         app_id: "org.example.app".to_string(),
         channel: "nightly".to_string(),
@@ -470,7 +475,7 @@ fn test_qualified_enrollment() {
 
     // Application context for matching the above experiment.  If the `app_name` or
     // `channel` doesn't match the experiment, then the client won't be enrolled.
-    let mut ctx = AppContext {
+    let mut ctx = RemoteSettingsContext {
         app_name: "NimbusTest".to_string(),
         channel: "nightly".to_string(),
         ..Default::default()
@@ -550,7 +555,7 @@ fn test_wrong_randomization_units() {
 
     // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
     // or `channel` doesn't match the experiment, then the client won't be enrolled.
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "NimbusTest".to_string(),
         app_id: "org.example.app".to_string(),
         channel: "nightly".to_string(),
@@ -622,7 +627,7 @@ fn test_not_targeted_for_enrollment() {
     // If the `app_name` or `channel` doesn't match the experiment,
     // then the client won't be enrolled.
     // Start with a context that does't match the app_name:
-    let mut ctx = AppContext {
+    let mut ctx = RemoteSettingsContext {
         app_name: "Wrong!".to_string(),
         channel: "nightly".to_string(),
         ..Default::default()
@@ -703,7 +708,7 @@ fn test_enrollment_bucketing() {
     // Tested against the desktop implementation
     let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
     // Application context for matching exp3
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_id: "org.example.app".to_string(),
         channel: "nightly".to_string(),
         ..Default::default()

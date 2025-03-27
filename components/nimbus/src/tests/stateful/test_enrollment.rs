@@ -21,6 +21,7 @@ use crate::{
     tests::helpers::{get_test_experiments, no_coenrolling_features},
     AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
 };
+use remote_settings::RemoteSettingsContext;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
@@ -47,7 +48,7 @@ fn test_enrollments() -> Result<()> {
     let exp1 = get_test_experiments()[0].clone();
     let nimbus_id = Uuid::new_v4();
     let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
-    let mut targeting_attributes = AppContext {
+    let mut targeting_attributes = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -129,7 +130,7 @@ fn test_updates() -> Result<()> {
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
     let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
-    let mut th = NimbusTargetingHelper::from(AppContext {
+    let mut th = NimbusTargetingHelper::from(RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -175,7 +176,7 @@ fn test_global_opt_out() -> Result<()> {
     let db = Database::new(&tmp_dir)?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
-    let mut th = NimbusTargetingHelper::from(AppContext {
+    let mut th = NimbusTargetingHelper::from(RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),

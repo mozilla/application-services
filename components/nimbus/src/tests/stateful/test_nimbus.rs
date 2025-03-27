@@ -19,10 +19,10 @@ use crate::{
         get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
         TestMetrics, TestRecordedContext,
     },
-    AppContext, Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION,
-    DB_KEY_UPDATE_DATE,
+    Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
+use remote_settings::RemoteSettingsContext;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
@@ -39,7 +39,7 @@ fn test_telemetry_reset() -> Result<()> {
 
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
-        AppContext::default(),
+        RemoteSettingsContext::default(),
         Default::default(),
         Default::default(),
         tmp_dir.path(),
@@ -127,7 +127,7 @@ fn test_installation_date() -> Result<()> {
     // value in the app context if it exists
     let three_days_ago = Utc::now() - Duration::days(3);
     let time_stamp = three_days_ago.timestamp_millis();
-    let mut app_context = AppContext {
+    let mut app_context = RemoteSettingsContext {
         installation_date: Some(time_stamp),
         home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
         ..Default::default()
@@ -249,7 +249,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
 
     let three_days_ago = Utc::now() - Duration::days(3);
     let time_stamp = three_days_ago.timestamp_millis();
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         installation_date: Some(time_stamp),
         home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
         ..Default::default()
@@ -304,7 +304,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
     let metrics = TestMetrics::new();
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
-        AppContext::default(),
+        RemoteSettingsContext::default(),
         Default::default(),
         Default::default(),
         tmp_dir.path(),
@@ -320,7 +320,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
 
     // We re-create the client, with an app context that includes
     // a version
-    let mut app_context = AppContext {
+    let mut app_context = RemoteSettingsContext {
         app_version: Some("v94.0.0".into()),
         ..Default::default()
     };
@@ -422,7 +422,7 @@ fn test_days_since_install() -> Result<()> {
     let metrics = TestMetrics::new();
 
     let temp_dir = tempfile::tempdir()?;
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -493,7 +493,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
 
     let temp_dir = tempfile::tempdir()?;
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -563,7 +563,7 @@ fn test_days_since_update() -> Result<()> {
     let metrics = TestMetrics::new();
 
     let temp_dir = tempfile::tempdir()?;
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -634,7 +634,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
     let metrics = TestMetrics::new();
 
     let temp_dir = tempfile::tempdir()?;
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -717,7 +717,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
     event_store.persist_data(&db).ok();
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -839,7 +839,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     let event_store = EventStore::from(vec![("app.foregrounded".to_string(), counter)]);
     event_store.persist_data(&db).ok();
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -938,7 +938,7 @@ fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
 #[test]
 fn test_ios_rollout() -> Result<()> {
     let metrics = TestMetrics::new();
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
         locale: Some("en-GB".to_string()),
@@ -974,7 +974,7 @@ fn test_ios_rollout() -> Result<()> {
 #[test]
 fn test_fetch_enabled() -> Result<()> {
     let metrics = TestMetrics::new();
-    let ctx = AppContext {
+    let ctx = RemoteSettingsContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
         locale: Some("en-GB".to_string()),
@@ -1015,7 +1015,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1080,7 +1080,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
     let slug_4 = "experiment-4-dq-opt-out";
     let slug_5 = "rollout-1-dq-not-selected";
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1224,7 +1224,7 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
     let slug_1 = "experiment-1";
     let slug_2 = "experiment-2";
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1350,7 +1350,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "not-fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1392,7 +1392,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
     let metrics = TestMetrics::new();
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "random-channel".to_string(),
@@ -1431,7 +1431,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<NimbusClient> {
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1628,7 +1628,7 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1680,7 +1680,7 @@ fn test_recorded_context_recorded() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -1724,7 +1724,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
 
     let temp_dir = tempfile::tempdir()?;
 
-    let app_context = AppContext {
+    let app_context = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),

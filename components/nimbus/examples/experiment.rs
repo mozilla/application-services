@@ -16,10 +16,9 @@ fn main() -> Result<()> {
             EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
             MetricsHandler,
         },
-        AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
-        NimbusTargetingHelper,
+        AvailableRandomizationUnits, EnrollmentStatus, NimbusClient, NimbusTargetingHelper,
     };
-    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
+    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
     use std::io::prelude::*;
     use std::{collections::HashMap, sync::Arc};
 
@@ -183,7 +182,7 @@ fn main() -> Result<()> {
     let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
 
     let context = config.get("context").unwrap();
-    let context = serde_json::from_value::<AppContext>(context.clone()).unwrap();
+    let context = serde_json::from_value::<RemoteSettingsContext>(context.clone()).unwrap();
     let server_url = matches
         .value_of("server")
         .unwrap_or_else(|| match config.get("server_url") {

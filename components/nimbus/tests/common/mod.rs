@@ -58,14 +58,6 @@ fn new_test_client_internal(
     dir.push("tests/experiments");
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
-    let ctx = AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        locale: Some("en-GB".to_string()),
-        ..Default::default()
-    };
-
     let rs_ctx = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -79,12 +71,12 @@ fn new_test_client_internal(
             url: url.as_str().to_string(),
         }),
         bucket_name: None,
-        app_context: Some(rs_ctx),
+        app_context: Some(rs_ctx.clone()),
     };
 
-    let remote_settings_service = RemoteSettingsService::new("TODO".to_string(), config)?;
+    let remote_settings_service = RemoteSettingsService::new("".to_string(), config)?;
     NimbusClient::new(
-        ctx,
+        rs_ctx,
         Default::default(),
         Default::default(),
         tmp_dir.path(),

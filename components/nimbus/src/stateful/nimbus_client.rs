@@ -40,7 +40,7 @@ use crate::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
-use remote_settings::{RemoteSettingsRecord, RemoteSettingsService};
+use remote_settings::{RemoteSettingsContext, RemoteSettingsRecord, RemoteSettingsService};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -80,7 +80,7 @@ impl InternalMutableState {
 pub struct NimbusClient {
     settings_client: Mutex<Box<dyn SettingsClient + Send>>,
     pub(crate) mutable_state: Mutex<InternalMutableState>,
-    app_context: AppContext,
+    app_context: RemoteSettingsContext,
     pub(crate) db: OnceCell<Database>,
     // Manages an in-memory cache so that we can answer certain requests
     // without doing (or waiting for) IO.
@@ -96,7 +96,7 @@ impl NimbusClient {
     // This constructor *must* not do any kind of I/O since it might be called on the main
     // thread in the gecko Javascript stack, hence the use of OnceCell for the db.
     pub fn new<P: Into<PathBuf>>(
-        app_context: AppContext,
+        app_context: RemoteSettingsContext,
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,

@@ -3,7 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::stateful::persistence::{Database, StoreId};
-use crate::AppContext;
 use crate::{
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
     error::Result,
@@ -12,13 +11,14 @@ use crate::{
     DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
+use remote_settings::RemoteSettingsContext;
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {
     #[serde(flatten)]
-    pub app_context: AppContext,
+    pub app_context: RemoteSettingsContext,
     pub language: Option<String>,
     pub region: Option<String>,
     #[serde(flatten)]
@@ -34,8 +34,8 @@ pub struct TargetingAttributes {
     pub nimbus_id: Option<String>,
 }
 
-impl From<AppContext> for TargetingAttributes {
-    fn from(app_context: AppContext) -> Self {
+impl From<RemoteSettingsContext> for TargetingAttributes {
+    fn from(app_context: RemoteSettingsContext) -> Self {
         let (language, region) = app_context
             .locale
             .clone()

@@ -17,7 +17,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NimbusTargetingHelper {
     pub(crate) context: Value,
     #[cfg(feature = "stateful")]
@@ -31,6 +31,8 @@ impl NimbusTargetingHelper {
         context: C,
         #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
     ) -> Self {
+        dbg!(&context);
+        dbg!(serde_json::to_value(context).unwrap())
         Self {
             context: serde_json::to_value(context).unwrap(),
             #[cfg(feature = "stateful")]

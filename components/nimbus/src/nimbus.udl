@@ -7,6 +7,9 @@ typedef interface RemoteSettingsServer;
 [External="remote_settings"]
 typedef record RemoteSettingsRecord;
 
+[External="remote_settings"]
+typedef record RemoteSettingsContext;
+
 dictionary CalculatedAttributes {
     i32? days_since_install;
     i32? days_since_update;
@@ -25,27 +28,6 @@ namespace nimbus {
     ///
     [Throws=NimbusError]
     CalculatedAttributes get_calculated_attributes(i64? installation_date, string db_path, string locale);
-};
-
-dictionary AppContext {
-    string app_name;
-    string app_id;
-    string channel;
-    string? app_version;
-    string? app_build;
-    string? architecture;
-    string? device_manufacturer;
-    string? device_model;
-    string? locale;
-    string? os;
-    string? os_version;
-    string? android_sdk_version;
-    string? debug_tag;
-    // Note that installation date is
-    // the unix time, which is milliseconds since epoch
-    i64? installation_date;
-    string? home_directory;
-    JsonObject? custom_targeting_attributes;
 };
 
 dictionary EnrolledExperiment {
@@ -146,7 +128,7 @@ interface RecordedContext {
 interface NimbusClient {
     [Throws=NimbusError]
     constructor(
-        AppContext app_ctx,
+        RemoteSettingsContext app_ctx,
         RecordedContext? recorded_context,
         sequence<string> coenrolling_feature_ids,
         string dbpath,

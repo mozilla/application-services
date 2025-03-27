@@ -13,7 +13,7 @@ use crate::{
         get_multi_feature_experiment, get_single_feature_experiment, get_test_experiments,
         no_coenrolling_features,
     },
-    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
+    AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
 
@@ -23,12 +23,13 @@ cfg_if::cfg_if! {
 
     }
 }
+use remote_settings::RemoteSettingsContext;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-impl From<AppContext> for NimbusTargetingHelper {
-    fn from(context: AppContext) -> Self {
+impl From<RemoteSettingsContext> for NimbusTargetingHelper {
+    fn from(context: RemoteSettingsContext) -> Self {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {
                 let ta: TargetingAttributes = context.into();
@@ -396,11 +397,11 @@ fn get_is_already_enrolled_targeting_experiment() -> Experiment {
     .unwrap()
 }
 
-fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
+fn local_ctx() -> (Uuid, RemoteSettingsContext, AvailableRandomizationUnits) {
     // Use a fixed nimbus_id so we don't switch between branches.
     let nimbus_id = Uuid::parse_str("29686b11-00c0-4905-b5e4-f5f945eda60a").unwrap();
     // Create a matching context for the experiments above
-    let app_ctx = AppContext {
+    let app_ctx = RemoteSettingsContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
         channel: "nightly".to_string(),
@@ -423,13 +424,15 @@ fn enrollment_evolver<'a>(
 fn test_ios_rollout_experiment() -> Result<()> {
     let exp = &get_ios_rollout_experiment();
     let (_, app_ctx, aru) = local_ctx();
-    let app_ctx = AppContext {
+    let app_ctx = RemoteSettingsContext {
         app_name: "firefox_ios".to_string(),
         app_version: Some("114.0".to_string()),
         channel: "release".to_string(),
         ..app_ctx
     };
-    let mut th = app_ctx.into();
+
+    let mut th :NimbusTargetingHelper = app_ctx.into();
+    dbg!(&th);
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
