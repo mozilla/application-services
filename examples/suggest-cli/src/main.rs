@@ -145,11 +145,11 @@ fn main() -> Result<()> {
 fn build_store(cli: &Cli) -> Result<Arc<SuggestStore>> {
     Ok(Arc::new(SuggestStoreBuilder::default())
         .data_path(cli_support::cli_data_path(DB_FILENAME))
-        .remote_settings_service(build_remote_settings_service(cli)?)
+        .remote_settings_service(build_remote_settings_service(cli))
         .build()?)
 }
 
-fn build_remote_settings_service(cli: &Cli) -> Result<Arc<RemoteSettingsService>> {
+fn build_remote_settings_service(cli: &Cli) -> Arc<RemoteSettingsService> {
     let config = RemoteSettingsConfig2 {
         server: cli.remote_settings_server.as_ref().map(|s| match s {
             RemoteSettingsServerArg::Dev => RemoteSettingsServer::Dev,
@@ -160,7 +160,7 @@ fn build_remote_settings_service(cli: &Cli) -> Result<Arc<RemoteSettingsService>
         app_context: None,
     };
     let storage_dir = cli_support::cli_data_subdir("remote-settings-data");
-    Ok(Arc::new(RemoteSettingsService::new(storage_dir, config)?))
+    Arc::new(RemoteSettingsService::new(storage_dir, config))
 }
 
 fn ingest(
