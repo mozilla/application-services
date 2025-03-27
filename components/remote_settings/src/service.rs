@@ -77,6 +77,11 @@ impl RemoteSettingsService {
         Ok(client)
     }
 
+    pub fn client_url(&self) -> Url {
+        let inner = self.inner.lock();
+        inner.base_url.clone()
+    }
+
     /// Sync collections for all active clients
     pub fn sync(&self) -> Result<Vec<String>> {
         // Make sure we only sync each collection once, even if there are multiple clients

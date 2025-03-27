@@ -23,7 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import mozilla.appservices.remotesettings.RemoteSettingsConfig
+import mozilla.appservices.remotesettings.RemoteSettingsConfig2
 import mozilla.appservices.remotesettings.RemoteSettingsServer
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
@@ -69,6 +69,7 @@ open class Nimbus(
     appInfo: NimbusAppInfo,
     coenrollingFeatureIds: List<String>,
     server: NimbusServerSettings?,
+    remoteSettingsService: RemoteSettingsService,
     deviceInfo: NimbusDeviceInfo,
     private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate,
@@ -160,20 +161,17 @@ open class Nimbus(
         val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
         // Initialize Nimbus
-        val remoteSettingsConfig = server?.let {
-            RemoteSettingsConfig(
-                server = RemoteSettingsServer.Custom(it.url.toString()),
-                collectionName = it.collection,
-            )
-        }
+
+        val collectionName = it.collection
 
         nimbusClient = NimbusClient(
             experimentContext,
             recordedContext,
             coenrollingFeatureIds,
             dataDir.path,
-            remoteSettingsConfig,
             metricsHandler,
+            remoteSettingsService,
+            collectionName
         )
     }
 
