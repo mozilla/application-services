@@ -10,7 +10,7 @@ exclude = ["/ios"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.28.2" }
 thiserror = "1.0"
 bhttp = "0.3"
 parking_lot = "0.12"
@@ -24,4 +24,8 @@ rev = "bf02e480d4722f9fba38a4245168d1a82f8fac6c"
 features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { version = "0.28.2", features=["build"]}
+
+# Temp hack for uniffi 0.28 generated code, will not be necessary after next uniffi update.
+[lints.clippy]
+empty-line-after-doc-comments = "allow"

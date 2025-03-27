@@ -904,9 +904,10 @@ impl NimbusStringHelper {
 }
 
 #[cfg(feature = "stateful-uniffi-bindings")]
-uniffi::custom_type!(JsonObject, String, {
-    remote,
-    try_lift: |val| {
+impl UniffiCustomTypeConverter for JsonObject {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
         let json: Value = serde_json::from_str(&val)?;
 
         match json.as_object() {
@@ -915,9 +916,12 @@ uniffi::custom_type!(JsonObject, String, {
                 "Unexpected JSON-non-object in the bagging area"
             )),
         }
-    },
-    lower: |obj| serde_json::Value::Object(obj).to_string(),
-});
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        serde_json::Value::Object(obj).to_string()
+    }
+}
 
 #[cfg(feature = "stateful-uniffi-bindings")]
 uniffi::include_scaffolding!("nimbus");
