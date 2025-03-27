@@ -44,12 +44,10 @@ pub fn cli_data_path(filename: &str) -> String {
 
 fn data_path(relative_path: Option<&str>) -> PathBuf {
     let dir = workspace_root_dir().join(".cli-data");
-    let dir = match relative_path {
+    match relative_path {
         None => dir,
         Some(relative_path) => dir.join(relative_path),
-    };
-    std::fs::create_dir_all(&dir).expect("Error creating dir {dir:?}");
-    dir
+    }
 }
 
 pub fn workspace_root_dir() -> PathBuf {

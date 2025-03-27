@@ -33,6 +33,12 @@ text, the list view has been slimmed down and a detail view has been added.
 ## Remote Settings
 - The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
 
+## 🦊 What's Changed 🦊
+
+## Remote Settings
+- The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
+  This integrates better with JS, which expects all IO to happen inside async functions.
+
 # v138.0 (_2025-03-31_)
 
 ## ⚠️ Breaking Changes ⚠️
