@@ -285,6 +285,14 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         Ok(())
     }
 
+    /// Close the client
+    ///
+    /// This is typically used during shutdown.  It closes the underlying SQLite connection used to
+    /// cache records.
+    pub fn close(&self) {
+        self.inner.lock().storage.close();
+    }
+
     #[cfg(not(feature = "signatures"))]
     fn verify_signature(&self) -> Result<()> {
         log::debug!("{0}: signature verification skipped.", self.collection_name);
