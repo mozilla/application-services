@@ -25,12 +25,12 @@ error-support = { path = "../support/error" }
 thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.28.2" }
 payload-support = { path = "../support/payload" }
 nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features = ["build"] }
+uniffi = { version = "0.28.2", features = ["build"] }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
@@ -40,3 +40,7 @@ mockito = "0.31"
 [features]
 default = []
 gecko = [ "rc_crypto/gecko" ]
+
+# Temp hack for uniffi 0.28 generated code, will not be necessary after next uniffi update.
+[lints.clippy]
+empty-line-after-doc-comments = "allow"

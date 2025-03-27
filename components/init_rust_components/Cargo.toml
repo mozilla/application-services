@@ -7,5 +7,5 @@ edition = "2021"
 keydb = ["nss/keydb"]
 
 [dependencies]
-uniffi = "0.29.0"
+uniffi = "0.28.2"
 nss = { path = "../support/rc_crypto/nss" }

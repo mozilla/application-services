@@ -127,7 +127,6 @@ fn run_uniffi_bindgen(cli: Cli) -> Result<()> {
                 module_name: Some(module_name),
                 modulemap_filename,
                 metadata_no_deps: false,
-                link_frameworks: vec![],
             })?;
         }
         Command::Python { out_dir } => {
