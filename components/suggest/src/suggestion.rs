@@ -5,7 +5,7 @@
 
 use chrono::Local;
 
-use crate::db::DEFAULT_SUGGESTION_SCORE;
+use crate::{db::DEFAULT_SUGGESTION_SCORE, provider::SuggestionProvider};
 
 /// The template parameter for a timestamp in a "raw" sponsored suggestion URL.
 const TIMESTAMP_TEMPLATE: &str = "%YYYYMMDDHH%";
@@ -34,6 +34,7 @@ pub enum Suggestion {
         raw_click_url: String,
         score: f64,
         fts_match_info: Option<FtsMatchInfo>,
+        dismissal_key: Option<String>,
     },
     Pocket {
         title: String,
@@ -47,6 +48,7 @@ pub enum Suggestion {
         icon: Option<Vec<u8>>,
         icon_mimetype: Option<String>,
         full_keyword: String,
+        dismissal_key: Option<String>,
     },
     Amo {
         title: String,
@@ -128,6 +130,38 @@ impl Ord for Suggestion {
 }
 
 impl Suggestion {
+    pub fn provider(&self) -> SuggestionProvider {
+        match self {
+            Self::Amp { .. } => SuggestionProvider::Amp,
+            Self::Pocket { .. } => SuggestionProvider::Pocket,
+            Self::Wikipedia { .. } => SuggestionProvider::Wikipedia,
+            Self::Amo { .. } => SuggestionProvider::Amo,
+            Self::Yelp { .. } => SuggestionProvider::Yelp,
+            Self::Mdn { .. } => SuggestionProvider::Mdn,
+            Self::Weather { .. } => SuggestionProvider::Weather,
+            Self::Fakespot { .. } => SuggestionProvider::Fakespot,
+            Self::Exposure { .. } => SuggestionProvider::Exposure,
+        }
+    }
+
+    /// Get the suggestion's dismissal key. If it doesn't have one, its raw URL
+    /// is returned, which may be `None`.
+    pub fn dismissal_key(&self) -> Option<&str> {
+        let key = match self {
+            Self::Amp { dismissal_key, .. } | Self::Wikipedia { dismissal_key, .. } => {
+                dismissal_key.as_deref()
+            }
+            Self::Pocket { .. }
+            | Self::Amo { .. }
+            | Self::Yelp { .. }
+            | Self::Mdn { .. }
+            | Self::Weather { .. }
+            | Self::Fakespot { .. }
+            | Self::Exposure { .. } => None,
+        };
+        key.or_else(|| self.raw_url())
+    }
+
     /// Get the URL for this suggestion, if present
     pub fn url(&self) -> Option<&str> {
         match self {
@@ -138,7 +172,7 @@ impl Suggestion {
             | Self::Yelp { url, .. }
             | Self::Mdn { url, .. }
             | Self::Fakespot { url, .. } => Some(url),
-            _ => None,
+            Self::Weather { .. } | Self::Exposure { .. } => None,
         }
     }
 
@@ -148,13 +182,8 @@ impl Suggestion {
     /// "cooked" using template interpolation, while `raw_url` is the URL template.
     pub fn raw_url(&self) -> Option<&str> {
         match self {
-            Self::Amp { raw_url: url, .. }
-            | Self::Pocket { url, .. }
-            | Self::Wikipedia { url, .. }
-            | Self::Amo { url, .. }
-            | Self::Yelp { url, .. }
-            | Self::Mdn { url, .. } => Some(url),
-            _ => None,
+            Self::Amp { raw_url, .. } => Some(raw_url),
+            _ => self.url(),
         }
     }
 

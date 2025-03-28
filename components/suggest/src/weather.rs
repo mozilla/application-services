@@ -337,6 +337,7 @@ impl SuggestDao<'_> {
                 "",
                 "",
                 attach.score.unwrap_or(DEFAULT_SUGGESTION_SCORE),
+                None,
                 SuggestionProvider::Weather,
             )?;
             for (i, keyword) in attach.keywords.iter().enumerate() {

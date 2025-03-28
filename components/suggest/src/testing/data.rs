@@ -8,6 +8,87 @@ use crate::{suggestion::FtsMatchInfo, testing::MockIcon, Suggestion};
 use serde_json::json;
 use serde_json::Value as JsonValue;
 
+pub fn amp_json(keywords: &[&str]) -> JsonValue {
+    let kws_str = keywords.join(",");
+    json!({
+        "id": 0,
+        "advertiser": "AMP Advertiser",
+        "iab_category": "5 - Shopping",
+        "keywords": keywords,
+        "title": format!("AMP suggestion - {}", kws_str),
+        "url": format!("https://example.com/amp/{}", kws_str),
+        "icon": "",
+        "impression_url": format!("https://example.com/amp/impression/{}", kws_str),
+        "click_url": format!("https://example.com/amp/click/{}", kws_str),
+        "full_keywords": [["amp full keyword", 1]],
+        "score": 0.3
+    })
+}
+
+pub fn amp_suggestion(keywords: &[&str]) -> Suggestion {
+    amp_suggestion_full(None, keywords)
+}
+
+pub fn amp_suggestion_with_dismissal_key(dismissal_key: &str, keywords: &[&str]) -> Suggestion {
+    amp_suggestion_full(Some(dismissal_key.to_string()), keywords)
+}
+
+pub fn amp_suggestion_full(dismissal_key: Option<String>, keywords: &[&str]) -> Suggestion {
+    let kws_str = keywords.join(",");
+    Suggestion::Amp {
+        title: format!("AMP suggestion - {}", kws_str),
+        url: format!("https://example.com/amp/{}", kws_str),
+        raw_url: format!("https://example.com/amp/{}", kws_str),
+        icon: None,
+        icon_mimetype: None,
+        block_id: 0,
+        advertiser: "AMP Advertiser".into(),
+        iab_category: "5 - Shopping".into(),
+        impression_url: format!("https://example.com/amp/impression/{}", kws_str),
+        click_url: format!("https://example.com/amp/click/{}", kws_str),
+        raw_click_url: format!("https://example.com/amp/click/{}", kws_str),
+        score: 0.3,
+        full_keyword: "amp full keyword".into(),
+        fts_match_info: None,
+        dismissal_key,
+    }
+}
+
+pub fn wikipedia_json(keywords: &[&str]) -> JsonValue {
+    let kws_str = keywords.join(",");
+    json!({
+        "keywords": keywords,
+        "title": format!("Wikipedia suggestion - {}", kws_str),
+        "url": format!("https://example.com/wikipedia/{}", kws_str),
+        "full_keywords": [],
+        "icon": "",
+        "score": 0.3
+    })
+}
+
+pub fn wikipedia_suggestion(keywords: &[&str]) -> Suggestion {
+    wikipedia_suggestion_full(None, keywords)
+}
+
+pub fn wikipedia_suggestion_with_dismissal_key(
+    dismissal_key: &str,
+    keywords: &[&str],
+) -> Suggestion {
+    wikipedia_suggestion_full(Some(dismissal_key.to_string()), keywords)
+}
+
+pub fn wikipedia_suggestion_full(dismissal_key: Option<String>, keywords: &[&str]) -> Suggestion {
+    let kws_str = keywords.join(",");
+    Suggestion::Wikipedia {
+        title: format!("Wikipedia suggestion - {}", kws_str),
+        url: format!("https://example.com/wikipedia/{}", kws_str),
+        icon: None,
+        icon_mimetype: None,
+        full_keyword: keywords[0].into(),
+        dismissal_key,
+    }
+}
+
 pub fn los_pollos_amp() -> JsonValue {
     json!({
         "id": 100,
@@ -50,6 +131,7 @@ pub fn los_pollos_suggestion(
         score: 0.3,
         full_keyword: full_keyword.to_string(),
         fts_match_info,
+        dismissal_key: None,
     }
 }
 
@@ -94,6 +176,7 @@ pub fn good_place_eats_suggestion(
         raw_click_url: "https://example.com/click_url".into(),
         score: 0.2,
         fts_match_info,
+        dismissal_key: None,
     }
 }
 
@@ -124,6 +207,7 @@ pub fn california_suggestion(full_keyword: &str) -> Suggestion {
         icon: Some("california-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: full_keyword.into(),
+        dismissal_key: None,
     }
 }
 
@@ -154,6 +238,7 @@ pub fn caltech_suggestion(full_keyword: &str) -> Suggestion {
         icon: Some("caltech-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: full_keyword.into(),
+        dismissal_key: None,
     }
 }
 
@@ -422,6 +507,7 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
         icon: Some("multimatch-wiki-icon-data".as_bytes().to_vec()),
         icon_mimetype: Some("image/png".into()),
         full_keyword: "multimatch".into(),
+        dismissal_key: None,
     }
 }
 
