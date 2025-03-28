@@ -91,16 +91,24 @@ pub struct RemoteSettingsService {
 impl RemoteSettingsService {
     /// Construct a [RemoteSettingsService]
     ///
-    /// This is typically done early in the application-startup process
+    /// This is typically done early in the application-startup process.
+    ///
+    /// This method performs no IO or network requests and is safe to run in a main thread that
+    /// can't be blocked.
+    ///
+    /// `storage_dir` is a directory to store SQLite files in -- one per collection. If the
+    /// directory does not exist, it will be created when the storage is first used. Only the
+    /// directory and the SQLite files will be created, any parent directories must already exist.
     #[uniffi::constructor]
-    #[handle_error(Error)]
-    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> ApiResult<Self> {
-        Ok(Self {
-            internal: service::RemoteSettingsService::new(storage_dir, config)?,
-        })
+    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> Self {
+        Self {
+            internal: service::RemoteSettingsService::new(storage_dir, config),
+        }
     }
 
     /// Create a new Remote Settings client
+    ///
+    /// This method performs no IO or network requests and is safe to run in a main thread that can't be blocked.
     #[handle_error(Error)]
     pub fn make_client(&self, collection_name: String) -> ApiResult<Arc<RemoteSettingsClient>> {
         self.internal.make_client(collection_name)

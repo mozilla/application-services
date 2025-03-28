@@ -1,5 +1,10 @@
 # v138.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+## Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
 ## 🦊 What's Changed 🦊
 
 ### Android
@@ -8,6 +13,11 @@
 
 ### Glean
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
+- 
+## Remote Settings
+- The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
+  This integrates better with JS, which expects all IO to happen inside async functions.
+- Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
