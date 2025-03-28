@@ -17,6 +17,22 @@ component to handle initialization.
 ### `rc_crypto`
 - `ensure_initialized()` now returns a Result
 
+### Logins
+- Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
+
+## ⚠️ Breaking Changes ⚠️
+
+### `nss`
+- Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
+
+#### BREAKING CHANGE:
+Components need to call `nss::ensure_initialized()` before using any component
+that depends on NSS. Applications can depend on the `init_rust_components`
+component to handle initialization.
+
+### `rc_crypto`
+- `ensure_initialized()` now returns a Result
+
 [Full Changelog](In progress)
 
 # v137.0 (_2025-03-03_)
