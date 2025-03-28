@@ -63,6 +63,27 @@ interface PushManager {
     [Throws=PushApiError]
     SubscriptionResponse? get_subscription([ByRef] string scope);
 
+    /// List existing scopes
+    ///
+    /// # Returns
+    /// The list of subscribed scopes
+    ///
+    /// # Errors
+    /// Returns an error if:
+    ///   - An error occurred accessing the PushManagers's persistent storage
+
+    /// List existing subscription requests
+    /// Contains scope and application server key from existing subscriptions
+    ///
+    /// # Returns
+    /// The list of existing [`SubscriptionRequest`]
+    ///
+    /// # Errors
+    /// Returns an error if:
+    ///   - An error occurred accessing the PushManagers's persistent storage
+    [Throws=PushApiError]
+    sequence<SubscriptionRequest> list_subscription_req();
+
     /// Unsubscribe from given scope, ending that subscription for the user.
     ///
     /// # Arguments
@@ -141,6 +162,11 @@ interface PushManager {
     DecryptResponse decrypt(record<DOMString, string> payload);
 };
 
+/// Fields needed to do a subscription request: the scope and the application server key
+dictionary SubscriptionRequest {
+    string scope;
+    string? app_server_key;
+};
 /// Key Information that can be used to encrypt payloads
 dictionary KeyInfo {
     string auth;

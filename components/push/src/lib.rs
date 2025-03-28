@@ -281,6 +281,20 @@ impl PushManager {
         self.internal.lock().unwrap().get_subscription(scope)
     }
 
+    /// List existing subscription requests
+    /// Contains scope and application server key from existing subscriptions
+    ///
+    /// # Returns
+    /// The list of existing [`SubscriptionRequest`]
+    ///
+    /// # Errors
+    /// Returns an error if:
+    ///   - An error occurred accessing the PushManagers's persistent storage
+    #[handle_error(PushError)]
+    pub fn list_subscription_req(&self) -> ApiResult<Vec<SubscriptionRequest>> {
+        self.internal.lock().unwrap().list_subscription_req()
+    }
+
     /// Unsubscribe from given channelID, ending that subscription for the user.
     ///
     /// # Arguments
@@ -379,6 +393,13 @@ impl PushManager {
     pub fn decrypt(&self, payload: HashMap<String, String>) -> ApiResult<DecryptResponse> {
         self.internal.lock().unwrap().decrypt(payload)
     }
+}
+
+/// Fields needed to do a subscription request: the scope and the application server key
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SubscriptionRequest {
+    pub scope: String,
+    pub app_server_key: Option<String>,
 }
 
 /// Key Information that can be used to encrypt payloads. These are encoded as base64
