@@ -24,7 +24,7 @@ androidx-annotation = "1.9.1"
 androidx-core = "1.15.0"
 
 # JNA
-jna = "5.17.0"
+jna = "5.14.0"
 
 # Linting and Static Analysis
 detekt = "1.23.8"
