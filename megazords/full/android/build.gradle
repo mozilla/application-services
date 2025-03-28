@@ -1,37 +1,12 @@
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
 
 if (!gradle.hasProperty("mozconfig")) {
     apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 }
+apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 
 android {
     namespace 'org.mozilla.appservices.full_megazord'
-
-    defaultConfig {
-        ndkVersion config.ndkVersion
-        compileSdkVersion config.compileSdkVersion
-        minSdkVersion config.minSdkVersion
-        targetSdkVersion config.targetSdkVersion
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
-        }
-    }
-
-    // Uncomment to include debug symbols in native library builds.
-    // packagingOptions { doNotStrip "**/*.so" }
-}
-
-kotlin {
-    jvmToolchain(rootProject.config.jvmTargetCompatibility)
 }
 
 // Configurations are a somewhat mysterious Gradle concept.  For our purposes, we can treat them
@@ -64,6 +39,7 @@ configurations {
 }
 
 dependencies {
+    implementation(libs.jna);
     // Needed so we can copy the libraries into libsForTests.
     jna(libs.jna) {
         artifact {
@@ -71,6 +47,8 @@ dependencies {
         }
     }
 }
+
+ext.configureUniFFIBindgen("megazord", layout.buildDirectory.dir("megazordNative"))
 
 if (!gradle.hasProperty("mozconfig")) {
     // Extract JNI dispatch libraries from the JAR into a directory, so that we can then package them
@@ -201,3 +179,4 @@ if (!gradle.hasProperty("mozconfig")) {
         }
     }
 }
+tasks.generateUniffiBindings.dependsOn(tasks.copyMegazordNative)
