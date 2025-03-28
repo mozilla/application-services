@@ -13,7 +13,7 @@ pub use models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
 use url::Url;
 
 #[derive(uniffi::Object)]
-struct CuratedRecommendationsClient {
+pub struct CuratedRecommendationsClient {
     inner: CuratedRecommendationsClientInner<http::HttpClient>,
     endpoint_url: Url,
     user_agent_header: String,
