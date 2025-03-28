@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 // Locales supported by Merino Curated Recommendations
-#[derive(Debug, Serialize, PartialEq, uniffi::Enum)]
+#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
 pub enum CuratedRecommendationLocale {
     #[serde(rename = "fr")]
     Fr,
@@ -48,7 +48,7 @@ pub struct SectionSettings {
 }
 
 // Information required to request curated recommendations
-#[derive(Debug, Serialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Record)]
 pub struct CuratedRecommendationsRequest {
     pub locale: CuratedRecommendationLocale,
     #[uniffi(default = None)]
@@ -67,13 +67,13 @@ pub struct CuratedRecommendationsRequest {
     #[serde(rename = "experimentBranch")]
     #[uniffi(default = None)]
     pub experiment_branch: Option<String>,
-    #[serde(rename = "enableInterestPicker")]
+    #[serde(rename = "enableInterestPicker", default)]
     #[uniffi(default = false)]
     pub enable_interest_picker: bool,
 }
 
 // Response schema for a list of curated recommendations
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct CuratedRecommendationsResponse {
     #[serde(rename = "recommendedAt")]
     pub recommended_at: i64,
@@ -85,7 +85,7 @@ pub struct CuratedRecommendationsResponse {
     pub interest_picker: Option<InterestPicker>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 // Specifies the display order (receivedFeedRank) and a list of sections (referenced by sectionId) for interest bubbles.
 pub struct InterestPicker {
     #[serde(rename = "receivedFeedRank")]
@@ -95,14 +95,14 @@ pub struct InterestPicker {
     pub sections: Vec<InterestPickerSection>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct InterestPickerSection {
     #[serde(rename = "sectionId")]
     pub section_id: String,
 }
 
 // Multiple lists of curated recommendations
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Feeds {
     #[uniffi(default = None)]
     pub need_to_know: Option<CuratedRecommendationsBucket>,
@@ -147,7 +147,7 @@ pub struct Feeds {
 }
 
 // Curated Recommendation Information
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct RecommendationDataItem {
     #[serde(rename = "corpusItemId")]
     pub corpus_item_id: String,
@@ -172,7 +172,7 @@ pub struct RecommendationDataItem {
 }
 
 // Ranked list of curated recommendations
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct CuratedRecommendationsBucket {
     pub recommendations: Vec<RecommendationDataItem>,
     #[uniffi(default = None)]
@@ -180,7 +180,7 @@ pub struct CuratedRecommendationsBucket {
 }
 
 // Fakespot product recommendations
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct FakespotFeed {
     pub products: Vec<FakespotProduct>,
     #[serde(rename = "defaultCategoryName")]
@@ -193,7 +193,7 @@ pub struct FakespotFeed {
 }
 
 // Fakespot product details
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct FakespotProduct {
     id: String,
     title: String,
@@ -204,7 +204,7 @@ pub struct FakespotProduct {
 }
 
 // Fakespot CTA
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct FakespotCta {
     #[serde(rename = "ctaCopy")]
     pub cta_copy: String,
@@ -212,7 +212,7 @@ pub struct FakespotCta {
 }
 
 // Ranked list of curated recommendations with responsive layout configs
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct FeedSection {
     #[serde(rename = "receivedFeedRank")]
     pub received_feed_rank: i32,
@@ -228,7 +228,7 @@ pub struct FeedSection {
 }
 
 // Representation of a responsive layout configuration with multiple column layouts
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Layout {
     pub name: String,
     #[serde(rename = "responsiveLayouts")]
@@ -236,14 +236,14 @@ pub struct Layout {
 }
 
 // Layout configurations within a column
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct ResponsiveLayout {
     #[serde(rename = "columnCount")]
     pub column_count: i32,
     pub tiles: Vec<Tile>,
 }
 // Properties for a single tile in a responsive layout
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Tile {
     pub size: String,
     pub position: i32,
