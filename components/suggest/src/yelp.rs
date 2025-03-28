@@ -30,6 +30,12 @@ impl ToSql for Modifier {
     }
 }
 
+#[derive(Eq, PartialEq)]
+enum FindFrom {
+    First,
+    Last,
+}
+
 /// This module assumes like following query.
 /// "Yelp-modifier? Pre-modifier? Subject Post-modifier? (Location-modifier | Location-sign Location?)? Yelp-modifier?"
 /// For example, the query below is valid.
@@ -46,6 +52,11 @@ const MAX_QUERY_LENGTH: usize = 150;
 /// The max number of words consisting the modifier. To improve the SQL performance by matching with
 /// "keyword=:modifier" (please see is_modifier()), define this how many words we should check.
 const MAX_MODIFIER_WORDS_NUMBER: usize = 2;
+
+/// The max number of words consisting the location sign. To improve the SQL performance by matching
+/// with "keyword=:modifier" (please see is_location_sign()), define this how many words we should
+/// check.
+const MAX_LOCATION_SIGN_WORDS_NUMBER: usize = 2;
 
 /// At least this many characters must be typed for a subject to be matched.
 const SUBJECT_PREFIX_MATCH_THRESHOLD: usize = 2;
@@ -142,67 +153,224 @@ impl SuggestDao<'_> {
             return Ok(vec![]);
         }
 
-        let query_string = &query.keyword.trim();
-        if !query_string.contains(' ') {
-            let Some((subject, subject_exact_match)) = self.find_subject(query_string)? else {
-                return Ok(vec![]);
-            };
-            let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
-            let builder = SuggestionBuilder {
-                subject: &subject,
-                subject_exact_match,
-                pre_modifier: None,
-                post_modifier: None,
-                location_sign: None,
-                location: None,
-                need_location: false,
-                icon,
-                icon_mimetype,
-                score,
-            };
-            return Ok(vec![builder.into()]);
+        let query_vec: Vec<_> = query.keyword.split_whitespace().collect();
+        let mut query_words: &[&str] = &query_vec;
+
+        let pre_yelp_modifier_tuple =
+            self.find_modifier(query_words, Modifier::Yelp, FindFrom::First)?;
+        if let Some((_, n)) = pre_yelp_modifier_tuple {
+            query_words = &query_words[n..];
         }
 
-        // Find the yelp keyword modifier and remove them from the query.
-        let (query_without_yelp_modifiers, _, _) =
-            self.find_modifiers(query_string, Modifier::Yelp, Modifier::Yelp)?;
-
-        // Find the location sign and the location.
-        let (query_without_location, location_sign, location, need_location) =
-            self.find_location(&query_without_yelp_modifiers)?;
-
-        if let (Some(_), false) = (&location, need_location) {
-            // The location sign does not need the specific location, but user is setting something.
-            return Ok(vec![]);
+        let pre_modifier_tuple = self.find_modifier(query_words, Modifier::Pre, FindFrom::First)?;
+        if let Some((_, n)) = pre_modifier_tuple {
+            query_words = &query_words[n..];
         }
 
-        if query_without_location.is_empty() {
-            // No remained query.
+        let Some(subject_tuple) = self.find_subject(query_words)? else {
             return Ok(vec![]);
+        };
+        query_words = &query_words[subject_tuple.2..];
+
+        let post_modifier_tuple =
+            self.find_modifier(query_words, Modifier::Post, FindFrom::First)?;
+        if let Some((_, n)) = post_modifier_tuple {
+            query_words = &query_words[n..];
         }
 
-        // Find the modifiers.
-        let (subject_candidate, pre_modifier, post_modifier) =
-            self.find_modifiers(&query_without_location, Modifier::Pre, Modifier::Post)?;
+        let location_sign_tuple = self.find_location_sign(query_words)?;
+        if let Some((_, n)) = location_sign_tuple {
+            query_words = &query_words[n..];
+        }
 
-        let Some((subject, subject_exact_match)) = self.find_subject(&subject_candidate)? else {
-            return Ok(vec![]);
+        let post_yelp_modifier_tuple =
+            self.find_modifier(query_words, Modifier::Yelp, FindFrom::Last)?;
+        if let Some((_, n)) = post_yelp_modifier_tuple {
+            query_words = &query_words[0..query_words.len() - n];
+        }
+
+        let location = if query_words.is_empty() {
+            None
+        } else {
+            Some(query_words.join(" "))
         };
 
         let (icon, icon_mimetype, score) = self.fetch_custom_details()?;
         let builder = SuggestionBuilder {
-            subject: &subject,
-            subject_exact_match,
-            pre_modifier,
-            post_modifier,
-            location_sign,
+            subject: &subject_tuple.0,
+            subject_exact_match: subject_tuple.1,
+            pre_modifier: pre_modifier_tuple.map(|(words, _)| words.to_string()),
+            post_modifier: post_modifier_tuple.map(|(words, _)| words.to_string()),
+            need_location: location_sign_tuple.is_some() || location.is_some(),
+            location_sign: location_sign_tuple.map(|(words, _)| words.to_string()),
             location,
-            need_location,
             icon,
             icon_mimetype,
             score,
         };
         Ok(vec![builder.into()])
+    }
+
+    /// Find the modifier for given query and modifier type.
+    /// Find from last word, if set FindFrom::Last to find_from.
+    /// It returns Option<tuple> as follows:
+    /// (
+    ///   String: The keyword in DB (but the case is inherited by query).
+    ///   usize: Number of words in query_words that match the keyword.
+    ///          Maximum number is MAX_MODIFIER_WORDS_NUMBER.
+    /// )
+    fn find_modifier(
+        &self,
+        query_words: &[&str],
+        modifier_type: Modifier,
+        find_from: FindFrom,
+    ) -> Result<Option<(String, usize)>> {
+        if query_words.is_empty() {
+            return Ok(None);
+        }
+
+        for n in (1..=std::cmp::min(MAX_MODIFIER_WORDS_NUMBER, query_words.len())).rev() {
+            let candidate_chunk = match find_from {
+                FindFrom::First => query_words.chunks(n).next(),
+                FindFrom::Last => query_words.rchunks(n).next(),
+            };
+            let candidate = candidate_chunk
+                .map(|chunk| chunk.join(" "))
+                .unwrap_or_default();
+            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+                if n == query_words.len() {
+                    "
+                    SELECT keyword FROM yelp_modifiers
+                    WHERE type = :type AND keyword BETWEEN :word AND :word || x'FFFF'
+                    LIMIT 1
+                    "
+                } else {
+                    "
+                    SELECT keyword FROM yelp_modifiers
+                    WHERE type = :type AND keyword = :word
+                    LIMIT 1
+                    "
+                },
+                named_params! {
+                    ":type": modifier_type,
+                    ":word": candidate.to_lowercase(),
+                },
+                true,
+            )? {
+                // Preserve the query as the user typed it including its case.
+                let keyword = format!("{}{}", candidate, &keyword_lowercase[candidate.len()..]);
+                return Ok(Some((keyword, n)));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Find the subject for given query.
+    /// It returns Option<tuple> as follows:
+    /// (
+    ///   String: The keyword in DB (but the case is inherited by query).
+    ///   bool: Whether or not the keyword is exact match.
+    ///   usize: Number of words in query_words that match the keyword.
+    /// )
+    fn find_subject(&self, query_words: &[&str]) -> Result<Option<(String, bool, usize)>> {
+        if query_words.is_empty() {
+            return Ok(None);
+        }
+
+        let query_string = query_words.join(" ");
+
+        // This checks if keyword is a substring of the query.
+        if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+            "SELECT keyword
+             FROM yelp_subjects
+             WHERE :query BETWEEN keyword AND keyword || x'FFFF'
+             ORDER BY LENGTH(keyword) ASC, keyword ASC
+             LIMIT 1",
+            named_params! {
+                ":query": query_string.to_lowercase(),
+            },
+            true,
+        )? {
+            // Preserve the query as the user typed it including its case.
+            let keyword = &query_string[0..keyword_lowercase.len()];
+            let count = keyword.split_whitespace().count();
+            return Ok(Some((keyword.to_string(), true, count)));
+        };
+
+        if query_string.len() < SUBJECT_PREFIX_MATCH_THRESHOLD {
+            return Ok(None);
+        }
+
+        // Oppositely, this checks if the query is a substring of keyword.
+        if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+            "SELECT keyword
+             FROM yelp_subjects
+             WHERE keyword BETWEEN :query AND :query || x'FFFF'
+             ORDER BY LENGTH(keyword) ASC, keyword ASC
+             LIMIT 1",
+            named_params! {
+                ":query": query_string.to_lowercase(),
+            },
+            true,
+        )? {
+            // Preserve the query as the user typed it including its case.
+            let keyword = format!(
+                "{}{}",
+                query_string,
+                &keyword_lowercase[query_string.len()..]
+            );
+            let count = keyword.split_whitespace().count();
+            return Ok(Some((keyword, false, count)));
+        };
+
+        Ok(None)
+    }
+
+    /// Find the location sign for given query.
+    /// It returns Option<tuple> as follows:
+    /// (
+    ///   String: The keyword in DB (but the case is inherited by query).
+    ///   usize: Number of words in query_words that match the keyword.
+    ///          Maximum number is MAX_LOCATION_SIGN_WORDS_NUMBER.
+    /// )
+    fn find_location_sign(&self, query_words: &[&str]) -> Result<Option<(String, usize)>> {
+        if query_words.is_empty() {
+            return Ok(None);
+        }
+
+        for n in (1..=std::cmp::min(MAX_LOCATION_SIGN_WORDS_NUMBER, query_words.len())).rev() {
+            let mut candidate_chunk = query_words.chunks(n);
+            let candidate = candidate_chunk
+                .next()
+                .map(|chunk| chunk.join(" "))
+                .unwrap_or_default();
+            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+                if n == query_words.len() {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword BETWEEN :word AND :word || x'FFFF'
+                    LIMIT 1
+                    "
+                } else {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword = :word
+                    LIMIT 1
+                    "
+                },
+                named_params! {
+                    ":word": candidate.to_lowercase(),
+                },
+                true,
+            )? {
+                // Preserve the query as the user typed it including its case.
+                let keyword = format!("{}{}", candidate, &keyword_lowercase[candidate.len()..]);
+                return Ok(Some((keyword, n)));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Fetch the custom details for Yelp suggestions.
@@ -239,202 +407,6 @@ impl SuggestDao<'_> {
                     row.get::<_, f64>(2)?,
                 ))
             },
-            true,
-        )?;
-
-        Ok(result)
-    }
-
-    /// Find the location information from the given query string.
-    /// It returns the location tuple as follows:
-    /// (
-    ///   String: Query string that is removed found location information.
-    ///   Option<String>: Location sign found in yelp_location_signs table. If not found, returns None.
-    ///   Option<String>: Specific location name after location sign. If not found, returns None.
-    ///   bool: Reflects need_location field in the table.
-    /// )
-    fn find_location(&self, query: &str) -> Result<(String, Option<String>, Option<String>, bool)> {
-        let query_with_spaces = format!(" {} ", query);
-        let mut results: Vec<(usize, usize, i8)> = self.conn.query_rows_and_then_cached(
-            "
-        SELECT
-          INSTR(:query, ' ' || keyword || ' ') AS sign_index,
-          LENGTH(keyword) AS sign_length,
-          need_location
-        FROM yelp_location_signs
-        WHERE
-          sign_index > 0
-        ORDER BY
-          sign_length DESC
-        LIMIT 1
-        ",
-            named_params! {
-                ":query": &query_with_spaces.to_lowercase(),
-            },
-            |row| -> Result<_> {
-                Ok((
-                    row.get::<_, usize>("sign_index")?,
-                    row.get::<_, usize>("sign_length")?,
-                    row.get::<_, i8>("need_location")?,
-                ))
-            },
-        )?;
-
-        let (sign_index, sign_length, need_location) = if let Some(res) = results.pop() {
-            res
-        } else {
-            return Ok((query.trim().to_string(), None, None, false));
-        };
-
-        let pre_location = query_with_spaces
-            .get(..sign_index)
-            .map(str::trim)
-            .map(str::to_string)
-            .unwrap_or_default();
-        let location_sign = query_with_spaces
-            .get(sign_index..sign_index + sign_length)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        let location = query_with_spaces
-            .get(sign_index + sign_length..)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-
-        Ok((pre_location, location_sign, location, need_location == 1))
-    }
-
-    /// Find the pre/post modifier from the given query string.
-    /// It returns the modifiers tuple as follows:
-    /// (
-    ///   String: Query string that is removed found the modifiers.
-    ///   Option<String>: Pre-modifier found in the yelp_modifiers table. If not found, returns None.
-    ///   Option<String>: Post-modifier found in the yelp_modifiers table. If not found, returns None.
-    /// )
-    fn find_modifiers(
-        &self,
-        query: &str,
-        pre_modifier_type: Modifier,
-        post_modifier_type: Modifier,
-    ) -> Result<(String, Option<String>, Option<String>)> {
-        if !query.contains(' ') {
-            return Ok((query.to_string(), None, None));
-        }
-
-        let words: Vec<_> = query.split_whitespace().collect();
-
-        let mut pre_modifier = None;
-        for n in (1..=MAX_MODIFIER_WORDS_NUMBER).rev() {
-            let mut candidate_chunks = words.chunks(n);
-            let candidate = candidate_chunks.next().unwrap_or(&[""]).join(" ");
-            if self.is_modifier(&candidate, pre_modifier_type)? {
-                pre_modifier = Some(candidate);
-                break;
-            }
-        }
-
-        let mut post_modifier = None;
-        for n in (1..=MAX_MODIFIER_WORDS_NUMBER).rev() {
-            let mut candidate_chunks = words.rchunks(n);
-            let candidate = candidate_chunks.next().unwrap_or(&[""]).join(" ");
-            if self.is_modifier(&candidate, post_modifier_type)? {
-                post_modifier = Some(candidate);
-                break;
-            }
-        }
-
-        let mut without_modifiers = query;
-        if let Some(ref modifier) = pre_modifier {
-            without_modifiers = &without_modifiers[modifier.len()..];
-        }
-        if let Some(ref modifier) = post_modifier {
-            without_modifiers = &without_modifiers[..without_modifiers.len() - modifier.len()];
-        }
-
-        Ok((
-            without_modifiers.trim().to_string(),
-            pre_modifier,
-            post_modifier,
-        ))
-    }
-
-    /// Find the subject from the given string.
-    /// It returns the Option. If it is not none, it contains the tuple as follows:
-    /// (
-    ///   String: Subject.
-    ///   bool: Whether the subject matched exactly with the parameter.
-    /// )
-    fn find_subject(&self, candidate: &str) -> Result<Option<(String, bool)>> {
-        if candidate.is_empty() {
-            return Ok(None);
-        }
-
-        // If the length of subject candidate is less than
-        // SUBJECT_PREFIX_MATCH_THRESHOLD, should exact match.
-        if candidate.len() < SUBJECT_PREFIX_MATCH_THRESHOLD {
-            return Ok(if self.is_subject(candidate)? {
-                Some((candidate.to_string(), true))
-            } else {
-                None
-            });
-        }
-
-        // Otherwise, apply prefix-match.
-        Ok(
-            match self.conn.query_row_and_then_cachable(
-                "SELECT keyword
-                 FROM yelp_subjects
-                 WHERE keyword BETWEEN :candidate AND :candidate || x'FFFF'
-                 ORDER BY LENGTH(keyword) ASC, keyword ASC
-                 LIMIT 1",
-                named_params! {
-                    ":candidate": candidate.to_lowercase(),
-                },
-                |row| row.get::<_, String>(0),
-                true,
-            ) {
-                Ok(keyword) => {
-                    debug_assert!(candidate.len() <= keyword.len());
-                    Some((
-                        format!("{}{}", candidate, &keyword[candidate.len()..]),
-                        candidate.len() == keyword.len(),
-                    ))
-                }
-                Err(_) => None,
-            },
-        )
-    }
-
-    fn is_modifier(&self, word: &str, modifier_type: Modifier) -> Result<bool> {
-        let result = self.conn.query_row_and_then_cachable(
-            "
-        SELECT EXISTS (
-            SELECT 1 FROM yelp_modifiers WHERE type = :type AND keyword = :word LIMIT 1
-        )
-        ",
-            named_params! {
-                ":type": modifier_type,
-                ":word": word.to_lowercase(),
-            },
-            |row| row.get::<_, bool>(0),
-            true,
-        )?;
-
-        Ok(result)
-    }
-
-    fn is_subject(&self, word: &str) -> Result<bool> {
-        let result = self.conn.query_row_and_then_cachable(
-            "
-        SELECT EXISTS (
-            SELECT 1 FROM yelp_subjects WHERE keyword = :word LIMIT 1
-        )
-        ",
-            named_params! {
-                ":word": word.to_lowercase(),
-            },
-            |row| row.get::<_, bool>(0),
             true,
         )?;
 
