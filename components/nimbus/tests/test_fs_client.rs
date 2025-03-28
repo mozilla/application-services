@@ -5,7 +5,11 @@
 
 // Simple tests for our file-system client
 
-use nimbus::error::Result;
+use std::sync::Arc;
+
+use nimbus::{error::Result, RemoteSettingsServer};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use url::Url;
 
 mod common;
 
@@ -14,9 +18,8 @@ mod common;
 #[test]
 fn test_simple() -> Result<()> {
     use common::NoopMetricsHandler;
-    use nimbus::{NimbusClient, RemoteSettingsConfig, RemoteSettingsServer};
+    use nimbus::NimbusClient;
     use std::path::PathBuf;
-    use url::Url;
 
     let _ = env_logger::try_init();
 
@@ -25,14 +28,15 @@ fn test_simple() -> Result<()> {
 
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
-    let config = RemoteSettingsConfig {
+    let config = RemoteSettingsConfig2 {
         server: Some(RemoteSettingsServer::Custom {
-            url: url.as_str().to_string(),
+            url: url.to_string(),
         }),
-        server_url: None,
         bucket_name: None,
-        collection_name: "doesn't matter".to_string(),
+        app_context: Some(RemoteSettingsContext::default()),
     };
+
+    let remote_settings_service = RemoteSettingsService::new("tests".to_string(), config)?;
 
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
@@ -40,8 +44,9 @@ fn test_simple() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Some(config),
         Box::new(NoopMetricsHandler),
+        Some("doesn't matter".to_string()),
+        Some(Arc::new(remote_settings_service)),
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

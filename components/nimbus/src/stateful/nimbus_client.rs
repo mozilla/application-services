@@ -40,7 +40,7 @@ use crate::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
-use remote_settings::RemoteSettingsConfig;
+use remote_settings::{RemoteSettingsRecord, RemoteSettingsService};
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -100,10 +100,11 @@ impl NimbusClient {
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
-        config: Option<RemoteSettingsConfig>,
         metrics_handler: Box<dyn MetricsHandler>,
+        collection_name: Option<String>,
+        remote_settings_service: Option<Arc<RemoteSettingsService>>,
     ) -> Result<Self> {
-        let settings_client = Mutex::new(create_client(config)?);
+        let settings_client = Mutex::new(create_client(collection_name, remote_settings_service)?);
 
         let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
@@ -525,8 +526,23 @@ impl NimbusClient {
         Ok(res)
     }
 
-    pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
-        let new_experiments = parse_experiments(&experiments_json)?;
+    pub fn set_experiments_locally(&self, experiment_json: String) -> Result<()> {
+        let value: Value = serde_json::from_str(&experiment_json)
+            .map_err(|e| NimbusError::JSONError("Parsing JSON Value".into(), e.to_string()))?;
+
+        let mut obj = value
+            .as_object()
+            .ok_or_else(|| NimbusError::JSONError("value.as_object".into(), "".to_string()))?
+            .clone();
+
+        obj.insert("id".to_owned(), Value::String("123".to_owned()));
+        obj.insert("last_modified".to_owned(), Value::Number(1234.into()));
+        let record: RemoteSettingsRecord = serde_json::from_value(Value::Object(obj.clone()))
+            .map_err(|e| {
+                NimbusError::JSONError("Deserializing `experiment obj`".into(), e.to_string())
+            })?;
+
+        let new_experiments = parse_experiments(vec![record])?;
         let db = self.db()?;
         let mut writer = db.write()?;
         write_pending_experiments(db, &mut writer, new_experiments)?;
