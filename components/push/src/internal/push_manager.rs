@@ -20,7 +20,9 @@ use crate::internal::communications::{Connection, PersistedRateLimiter};
 use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::KeyV1 as Key;
 use crate::internal::storage::{PushRecord, Storage};
-use crate::{KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse};
+use crate::{
+    KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionRequest, SubscriptionResponse,
+};
 
 use super::crypto::{Cryptography, PushPayload};
 const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 24 hours.
@@ -31,6 +33,15 @@ impl From<Key> for KeyInfo {
         KeyInfo {
             auth: URL_SAFE_NO_PAD.encode(key.auth_secret()),
             p256dh: URL_SAFE_NO_PAD.encode(key.public_key()),
+        }
+    }
+}
+
+impl From<PushRecord> for SubscriptionRequest {
+    fn from(record: PushRecord) -> Self {
+        SubscriptionRequest {
+            scope: record.scope,
+            app_server_key: record.app_server_key,
         }
     }
 }
@@ -154,6 +165,15 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             .get_record_by_scope(scope)?
             .map(TryInto::try_into)
             .transpose()
+    }
+
+    pub fn list_subscription_req(&self) -> Result<Vec<SubscriptionRequest>> {
+        Ok(self
+            .store
+            .get_record_list()?
+            .into_iter()
+            .map(SubscriptionRequest::from)
+            .collect())
     }
 
     pub fn unsubscribe(&mut self, scope: &str) -> Result<bool> {

@@ -19,6 +19,9 @@ component to handle initialization.
 
 [Full Changelog](In progress)
 
+### Push
+- Add `listSubscriptionReq` and `SubscriptionRequest` to list informations used to subscribe. May be used to subscribe to another pusher
+
 # v137.0 (_2025-03-03_)
 
 ## ✨ What's New ✨

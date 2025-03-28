@@ -17,6 +17,8 @@ pub trait Storage: Sized {
 
     fn get_record_by_scope(&self, scope: &str) -> Result<Option<PushRecord>>;
 
+    fn get_record_list(&self) -> Result<Vec<PushRecord>>;
+
     fn put_record(&self, record: &PushRecord) -> Result<bool>;
 
     fn delete_record(&self, chid: &str) -> Result<bool>;
@@ -116,6 +118,19 @@ impl Storage for PushDb {
             common_cols = schema::COMMON_COLS,
         );
         self.try_query_row(&query, &[(":scope", scope)], PushRecord::from_row, false)
+    }
+
+    fn get_record_list(&self) -> Result<Vec<PushRecord>> {
+        let query = format!(
+            "SELECT {common_cols}
+             FROM push_record",
+            common_cols = schema::COMMON_COLS,
+        );
+        self.query_rows_and_then(
+            &query,
+            [],
+            |row| -> Result<PushRecord> { Ok(PushRecord::from_row(row)?) },
+        )
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {
