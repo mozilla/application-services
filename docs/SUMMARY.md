@@ -56,4 +56,5 @@
   - [tabs](rust-docs/tabs/index.html)
   - [viaduct](rust-docs/viaduct/index.html)
   - [webext_storage](rust-docs/webext_storage/index.html)
+  - [init_rust_components](rust-docs/init_rust_components/index.html)
 - [Adding to these documents](adding-docs.md)

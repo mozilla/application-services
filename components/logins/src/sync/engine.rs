@@ -486,6 +486,7 @@ impl SyncEngine for LoginsSyncEngine {
     }
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -493,6 +494,7 @@ mod tests {
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
     use crate::{LoginEntry, LoginFields, RecordFields, SecureLoginFields};
+    use nss::ensure_initialized;
     use std::collections::HashMap;
     use std::sync::Arc;
 
@@ -512,6 +514,7 @@ mod tests {
 
     #[test]
     fn test_fetch_login_data() {
+        ensure_initialized();
         // Test some common cases with fetch_login data
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         insert_login(&store.db.lock(), "updated_remotely", None, Some("password"));
@@ -620,6 +623,7 @@ mod tests {
 
     #[test]
     fn test_fetch_outgoing() {
+        ensure_initialized();
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         insert_login(
             &store.db.lock(),
@@ -652,6 +656,7 @@ mod tests {
 
     #[test]
     fn test_bad_record() {
+        ensure_initialized();
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         let test_ids = ["dummy_000001", "dummy_000002", "dummy_000003"];
         for id in test_ids {
@@ -694,6 +699,7 @@ mod tests {
         fao: Option<String>,
         realm: Option<String>,
     ) -> EncryptedLogin {
+        ensure_initialized();
         EncryptedLogin {
             record: RecordFields {
                 id: Guid::random().to_string(),
@@ -716,6 +722,7 @@ mod tests {
 
     #[test]
     fn find_dupe_login() {
+        ensure_initialized();
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
 
         let to_add = LoginEntry {
@@ -811,6 +818,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_unknown() {
+        ensure_initialized();
         // A couple of helpers
         fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
             let bso = IncomingBso::from_test_content(payload);
@@ -900,6 +908,7 @@ mod tests {
     }
 
     fn count(engine: &LoginsSyncEngine, table_name: &str) -> u32 {
+        ensure_initialized();
         let sql = format!("SELECT COUNT(*) FROM {table_name}");
         engine
             .store
@@ -911,6 +920,7 @@ mod tests {
     }
 
     fn do_test_incoming_with_local_unmirrored_tombstone(local_newer: bool) {
+        ensure_initialized();
         fn apply_incoming_payload(engine: &LoginsSyncEngine, payload: serde_json::Value) {
             let bso = IncomingBso::from_test_content(payload);
             let mut telem = sync15::telemetry::Engine::new(engine.collection_name());

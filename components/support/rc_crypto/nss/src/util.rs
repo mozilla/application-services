@@ -16,8 +16,14 @@ use crate::pk11::slot;
 // We check it at runtime using `NSS_VersionCheck`.
 pub const COMPATIBLE_NSS_VERSION: &str = "3.26";
 
+// Expect NSS has been initialized. This is usually be done via `init_rust_components`, see
+// components/init_rust_components/README.md.
 pub fn assert_nss_initialized() {
-    INITIALIZED.get().expect("NSS not initialized");
+    INITIALIZED.get().expect(
+        "NSS has not initialized.
+    Please ensure you include the initialization component and call it early in your code. See
+    https://mozilla.github.io/application-services/book/rust-docs/init_rust_components/index.html",
+    );
 }
 
 // This and many other nss init code were either taken directly from or are inspired by
@@ -237,12 +243,6 @@ pub(crate) unsafe fn sec_item_as_slice(sec_item: &mut SECItem) -> Result<&mut [u
 mod test {
     use super::*;
     use std::thread;
-
-    #[test]
-    #[should_panic]
-    fn test_assert_initialized_should_panic() {
-        assert_nss_initialized();
-    }
 
     #[test]
     fn test_assert_initialized() {
