@@ -1059,17 +1059,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "curated-recommendation-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap 4.2.2",
- "merino",
- "serde_json",
- "viaduct-reqwest",
-]
-
-[[package]]
 name = "cxx"
 version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3028,6 +3017,17 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+]
+
+[[package]]
+name = "merino-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap 4.2.2",
+ "merino",
+ "serde_json",
+ "viaduct-reqwest",
 ]
 
 [[package]]
