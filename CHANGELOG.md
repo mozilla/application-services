@@ -1,4 +1,4 @@
-# v138.0 (In progress)
+# v138.0 (_2025-03-31_)
 
 ## 🦊 What's Changed 🦊
 
@@ -17,7 +17,7 @@ component to handle initialization.
 ### `rc_crypto`
 - `ensure_initialized()` now returns a Result
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v137.0...v138.0)
 
 # v137.0 (_2025-03-03_)
 
