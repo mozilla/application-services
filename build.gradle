@@ -9,6 +9,10 @@ buildscript {
         jvmTargetCompatibility: 17,
     ]
 
+    ext {
+        protobuf_plugin = libs.versions.protobuf.plugin.get()
+    }
+
     repositories {
         mavenCentral()
         google()
@@ -43,7 +47,6 @@ buildscript {
 plugins {
     alias libs.plugins.detekt
     alias libs.plugins.gradle.download.task  // Downloading libs/archives from Taskcluster.
-    alias libs.plugins.protobuf.gradle apply false
 }
 
 allprojects {
