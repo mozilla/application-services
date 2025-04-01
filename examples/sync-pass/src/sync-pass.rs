@@ -9,7 +9,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use cli_support::fxa_creds::{
     get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
 };
-use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
+use cli_support::prompt::{prompt_char, prompt_password, prompt_string, prompt_usize};
 use logins::encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
 
@@ -23,6 +23,11 @@ use sync15::{
 
 // I'm completely punting on good error handling here.
 use anyhow::Result;
+
+enum PasswordVisibility {
+    Reveal,
+    Hide,
+}
 
 fn read_login() -> LoginEntry {
     let login = loop {
@@ -203,56 +208,76 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(store: &LoginStore) -> Result<Vec<String>> {
+fn show_login(
+    store: &LoginStore,
+    target_login: &String,
+    show_password: PasswordVisibility,
+) -> Result<Vec<String>> {
     let logins = store.list()?;
-
     let mut table = prettytable::Table::new();
+    let mut v = Vec::new();
 
-    table.add_row(row![bc =>
-        "(idx)",
-        "Guid",
-        "Username",
-        "Password",
-        "Origin",
+    let index = logins
+        .iter()
+        .position(|login| &login.id == target_login)
+        .unwrap();
+    let login = &logins[index];
 
+    table.add_row(row!["(idx)", index]);
+    table.add_row(row!["Guid", login.guid()]);
+    table.add_row(row!["Username", login.username]);
+    let password = match show_password {
+        PasswordVisibility::Hide => "*".repeat(login.password.len()),
+        PasswordVisibility::Reveal => login.password.clone(),
+    };
+    table.add_row(row!["Password", password]);
+    table.add_row(row!["Origin", login.origin]);
+    table.add_row(row![
         "Action Origin",
-        "HTTP Realm",
-
-        "User Field",
-        "Pass Field",
-
-        "Uses",
-        "Created At",
-        "Changed At",
-        "Last Used"
+        string_opt_or(&login.form_action_origin, "")
     ]);
+    table.add_row(row!["HTTP Realm", string_opt_or(&login.http_realm, "")]);
+    table.add_row(row!["User Field", login.username_field]);
+    table.add_row(row!["Pass Field", login.password_field]);
+    table.add_row(row!["Uses", login.times_used]);
+    table.add_row(row!["Created At", timestamp_to_string(login.time_created)]);
+    table.add_row(row![
+        "Changed At",
+        timestamp_to_string(login.time_password_changed)
+    ]);
+    let last_used = if login.time_last_used == 0 {
+        "Never".to_owned()
+    } else {
+        timestamp_to_string(login.time_last_used)
+    };
+    table.add_row(row!["Last Used", last_used]);
+    v.push(login.guid().to_string());
+
+    table.printstd();
+    Ok(v)
+}
+
+fn show_logins(store: &LoginStore) -> Result<Vec<String>> {
+    let logins = store.list()?;
+    let mut table = prettytable::Table::new();
+    let row = row![bc =>
+    "(idx)",
+    "Origin",
+    "Username",
+    ];
+
+    table.add_row(row);
 
     let mut v = Vec::with_capacity(logins.len());
-    let mut logins_copy = logins.clone();
-    logins_copy.sort_by_key(|a| a.guid());
+
     for login in logins.iter() {
-        table.add_row(row![
+        let row = row![
             r->v.len(),
-            Fr->&login.guid(),
-            &login.username,
-            &login.password,
             &login.origin,
+            &login.username,
+        ];
 
-            string_opt_or(&login.form_action_origin, ""),
-            string_opt_or(&login.http_realm, ""),
-
-            &login.username_field,
-            &login.password_field,
-
-            login.times_used,
-            timestamp_to_string(login.time_created),
-            timestamp_to_string(login.time_password_changed),
-            if login.time_last_used == 0 {
-                "Never".to_owned()
-            } else {
-                timestamp_to_string(login.time_last_used)
-            }
-        ]);
+        table.add_row(row);
         v.push(login.guid().to_string());
     }
     table.printstd();
@@ -260,7 +285,7 @@ fn show_all(store: &LoginStore) -> Result<Vec<String>> {
 }
 
 fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
-    let index_to_id = show_all(s)?;
+    let index_to_id = show_logins(s)?;
     let input = if let Some(input) = prompt_usize(format!("Enter (idx) of record to {}", action)) {
         input
     } else {
@@ -277,8 +302,8 @@ struct MyPrimaryPasswordAuthenticator {}
 #[async_trait]
 impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
     async fn get_primary_password(&self) -> Result<String, LoginsApiError> {
-        let password = prompt_string("primary password").unwrap_or_default();
-        Ok(password.to_owned())
+        let password = prompt_password("primary password").unwrap_or_default();
+        Ok(password)
     }
 
     fn on_authentication_success(&self) {
@@ -357,6 +382,7 @@ fn main() -> Result<()> {
                 .short('d')
                 .long("database")
                 .default_value("./logins.db")
+                .default_value_if("profile_path", clap::builder::ArgPredicate::IsPresent, None)
                 .value_name("LOGINS_DATABASE")
                 .num_args(1)
                 .help("Path to the logins database (default: \"./logins.db\")"),
@@ -366,6 +392,7 @@ fn main() -> Result<()> {
                 .short('c')
                 .long("credentials")
                 .default_value("./credentials.json")
+                .default_value_if("profile_path", clap::builder::ArgPredicate::IsPresent, None)
                 .value_name("CREDENTIAL_JSON")
                 .num_args(1)
                 .help(
@@ -374,9 +401,25 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-    let cred_file = matches.get_one::<String>("credential_file").unwrap();
-    let db_path = matches.get_one::<String>("database_path").unwrap();
     let profile_path = matches.get_one::<String>("profile_path").unwrap();
+    let cred_file = matches
+        .get_one::<String>("credential_file")
+        .cloned()
+        .unwrap_or_else(|| {
+            std::path::Path::new(profile_path)
+                .join("credentials.json")
+                .display()
+                .to_string()
+        });
+    let db_path = matches
+        .get_one::<String>("database_path")
+        .cloned()
+        .unwrap_or_else(|| {
+            std::path::Path::new(profile_path)
+                .join("logins.db")
+                .display()
+                .to_string()
+        });
 
     log::debug!("credential file: {:?}", cred_file);
     log::debug!("db: {:?}", db_path);
@@ -384,16 +427,16 @@ fn main() -> Result<()> {
 
     init_rust_components::initialize(profile_path.to_string());
 
-    let store = Arc::new(open_database(db_path)?);
+    let store = Arc::new(open_database(&db_path)?);
 
     log::info!("Store has {} passwords", store.list()?.len());
 
-    if let Err(e) = show_all(&store) {
+    if let Err(e) = show_logins(&store) {
         log::warn!("Failed to show initial login data! {}", e);
     }
 
     loop {
-        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew All, [E]xamine, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
@@ -414,7 +457,7 @@ fn main() -> Result<()> {
                     }
                     _ => {}
                 }
-            }
+        }
             'U' | 'u' => {
                 log::info!("Updating record fields");
                 match prompt_record_id(&store, "update") {
@@ -449,12 +492,12 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                let (_, token_info) = get_account_and_token(get_default_fxa_config(), cred_file, &[SYNC_SCOPE])?;
+                let (_, token_info) = get_account_and_token(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
                 let sync_key = URL_SAFE_NO_PAD.encode(
                     token_info.key.unwrap().key_bytes()?,
                 );
                 // TODO: allow users to use stage/etc.
-                let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file, &[SYNC_SCOPE])?;
+                let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
                 match do_sync(
                     Arc::clone(&store),
                     cli_fxa.client_init.key_id.clone(),
@@ -472,8 +515,31 @@ fn main() -> Result<()> {
                 }
             }
             'V' | 'v' => {
-                if let Err(e) = show_all(&store) {
+                if let Err(e) = show_logins(&store) {
                     log::warn!("Failed to dump passwords? This is probably bad! {}", e);
+                }
+            }
+            'E' | 'e' => {
+                match prompt_record_id(&store, "examine") {
+                    Ok(Some(id)) => {
+                        let password_visibility = match prompt_char("Would you like to reveal your password? [Y]es/[N]o") {
+                            Some(result) => {
+                                match result {
+                                    'Y' | 'y' => PasswordVisibility::Reveal,
+                                    'N' | 'n' => PasswordVisibility::Hide,
+                                    _ => PasswordVisibility::Hide,
+                                }
+                            }
+                            None => PasswordVisibility::Hide
+                        };
+                        if let Err(e) = show_login(&store, &id, password_visibility) {
+                            log::warn!("Failed to dump passwords? This is probably bad! {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to get record ID! {}", e);
+                    }
+                    _ => {}
                 }
             }
             'B' | 'b' => {
