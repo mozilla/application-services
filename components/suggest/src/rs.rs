@@ -453,13 +453,6 @@ pub(crate) struct DownloadedPocketSuggestion {
     pub high_confidence_keywords: Vec<String>,
     pub score: f64,
 }
-/// A location sign for Yelp to ingest from a Yelp Attachment
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct DownloadedYelpLocationSign {
-    pub keyword: String,
-    #[serde(rename = "needLocation")]
-    pub need_location: bool,
-}
 /// A Yelp suggestion to ingest from a Yelp Attachment
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DownloadedYelpSuggestion {
@@ -469,7 +462,7 @@ pub(crate) struct DownloadedYelpSuggestion {
     #[serde(rename = "postModifiers")]
     pub post_modifiers: Vec<String>,
     #[serde(rename = "locationSigns")]
-    pub location_signs: Vec<DownloadedYelpLocationSign>,
+    pub location_signs: Vec<String>,
     #[serde(rename = "yelpModifiers")]
     pub yelp_modifiers: Vec<String>,
     #[serde(rename = "icon")]
