@@ -11,11 +11,17 @@
 New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
 Given a `PrimaryPasswordAuthenticator` implementation, the NSS keystore is used
 to store and retrieve the login encryption key. These features are only
-available when the Logins component is compiled with the `keydb` feature. The
-`sync-pass` example has been adapted to use the NSSKeyManager. The example
+available when the Logins component is compiled with the `keydb` feature.
+([#6571](https://github.com/mozilla/application-services/pull/6571))
+
+### Sync Pass Example
+The `sync-pass` example has been adapted to use the NSSKeyManager. The example
 program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
 ([#6571](https://github.com/mozilla/application-services/pull/6571))
+And it has been polished up a bit: passwords are no longer displayed in plain
+text, the list view has been slimmed down and a detail view has been added.
+([#6685](https://github.com/mozilla/application-services/pull/6685c))
 
 ### Android
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
