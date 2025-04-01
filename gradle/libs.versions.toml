@@ -8,7 +8,7 @@
 android-plugin = "8.9.1"
 
 # Google
-protobuf = "4.29.0"
+protobuf = "4.30.2"
 
 # Kotlin
 kotlin-compiler = "2.1.20"
@@ -44,7 +44,7 @@ robolectric = "4.14.1"
 
 # Miscellaneous Gradle plugins
 gradle-download-task = "5.6.0"
-protobuf-gradle = "0.9.4"
+protobuf-gradle = "0.9.5"
 python-envs = "0.0.31"
 
 [libraries]
