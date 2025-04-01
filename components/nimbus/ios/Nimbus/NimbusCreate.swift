@@ -93,20 +93,14 @@ public extension Nimbus {
         }
 
         let context = Nimbus.buildExperimentContext(appSettings)
-        let remoteSettingsConfig = server.map { server -> RemoteSettingsConfig2 in
-            RemoteSettingsConfig2(
-                server: .custom(url: server.url.absoluteString)
-            )
-        }
 
         let nimbusClient = try NimbusClient(
             appCtx: context,
             recordedContext: recordedContext,
             coenrollingFeatureIds: coenrollingFeatureIds,
             dbpath: dbPath,
-            remoteSettingsConfig: remoteSettings,
             metricsHandler: GleanMetricsHandler(),
-            remoteSettingsService: remoteSettingService,
+            remoteSettingsService: remoteSettingsService,
             collectionName: collectionName
         )
 
