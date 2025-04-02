@@ -97,8 +97,14 @@ pub enum Suggestion {
         // and therefore the only one we'll collect metrics for.
         match_info: Option<FtsMatchInfo>,
     },
-    Exposure {
+    Dynamic {
         suggestion_type: String,
+        data: Option<serde_json::Value>,
+        /// This value is optionally defined in the suggestion's remote settings
+        /// data and is an opaque token used for dismissing the suggestion in
+        /// lieu of a URL. If `Some`, the suggestion can be dismissed by passing
+        /// the wrapped string to [crate::SuggestStore::dismiss_suggestion].
+        dismissal_key: Option<String>,
         score: f64,
     },
 }
@@ -190,7 +196,7 @@ impl Suggestion {
             | Self::Mdn { score, .. }
             | Self::Weather { score, .. }
             | Self::Fakespot { score, .. }
-            | Self::Exposure { score, .. } => *score,
+            | Self::Dynamic { score, .. } => *score,
             Self::Wikipedia { .. } => DEFAULT_SUGGESTION_SCORE,
         }
     }

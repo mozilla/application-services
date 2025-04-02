@@ -47,7 +47,7 @@ impl Suggestion {
             Self::Weather { score, .. } => score,
             Self::Wikipedia { .. } => panic!("with_score not valid for wikipedia suggestions"),
             Self::Fakespot { score, .. } => score,
-            Self::Exposure { score, .. } => score,
+            Self::Dynamic { score, .. } => score,
         };
         *current_score = score;
         self
