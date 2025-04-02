@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 34;
+pub const VERSION: u32 = 35;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -189,12 +189,13 @@ CREATE TABLE mdn_custom_details(
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
 
-CREATE TABLE exposure_custom_details(
+CREATE TABLE dynamic_custom_details(
     suggestion_id INTEGER PRIMARY KEY,
-    type TEXT NOT NULL,
+    suggestion_type TEXT NOT NULL,
+    json_data TEXT,
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
-CREATE INDEX exposure_custom_details_type ON exposure_custom_details(type);
+CREATE INDEX dynamic_custom_details_suggestion_type ON dynamic_custom_details(suggestion_type);
 
 CREATE TABLE geonames(
     id INTEGER PRIMARY KEY,
@@ -622,6 +623,24 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 // `quicksuggest-other`. Clear the DB so that records from the
                 // old collection don't stick around. See bug 1953945.
                 clear_database(tx)?;
+                Ok(())
+            }
+            34 => {
+                // Replace the exposure suggestions table and index with the
+                // dynamic suggestions table and index.
+                tx.execute_batch(
+                    r#"
+                    DROP INDEX exposure_custom_details_type;
+                    DROP TABLE exposure_custom_details;
+                    CREATE TABLE dynamic_custom_details(
+                        suggestion_id INTEGER PRIMARY KEY,
+                        suggestion_type TEXT NOT NULL,
+                        json_data TEXT,
+                        FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
+                    );
+                    CREATE INDEX dynamic_custom_details_suggestion_type ON dynamic_custom_details(suggestion_type);
+                    "#,
+                )?;
                 Ok(())
             }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
