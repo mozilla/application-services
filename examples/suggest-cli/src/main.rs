@@ -64,7 +64,7 @@ enum Commands {
 #[derive(Clone, Debug, ValueEnum)]
 enum AmpMatchingStrategyArg {
     /// Use keyword matching, without keyword expansion
-    NoKeyword,
+    NoKeyword = 1, // Use `1` as the starting discriminant, since the JS code assumes this.
     /// Use FTS matching
     Fts,
     /// Use FTS matching against the title
