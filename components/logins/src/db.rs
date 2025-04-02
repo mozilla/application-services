@@ -645,7 +645,10 @@ impl LoginDb {
         Ok(exists)
     }
 
-    pub fn verify_logins(&self, encdec: &dyn EncryptorDecryptor) -> Result<bool> {
+    pub fn delete_undecryptable_records_for_remote_replacement(
+        &self,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<()> {
         // Retrieve a list of guids for logins that cannot be decrypted
         let corrupted_logins = self
             .get_all()?
@@ -657,9 +660,7 @@ impl LoginDb {
             .map(|login| login.guid_str())
             .collect::<Vec<_>>();
 
-        Ok(self
-            .delete_local_records_for_remote_replacement(ids)
-            .is_ok())
+        self.delete_local_records_for_remote_replacement(ids)
     }
 
     pub fn delete_local_records_for_remote_replacement(&self, ids: Vec<&str>) -> Result<()> {
