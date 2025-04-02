@@ -23,6 +23,8 @@ And it has been polished up a bit: passwords are no longer displayed in plain
 text, the list view has been slimmed down and a detail view has been added.
 ([#6685](https://github.com/mozilla/application-services/pull/6685c))
 
+- Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
+
 ### Android
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
@@ -40,8 +42,6 @@ text, the list view has been slimmed down and a detail view has been added.
 
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
-
-## ⚠️ Breaking Changes ⚠️
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
