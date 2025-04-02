@@ -63,6 +63,17 @@ impl RemoteSettingsServer {
         self.get_url()
     }
 
+    /// get_url() that never fails
+    ///
+    /// If the URL is invalid, we'll log a warning and fall back to the production URL
+    pub fn get_url_with_prod_fallback(&self) -> Url {
+        match self.get_url() {
+            Ok(url) => url,
+            // The unwrap below will never fail, since prod is a hard-coded/valid URL.
+            Err(_) => Self::Prod.get_url().unwrap(),
+        }
+    }
+
     /// Internal version of `url()`.
     ///
     /// The difference is that it uses `Error` instead of `ApiError`.  This is what we need to use

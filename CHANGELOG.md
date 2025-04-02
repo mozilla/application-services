@@ -12,6 +12,18 @@ program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
 ([#6571](https://github.com/mozilla/application-services/pull/6571))
 
+## ⚠️ Breaking Changes ⚠️
+
+## Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
+## 🦊 What's Changed 🦊
+
+## Remote Settings
+- The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
+  This integrates better with JS, which expects all IO to happen inside async functions.
+- Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
+
 # v138.0 (_2025-03-31_)
 
 ## ⚠️ Breaking Changes ⚠️
@@ -26,7 +38,6 @@ file key4.db and secured with a possibly set primary password.
 
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
-
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
