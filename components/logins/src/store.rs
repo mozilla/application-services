@@ -139,10 +139,16 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn verify_logins(self: Arc<Self>) -> ApiResult<bool> {
-        self.db.lock().verify_logins(self.encdec.as_ref())?;
-
-        Ok(self.set_last_sync(ServerTimestamp(0)).is_ok())
+    pub fn delete_undecryptable_records_for_remote_replacement(self: Arc<Self>) -> ApiResult<()> {
+        // This function was created for the iOS logins verification logic that will
+        // remove records that prevent logins syncing. Once the verification logic is
+        // removed from iOS, this function can be removed from the store.
+        self.db
+            .lock()
+            .delete_undecryptable_records_for_remote_replacement(self.encdec.as_ref())?;
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+        engine.set_last_sync(&self.db.lock(), ServerTimestamp(0))?;
+        Ok(())
     }
 
     #[handle_error(Error)]
@@ -158,17 +164,6 @@ impl LoginStore {
         // some tests do, so it remains for now.
         let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         engine.do_reset(&EngineSyncAssociation::Disconnected)?;
-        Ok(())
-    }
-
-    #[handle_error(Error)]
-    pub fn set_last_sync(self: Arc<Self>, last_sync: ServerTimestamp) -> ApiResult<()> {
-        // This function was created for the iOS logins verification logic that will remove
-        // records that prevent logins syncing. Exposing this function will allow previously
-        // synced records to replace locally deleted ones. Once the verification logic is
-        // removed from iOS, this function can be removed from the store.
-        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
-        engine.set_last_sync(&self.db.lock(), last_sync)?;
         Ok(())
     }
 
