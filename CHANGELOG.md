@@ -8,7 +8,7 @@
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
 ### Logins
-New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
+- New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
 Given a `PrimaryPasswordAuthenticator` implementation, the NSS keystore is used
 to store and retrieve the login encryption key. These features are only
 available when the Logins component is compiled with the `keydb` feature. The
@@ -16,6 +16,7 @@ available when the Logins component is compiled with the `keydb` feature. The
 program can be called with an FX profile path in which the key is stored in the
 file key4.db and secured with a possibly set primary password.
 ([#6571](https://github.com/mozilla/application-services/pull/6571))
+- Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
 
 ### Android
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
@@ -34,7 +35,6 @@ file key4.db and secured with a possibly set primary password.
 
 ### Android
 - Upgraded Kotlin compiler from 1.9.24 to 2.1.20 ([#6640](https://github.com/mozilla/application-services/pull/6640))/([#6654](https://github.com/mozilla/application-services/pull/6654))
-
 
 ### `nss`
 - Initialize nss explicitly ([#6596](https://github.com/mozilla/application-services/pull/6596))
