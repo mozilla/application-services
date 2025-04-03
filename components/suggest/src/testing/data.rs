@@ -294,12 +294,7 @@ pub fn ramen_yelp() -> JsonValue {
         "subjects": ["ramen", "spicy ramen", "spicy random ramen", "rats", "raven", "raccoon", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789Z"],
         "preModifiers": ["best", "super best", "same_modifier"],
         "postModifiers": ["delivery", "super delivery", "same_modifier"],
-        "locationSigns": [
-            { "keyword": "in", "needLocation": true },
-            { "keyword": "near", "needLocation": true },
-            { "keyword": "near by", "needLocation": false },
-            { "keyword": "near me", "needLocation": false },
-        ],
+        "locationSigns": ["in", "near", "near by", "near me"],
         "yelpModifiers": ["yelp", "yelp keyword"],
         "icon": "yelp-favicon",
         "score": 0.5
