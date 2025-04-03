@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply_synced_deletion","apply_synced_reconciliation","apply_synced_visits","fetch_outgoing","fetch_visits","finish_outgoing"],"struct":["FetchedVisit","FetchedVisitPage"]};
