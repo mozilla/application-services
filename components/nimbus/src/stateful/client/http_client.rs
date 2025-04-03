@@ -13,18 +13,22 @@
 //!
 //! But the simple subset implemented here meets our needs for now.
 
+use std::sync::Arc;
+
 use crate::error::Result;
 use crate::schema::parse_experiments;
 use crate::stateful::client::{Experiment, SettingsClient};
-use remote_settings::RemoteSettings;
+use remote_settings::{RemoteSettingsClient, RemoteSettingsError};
 
-impl SettingsClient for RemoteSettings {
+impl SettingsClient for Arc<RemoteSettingsClient> {
     fn get_experiments_metadata(&self) -> Result<String> {
         unimplemented!();
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let resp = self.get_records_raw()?;
-        parse_experiments(&resp.text())
+        let records = self.get_records(false).ok_or(RemoteSettingsError::Other {
+            reason: "Unable to fetch experiment records".to_owned(),
+        })?;
+        parse_experiments(records)
     }
 }
