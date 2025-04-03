@@ -67,9 +67,8 @@ fn new_test_client_internal(
     };
 
     let rs_ctx = RemoteSettingsContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
+        app_id: Some("org.mozilla.fenix".to_string()),
+        channel: Some("nightly".to_string()),
         locale: Some("en-GB".to_string()),
         ..Default::default()
     };
