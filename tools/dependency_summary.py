@@ -85,7 +85,6 @@ LICENSES_IN_PREFERENCE_ORDER = [
     # Special one-off licenses for particular projects.
     "EXT-OPENSSL",
     "EXT-SQLITE",
-    "OPENSSL-SSLeay"
 ]
 
 # Packages that get pulled into our dependency tree but we know we definitely don't
@@ -262,7 +261,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
     },
     "openssl": {
-        "license": {"check": "Apache-2.0 OR OPENSSL-SSLeay"},
+        "license": {"check": "Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/sfackler/rust-openssl/refs/heads/master/openssl/LICENSE-APACHE",
