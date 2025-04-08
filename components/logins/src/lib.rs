@@ -45,3 +45,16 @@ pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
 pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
     Arc::new(ManagedEncryptorDecryptor::new(key_manager))
 }
+
+// Create a store with mocked key manager
+#[uniffi::export]
+pub fn create_mock_store(path: String) -> Arc<LoginStore> {
+    let key: String = serde_json::to_string(
+        &jwcrypto::Jwk::new_direct_key(Some("mock-key".to_string())).unwrap(),
+    )
+    .unwrap();
+    println!("Creating mock login store with key {}", key);
+    let encdec: ManagedEncryptorDecryptor =
+        ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key)));
+    Arc::new(LoginStore::new(path, Arc::new(encdec)).unwrap())
+}
