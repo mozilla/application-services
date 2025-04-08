@@ -42,3 +42,13 @@ pub fn create_static_key_manager(key: String) -> Arc<StaticKeyManager> {
 pub fn create_managed_encdec(key_manager: Arc<dyn KeyManager>) -> Arc<ManagedEncryptorDecryptor> {
     Arc::new(ManagedEncryptorDecryptor::new(key_manager))
 }
+
+// Create a LoginStore by passing in a db path and a static key
+//
+// Note this is only temporarily needed until a bug with UniFFI and JavaScript is fixed, which
+// prevents passing around traits in JS
+pub fn create_login_store_with_static_key_manager(path: String, key: String) -> Arc<LoginStore> {
+    let encdec: ManagedEncryptorDecryptor =
+        ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key)));
+    Arc::new(LoginStore::new(path, Arc::new(encdec)).unwrap())
+}

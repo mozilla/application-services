@@ -28,6 +28,9 @@ namespace logins {
     /// Similar to create_static_key_manager above, create a
     /// ManagedEncryptorDecryptor by passing in a KeyManager
     EncryptorDecryptor create_managed_encdec(KeyManager key_manager);
+
+    /// Create a LoginStore by passing in a db path and a static key
+    LoginStore create_login_store_with_static_key_manager(string path, string key);
 };
 
 /// A login entry from the user, not linked to any database record.
