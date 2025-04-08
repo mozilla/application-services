@@ -12,7 +12,7 @@ protobuf = "4.30.2"
 
 # Kotlin
 kotlin-compiler = "2.1.20"
-kotlinx-coroutines = "1.10.1"
+kotlinx-coroutines = "1.10.2"
 
 # Mozilla
 android-components = "135.0.1"
