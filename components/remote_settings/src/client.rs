@@ -79,10 +79,12 @@ struct RemoteSettingsClientInner<C> {
     jexl_filter: JexlFilter,
 }
 
-// Add your local packaged data you want to work with here
-//
-// To download the dump, run:
+// To initially download the dump (and attachments, if any), run:
 //   $ cargo remote-settings dump-get --bucket main --collection-name <collection name>
+//
+// Then add the entry here.
+//
+// For subsequent updates, run the command above again.
 impl<C: ApiClient> RemoteSettingsClient<C> {
     // One line per bucket + collection
     packaged_collections! {
@@ -375,7 +377,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
         // Then try packaged data if we're in prod
         if inner.api_client.is_prod_server()? {
-            if let Some((data, manifest)) = self.load_packaged_attachment(&metadata.location) {
+            if let Some((data, manifest)) = self.load_packaged_attachment(&record.id) {
                 if let Ok(manifest_data) = serde_json::from_str::<serde_json::Value>(manifest) {
                     if metadata.hash == manifest_data["hash"].as_str().unwrap_or_default()
                         && metadata.size == manifest_data["size"].as_u64().unwrap_or_default()
