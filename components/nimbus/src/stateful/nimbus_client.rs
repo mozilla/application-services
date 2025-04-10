@@ -29,19 +29,18 @@ use crate::{
             get_global_user_participation, opt_in_with_branch, opt_out,
             reset_telemetry_identifiers, set_global_user_participation,
         },
-        matcher::AppContext,
         persistence::{Database, StoreId, Writer},
         targeting::{validate_event_queries, RecordedContext},
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
     },
     strings::fmt_with_map,
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
+    AppContext, AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
     ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
-use remote_settings::RemoteSettingsConfig;
-use serde_json::Value;
+use remote_settings::{RemoteSettingsRecord, RemoteSettingsService};
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
@@ -100,10 +99,11 @@ impl NimbusClient {
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
-        config: Option<RemoteSettingsConfig>,
         metrics_handler: Box<dyn MetricsHandler>,
+        collection_name: Option<String>,
+        remote_settings_service: Option<Arc<RemoteSettingsService>>,
     ) -> Result<Self> {
-        let settings_client = Mutex::new(create_client(config)?);
+        let settings_client = Mutex::new(create_client(collection_name, remote_settings_service)?);
 
         let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
@@ -526,12 +526,35 @@ impl NimbusClient {
     }
 
     pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
-        let new_experiments = parse_experiments(&experiments_json)?;
+        let records = self.build_record(experiments_json)?;
+        let new_experiments = parse_experiments(records)?;
         let db = self.db()?;
         let mut writer = db.write()?;
         write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
         Ok(())
+    }
+
+    pub fn build_record(&self, exp_json: String) -> Result<Vec<RemoteSettingsRecord>> {
+        let mut exp_value: Value = match serde_json::from_str(&exp_json) {
+            Ok(exp) => exp,
+            Err(e) => return Err(NimbusError::JSONError(
+                "exp_Value = nimbus::stateful::nimbus_client::build_record::serde_json::from_str"
+                    .into(),
+                e.to_string(),
+            )),
+        };
+        exp_value["id"] = json!("TEST_EXPERIMENT_ID");
+        exp_value["last_modified"] = json!(1234);
+        let record: RemoteSettingsRecord = match serde_json::from_value(exp_value) {
+            Ok(r) => r,
+            Err(e) => return Err(NimbusError::JSONError(
+                "exp_Value = nimbus::stateful::nimbus_client::build_record::serde_json::from_value"
+                    .into(),
+                e.to_string(),
+            )),
+        };
+        Ok(vec![record])
     }
 
     /// Reset all enrollments and experiments in the database.

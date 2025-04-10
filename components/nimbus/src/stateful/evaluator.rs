@@ -3,12 +3,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::stateful::persistence::{Database, StoreId};
+use crate::AppContext;
 use crate::{
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
     error::Result,
     evaluator::split_locale,
     json::JsonObject,
-    stateful::matcher::AppContext,
     DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
