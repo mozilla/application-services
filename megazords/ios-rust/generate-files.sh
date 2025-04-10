@@ -25,6 +25,12 @@ CARGO="$HOME/.cargo/bin/cargo"
 "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --headers "$COMMON/Headers"
 "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --modulemap "$COMMON/Modules" --xcframework --modulemap-filename module.modulemap
 
+## Tests will need the generated swift files from uniffi
+# TODO: Should we wrap this around an argument? we'd only need this for tests
+GENERATED_SWIFT_OUT_DIR="$THIS_DIR/Sources/MozillaRustComponentsWrapper/Generated"
+mkdir -p "$GENERATED_SWIFT_OUT_DIR"
+"$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --swift-sources "$GENERATED_SWIFT_OUT_DIR"
+
 # Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
 cp "$THIS_DIR/../../components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 echo "original modulemap"
