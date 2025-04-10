@@ -34,6 +34,14 @@ open class LoginsStorage {
         }
     }
 
+    /// Locally delete records from the store that cannot be decrypted. For exclusive
+    /// use in the iOS logins verification process.
+    open func deleteUndecryptableRecordsForRemoteReplacement() throws {
+        return try queue.sync {
+            try self.store.deleteUndecryptableRecordsForRemoteReplacement()
+        }
+    }
+
     /// Bump the usage count for the record with the given id.
     ///
     /// Throws `LoginStoreError.NoSuchRecord` if there was no such record.
