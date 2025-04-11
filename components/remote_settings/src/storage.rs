@@ -42,9 +42,7 @@ impl Storage {
     fn transaction(&mut self) -> Result<Transaction<'_>> {
         match &self.conn {
             ConnectionCell::Uninitialized => {
-                if self.path != ":memory:" && std::fs::exists(&self.path)? {
-                    std::fs::create_dir(&self.path)?;
-                }
+                self.ensure_dir()?;
                 self.conn = ConnectionCell::Initialized(open_database_with_flags(
                     &self.path,
                     OpenFlags::default(),
@@ -58,6 +56,19 @@ impl Storage {
             ConnectionCell::Initialized(conn) => Ok(conn.transaction()?),
             _ => unreachable!(),
         }
+    }
+
+    pub fn ensure_dir(&self) -> Result<()> {
+        if self.path == ":memory:" {
+            return Ok(());
+        }
+        let Some(dir) = self.path.parent() else {
+            return Ok(());
+        };
+        if !std::fs::exists(dir)? {
+            std::fs::create_dir(dir)?;
+        }
+        Ok(())
     }
 
     pub fn close(&mut self) {
