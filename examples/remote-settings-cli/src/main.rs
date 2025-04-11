@@ -118,6 +118,7 @@ fn build_service(cli: &Cli) -> Result<RemoteSettingsService> {
         bucket_name: cli.bucket.clone(),
         app_context: None,
     };
+    cli_support::ensure_cli_data_dir_exists();
     let storage_dir = cli
         .storage_dir
         .clone()

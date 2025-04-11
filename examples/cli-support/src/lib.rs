@@ -34,6 +34,13 @@ pub fn cli_data_dir() -> String {
     data_path(None).to_string_lossy().to_string()
 }
 
+pub fn ensure_cli_data_dir_exists() {
+    let dir = data_path(None);
+    if !dir.exists() {
+        std::fs::create_dir(&dir).unwrap_or_else(|_| panic!("Error creating dir: {dir:?}"))
+    }
+}
+
 pub fn cli_data_subdir(relative_path: &str) -> String {
     data_path(Some(relative_path)).to_string_lossy().to_string()
 }
