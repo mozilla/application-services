@@ -453,10 +453,6 @@ the details of which are reproduced below.
     <url>https://github.com/seanmonstar/unicase/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: unicode-ident</name>
-    <url>https://github.com/dtolnay/unicode-ident/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
@@ -699,5 +695,9 @@ the details of which are reproduced below.
   <license>
     <name>Optional Notice: SQLite</name>
     <url>https://sqlite.org/copyright.html</url>
+  </license>
+  <license>
+    <name>(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident</name>
+    <url>https://github.com/dtolnay/unicode-ident/LICENSE-APACHE</url>
   </license>
 </licenses>
