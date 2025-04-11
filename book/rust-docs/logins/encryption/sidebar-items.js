@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["check_canary","create_canary","create_key","uniffi_logins_fn_init_callback_vtable_primarypasswordauthenticator"],"struct":["ManagedEncryptorDecryptor","NSSKeyManager","StaticKeyManager","UniFfiTraitVtablePrimaryPasswordAuthenticator"],"trait":["EncryptorDecryptor","KeyManager","PrimaryPasswordAuthenticator"]};
