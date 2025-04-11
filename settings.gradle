@@ -42,7 +42,9 @@ buildscript {
     }
 }
 
-rootProject.name = "appservices"
+if (!gradle.root.hasProperty("mozconfig")) {
+    rootProject.name = "appservices"
+}
 
 def setupProject(name, projectProps, appServicesRootDir) {
     def path = projectProps.path
