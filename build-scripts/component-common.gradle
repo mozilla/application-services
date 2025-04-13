@@ -43,12 +43,12 @@ kotlin {
 }
 
 dependencies {
-    testImplementation libs.junit
-    testImplementation libs.mockito
-    testImplementation libs.robolectric
+    testImplementation libs.junit.vintage
+    testImplementation libs.testing.mockito
+    testImplementation libs.testing.robolectric
 
-    androidTestImplementation libs.test.espresso.core
-    androidTestImplementation libs.test.runner
+    androidTestImplementation libs.androidx.espresso.core
+    androidTestImplementation libs.androidx.test.runner
 }
 
 // Shared logic for projects that depend on libmegazord
