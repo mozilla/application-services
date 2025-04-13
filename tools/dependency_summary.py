@@ -924,6 +924,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://github.com/sfackler/rust-openssl",
         }
     },
+    "windows-link": {
+        "license_url": {
+            "fixup": "https://github.com/microsoft/windows-rs/blob/master/license-apache-2.0",
+        },
+        "license_file": {
+            "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-apache-2.0",
+        },
+
+    }
 }
 
 # Sets of common licence file names, by license type.
@@ -997,7 +1006,7 @@ class WorkspaceMetadata:
             if info["name"] in PACKAGE_METADATA_FIXUPS:
                 fixups = PACKAGE_METADATA_FIXUPS[info["name"]]
                 for key, change in fixups.items():
-                    if info.get(key, None) != change["check"]:
+                    if info.get(key) != change.get("check"):
                         assert False, "Fixup check failed for {}.{}: {} != {}".format(
                             info["name"], key, info.get(key, None), change["check"]
                         )

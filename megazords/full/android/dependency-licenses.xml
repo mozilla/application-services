@@ -485,6 +485,10 @@ the details of which are reproduced below.
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: windows-link</name>
+    <url>https://github.com/microsoft/windows-rs/blob/master/license-apache-2.0</url>
+  </license>
+  <license>
     <name>Apache License 2.0: windows-sys</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
   </license>

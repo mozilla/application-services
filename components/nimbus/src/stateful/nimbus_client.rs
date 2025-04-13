@@ -429,6 +429,7 @@ impl NimbusClient {
         Ok(res)
     }
 
+    #[allow(deprecated)] // Bug 1960256 - use of deprecated chrono functions.
     fn get_installation_date(&self, db: &Database, writer: &mut Writer) -> Result<DateTime<Utc>> {
         // we first check our context
         if let Some(context_installation_date) = self.app_context.installation_date {
