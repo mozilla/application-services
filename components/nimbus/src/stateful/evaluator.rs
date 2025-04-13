@@ -123,6 +123,7 @@ pub struct CalculatedAttributes {
     pub region: Option<String>,
 }
 
+#[allow(deprecated)] // Bug 1960256 - use of deprecated chrono functions.
 pub fn get_calculated_attributes(
     installation_date: Option<i64>,
     db_path: String,

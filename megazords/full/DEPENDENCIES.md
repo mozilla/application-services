@@ -539,6 +539,7 @@ The following text applies to code linked from these dependencies:
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
 [version_check](https://github.com/SergioBenitez/version_check),
+[windows-link](https://github.com/microsoft/windows-rs),
 [windows-sys](https://github.com/microsoft/windows-rs),
 [windows-targets](https://github.com/microsoft/windows-rs),
 [windows_x86_64_gnu](https://github.com/microsoft/windows-rs),
