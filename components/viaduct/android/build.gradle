@@ -1,7 +1,3 @@
-plugins {
-    alias libs.plugins.protobuf.plugin
-}
-
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 apply from: "$appServicesRootDir/publish.gradle"
 
@@ -20,7 +16,7 @@ android {
 
 protobuf {
     protoc {
-        artifact = libs.protobuf.compiler.get().toString() // https://github.com/google/protobuf-gradle-plugin/issues/563
+        artifact = libs.protoc.get().toString() // https://github.com/google/protobuf-gradle-plugin/issues/563
     }
     generateProtoTasks {
         all().each { task ->
@@ -34,12 +30,8 @@ protobuf {
 }
 
 dependencies {
-    implementation libs.protobuf.javalite
-    if (gradle.hasProperty("mozconfig")) {
-        api project(':concept-fetch')
-    } else {
-        api libs.mozilla.concept.fetch
-    }
+    implementation libs.protobuf
+    api libs.mozilla.concept.fetch
 }
 
 ext.dependsOnTheMegazord()

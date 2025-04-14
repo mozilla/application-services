@@ -1,5 +1,5 @@
 plugins {
-    alias libs.plugins.python.envs.plugin
+    alias libs.plugins.gradle.python.envs
 }
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
@@ -18,13 +18,13 @@ dependencies {
 
     implementation libs.androidx.core
     implementation libs.androidx.annotation
-    implementation libs.kotlin.coroutines
+    implementation libs.kotlinx.coroutines
     implementation libs.mozilla.glean
 
-    testImplementation libs.mozilla.glean.forUnitTests
-    testImplementation libs.androidx.test.core
-    testImplementation libs.androidx.test.junit
-    testImplementation libs.androidx.work.testing
+    testImplementation libs.mozilla.glean.native.tests
+    testImplementation libs.test.core
+    testImplementation libs.test.junit.ext
+    testImplementation libs.test.work
 }
 
 ext.configureUniFFIBindgen("nimbus")

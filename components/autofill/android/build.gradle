@@ -9,8 +9,8 @@ dependencies {
     // Part of the public API.
     api project(':sync15')
 
-    testImplementation libs.androidx.test.core
-    testImplementation libs.androidx.work.testing
+    testImplementation libs.test.core
+    testImplementation libs.test.work
     testImplementation project(":syncmanager")
 }
 
