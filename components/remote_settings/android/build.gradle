@@ -11,9 +11,9 @@ ext.configurePublish()
 
 dependencies {
     if (gradle.hasProperty("mozconfig")) {
-        api project(':concept-fetch')
+        testImplementation project(':concept-fetch')
     } else {
-        api libs.mozilla.concept.fetch
+        testImplementation libs.mozilla.concept.fetch
     }
     testImplementation project(":httpconfig")
 }
