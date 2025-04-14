@@ -43,83 +43,100 @@ dependencies {
     implementation localGroovy()
 }
 
-// In app-services, we need all these tasks, which do nothing, so this module behaves like
-// our others and we do not need to special case it in automation.
-if (!gradle.root.hasProperty("mozconfig")) {
-    tasks.register("lintRelease") {
-        doLast {}
+tasks.register("lintRelease") {
+  doLast {
+    // Do nothing. We execute the same set of tasks for all our modules in parallel on taskcluster.
+    // This project doesn't have a lint task. To avoid special casing our automation I just added
+    // an empty lint task here.
+  }
+}
+
+tasks.register("assembleAndroidTest") {
+  doLast {
+    // Do nothing. Like the `lint` task above this is just a dummy task so that this module
+    // behaves like our others and we do not need to special case it in automation.
+  }
+}
+
+tasks.register("assembleRelease") {
+  doLast {
+    // Do nothing. Like the `lint` task above this is just a dummy task so that this module
+    // behaves like our others and we do not need to special case it in automation.
+  }
+}
+
+tasks.register("testRelease") {
+  doLast {
+    // Do nothing. Like the `lint` task above this is just a dummy task so that this module
+    // behaves like our others and we do not need to special case it in automation.
+  }
+}
+
+tasks.register("checkMavenArtifacts") {
+    doLast {
+        // Do nothing. Like the `lint` task above this is just a dummy task so that this module
+        // behaves like our others and we do not need to special case it in automation.
     }
+}
 
-    tasks.register("assembleAndroidTest") {
-        doLast {}
-    }
+// Must match the implementation in publish.gradle
+static def getLocalPublicationTimestamp() {
+    def date = new Date()
+    return date.format('yyyyMMddHHmmss')
+}
 
-    tasks.register("assembleRelease") {
-        doLast {}
-    }
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
 
-    tasks.register("testRelease") {
-        doLast {}
-    }
+            pom {
+                groupId = rootProject.config.componentsGroupId
+                artifactId = archivesBaseName
+                description = project.ext.description
+                version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
 
-    tasks.register("checkMavenArtifacts") {
-        doLast {}
-    }
-
-    // publish only makes sense in app-services.
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                from components.java
-
-                pom {
-                    groupId = rootProject.config.componentsGroupId
-                    artifactId = archivesBaseName
-                    description = project.ext.description
-                    version = rootProject.config.componentsVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
-
-                    licenses {
-                        license {
-                            name = properties.libLicense
-                            url = properties.libLicenseUrl
-                        }
+                licenses {
+                    license {
+                        name = properties.libLicense
+                        url = properties.libLicenseUrl
                     }
+                }
 
-                    developers {
-                        developer {
-                            name = 'Mozilla Nimbus Team'
-                            email = 'nimbus-team@mozilla.com'
-                        }
+                developers {
+                    developer {
+                        name = 'Mozilla Nimbus Team'
+                        email = 'nimbus-team@mozilla.com'
                     }
+                }
 
-                    scm {
-                        connection = properties.libVcsUrl
-                        developerConnection = properties.libVcsUrl
-                        url = properties.libUrl
-                    }
+                scm {
+                    connection = properties.libVcsUrl
+                    developerConnection = properties.libVcsUrl
+                    url = properties.libUrl
                 }
             }
         }
+    }
 
-        if (it.hasProperty('android')) {
-            android {
-                singleVariant('release') {
-                    withSourcesJar()
-                }
-            }
-        }
-
-        repositories {
-            maven {
-                url = "$buildDir/maven"
+    if (it.hasProperty('android')) {
+        android {
+            singleVariant('release') {
+                withSourcesJar()
             }
         }
     }
 
-    publishing.publications.withType(MavenPublication).each {publication ->
-        def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
-            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+    repositories {
+        maven {
+            url = "$buildDir/maven"
         }
-        checkMavenArtifacts.dependsOn(checkFileSizeTask)
     }
+}
+
+publishing.publications.withType(MavenPublication).each {publication ->
+    def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
+        commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+    }
+    checkMavenArtifacts.dependsOn(checkFileSizeTask)
 }
