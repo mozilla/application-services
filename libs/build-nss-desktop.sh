@@ -33,12 +33,17 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   TARGET_OS="macos"
   # We need to set this variable for switching libs based on different macos archs (M1 vs Intel)
+  # Also set lowercase target_arch which gyp expects
   if [[ "$(uname -m)" == "arm64" ]]; then
     DIST_DIR=$(abspath "desktop/darwin-aarch64/nss")
     TARGET_ARCH="aarch64"
+    target_arch="$(uname -m)"
+    export target_arch
   else
     DIST_DIR=$(abspath "desktop/darwin-x86-64/nss")
     TARGET_ARCH="x86_64"
+    target_arch="$(uname -m)"
+    export target_arch
   fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
