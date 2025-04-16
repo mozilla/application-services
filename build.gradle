@@ -3,7 +3,7 @@
 buildscript {
     ext.build = [
         // In general, we should aim to keep these in sync with AC
-        compileSdkVersion: 35,
+        compileSdkVersion: 36,
         targetSdkVersion: 35,
         minSdkVersion: 21,
         jvmTargetCompatibility: 17,
