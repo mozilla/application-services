@@ -22,7 +22,7 @@ rust-android-gradle = "0.9.6"
 
 # AndroidX
 androidx-annotation = "1.9.1"
-androidx-core = "1.15.0"
+androidx-core = "1.16.0"
 
 # JNA
 jna = "5.17.0"
