@@ -12,6 +12,7 @@ import hashlib
 import os
 import sys
 import time
+import shutil
 
 from shared import fatal_err, find_app_services_root, run_cmd_checked
 
@@ -113,6 +114,9 @@ if contents_hash == last_contents_hash:
     print("Contents have not changed, no need to publish")
 else:
     print("Contents have changed, publishing")
+    # Ensure rust changes get picked up. No idea why, but stale .so files under `intermediates` end up published.
+    # Repro: 1) publish, 2) change rust, re-publish, 3) rust from first step is still in the artifacts; not all "dupe" .so files are identical.
+    shutil.rmtree("./megazords/full/android/build/intermediates", ignore_errors=True)
     run_cmd_checked(["./gradlew", "publishToMavenLocal", f"-Plocal={time.time_ns()}"])
     with open(LAST_CONTENTS_HASH_FILE, "w") as f:
         f.write(contents_hash)
