@@ -1,5 +1,9 @@
 # v141.0 (In progress)
 
+### Filter Adult
+- Added the first version of a component for checking if base domains exist in a
+  list of base domains for adult websites.
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)
