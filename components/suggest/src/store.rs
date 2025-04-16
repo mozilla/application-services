@@ -203,11 +203,17 @@ impl SuggestStore {
         self.inner.query(query)
     }
 
+    /// Dismiss a suggestion.
+    #[handle_error(Error)]
+    pub fn dismiss(&self, suggestion: &Suggestion) -> SuggestApiResult<()> {
+        self.inner.dismiss(suggestion)
+    }
+
+    /// Deprecated, use [SuggestStore::dismiss] instead.
+    ///
     /// Dismiss a suggestion
     ///
     /// Dismissed suggestions will not be returned again
-    ///
-    /// In the case of AMP suggestions this should be the raw URL.
     #[handle_error(Error)]
     pub fn dismiss_suggestion(&self, suggestion_url: String) -> SuggestApiResult<()> {
         self.inner.dismiss_suggestion(suggestion_url)
@@ -440,6 +446,15 @@ impl<S> SuggestStoreInner<S> {
             suggestions,
             query_times: metrics.times,
         })
+    }
+
+    fn dismiss(&self, suggestion: &Suggestion) -> Result<()> {
+        if let Some(dismissal_key) = suggestion.dismissal_key() {
+            self.dbs()?
+                .writer
+                .write(|dao| dao.insert_dismissal(dismissal_key))?;
+        }
+        Ok(())
     }
 
     fn dismiss_suggestion(&self, suggestion_url: String) -> Result<()> {
@@ -1022,7 +1037,7 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
         Ok(())
     }
@@ -1082,7 +1097,7 @@ pub(crate) mod tests {
 
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)]
+            vec![los_pollos_suggestion("los pollos", None)]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
@@ -1110,25 +1125,78 @@ pub(crate) mod tests {
                     ],
                 })),
                 // AMP attachment without full keyword data
-                good_place_eats_amp(),
+                good_place_eats_amp().remove("full_keywords"),
             ])))
             .with_record(SuggestionProvider::Amp.icon(los_pollos_icon()))
             .with_record(SuggestionProvider::Amp.icon(good_place_eats_icon()))
         );
         store.ingest(SuggestIngestionConstraints::all_providers());
 
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            // This keyword comes from the provided full_keywords list
-            vec![los_pollos_suggestion("los pollos", None)],
-        );
+        // (query string, expected suggestion, expected dismissal key)
+        let tests = [
+            (
+                "lo",
+                los_pollos_suggestion("los pollos", None),
+                Some("los pollos"),
+            ),
+            (
+                "los pollos",
+                los_pollos_suggestion("los pollos", None),
+                Some("los pollos"),
+            ),
+            (
+                "los pollos h",
+                los_pollos_suggestion("los pollos hermanos (restaurant)", None),
+                Some("los pollos hermanos (restaurant)"),
+            ),
+            (
+                "la",
+                good_place_eats_suggestion("", None),
+                Some("https://www.lasagna.restaurant"),
+            ),
+            (
+                "lasagna",
+                good_place_eats_suggestion("", None),
+                Some("https://www.lasagna.restaurant"),
+            ),
+            (
+                "lasagna come out tomorrow",
+                good_place_eats_suggestion("", None),
+                Some("https://www.lasagna.restaurant"),
+            ),
+        ];
+        for (query, expected_suggestion, expected_dismissal_key) in tests {
+            // Do a query and check the returned suggestions.
+            let suggestions = store.fetch_suggestions(SuggestionQuery::amp(query));
+            assert_eq!(suggestions, vec![expected_suggestion.clone()]);
 
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::amp("la")),
-            // Good place eats did not have full keywords, so this one is
-            // calculated at runtime
-            vec![good_place_eats_suggestion("lasagna", None)],
-        );
+            // Check the returned suggestion's dismissal key.
+            assert_eq!(suggestions[0].dismissal_key(), expected_dismissal_key);
+
+            // Dismiss the suggestion.
+            store.inner.dismiss(&suggestions[0])?;
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(query)), vec![]);
+
+            // Clear dismissals and fetch again.
+            store.inner.clear_dismissed_suggestions()?;
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp(query)),
+                vec![expected_suggestion.clone()]
+            );
+
+            // Dismiss the suggestion by its raw URL using the deprecated API.
+            store
+                .inner
+                .dismiss_suggestion(expected_suggestion.raw_url().unwrap().to_string())?;
+            assert_eq!(store.fetch_suggestions(SuggestionQuery::amp(query)), vec![]);
+
+            // Clear dismissals and fetch again.
+            store.inner.clear_dismissed_suggestions()?;
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::amp(query)),
+                vec![expected_suggestion]
+            );
+        }
 
         Ok(())
     }
@@ -1299,7 +1367,7 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
 
         Ok(())
@@ -1527,7 +1595,7 @@ pub(crate) mod tests {
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
@@ -2051,10 +2119,12 @@ pub(crate) mod tests {
                     json!([
                         los_pollos_amp().merge(json!({
                             "keywords": ["amp wiki match"],
+                            "full_keywords": [("amp wiki match", 1)],
                             "score": 0.3,
                         })),
                         good_place_eats_amp().merge(json!({
                             "keywords": ["amp wiki match"],
+                            "full_keywords": [("amp wiki match", 1)],
                             "score": 0.1,
                         })),
                     ]),
@@ -2196,7 +2266,7 @@ pub(crate) mod tests {
         // This should have been ingested
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)]
+            vec![los_pollos_suggestion("los pollos", None)]
         );
         // This should not have been ingested, since it wasn't in the providers list
         assert_eq!(
@@ -2657,7 +2727,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("lo")),
-            vec![los_pollos_suggestion("los", None)],
+            vec![los_pollos_suggestion("los pollos", None)],
         );
         // Test deleting one of the records
         store

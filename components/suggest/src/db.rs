@@ -308,7 +308,12 @@ impl<'a> SuggestDao<'a> {
                   s.provider = :provider
                   AND k.keyword = :keyword
                   {where_extra}
-                AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url=s.url)
+                  AND NOT EXISTS (
+                    -- For AMP suggestions dismissed with the deprecated URL-based dismissal API,
+                    -- `dismissed_suggestions.url` will be the suggestion URL. With the new
+                    -- `Suggestion`-based API, it will be the full keyword.
+                    SELECT 1 FROM dismissed_suggestions WHERE url IN (fk.full_keyword, s.url)
+                  )
                 "#
             ),
             named_params! {
@@ -322,24 +327,6 @@ impl<'a> SuggestDao<'a> {
                 let score: f64 = row.get("score")?;
                 let full_keyword_from_db: Option<String> = row.get("full_keyword")?;
 
-                let keywords: Vec<String> = self.conn.query_rows_and_then_cached(
-                    r#"
-                    SELECT
-                        keyword
-                    FROM
-                        keywords
-                    WHERE
-                        suggestion_id = :suggestion_id
-                        AND rank >= :rank
-                    ORDER BY
-                        rank ASC
-                    "#,
-                    named_params! {
-                        ":suggestion_id": suggestion_id,
-                        ":rank": row.get::<_, i64>("rank")?,
-                    },
-                    |row| row.get(0),
-                )?;
                 self.conn.query_row_and_then(
                     r#"
                     SELECT
@@ -372,8 +359,7 @@ impl<'a> SuggestDao<'a> {
                             title,
                             url: cooked_url,
                             raw_url,
-                            full_keyword: full_keyword_from_db
-                                .unwrap_or_else(|| full_keyword(keyword_lowercased, &keywords)),
+                            full_keyword: full_keyword_from_db.unwrap_or_default(),
                             icon: row.get("icon")?,
                             icon_mimetype: row.get("icon_mimetype")?,
                             impression_url: row.get("impression_url")?,
