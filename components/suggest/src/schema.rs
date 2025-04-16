@@ -224,6 +224,8 @@ CREATE TABLE geonames_metrics(
     max_name_word_count INTEGER NOT NULL
 ) WITHOUT ROWID;
 
+-- `url` may be an opaque dismissal key rather than a URL depending on the
+-- suggestion type.
 CREATE TABLE dismissed_suggestions (
     url TEXT PRIMARY KEY
 ) WITHOUT ROWID;
