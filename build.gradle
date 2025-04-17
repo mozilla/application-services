@@ -27,6 +27,14 @@ buildscript {
                 includeGroupByRegex "org\\.mozilla\\..*"
             }
         }
+        maven {
+            name "Mozilla Nightly"
+            url "https://nightly.maven.mozilla.org/maven2"
+            content {
+                // Improve performance: only check moz maven for mozilla deps.
+                includeGroupByRegex "org\\.mozilla\\..*"
+            }
+        }
     }
 
     dependencies {
@@ -56,6 +64,14 @@ allprojects {
         maven {
             name "Mozilla"
             url "https://maven.mozilla.org/maven2"
+            content {
+                // Improve performance: only check moz maven for mozilla deps.
+                includeGroupByRegex "org\\.mozilla\\..*"
+            }
+        }
+        maven {
+            name "Mozilla Nightly"
+            url "https://nightly.maven.mozilla.org/maven2"
             content {
                 // Improve performance: only check moz maven for mozilla deps.
                 includeGroupByRegex "org\\.mozilla\\..*"
