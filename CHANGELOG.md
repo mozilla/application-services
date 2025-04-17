@@ -4,6 +4,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Android
+- Updated to a newer version of Android Components (`139.0.20250417022706`).
+
 ### Glean
 - Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
 

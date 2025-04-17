@@ -16,7 +16,7 @@ kotlin-compiler = "2.1.20"
 kotlin-coroutines = "1.10.2"
 
 # Mozilla
-android-components = "135.0.1"
+android-components = "139.0.20250417022706"
 glean = "64.0.0"
 rust-android-gradle = "0.9.6"
 
