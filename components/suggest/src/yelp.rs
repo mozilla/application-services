@@ -22,7 +22,6 @@ enum Modifier {
     Pre = 0,
     Post = 1,
     Yelp = 2,
-    LocationSign = 3,
 }
 
 impl ToSql for Modifier {
@@ -53,6 +52,11 @@ const MAX_QUERY_LENGTH: usize = 150;
 /// The max number of words consisting the modifier. To improve the SQL performance by matching with
 /// "keyword=:modifier" (please see is_modifier()), define this how many words we should check.
 const MAX_MODIFIER_WORDS_NUMBER: usize = 2;
+
+/// The max number of words consisting the location sign. To improve the SQL performance by matching
+/// with "keyword=:modifier" (please see is_location_sign()), define this how many words we should
+/// check.
+const MAX_LOCATION_SIGN_WORDS_NUMBER: usize = 2;
 
 /// At least this many characters must be typed for a subject to be matched.
 const SUBJECT_PREFIX_MATCH_THRESHOLD: usize = 2;
@@ -111,14 +115,14 @@ impl SuggestDao<'_> {
             )?;
         }
 
-        for keyword in &suggestion.location_signs {
+        for sign in &suggestion.location_signs {
             self.scope.err_if_interrupted()?;
             self.conn.execute_cached(
-                "INSERT INTO yelp_modifiers(record_id, type, keyword) VALUES(:record_id, :type, :keyword)",
+                "INSERT INTO yelp_location_signs(record_id, keyword, need_location) VALUES(:record_id, :keyword, :need_location)",
                 named_params! {
                     ":record_id": record_id.as_str(),
-                    ":type": Modifier::LocationSign,
-                    ":keyword": keyword,
+                    ":keyword": sign.keyword,
+                    ":need_location": sign.need_location,
                 },
             )?;
         }
@@ -174,8 +178,7 @@ impl SuggestDao<'_> {
             query_words = &query_words[n..];
         }
 
-        let location_sign_tuple =
-            self.find_modifier(query_words, Modifier::LocationSign, FindFrom::First)?;
+        let location_sign_tuple = self.find_location_sign(query_words)?;
         if let Some((_, n)) = location_sign_tuple {
             query_words = &query_words[n..];
         }
@@ -198,6 +201,7 @@ impl SuggestDao<'_> {
             subject_exact_match: subject_tuple.1,
             pre_modifier: pre_modifier_tuple.map(|(words, _)| words.to_string()),
             post_modifier: post_modifier_tuple.map(|(words, _)| words.to_string()),
+            need_location: location_sign_tuple.is_some() || location.is_some(),
             location_sign: location_sign_tuple.map(|(words, _)| words.to_string()),
             location,
             icon,
@@ -323,6 +327,52 @@ impl SuggestDao<'_> {
         Ok(None)
     }
 
+    /// Find the location sign for given query.
+    /// It returns Option<tuple> as follows:
+    /// (
+    ///   String: The keyword in DB (but the case is inherited by query).
+    ///   usize: Number of words in query_words that match the keyword.
+    ///          Maximum number is MAX_LOCATION_SIGN_WORDS_NUMBER.
+    /// )
+    fn find_location_sign(&self, query_words: &[&str]) -> Result<Option<(String, usize)>> {
+        if query_words.is_empty() {
+            return Ok(None);
+        }
+
+        for n in (1..=std::cmp::min(MAX_LOCATION_SIGN_WORDS_NUMBER, query_words.len())).rev() {
+            let mut candidate_chunk = query_words.chunks(n);
+            let candidate = candidate_chunk
+                .next()
+                .map(|chunk| chunk.join(" "))
+                .unwrap_or_default();
+            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+                if n == query_words.len() {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword BETWEEN :word AND :word || x'FFFF'
+                    LIMIT 1
+                    "
+                } else {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword = :word
+                    LIMIT 1
+                    "
+                },
+                named_params! {
+                    ":word": candidate.to_lowercase(),
+                },
+                true,
+            )? {
+                // Preserve the query as the user typed it including its case.
+                let keyword = format!("{}{}", candidate, &keyword_lowercase[candidate.len()..]);
+                return Ok(Some((keyword, n)));
+            }
+        }
+
+        Ok(None)
+    }
+
     /// Fetch the custom details for Yelp suggestions.
     /// It returns the location tuple as follows:
     /// (
@@ -371,6 +421,7 @@ struct SuggestionBuilder<'a> {
     post_modifier: Option<String>,
     location_sign: Option<String>,
     location: Option<String>,
+    need_location: bool,
     icon: Option<Vec<u8>>,
     icon_mimetype: Option<String>,
     score: f64,
@@ -378,10 +429,17 @@ struct SuggestionBuilder<'a> {
 
 impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
     fn from(builder: SuggestionBuilder<'a>) -> Suggestion {
+        // This location sign such the 'near by' needs to add as a description parameter.
+        let location_modifier = if !builder.need_location {
+            builder.location_sign.as_deref()
+        } else {
+            None
+        };
         let description = [
             builder.pre_modifier.as_deref(),
             Some(builder.subject),
             builder.post_modifier.as_deref(),
+            location_modifier,
         ]
         .iter()
         .flatten()
@@ -393,7 +451,7 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
         let mut url = String::from("https://www.yelp.com/search?");
         let mut parameters = form_urlencoded::Serializer::new(String::new());
         parameters.append_pair("find_desc", &description);
-        if let Some(location) = &builder.location {
+        if let (Some(location), true) = (&builder.location, builder.need_location) {
             parameters.append_pair("find_loc", location);
         }
         url.push_str(&parameters.finish());
@@ -417,7 +475,7 @@ impl<'a> From<SuggestionBuilder<'a>> for Suggestion {
             icon: builder.icon,
             icon_mimetype: builder.icon_mimetype,
             score: builder.score,
-            has_location_sign: builder.location_sign.is_some(),
+            has_location_sign: location_modifier.is_none() && builder.location_sign.is_some(),
             subject_exact_match: builder.subject_exact_match,
             location_param: "find_loc".to_string(),
         }
