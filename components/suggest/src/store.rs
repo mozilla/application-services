@@ -3772,8 +3772,9 @@ pub(crate) mod tests {
         });
 
         // Make sure the suggestions are initially fetchable.
+        let suggestions = store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"]));
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
+            suggestions,
             vec![
                 Suggestion::Dynamic {
                     suggestion_type: "aaa".to_string(),
@@ -3797,7 +3798,8 @@ pub(crate) mod tests {
         );
 
         // Dismiss the first suggestion.
-        store.inner.dismiss_suggestion("dk0".to_string())?;
+        assert_eq!(suggestions[0].dismissal_key(), Some("dk0"));
+        store.inner.dismiss_by_suggestion(&suggestions[0])?;
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![
@@ -3817,7 +3819,8 @@ pub(crate) mod tests {
         );
 
         // Dismiss the second suggestion.
-        store.inner.dismiss_suggestion("dk1".to_string())?;
+        assert_eq!(suggestions[1].dismissal_key(), Some("dk1"));
+        store.inner.dismiss_by_suggestion(&suggestions[1])?;
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![Suggestion::Dynamic {
