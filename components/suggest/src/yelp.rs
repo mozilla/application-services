@@ -237,29 +237,20 @@ impl SuggestDao<'_> {
             let candidate = candidate_chunk
                 .map(|chunk| chunk.join(" "))
                 .unwrap_or_default();
-            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
-                if n == query_words.len() {
-                    "
-                    SELECT keyword FROM yelp_modifiers
-                    WHERE type = :type AND keyword BETWEEN :word AND :word || x'FFFF'
-                    LIMIT 1
-                    "
-                } else {
-                    "
-                    SELECT keyword FROM yelp_modifiers
-                    WHERE type = :type AND keyword = :word
-                    LIMIT 1
-                    "
-                },
+            if self.conn.query_row_and_then_cachable(
+                "
+                SELECT EXISTS (
+                    SELECT 1 FROM yelp_modifiers WHERE type = :type AND keyword = :word LIMIT 1
+                )
+                ",
                 named_params! {
                     ":type": modifier_type,
                     ":word": candidate.to_lowercase(),
                 },
+                |row| row.get::<_, bool>(0),
                 true,
             )? {
-                // Preserve the query as the user typed it including its case.
-                let keyword = format!("{}{}", candidate, &keyword_lowercase[candidate.len()..]);
-                return Ok(Some((keyword, n)));
+                return Ok(Some((candidate, n)));
             }
         }
 
@@ -345,28 +336,19 @@ impl SuggestDao<'_> {
                 .next()
                 .map(|chunk| chunk.join(" "))
                 .unwrap_or_default();
-            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
-                if n == query_words.len() {
-                    "
-                    SELECT keyword FROM yelp_location_signs
-                    WHERE keyword BETWEEN :word AND :word || x'FFFF'
-                    LIMIT 1
-                    "
-                } else {
-                    "
-                    SELECT keyword FROM yelp_location_signs
-                    WHERE keyword = :word
-                    LIMIT 1
-                    "
-                },
+            if self.conn.query_row_and_then_cachable(
+                "
+                SELECT EXISTS (
+                    SELECT 1 FROM yelp_location_signs WHERE keyword = :word LIMIT 1
+                )
+                ",
                 named_params! {
                     ":word": candidate.to_lowercase(),
                 },
+                |row| row.get::<_, bool>(0),
                 true,
             )? {
-                // Preserve the query as the user typed it including its case.
-                let keyword = format!("{}{}", candidate, &keyword_lowercase[candidate.len()..]);
-                return Ok(Some((keyword, n)));
+                return Ok(Some((candidate, n)));
             }
         }
 
