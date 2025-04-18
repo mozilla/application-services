@@ -1,0 +1,1 @@
+searchState.loadedDescShard("embedded_uniffi_bindgen", 0, "")

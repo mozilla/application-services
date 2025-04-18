@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SearchApiError"],"mod":["selector","types"],"type":["SearchApiResult"]};
