@@ -37,6 +37,9 @@ testing/sync-test/Cargo.lock
 # XCFramework artifact
 megazords/ios-rust/MozillaRustComponents.xcframework*
 megazords/ios-rust/focus/FocusRustComponents.xcframework*
+megazords/ios-rust/include*
+megazords/ios-rust/.build*
+megazords/ios-rust/sources/MozillaRustComponentsWrapper/generated*
 
 
 # Glean generated artifacts
@@ -52,7 +55,6 @@ MozillaAppServices.framework.zip
 # Xcode generated logs
 raw_xcodebuild.log
 raw_xcodetest.log
-
 # Generated debug symbols
 crashreporter-symbols*
 automation/symbols-generation/bin/
