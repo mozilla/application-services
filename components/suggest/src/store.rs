@@ -1851,20 +1851,8 @@ pub(crate) mod tests {
             ),],
         );
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::yelp("ramen invalid_delivery")),
-            vec![ramen_suggestion(
-                "ramen invalid_delivery",
-                "https://www.yelp.com/search?find_desc=ramen&find_loc=invalid_delivery"
-            )
-            .has_location_sign(false),],
-        );
-        assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen invalid_delivery in tokyo")),
-            vec![ramen_suggestion(
-                "ramen invalid_delivery in tokyo",
-                "https://www.yelp.com/search?find_desc=ramen&find_loc=invalid_delivery+in+tokyo"
-            )
-            .has_location_sign(false),],
+            vec![],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen in tokyo")),
@@ -1882,11 +1870,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen invalid_in tokyo")),
-            vec![ramen_suggestion(
-                "ramen invalid_in tokyo",
-                "https://www.yelp.com/search?find_desc=ramen&find_loc=invalid_in+tokyo"
-            )
-            .has_location_sign(false),],
+            vec![],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen in San Francisco")),
@@ -1906,22 +1890,21 @@ pub(crate) mod tests {
             store.fetch_suggestions(SuggestionQuery::yelp("ramen near by")),
             vec![ramen_suggestion(
                 "ramen near by",
-                "https://www.yelp.com/search?find_desc=ramen"
-            )],
+                "https://www.yelp.com/search?find_desc=ramen+near+by"
+            )
+            .has_location_sign(false),],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen near me")),
             vec![ramen_suggestion(
                 "ramen near me",
-                "https://www.yelp.com/search?find_desc=ramen"
-            )],
+                "https://www.yelp.com/search?find_desc=ramen+near+me"
+            )
+            .has_location_sign(false),],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen near by tokyo")),
-            vec![ramen_suggestion(
-                "ramen near by tokyo",
-                "https://www.yelp.com/search?find_desc=ramen&find_loc=tokyo"
-            )],
+            vec![],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::yelp("ramen")),
