@@ -164,6 +164,11 @@ impl RemoteSettingsClient {
     pub fn sync(&self) -> ApiResult<()> {
         self.internal.sync()
     }
+
+    /// Shutdown the client, releasing the SQLite connection used to cache records.
+    pub fn shutdown(&self) {
+        self.internal.shutdown()
+    }
 }
 
 impl RemoteSettingsClient {

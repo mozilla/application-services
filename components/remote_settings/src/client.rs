@@ -360,11 +360,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         Ok(())
     }
 
-    /// Close the client
-    ///
-    /// This is typically used during shutdown.  It closes the underlying SQLite connection used to
-    /// cache records.
-    pub fn close(&self) {
+    pub fn shutdown(&self) {
         self.inner.lock().storage.close();
     }
 

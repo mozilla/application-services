@@ -19,6 +19,9 @@ pub(crate) trait RelevancyRemoteSettingsClient {
     /// Fetches a record's attachment from the Suggest Remote Settings
     /// collection.
     fn get_attachment(&self, location: &RemoteSettingsRecord) -> Result<Vec<u8>>;
+
+    /// Close any open resources
+    fn close(&self);
 }
 
 impl RelevancyRemoteSettingsClient for RemoteSettingsClient {
@@ -32,6 +35,10 @@ impl RelevancyRemoteSettingsClient for RemoteSettingsClient {
     fn get_attachment(&self, record: &RemoteSettingsRecord) -> Result<Vec<u8>> {
         Ok(self.get_attachment(record)?)
     }
+
+    fn close(&self) {
+        self.shutdown()
+    }
 }
 
 impl<T: RelevancyRemoteSettingsClient> RelevancyRemoteSettingsClient for &T {
@@ -42,6 +49,10 @@ impl<T: RelevancyRemoteSettingsClient> RelevancyRemoteSettingsClient for &T {
     fn get_attachment(&self, record: &RemoteSettingsRecord) -> Result<Vec<u8>> {
         (*self).get_attachment(record)
     }
+
+    fn close(&self) {
+        (*self).close();
+    }
 }
 
 impl<T: RelevancyRemoteSettingsClient> RelevancyRemoteSettingsClient for std::sync::Arc<T> {
@@ -51,6 +62,10 @@ impl<T: RelevancyRemoteSettingsClient> RelevancyRemoteSettingsClient for std::sy
 
     fn get_attachment(&self, record: &RemoteSettingsRecord) -> Result<Vec<u8>> {
         (**self).get_attachment(record)
+    }
+
+    fn close(&self) {
+        (**self).close()
     }
 }
 
@@ -121,5 +136,7 @@ pub mod test {
         fn get_attachment(&self, _record: &RemoteSettingsRecord) -> Result<Vec<u8>> {
             panic!("NullRelavancyRemoteSettingsClient::get_records was called")
         }
+
+        fn close(&self) {}
     }
 }
