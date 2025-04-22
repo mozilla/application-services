@@ -72,6 +72,8 @@ open class Nimbus(
     private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate,
     private val recordedContext: RecordedContext? = null,
+    collectionName: String,
+    remoteSettingsService: RemoteSettingsService? = null,
 ) : NimbusInterface {
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = delegate.dbScope
@@ -159,9 +161,6 @@ open class Nimbus(
         val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
         // Initialize Nimbus
-
-        val collectionName = it.collection
-
         nimbusClient = NimbusClient(
             experimentContext,
             recordedContext,

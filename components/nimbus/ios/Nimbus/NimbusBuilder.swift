@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import class MozillaAppServices.RemoteSettingsService
 
 /**
  * A builder for [Nimbus] singleton objects, parameterized in a declarative class.
@@ -259,15 +260,23 @@ public class NimbusBuilder {
         featureManifest?.getCoenrollingFeatureIds() ?? []
     }
 
-    func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
-        try Nimbus.create(serverSettings,
-                          appSettings: appInfo,
-                          coenrollingFeatureIds: getCoenrollingFeatureIds(),
-                          dbPath: dbFilePath,
-                          resourceBundles: resourceBundles,
-                          userDefaults: userDefaults,
-                          errorReporter: errorReporter,
-                          recordedContext: recordedContext)
+    func newNimbus(
+        _ appInfo: NimbusAppSettings,
+        serverSettings: NimbusServerSettings?,
+        remoteSettingsService: RemoteSettingsService?
+    ) throws -> NimbusInterface {
+        try Nimbus.create(
+            serverSettings,
+            appSettings: appInfo,
+            coenrollingFeatureIds: getCoenrollingFeatureIds(),
+            dbPath: dbFilePath,
+            resourceBundles: resourceBundles,
+            userDefaults: userDefaults,
+            errorReporter: errorReporter,
+            recordedContext: recordedContext,
+            collectionName: serverSettings?.collection,
+            remoteSettingsService: RemoteSettingsService,
+        )
     }
 
     func newNimbusDisabled() -> NimbusInterface {

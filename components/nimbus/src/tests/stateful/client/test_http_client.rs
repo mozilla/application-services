@@ -3,7 +3,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::schema::parse_experiments;
-use crate::{Branch, BucketConfig, Experiment, FeatureConfig, NimbusError, RandomizationUnit};
+use crate::{Branch, BucketConfig, Experiment, FeatureConfig, RandomizationUnit};
 
 #[test]
 fn test_fetch_experiments_from_schema() {

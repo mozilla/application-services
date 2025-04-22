@@ -11,6 +11,7 @@ import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
 import org.mozilla.experiments.nimbus.internal.RecordedContext
+import mozilla.appservices.remotesettings.RemoteSettingsService
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
 
@@ -122,7 +123,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
 
         @Suppress("TooGenericExceptionCaught")
         return try {
-            newNimbus(appInfo, serverSettings).apply {
+            newNimbus(appInfo, serverSettings, remoteSettingsService, collectionName).apply {
                 // Apply any experiment recipes we downloaded last time, or
                 // if this is the first time, we load the ones bundled in the res/raw
                 // directory.
@@ -164,6 +165,8 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
     protected abstract fun newNimbus(
         appInfo: NimbusAppInfo,
         serverSettings: NimbusServerSettings?,
+        remoteSettingsService: RemoteSettingsService?
+
     ): T
 
     /**
@@ -218,7 +221,7 @@ private class Observer(
 }
 
 class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
-    override fun newNimbus(appInfo: NimbusAppInfo, serverSettings: NimbusServerSettings?) =
+    override fun newNimbus(appInfo: NimbusAppInfo, serverSettings: NimbusServerSettings?, remoteSettingsService: remoteSettingsService, collectionName: String) =
         Nimbus(
             context,
             appInfo = appInfo,
@@ -229,6 +232,8 @@ class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInter
             delegate = createDelegate(),
             observer = createObserver(),
             recordedContext = recordedContext,
+            collectionName = serverSettings?.collection,
+            remoteSettingsService = remoteSettingsService,
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)
