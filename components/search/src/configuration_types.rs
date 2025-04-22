@@ -37,7 +37,7 @@ impl JSONEngineMethod {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct JSONEngineUrl {
     /// The PrePath and FilePath of the URL. May include variables for engines
-    /// which have a variable FilePath, e.g. `{searchTerm}` for when a search
+    /// which have a variable FilePath, e.g. `{searchTerms}` for when a search
     /// term is within the path of the url.
     pub base: Option<String>,
 
@@ -49,7 +49,7 @@ pub(crate) struct JSONEngineUrl {
     pub params: Option<Vec<SearchUrlParam>>,
 
     /// The name of the query parameter for the search term. Automatically
-    /// appended to the end of the query. This may be skipped if `{searchTerm}`
+    /// appended to the end of the query. This may be skipped if `{searchTerms}`
     /// is included in the base.
     pub search_term_param_name: Option<String>,
 }
