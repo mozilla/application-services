@@ -253,25 +253,11 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "LICENSE-APACHE",
         },
     },
-    "ohttp": {
-        "license": {"check": "MIT OR Apache-2.0"},
-        "license_file": {
-            "check": None,
-            "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
-        },
-    },
     "openssl": {
         "license": {"check": "Apache-2.0"},
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/sfackler/rust-openssl/refs/heads/master/openssl/LICENSE-APACHE",
-        },
-    },
-    "bhttp": {
-        "license": {"check": "MIT OR Apache-2.0"},
-        "license_file": {
-            "check": None,
-            "fixup": "https://raw.githubusercontent.com/martinthomson/ohttp/main/LICENSE-APACHE",
         },
     },
     # These packages do not include their license file in their release distributions,

@@ -14,7 +14,6 @@ ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
-    "components/as-ohttp-client/ios/ASOhttpClient",
     "components/nimbus/ios/Nimbus",
     "components/fxa-client/ios/FxAClient",
     "components/logins/ios/Logins",
