@@ -60,8 +60,6 @@
 		39EE00FF29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */; };
 		39F5D7642956161E004E2384 /* Operation+.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D7632956161E004E2384 /* Operation+.swift */; };
 		39F5D766295616E3004E2384 /* NimbusBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F5D765295616E3004E2384 /* NimbusBuilder.swift */; };
-		F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54D380F2A5862E4005087FB /* OhttpTests.swift */; };
-		F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F596D2DF2A68922100C8A817 /* OhttpManager.swift */; };
 		F814DE8029DF762800FD26F5 /* SyncManagerTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */; };
 		F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */; };
 		F81C7B9A29DE309C00FAF8F9 /* SyncManagerComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */; };
@@ -69,7 +67,6 @@
 		F8BEFFDA299C4F1100776186 /* RustSyncTelemetryPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */; };
 		FF0352717C35BE7BC290F8BD /* logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6896A870F5D0C51F6F54F6 /* logins.swift */; };
 		FF0D139074DECBAF0A6B296B /* nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFE04212600025B637A8E168 /* nimbus.swift */; };
-		FF1BDB6DC892EF17B7486298 /* as_ohttp_client.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */; };
 		FF41E05B86E1342211C42D25 /* sync15.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3695EC5326DDEC2A16102B /* sync15.swift */; };
 		FF6FC1E43C490B928681C964 /* remote_settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF869AD71B24D3BCCEF80E31 /* remote_settings.swift */; };
 		FF75A3350DBBE16CCBF9981C /* tabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1EB48B6D9E5E7C840709A9 /* tabs.swift */; };
@@ -164,8 +161,6 @@
 		39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusArgumentProcessorTests.swift; sourceTree = "<group>"; };
 		39F5D7632956161E004E2384 /* Operation+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Operation+.swift"; path = "Nimbus/Operation+.swift"; sourceTree = "<group>"; };
 		39F5D765295616E3004E2384 /* NimbusBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NimbusBuilder.swift; path = Nimbus/NimbusBuilder.swift; sourceTree = "<group>"; };
-		F54D380F2A5862E4005087FB /* OhttpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OhttpTests.swift; sourceTree = "<group>"; };
-		F596D2DF2A68922100C8A817 /* OhttpManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OhttpManager.swift; path = ASOhttpClient/OhttpManager.swift; sourceTree = "<group>"; };
 		F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManagerTelemetryTests.swift; sourceTree = "<group>"; };
 		F81C7B9729DE305C00FAF8F9 /* SyncManagerTelemetry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerTelemetry.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerTelemetry.swift; sourceTree = SOURCE_ROOT; };
 		F81C7B9929DE309C00FAF8F9 /* SyncManagerComponent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncManagerComponent.swift; path = ../../../components/sync_manager/ios/SyncManager/SyncManagerComponent.swift; sourceTree = SOURCE_ROOT; };
@@ -173,7 +168,6 @@
 		F8BEFFD9299C4F1100776186 /* RustSyncTelemetryPing.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RustSyncTelemetryPing.swift; path = ../../../components/sync15/ios/Sync15/RustSyncTelemetryPing.swift; sourceTree = SOURCE_ROOT; };
 		FF0F8AD3374CE3C55AE37232 /* suggest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = suggest.swift; sourceTree = DERIVED_FILE_DIR; };
 		FF1EB48B6D9E5E7C840709A9 /* tabs.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = tabs.swift; sourceTree = DERIVED_FILE_DIR; };
-		FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = as_ohttp_client.swift; sourceTree = DERIVED_FILE_DIR; };
 		FF3695EC5326DDEC2A16102B /* sync15.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = sync15.swift; sourceTree = DERIVED_FILE_DIR; };
 		FF5220EC8AE46B70AA9EB62C /* rust_log_forwarder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = rust_log_forwarder.swift; sourceTree = DERIVED_FILE_DIR; };
 		FF6896A870F5D0C51F6F54F6 /* logins.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = logins.swift; sourceTree = DERIVED_FILE_DIR; };
@@ -278,7 +272,6 @@
 		1BBAC4FA27AE049500DAFEF2 /* MozillaTestServices */ = {
 			isa = PBXGroup;
 			children = (
-				F54D38032A564653005087FB /* ASOhttpClient */,
 				F8AAC1CB298B40B8000BCDEC /* SyncManager */,
 				1BFC469427C99F250034E0A5 /* Generated */,
 				1BB64C7B27B1FF9F00A4247F /* TestClient */,
@@ -308,7 +301,6 @@
 				F85ED648299C1F49005EEF36 /* RustSyncTelemetryPingTests.swift */,
 				F814DE7F29DF762800FD26F5 /* SyncManagerTelemetryTests.swift */,
 				39EE00FE29F6DBBA001E7758 /* NimbusArgumentProcessorTests.swift */,
-				F54D380F2A5862E4005087FB /* OhttpTests.swift */,
 			);
 			path = MozillaTestServicesTests;
 			sourceTree = SOURCE_ROOT;
@@ -419,7 +411,6 @@
 		BC4CCC782CC1E25200BCCC59 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
-				FF22EC37CDCF99962D140501 /* as_ohttp_client.swift */,
 				FFA94DFDC836EB6A33F2AA2C /* autofill.swift */,
 				FFDAC3995E526AE8FF2CA8C5 /* crashtest.swift */,
 				FFEA963A30947DD62AD3D645 /* errorsupport.swift */,
@@ -437,15 +428,6 @@
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
-		};
-		F54D38032A564653005087FB /* ASOhttpClient */ = {
-			isa = PBXGroup;
-			children = (
-				F596D2DF2A68922100C8A817 /* OhttpManager.swift */,
-			);
-			name = ASOhttpClient;
-			path = "../../../components/as-ohttp-client/ios";
-			sourceTree = SOURCE_ROOT;
 		};
 		F8AAC1CB298B40B8000BCDEC /* SyncManager */ = {
 			isa = PBXGroup;
@@ -596,7 +578,6 @@
 			);
 			name = "Generate UniFFI Swift Bindings";
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/as_ohttp_client.swift",
 				"$(DERIVED_FILE_DIR)/autofill.swift",
 				"$(DERIVED_FILE_DIR)/crashtest.swift",
 				"$(DERIVED_FILE_DIR)/errorsupport.swift",
@@ -642,7 +623,6 @@
 				1B3BC94627B1D6A500229CF6 /* ResultError.swift in Sources */,
 				1B3BC98327B1D9B700229CF6 /* FeatureHolder.swift in Sources */,
 				1B3BC98527B1D9B800229CF6 /* NimbusMessagingHelpers.swift in Sources */,
-				F596D2E02A68922100C8A817 /* OhttpManager.swift in Sources */,
 				395EFD6E2966EB6D00D24B97 /* Bundle+.swift in Sources */,
 				1BF50F1427B1E17B00A9C8A5 /* PersistedFirefoxAccount.swift in Sources */,
 				1BF50F1027B1E17B00A9C8A5 /* FxAccountStorage.swift in Sources */,
@@ -667,7 +647,6 @@
 				1B3BC94027B1D62800229CF6 /* Places.swift in Sources */,
 				F81C7B9829DE305C00FAF8F9 /* SyncManagerTelemetry.swift in Sources */,
 				1BF50F1527B1E17B00A9C8A5 /* FxAccountState.swift in Sources */,
-				FF1BDB6DC892EF17B7486298 /* as_ohttp_client.swift in Sources */,
 				FF7B4B499B05A1427F2A3600 /* autofill.swift in Sources */,
 				FF8B8AB1E7BF6AE6EC2EA5A3 /* crashtest.swift in Sources */,
 				FFF5CF90B23DB3451C66B65A /* errorsupport.swift in Sources */,
@@ -702,7 +681,6 @@
 				1B3BC94F27B1D92800229CF6 /* NimbusTests.swift in Sources */,
 				1BF50F1927B1E19500A9C8A5 /* FxAccountManagerTests.swift in Sources */,
 				39083AAB29561E2400FDD302 /* OperationTests.swift in Sources */,
-				F54D38102A5862E4005087FB /* OhttpTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,7 +3,6 @@ resolver = "2"
 
 # Note: Any additions here should be repeated in default-members below.
 members = [
-    "components/as-ohttp-client",
     "components/autofill",
     "components/crashtest",
     "components/example",
@@ -93,7 +92,6 @@ exclude = [
 # To be clear: passing the `--all` or `--workspace` arg to cargo will make it
 # use the full member set.
 default-members = [
-    "components/as-ohttp-client",
     "components/autofill",
     "components/crashtest",
     "components/fxa-client",

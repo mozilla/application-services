@@ -5,7 +5,6 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-pub use as_ohttp_client;
 pub use autofill;
 pub use crashtest;
 pub use error_support;

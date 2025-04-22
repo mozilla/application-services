@@ -31,17 +31,19 @@ text, the list view has been slimmed down and a detail view has been added.
 ### Android
 - Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
-## ⚠️ Breaking Changes ⚠️
-
-## Remote Settings
-- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
-
-## 🦊 What's Changed 🦊
-
-## Remote Settings
+### Remote Settings
 - The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
   This integrates better with JS, which expects all IO to happen inside async functions.
 - Added `RemoteSettingsClient::close`, which can be used to close the underlying SQLite DB during down.
+
+## ⚠️ Breaking Changes ⚠️
+
+### Remote Settings
+- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+
+### OHTTP Client
+- The now-unused `as-ohttp-client` component is now removed. It was previously
+  only used by firefox-ios but no longer is.
 
 # v138.0 (_2025-03-31_)
 

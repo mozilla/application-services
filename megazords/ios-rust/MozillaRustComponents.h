@@ -18,7 +18,6 @@
 #import "errorFFI.h"
 #import "syncmanagerFFI.h"
 #import "remote_settingsFFI.h"
-#import "as_ohttp_clientFFI.h"
 #import "suggestFFI.h"
 #import "rustlogforwarderFFI.h"
 #import "searchFFI.h"
