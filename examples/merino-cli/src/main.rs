@@ -5,7 +5,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use merino::curated_recommendations::{
-    CuratedRecommendationsClient, CuratedRecommendationsRequest,
+    CuratedRecommendationsClient, CuratedRecommendationsConfig, CuratedRecommendationsRequest,
 };
 
 #[derive(Debug, Parser)]
@@ -39,7 +39,12 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     viaduct_reqwest::use_reqwest_backend();
-    let client = CuratedRecommendationsClient::new(cli.base_host.clone(), cli.user_agent.clone())?;
+    let config = CuratedRecommendationsConfig {
+        base_host: cli.base_host.clone(),
+        user_agent_header: cli.user_agent.clone(),
+    };
+
+    let client = CuratedRecommendationsClient::new(config)?;
 
     match cli.command {
         Commands::Query { json, json_file } => {
