@@ -170,6 +170,8 @@ mod test {
                 .unwrap_or_else(|| unreachable!("Unexpected request for attachment `{}`", location))
                 .clone())
         }
+
+        fn close(&self) {}
     }
 
     #[test]

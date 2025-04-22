@@ -164,7 +164,8 @@ impl<C: rs::RelevancyRemoteSettingsClient> RelevancyStoreInner<C> {
     ///
     /// Calling `close` will interrupt any in-progress queries on other threads.
     pub fn close(&self) {
-        self.db.close()
+        self.db.close();
+        self.client.close();
     }
 
     /// Interrupt any current database queries
