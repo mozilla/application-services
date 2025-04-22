@@ -9,8 +9,12 @@ mod models;
 
 pub use error::{ApiResult, Error, Result};
 use error_support::handle_error;
-pub use models::{CuratedRecommendationsRequest, CuratedRecommendationsResponse};
+pub use models::{
+    CuratedRecommendationsConfig, CuratedRecommendationsRequest, CuratedRecommendationsResponse,
+};
 use url::Url;
+
+const DEFAULT_BASE_HOST: &str = "https://merino.services.mozilla.com";
 
 #[derive(uniffi::Object)]
 pub struct CuratedRecommendationsClient {
@@ -23,21 +27,69 @@ struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
     http_client: T,
 }
 
-#[uniffi::export]
-impl CuratedRecommendationsClient {
-    #[uniffi::constructor]
-    #[handle_error(Error)]
-    pub fn new(base_host: Option<String>, user_agent_header: String) -> ApiResult<Self> {
-        let base_host =
-            base_host.unwrap_or_else(|| "https://merino.services.mozilla.com".to_string());
+pub struct CuratedRecommendationsClientBuilder {
+    base_host: Option<String>,
+    user_agent_header: Option<String>,
+}
+
+impl Default for CuratedRecommendationsClientBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CuratedRecommendationsClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            base_host: None,
+            user_agent_header: None,
+        }
+    }
+
+    pub fn base_host(mut self, base_host: impl Into<String>) -> Self {
+        self.base_host = Some(base_host.into());
+        self
+    }
+
+    pub fn user_agent_header(mut self, user_agent_header: impl Into<String>) -> Self {
+        self.user_agent_header = Some(user_agent_header.into());
+        self
+    }
+
+    pub fn build(self) -> Result<CuratedRecommendationsClient> {
+        let user_agent_header = self.user_agent_header.ok_or_else(|| Error::Unexpected {
+            code: 0,
+            message: "user_agent_header must be provided".to_string(),
+        })?;
+
+        let base_host = self
+            .base_host
+            .unwrap_or_else(|| DEFAULT_BASE_HOST.to_string());
+
         let url = format!("{}/api/v1/curated-recommendations", base_host);
         let endpoint_url = Url::parse(&url)?;
 
-        Ok(Self {
+        Ok(CuratedRecommendationsClient {
             inner: CuratedRecommendationsClientInner::new()?,
             endpoint_url,
             user_agent_header,
         })
+    }
+}
+
+#[uniffi::export]
+impl CuratedRecommendationsClient {
+    #[uniffi::constructor]
+    #[handle_error(Error)]
+    pub fn new(config: CuratedRecommendationsConfig) -> ApiResult<Self> {
+        let mut builder =
+            CuratedRecommendationsClientBuilder::new().user_agent_header(config.user_agent_header);
+
+        if let Some(base_host) = config.base_host {
+            builder = builder.base_host(base_host);
+        }
+
+        builder.build()
     }
 
     #[handle_error(Error)]
@@ -213,6 +265,26 @@ mod tests {
         }
     }
 
+    struct FakeCapturingClient {
+        captured_url: std::sync::Arc<std::sync::Mutex<Option<Url>>>,
+    }
+
+    impl http::HttpClientTrait for FakeCapturingClient {
+        fn make_curated_recommendation_request(
+            &self,
+            _request: &CuratedRecommendationsRequest,
+            _user_agent_header: &str,
+            url: Url,
+        ) -> Result<CuratedRecommendationsResponse> {
+            let mut lock = self.captured_url.lock().unwrap();
+            *lock = Some(url);
+            Err(Error::Unexpected {
+                code: 999,
+                message: "test error".into(),
+            })
+        }
+    }
+
     #[test]
     fn test_get_curated_recommendations_success() {
         let fake_client = FakeHttpClientSuccess;
@@ -380,5 +452,100 @@ mod tests {
             }
             _ => panic!("Expected a bad request error"),
         }
+    }
+
+    #[test]
+    fn test_client_builder_with_default_base_host() {
+        let config = CuratedRecommendationsConfig {
+            base_host: None,
+            user_agent_header: "test-agent/1.0".to_string(),
+        };
+
+        let client = CuratedRecommendationsClient::new(config);
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_builder_uses_default_base_host_if_none_provided() {
+        let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let client_inner =
+            CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
+                captured_url: captured_url.clone(),
+            });
+
+        let config = CuratedRecommendationsConfig {
+            base_host: None,
+            user_agent_header: "agent/1.0".into(),
+        };
+
+        let builder =
+            CuratedRecommendationsClientBuilder::new().user_agent_header(config.user_agent_header);
+
+        let client = builder.build().unwrap();
+
+        let _ = client_inner.get_curated_recommendations(
+            &CuratedRecommendationsRequest {
+                locale: CuratedRecommendationLocale::EnUs,
+                region: None,
+                count: None,
+                topics: None,
+                feeds: None,
+                sections: None,
+                experiment_name: None,
+                experiment_branch: None,
+                enable_interest_picker: false,
+            },
+            &client.user_agent_header,
+            &client.endpoint_url,
+        );
+
+        let captured = captured_url.lock().unwrap();
+        assert_eq!(
+            captured.as_ref().unwrap().as_str(),
+            "https://merino.services.mozilla.com/api/v1/curated-recommendations"
+        );
+    }
+
+    #[test]
+    fn test_builder_uses_custom_base_host_if_provided() {
+        let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let client_inner =
+            CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
+                captured_url: captured_url.clone(),
+            });
+
+        let base_host = "https://my.custom.host";
+        let config = CuratedRecommendationsConfig {
+            base_host: Some(base_host.to_string()),
+            user_agent_header: "agent/1.0".into(),
+        };
+
+        let builder = CuratedRecommendationsClientBuilder::new()
+            .user_agent_header(config.user_agent_header)
+            .base_host(config.base_host.clone().unwrap());
+
+        let client = builder.build().unwrap();
+
+        let _ = client_inner.get_curated_recommendations(
+            &CuratedRecommendationsRequest {
+                locale: CuratedRecommendationLocale::EnUs,
+                region: None,
+                count: None,
+                topics: None,
+                feeds: None,
+                sections: None,
+                experiment_name: None,
+                experiment_branch: None,
+                enable_interest_picker: false,
+            },
+            &client.user_agent_header,
+            &client.endpoint_url,
+        );
+
+        let captured = captured_url.lock().unwrap();
+        assert_eq!(
+            captured.as_ref().unwrap().as_str(),
+            "https://my.custom.host/api/v1/curated-recommendations"
+        );
     }
 }

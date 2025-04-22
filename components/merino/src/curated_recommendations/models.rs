@@ -4,6 +4,13 @@
  */
 use serde::{Deserialize, Serialize};
 
+// Configuration options for initializing a `CuratedRecommendationsClient`
+#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Record)]
+pub struct CuratedRecommendationsConfig {
+    pub base_host: Option<String>,
+    pub user_agent_header: String,
+}
+
 // Locales supported by Merino Curated Recommendations
 #[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
 pub enum CuratedRecommendationLocale {

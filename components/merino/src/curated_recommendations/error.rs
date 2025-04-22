@@ -50,32 +50,18 @@ impl GetErrorHandling for Error {
                 })
                 .log_warning()
             }
-            Self::Validation { code, message } => {
+
+            Self::Validation { code, .. }
+            | Self::Server { code, .. }
+            | Self::Unexpected { code, .. }
+            | Self::BadRequest { code, .. } => {
                 ErrorHandling::convert(CuratedRecommendationsApiError::Other {
                     code: Some(*code),
-                    reason: format!("Validation error: {}", message),
+                    reason: self.to_string(),
                 })
-                .report_error("merino-validation")
+                .report_error("merino-http-error")
             }
-            Self::Server { code, message } => {
-                ErrorHandling::convert(CuratedRecommendationsApiError::Other {
-                    code: Some(*code),
-                    reason: format!("Server error: {}", message),
-                })
-            }
-            Self::Unexpected { code, message } => {
-                ErrorHandling::convert(CuratedRecommendationsApiError::Other {
-                    code: Some(*code),
-                    reason: format!("Unexpected error: {}", message),
-                })
-                .report_error("merino-unexpected")
-            }
-            Self::BadRequest { code, message } => {
-                ErrorHandling::convert(CuratedRecommendationsApiError::Other {
-                    code: Some(*code),
-                    reason: format!("Bad request: {}", message),
-                })
-            }
+
             _ => ErrorHandling::convert(CuratedRecommendationsApiError::Other {
                 code: None,
                 reason: self.to_string(),
