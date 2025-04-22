@@ -90,7 +90,10 @@ fn main() -> Result<()> {
         Commands::Get {
             collection,
             sync_if_empty,
-        } => get_records(service, collection, sync_if_empty),
+        } => {
+            get_records(service, collection, sync_if_empty);
+            Ok(())
+        }
         Commands::DumpSync { path, dry_run } => {
             let downloader = CollectionDownloader::new(path);
             let runtime = tokio::runtime::Runtime::new()?;
@@ -130,18 +133,14 @@ fn sync(service: RemoteSettingsService, collections: Vec<String>) -> Result<()> 
     // Create a bunch of clients so that sync() syncs their collections
     let _clients = collections
         .into_iter()
-        .map(|collection| Ok(service.make_client(collection)?))
-        .collect::<Result<Vec<_>>>()?;
+        .map(|collection| service.make_client(collection))
+        .collect::<Vec<_>>();
     service.sync()?;
     Ok(())
 }
 
-fn get_records(
-    service: RemoteSettingsService,
-    collection: String,
-    sync_if_empty: bool,
-) -> Result<()> {
-    let client = service.make_client(collection)?;
+fn get_records(service: RemoteSettingsService, collection: String, sync_if_empty: bool) {
+    let client = service.make_client(collection);
     match client.get_records(sync_if_empty) {
         Some(records) => {
             for record in records {
@@ -150,5 +149,4 @@ fn get_records(
         }
         None => println!("No cached records"),
     }
-    Ok(())
 }

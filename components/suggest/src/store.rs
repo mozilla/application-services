@@ -122,7 +122,7 @@ impl SuggestStoreBuilder {
             inner: SuggestStoreInner::new(
                 data_path,
                 extensions_to_load,
-                SuggestRemoteSettingsClient::new(&rs_service)?,
+                SuggestRemoteSettingsClient::new(&rs_service),
             ),
         }))
     }
@@ -176,16 +176,12 @@ pub struct SuggestStore {
 #[uniffi::export]
 impl SuggestStore {
     /// Creates a Suggest store.
-    #[handle_error(Error)]
     #[uniffi::constructor()]
-    pub fn new(
-        path: &str,
-        remote_settings_service: Arc<RemoteSettingsService>,
-    ) -> SuggestApiResult<Self> {
-        let client = SuggestRemoteSettingsClient::new(&remote_settings_service)?;
-        Ok(Self {
+    pub fn new(path: &str, remote_settings_service: Arc<RemoteSettingsService>) -> Self {
+        let client = SuggestRemoteSettingsClient::new(&remote_settings_service);
+        Self {
             inner: SuggestStoreInner::new(path.to_owned(), vec![], client),
-        })
+        }
     }
 
     /// Queries the database for suggestions.

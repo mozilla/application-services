@@ -38,7 +38,11 @@ text, the list view has been slimmed down and a detail view has been added.
 ## ⚠️ Breaking Changes ⚠️
 
 ### Remote Settings
-- The `RemoteSettingsService` constructor is now infallible, which is a breaking change for Swift code.
+- Several methods `RemoteSettingsService` are now infallible, which is a breaking change for Swift code.
+    - `RemoteSettingsService` constructor
+    - `RemoteSettingsService::make_client()`
+    - `SearchEngineSelector::use_remote_settings_server()`
+    - `SuggestStore` constructor
 
 ### OHTTP Client
 - The now-unused `as-ohttp-client` component is now removed. It was previously
