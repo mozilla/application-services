@@ -445,11 +445,10 @@ def cargo_fmt(package=None, fix_issues=False):
 def swift_format():
     swift_format_args = [
         "megazords",
-        "components/*/ios",
         "--exclude",
         "**/Generated",
         "--exclude",
-        "components/nimbus/ios/Nimbus/Utils",
+        "megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Nimbus/Utils",
         "--lint",
         "--swiftversion",
         "5",
