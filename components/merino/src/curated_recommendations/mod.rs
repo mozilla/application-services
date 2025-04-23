@@ -27,15 +27,10 @@ struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
     http_client: T,
 }
 
+#[derive(Default)]
 pub struct CuratedRecommendationsClientBuilder {
     base_host: Option<String>,
     user_agent_header: Option<String>,
-}
-
-impl Default for CuratedRecommendationsClientBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl CuratedRecommendationsClientBuilder {
