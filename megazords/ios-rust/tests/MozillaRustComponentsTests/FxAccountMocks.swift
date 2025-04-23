@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
-@testable import MozillaTestServices
+@testable import MozillaRustComponentsWrapper
 
 // Arrays are not thread-safe in Swift.
 let queue = DispatchQueue(label: "InvocationsArrayQueue")

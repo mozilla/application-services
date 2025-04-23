@@ -28,9 +28,12 @@ enum TelemetryReportingError: Error {
 func processSyncTelemetry(syncTelemetry: RustSyncTelemetryPing,
                           submitGlobalPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.sync.submit,
                           submitHistoryPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.historySync.submit,
-                          submitBookmarksPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.bookmarksSync.submit,
-                          submitLoginsPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.loginsSync.submit,
-                          submitCreditCardsPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.creditcardsSync.submit,
+                          submitBookmarksPing: (NoReasonCodes?) -> Void
+                              = GleanMetrics.Pings.shared.bookmarksSync.submit,
+                          submitLoginsPing: (NoReasonCodes?) -> Void
+                              = GleanMetrics.Pings.shared.loginsSync.submit,
+                          submitCreditCardsPing: (NoReasonCodes?) -> Void
+                              = GleanMetrics.Pings.shared.creditcardsSync.submit,
                           submitTabsPing: (NoReasonCodes?) -> Void = GleanMetrics.Pings.shared.tabsSync.submit) throws
 {
     for syncInfo in syncTelemetry.syncs {
