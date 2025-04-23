@@ -68,7 +68,7 @@ def get_loc_summary(path):
             path,
         ],
         stdout=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
         check=False,
     )
     p.check_returncode()

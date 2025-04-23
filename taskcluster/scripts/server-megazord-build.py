@@ -145,7 +145,7 @@ def _patch_uniffi_tomls():
 
 
 def _replace_text(filename, search, replace):
-    with open(filename, "r") as file:
+    with open(filename) as file:
         data = file.read()
     data = data.replace(search, replace)
     with open(filename, "w") as file:

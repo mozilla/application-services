@@ -29,7 +29,7 @@ def dump_json(args):
     dir = os.path.dirname(args.path)
     if not os.path.exists(dir):
         os.makedirs(dir)
-    with open(args.path, "wt") as f:
+    with open(args.path, "w") as f:
         json.dump(data, f)
 
 

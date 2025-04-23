@@ -59,7 +59,7 @@ def get_app_services_rev():
 
 def update_cargo_toml(cargo_toml_path, app_services_rev):
     print(f"Updating application-services revision to {app_services_rev}")
-    with open(cargo_toml_path, "r") as f:
+    with open(cargo_toml_path) as f:
         lines = f.readlines()
         for i in range(len(lines)):
             line = lines[i]

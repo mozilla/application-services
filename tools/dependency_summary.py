@@ -904,7 +904,6 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/dtolnay/unicode-ident/master/LICENSE-APACHE",
         },
     },
-
     "xshell-macros": {
         "license": {
             "check": "MIT OR Apache-2.0",
@@ -959,7 +958,7 @@ def subprocess_run_cargo(args):
         ("cargo",) + args,
         env=env,
         stdout=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
         check=False,
     )
     p.check_returncode()
@@ -975,7 +974,7 @@ def get_workspace_metadata():
     )
 
 
-class WorkspaceMetadata(object):
+class WorkspaceMetadata:
     """Package metadata for all dependencies in the workspace.
 
     This uses `cargo metadata` to load the complete set of package metadata for the dependency tree
@@ -1192,9 +1191,7 @@ class WorkspaceMetadata(object):
             if license in licenses:
                 return license
         raise RuntimeError(
-            "Could not determine acceptable license for {}; license is '{}'".format(
-                id, licenseId
-            )
+            f"Could not determine acceptable license for {id}; license is '{licenseId}'"
         )
 
     def _find_license_file(self, id, license, pkgInfo):
@@ -1222,7 +1219,7 @@ class WorkspaceMetadata(object):
                 pkgInfo["name"]
             )
             err += "Please select the correct license file and add it to `PACKAGE_METADATA_FIXUPS`.\n"
-            err += "Potential license files: {}".format(foundLicenseFiles)
+            err += f"Potential license files: {foundLicenseFiles}"
         else:
             err = "Could not find license file for '{}'.\n".format(pkgInfo["name"])
             err += "Please locate the correct license file and add it to `PACKAGE_METADATA_FIXUPS`.\n"
@@ -1288,10 +1285,8 @@ class WorkspaceMetadata(object):
         if licenseUrl is None:
             err = "Could not infer license URL for '{}'.\n".format(pkgInfo["name"])
             err += "Please locate the correct license URL and add it to `PACKAGE_METADATA_FIXUPS`.\n"
-            err += "You may need to poke around in the source repository at {}".format(
-                repo
-            )
-            err += " for a {} license file named {}.".format(chosenLicense, licenseFile)
+            err += f"You may need to poke around in the source repository at {repo}"
+            err += f" for a {chosenLicense} license file named {licenseFile}."
             raise RuntimeError(err)
         # As a special case, convert raw github URLs back into human-friendly page URLs.
         if licenseUrl.startswith("https://raw.githubusercontent.com/"):
@@ -1314,7 +1309,7 @@ def make_license_title(license, deps=None):
     elif license == "Apache-2.0":
         title = "Apache License 2.0"
     else:
-        title = "{} License".format(license)
+        title = f"{license} License"
     if deps:
         # Dedupe in case of multiple versions of dependencies
         names = sorted(set(d["name"] for d in deps))
@@ -1560,7 +1555,7 @@ if __name__ == "__main__":
     if args.check:
         output.seek(0)
         outlines = output.readlines()
-        with open(args.check, "r") as f:
+        with open(args.check) as f:
             checklines = f.readlines()
             if outlines != checklines:
                 raise RuntimeError(
