@@ -29,7 +29,7 @@ CHANGELOG_FILE = "CHANGELOG.md"
 moz_remote = get_moz_remote()
 
 # 2. Figure out the current version
-with open(VERSION_FILE, "r") as stream:
+with open(VERSION_FILE) as stream:
     cur_version = stream.read().strip()
 
 major_version_number = int(cur_version.split(".")[0])
@@ -59,7 +59,7 @@ with open(VERSION_FILE, "w") as stream:
     stream.write(new_version)
 
 step_msg(f"updating {CHANGELOG_FILE}")
-with open(CHANGELOG_FILE, "r") as stream:
+with open(CHANGELOG_FILE) as stream:
     changelog = stream.read().splitlines()
 
 if changelog[0] != f"# v{major_version_number}.0 (In progress)":

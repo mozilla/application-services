@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-from pipes import quote as shell_quote
+from shlex import quote as shell_quote
 
 from taskgraph.transforms.run import configure_taskdesc_for_run, run_task_using
 from taskgraph.util.schema import Schema, taskref_or_string

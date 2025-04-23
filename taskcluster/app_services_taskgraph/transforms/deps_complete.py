@@ -71,8 +71,8 @@ def add_alert_routes(config, tasks):
         task.setdefault("routes", [])
         for name, value in alerts.items():
             if name not in ("slack-channel", "email", "pulse", "matrix-room"):
-                raise KeyError("Unknown alert type: {}".format(name))
-            task["routes"].append("notify.{}.{}.on-failed".format(name, value))
+                raise KeyError(f"Unknown alert type: {name}")
+            task["routes"].append(f"notify.{name}.{value}.on-failed")
         yield task
 
 

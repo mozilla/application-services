@@ -44,13 +44,9 @@ def publications_to_artifact_map_paths(
             artifact_filename = _artifact_filename(publication_name, version, extension)
             if preview_build is not None:
                 # Both nightly and other preview builds are places in separate directory
-                destination = "maven2/org/mozilla/appservices/nightly/{}/{}/{}".format(
-                    publication_name, version, artifact_filename
-                )
+                destination = f"maven2/org/mozilla/appservices/nightly/{publication_name}/{version}/{artifact_filename}"
             else:
-                destination = "maven2/org/mozilla/appservices/{}/{}/{}".format(
-                    publication_name, version, artifact_filename
-                )
+                destination = f"maven2/org/mozilla/appservices/{publication_name}/{version}/{artifact_filename}"
             build_map_paths[f"public/build/{artifact_filename}"] = {
                 "checksums_path": "",  # XXX beetmover marks this as required, but it's not needed
                 "destinations": [destination],

@@ -3,7 +3,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import print_function
 
 import os
 import shutil
@@ -19,7 +18,7 @@ MAX_RETRIES = 5
 
 def upload_symbols(zip_file, token_file):
     print(
-        "Uploading symbols file '{0}' to '{1}'".format(zip_file, DEFAULT_SYMBOL_URL),
+        f"Uploading symbols file '{zip_file}' to '{DEFAULT_SYMBOL_URL}'",
         file=sys.stdout,
     )
     zip_name = os.path.basename(zip_file)
@@ -28,7 +27,7 @@ def upload_symbols(zip_file, token_file):
     # already that communication with Taskcluster to get the credentials for
     # communicating with the server
     auth_token = ""
-    with open(token_file, "r") as f:
+    with open(token_file) as f:
         auth_token = f.read().strip()
     if len(auth_token) == 0:
         print("Failed to get the symbol token.", file=sys.stderr)
@@ -51,15 +50,15 @@ def upload_symbols(zip_file, token_file):
                 # has to fetch the entire zip file, which can take a while. The load balancer
                 # in front of symbols.mozilla.org has a 300 second timeout, so we'll use that.
                 timeout=(10, 300),
-                **zip_arg
+                **zip_arg,
             )
             # 500 is likely to be a transient failure.
             # Break out for success or other error codes.
             if r.status_code < 500:
                 break
-            print("Error: {0}".format(r), file=sys.stderr)
+            print(f"Error: {r}", file=sys.stderr)
         except requests.exceptions.RequestException as e:
-            print("Error: {0}".format(e), file=sys.stderr)
+            print(f"Error: {e}", file=sys.stderr)
         print("Retrying...", file=sys.stdout)
     else:
         print("Maximum retries hit, giving up!", file=sys.stderr)
@@ -69,7 +68,7 @@ def upload_symbols(zip_file, token_file):
         print("Uploaded successfully", file=sys.stdout)
         return True
 
-    print("Upload symbols failed: {0}".format(r), file=sys.stderr)
+    print(f"Upload symbols failed: {r}", file=sys.stderr)
     print(r.text, file=sys.stderr)
     return False
 

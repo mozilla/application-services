@@ -51,7 +51,7 @@ def get_version_from_version_txt():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     project_dir = os.path.realpath(os.path.join(current_dir, "..", ".."))
 
-    with open(os.path.join(project_dir, "version.txt"), "r") as f:
+    with open(os.path.join(project_dir, "version.txt")) as f:
         return f.read().strip()
 
 
@@ -62,9 +62,7 @@ def get_extensions(module_name):
         artifact_type = publication["type"]
         if artifact_type not in EXTENSIONS:
             raise ValueError(
-                "For '{}', 'publication->type' must be one of {}".format(
-                    module_name, repr(EXTENSIONS.keys())
-                )
+                f"For '{module_name}', 'publication->type' must be one of {repr(EXTENSIONS.keys())}"
             )
         extensions[publication["name"]] = [
             extension + checksum_extension

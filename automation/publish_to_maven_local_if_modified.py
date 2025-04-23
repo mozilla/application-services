@@ -10,9 +10,9 @@
 import argparse
 import hashlib
 import os
+import shutil
 import sys
 import time
-import shutil
 
 from shared import fatal_err, find_app_services_root, run_cmd_checked
 

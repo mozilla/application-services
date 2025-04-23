@@ -21,7 +21,6 @@
 #     -s <srcdir>  : Use <srcdir> as the top source directory to
 #                    generate relative filenames.
 
-from __future__ import print_function
 
 import ctypes
 import errno
@@ -441,7 +440,7 @@ class Dumper:
     def dump_syms_extra_info(self):
         return [
             "--extra-info",
-            "VERSION {}".format(get_version(self.srcdirs)),
+            f"VERSION {get_version(self.srcdirs)}",
             "--extra-info",
             "PRODUCTNAME ApplicationServices",
         ]

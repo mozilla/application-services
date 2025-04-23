@@ -65,13 +65,13 @@ IGNORE_PATHS = set(
 def blue_text(text):
     if not sys.stdout.isatty():
         return text
-    return "\033[96m{}\033[0m".format(text)
+    return f"\033[96m{text}\033[0m"
 
 
 def yellow_text(text):
     if not sys.stdout.isatty():
         return text
-    return "\033[93m{}\033[0m".format(text)
+    return f"\033[93m{text}\033[0m"
 
 
 def get_output(cmdline, **kwargs):
@@ -316,7 +316,7 @@ def touch_changed_paths(branch_changes):
 
 
 def print_rust_environment():
-    print("platform: {}".format(platform.uname()))
+    print(f"platform: {platform.uname()}")
     print("rustc version: {}".format(get_output(["rustc", "--version"]).strip()))
     print("cargo version: {}".format(get_output(["cargo", "--version"]).strip()))
     print("rustfmt version: {}".format(get_output(["rustfmt", "--version"]).strip()))
@@ -498,15 +498,15 @@ class Step:
 
     def run(self):
         print()
-        print(blue_text("Running {}".format(self.name)))
+        print(blue_text(f"Running {self.name}"))
         try:
             self.func(*self.args, **self.kwargs)
         except subprocess.CalledProcessError:
-            exit_with_error(1, "Error while running {}".format(self.name))
+            exit_with_error(1, f"Error while running {self.name}")
         except Exception:
             exit_with_error(
                 2,
-                "Unexpected exception while running {}".format(self.name),
+                f"Unexpected exception while running {self.name}",
                 print_exception=True,
             )
 
@@ -528,7 +528,7 @@ def calc_steps(args):
         for package, features in calc_rust_items():
             if should_run_rust_tests(package, False):
                 yield Step(
-                    "tests for {} ({})".format(package.name, features.label()),
+                    f"tests for {package.name} ({features.label()})",
                     run_rust_test,
                     package,
                     features,
@@ -539,7 +539,7 @@ def calc_steps(args):
         for package, features in calc_rust_items():
             if should_run_rust_tests(package, True):
                 yield Step(
-                    "tests for {} ({})".format(package.name, features.label()),
+                    f"tests for {package.name} ({features.label()})",
                     run_rust_test,
                     package,
                     features,
@@ -549,7 +549,7 @@ def calc_steps(args):
         yield Step("cargo clean", cargo_clean)
         for package, features in calc_rust_items():
             yield Step(
-                "clippy for {} ({})".format(package.name, features.label()),
+                f"clippy for {package.name} ({features.label()})",
                 run_clippy,
                 package,
                 features,
@@ -558,7 +558,7 @@ def calc_steps(args):
         # make sure they don't go stale.
         for package, features in calc_non_workspace_rust_items():
             yield Step(
-                "clippy for {} ({})".format(package.name, features.label()),
+                f"clippy for {package.name} ({features.label()})",
                 run_clippy,
                 package,
                 features,
@@ -582,7 +582,7 @@ def calc_steps(args):
     elif args.mode == "python-tests":
         yield Step("python tests", run_python_tests)
     else:
-        print("Invalid mode: {}".format(args.mode))
+        print(f"Invalid mode: {args.mode}")
         sys.exit(1)
 
 
@@ -614,22 +614,20 @@ def calc_steps_change_mode(args):
     yield Step("touch changed paths", touch_changed_paths, branch_changes)
     for package, features in rust_items:
         yield Step(
-            "tests for {} ({})".format(package.name, features.label()),
+            f"tests for {package.name} ({features.label()})",
             run_rust_test,
             package,
             features,
         )
     for package, features in rust_items:
         yield Step(
-            "clippy for {} ({})".format(package.name, features.label()),
+            f"clippy for {package.name} ({features.label()})",
             run_clippy,
             package,
             features,
         )
     for package in rust_packages:
-        yield Step(
-            "rustfmt for {}".format(package.name), cargo_fmt, package, fix_issues=True
-        )
+        yield Step(f"rustfmt for {package.name}", cargo_fmt, package, fix_issues=True)
     yield Step("Check for changes", check_for_fmt_changes, branch_changes)
 
 
