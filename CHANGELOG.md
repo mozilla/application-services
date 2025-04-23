@@ -5,11 +5,12 @@
 ## 🦊 What's Changed 🦊
 
 ### Android
+- Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 - Updated to a newer version of Android Components (`139.0.20250417022706`).
 - Upgraded NDK from r28 to r28b. ([#6723](https://github.com/mozilla/application-services/pull/6723))
 
 ### Glean
-- Updated to v64.0.0 ([#6649](https://github.com/mozilla/application-services/pull/6649))
+- Updated to v64.1.1 ([#6649](https://github.com/mozilla/application-services/pull/6649))/([#6723](https://github.com/mozilla/application-services/pull/6723))
 
 ### Logins
 - New `NSSKeyManager`, which provides an NSS-backed key manager implementation.
@@ -28,9 +29,6 @@ text, the list view has been slimmed down and a detail view has been added.
 ([#6685](https://github.com/mozilla/application-services/pull/6685c))
 
 - Added a function to locally remove corrupted logins. ([#6667](https://github.com/mozilla/application-services/pull/6667))
-
-### Android
-- Upgraded the JNA dependency version to 5.17.0. ([#6649](https://github.com/mozilla/application-services/pull/6649))
 
 ### Remote Settings
 - The `RemoteSettingsService` constructor and `RemoteSettingsService::make_client` no longer perform any IO.
