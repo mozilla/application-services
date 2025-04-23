@@ -224,7 +224,7 @@ public class OutgoingInfo {
     static func fromJSONArray(jsonArray: [[String: Any]]) -> [OutgoingInfo] {
         var result = [OutgoingInfo]()
 
-        for (_, item) in jsonArray.enumerated() {
+        for item in jsonArray {
             result.append(fromJSON(jsonObject: item))
         }
 
@@ -288,7 +288,7 @@ public class ProblemInfo {
     static func fromJSONArray(jsonArray: [[String: Any]]) throws -> [ProblemInfo] {
         var result = [ProblemInfo]()
 
-        for (_, item) in jsonArray.enumerated() {
+        for item in jsonArray {
             try result.append(fromJSON(jsonObject: item))
         }
 
@@ -379,7 +379,7 @@ public class EventInfo {
     static func fromJSONArray(jsonArray: [[String: Any]]) throws -> [EventInfo] {
         var result = [EventInfo]()
 
-        for (_, item) in jsonArray.enumerated() {
+        for item in jsonArray {
             try result.append(fromJSON(jsonObject: item))
         }
 
