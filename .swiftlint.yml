@@ -1,19 +1,18 @@
 included: # paths to include during linting. `--path` is ignored if present.
-  - megazords
-  - components/places/ios
-  - components/support/ios
-  - components/logins/ios
-  - components/fxa-client/ios
-  - components/nimbus/ios
+  - "megazords/ios-rust/Sources"
+
 excluded:
   # We no longer use carthage. However, some developers might still
   # have the Carthage directory in their local environment. It will
   # create linting noise if we don't exclude it.
   - Carthage
   - "**/*/ios/Generated"
-  - "megazords/ios/MozillaAppServicesTests"
-  - "megazords/ios-rust/MozillaTestServices/MozillaTestServicesTests"
-  - "megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated"
+  - "megazords/ios-rust/tests"
+  - "megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated"
+  # Sync manager wasn't added to the swiftlint checks before and didn't want to
+  # break APIs during the xcodeproj migration, so ignoring for now but we should
+  # eventually fix
+  - "megazords/ios-rust/Sources/MozillaRustComponentsWrapper/SyncManager"
 
 disabled_rules:
   - file_length
@@ -38,3 +37,5 @@ identifier_name:
   min_length:
     warning: 0
     error: 0
+  # Turn off complaining about having _ in variable names
+  allowed_symbols: "_"

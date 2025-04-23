@@ -12,16 +12,16 @@ from collections import namedtuple
 # Repository root dir
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 
+WRAPPER_DIR = pathlib.Path("megazords/ios-rust/Sources/MozillaRustComponentsWrapper/")
 # List of globs to copy the sources from
 SOURCE_TO_COPY = [
-    "components/nimbus/ios/Nimbus",
-    "components/fxa-client/ios/FxAClient",
-    "components/logins/ios/Logins",
-    "components/tabs/ios/Tabs",
-    "components/places/ios/Places",
-    "components/sync15/ios/Sync15",
-    "components/sync_manager/ios/SyncManager",
-    "components/viaduct/ios/*",
+    WRAPPER_DIR / "Nimbus",
+    WRAPPER_DIR / "FxAClient",
+    WRAPPER_DIR / "Logins",
+    WRAPPER_DIR / "Places",
+    WRAPPER_DIR / "Sync15",
+    WRAPPER_DIR / "SyncManager",
+    WRAPPER_DIR / "Viaduct",
 ]
 
 # List of udl_paths to generate bindings for
@@ -190,7 +190,7 @@ def copy_sources(out_dir, sources):
     ensure_dir(out_dir)
     for source in sources:
         log(f"copying {source}")
-        for path in ROOT_DIR.glob(source):
+        for path in ROOT_DIR.glob(str(source)):
             subprocess.check_call(["cp", "-r", path, out_dir])
 
 
