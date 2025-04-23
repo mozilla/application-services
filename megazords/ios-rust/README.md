@@ -59,13 +59,17 @@ For details on adding new crates, [checkout the documentation for adding new spm
 
 
 ## Testing local Rust changes
-For testing changes against our project's test suite, you'll need to:
-* Run `./build-xcframework.sh` to build the XCFramework bundle.
+For testing changes against our internal test suites:
 
->Note: You only need to do this if the underlying rust code changes, if you're just changing *.swift code. You don't need to rebuild!
-* Test the changes either via Xcode or command line:
-  - Xcode: `open megazords/ios-rust/MozillaTestServices.xcodeproj`
-  - Command line: `./automation/run_ios_tests.sh`
+> If you've made rust changes:
+1. Run `./automation/run_ios_tests.sh`
+   - This will generate the XCFramework, which makes the rust binaries, generates the uniffi and generates glean metrics
+   - It will then run all tests found in `megazords/ios-rust/tests/MozillaRustComponentsTests`
+
+> If you've only made swift changes:
+1. Run `./automation/run_ios_tests.sh --test-only`
+
+
 ## Testing local changes for consumers
 
 See the following documents for testing local changes in consumers:
