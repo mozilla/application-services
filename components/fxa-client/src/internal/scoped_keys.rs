@@ -71,6 +71,7 @@ mod tests {
 
     #[test]
     fn test_flow() {
+        nss::ensure_initialized();
         let x = URL_SAFE_NO_PAD
             .decode("ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU")
             .unwrap();
