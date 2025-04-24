@@ -238,21 +238,30 @@ impl SuggestDao<'_> {
                 continue;
             };
 
-            let candidate = candidate_chunk.join(" ");
+            let mut candidate = candidate_chunk.join(" ");
 
-            if self.conn.query_row_and_then_cachable(
-                "
-                SELECT EXISTS (
-                    SELECT 1 FROM yelp_modifiers WHERE type = :type AND keyword = :word LIMIT 1
-                )
-                ",
+            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+                if n == query_words.len() {
+                    "
+                    SELECT keyword FROM yelp_modifiers
+                    WHERE type = :type AND keyword BETWEEN :word AND :word || x'FFFF'
+                    LIMIT 1
+                    "
+                } else {
+                    "
+                    SELECT keyword FROM yelp_modifiers
+                    WHERE type = :type AND keyword = :word
+                    LIMIT 1
+                    "
+                },
                 named_params! {
                     ":type": modifier_type,
                     ":word": candidate.to_lowercase(),
                 },
-                |row| row.get::<_, bool>(0),
                 true,
             )? {
+                // Preserve the query as the user typed it including its case.
+                candidate.push_str(keyword_lowercase.get(candidate.len()..).unwrap_or_default());
                 return Ok(Some((candidate, rest)));
             }
         }
@@ -353,20 +362,29 @@ impl SuggestDao<'_> {
                 continue;
             };
 
-            let candidate = candidate_chunk.join(" ");
+            let mut candidate = candidate_chunk.join(" ");
 
-            if self.conn.query_row_and_then_cachable(
-                "
-                SELECT EXISTS (
-                    SELECT 1 FROM yelp_location_signs WHERE keyword = :word LIMIT 1
-                )
-                ",
+            if let Some(keyword_lowercase) = self.conn.try_query_one::<String, _>(
+                if n == query_words.len() {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword BETWEEN :word AND :word || x'FFFF'
+                    LIMIT 1
+                    "
+                } else {
+                    "
+                    SELECT keyword FROM yelp_location_signs
+                    WHERE keyword = :word
+                    LIMIT 1
+                    "
+                },
                 named_params! {
                     ":word": candidate.to_lowercase(),
                 },
-                |row| row.get::<_, bool>(0),
                 true,
             )? {
+                // Preserve the query as the user typed it including its case.
+                candidate.push_str(keyword_lowercase.get(candidate.len()..).unwrap_or_default());
                 return Ok(Some((candidate, rest)));
             }
         }
@@ -513,9 +531,24 @@ mod tests {
                 ("", Modifier::Post, FindFrom::First, None),
                 ("", Modifier::Yelp, FindFrom::First, None),
                 // Single word modifier.
-                ("b", Modifier::Pre, FindFrom::First, None),
-                ("be", Modifier::Pre, FindFrom::First, None),
-                ("bes", Modifier::Pre, FindFrom::First, None),
+                (
+                    "b",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("best".to_string(), &[])),
+                ),
+                (
+                    "be",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("best".to_string(), &[])),
+                ),
+                (
+                    "bes",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("best".to_string(), &[])),
+                ),
                 (
                     "best",
                     Modifier::Pre,
@@ -572,10 +605,42 @@ mod tests {
                 ),
                 ("same_modifier", Modifier::Yelp, FindFrom::First, None),
                 // Multiple word modifier.
-                ("super", Modifier::Pre, FindFrom::First, None),
-                ("super b", Modifier::Pre, FindFrom::First, None),
-                ("super be", Modifier::Pre, FindFrom::First, None),
-                ("super bes", Modifier::Pre, FindFrom::First, None),
+                (
+                    "s",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("same_modifier".to_string(), &[])),
+                ),
+                (
+                    "su",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("super best".to_string(), &[])),
+                ),
+                (
+                    "super",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("super best".to_string(), &[])),
+                ),
+                (
+                    "super b",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("super best".to_string(), &[])),
+                ),
+                (
+                    "super be",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("super best".to_string(), &[])),
+                ),
+                (
+                    "super bes",
+                    Modifier::Pre,
+                    FindFrom::First,
+                    Some(("super best".to_string(), &[])),
+                ),
                 (
                     "super best",
                     Modifier::Pre,
@@ -626,6 +691,9 @@ mod tests {
                     FindFrom::Last,
                     Some(("DeLiVeRy".to_string(), &["SpIcY", "rAmEn"])),
                 ),
+                // Prefix match is available only for last words.
+                ("be ramen", Modifier::Pre, FindFrom::First, None),
+                ("bes ramen", Modifier::Pre, FindFrom::First, None),
             ];
             for (query, modifier, findfrom, expected) in find_modifer_tests {
                 assert_eq!(
@@ -675,14 +743,16 @@ mod tests {
             let find_location_sign_tests: &[FindLocationSignTestCase] = &[
                 // Query, Expected result.
                 ("", None),
-                ("n", None),
-                ("ne", None),
-                ("nea", None),
+                ("n", Some(("near".to_string(), &[]))),
+                ("ne", Some(("near".to_string(), &[]))),
+                ("nea", Some(("near".to_string(), &[]))),
                 ("near", Some(("near".to_string(), &[]))),
                 ("near ", Some(("near".to_string(), &[]))),
-                ("near b", Some(("near".to_string(), &["b"]))),
+                ("near b", Some(("near by".to_string(), &[]))),
                 ("near by", Some(("near by".to_string(), &[]))),
                 ("near by a", Some(("near by".to_string(), &["a"]))),
+                // Prefix match is available only for last words.
+                ("nea r", None),
             ];
             for (query, expected) in find_location_sign_tests {
                 assert_eq!(
