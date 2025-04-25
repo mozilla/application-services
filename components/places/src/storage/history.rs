@@ -1425,6 +1425,32 @@ pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Resu
     Ok(count)
 }
 
+pub fn get_visit_count_for_host(
+    db: &PlacesDb,
+    host: &str,
+    before: Timestamp,
+    exclude_types: VisitTransitionSet,
+) -> Result<i64> {
+    let allowed_types = exclude_types.complement();
+    let count = db.query_row_and_then_cachable(
+        "SELECT COUNT(*)
+        FROM moz_historyvisits
+        JOIN moz_places ON moz_places.id = moz_historyvisits.place_id
+        JOIN moz_origins ON moz_origins.id = moz_places.origin_id
+        WHERE moz_origins.host = :host
+          AND visit_date < :before
+          AND ((1 << visit_type) & :allowed_types) != 0",
+        rusqlite::named_params! {
+            ":host": host,
+            ":before": before,
+            ":allowed_types": allowed_types,
+        },
+        |r| r.get(0),
+        true,
+    )?;
+    Ok(count)
+}
+
 pub fn get_visit_page(
     db: &PlacesDb,
     offset: i64,
@@ -3438,6 +3464,122 @@ mod tests {
                 .iter()
                 .map(|v| v.page_id)
                 .collect::<HashSet<_>>()
+        );
+    }
+
+    #[test]
+    fn test_get_visit_count_for_host() {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+        let start_timestamp = Timestamp::now();
+        let to_add = [
+            (
+                "http://example.com/0",
+                start_timestamp.0 - 200_200,
+                VisitType::Link,
+            ),
+            (
+                "http://example.com/1",
+                start_timestamp.0 - 200_100,
+                VisitType::Link,
+            ),
+            (
+                "https://example.com/0",
+                start_timestamp.0 - 200_000,
+                VisitType::Link,
+            ),
+            (
+                "https://example1.com/0",
+                start_timestamp.0 - 100_600,
+                VisitType::Link,
+            ),
+            (
+                "https://example1.com/0",
+                start_timestamp.0 - 100_500,
+                VisitType::Reload,
+            ),
+            (
+                "https://example1.com/1",
+                start_timestamp.0 - 100_400,
+                VisitType::Link,
+            ),
+            (
+                "https://example.com/2",
+                start_timestamp.0 - 100_300,
+                VisitType::Link,
+            ),
+            (
+                "https://example.com/1",
+                start_timestamp.0 - 100_200,
+                VisitType::Link,
+            ),
+            (
+                "https://example.com/0",
+                start_timestamp.0 - 100_100,
+                VisitType::Link,
+            ),
+        ];
+
+        for &(url, when, visit_type) in &to_add {
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse(url).unwrap())
+                    .with_at(Timestamp(when))
+                    .with_visit_type(visit_type),
+            )
+            .unwrap()
+            .unwrap();
+        }
+
+        assert_eq!(
+            get_visit_count_for_host(
+                &conn,
+                "example.com",
+                Timestamp(start_timestamp.0 - 100_000),
+                VisitTransitionSet::for_specific(&[])
+            )
+            .unwrap(),
+            6
+        );
+        assert_eq!(
+            get_visit_count_for_host(
+                &conn,
+                "example1.com",
+                Timestamp(start_timestamp.0 - 100_000),
+                VisitTransitionSet::for_specific(&[])
+            )
+            .unwrap(),
+            3
+        );
+        assert_eq!(
+            get_visit_count_for_host(
+                &conn,
+                "example.com",
+                Timestamp(start_timestamp.0 - 200_000),
+                VisitTransitionSet::for_specific(&[])
+            )
+            .unwrap(),
+            2
+        );
+        assert_eq!(
+            get_visit_count_for_host(
+                &conn,
+                "example1.com",
+                Timestamp(start_timestamp.0 - 100_500),
+                VisitTransitionSet::for_specific(&[])
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            get_visit_count_for_host(
+                &conn,
+                "example1.com",
+                Timestamp(start_timestamp.0 - 100_000),
+                VisitTransitionSet::for_specific(&[VisitType::Reload])
+            )
+            .unwrap(),
+            2
         );
     }
 }

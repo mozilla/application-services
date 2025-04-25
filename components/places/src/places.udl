@@ -98,6 +98,9 @@ interface PlacesConnection {
     i64 get_visit_count(VisitTransitionSet exclude_types);
 
     [Throws=PlacesApiError]
+    i64 get_visit_count_for_host(string host, PlacesTimestamp before, VisitTransitionSet exclude_types);
+
+    [Throws=PlacesApiError]
     sequence<HistoryVisitInfo> get_visit_page(i64 offset, i64 count, VisitTransitionSet exclude_types);
     // TODO: bound should be a `PlacesTimestamp`?
     [Throws=PlacesApiError]
