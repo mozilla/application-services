@@ -37,7 +37,7 @@ if [ "$SKIP_BUILDING" != true ]; then
     "${SOURCE_ROOT}"/components/sync_manager/pings.yaml
 
   # Build the XCFramework
-  ./megazords/ios-rust/build-xcframework.sh --build-profile release
+  ./megazords/ios-rust/build-xcframework.sh --generate-swift-sources --build-profile release
 else
   echo "Skipping xcframework & glean metrics generation as --test-only was passed."
 fi
@@ -52,7 +52,7 @@ set -o pipefail
 xcodebuild \
   -scheme MozillaRustComponents \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,OS=17.2,name=iPhone 15' \
   test | tee raw_xcodetest.log | xcpretty
 result=${PIPESTATUS[0]}
 set -e
@@ -66,6 +66,5 @@ if [ "$result" -eq 0 ]; then
 else
   echo "❌ Swift tests failed!"
 fi
-
 
 exit "${result}"
