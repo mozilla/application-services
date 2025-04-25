@@ -1533,6 +1533,7 @@ dependencies = [
  "futures",
  "indicatif",
  "log",
+ "nss",
  "remote_settings",
  "reqwest 0.12.4",
  "serde",
