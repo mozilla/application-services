@@ -60,6 +60,7 @@ mod tests {
 
     #[test]
     fn sha256_digest() {
+        nss::ensure_initialized();
         assert_eq!(hex::encode(digest(&SHA256, MESSAGE).unwrap()), DIGEST_HEX);
         assert_ne!(
             hex::encode(digest(&SHA256, b"notbobo").unwrap()),
@@ -69,6 +70,7 @@ mod tests {
 
     #[test]
     fn digest_cleanly_rejects_gigantic_messages() {
+        nss::ensure_initialized();
         let message = vec![0; (i32::MAX as usize) + 1];
         assert!(digest(&SHA256, &message).is_err());
     }

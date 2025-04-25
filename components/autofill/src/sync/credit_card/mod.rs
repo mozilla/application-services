@@ -255,6 +255,7 @@ fn test_last_4() {
 
 #[test]
 fn test_to_from_payload() {
+    nss::ensure_initialized();
     let key = crate::encryption::create_autofill_key().unwrap();
     let cc_number = "1234567812345678";
     let cc_number_enc =
