@@ -24,10 +24,9 @@ SOURCE_TO_COPY = [
     WRAPPER_DIR / "Viaduct",
 ]
 
-# List of udl_paths to generate bindings for
 FOCUS_SOURCE_TO_COPY = [
-    "components/nimbus/ios/Nimbus",
-    "components/viaduct/ios/*",
+    WRAPPER_DIR / "Nimbus",
+    WRAPPER_DIR / "Viaduct",
 ]
 
 

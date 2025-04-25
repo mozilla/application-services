@@ -54,7 +54,7 @@ if [[ "$BUILD_SOURCES" == true ]]; then
 fi
 
 # Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
-cp "$THIS_DIR/../../components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
+cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$COMMON/Headers"
 echo "original modulemap"
 cat "$COMMON/Modules/module.modulemap"
 TWEAKED_MODULEMAP=$(cat <(head -n1 "$COMMON/Modules/module.modulemap") <(echo "    header \"RustViaductFFI.h\"") <(tail -n +2 "$COMMON/Modules/module.modulemap"))
