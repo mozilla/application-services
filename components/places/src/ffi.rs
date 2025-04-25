@@ -298,6 +298,18 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
+    pub fn get_visit_count_for_host(
+        &self,
+        host: String,
+        before: PlacesTimestamp,
+        exclude_types: VisitTransitionSet,
+    ) -> ApiResult<i64> {
+        self.with_conn(|conn| {
+            history::get_visit_count_for_host(conn, host.as_str(), before, exclude_types)
+        })
+    }
+
+    #[handle_error(crate::Error)]
     pub fn get_visit_page(
         &self,
         offset: i64,
