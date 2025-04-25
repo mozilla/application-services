@@ -10,6 +10,7 @@ logins.jwk
 *~
 .vscode/
 credentials.json
+.venv
 
 # Android stuff.
 *.iml
@@ -34,17 +35,16 @@ components/**/ios/Generated
 # We don't car about Cargo.lock for our tests.
 testing/sync-test/Cargo.lock
 
-# XCFramework artifact
+# iOS Building & XCFramework artifacts
 megazords/ios-rust/MozillaRustComponents.xcframework*
 megazords/ios-rust/focus/FocusRustComponents.xcframework*
 megazords/ios-rust/include*
 megazords/ios-rust/.build*
 megazords/ios-rust/sources/MozillaRustComponentsWrapper/generated*
-
+megazords/ios-rust/.swiftpm
 
 # Glean generated artifacts
-megazords/ios-rust/MozillaTestServices/MozillaTestServices/Generated
-megazords/ios-rust/MozillaTestServices/.venv
+megazords/ios-rust/.venv
 
 # Carthage generated artifacts
 # We no longer use Carthage, but those

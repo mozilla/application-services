@@ -2,8 +2,28 @@
 
 set -ex
 
-if [[ $# -ne 2 ]] ; then
-    echo "USAGE megazords/ios-rust/generate-files.sh [UNIFFI_BINDGEN_LIBRARY] [COMMON]"
+BUILD_SOURCES=false
+
+# parse optional flags
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --generate-swift-sources)
+            BUILD_SOURCES=true
+            shift
+            ;;
+        --help|-h)
+            echo "USAGE: $0 [--generate-swift-sources] UNIFFI_BINDGEN_LIBRARY COMMON"
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# expect only two args after optional
+if [[ $# -ne 2 ]]; then
+    echo "USAGE: $0 [--generate-swift-sources] UNIFFI_BINDGEN_LIBRARY COMMON"
     exit 1
 fi
 
@@ -26,10 +46,12 @@ CARGO="$HOME/.cargo/bin/cargo"
 "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --modulemap "$COMMON/Modules" --xcframework --modulemap-filename module.modulemap
 
 ## Tests will need the generated swift files from uniffi
-# TODO: Should we wrap this around an argument? we'd only need this for tests
-GENERATED_SWIFT_OUT_DIR="$THIS_DIR/Sources/MozillaRustComponentsWrapper/Generated"
-mkdir -p "$GENERATED_SWIFT_OUT_DIR"
-"$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --swift-sources "$GENERATED_SWIFT_OUT_DIR"
+if [[ "$BUILD_SOURCES" == true ]]; then
+    echo "Generating uniffi Swift sources..."
+    GENERATED_SWIFT_OUT_DIR="$THIS_DIR/Sources/MozillaRustComponentsWrapper/Generated"
+    mkdir -p "$GENERATED_SWIFT_OUT_DIR"
+    "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --swift-sources "$GENERATED_SWIFT_OUT_DIR"
+fi
 
 # Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
 cp "$THIS_DIR/../../components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"

@@ -5,6 +5,8 @@
 BUILD_PROFILE="release"
 FRAMEWORK_NAME="MozillaRustComponents"
 IS_FOCUS=
+# Optional flags to pass on to generate-files.sh
+GENERATE_ARGS=()
 # FRAMEWORK_FILENAME exist purely because we would like to ship
 # multiple frameworks that have the same swift code
 # namely for focus. However, components that use
@@ -14,6 +16,9 @@ IS_FOCUS=
 # under different file names.
 FRAMEWORK_FILENAME=$FRAMEWORK_NAME
 while [[ "$#" -gt 0 ]]; do case $1 in
+  --generate-swift-sources)
+    GENERATE_ARGS+=(--generate-swift-sources)
+    shift;;
   --build-profile) BUILD_PROFILE="$2"; shift;shift;;
   --focus) IS_FOCUS="true"; FRAMEWORK_FILENAME="FocusRustComponents";shift;;
   --framework-name) FRAMEWORK_NAME="$2"; shift;shift;;
@@ -146,8 +151,17 @@ UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 
-# Next, generate files with uniffi-bindgen
-"$THIS_DIR/generate-files.sh" "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
+# Next, generate files with uniffi-bindgen (forward --generate-swift-sources if present)
+# You generally want to generate the swift sources if you want to see/test the generated uniffi code
+if (( ${#GENERATE_ARGS[@]:-0} )); then
+  # we have at least one flag in the array
+  "$THIS_DIR/generate-files.sh" "${GENERATE_ARGS[@]}" \
+    "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
+else
+  # no extra flags
+  "$THIS_DIR/generate-files.sh" \
+    "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
+fi
 
 # Flesh out the framework for each architecture based on the common files.
 # It's a little fiddly, because we apparently need to put all the simulator targets
