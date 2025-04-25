@@ -36,7 +36,7 @@ protobuf {
 dependencies {
     implementation libs.protobuf.javalite
     if (gradle.hasProperty("mozconfig")) {
-        api project(':concept-fetch')
+        api project(':components:concept-fetch')
     } else {
         api libs.mozilla.concept.fetch
     }
