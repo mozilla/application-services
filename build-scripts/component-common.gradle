@@ -23,6 +23,10 @@ android {
         buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -36,6 +40,11 @@ android {
             includeAndroidResources = true
         }
     }
+
+    lint {
+        lintConfig = file("${project.appServicesRootDir}/components/lint.xml")
+    }
+
 }
 
 kotlin {
@@ -102,18 +111,29 @@ ext.configureUniFFIBindgen = { crateName ->
         sourceSets.main.kotlin.srcDirs += uniffiOutDir
     }
 
+    def generateUniffiBindings
     // Call `uniffi-bindgen` to generate the Kotlin bindings
-    def generateUniffiBindings = tasks.register("generateUniffiBindings") {
-        def megazordNative = configurations.getByName("megazordNative")
-        doFirst {
-            if (gradle.hasProperty("mozconfig")) {
-                def libraryPath = "${mozconfig.topobjdir}/dist/bin/libmegazord.so"
-                megazordNative = "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
-                exec {
-                    workingDir project.rootDir
-                    commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
-                }
-            } else {
+    if (gradle.hasProperty("mozconfig")) {
+        // in moz-central we can use an `Exec` task because we can assume the bindgen tool has already been built.
+        generateUniffiBindings = tasks.register("generateUniffiBindings", Exec) {
+            def libraryPath = "${gradle.mozconfig.topobjdir}/dist/bin/libmegazord.so"
+            def megazordNative = "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+
+            workingDir project.rootDir
+            commandLine "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+            args 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
+
+            outputs.dir uniffiOutDir
+            // Re-generate when the native megazord library is rebuilt
+            inputs.files megazordNative
+            // Re-generate if our uniffi-bindgen tooling changes.
+            inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
+        }
+    } else {
+        // In app-services we can't use `Exec` because the megazord target isn't built yet, which we force via `doFirst`
+        generateUniffiBindings = tasks.register("generateUniffiBindings") {
+            def megazordNative = configurations.getByName("megazordNative")
+            doFirst {
                 def libraryPath = megazordNative.asFileTree.matching {
                     include "${nativeRustTarget}/libmegazord.*"
                 }.singleFile
@@ -126,22 +146,21 @@ ext.configureUniFFIBindgen = { crateName ->
                     commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
                 }
             }
+
+            outputs.dir uniffiOutDir
+            // Re-generate when the native megazord library is rebuilt
+            inputs.files megazordNative
+            // Re-generate if our uniffi-bindgen tooling changes.
+            inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
         }
-        outputs.dir uniffiOutDir
-        // Re-generate when the native megazord library is rebuilt
-        inputs.files megazordNative
-        // Re-generate if our uniffi-bindgen tooling changes.
-        inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
     }
 
     afterEvaluate {
         def megazordNative = configurations.getByName("megazordNative")
         android.libraryVariants.all { variant ->
-            def variantName = variant.name.capitalize();
-            def compileTask = tasks["compile${variantName}Kotlin"]
-
+            def compileTask = tasks["compile${variant.name.capitalize()}Kotlin"]
             compileTask.dependsOn(generateUniffiBindings)
-            if (!gradle.hasProperty("mozconfig")) { // XXX - needs uniffi-bindgen love in m-c
+            if (!gradle.hasProperty("mozconfig")) {
                 variant.registerJavaGeneratingTask(generateUniffiBindings, megazordNative.singleFile)
             }
         }
