@@ -149,7 +149,7 @@ UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
 
 # First move the non-generated headers (these are all common between both firefox-ios and Focus)
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
-cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
+cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$COMMON/Headers"
 
 # Next, generate files with uniffi-bindgen (forward --generate-swift-sources if present)
 # You generally want to generate the swift sources if you want to see/test the generated uniffi code
