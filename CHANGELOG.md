@@ -5,6 +5,10 @@
 ### Android
 - Added `RustComponentsInitializer.kt` to `init_rust_components`.
 
+### Context ID
+- Added the first version of a component for managing and rotating context IDs
+  sent to MARS / Merino.
+
 #### BREAKING CHANGE
 - Removed `Megazord.kt` and moved the contents to the new `RustComponentsInitializer.kt`.
 

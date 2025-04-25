@@ -771,6 +771,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
+name = "context_id"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "error-support",
+ "lazy_static",
+ "log",
+ "mockito",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.31",
+ "uniffi",
+ "url",
+ "uuid",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "copypasta"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
