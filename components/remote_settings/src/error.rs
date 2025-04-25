@@ -87,7 +87,7 @@ impl GetErrorHandling for Error {
             _ => ErrorHandling::convert(RemoteSettingsError::Other {
                 reason: self.to_string(),
             })
-            .report_error("logins-unexpected"),
+            .report_error("remote-settings-unexpected"),
         }
     }
 }
