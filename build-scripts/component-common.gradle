@@ -23,6 +23,10 @@ android {
         buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -36,6 +40,11 @@ android {
             includeAndroidResources = true
         }
     }
+
+    lint {
+        lintConfig = file("lint.xml")
+    }
+
 }
 
 kotlin {
@@ -107,11 +116,11 @@ ext.configureUniFFIBindgen = { crateName ->
         def megazordNative = configurations.getByName("megazordNative")
         doFirst {
             if (gradle.hasProperty("mozconfig")) {
-                def libraryPath = "${mozconfig.topobjdir}/dist/bin/libmegazord.so"
-                megazordNative = "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+                def libraryPath = "${gradle.mozconfig.topobjdir}/dist/bin/libmegazord.so"
+                megazordNative = "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
                 exec {
                     workingDir project.rootDir
-                    commandLine "${mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
+                    commandLine "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen", 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
                 }
             } else {
                 def libraryPath = megazordNative.asFileTree.matching {

@@ -57,7 +57,8 @@ ext.configurePublish = {
                     // Megazords include compiled code from third-party rust dependencies.
                     // We add the license info of those dependencies to the .pom to make it
                     // easy for consumers to incorporate into their license info page.
-                    if (isMegazord) {
+                    // Not clear what to do in mozilla-central though - bug 1963617.
+                    if (isMegazord && !gradle.root.hasProperty("mozconfig")) {
                         def depLicenses = new XmlSlurper().parse(new File("${projectDir}/dependency-licenses.xml"))
                         depLicenses.license.each { node ->
                             license {
