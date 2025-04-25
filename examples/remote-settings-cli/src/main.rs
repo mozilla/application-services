@@ -83,6 +83,7 @@ fn main() -> Result<()> {
             DEFAULT_LOG_FILTER
         },
     ));
+    nss::ensure_initialized();
     viaduct_reqwest::use_reqwest_backend();
     let service = build_service(&cli)?;
     match cli.command {
