@@ -115,7 +115,7 @@ commands:
             pushd ..
             git clone https://chromium.googlesource.com/external/gyp.git
             pushd gyp
-            python3 setup.py install
+            pip install .
             popd
             popd
             echo 'export PATH=/usr/local/opt/python@3.9/Frameworks/Python.framework/Versions/3.9/bin:$PATH' >> $BASH_ENV
