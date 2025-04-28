@@ -59,7 +59,7 @@ a number of hours to complete.
             wget https://bootstrap.pypa.io/ez_setup.py -O - | python3 -
             git clone https://chromium.googlesource.com/external/gyp.git ~/tools/gyp
             cd ~/tools/gyp
-            python3 setup.py install
+            pip install .
             ```
             1. Add `~/tools/gyp` to your path:
                ```shell
