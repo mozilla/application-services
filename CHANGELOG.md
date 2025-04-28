@@ -1,6 +1,8 @@
-# v139.0 (In progress)
+# v140.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v139.0 (_2025-04-28_)
 
 ## 🦊 What's Changed 🦊
 
@@ -48,6 +50,8 @@ text, the list view has been slimmed down and a detail view has been added.
 ### OHTTP Client
 - The now-unused `as-ohttp-client` component is now removed. It was previously
   only used by firefox-ios but no longer is.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v138.0...v139.0)
 
 # v138.0 (_2025-03-31_)
 
