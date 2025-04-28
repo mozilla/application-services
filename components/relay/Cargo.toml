@@ -1,0 +1,21 @@
+[package]
+name = "relay"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+serde = { version = "1", features=["derive"] }
+serde_json = "1"
+thiserror = "1.0"
+url = "2"
+viaduct = { path = "../viaduct" }
+
+[dev-dependencies]
+expect-test = "1.4"
+viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+mockall = "0.11"
+mockito = "0.31"
+# We add the perserve_order feature to guarantee ordering of the keys in our
+# JSON objects as they get serialized/deserialized.
+serde_json = { version = "1", features = ["preserve_order"] }
