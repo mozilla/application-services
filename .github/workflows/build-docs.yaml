@@ -92,7 +92,7 @@ jobs:
 
           # Navigate to gyp directory and install it
           cd tools/gyp
-          python3 setup.py install
+          pip install .
           cd ../..
 
           # Install the required dependencies on macOS (replace tcl with tcl-tk)
@@ -193,7 +193,7 @@ jobs:
 
           # Navigate to gyp directory and install it
           cd tools/gyp
-          python3 setup.py install
+          pip install .
           cd ../..
 
           # Ensure the environment for desktop is correctly set up
