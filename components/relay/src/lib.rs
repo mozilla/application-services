@@ -2,7 +2,7 @@ mod error;
 
 pub use error::Result;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::{header_names, Method, Request};
 
@@ -31,6 +31,14 @@ pub struct RelayAddress {
     pub num_level_one_trackers_blocked: i64,
     pub num_replied: i64,
     pub num_spam: i64,
+}
+
+#[derive(Debug, Serialize)]
+struct CreateAddressPayload<'a> {
+    enabled: bool,
+    description: &'a str,
+    generated_for: &'a str,
+    used_on: &'a str,
 }
 
 impl RelayClient {
@@ -74,6 +82,31 @@ impl RelayClient {
         response.require_success()?;
         Ok(())
     }
+
+    pub fn create_address(
+        &self,
+        description: &str,
+        generated_for: &str,
+        used_on: &str,
+    ) -> Result<RelayAddress> {
+        let url = self.build_url("/api/v1/relayaddresses/")?;
+
+        let payload = CreateAddressPayload {
+            enabled: true,
+            description,
+            generated_for,
+            used_on,
+        };
+
+        let mut request = self.prepare_request(Method::Post, url)?;
+        request = request.json(&payload);
+
+        let response = request.send()?;
+        log::trace!("response text: {}", response.text());
+
+        let address: RelayAddress = response.json()?;
+        Ok(address)
+    }
 }
 
 #[cfg(test)]
@@ -91,13 +124,13 @@ mod tests {
                     "mask_type": "alias",
                     "enabled": true,
                     "description": "Test Address",
-                    "generated_for": "example@example.com",
+                    "generated_for": "example.com",
                     "block_list_emails": false,
                     "used_on": "example.com",
                     "id": 1,
-                    "address": "test123",
-                    "domain": 123,
-                    "full_address": "test123@example.com",
+                    "address": "test123456",
+                    "domain": 2,
+                    "full_address": "test123456@mozmail.com",
                     "created_at": "2021-01-01T00:00:00Z",
                     "last_modified_at": "2021-01-02T00:00:00Z",
                     "last_used_at": "2021-01-03T00:00:00Z",
@@ -122,8 +155,8 @@ mod tests {
 
         assert_eq!(addresses.len(), 1);
         let addr = &addresses[0];
-        assert_eq!(addr.full_address, "test123@example.com");
-        assert_eq!(addr.generated_for, "example@example.com");
+        assert_eq!(addr.full_address, "test123456@mozmail.com");
+        assert_eq!(addr.generated_for, "example.com");
         assert_eq!(addr.enabled, true);
     }
 
@@ -149,5 +182,51 @@ mod tests {
     #[test]
     fn test_accept_terms_user_exists() {
         test_accept_terms_with_status(202);
+    }
+
+    #[test]
+    fn test_create_address() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let address_json = r#"
+        {
+            "mask_type": "alias",
+            "enabled": true,
+            "description": "Created Address",
+            "generated_for": "example.com",
+            "block_list_emails": false,
+            "used_on": "example.com",
+            "id": 2,
+            "address": "new123456",
+            "domain": 2,
+            "full_address": "new123456@mozmail.com",
+            "created_at": "2021-01-04T00:00:00Z",
+            "last_modified_at": "2021-01-05T00:00:00Z",
+            "last_used_at": "2021-01-06T00:00:00Z",
+            "num_forwarded": 3,
+            "num_blocked": 0,
+            "num_level_one_trackers_blocked": 0,
+            "num_replied": 1,
+            "num_spam": 0
+        }
+    "#;
+
+        let _mock = mock("POST", "/api/v1/relayaddresses/")
+            .match_header("authorization", "Bearer mock_token")
+            .match_header("content-type", "application/json")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(address_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+
+        let address = client
+            .create_address("Created Address", "example.com", "example.com")
+            .expect("should create address successfully");
+
+        assert_eq!(address.full_address, "new123456@mozmail.com");
+        assert_eq!(address.generated_for, "example.com");
+        assert!(address.enabled);
     }
 }
