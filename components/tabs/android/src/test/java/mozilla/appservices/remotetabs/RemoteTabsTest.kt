@@ -1,9 +1,7 @@
 package mozilla.appservices.remotetabs
 
-import mozilla.appservices.Megazord
 import mozilla.appservices.syncmanager.SyncManager
 import org.junit.Assert
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -17,11 +15,6 @@ class RemoteTabsTest {
     @Rule
     @JvmField
     val dbFolder = TemporaryFolder()
-
-    @Before
-    fun init() {
-        Megazord.init()
-    }
 
     protected fun getTestStore(): TabsStore {
         return TabsStore(path = dbFolder.newFile().absolutePath)

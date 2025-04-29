@@ -1,5 +1,13 @@
 # v140.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Android
+- Added `RustComponentsInitializer.kt` to `init_rust_components`.
+
+#### BREAKING CHANGE
+- Removed `Megazord.kt` and moved the contents to the new `RustComponentsInitializer.kt`.
+
 [Full Changelog](In progress)
 
 # v139.0 (_2025-04-28_)

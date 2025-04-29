@@ -5,7 +5,6 @@ package mozilla.appservices.places
 
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
-import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
@@ -46,7 +45,6 @@ class PlacesConnectionTest {
 
     @Before
     fun initAPI() {
-        Megazord.init()
         api = PlacesApi(path = dbFolder.newFile().absolutePath)
         db = api.getWriter()
     }

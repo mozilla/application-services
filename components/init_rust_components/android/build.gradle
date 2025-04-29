@@ -3,6 +3,10 @@ apply from: "$appServicesRootDir/publish.gradle"
 
 android {
     namespace 'org.mozilla.appservices.init_rust_components'
+
+    defaultConfig {
+        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
+    }
 }
 
 ext.configureUniFFIBindgen("init_rust_components")

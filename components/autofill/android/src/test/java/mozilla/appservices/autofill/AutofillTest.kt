@@ -1,4 +1,3 @@
-import mozilla.appservices.Megazord
 import mozilla.appservices.autofill.Store
 import mozilla.appservices.syncmanager.SyncManager
 import org.junit.Assert
@@ -17,7 +16,6 @@ class AutofillTest {
     val dbFolder = TemporaryFolder()
 
     fun createTestStore(): Store {
-        Megazord.init()
         val dbPath = dbFolder.newFile()
         return Store(dbpath = dbPath.absolutePath)
     }

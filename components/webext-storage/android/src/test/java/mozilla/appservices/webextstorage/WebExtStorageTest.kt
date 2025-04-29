@@ -3,7 +3,6 @@
 
 package mozilla.appservices.webextstorage
 
-import mozilla.appservices.Megazord
 import org.junit.Assert
 import org.junit.Rule
 import org.junit.Test
@@ -20,7 +19,6 @@ class WebExtStorageTest {
     val dbFolder = TemporaryFolder()
 
     fun createTestStore(): WebExtStorageStore {
-        Megazord.init()
         val dbPath = dbFolder.newFile()
         return WebExtStorageStore(path = dbPath.absolutePath)
     }
