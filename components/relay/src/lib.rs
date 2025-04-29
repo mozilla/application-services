@@ -229,4 +229,86 @@ mod tests {
         assert_eq!(address.generated_for, "example.com");
         assert!(address.enabled);
     }
+
+    #[test]
+    fn test_accept_terms_missing_authorization_header() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"detail": "Missing Bearer header."}"#)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), None);
+
+        let result = client.accept_terms();
+        assert!(
+            result.is_err(),
+            "Should fail with 400 Missing Bearer header"
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_invalid_token() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"detail": "Invalid token."}"#)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("invalid_token".to_string()));
+
+        let result = client.accept_terms();
+        assert!(
+            result.is_err(),
+            "accept_terms should fail with 403 Invalid Token"
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_server_error_profile_failure() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(500)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"detail": "Did not receive a 200 response for account profile."}"#)
+            .create();
+
+        let client = RelayClient::new(
+            mockito::server_url(),
+            Some("valid_token_but_profile_fails".to_string()),
+        );
+
+        let result = client.accept_terms();
+        assert!(
+            result.is_err(),
+            "accept_terms should fail with 500 Server Error (Profile Fetch Failure)"
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_user_not_found() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(404)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"detail": "FXA user not found."}"#)
+            .create();
+
+        let client = RelayClient::new(
+            mockito::server_url(),
+            Some("valid_token_but_user_missing".to_string()),
+        );
+
+        let result = client.accept_terms();
+        assert!(
+            result.is_err(),
+            "accept_terms should fail with 404 FXA User Not Found"
+        );
+    }
 }
