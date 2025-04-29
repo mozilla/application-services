@@ -15,7 +15,6 @@ android {
         targetSdkVersion config.targetSdkVersion
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${config.componentsVersion}\"")
     }
 
     buildTypes {

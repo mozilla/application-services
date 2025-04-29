@@ -4,7 +4,7 @@
 package mozilla.appservices.logins
 
 import androidx.test.core.app.ApplicationProvider
-import mozilla.appservices.Megazord
+import mozilla.appservices.RustComponentsInitializer
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
@@ -20,7 +20,6 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import mozilla.appservices.init_rust_components.initialize as InitializeRustComponents
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 @RunWith(RobolectricTestRunner::class)
@@ -34,8 +33,8 @@ class DatabaseLoginsStorageTest {
     val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
 
     fun createTestStore(): DatabaseLoginsStorage {
-        InitializeRustComponents()
-        Megazord.init()
+        RustComponentsInitializer.init()
+
         val dbPath = dbFolder.newFile()
         val encryptionKey = createKey()
         val keyManager = createStaticKeyManager(key = encryptionKey)
