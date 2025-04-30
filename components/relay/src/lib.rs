@@ -57,7 +57,7 @@ impl RelayClient {
         log::trace!("making {} request to: {}", method.as_str(), url);
         let mut request = Request::new(method, url);
         if let Some(ref token) = self.auth_token {
-            request = request.header(header_names::AUTHORIZATION, &format!("Bearer {}", token))?;
+            request = request.header(header_names::AUTHORIZATION, format!("Bearer {}", token))?;
         }
         Ok(request)
     }
@@ -163,9 +163,9 @@ mod tests {
 
         assert_eq!(addresses.len(), 1);
         let addr = &addresses[0];
+        assert!(addr.enabled);
         assert_eq!(addr.full_address, "base12345@mozmail.com");
         assert_eq!(addr.generated_for, "example.com");
-        assert_eq!(addr.enabled, true);
     }
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
         viaduct_reqwest::use_reqwest_backend();
 
         let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(status_code as usize)
+            .with_status(status_code)
             .create();
 
         let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
