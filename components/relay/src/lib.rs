@@ -1,6 +1,6 @@
 mod error;
 
-pub use error::Result;
+pub use error::{Error, Result};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -41,6 +41,11 @@ struct CreateAddressPayload<'a> {
     used_on: &'a str,
 }
 
+#[derive(Deserialize)]
+struct ApiErrorMessage {
+    detail: String,
+}
+
 impl RelayClient {
     pub fn new(server_url: String, auth_token: Option<String>) -> Self {
         Self {
@@ -67,7 +72,11 @@ impl RelayClient {
         let request = self.prepare_request(Method::Get, url)?;
 
         let response = request.send()?;
-        log::trace!("response text: {}", response.text());
+        let body = response.text();
+        log::trace!("response text: {}", body);
+        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+            return Err(Error::RelayApi(parsed.detail));
+        }
 
         let addresses: Vec<RelayAddress> = response.json()?;
         Ok(addresses)
@@ -78,8 +87,11 @@ impl RelayClient {
         let request = self.prepare_request(Method::Post, url)?;
 
         let response = request.send()?;
-        log::trace!("response text: {}", response.text());
-        response.require_success()?;
+        let body = response.text();
+        log::trace!("response text: {}", body);
+        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+            return Err(Error::RelayApi(parsed.detail));
+        }
         Ok(())
     }
 
@@ -102,7 +114,11 @@ impl RelayClient {
         request = request.json(&payload);
 
         let response = request.send()?;
-        log::trace!("response text: {}", response.text());
+        let body = response.text();
+        log::trace!("response text: {}", body);
+        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+            return Err(Error::RelayApi(parsed.detail));
+        }
 
         let address: RelayAddress = response.json()?;
         Ok(address)
