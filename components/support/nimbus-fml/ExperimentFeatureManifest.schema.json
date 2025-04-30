@@ -32,12 +32,7 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": [
-                        "json",
-                        "boolean",
-                        "int",
-                        "string"
-                      ]
+                      "enum": ["json", "boolean", "int", "string"]
                     },
                     "fallbackPref": {
                       "type": "string"
@@ -50,19 +45,13 @@
                       "description": "Explain how this value is being used"
                     }
                   },
-                  "required": [
-                    "type",
-                    "description"
-                  ],
+                  "required": ["type", "description"],
                   "additionalProperties": false
                 }
               }
             }
           },
-          "required": [
-            "description",
-            "hasExposure"
-          ],
+          "required": ["description", "hasExposure"],
           "if": {
             "properties": {
               "hasExposure": {
@@ -71,9 +60,7 @@
             }
           },
           "then": {
-            "required": [
-              "exposureDescription"
-            ]
+            "required": ["exposureDescription"]
           }
         }
       }

@@ -67,11 +67,7 @@
               "Enum": "HomeScreenSection"
             }
           },
-          "default": [
-            "top-sites",
-            "jump-back-in",
-            "recently-saved"
-          ]
+          "default": ["top-sites", "jump-back-in", "recently-saved"]
         }
       ],
       "default": null,
