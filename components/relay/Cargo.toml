@@ -12,10 +12,11 @@ url = "2"
 viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
+env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 expect-test = "1.4"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 mockall = "0.11"
 mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.
 serde_json = { version = "1", features = ["preserve_order"] }
+viaduct-reqwest = { path = "../support/viaduct-reqwest" }
