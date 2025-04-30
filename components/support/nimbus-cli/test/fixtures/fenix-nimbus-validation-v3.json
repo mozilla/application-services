@@ -33,9 +33,7 @@
   "channel": "nightly",
   "endDate": "2021-02-11",
   "enrollmentEndDate": "2021-02-11",
-  "featureIds": [
-    "no-feature-fenix"
-  ],
+  "featureIds": ["no-feature-fenix"],
   "featureValidationOptOut": false,
   "id": "fenix-nimbus-validation-v3",
   "isEnrollmentPaused": false,

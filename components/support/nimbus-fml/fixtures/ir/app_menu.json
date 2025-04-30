@@ -99,12 +99,7 @@
               "Enum": "MenuItemId"
             }
           },
-          "default": [
-            "resume-game",
-            "start-game",
-            "community",
-            "settings"
-          ]
+          "default": ["resume-game", "start-game", "community", "settings"]
         },
         {
           "name": "all-menu-items",
@@ -120,7 +115,7 @@
               "deeplink": "deeplink://start"
             },
             {
-              "label":"Resume Game",
+              "label": "Resume Game",
               "deeplink": "deeplink://start?continue=true"
             }
           ]
@@ -161,7 +156,9 @@
           "name": "profile-ordering",
           "doc": "",
           "type": {
-            "List": {"EnumMap": [{"Enum": "PlayerProfile"}, {"Enum": "MenuItemId"}]}
+            "List": {
+              "EnumMap": [{ "Enum": "PlayerProfile" }, { "Enum": "MenuItemId" }]
+            }
           },
           "default": [
             {

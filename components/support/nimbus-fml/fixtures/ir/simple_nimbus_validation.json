@@ -93,11 +93,7 @@
           "type": {
             "List": "Int"
           },
-          "default": [
-            1,
-            2,
-            3
-          ]
+          "default": [1, 2, 3]
         },
         {
           "name": "enum-list",
@@ -107,10 +103,7 @@
               "Enum": "Position"
             }
           },
-          "default": [
-            "top",
-            "bottom"
-          ]
+          "default": ["top", "bottom"]
         }
       ],
       "default": null,
