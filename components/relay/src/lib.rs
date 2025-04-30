@@ -18,14 +18,14 @@ pub struct RelayAddress {
     pub description: String,
     pub generated_for: String,
     pub block_list_emails: bool,
-    pub used_on: String,
+    pub used_on: Option<String>,
     pub id: i64,
     pub address: String,
     pub domain: i64,
     pub full_address: String,
     pub created_at: String, // Use String for timestamps for now (or chrono types later)
     pub last_modified_at: String,
-    pub last_used_at: String,
+    pub last_used_at: Option<String>,
     pub num_forwarded: i64,
     pub num_blocked: i64,
     pub num_level_one_trackers_blocked: i64,
@@ -114,34 +114,42 @@ mod tests {
     use super::*;
     use mockito::mock;
 
-    #[test]
-    fn test_fetch_addresses() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let addresses_json = r#"
+    fn base_addresses_json(extra_fields: &str) -> String {
+        format!(
+            r#"
             [
-                {
-                    "mask_type": "alias",
+                {{
+                    "mask_type": "random",
                     "enabled": true,
-                    "description": "Test Address",
+                    "description": "Base Address",
                     "generated_for": "example.com",
                     "block_list_emails": false,
-                    "used_on": "example.com",
                     "id": 1,
-                    "address": "test123456",
+                    "address": "base12345",
                     "domain": 2,
-                    "full_address": "test123456@mozmail.com",
+                    "full_address": "base12345@mozmail.com",
                     "created_at": "2021-01-01T00:00:00Z",
                     "last_modified_at": "2021-01-02T00:00:00Z",
-                    "last_used_at": "2021-01-03T00:00:00Z",
+                    {extra_fields}
                     "num_forwarded": 5,
                     "num_blocked": 1,
                     "num_level_one_trackers_blocked": 0,
                     "num_replied": 2,
                     "num_spam": 0
-                }
+                }}
             ]
-        "#;
+            "#
+        )
+    }
+
+    #[test]
+    fn test_fetch_addresses() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let addresses_json = base_addresses_json(
+            r#""used_on": "example.com", "last_used_at": "2021-01-03T00:00:00Z", "#,
+        );
+        log::trace!("addresses_json: {}", addresses_json);
 
         let _mock = mock("GET", "/api/v1/relayaddresses/")
             .with_status(200)
@@ -155,9 +163,49 @@ mod tests {
 
         assert_eq!(addresses.len(), 1);
         let addr = &addresses[0];
-        assert_eq!(addr.full_address, "test123456@mozmail.com");
+        assert_eq!(addr.full_address, "base12345@mozmail.com");
         assert_eq!(addr.generated_for, "example.com");
         assert_eq!(addr.enabled, true);
+    }
+
+    #[test]
+    fn test_fetch_addresses_used_on_null() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let addresses_json =
+            base_addresses_json(r#""used_on": null,"last_used_at": "2021-01-03T00:00:00Z","#);
+
+        let _mock = mock("GET", "/api/v1/relayaddresses/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(addresses_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let addresses = client.fetch_addresses().expect("should fetch addresses");
+
+        assert_eq!(addresses.len(), 1);
+        assert_eq!(addresses[0].used_on, None);
+    }
+
+    #[test]
+    fn test_fetch_addresses_last_used_at_null() {
+        viaduct_reqwest::use_reqwest_backend();
+
+        let addresses_json =
+            base_addresses_json(r#""used_on": "example.com","last_used_at": null,"#);
+
+        let _mock = mock("GET", "/api/v1/relayaddresses/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(addresses_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let addresses = client.fetch_addresses().expect("should fetch addresses");
+
+        assert_eq!(addresses.len(), 1);
+        assert_eq!(addresses[0].last_used_at, None);
     }
 
     fn test_accept_terms_with_status(status_code: usize) {
