@@ -224,28 +224,82 @@ mod tests {
         assert_eq!(addresses[0].last_used_at, None);
     }
 
-    fn test_accept_terms_with_status(status_code: usize) {
+    fn test_accept_terms_response(
+        status_code: usize,
+        body: Option<&str>,
+        token: Option<&str>,
+        expect_error: bool,
+    ) {
         viaduct_reqwest::use_reqwest_backend();
 
-        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(status_code)
-            .create();
+        let mut mock = mock("POST", "/api/v1/terms-accepted-user/").with_status(status_code);
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        if let Some(body_text) = body {
+            mock = mock
+                .with_header("content-type", "application/json")
+                .with_body(body_text);
+        }
 
-        client
-            .accept_terms()
-            .expect("should accept terms successfully");
+        let _mock = mock.create();
+        let client = RelayClient::new(mockito::server_url(), token.map(String::from));
+
+        let result = client.accept_terms();
+
+        if expect_error {
+            assert!(result.is_err(), "Expected error but got success.");
+        } else {
+            assert!(result.is_ok(), "Expected success but got error.");
+        }
     }
 
     #[test]
     fn test_accept_terms_user_created() {
-        test_accept_terms_with_status(201);
+        test_accept_terms_response(201, None, Some("mock_token"), false);
     }
 
     #[test]
     fn test_accept_terms_user_exists() {
-        test_accept_terms_with_status(202);
+        test_accept_terms_response(202, None, Some("mock_token"), false);
+    }
+
+    #[test]
+    fn test_accept_terms_missing_authorization_header() {
+        test_accept_terms_response(
+            400,
+            Some(r#"{"detail": "Missing Bearer header."}"#),
+            None,
+            true,
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_invalid_token() {
+        test_accept_terms_response(
+            403,
+            Some(r#"{"detail": "Invalid token."}"#),
+            Some("invalid_token"),
+            true,
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_server_error_profile_failure() {
+        test_accept_terms_response(
+            500,
+            Some(r#"{"detail": "Did not receive a 200 response for account profile."}"#),
+            Some("valid_token_but_profile_fails"),
+            true,
+        );
+    }
+
+    #[test]
+    fn test_accept_terms_user_not_found() {
+        test_accept_terms_response(
+            404,
+            Some(r#"{"detail": "FXA user not found."}"#),
+            Some("valid_token_but_user_missing"),
+            true,
+        );
     }
 
     #[test]
@@ -292,87 +346,5 @@ mod tests {
         assert_eq!(address.full_address, "new123456@mozmail.com");
         assert_eq!(address.generated_for, "example.com");
         assert!(address.enabled);
-    }
-
-    #[test]
-    fn test_accept_terms_missing_authorization_header() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(400)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"detail": "Missing Bearer header."}"#)
-            .create();
-
-        let client = RelayClient::new(mockito::server_url(), None);
-
-        let result = client.accept_terms();
-        assert!(
-            result.is_err(),
-            "Should fail with 400 Missing Bearer header"
-        );
-    }
-
-    #[test]
-    fn test_accept_terms_invalid_token() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(403)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"detail": "Invalid token."}"#)
-            .create();
-
-        let client = RelayClient::new(mockito::server_url(), Some("invalid_token".to_string()));
-
-        let result = client.accept_terms();
-        assert!(
-            result.is_err(),
-            "accept_terms should fail with 403 Invalid Token"
-        );
-    }
-
-    #[test]
-    fn test_accept_terms_server_error_profile_failure() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(500)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"detail": "Did not receive a 200 response for account profile."}"#)
-            .create();
-
-        let client = RelayClient::new(
-            mockito::server_url(),
-            Some("valid_token_but_profile_fails".to_string()),
-        );
-
-        let result = client.accept_terms();
-        assert!(
-            result.is_err(),
-            "accept_terms should fail with 500 Server Error (Profile Fetch Failure)"
-        );
-    }
-
-    #[test]
-    fn test_accept_terms_user_not_found() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
-            .with_status(404)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"detail": "FXA user not found."}"#)
-            .create();
-
-        let client = RelayClient::new(
-            mockito::server_url(),
-            Some("valid_token_but_user_missing".to_string()),
-        );
-
-        let result = client.accept_terms();
-        assert!(
-            result.is_err(),
-            "accept_terms should fail with 404 FXA User Not Found"
-        );
     }
 }
