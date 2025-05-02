@@ -15,7 +15,7 @@ use crate::{
         KeywordInsertStatement, KeywordMetricsInsertStatement, SuggestDao,
         SuggestionInsertStatement, DEFAULT_SUGGESTION_SCORE,
     },
-    geoname::{GeonameMatch, GeonameType},
+    geoname::GeonameMatch,
     metrics::MetricsContext,
     provider::SuggestionProvider,
     rs::{Client, Record, SuggestRecordId},
@@ -74,15 +74,26 @@ impl SuggestDao<'_> {
 
         // The first step in parsing the query is lowercasing and splitting it
         // into words. We want to avoid that work for strings that are so long
-        // they can't possibly match. The longest possible weather query is two
-        // geonames + one weather keyword + at least two spaces between those
-        // three components, say, 10 extra characters total for spaces and
-        // punctuation. There's no point in an analogous min length check since
-        // weather suggestions can be matched on city alone and many city names
-        // are only a few characters long ("nyc").
+        // they can't possibly match. We'll stipulate that weather queries will
+        // include the following parts at most:
+        //
+        // * 3 geonames max: city + one admin division like a state + country
+        // * 1 weather keyword
+        // * 3 spaces between the previous geonames and keyword
+        // * 10 extra chars to allow for extra spaces and punctuation
+        //
+        // This will exclude some valid queries because the logic below allows
+        // for multiple weather keywords, and a city may have more than one
+        // admin division, but we don't expect many users to type such long
+        // queries.
+        //
+        // There's no point in an analogous min length check since weather
+        // suggestions can be matched on city alone and many city names are only
+        // a few characters long ("nyc").
+
         let g_cache = self.geoname_cache();
         let w_cache = self.weather_cache();
-        let max_query_len = 2 * g_cache.max_name_length + w_cache.max_keyword_length + 10;
+        let max_query_len = 3 * g_cache.max_name_length + w_cache.max_keyword_length + 10;
         if max_query_len < query.keyword.len() {
             return Ok(vec![]);
         }
@@ -103,107 +114,70 @@ impl SuggestDao<'_> {
         let mut matches =
             // Step 2: Parse the query words into a list of token paths.
             filter_map_chunks::<Token>(&words, max_chunk_size, |chunk, chunk_i, path| {
-                // Match the chunk to token types that haven't already been matched
-                // in this path. `all_tokens` will remain `None` until a token is
-                // matched.
+                // Find all token types that match the chunk.
                 let mut all_tokens: Option<Vec<Token>> = None;
                 for tt in [
-                    TokenType::City,
-                    TokenType::Region,
+                    TokenType::Geoname,
                     TokenType::WeatherKeyword,
                 ] {
-                    if !path.iter().any(|t| t.token_type() == tt) {
-                        let mut tokens = self.match_weather_tokens(tt, path, chunk, chunk_i == 0)?;
-                        if !tokens.is_empty() {
-                            let mut ts = all_tokens.take().unwrap_or_default();
-                            ts.append(&mut tokens);
-                            all_tokens.replace(ts);
-                        }
+                    let mut tokens = self.match_weather_tokens(tt, path, chunk, chunk_i == 0)?;
+                    if !tokens.is_empty() {
+                        let mut ts = all_tokens.take().unwrap_or_default();
+                        ts.append(&mut tokens);
+                        all_tokens.replace(ts);
                     }
                 }
                 // If no tokens were matched, `all_tokens` will be `None`.
                 Ok(all_tokens)
             })?
             .into_iter()
-            // Step 3: Map each token path to a city-region-keyword tuple (each
-            // optional). Paths are vecs, so they're ordered, so we may end up
-            // with duplicate tuples after this step. e.g., the paths
-            // `[<Waterloo IA>, <IA>]` and `[<IA>, <Waterloo IA>]` map to the
-            // same `(<Waterloo IA>, <IA>, None)` tuple.
-            .map(|path| {
-                path.into_iter()
-                    .fold((None, None, None), |mut match_tuple, token| {
-                        match token {
-                            Token::City(c) => {
-                                match_tuple.0 = Some(c);
-                            }
-                            Token::Region(r) => {
-                                match_tuple.1 = Some(r);
-                            }
-                            Token::WeatherKeyword(kw) => {
-                                match_tuple.2 = Some(kw);
-                            }
-                        }
-                        match_tuple
-                    })
-            })
-            // Step 4: Discard tuples that don't have the right combination of
-            // tokens or that are otherwise invalid. Along with step 2, this is
-            // the core of the matching logic. In general, allow a tuple if it
-            // has (a) a city name typed in full or (b) a weather keyword at
-            // least as long as the config's min keyword length, since that
-            // indicates a weather intent.
-            .filter(|(city_match, region_match, kw_match)| {
-                match (city_match, region_match, kw_match) {
-                    (None, None, Some(_)) => true,
-                    (None, _, None) | (None, Some(_), Some(_)) => false,
-                    (Some(city), region, kw) => {
-                        (city.match_type.is_name() && !city.prefix)
-                            // Allow city abbreviations without a weather
-                            // keyword but only if the region was typed in full.
-                            || (city.match_type.is_abbreviation()
-                                && !city.prefix
-                                && region.as_ref().map(|r| !r.prefix).unwrap_or(false))
-                            || kw.as_ref().map(|k| k.is_min_keyword_length).unwrap_or(false)
-                    }
+            // Step 3: Map each token path to a `TokenPath`, which is just a
+            // convenient representation of the path.
+            .map(TokenPath::from)
+            // Step 4: Filter in paths with the right combination of tokens.
+            // Along with step 2, this is the core of the matching logic.
+            .filter(|tp| {
+                if let Some(cm) = &tp.city_match {
+                    // city name typed in full ("new york")
+                    (cm.match_type.is_name() && !cm.prefix)
+                        // city abbreviation typed in full + another related
+                        // geoname typed in full ("ny new york")
+                        || (cm.match_type.is_abbreviation()
+                            && !cm.prefix
+                            && tp.any_other_geoname_typed_in_full)
+                        // any kind of city + weather keyword ("ny weather",
+                        // "weather new y")
+                        || tp.keyword_match
+                            .as_ref()
+                            .map(|kwm| kwm.is_min_keyword_length).unwrap_or(false)
+                } else {
+                    // weather keyword by itself ("weather")
+                    tp.keyword_match.is_some() && !tp.any_other_geoname_matched
                 }
             })
-            // Step 5: Map each tuple to a city-region tuple: Convert geoname
-            // matches to their `Geoname` values and discard keywords.
-            // Discarding keywords is important because we'll collect the tuples
-            // in a set in the next step in order to dedupe city-regions.
-            .map(|(city, region, _)| {
-                (city.map(|c| c.geoname), region.map(|r| r.geoname))
-            })
-            // Step 6: Dedupe the city-regions by collecting them in a set.
+            // Step 5: Map each path to its city, an `Option<Geoname>`. Paths
+            // without cities will end up as `None` values.
+            .map(|tp| tp.city_match.map(|cm| cm.geoname))
+            // Step 6: Dedupe. We'll end up with an `Option<Geoname>` for each
+            // unique matching city + one `None` value if any keywords by
+            // themselves were matched.
             .collect::<HashSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
 
         // Sort the matches so cities with larger populations are first.
-        matches.sort_by(
-            |(city1, region1), (city2, region2)| match (&city1, &city2) {
-                (Some(_), None) => Ordering::Less,
-                (None, Some(_)) => Ordering::Greater,
-                (Some(c1), Some(c2)) => c2.population.cmp(&c1.population),
-                (None, None) => match (&region1, &region2) {
-                    (Some(_), None) => Ordering::Less,
-                    (None, Some(_)) => Ordering::Greater,
-                    (Some(r1), Some(r2)) => r2.population.cmp(&r1.population),
-                    (None, None) => Ordering::Equal,
-                },
-            },
-        );
+        matches.sort_by(|city1, city2| match (&city1, &city2) {
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(c1), Some(c2)) => c2.population.cmp(&c1.population),
+            (None, None) => Ordering::Equal,
+        });
 
         // Finally, map matches to suggestions.
         Ok(matches
-            .iter()
-            .map(|(city, _)| Suggestion::Weather {
-                city: city.as_ref().map(|c| c.name.clone()),
-                region: city.as_ref().map(|c| c.admin1_code.clone()),
-                country: city.as_ref().map(|c| c.country_code.clone()),
-                latitude: city.as_ref().map(|c| c.latitude),
-                longitude: city.as_ref().map(|c| c.longitude),
+            .into_iter()
+            .map(|city| Suggestion::Weather {
+                city,
                 score: w_cache.score,
             })
             .collect())
@@ -217,48 +191,25 @@ impl SuggestDao<'_> {
         is_first_chunk: bool,
     ) -> Result<Vec<Token>> {
         match token_type {
-            TokenType::City => {
-                // Fetch matching cities, and filter them to regions we've
+            TokenType::Geoname => {
+                // Fetch matching geonames, and filter them to geonames we've
                 // already matched in this path.
-                let regions: Vec<_> = path
+                let geonames_in_path: Vec<_> = path
                     .iter()
-                    .filter_map(|t| t.region().map(|m| &m.geoname))
+                    .filter_map(|t| t.geoname_match().map(|gm| &gm.geoname))
                     .collect();
                 Ok(self
                     .fetch_geonames(
                         candidate,
                         !is_first_chunk,
-                        Some(GeonameType::City),
-                        if regions.is_empty() {
+                        if geonames_in_path.is_empty() {
                             None
                         } else {
-                            Some(regions)
+                            Some(geonames_in_path)
                         },
                     )?
                     .into_iter()
-                    .map(Token::City)
-                    .collect())
-            }
-            TokenType::Region => {
-                // Fetch matching regions, and filter them to cities we've
-                // already matched in this patch.
-                let cities: Vec<_> = path
-                    .iter()
-                    .filter_map(|t| t.city().map(|m| &m.geoname))
-                    .collect();
-                Ok(self
-                    .fetch_geonames(
-                        candidate,
-                        !is_first_chunk,
-                        Some(GeonameType::Region),
-                        if cities.is_empty() {
-                            None
-                        } else {
-                            Some(cities)
-                        },
-                    )?
-                    .into_iter()
-                    .map(Token::Region)
+                    .map(Token::Geoname)
                     .collect())
             }
             TokenType::WeatherKeyword => {
@@ -428,38 +379,22 @@ impl From<&DownloadedWeatherAttachment> for SuggestProviderConfig {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum TokenType {
-    City,
-    Region,
+    Geoname,
     WeatherKeyword,
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 enum Token {
-    City(GeonameMatch),
-    Region(GeonameMatch),
+    Geoname(GeonameMatch),
     WeatherKeyword(WeatherKeywordMatch),
 }
 
 impl Token {
-    fn city(&self) -> Option<&GeonameMatch> {
+    fn geoname_match(&self) -> Option<&GeonameMatch> {
         match self {
-            Self::City(g) => Some(g),
+            Self::Geoname(gm) => Some(gm),
             _ => None,
-        }
-    }
-
-    fn region(&self) -> Option<&GeonameMatch> {
-        match self {
-            Self::Region(g) => Some(g),
-            _ => None,
-        }
-    }
-
-    fn token_type(&self) -> TokenType {
-        match self {
-            Self::City(_) => TokenType::City,
-            Self::Region(_) => TokenType::Region,
-            Self::WeatherKeyword(_) => TokenType::WeatherKeyword,
         }
     }
 }
@@ -468,6 +403,38 @@ impl Token {
 struct WeatherKeywordMatch {
     keyword: String,
     is_min_keyword_length: bool,
+}
+
+#[derive(Default)]
+struct TokenPath {
+    keyword_match: Option<WeatherKeywordMatch>,
+    city_match: Option<GeonameMatch>,
+    any_other_geoname_matched: bool,
+    any_other_geoname_typed_in_full: bool,
+}
+
+impl From<Vec<Token>> for TokenPath {
+    fn from(tokens: Vec<Token>) -> Self {
+        let mut tp = Self::default();
+        for t in tokens {
+            match t {
+                Token::WeatherKeyword(kwm) => {
+                    tp.keyword_match = Some(kwm);
+                }
+                Token::Geoname(gm) => {
+                    if gm.geoname.feature_class == "P" {
+                        tp.city_match = Some(gm);
+                    } else {
+                        tp.any_other_geoname_matched = true;
+                        if !gm.prefix {
+                            tp.any_other_geoname_typed_in_full = true;
+                        }
+                    }
+                }
+            }
+        }
+        tp
+    }
 }
 
 #[cfg(test)]
@@ -480,11 +447,7 @@ mod tests {
     impl From<Geoname> for Suggestion {
         fn from(g: Geoname) -> Self {
             Suggestion::Weather {
-                city: Some(g.name),
-                region: Some(g.admin1_code),
-                country: Some(g.country_code),
-                latitude: Some(g.latitude),
-                longitude: Some(g.longitude),
+                city: Some(g),
                 score: 0.24,
             }
         }
@@ -551,13 +514,11 @@ mod tests {
             "xcdefg",
             "cdefgx",
             "x cdefg",
-            "cdefg x",
             "weatherx",
             "xweather",
             "xweat",
             "weatx",
             "x   weather",
-            "   weather x",
             "weather foo",
             "foo weather",
             // too short
@@ -574,11 +535,15 @@ mod tests {
 
         let matches = [
             "cdefg",
+            // full keyword ("cdefg") + prefix of another keyword ("xyz")
+            "cdefg x",
             "weath",
             "weathe",
             "weather",
             "WeAtHeR",
             "  weather  ",
+            // full keyword ("weather") + prefix of another keyword ("xyz")
+            "   weather x",
         ];
         for q in matches {
             assert_eq!(
@@ -586,11 +551,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     score: 0.24,
                     city: None,
-                    region: None,
-                    country: None,
-                    latitude: None,
-                    longitude: None,
-                },]
+                }]
             );
         }
 
@@ -632,11 +593,7 @@ mod tests {
                 vec![Suggestion::Weather {
                     score: 0.24,
                     city: None,
-                    region: None,
-                    country: None,
-                    latitude: None,
-                    longitude: None,
-                },]
+                }]
             );
         }
 
@@ -706,8 +663,17 @@ mod tests {
             ),
             (
                 "weather a",
-                // The made-up long-name city starts with A.
-                vec![geoname::tests::long_name_city().into()],
+                vec![
+                    // The made-up long-name city starts with "a".
+                    geoname::tests::long_name_city().into(),
+                    // A suggestion without a city is returned because the query
+                    // also matches a keyword ("weather") + a prefix of another
+                    // keyword ("ab").
+                    Suggestion::Weather {
+                        score: 0.24,
+                        city: None,
+                    },
+                ],
             ),
             (
                 "weather ac",
@@ -912,8 +878,8 @@ mod tests {
             (
                 "waterloo",
                 vec![
-                    // Waterloo, IA should be first since its population is
-                    // larger than Waterloo, AL.
+                    // Matches should be returned by population descending.
+                    geoname::tests::waterloo_on().into(),
                     geoname::tests::waterloo_ia().into(),
                     geoname::tests::waterloo_al().into(),
                 ],
@@ -980,7 +946,10 @@ mod tests {
                 "ny ny",
                 vec![geoname::tests::nyc().into()],
             ),
-            ("ny ny ny", vec![]),
+            (
+                "ny ny ny",
+                vec![geoname::tests::nyc().into()],
+            ),
             (
                 "ny n",
                 vec![],
@@ -1121,6 +1090,7 @@ mod tests {
             (
                 "weather water",
                 vec![
+                    geoname::tests::waterloo_on().into(),
                     geoname::tests::waterloo_ia().into(),
                     geoname::tests::waterloo_al().into(),
                 ],
@@ -1128,21 +1098,95 @@ mod tests {
             (
                 "waterloo w",
                 vec![
+                    geoname::tests::waterloo_on().into(),
                     geoname::tests::waterloo_ia().into(),
                     geoname::tests::waterloo_al().into(),
                 ],
             ),
-            ("weather w w", vec![]),
-            ("weather w water", vec![]),
-            ("weather w waterloo", vec![]),
-            ("weather water w", vec![]),
-            ("weather waterloo water", vec![]),
-            ("weather water water", vec![]),
-            ("weather water waterloo", vec![]),
+            (
+                // "w" matches "waco", "waterloo", and "weather"
+                "weather w w",
+                vec![
+                    geoname::tests::waco().into(),
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+                    Suggestion::Weather {
+                        score: 0.24,
+                        city: None,
+                    },
+                ],
+            ),
+            ("weather w water", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
+            ("weather w waterloo", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
+            ("weather water w", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
+            ("weather waterloo water", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
+            ("weather water water", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
+            ("weather water waterloo", vec![
+                    geoname::tests::waterloo_on().into(),
+                    geoname::tests::waterloo_ia().into(),
+                    geoname::tests::waterloo_al().into(),
+            ]),
             ("waterloo foo", vec![]),
             ("waterloo weather foo", vec![]),
             ("foo waterloo", vec![]),
             ("foo waterloo weather", vec![]),
+            ("weather waterloo foo", vec![]),
+            ("weather foo waterloo", vec![]),
+            ("weather water foo", vec![]),
+            ("weather foo water", vec![]),
+            (
+                "waterloo on",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo ont",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo ont.",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo ontario",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo canada",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo on canada",
+                vec![geoname::tests::waterloo_on().into()],
+            ),
+            (
+                "waterloo on us",
+                vec![],
+            ),
+            (
+                "waterloo al canada",
+                vec![],
+            ),
             (
                 "ny",
                 vec![],
@@ -1188,12 +1232,37 @@ mod tests {
                 vec![geoname::tests::rochester().into()],
             ),
             (
+                "liverpool",
+                vec![geoname::tests::liverpool_city().into()],
+            ),
+            (
+                "liverpool eng",
+                vec![geoname::tests::liverpool_city().into()],
+            ),
+            (
+                "liverpool england",
+                vec![geoname::tests::liverpool_city().into()],
+            ),
+            (
+                "liverpool uk",
+                vec![geoname::tests::liverpool_city().into()],
+            ),
+            (
+                "liverpool england uk",
+                vec![geoname::tests::liverpool_city().into()],
+            ),
+            (
                 geoname::tests::LONG_NAME,
                 vec![geoname::tests::long_name_city().into()],
             ),
             (
+                "     waterloo iowa",
+                vec![geoname::tests::waterloo_ia().into()],
+            ),
+            (
                 "   WaTeRlOo   ",
                 vec![
+                    geoname::tests::waterloo_on().into(),
                     geoname::tests::waterloo_ia().into(),
                     geoname::tests::waterloo_al().into(),
                 ],
