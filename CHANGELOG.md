@@ -8,6 +8,12 @@
 #### BREAKING CHANGE
 - Removed `Megazord.kt` and moved the contents to the new `RustComponentsInitializer.kt`.
 
+## 🔧 What's Fixed 🔧
+
+### Remote Settings
+
+- Fixed setting a new app context with `RemoteSettingsService::update_config`
+
 [Full Changelog](In progress)
 
 # v139.0 (_2025-04-28_)
