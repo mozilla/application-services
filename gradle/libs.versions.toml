@@ -29,7 +29,7 @@ jna = "5.14.0" # Don't update until Android 5/6 support is dropped
 
 # Linting and Static Analysis
 detekt = "1.23.8"
-ktlint = "0.50.0"
+ktlint = "1.7.1"
 
 # AndroidX Testing
 androidx-test = "1.7.0"
@@ -75,7 +75,7 @@ androidx-core = { group = "androidx.core", name = "core-ktx", version.ref = "and
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 
 # Linting and Static Analysis
-ktlint = { module = "com.pinterest:ktlint", version.ref = "ktlint" }
+ktlint = { group = "com.pinterest.ktlint", name = "ktlint-cli", version.ref = "ktlint" }
 
 # AndroidX Testing
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
