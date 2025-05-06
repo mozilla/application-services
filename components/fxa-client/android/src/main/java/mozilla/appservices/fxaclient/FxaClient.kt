@@ -540,7 +540,7 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * Perform an FxA operation and gather metrics on it
      */
     @Suppress("ThrowsCount", "TooGenericExceptionCaught")
-    fun<T> withMetrics(operation: () -> T): T {
+    fun <T> withMetrics(operation: () -> T): T {
         return try {
             FxaClientMetrics.operationCount.add()
             operation()
