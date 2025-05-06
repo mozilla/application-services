@@ -216,24 +216,36 @@ impl GetErrorHandling for Error {
                 })
                 .log_warning()
             }
-            // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
-            // so we just use a `if` guard.
-            Error::SqlError(rusqlite::Error::SqliteFailure(err, _))
-                if err.code == rusqlite::ErrorCode::DatabaseBusy =>
-            {
-                ErrorHandling::convert(PlacesApiError::PlacesConnectionBusy {
+            Error::SqlError(rusqlite::Error::SqliteFailure(err, _)) => match err.code {
+                rusqlite::ErrorCode::DatabaseBusy => {
+                    ErrorHandling::convert(PlacesApiError::PlacesConnectionBusy {
+                        reason: self.to_string(),
+                    })
+                    .log_warning()
+                }
+                rusqlite::ErrorCode::OperationInterrupted => {
+                    ErrorHandling::convert(PlacesApiError::OperationInterrupted {
+                        reason: self.to_string(),
+                    })
+                    .log_info()
+                }
+                rusqlite::ErrorCode::DatabaseCorrupt => {
+                    ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
+                        reason: self.to_string(),
+                    })
+                    .report_error("places-db-corrupt")
+                }
+                rusqlite::ErrorCode::DiskFull => {
+                    ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
+                        reason: self.to_string(),
+                    })
+                    .report_error("places-db-disk-full")
+                }
+                _ => ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
                     reason: self.to_string(),
                 })
-                .log_warning()
-            }
-            Error::SqlError(rusqlite::Error::SqliteFailure(err, _))
-                if err.code == rusqlite::ErrorCode::OperationInterrupted =>
-            {
-                ErrorHandling::convert(PlacesApiError::OperationInterrupted {
-                    reason: self.to_string(),
-                })
-                .log_info()
-            }
+                .report_error("places-unexpected"),
+            },
             Error::InterruptedError(err) => {
                 // Can't unify with the above ... :(
                 ErrorHandling::convert(PlacesApiError::OperationInterrupted {

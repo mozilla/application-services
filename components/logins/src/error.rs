@@ -181,6 +181,24 @@ impl GetErrorHandling for Error {
                 })
                 .report_error("logins-sync"),
             },
+            Error::SqlError(rusqlite::Error::SqliteFailure(err, _)) => match err.code {
+                rusqlite::ErrorCode::DatabaseCorrupt => {
+                    ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                        reason: self.to_string(),
+                    })
+                    .report_error("logins-db-corrupt")
+                }
+                rusqlite::ErrorCode::DiskFull => {
+                    ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                        reason: self.to_string(),
+                    })
+                    .report_error("logins-db-disk-full")
+                }
+                _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
+                    reason: self.to_string(),
+                })
+                .report_error("logins-unexpected"),
+            },
             // Unexpected errors that we report to Sentry.  We should watch the reports for these
             // and do one or more of these things if we see them:
             //   - Fix the underlying issue
