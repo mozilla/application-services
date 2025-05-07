@@ -294,6 +294,12 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         })
     }
 
+    pub fn get_last_modified_timestamp(&self) -> Result<Option<u64>> {
+        let mut inner = self.inner.lock();
+        let collection_url = inner.api_client.collection_url();
+        inner.storage.get_last_modified_timestamp(&collection_url)
+    }
+
     /// Synchronizes the local collection with the remote server by performing the following steps:
     /// 1. Fetches the last modified timestamp of the collection from local storage.
     /// 2. Fetches the changeset from the remote server based on the last modified timestamp.
@@ -950,7 +956,7 @@ impl Default for RemoteState {
 }
 
 impl RemoteState {
-    fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
+    pub fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
         let extract_backoff_header = |header| -> Result<u64> {
             Ok(response
                 .headers
@@ -973,7 +979,7 @@ impl RemoteState {
         Ok(())
     }
 
-    fn ensure_no_backoff(&mut self) -> Result<()> {
+    pub fn ensure_no_backoff(&mut self) -> Result<()> {
         if let BackoffState::Backoff {
             observed_at,
             duration,

@@ -7,6 +7,12 @@
 
 #### BREAKING CHANGE
 - Removed `Megazord.kt` and moved the contents to the new `RustComponentsInitializer.kt`.
+- 
+## 🦊 What's Changed 🦊
+
+### Remote Settings
+- `RemoteSettingsService::sync` is now more efficient.  It checks the remote settings changes
+  endpoint and only syncs collections that have been modified since the last sync.
 
 ## 🔧 What's Fixed 🔧
 
