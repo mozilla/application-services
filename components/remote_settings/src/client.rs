@@ -560,12 +560,12 @@ impl ViaductApiClient {
 
     fn make_request(&mut self, url: Url) -> Result<Response> {
         log::trace!("make_request: {url}");
-        self.ensure_no_backoff()?;
+        self.remote_state.ensure_no_backoff()?;
 
         let req = Request::get(url);
         let resp = req.send()?;
 
-        self.handle_backoff_hint(&resp)?;
+        self.remote_state.handle_backoff_hint(&resp)?;
 
         if resp.is_success() {
             Ok(resp)
@@ -575,46 +575,6 @@ impl ViaductApiClient {
                 resp.status
             )))
         }
-    }
-
-    fn ensure_no_backoff(&mut self) -> Result<()> {
-        if let BackoffState::Backoff {
-            observed_at,
-            duration,
-        } = self.remote_state.backoff
-        {
-            let elapsed_time = observed_at.elapsed();
-            if elapsed_time >= duration {
-                self.remote_state.backoff = BackoffState::Ok;
-            } else {
-                let remaining = duration - elapsed_time;
-                return Err(Error::BackoffError(remaining.as_secs()));
-            }
-        }
-        Ok(())
-    }
-
-    fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
-        let extract_backoff_header = |header| -> Result<u64> {
-            Ok(response
-                .headers
-                .get_as::<u64, _>(header)
-                .transpose()
-                .unwrap_or_default() // Ignore number parsing errors.
-                .unwrap_or(0))
-        };
-        // In practice these two headers are mutually exclusive.
-        let backoff = extract_backoff_header(HEADER_BACKOFF)?;
-        let retry_after = extract_backoff_header(HEADER_RETRY_AFTER)?;
-        let max_backoff = backoff.max(retry_after);
-
-        if max_backoff > 0 {
-            self.remote_state.backoff = BackoffState::Backoff {
-                observed_at: Instant::now(),
-                duration: Duration::from_secs(max_backoff),
-            };
-        }
-        Ok(())
     }
 }
 
@@ -809,14 +769,14 @@ impl Client {
 
     fn make_request(&self, url: Url) -> Result<Response> {
         let mut current_remote_state = self.remote_state.lock();
-        self.ensure_no_backoff(&mut current_remote_state.backoff)?;
+        current_remote_state.ensure_no_backoff()?;
         drop(current_remote_state);
 
         let req = Request::get(url);
         let resp = req.send()?;
 
         let mut current_remote_state = self.remote_state.lock();
-        self.handle_backoff_hint(&resp, &mut current_remote_state.backoff)?;
+        current_remote_state.handle_backoff_hint(&resp)?;
 
         if resp.is_success() {
             Ok(resp)
@@ -826,50 +786,6 @@ impl Client {
                 resp.status
             )))
         }
-    }
-
-    fn ensure_no_backoff(&self, current_state: &mut BackoffState) -> Result<()> {
-        if let BackoffState::Backoff {
-            observed_at,
-            duration,
-        } = *current_state
-        {
-            let elapsed_time = observed_at.elapsed();
-            if elapsed_time >= duration {
-                *current_state = BackoffState::Ok;
-            } else {
-                let remaining = duration - elapsed_time;
-                return Err(Error::BackoffError(remaining.as_secs()));
-            }
-        }
-        Ok(())
-    }
-
-    fn handle_backoff_hint(
-        &self,
-        response: &Response,
-        current_state: &mut BackoffState,
-    ) -> Result<()> {
-        let extract_backoff_header = |header| -> Result<u64> {
-            Ok(response
-                .headers
-                .get_as::<u64, _>(header)
-                .transpose()
-                .unwrap_or_default() // Ignore number parsing errors.
-                .unwrap_or(0))
-        };
-        // In practice these two headers are mutually exclusive.
-        let backoff = extract_backoff_header(HEADER_BACKOFF)?;
-        let retry_after = extract_backoff_header(HEADER_RETRY_AFTER)?;
-        let max_backoff = backoff.max(retry_after);
-
-        if max_backoff > 0 {
-            *current_state = BackoffState::Backoff {
-                observed_at: Instant::now(),
-                duration: Duration::from_secs(max_backoff),
-            };
-        }
-        Ok(())
     }
 }
 
@@ -1030,6 +946,48 @@ impl Default for RemoteState {
             attachments_base_url: None,
             backoff: BackoffState::Ok,
         }
+    }
+}
+
+impl RemoteState {
+    fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
+        let extract_backoff_header = |header| -> Result<u64> {
+            Ok(response
+                .headers
+                .get_as::<u64, _>(header)
+                .transpose()
+                .unwrap_or_default() // Ignore number parsing errors.
+                .unwrap_or(0))
+        };
+        // In practice these two headers are mutually exclusive.
+        let backoff = extract_backoff_header(HEADER_BACKOFF)?;
+        let retry_after = extract_backoff_header(HEADER_RETRY_AFTER)?;
+        let max_backoff = backoff.max(retry_after);
+
+        if max_backoff > 0 {
+            self.backoff = BackoffState::Backoff {
+                observed_at: Instant::now(),
+                duration: Duration::from_secs(max_backoff),
+            };
+        }
+        Ok(())
+    }
+
+    fn ensure_no_backoff(&mut self) -> Result<()> {
+        if let BackoffState::Backoff {
+            observed_at,
+            duration,
+        } = self.backoff
+        {
+            let elapsed_time = observed_at.elapsed();
+            if elapsed_time >= duration {
+                self.backoff = BackoffState::Ok;
+            } else {
+                let remaining = duration - elapsed_time;
+                return Err(Error::BackoffError(remaining.as_secs()));
+            }
+        }
+        Ok(())
     }
 }
 
