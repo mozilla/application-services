@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::{
     defaults::Defaults,
-    error::{NimbusError, Result},
+    error::{debug, warn, NimbusError, Result},
     evaluator::evaluate_enrollment,
     json, AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
     SLUG_REPLACEMENT_PATTERN,
@@ -140,10 +140,9 @@ impl ExperimentEnrollment {
         } else {
             let enrollment =
                 evaluate_enrollment(available_randomization_units, experiment, targeting_helper)?;
-            log::debug!(
+            debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
-                &enrollment.slug,
-                &enrollment
+                &enrollment.slug, &enrollment
             );
             if matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                 out_enrollment_events.push(enrollment.get_change_event())
@@ -200,11 +199,9 @@ impl ExperimentEnrollment {
                         updated_experiment,
                         targeting_helper,
                     )?;
-                    log::debug!(
+                    debug!(
                         "Experiment '{}' with enrollment {:?} is now {:?}",
-                        &self.slug,
-                        &self,
-                        updated_enrollment
+                        &self.slug, &self, updated_enrollment
                     );
                     if matches!(updated_enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                         out_enrollment_events.push(updated_enrollment.get_change_event());
@@ -219,7 +216,7 @@ impl ExperimentEnrollment {
                 ..
             } => {
                 if !is_user_participating {
-                    log::debug!(
+                    debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
                         &self.slug
                     );
@@ -253,7 +250,7 @@ impl ExperimentEnrollment {
                         EnrollmentStatus::NotEnrolled {
                             reason: NotEnrolledReason::NotTargeted,
                         } => {
-                            log::debug!("Existing experiment enrollment '{}' is now disqualified (targeting change)", &self.slug);
+                            debug!("Existing experiment enrollment '{}' is now disqualified (targeting change)", &self.slug);
                             let updated_enrollment =
                                 self.disqualify_from_enrolled(DisqualifiedReason::NotTargeted);
                             out_enrollment_events.push(updated_enrollment.get_change_event());
@@ -280,7 +277,7 @@ impl ExperimentEnrollment {
                 ref branch, reason, ..
             } => {
                 if !is_user_participating {
-                    log::debug!(
+                    debug!(
                         "Disqualified experiment enrollment '{}' has been reset to not-enrolled (global opt-out)",
                         &self.slug
                     );
@@ -323,10 +320,9 @@ impl ExperimentEnrollment {
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Option<Self> {
-        log::debug!(
+        debug!(
             "Experiment '{}' vanished while we had enrollment status of {:?}",
-            self.slug,
-            self
+            self.slug, self
         );
         let branch = match self.status {
             EnrollmentStatus::Enrolled { ref branch, .. }
@@ -414,7 +410,7 @@ impl ExperimentEnrollment {
                 return Some(self.clone());
             }
         }
-        log::debug!("Garbage collecting enrollment '{}'", self.slug);
+        debug!("Garbage collecting enrollment '{}'", self.slug);
         None
     }
 
@@ -665,7 +661,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // place in this function where enrollments could be
                     // dropped.  We could then send those errors to
                     // telemetry so that they could be monitored (SDK-309)
-                    log::warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
+                    warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                     None
                 }
             };
@@ -673,9 +669,9 @@ impl<'a> EnrollmentsEvolver<'a> {
             #[cfg(feature = "stateful")]
             if let Some(ref enrollment) = next_enrollment.clone() {
                 if self.targeting_helper.update_enrollment(enrollment) {
-                    log::debug!("Enrollment updated for {}", enrollment.slug);
+                    debug!("Enrollment updated for {}", enrollment.slug);
                 } else {
-                    log::debug!("Enrollment unchanged for {}", enrollment.slug);
+                    debug!("Enrollment unchanged for {}", enrollment.slug);
                 }
             }
 
@@ -766,7 +762,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // place in this function where enrollments could be
                         // dropped.  We could then send those errors to
                         // telemetry so that they could be monitored (SDK-309)
-                        log::warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
+                        warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                         None
                     }
                 };
@@ -774,9 +770,9 @@ impl<'a> EnrollmentsEvolver<'a> {
                 #[cfg(feature = "stateful")]
                 if let Some(ref enrollment) = next_enrollment.clone() {
                     if self.targeting_helper.update_enrollment(enrollment) {
-                        log::debug!("Enrollment updated for {}", enrollment.slug);
+                        debug!("Enrollment updated for {}", enrollment.slug);
                     } else {
-                        log::debug!("Enrollment unchanged for {}", enrollment.slug);
+                        debug!("Enrollment unchanged for {}", enrollment.slug);
                     }
                 }
 

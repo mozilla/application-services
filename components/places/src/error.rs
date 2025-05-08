@@ -7,6 +7,9 @@ use crate::types::BookmarkType;
 use error_support::{ErrorHandling, GetErrorHandling};
 use interrupt_support::Interrupted;
 
+// reexport logging helpers.
+pub use error_support::{debug, error, info, trace, warn};
+
 // Result type used internally
 pub type Result<T> = std::result::Result<T, Error>;
 // Functions which are part of the public API should use this Result.
@@ -265,7 +268,7 @@ impl GetErrorHandling for Error {
                         // If it's a type-erased version of one of our errors, try
                         // and resolve it.
                         if let Some(places_err) = store_error.downcast_ref::<Error>() {
-                            log::info!("Recursing to resolve places error");
+                            info!("Recursing to resolve places error");
                             places_err.get_error_handling()
                         } else {
                             ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {

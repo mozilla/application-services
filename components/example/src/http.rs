@@ -30,7 +30,7 @@ impl HttpClient {
         let url = Url::parse(&format!(
             "https://api.github.com/repos/mozilla/application-services/issues/{issue_id}"
         ))?;
-        log::trace!("making request: {url}");
+        crate::error::trace!("making request: {url}");
         let request = Request::get(url)
             .header(header_names::ACCEPT, "application/vnd.github+json")?
             .header(
@@ -39,7 +39,7 @@ impl HttpClient {
             )?
             .header("X-GitHub-Api-Version", "2022-11-28")?;
         let response = request.send()?;
-        log::trace!("response: {}", response.text());
+        crate::error::trace!("response: {}", response.text());
         // Response.json() deserializes the response using Serde.
         let issue: GithubIssue = response.json()?;
         Ok(TodoItem {

@@ -225,7 +225,7 @@ macro_rules! merge_field {
     ($merged:ident, $b:ident, $prefer_b:expr, $field:ident) => {
         if let Some($field) = $b.$field.take() {
             if $merged.$field.is_some() {
-                log::warn!("Collision merging login field {}", stringify!($field));
+                warn!("Collision merging login field {}", stringify!($field));
                 if $prefer_b {
                     $merged.$field = Some($field);
                 }

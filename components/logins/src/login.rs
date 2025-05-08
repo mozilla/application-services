@@ -627,7 +627,7 @@ impl ValidateAndFixup for LoginEntry {
                     if !fixup {
                         return Err($err.into());
                     }
-                    log::warn!("Fixing login record {:?}", $err);
+                    warn!("Fixing login record {:?}", $err);
                     let fixed: Result<&mut Self> =
                         Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
                     fixed

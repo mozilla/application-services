@@ -47,7 +47,7 @@ lazy_static::lazy_static! {
 pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
-            log::warn!("places: get_registered_sync_engine: no PlacesApi registered");
+            warn!("places: get_registered_sync_engine: no PlacesApi registered");
             None
         }
         Some(places_api) => match create_sync_engine(&places_api, engine_id) {
@@ -478,7 +478,7 @@ pub mod test {
     pub fn new_mem_api() -> Arc<PlacesApi> {
         // A bit hacky, but because this is a test-only function that almost all tests use,
         // it's a convenient place to initialize logging for tests.
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
 
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
         PlacesApi::new_memory(&format!("test-api-{}", counter)).expect("should get an API")

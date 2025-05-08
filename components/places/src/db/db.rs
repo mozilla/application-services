@@ -213,7 +213,7 @@ impl Drop for PlacesDb {
         }
         let res = self.db.execute_batch("PRAGMA optimize(0x02);");
         if let Err(e) = res {
-            log::warn!("Failed to execute pragma optimize (DB locked?): {}", e);
+            warn!("Failed to execute pragma optimize (DB locked?): {}", e);
         }
     }
 }

@@ -6,7 +6,7 @@
 
 use crate::api::matcher::{self, search_frecent, SearchParams};
 pub use crate::api::places_api::places_api_new;
-pub use crate::error::Result;
+pub use crate::error::{warn, Result};
 pub use crate::error::{ApiResult, PlacesApiError};
 pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
@@ -353,7 +353,7 @@ impl PlacesConnection {
             let guid = match Url::parse(&url) {
                 Ok(url) => history::url_to_guid(conn, &url)?,
                 Err(e) => {
-                    log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
+                    warn!("Invalid URL passed to places_delete_visits_for, {}", e);
                     history::href_to_guid(conn, url.clone().as_str())?
                 }
             };
@@ -381,7 +381,7 @@ impl PlacesConnection {
                     history::delete_place_visit_at_time(conn, &url, timestamp)?;
                 }
                 Err(e) => {
-                    log::warn!("Invalid URL passed to places_delete_visit, {}", e);
+                    warn!("Invalid URL passed to places_delete_visit, {}", e);
                     history::delete_place_visit_at_time_by_href(conn, url.as_str(), timestamp)?;
                 }
             };
@@ -456,7 +456,7 @@ impl PlacesConnection {
                     matcher::accept_result(conn, &search_string, &url)?;
                 }
                 Err(_) => {
-                    log::warn!("Ignoring invalid URL in places_accept_result");
+                    warn!("Ignoring invalid URL in places_accept_result");
                     return Ok(());
                 }
             };
@@ -497,7 +497,7 @@ impl PlacesConnection {
                     .collect::<Vec<BookmarkItem>>()),
                 Err(e) => {
                     // There are no bookmarks with the URL if it's invalid.
-                    log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
+                    warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
                     Ok(Vec::<BookmarkItem>::new())
                 }
             }

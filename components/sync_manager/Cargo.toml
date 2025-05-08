@@ -15,7 +15,6 @@ tabs = { path = "../tabs" }
 thiserror = "1.0"
 anyhow = "1.0"
 lazy_static = "1.4"
-log = "0.4"
 error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 url = "2.2"

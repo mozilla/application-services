@@ -8,18 +8,25 @@ autotests = false
 exclude = ["/android"]
 
 [dependencies]
-log = "0.4"
-lazy_static = { version = "1.4" }
-parking_lot = { version = ">=0.11,<=0.12" }
-uniffi = { version = "0.29.0" }
+backtrace = { version = "0.3", optional = true}
 error-support-macros = { path = "macros" }
-
-[dependencies.backtrace]
-optional = true
-version = "0.3"
+env_logger = { version = "0.10", default-features = false, optional = true }
+lazy_static = { version = "1.4" }
+log = { version = "0.4" }
+parking_lot = { version = ">=0.11,<=0.12" }
+tracing = { version = "0.1", optional = true }
+tracing-support = { path = "../tracing", optional = true }
+uniffi = { version = "0.29.0" }
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features=["build"]}
 
 [features]
+default = ["log-logging"]
 backtrace = ["dep:backtrace"]
+# What we use for general logging
+log-logging = ["dep:env_logger"]
+tracing-logging = ["dep:tracing", "dep:tracing-support"]
+# and more general reporting.
+tracing-reporting = ["dep:tracing", "dep:tracing-support"]
+testing = ["tracing-support/testing"]

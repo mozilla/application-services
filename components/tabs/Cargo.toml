@@ -12,7 +12,6 @@ error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 payload-support = { path = "../support/payload" }
 lazy_static = "1.4"
-log = "0.4"
 rusqlite = { version = "0.33.0", features = ["bundled", "unlock_notify"] }
 serde = "1"
 serde_derive = "1"
@@ -26,7 +25,7 @@ url = "2"
 types = { path = "../support/types" }
 
 [dev-dependencies]
-env_logger = { version = "0.10.0", default-features = false, features = ["humantime"] }
+error-support = { path = "../support/error", features=["testing"] }
 tempfile = "3.1"
 
 [build-dependencies]

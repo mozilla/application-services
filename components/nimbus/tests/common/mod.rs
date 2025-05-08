@@ -8,7 +8,7 @@ use rkv::StoreOptions;
 // utilities shared between tests
 
 use nimbus::{
-    error::Result,
+    error::{debug, Result},
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     AppContext, NimbusClient, RemoteSettingsConfig, RemoteSettingsServer,
 };
@@ -52,7 +52,7 @@ fn new_test_client_internal(
 ) -> Result<NimbusClient, nimbus::NimbusError> {
     use std::path::PathBuf;
     use url::Url;
-    let _ = env_logger::try_init();
+    error_support::init_for_tests();
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     dir.push("tests/experiments");
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
@@ -93,9 +93,9 @@ pub fn create_database<P: AsRef<Path>>(
     experiments_json: &[serde_json::Value],
     enrollments_json: &[serde_json::Value],
 ) -> Result<()> {
-    let _ = env_logger::try_init();
-    log::debug!("create_database(): old_version = {:?}", old_version);
-    log::debug!("create_database(): path = {:?}", path.as_ref());
+    error_support::init_for_tests();
+    debug!("create_database(): old_version = {:?}", old_version);
+    debug!("create_database(): path = {:?}", path.as_ref());
     let rkv = Database::open_rkv(path)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =
@@ -108,7 +108,7 @@ pub fn create_database<P: AsRef<Path>>(
 
     // write out the experiments
     for experiment_json in experiments_json {
-        log::debug!("create_database(): experiment_json = {:?}", experiment_json);
+        debug!("create_database(): experiment_json = {:?}", experiment_json);
         experiment_store.put(
             &mut writer,
             experiment_json["slug"].as_str().unwrap(),
@@ -118,7 +118,7 @@ pub fn create_database<P: AsRef<Path>>(
 
     // write out the enrollments
     for enrollment_json in enrollments_json {
-        // log::debug!("enrollment_json = {:?}", enrollment_json);
+        // debug!("enrollment_json = {:?}", enrollment_json);
         enrollment_store.put(
             &mut writer,
             enrollment_json["slug"].as_str().unwrap(),
@@ -127,7 +127,7 @@ pub fn create_database<P: AsRef<Path>>(
     }
 
     writer.commit()?;
-    log::debug!("create_database: writer committed");
+    debug!("create_database: writer committed");
 
     Ok(())
 }

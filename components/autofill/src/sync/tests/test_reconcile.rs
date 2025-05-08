@@ -606,7 +606,8 @@ fn insert_mirror_record(conn: &Connection, guid: &SyncGuid, test_payload: &serde
 
 #[test]
 fn test_reconcile_addresses() -> Result<()> {
-    let _ = env_logger::try_init();
+    use error_support::{info, trace};
+    error_support::init_for_tests();
 
     let j = &ADDRESS_RECONCILE_TESTCASES;
     for test_case in j.as_array().unwrap() {
@@ -616,7 +617,7 @@ fn test_reconcile_addresses() -> Result<()> {
         let tx = db.unchecked_transaction().unwrap();
 
         create_empty_sync_temp_tables(&tx)?;
-        log::info!("starting test case: {}", desc);
+        info!("starting test case: {}", desc);
         // stick the local records in the local DB as real items.
         // Note that some test-cases have multiple "local" records, but that's
         // to explicitly test desktop's version of the "mirror", and doesn't
@@ -624,11 +625,11 @@ fn test_reconcile_addresses() -> Result<()> {
         let local_array = test_case["local"].as_array().unwrap();
         let guid = if local_array.is_empty() {
             // no local record in this test case, so allocate a random guid.
-            log::trace!("local record: doesn't exist");
+            trace!("local record: doesn't exist");
             SyncGuid::random()
         } else {
             let local = local_array.last().unwrap();
-            log::trace!("local record: {local}");
+            trace!("local record: {local}");
             let guid = SyncGuid::random();
             addresses::add_internal_address(&tx, &make_local_from_json(&guid, local))?;
             guid
@@ -639,14 +640,14 @@ fn test_reconcile_addresses() -> Result<()> {
         // we need to add an 'id' entry, the same as the local item we added.
         let map = parent_json.as_object_mut().unwrap();
         map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
-        log::trace!("parent record: {:?}", parent_json);
+        trace!("parent record: {:?}", parent_json);
         insert_mirror_record(&tx, &guid, &parent_json);
 
         tx.commit().expect("should commit");
 
         // convert "incoming" items into payloads and have the sync engine apply them.
         let mut remote = test_case["remote"].clone();
-        log::trace!("remote record: {:?}", remote);
+        trace!("remote record: {:?}", remote);
         // we need to add an 'id' entry, the same as the local item we added.
         let map = remote.as_object_mut().unwrap();
         map.insert("id".to_string(), serde_json::to_value(guid.clone())?);
@@ -666,7 +667,7 @@ fn test_reconcile_addresses() -> Result<()> {
         // For some tests, we want to check that the outgoing has what we're expecting
         // to go to the server
         if let Some(outgoing_expected) = test_case.get("outgoing") {
-            log::trace!("Testing outgoing changeset: {:?}", outgoing);
+            trace!("Testing outgoing changeset: {:?}", outgoing);
             let bso_payload: Map<String, Value> =
                 serde_json::from_str(&outgoing[0].payload).unwrap();
             let entry = bso_payload.get("entry").unwrap();
