@@ -173,11 +173,9 @@ impl ContextIDComponentInner {
         // our uniffi / Rust infrastructure doesn't yet support doing that,
         // so we'll delegate to our embedder to send the Glean ping by
         // calling a `rotated` callback method.
-        let _ = self
-            .callback_handle
+        self.callback_handle
             .read()
-            .rotated(original_context_id.clone())
-            .inspect_err(|e| error!("Failed to call rotated callback handle: {}", e));
+            .rotated(original_context_id.clone());
     }
 
     pub fn force_rotation(&mut self, now: DateTime<Utc>) {
@@ -185,11 +183,9 @@ impl ContextIDComponentInner {
     }
 
     pub fn persist(&self) {
-        let _ = self
-            .callback_handle
+        self.callback_handle
             .read()
-            .persist(self.context_id.clone(), self.creation_timestamp.timestamp())
-            .inspect_err(|e| error!("Failed to call persist callback handle: {}", e));
+            .persist(self.context_id.clone(), self.creation_timestamp.timestamp());
     }
 
     pub fn unset_callback(&mut self) {
@@ -402,14 +398,11 @@ mod tests {
             }
 
             impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, _context_id: String, _creation_date: i64) -> ApiResult<()> {
-                    Ok(())
-                }
+                fn persist(&self, _context_id: String, _creation_date: i64) {}
 
-                fn rotated(&self, original_context_id: String) -> ApiResult<()> {
+                fn rotated(&self, original_context_id: String) {
                     *self.rotated_called.lock().unwrap() = true;
                     *self.original_context_id.lock().unwrap() = Some(original_context_id);
-                    Ok(())
                 }
             }
 
@@ -465,14 +458,11 @@ mod tests {
             }
 
             impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, _context_id: String, _creation_date: i64) -> ApiResult<()> {
-                    Ok(())
-                }
+                fn persist(&self, _context_id: String, _creation_date: i64) {}
 
-                fn rotated(&self, original_context_id: String) -> ApiResult<()> {
+                fn rotated(&self, original_context_id: String) {
                     *self.rotated_called.lock().unwrap() = true;
                     *self.original_context_id.lock().unwrap() = Some(original_context_id);
-                    Ok(())
                 }
             }
 
@@ -545,16 +535,13 @@ mod tests {
             }
 
             impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, context_id: String, creation_date: i64) -> ApiResult<()> {
+                fn persist(&self, context_id: String, creation_date: i64) {
                     *self.persist_called.lock().unwrap() = true;
                     *self.context_id.lock().unwrap() = Some(context_id);
                     *self.creation_timestamp.lock().unwrap() = Some(creation_date);
-                    Ok(())
                 }
 
-                fn rotated(&self, _original_context_id: String) -> ApiResult<()> {
-                    Ok(())
-                }
+                fn rotated(&self, _original_context_id: String) {}
             }
 
             let persist_called_flag = Arc::new(Mutex::new(false));
