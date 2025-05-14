@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, LoginEntry};
+use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
@@ -13,6 +13,12 @@ use sync15::{
     engine::{EngineSyncAssociation, SyncEngine, SyncEngineId},
     ServerTimestamp,
 };
+
+#[derive(uniffi::Enum)]
+pub enum LoginOrErrorMessage {
+    Login,
+    String,
+}
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -46,6 +52,26 @@ fn create_sync_engine(
         // panicking here seems reasonable - it's a static error if this
         // it hit, not something that runtime conditions can influence.
         _ => unreachable!("can't provide unknown engine: {}", engine_id),
+    }
+}
+
+fn map_bulk_result_entry(
+    enc_login: Result<EncryptedLogin>,
+    encdec: &dyn EncryptorDecryptor,
+) -> BulkResultEntry {
+    match enc_login {
+        Ok(enc_login) => match enc_login.decrypt(encdec) {
+            Ok(login) => BulkResultEntry::Success { login },
+            Err(error) => {
+                warn!("Login could not be decrypted. This indicates a fundamental problem with the encryption key.");
+                BulkResultEntry::Error {
+                    message: error.to_string(),
+                }
+            }
+        },
+        Err(error) => BulkResultEntry::Error {
+            message: error.to_string(),
+        },
     }
 }
 
@@ -181,6 +207,46 @@ impl LoginStore {
             .lock()
             .add(entry, self.encdec.as_ref())
             .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+    }
+
+    #[handle_error(Error)]
+    pub fn add_many(&self, entries: Vec<LoginEntry>) -> ApiResult<Vec<BulkResultEntry>> {
+        self.db
+            .lock()
+            .add_many(entries, self.encdec.as_ref())
+            .map(|enc_logins| {
+                enc_logins
+                    .into_iter()
+                    .map(|enc_login| map_bulk_result_entry(enc_login, self.encdec.as_ref()))
+                    .collect()
+            })
+    }
+
+    /// This method is intended to preserve metadata (LoginMeta) during a migration.
+    /// In normal operation, this method should not be used; instead,
+    /// use `add(entry)`, which manages the corresponding fields itself.
+    #[handle_error(Error)]
+    pub fn add_with_meta(&self, entry_with_meta: LoginEntryWithMeta) -> ApiResult<Login> {
+        self.db
+            .lock()
+            .add_with_meta(entry_with_meta, self.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+    }
+
+    #[handle_error(Error)]
+    pub fn add_many_with_meta(
+        &self,
+        entries_with_meta: Vec<LoginEntryWithMeta>,
+    ) -> ApiResult<Vec<BulkResultEntry>> {
+        self.db
+            .lock()
+            .add_many_with_meta(entries_with_meta, self.encdec.as_ref())
+            .map(|enc_logins| {
+                enc_logins
+                    .into_iter()
+                    .map(|enc_login| map_bulk_result_entry(enc_login, self.encdec.as_ref()))
+                    .collect()
+            })
     }
 
     #[handle_error(Error)]

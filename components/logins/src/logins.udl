@@ -48,9 +48,33 @@ dictionary LoginEntry {
     string username;
 };
 
+/// Login data specific to database records.
+/// The add_with_record API inputs this.
+dictionary LoginMeta {
+    string id;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+};
+
+/// A login together with record fields, handed over to the store API; ie a login persisted
+/// elsewhere, useful for migrations
+dictionary LoginEntryWithMeta {
+    LoginEntry entry;
+    LoginMeta meta;
+};
+
+/// A bulk insert result entry, returned by `add_many` and `add_many_with_meta`
+[Enum]
+interface BulkResultEntry {
+    Success(Login login);
+    Error(string message);
+};
+
 /// A login stored in the database
 dictionary Login {
-    // record fields
+    // meta fields
     string id;
     i64 times_used;
     i64 time_created;
@@ -145,6 +169,15 @@ interface LoginStore {
 
     [Throws=LoginsApiError]
     Login add(LoginEntry login);
+
+    [Throws=LoginsApiError]
+    sequence<BulkResultEntry> add_many(sequence<LoginEntry> logins);
+
+    [Throws=LoginsApiError]
+    Login add_with_meta(LoginEntryWithMeta entry_with_meta);
+
+    [Throws=LoginsApiError]
+    sequence<BulkResultEntry> add_many_with_meta(sequence<LoginEntryWithMeta> entries_with_meta);
 
     [Throws=LoginsApiError]
     Login update([ByRef] string id, LoginEntry login);

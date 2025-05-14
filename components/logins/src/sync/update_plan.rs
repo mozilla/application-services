@@ -37,8 +37,8 @@ impl UpdatePlan {
             }
             LocalLogin::Alive { login, .. } => {
                 debug!("  Conflicting record without shared parent, using newer");
-                let is_override = login.record.time_password_changed
-                    > upstream.0.login.record.time_password_changed;
+                let is_override =
+                    login.meta.time_password_changed > upstream.0.login.meta.time_password_changed;
                 self.plan_mirror_insert(upstream.0, upstream.1, is_override);
                 if !is_override {
                     self.delete_local.push(login.guid());
@@ -170,10 +170,10 @@ impl UpdatePlan {
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
                 ":origin": login.fields.origin,
-                ":times_used": login.record.times_used,
-                ":time_last_used": login.record.time_last_used,
-                ":time_password_changed": login.record.time_password_changed,
-                ":time_created": login.record.time_created,
+                ":times_used": login.meta.times_used,
+                ":time_last_used": login.meta.time_last_used,
+                ":time_password_changed": login.meta.time_password_changed,
+                ":time_created": login.meta.time_created,
                 ":guid": login.guid_str(),
                 ":sec_fields": login.sec_fields,
             })?;
@@ -235,10 +235,10 @@ impl UpdatePlan {
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
                 ":origin": login.fields.origin,
-                ":times_used": login.record.times_used,
-                ":time_last_used": login.record.time_last_used,
-                ":time_password_changed": login.record.time_password_changed,
-                ":time_created": login.record.time_created,
+                ":times_used": login.meta.times_used,
+                ":time_last_used": login.meta.time_last_used,
+                ":time_password_changed": login.meta.time_password_changed,
+                ":time_created": login.meta.time_created,
                 ":guid": login.guid_str(),
                 ":sec_fields": login.sec_fields,
             })?;
@@ -277,9 +277,9 @@ impl UpdatePlan {
                 ":username_field": l.login.fields.username_field,
                 ":password_field": l.login.fields.password_field,
                 ":origin": l.login.fields.origin,
-                ":time_last_used": l.login.record.time_last_used,
-                ":time_password_changed": l.login.record.time_password_changed,
-                ":times_used": l.login.record.times_used,
+                ":time_last_used": l.login.meta.time_last_used,
+                ":time_password_changed": l.login.meta.time_password_changed,
+                ":times_used": l.login.meta.times_used,
                 ":guid": l.guid_str(),
                 ":sec_fields": l.login.sec_fields,
             })?;
@@ -600,7 +600,7 @@ mod tests {
 
         // Then, lets set our tombstone
         let local_login = LocalLogin::Tombstone {
-            id: login.record.id.clone(),
+            id: login.meta.id.clone(),
             local_modified,
         };
 

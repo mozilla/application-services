@@ -11,7 +11,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
 use crate::SecureLoginFields;
-use crate::{EncryptedLogin, LoginEntry, LoginFields, RecordFields};
+use crate::{EncryptedLogin, LoginEntry, LoginFields, LoginMeta};
 use serde_derive::*;
 use sync15::bso::OutgoingBso;
 use sync_guid::Guid;
@@ -103,7 +103,7 @@ impl IncomingLogin {
         // If we can't fix the parts we keep the invalid bits.
         Ok(Self {
             login: EncryptedLogin {
-                record: RecordFields {
+                meta: LoginMeta {
                     id: p.guid.into(),
                     time_created: p.time_created,
                     time_password_changed: p.time_password_changed,
@@ -191,10 +191,10 @@ impl EncryptedLogin {
                 password_field: self.fields.password_field,
                 username: sec_fields.username,
                 password: sec_fields.password,
-                time_created: self.record.time_created,
-                time_password_changed: self.record.time_password_changed,
-                time_last_used: self.record.time_last_used,
-                times_used: self.record.times_used,
+                time_created: self.meta.time_created,
+                time_password_changed: self.meta.time_password_changed,
+                time_last_used: self.meta.time_last_used,
+                times_used: self.meta.times_used,
                 unknown_fields,
             },
         )?)
@@ -221,7 +221,7 @@ mod tests {
     use super::*;
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCDEC};
     use crate::sync::merge::SyncLoginData;
-    use crate::{EncryptedLogin, LoginFields, RecordFields, SecureLoginFields};
+    use crate::{EncryptedLogin, LoginFields, LoginMeta, SecureLoginFields};
     use sync15::bso::IncomingBso;
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
         )
         .unwrap()
         .login;
-        assert_eq!(login.record.id, "123412341234");
+        assert_eq!(login.meta.id, "123412341234");
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(login.fields.form_action_origin, None);
@@ -266,7 +266,7 @@ mod tests {
         )
         .unwrap()
         .login;
-        assert_eq!(login.record.id, "123412341234");
+        assert_eq!(login.meta.id, "123412341234");
         assert_eq!(login.fields.form_action_origin, Some("".to_string()));
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
@@ -338,7 +338,7 @@ mod tests {
         )
         .unwrap()
         .login;
-        assert_eq!(login.record.id, "123412341234");
+        assert_eq!(login.meta.id, "123412341234");
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn test_login_into_payload() {
         let login = EncryptedLogin {
-            record: RecordFields {
+            meta: LoginMeta {
                 id: "123412341234".into(),
                 ..Default::default()
             },

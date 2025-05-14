@@ -23,7 +23,7 @@ pub(crate) struct MirrorLogin {
 impl MirrorLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.login.record.id
+        &self.login.meta.id
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
@@ -271,7 +271,7 @@ macro_rules! apply_field {
 macro_rules! apply_metadata_field {
     ($login:ident, $delta:ident, $field:ident) => {
         if let Some($field) = $delta.$field.take() {
-            $login.record.$field = $field.into();
+            $login.meta.$field = $field.into();
         }
     };
 }
@@ -309,7 +309,7 @@ impl EncryptedLogin {
             self.fields.form_action_origin = if url.is_empty() { None } else { Some(url) };
         }
 
-        self.record.times_used += delta.times_used;
+        self.meta.times_used += delta.times_used;
         Ok(())
     }
 
@@ -356,22 +356,20 @@ impl EncryptedLogin {
         // `time_password_changed`. Doing this properly would probably require
         // a scheme analogous to Desktop's weak-reupload system, so I'm punting
         // on it for now.
-        if self.record.time_created > 0 && self.record.time_created != older.record.time_created {
-            delta.time_created = Some(self.record.time_created);
+        if self.meta.time_created > 0 && self.meta.time_created != older.meta.time_created {
+            delta.time_created = Some(self.meta.time_created);
         }
-        if self.record.time_last_used > 0
-            && self.record.time_last_used != older.record.time_last_used
-        {
-            delta.time_last_used = Some(self.record.time_last_used);
+        if self.meta.time_last_used > 0 && self.meta.time_last_used != older.meta.time_last_used {
+            delta.time_last_used = Some(self.meta.time_last_used);
         }
-        if self.record.time_password_changed > 0
-            && self.record.time_password_changed != older.record.time_password_changed
+        if self.meta.time_password_changed > 0
+            && self.meta.time_password_changed != older.meta.time_password_changed
         {
-            delta.time_password_changed = Some(self.record.time_password_changed);
+            delta.time_password_changed = Some(self.meta.time_password_changed);
         }
 
-        if self.record.times_used > 0 && self.record.times_used != older.record.times_used {
-            delta.times_used = self.record.times_used - older.record.times_used;
+        if self.meta.times_used > 0 && self.meta.times_used != older.meta.times_used {
+            delta.times_used = self.meta.times_used - older.meta.times_used;
         }
 
         Ok(delta)
@@ -405,9 +403,9 @@ mod tests {
             .inbound
             .unwrap()
             .login;
-        assert_eq!(login.record.time_created, 0);
-        assert_eq!(login.record.time_last_used, 0);
-        assert_eq!(login.record.time_password_changed, 0);
+        assert_eq!(login.meta.time_created, 0);
+        assert_eq!(login.meta.time_last_used, 0);
+        assert_eq!(login.meta.time_password_changed, 0);
 
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
         let good_payload = IncomingBso::from_test_content(serde_json::json!({
@@ -427,8 +425,8 @@ mod tests {
             .unwrap()
             .login;
 
-        assert_eq!(login.record.time_created, now64 - 100);
-        assert_eq!(login.record.time_last_used, now64 - 50);
-        assert_eq!(login.record.time_password_changed, now64 - 25);
+        assert_eq!(login.meta.time_created, now64 - 100);
+        assert_eq!(login.meta.time_last_used, now64 - 50);
+        assert_eq!(login.meta.time_password_changed, now64 - 25);
     }
 }
