@@ -24,6 +24,11 @@
 
 - Fixed setting a new app context with `RemoteSettingsService::update_config`
 
+## 🦊 What's Changed 🦊
+
+### Glean
+- Updated to v64.2.0 ([#6755](https://github.com/mozilla/application-services/pull/6755))
+
 [Full Changelog](In progress)
 
 # v139.0 (_2025-04-28_)

@@ -5,19 +5,19 @@
 
 [versions]
 # AGP
-android-plugin = "8.9.2"
+android-plugin = "8.10.0"
 
 # Google
 protobuf = "4.30.2"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
-kotlin-compiler = "2.1.20"
+kotlin-compiler = "2.1.21"
 kotlin-coroutines = "1.10.2"
 
 # Mozilla
 android-components = "139.0.20250417022706"
-glean = "64.1.1"
+glean = "64.2.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
@@ -36,7 +36,7 @@ androidx-test = "1.6.1"
 androidx-test-espresso = "3.6.1"
 androidx-test-junit = "1.2.1"
 androidx-test-runner = "1.6.2"
-androidx-work = "2.10.0"
+androidx-work = "2.10.1"
 
 # Third Party Testing
 junit = "5.12.0"
