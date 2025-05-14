@@ -19,7 +19,7 @@
 //! * [`Login`] - A [`LoginEntry`] plus DB record information.  This includes the GUID and metadata
 //!   like time_last_used.
 //! * [`EncryptedLogin`] -- A Login above with the username/password data encrypted.
-//! * [`LoginFields`], [`SecureLoginFields`], [`RecordFields`] -- These group the common fields in the
+//! * [`LoginFields`], [`SecureLoginFields`], [`LoginMeta`] -- These group the common fields in the
 //!   structs above.
 //!
 //! Why so many structs for similar data?  Consider some common use cases in a hypothetical browser
@@ -48,7 +48,7 @@
 //! This has the complete set of data about a login. Very closely related is the
 //! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization.
 //! It contains the following fields:
-//! - `record`: A [`RecordFields`] struct.
+//! - `meta`: A [`LoginMeta`] struct.
 //! - fields: A [`LoginFields`] struct.
 //! - sec_fields: A [`SecureLoginFields`] struct.
 //!
@@ -66,7 +66,7 @@
 //! Encrypted version of [`Login`].  [LoginDB] methods that return data typically return [EncryptedLogin]
 //! this allows deferring decryption, and therefore user authentication, until the secure data is needed.
 //! It contains the following fields
-//! - `record`: A [`RecordFields`] struct.
+//! - `meta`: A [`LoginMeta`] struct.
 //! - `fields`: A [`LoginFields`] struct.
 //! - `sec_fields`: The secure fields as an encrypted string
 //!
@@ -160,7 +160,7 @@
 //!   then the logins store will attempt to coerce it into valid data by:
 //!   - setting to the empty string if 'form_action_origin' is not present
 //!
-//! # RecordFields
+//! # LoginMeta
 //!
 //! This contains data relating to the login database record -- both on the local instance and
 //! synced to other browsers.
@@ -334,12 +334,25 @@ impl SecureLoginFields {
 
 /// Login data specific to database records
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
-pub struct RecordFields {
+pub struct LoginMeta {
     pub id: String,
     pub time_created: i64,
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
+}
+
+/// A login together with meta fields, handed over to the store API; ie a login persisted
+/// elsewhere, useful for migrations
+pub struct LoginEntryWithMeta {
+    pub entry: LoginEntry,
+    pub meta: LoginMeta,
+}
+
+/// A bulk insert result entry, returned by `add_many` and `add_many_with_records`
+pub enum BulkResultEntry {
+    Success { login: Login },
+    Error { message: String },
 }
 
 /// A login handed over to the store API; ie a login not yet persisted
@@ -427,7 +440,7 @@ impl LoginEntry {
 /// information such as id and time stamps
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct Login {
-    // record fields
+    // meta fields
     pub id: String,
     pub time_created: i64,
     pub time_password_changed: i64,
@@ -447,13 +460,13 @@ pub struct Login {
 }
 
 impl Login {
-    pub fn new(record: RecordFields, fields: LoginFields, sec_fields: SecureLoginFields) -> Self {
+    pub fn new(meta: LoginMeta, fields: LoginFields, sec_fields: SecureLoginFields) -> Self {
         Self {
-            id: record.id,
-            time_created: record.time_created,
-            time_password_changed: record.time_password_changed,
-            time_last_used: record.time_last_used,
-            times_used: record.times_used,
+            id: meta.id,
+            time_created: meta.time_created,
+            time_password_changed: meta.time_password_changed,
+            time_last_used: meta.time_last_used,
+            times_used: meta.times_used,
 
             origin: fields.origin,
             form_action_origin: fields.form_action_origin,
@@ -490,7 +503,7 @@ impl Login {
             password: self.password,
         };
         Ok(EncryptedLogin {
-            record: RecordFields {
+            meta: LoginMeta {
                 id: self.id,
                 time_created: self.time_created,
                 time_password_changed: self.time_password_changed,
@@ -512,7 +525,7 @@ impl Login {
 /// A login stored in the database
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Default)]
 pub struct EncryptedLogin {
-    pub record: RecordFields,
+    pub meta: LoginMeta,
     pub fields: LoginFields,
     pub sec_fields: String,
 }
@@ -520,18 +533,18 @@ pub struct EncryptedLogin {
 impl EncryptedLogin {
     #[inline]
     pub fn guid(&self) -> Guid {
-        Guid::from_string(self.record.id.clone())
+        Guid::from_string(self.meta.id.clone())
     }
 
     // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.record.id
+        &self.meta.id
     }
 
     pub fn decrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<Login> {
         Ok(Login::new(
-            self.record,
+            self.meta,
             self.fields,
             SecureLoginFields::decrypt(&self.sec_fields, encdec)?,
         ))
@@ -543,7 +556,7 @@ impl EncryptedLogin {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
         let login = EncryptedLogin {
-            record: RecordFields {
+            meta: LoginMeta {
                 id: row.get("guid")?,
                 time_created: row.get("timeCreated")?,
                 // Might be null
@@ -774,7 +787,7 @@ pub mod test_utils {
             password: password.to_string(),
         };
         EncryptedLogin {
-            record: RecordFields {
+            meta: LoginMeta {
                 id: id.to_string(),
                 ..Default::default()
             },

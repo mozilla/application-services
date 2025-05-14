@@ -18,6 +18,13 @@
 - `RemoteSettingsService::sync` is now more efficient.  It checks the remote settings changes
   endpoint and only syncs collections that have been modified since the last sync.
 
+### Logins
+- add logins store api methods for bulk insert and meta insert, intended to be used during migration and CSV import on desktop:
+  - `fn add_with_record(&self, entry_with_record: LoginEntryWithRecordFields)`: add a login together with metadata
+  - `fn add_many(&self, entries: Vec<LoginEntry>)`: add multiple logins with single transaction
+  - `fn add_many_with_records(&self, entries_with_records: Vec<LoginEntryWithRecordFields>)`: add multiple logins with metadata within single transaction
+
+
 ## 🔧 What's Fixed 🔧
 
 ### Remote Settings

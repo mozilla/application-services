@@ -91,7 +91,7 @@ impl LoginsSyncEngine {
                             dupe.guid()
                         );
                         let local_modified = UNIX_EPOCH
-                            + Duration::from_millis(dupe.record.time_password_changed as u64);
+                            + Duration::from_millis(dupe.meta.time_password_changed as u64);
                         let local = LocalLogin::Alive {
                             login: dupe,
                             local_modified,
@@ -493,7 +493,7 @@ mod tests {
     use crate::db::test_utils::insert_login;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
-    use crate::{LoginEntry, LoginFields, RecordFields, SecureLoginFields};
+    use crate::{LoginEntry, LoginFields, LoginMeta, SecureLoginFields};
     use nss::ensure_initialized;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -566,7 +566,7 @@ mod tests {
                         login.decrypt_fields(&*TEST_ENCDEC).unwrap().password
                     }),
                     mirror: sync_login_data.mirror.map(|mirror_login| {
-                        guids_seen.insert(mirror_login.login.record.id.clone());
+                        guids_seen.insert(mirror_login.login.meta.id.clone());
                         mirror_login
                             .login
                             .decrypt_fields(&*TEST_ENCDEC)
@@ -574,7 +574,7 @@ mod tests {
                             .password
                     }),
                     inbound: sync_login_data.inbound.map(|incoming| {
-                        guids_seen.insert(incoming.login.record.id.clone());
+                        guids_seen.insert(incoming.login.meta.id.clone());
                         incoming
                             .login
                             .decrypt_fields(&*TEST_ENCDEC)
@@ -701,7 +701,7 @@ mod tests {
     ) -> EncryptedLogin {
         ensure_initialized();
         EncryptedLogin {
-            record: RecordFields {
+            meta: LoginMeta {
                 id: Guid::random().to_string(),
                 ..Default::default()
             },
@@ -760,7 +760,7 @@ mod tests {
                 .find_dupe_login(&to_find)
                 .expect("should work")
                 .expect("should be Some()")
-                .record
+                .meta
                 .id,
             first_id
         );
@@ -787,7 +787,7 @@ mod tests {
                 .find_dupe_login(&to_find)
                 .expect("should work")
                 .expect("should be Some()")
-                .record
+                .meta
                 .id,
             second_id
         );
@@ -810,7 +810,7 @@ mod tests {
                 .find_dupe_login(&to_find)
                 .expect("should work")
                 .expect("should be Some()")
-                .record
+                .meta
                 .id,
             no_form_origin_id
         );
