@@ -12,7 +12,7 @@ protobuf = "4.30.2"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
-kotlin-compiler = "2.1.20"
+kotlin-compiler = "2.1.21"
 kotlin-coroutines = "1.10.2"
 
 # Mozilla
