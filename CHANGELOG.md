@@ -18,6 +18,10 @@
 - `RemoteSettingsService::sync` is now more efficient.  It checks the remote settings changes
   endpoint and only syncs collections that have been modified since the last sync.
 
+### Logins
+- new method `add_with_record(&self, entry: LoginEntry, record: RecordFields)`
+  to be used during migration from different store.
+
 ## 🔧 What's Fixed 🔧
 
 ### Remote Settings
