@@ -24,6 +24,11 @@
 
 - Fixed setting a new app context with `RemoteSettingsService::update_config`
 
+### Search
+
+- The `SearchEngineSelector::filter_engine_configuration` will now sort any
+  unordered engines by name rather than identifier.
+
 ## 🦊 What's Changed 🦊
 
 ### Glean
