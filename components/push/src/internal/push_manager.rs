@@ -15,7 +15,7 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use std::collections::{HashMap, HashSet};
 
-use crate::error::{self, PushError, Result};
+use crate::error::{self, debug, info, PushError, Result};
 use crate::internal::communications::{Connection, PersistedRateLimiter};
 use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::KeyV1 as Key;
@@ -136,7 +136,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
                     "DB has a subscription but no UAID".to_string(),
                 ));
             }
-            log::debug!("returning existing subscription for '{}'", scope);
+            debug!("returning existing subscription for '{}'", scope);
             return record.try_into();
         }
 
@@ -191,9 +191,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         if self.uaid.is_none() {
             self.store.set_registration_id(new_token)?;
             self.registration_id = Some(new_token.to_string());
-            log::info!(
-                "saved the registration ID but not telling the server as we have no subs yet"
-            );
+            info!("saved the registration ID but not telling the server as we have no subs yet");
             return Ok(());
         }
 
@@ -208,7 +206,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
                 PushError::UAIDNotRecognizedError(_) => {
                     // Our subscriptions are dead, but for now, just let the existing mechanisms
                     // deal with that (eg, next `subscribe()` or `verify_connection()`)
-                    log::info!("updating our token indicated our subscriptions are gone");
+                    info!("updating our token indicated our subscriptions are gone");
                 }
                 _ => return Err(e),
             }
@@ -252,7 +250,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
             // Everything is OK! Lets return early
             Some(channels) if channels == local_channels => return Ok(Vec::new()),
             Some(_) => {
-                log::info!("verify_connection found a mismatch - unsubscribing");
+                info!("verify_connection found a mismatch - unsubscribing");
                 // Unsubscribe all the channels (just to be sure and avoid a loop).
                 self.connection.unsubscribe_all(uaid, auth)?;
             }
@@ -331,7 +329,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         )?;
         record.app_server_key = app_server_key;
         self.store.put_record(&record)?;
-        log::debug!("subscribed OK");
+        debug!("subscribed OK");
         Ok(SubscriptionResponse {
             channel_id: subscription_response.channel_id,
             subscription_info: SubscriptionInfo {
@@ -364,7 +362,7 @@ impl<Co: Connection, Cr: Cryptography, S: Storage> PushManager<Co, Cr, S> {
         )?;
         record.app_server_key = app_server_key;
         self.store.put_record(&record)?;
-        log::debug!("subscribed OK");
+        debug!("subscribed OK");
         Ok(SubscriptionResponse {
             channel_id: register_response.channel_id,
             subscription_info: SubscriptionInfo {

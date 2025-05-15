@@ -141,6 +141,10 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/either/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: env_logger</name>
+    <url>https://github.com/rust-cli/env_logger/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: errno</name>
     <url>https://github.com/lambda-fairy/rust-errno/blob/main/LICENSE-APACHE</url>
   </license>
@@ -283,6 +287,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: percent-encoding</name>
     <url>https://github.com/servo/rust-url/blob//main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: pin-project-lite</name>
+    <url>https://github.com/taiki-e/pin-project-lite/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: pkg-config</name>
@@ -431,6 +439,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: thiserror-impl</name>
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: thread_local</name>
+    <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: tinyvec</name>
@@ -585,6 +597,10 @@ the details of which are reproduced below.
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: sharded-slab</name>
+    <url>https://github.com/hawkw/sharded-slab/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: smawk</name>
     <url>https://github.com/mgeisler/smawk/blob/master/LICENSE</url>
   </license>
@@ -595,6 +611,22 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: textwrap</name>
     <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tracing</name>
+    <url>https://github.com/tokio-rs/tracing/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tracing-attributes</name>
+    <url>https://github.com/tokio-rs/tracing/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tracing-core</name>
+    <url>https://github.com/tokio-rs/tracing/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tracing-subscriber</name>
+    <url>https://github.com/tokio-rs/tracing/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: weedle2</name>

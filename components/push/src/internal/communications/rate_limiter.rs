@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::error::{info, warn};
 use crate::internal::storage::Storage;
 use std::{
     str::FromStr,
@@ -31,17 +32,14 @@ impl PersistedRateLimiter {
 
         let now = now_secs();
         if (now - timestamp) >= self.periodic_interval {
-            log::info!(
+            info!(
                 "Resetting. now({}) - {} < {} for {}.",
-                now,
-                timestamp,
-                self.periodic_interval,
-                &self.op_name
+                now, timestamp, self.periodic_interval, &self.op_name
             );
             count = 0;
             timestamp = now;
         } else {
-            log::info!(
+            info!(
                 "No need to reset inner timestamp and count for {}.",
                 &self.op_name
             )
@@ -52,16 +50,14 @@ impl PersistedRateLimiter {
 
         // within interval counter
         if count > self.max_requests_in_interval {
-            log::info!(
+            info!(
                 "Not allowed: count({}) > {} for {}.",
-                count,
-                self.max_requests_in_interval,
-                &self.op_name
+                count, self.max_requests_in_interval, &self.op_name
             );
             return false;
         }
 
-        log::info!("Allowed to pass through for {}!", &self.op_name);
+        info!("Allowed to pass through for {}!", &self.op_name);
 
         true
     }
@@ -107,7 +103,7 @@ impl PersistedRateLimiter {
         let r1 = store.set_meta(&timestamp_key, &timestamp.to_string());
         let r2 = store.set_meta(&count_key, &count.to_string());
         if r1.is_err() || r2.is_err() {
-            log::warn!("Error updating persisted counters for {}.", &self.op_name);
+            warn!("Error updating persisted counters for {}.", &self.op_name);
         }
     }
 

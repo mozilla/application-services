@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::error::{trace, warn};
 use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Result};
 use serde_derive::*;
 use serde_json::{Map, Value};
@@ -129,8 +130,8 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
         match serde_json::from_value::<Experiment>(exp.clone()) {
             Ok(exp) => res.push(exp),
             Err(e) => {
-                log::trace!("Malformed experiment data: {:#?}", exp);
-                log::warn!(
+                trace!("Malformed experiment data: {:#?}", exp);
+                warn!(
                     "Malformed experiment found! Experiment {},  Error: {}",
                     exp.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
                     e

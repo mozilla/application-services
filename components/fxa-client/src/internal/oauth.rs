@@ -12,7 +12,7 @@ use super::{
     util, FirefoxAccount,
 };
 use crate::auth::UserData;
-use crate::{AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
+use crate::{warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
@@ -371,7 +371,7 @@ impl FirefoxAccount {
             .client
             .destroy_access_token(self.state.config(), &resp.access_token)
         {
-            log::warn!("Access token destruction failure: {:?}", err);
+            warn!("Access token destruction failure: {:?}", err);
         }
         let old_refresh_token = self.state.refresh_token().cloned();
         let new_refresh_token = resp
@@ -383,7 +383,7 @@ impl FirefoxAccount {
             Some(_) => match self.get_current_device() {
                 Ok(maybe_device) => maybe_device,
                 Err(err) => {
-                    log::warn!("Error while getting previous device information: {:?}", err);
+                    warn!("Error while getting previous device information: {:?}", err);
                     None
                 }
             },
@@ -396,7 +396,7 @@ impl FirefoxAccount {
                 .client
                 .destroy_refresh_token(self.state.config(), &refresh_token.token)
             {
-                log::warn!("Refresh token destruction failure: {:?}", err);
+                warn!("Refresh token destruction failure: {:?}", err);
             }
         }
         if let Some(ref device_info) = old_device_info {
@@ -406,7 +406,7 @@ impl FirefoxAccount {
                 &device_info.push_subscription,
                 &device_info.available_commands,
             ) {
-                log::warn!("Device information restoration failed: {:?}", err);
+                warn!("Device information restoration failed: {:?}", err);
             }
         }
         self.state.complete_oauth_flow(

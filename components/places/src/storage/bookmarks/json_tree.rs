@@ -11,7 +11,7 @@
 // and avoid using this if you can!
 // (We could possibly put this behind a feature flag?)
 
-use crate::error::Result;
+use crate::error::{warn, Result};
 use crate::types::BookmarkType;
 //#[cfg(test)]
 use crate::db::PlacesDb;
@@ -222,7 +222,7 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
 
         let url = m.url.as_ref().and_then(|u| match Url::parse(u) {
             Err(e) => {
-                log::warn!(
+                warn!(
                     "ignoring invalid url for {}: {:?}",
                     m.guid.as_ref().map(AsRef::as_ref).unwrap_or("<no guid>"),
                     e
@@ -629,16 +629,15 @@ pub fn fetch_tree(
                     }
                     .into(),
                     Err(e) => {
-                        log::warn!(
+                        warn!(
                             "ignoring malformed bookmark {} - invalid URL: {:?}",
-                            row.guid,
-                            e
+                            row.guid, e
                         );
                         continue;
                     }
                 },
                 None => {
-                    log::warn!("ignoring malformed bookmark {} - no URL", row.guid);
+                    warn!("ignoring malformed bookmark {} - no URL", row.guid);
                     continue;
                 }
             },

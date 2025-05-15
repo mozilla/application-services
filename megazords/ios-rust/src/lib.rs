@@ -22,4 +22,5 @@ pub use suggest;
 pub use sync15;
 pub use sync_manager;
 pub use tabs;
+pub use tracing_support;
 pub use viaduct_reqwest;

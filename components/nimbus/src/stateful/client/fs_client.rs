@@ -6,7 +6,7 @@
 //! (eg, for testing against experiments which are not deployed anywhere) and
 //! for tests.
 
-use crate::error::Result;
+use crate::error::{info, warn, Result};
 use crate::stateful::client::SettingsClient;
 use crate::Experiment;
 use std::ffi::OsStr;
@@ -32,7 +32,7 @@ impl SettingsClient for FileSystemClient {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        log::info!("reading experiments in {}", self.path.display());
+        info!("reading experiments in {}", self.path.display());
         let mut res = Vec::new();
         // Skip directories and non .json files (eg, READMEs)
         let json_ext = Some(OsStr::new("json"));
@@ -48,7 +48,7 @@ impl SettingsClient for FileSystemClient {
             match serde_json::from_reader::<_, Experiment>(reader) {
                 Ok(exp) => res.push(exp),
                 Err(e) => {
-                    log::warn!(
+                    warn!(
                         "Malformed experiment found! File {},  Error: {}",
                         child_path.display(),
                         e

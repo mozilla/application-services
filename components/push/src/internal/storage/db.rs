@@ -6,7 +6,7 @@ use std::{ops::Deref, path::Path};
 use rusqlite::Connection;
 use sql_support::{open_database, ConnExt};
 
-use crate::error::{PushError, Result};
+use crate::error::{debug, PushError, Result};
 
 use super::{record::PushRecord, schema};
 
@@ -66,7 +66,7 @@ impl PushDb {
     #[cfg(test)]
     pub fn open_in_memory() -> Result<Self> {
         // A nod to our tests which use this.
-        env_logger::try_init().ok();
+        error_support::init_for_tests();
 
         let initializer = schema::PushConnectionInitializer {};
         let db = open_database::open_memory_database(&initializer)?;
@@ -119,11 +119,9 @@ impl Storage for PushDb {
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {
-        log::debug!(
+        debug!(
             "adding push subscription for scope '{}', channel '{}', endpoint '{}'",
-            record.scope,
-            record.channel_id,
-            record.endpoint
+            record.scope, record.channel_id, record.endpoint
         );
         let query = format!(
             "INSERT OR REPLACE INTO push_record
@@ -150,7 +148,7 @@ impl Storage for PushDb {
     }
 
     fn delete_record(&self, chid: &str) -> Result<bool> {
-        log::debug!("deleting push subscription: {}", chid);
+        debug!("deleting push subscription: {}", chid);
         let affected_rows = self.execute(
             "DELETE FROM push_record
              WHERE channel_id = :chid",
@@ -160,7 +158,7 @@ impl Storage for PushDb {
     }
 
     fn delete_all_records(&self) -> Result<()> {
-        log::debug!("deleting all push subscriptions and some metadata");
+        debug!("deleting all push subscriptions and some metadata");
         self.execute("DELETE FROM push_record", [])?;
         // Clean up the meta data records as well, since we probably want to reset the
         // UAID and get a new secret.
@@ -183,7 +181,7 @@ impl Storage for PushDb {
     }
 
     fn update_endpoint(&self, channel_id: &str, endpoint: &str) -> Result<bool> {
-        log::debug!("updating endpoint for '{}' to '{}'", channel_id, endpoint);
+        debug!("updating endpoint for '{}' to '{}'", channel_id, endpoint);
         let affected_rows = self.execute(
             "UPDATE push_record set endpoint = :endpoint
              WHERE channel_id = :channel_id",
@@ -261,7 +259,7 @@ mod test {
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
     fn get_db() -> Result<PushDb> {
-        env_logger::try_init().ok();
+        error_support::init_for_tests();
         // NOTE: In Memory tests can sometimes produce false positives. Use the following
         // for debugging
         // PushDb::open("/tmp/push.sqlite");

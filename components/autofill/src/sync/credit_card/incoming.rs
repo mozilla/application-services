@@ -266,6 +266,7 @@ mod tests {
     use crate::db::credit_cards::get_credit_card;
     use crate::sync::common::tests::*;
 
+    use error_support::{info, trace};
     use interrupt_support::NeverInterrupts;
     use nss::ensure_initialized;
     use serde_json::{json, Map, Value};
@@ -340,7 +341,7 @@ mod tests {
     #[test]
     fn test_stage_incoming() -> Result<()> {
         ensure_initialized();
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let mut db = new_syncable_mem_db();
         struct TestCase {
             incoming_records: Vec<Value>,
@@ -382,7 +383,7 @@ mod tests {
         ];
 
         for tc in test_cases {
-            log::info!("starting new testcase");
+            info!("starting new testcase");
             let tx = db.transaction().unwrap();
             let encdec = EncryptorDecryptor::new_with_random_key().unwrap();
 
@@ -422,7 +423,7 @@ mod tests {
                 .filter(|p| !matches!(p.kind, IncomingKind::Tombstone))
                 .count();
             let tombstone_count = records.len() - record_count;
-            log::trace!("record count: {record_count}, tombstone count: {tombstone_count}");
+            trace!("record count: {record_count}, tombstone count: {tombstone_count}");
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);

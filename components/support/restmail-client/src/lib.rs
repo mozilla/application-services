@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use error::RestmailClientError;
+use error_support::{info, warn};
 use serde_json::Value as EmailJson;
 use url::Url;
 use viaduct::Request;
@@ -19,14 +20,14 @@ where
     F: Fn(&EmailJson) -> bool,
 {
     let mail_url = url_for_email(email)?;
-    log::info!("Checking {} up to {} times.", email, max_tries);
+    info!("Checking {} up to {} times.", email, max_tries);
     for i in 0..max_tries {
         let resp: Vec<serde_json::Value> = Request::get(mail_url.clone()).send()?.json()?;
         let mut matching_emails: Vec<serde_json::Value> =
             resp.into_iter().filter(|email| predicate(email)).collect();
 
         if matching_emails.is_empty() {
-            log::info!(
+            info!(
                 "Failed to find matching email. Waiting {} seconds and retrying.",
                 i + 1
             );
@@ -35,7 +36,7 @@ where
         }
 
         if matching_emails.len() > 1 {
-            log::info!(
+            info!(
                 "Found {} emails that applies (taking latest)",
                 matching_emails.len()
             );
@@ -45,9 +46,7 @@ where
                 match (a_time, b_time) {
                     (Some(a_time), Some(b_time)) => b_time.cmp(&a_time),
                     _ => {
-                        log::warn!(
-                            "Could not de-serialize receivedAt for at least one of the emails."
-                        );
+                        warn!("Could not de-serialize receivedAt for at least one of the emails.");
                         std::cmp::Ordering::Equal
                     }
                 }
@@ -55,13 +54,13 @@ where
         }
         return Ok(matching_emails[0].clone());
     }
-    log::info!("Error: Failed to find email after {} tries!", max_tries);
+    info!("Error: Failed to find email after {} tries!", max_tries);
     Err(RestmailClientError::HitRetryMax)
 }
 
 pub fn clear_mailbox(email: &str) -> Result<()> {
     let mail_url = url_for_email(email)?;
-    log::info!("Clearing restmail for {}.", email);
+    info!("Clearing restmail for {}.", email);
     Request::delete(mail_url).send()?;
     Ok(())
 }

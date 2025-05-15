@@ -117,7 +117,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
                 cur_visit_map.insert((transition, date_use));
             }
             Err(_) => {
-                log::warn!("Ignored visit before 1993-01-23");
+                warn!("Ignored visit before 1993-01-23");
             }
         }
     }
@@ -157,7 +157,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
                 }
             }
             Err(()) => {
-                log::warn!("Ignored visit before 1993-01-23");
+                warn!("Ignored visit before 1993-01-23");
             }
         }
     }
@@ -194,7 +194,7 @@ pub fn apply_plan(
             IncomingKind::Malformed => {
                 // We could push IncomingPlan::Invalid here, but the code before the IncomingKind
                 // refactor didn't know what `id` to use, so skipped it - so we do too.
-                log::warn!(
+                warn!(
                     "Error deserializing incoming record: {}",
                     content.envelope.id
                 );
@@ -211,14 +211,13 @@ pub fn apply_plan(
         interruptee.err_if_interrupted()?;
         match &plan {
             IncomingPlan::Skip => {
-                log::trace!("incoming: skipping item {:?}", guid);
+                trace!("incoming: skipping item {:?}", guid);
                 // XXX - should we `telem.reconciled(1);` here?
             }
             IncomingPlan::Invalid(err) => {
-                log::warn!(
+                warn!(
                     "incoming: record {:?} skipped because it is invalid: {}",
-                    guid,
-                    err
+                    guid, err
                 );
                 telem.failed(1);
             }
@@ -232,7 +231,7 @@ pub fn apply_plan(
                 telem.failed(1);
             }
             IncomingPlan::Delete => {
-                log::trace!("incoming: deleting {:?}", guid);
+                trace!("incoming: deleting {:?}", guid);
                 apply_synced_deletion(db, &guid)?;
                 telem.applied(1);
             }
@@ -242,7 +241,7 @@ pub fn apply_plan(
                 visits,
                 unknown_fields,
             } => {
-                log::trace!(
+                trace!(
                     "incoming: will apply {guid:?}: url={url:?}, title={new_title:?}, to_add={visits:?}, unknown_fields={unknown_fields:?}"
                 );
                 apply_synced_visits(db, &guid, url, new_title, visits, unknown_fields)?;
@@ -250,7 +249,7 @@ pub fn apply_plan(
             }
             IncomingPlan::Reconciled => {
                 telem.reconciled(1);
-                log::trace!("incoming: reconciled {:?}", guid);
+                trace!("incoming: reconciled {:?}", guid);
                 apply_synced_reconciliation(db, &guid)?;
             }
         };
@@ -266,7 +265,7 @@ pub fn apply_plan(
     // frecency and origin updates.
     delete_pending_temp_tables(db)?;
     tx.commit()?;
-    log::info!("incoming: {}", serde_json::to_string(&telem).unwrap());
+    info!("incoming: {}", serde_json::to_string(&telem).unwrap());
     Ok(())
 }
 
@@ -284,7 +283,7 @@ pub fn get_planned_outgoing(db: &PlacesDb) -> Result<Vec<OutgoingBso>> {
 pub fn finish_plan(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
     finish_outgoing(db)?;
-    log::trace!("Committing final sync plan");
+    trace!("Committing final sync plan");
     tx.commit()?;
     Ok(())
 }
@@ -358,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_invalid_guid() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let record = HistoryRecord {
             id: "foo".into(),
@@ -377,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_invalid_url() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let record = HistoryRecord {
             id: "aaaaaaaaaaaa".into(),
@@ -396,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_new() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let visits = vec![HistoryRecordVisit {
             date: SystemTime::now().into(),
@@ -420,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_plan_dupe_visit_same_guid() {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
@@ -456,7 +455,7 @@ mod tests {
 
     #[test]
     fn test_plan_dupe_visit_different_guid_no_visits() {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
@@ -491,7 +490,7 @@ mod tests {
         // There's a chance the server ends up with different records but
         // which reference the same URL.
         // This is testing the case when there are no local visits to that URL.
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let guid1 = SyncGuid::random();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
@@ -552,7 +551,7 @@ mod tests {
         // This is testing the case when there are a local visits to that URL,
         // but they are yet to be synced - the local guid should change and
         // all visits should be applied.
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
         let guid1 = SyncGuid::random();
@@ -603,7 +602,7 @@ mod tests {
         // This is testing the case when there are a local visits to that URL,
         // and they have been synced - the existing guid should not change,
         // although all visits should still be applied.
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
         let guid1 = SyncGuid::random();
@@ -654,7 +653,7 @@ mod tests {
 
     #[test]
     fn test_apply_plan_incoming_invalid_timestamp() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let json = json!({
             "id": "aaaaaaaaaaaa",
             "title": "title",
@@ -678,7 +677,7 @@ mod tests {
 
     #[test]
     fn test_apply_plan_incoming_invalid_negative_timestamp() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let json = json!({
             "id": "aaaaaaaaaaaa",
             "title": "title",
@@ -715,7 +714,7 @@ mod tests {
 
     #[test]
     fn test_apply_plan_incoming_new() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let now: Timestamp = SystemTime::now().into();
         let json = json!({
             "id": "aaaaaaaaaaaa",
@@ -755,7 +754,7 @@ mod tests {
 
     #[test]
     fn test_apply_plan_outgoing_new() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
@@ -772,7 +771,7 @@ mod tests {
 
     #[test]
     fn test_simple_visit_reconciliation() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let ts: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let url = Url::parse("https://example.com")?;
@@ -808,7 +807,7 @@ mod tests {
 
     #[test]
     fn test_simple_visit_incoming_and_outgoing() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let ts2: Timestamp = SystemTime::now().into();
@@ -856,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_incoming_tombstone_local_new() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
@@ -880,7 +879,7 @@ mod tests {
 
     #[test]
     fn test_incoming_tombstone_local_normal() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
@@ -907,7 +906,7 @@ mod tests {
 
     #[test]
     fn test_outgoing_tombstone() -> Result<()> {
-        let _ = env_logger::try_init();
+        error_support::init_for_tests();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())

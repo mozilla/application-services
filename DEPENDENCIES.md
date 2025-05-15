@@ -29,12 +29,13 @@ the details of which are reproduced below.
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
+* [MIT License: sharded-slab](#mit-license-sharded-slab)
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: smawk](#mit-license-smawk)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio](#mit-license-tokio)
-* [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
+* [MIT License: tokio-native-tls, tracing, tracing-attributes, tracing-core, tracing-subscriber](#mit-license-tokio-native-tls-tracing-tracing-attributes-tracing-core-tracing-subscriber)
 * [MIT License: tokio-util](#mit-license-tokio-util)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
@@ -471,6 +472,7 @@ The following text applies to code linked from these dependencies:
 [displaydoc](https://github.com/yaahc/displaydoc),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
+[env_logger](https://github.com/rust-cli/env_logger),
 [equivalent](https://github.com/cuviper/equivalent),
 [errno](https://github.com/lambda-fairy/rust-errno),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
@@ -573,6 +575,7 @@ The following text applies to code linked from these dependencies:
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
+[thread_local](https://github.com/Amanieu/thread_local-rs),
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
@@ -1492,6 +1495,34 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: sharded-slab
+
+The following text applies to code linked from these dependencies:
+[sharded-slab](https://github.com/hawkw/sharded-slab)
+
+```
+Copyright (c) 2019 Eliza Weisman
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+-------------
 ## MIT License: slab
 
 The following text applies to code linked from these dependencies:
@@ -1636,11 +1667,13 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio-native-tls, tracing, tracing-core
+## MIT License: tokio-native-tls, tracing, tracing-attributes, tracing-core, tracing-subscriber
 
 The following text applies to code linked from these dependencies:
 [tokio-native-tls](https://github.com/tokio-rs/tls),
+[tracing-attributes](https://github.com/tokio-rs/tracing),
 [tracing-core](https://github.com/tokio-rs/tracing),
+[tracing-subscriber](https://github.com/tokio-rs/tracing),
 [tracing](https://github.com/tokio-rs/tracing)
 
 ```

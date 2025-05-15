@@ -5,7 +5,7 @@
 use crate::error::*;
 use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
-use error_support::breadcrumb;
+use error_support::{breadcrumb, debug, info, warn};
 use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryFrom;
@@ -77,7 +77,7 @@ impl SyncManager {
                     );
                 }
             } else {
-                log::warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);
+                warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);
             }
         }
     }
@@ -89,7 +89,7 @@ impl SyncManager {
         let engines = self.calc_engines_to_sync(&params.engines)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         let result = if !backoff_in_effect(next_sync_after, &params) {
-            log::info!("No backoff in effect (or we decided to ignore it), starting sync");
+            info!("No backoff in effect (or we decided to ignore it), starting sync");
             self.do_sync(params, &mut state, engines)
         } else {
             breadcrumb!(
@@ -164,10 +164,10 @@ impl SyncManager {
         );
         *state = Some(mem_cached_state);
 
-        log::info!("Sync finished with status {:?}", result.service_status);
+        info!("Sync finished with status {:?}", result.service_status);
         let status = ServiceStatus::from(result.service_status);
         for (engine, result) in result.engine_results.iter() {
-            log::info!("engine {:?} status: {:?}", engine, result);
+            info!("engine {:?} status: {:?}", engine, result);
         }
         let mut successful: Vec<String> = Vec::new();
         let mut failures: HashMap<String, String> = HashMap::new();
@@ -243,25 +243,21 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
     if let Some(nsa) = next_sync_after {
         if nsa > now {
             return if matches!(p.reason, SyncReason::User | SyncReason::EnabledChange) {
-                log::info!(
+                info!(
                     "Still under backoff, but syncing anyway because reason is {:?}",
                     p.reason
                 );
                 false
             } else if !p.enabled_changes.is_empty() {
-                log::info!(
-                    "Still under backoff, but syncing because we have enabled state changes."
-                );
+                info!("Still under backoff, but syncing because we have enabled state changes.");
                 false
             } else {
-                log::info!(
-                    "Still under backoff, and there's no compelling reason for us to ignore it"
-                );
+                info!("Still under backoff, and there's no compelling reason for us to ignore it");
                 true
             };
         }
     }
-    log::debug!("Not under backoff");
+    debug!("Not under backoff");
     false
 }
 
