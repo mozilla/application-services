@@ -1592,7 +1592,7 @@ mod tests {
                   "recordType": "engine",
                   "identifier": "b-engine",
                   "base": {
-                    "name": "b-engine",
+                    "name": "First Alphabetical",
                     "classification": "general",
                     "urls": {
                       "search": {
@@ -1611,7 +1611,7 @@ mod tests {
                   "recordType": "engine",
                   "identifier": "a-engine",
                   "base": {
-                    "name": "a-engine",
+                    "name": "Last Alphabetical",
                     "classification": "general",
                     "urls": {
                       "search": {
@@ -1731,10 +1731,10 @@ mod tests {
                 "default-engine".to_string(),
                 "default-private-engine".to_string(),
                 "after-defaults".to_string(),
-                "a-engine".to_string(),
                 "b-engine".to_string(),
+                "a-engine".to_string(),
             ],
-            "Should order the default engine first, default private engine second, and the rest of the engines based on order hint then alphabetically."
+            "Should order the default engine first, default private engine second, and the rest of the engines based on order hint then alphabetically by name."
         );
 
         let starts_with_wiki_config = Arc::clone(&selector).set_search_config(
