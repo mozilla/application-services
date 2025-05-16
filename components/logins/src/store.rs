@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, LoginEntry};
+use crate::login::{Login, LoginEntry, RecordFields};
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
@@ -13,6 +13,12 @@ use sync15::{
     engine::{EngineSyncAssociation, SyncEngine, SyncEngineId},
     ServerTimestamp,
 };
+
+#[derive(uniffi::Enum)]
+pub enum LoginOrErrorMessage {
+    Login,
+    String,
+}
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -181,6 +187,49 @@ impl LoginStore {
             .lock()
             .add(entry, self.encdec.as_ref())
             .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+    }
+
+    #[handle_error(Error)]
+    pub fn add_many(&self, entries: Vec<LoginEntry>) -> ApiResult<Vec<Option<Login>>> {
+        self.db
+            .lock()
+            .add_many(entries, self.encdec.as_ref())
+            .and_then(|enc_logins| {
+                Ok(enc_logins
+                    .into_iter()
+                    .map(|enc_login| match enc_login {
+                        Ok(enc_login) => Some(enc_login.decrypt(self.encdec.as_ref()).ok()?),
+                        Err(_) => None,
+                    })
+                    .collect())
+            })
+    }
+
+    /// This method is intended to preserve metadata (RecordFields) during a migration.
+    /// In normal operation, this method should not be used; instead,
+    /// use `add(entry)`, which manages the corresponding fields itself.
+    #[handle_error(Error)]
+    pub fn add_with_record(&self, entry: LoginEntry, record: RecordFields) -> ApiResult<Login> {
+        self.db
+            .lock()
+            .add_with_record(entry, record, self.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+    }
+
+    #[handle_error(Error)]
+    pub fn add_many_with_records(&self, entries_with_records: Vec<(LoginEntry, RecordFields)>) -> ApiResult<Vec<Option<Login>>> {
+        self.db
+            .lock()
+            .add_many_with_records(entries_with_records, self.encdec.as_ref())
+            .and_then(|enc_logins| {
+                Ok(enc_logins
+                    .into_iter()
+                    .map(|enc_login| match enc_login {
+                        Ok(enc_login) => Some(enc_login.decrypt(self.encdec.as_ref()).ok()?),
+                        Err(_) => None,
+                    })
+                    .collect())
+            })
     }
 
     #[handle_error(Error)]

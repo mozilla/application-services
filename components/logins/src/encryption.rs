@@ -402,10 +402,8 @@ mod test {
                 key: create_key().unwrap(),
             }),
         };
-        assert!(matches!(
-            other_encdec.decrypt(ciphertext).err().unwrap(),
-            LoginsApiError::DecryptionFailed { reason: _ }
-        ));
+
+        assert_eq!(other_encdec.decrypt(ciphertext).err().unwrap().to_string(), "decryption failed: Crypto error: NSS error: NSS error: -8190  (decrypt SecureLoginFields)");
     }
 
     #[test]

@@ -351,6 +351,72 @@ impl LoginDb {
         Ok(())
     }
 
+    /// Adds multiple logins within a single transaction and returns the successfully saved logins.
+    pub fn add_many(
+        &self,
+        entries: Vec<LoginEntry>,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<Vec<Result<EncryptedLogin>>> {
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+
+        let entries_with_records = entries
+            .into_iter()
+            .map(|entry| {
+                let guid = Guid::random();
+                let record = RecordFields {
+                    id: guid.to_string(),
+                    time_created: now_ms,
+                    time_password_changed: now_ms,
+                    time_last_used: now_ms,
+                    times_used: 1,
+                };
+                (entry, record)
+            })
+            .collect();
+
+        self.add_many_with_records(entries_with_records, encdec)
+    }
+
+    /// Adds multiple logins with records within a single transaction and returns the successfully saved logins.
+    pub fn add_many_with_records(
+        &self,
+        entries_with_records: Vec<(LoginEntry, RecordFields)>,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<Vec<Result<EncryptedLogin>>> {
+        let tx = self.unchecked_transaction()?;
+        let mut results = vec![];
+        for (entry, record) in entries_with_records {
+            let guid = Guid::from_string(record.id.clone());
+            match self.fixup_and_check_for_dupes(&guid, entry, encdec) {
+                Ok(new_entry) => {
+                    let sec_fields = SecureLoginFields {
+                        username: new_entry.username,
+                        password: new_entry.password,
+                    };
+                    let encrypted_login = EncryptedLogin {
+                        record,
+                        fields: LoginFields {
+                            origin: new_entry.origin,
+                            form_action_origin: new_entry.form_action_origin,
+                            http_realm: new_entry.http_realm,
+                            username_field: new_entry.username_field,
+                            password_field: new_entry.password_field,
+                        },
+                        sec_fields: sec_fields.encrypt(encdec)?,
+                    };
+                    let result = self
+                        .insert_new_login(&encrypted_login)
+                        .map(|_| encrypted_login);
+                    results.push(result);
+                }
+
+                Err(error) => results.push(Err(error)),
+            }
+        }
+        tx.commit()?;
+        Ok(results)
+    }
+
     pub fn add(
         &self,
         entry: LoginEntry,
@@ -359,32 +425,25 @@ impl LoginDb {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        let new_entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
-        let sec_fields = SecureLoginFields {
-            username: new_entry.username,
-            password: new_entry.password,
+        let record = RecordFields {
+            id: guid.to_string(),
+            time_created: now_ms,
+            time_password_changed: now_ms,
+            time_last_used: now_ms,
+            times_used: 1,
         };
-        let result = EncryptedLogin {
-            record: RecordFields {
-                id: guid.to_string(),
-                time_created: now_ms,
-                time_password_changed: now_ms,
-                time_last_used: now_ms,
-                times_used: 1,
-            },
-            fields: LoginFields {
-                origin: new_entry.origin,
-                form_action_origin: new_entry.form_action_origin,
-                http_realm: new_entry.http_realm,
-                username_field: new_entry.username_field,
-                password_field: new_entry.password_field,
-            },
-            sec_fields: sec_fields.encrypt(encdec)?,
-        };
-        let tx = self.unchecked_transaction()?;
-        self.insert_new_login(&result)?;
-        tx.commit()?;
-        Ok(result)
+
+        self.add_with_record(entry, record, encdec)
+    }
+
+    pub fn add_with_record(
+        &self,
+        entry: LoginEntry,
+        record: RecordFields,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<EncryptedLogin> {
+        let mut results = self.add_many_with_records(vec![(entry, record)], encdec)?;
+        results.pop().expect("there should be a single result")
     }
 
     pub fn update(
@@ -986,6 +1045,126 @@ mod tests {
 
         // one with a username, 1 without.
         assert_eq!(db.get_all().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_add_many() {
+        ensure_initialized();
+
+        let login_a = LoginEntry {
+            origin: "https://a.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let login_b = LoginEntry {
+            origin: "https://b.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        let added = db
+            .add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
+            .expect("should be able to add logins");
+
+        let [added_a, added_b] = added.as_slice() else {
+            panic!("there should really be 2")
+        };
+
+        let fetched_a = db
+            .get_by_id(&added_a.as_ref().unwrap().record.id)
+            .expect("should work")
+            .expect("should get a record");
+
+        assert_eq!(fetched_a.fields.origin, login_a.origin);
+
+        let fetched_b = db
+            .get_by_id(&added_b.as_ref().unwrap().record.id)
+            .expect("should work")
+            .expect("should get a record");
+
+        assert_eq!(fetched_b.fields.origin, login_b.origin);
+    }
+
+    #[test]
+    fn test_add_many_with_failed_constraint() {
+        ensure_initialized();
+
+        let login_a = LoginEntry {
+            origin: "https://example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let login_b = LoginEntry {
+            // same origin will result in duplicate error
+            origin: "https://example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        let added = db
+            .add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
+            .expect("should be able to add logins");
+
+        let [added_a, added_b] = added.as_slice() else {
+            panic!("there should really be 2")
+        };
+
+        // first entry has been saved successfully
+        let fetched_a = db
+            .get_by_id(&added_a.as_ref().unwrap().record.id)
+            .expect("should work")
+            .expect("should get a record");
+
+        assert_eq!(fetched_a.fields.origin, login_a.origin);
+
+        // second entry failed
+        assert!(!added_b.is_ok());
+    }
+
+    #[test]
+    fn test_add_with_record() {
+        ensure_initialized();
+
+        let guid = Guid::random();
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let login = LoginEntry {
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+        let record = RecordFields {
+            id: guid.to_string(),
+            time_created: now_ms,
+            time_password_changed: now_ms + 100,
+            time_last_used: now_ms + 10,
+            times_used: 42,
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        let added = db
+            .add_with_record(login.clone(), record.clone(), &*TEST_ENCDEC)
+            .expect("should be able to add login with record");
+
+        let fetched = db
+            .get_by_id(&added.record.id)
+            .expect("should work")
+            .expect("should get a record");
+
+        assert_eq!(fetched.record, record);
     }
 
     #[test]
