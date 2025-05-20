@@ -29,3 +29,4 @@ sync_manager = { path = "../../components/sync_manager" }
 search = { path = "../../components/search" }
 init_rust_components = { path = "../../components/init_rust_components" }
 merino = { path = "../../components/merino" }
+context_id = { path = "../../components/context_id" }
