@@ -6,6 +6,7 @@
 #![warn(rust_2018_idioms)]
 
 pub use autofill;
+pub use context_id;
 pub use crashtest;
 pub use error_support;
 pub use fxa_client;
