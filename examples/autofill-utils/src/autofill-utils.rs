@@ -246,7 +246,7 @@ fn run_delete_address(store: &Store, guid: String) -> Result<()> {
 fn run_add_credit_card(store: &Store, key: &str) -> Result<()> {
     let encdec = EncryptorDecryptor::new(key)?;
     let cc_number = prompt_string("cc_number").unwrap_or_default();
-    let cc_number_enc = encdec.encrypt(&cc_number, "cc_number")?;
+    let cc_number_enc = encdec.encrypt(&cc_number)?;
     let cc_number_last_4 = cc_number_enc.chars().rev().take(4).collect();
     let cc_fields = credit_card::UpdatableCreditCardFields {
         cc_name: prompt_string("cc_name").unwrap_or_default(),
@@ -281,7 +281,7 @@ fn run_get_credit_card(store: &Store, guid: String, key: &str) -> Result<()> {
 
     println!("Retrieved credit card: {:#?}", credit_card);
     let encdec = EncryptorDecryptor::new(key)?;
-    let card_number = encdec.decrypt(&credit_card.cc_number_enc, "cc_number")?;
+    let card_number = encdec.decrypt(&credit_card.cc_number_enc)?;
     println!("credit-card number decrypts as: {}", card_number);
     if get_last_4(&card_number) != credit_card.cc_number_last_4 {
         println!("***** - last 4 digits are wrong!!!");
@@ -298,7 +298,7 @@ fn run_get_all_credit_cards(store: &Store, key: &str) -> Result<()> {
     println!("Retrieved credit cards:");
     for card in credit_cards {
         println!("{:#?}", card);
-        let card_number = encdec.decrypt(&card.cc_number_enc, "cc_number")?;
+        let card_number = encdec.decrypt(&card.cc_number_enc)?;
         println!("credit-card number decrypts as: {}", card_number);
         if get_last_4(&card_number) != card.cc_number_last_4 {
             println!("***** - last 4 digits are wrong!!!");

@@ -536,7 +536,7 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number_enc: encdec.encrypt("1234567812345678", "cc_number")?,
+                cc_number_enc: encdec.encrypt("1234567812345678")?,
                 cc_number_last_4: "5678".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
@@ -552,7 +552,7 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number_enc: encdec.encrypt("1234123412341234", "cc_number")?,
+                cc_number_enc: encdec.encrypt("1234123412341234")?,
                 cc_number_last_4: "1234".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
@@ -605,7 +605,7 @@ pub(crate) mod tests {
                 &db,
                 UpdatableCreditCardFields {
                     cc_name: "john deer".to_string(),
-                    cc_number_enc: encdec.encrypt("1234567812345678", "cc_number")?,
+                    cc_number_enc: encdec.encrypt("1234567812345678")?,
                     cc_number_last_4: "5678".to_string(),
                     cc_exp_month: 10,
                     cc_exp_year: 2025,

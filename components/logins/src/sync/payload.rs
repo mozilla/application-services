@@ -87,10 +87,12 @@ impl IncomingLogin {
             username_field: login_entry.username_field,
             password_field: login_entry.password_field,
         };
+        let id = String::from(p.guid);
         let sec_fields = SecureLoginFields {
             username: login_entry.username,
             password: login_entry.password,
-        };
+        }
+        .encrypt(encdec, &id)?;
 
         // We handle NULL in the DB for migrated databases and it's wasteful
         // to encrypt the common case of an empty map, so...
@@ -104,14 +106,14 @@ impl IncomingLogin {
         Ok(Self {
             login: EncryptedLogin {
                 meta: LoginMeta {
-                    id: p.guid.into(),
+                    id,
                     time_created: p.time_created,
                     time_password_changed: p.time_password_changed,
                     time_last_used: p.time_last_used,
                     times_used: p.times_used,
                 },
                 fields,
-                sec_fields: sec_fields.encrypt(encdec)?,
+                sec_fields,
             },
             unknown,
         })
@@ -180,7 +182,7 @@ impl EncryptedLogin {
             Some(s) => UnknownFields::decrypt(&s, encdec)?,
             None => Default::default(),
         };
-        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec)?;
+        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec, &self.meta.id)?;
         Ok(OutgoingBso::from_content_with_id(
             crate::sync::LoginPayload {
                 guid: self.guid(),

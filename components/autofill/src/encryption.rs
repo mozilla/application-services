@@ -30,8 +30,7 @@
 
 use crate::error::*;
 use error_support::handle_error;
-
-pub type EncryptorDecryptor = jwcrypto::EncryptorDecryptor<Error>;
+pub use jwcrypto::EncryptorDecryptor;
 
 // public functions we expose over the FFI (which is why they take `String`
 // rather than the `&str` you'd otherwise expect)
@@ -39,19 +38,19 @@ pub type EncryptorDecryptor = jwcrypto::EncryptorDecryptor<Error>;
 pub fn encrypt_string(key: String, cleartext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    EncryptorDecryptor::new(&key)?.encrypt(&cleartext, "single string field")
+    Ok(EncryptorDecryptor::new(&key)?.encrypt(&cleartext)?)
 }
 
 #[handle_error(Error)]
 pub fn decrypt_string(key: String, ciphertext: String) -> ApiResult<String> {
     // It would be nice to have more detailed error messages, but that would require the consumer
     // to pass them in.  Let's not change the API yet.
-    EncryptorDecryptor::new(&key)?.decrypt(&ciphertext, "single string field")
+    Ok(EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)?)
 }
 
 #[handle_error(Error)]
 pub fn create_autofill_key() -> ApiResult<String> {
-    EncryptorDecryptor::create_key()
+    Ok(EncryptorDecryptor::create_key()?)
 }
 
 #[cfg(test)]
@@ -64,11 +63,11 @@ mod test {
         ensure_initialized();
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         let cleartext = "secret";
-        let ciphertext = ed.encrypt(cleartext, "secret").unwrap();
-        assert_eq!(ed.decrypt(&ciphertext, "secret").unwrap(), cleartext);
+        let ciphertext = ed.encrypt(cleartext).unwrap();
+        assert_eq!(ed.decrypt(&ciphertext).unwrap(), cleartext);
         let ed2 = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
-            ed2.decrypt(&ciphertext, "secret"),
+            ed2.decrypt(&ciphertext).map_err(Error::from),
             Err(Error::CryptoError(_))
         ));
     }
@@ -78,15 +77,12 @@ mod test {
         ensure_initialized();
         let ed = EncryptorDecryptor::new(&create_autofill_key().unwrap()).unwrap();
         assert!(matches!(
-            ed.decrypt("invalid-ciphertext", "invalid").unwrap_err(),
-            Error::CryptoError(_)
+            ed.decrypt("invalid-ciphertext").map_err(Error::from),
+            Err(Error::CryptoError(_)),
         ));
         assert!(matches!(
-            ed.decrypt("", "empty").unwrap_err(),
-            Error::CryptoError(jwcrypto::EncryptorDecryptorError {
-                from: jwcrypto::JwCryptoError::EmptyCyphertext,
-                ..
-            })
+            ed.decrypt("").unwrap_err(),
+            jwcrypto::JwCryptoError::EmptyCyphertext,
         ));
     }
 }
