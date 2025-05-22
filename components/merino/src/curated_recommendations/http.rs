@@ -19,7 +19,6 @@ impl HttpClient {
         trace!("making request: {url}");
         let response: Response = Request::post(url)
             .header(header_names::ACCEPT, "application/json")?
-            .header(header_names::ACCEPT_ENCODING, "gzip")?
             .header(header_names::USER_AGENT, user_agent_header)?
             .json(request)
             .send()?;
