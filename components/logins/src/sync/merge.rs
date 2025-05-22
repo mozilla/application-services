@@ -298,7 +298,7 @@ impl EncryptedLogin {
         if let Some(username) = delta.username.take() {
             sec_fields.username = username;
         }
-        self.sec_fields = sec_fields.encrypt(encdec)?;
+        self.sec_fields = sec_fields.encrypt(encdec, &self.meta.id)?;
 
         // Use Some("") to indicate that it should be changed to be None (hacky...)
         if let Some(realm) = delta.http_realm.take() {

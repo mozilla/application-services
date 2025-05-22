@@ -700,9 +700,16 @@ mod tests {
         realm: Option<String>,
     ) -> EncryptedLogin {
         ensure_initialized();
+        let id = Guid::random().to_string();
+        let sec_fields = SecureLoginFields {
+            username: username.into(),
+            password: password.into(),
+        }
+        .encrypt(&*TEST_ENCDEC, &id)
+        .unwrap();
         EncryptedLogin {
             meta: LoginMeta {
-                id: Guid::random().to_string(),
+                id,
                 ..Default::default()
             },
             fields: LoginFields {
@@ -711,12 +718,7 @@ mod tests {
                 origin: "http://not-relevant-here.com".into(),
                 ..Default::default()
             },
-            sec_fields: SecureLoginFields {
-                username: username.into(),
-                password: password.into(),
-            }
-            .encrypt(&*TEST_ENCDEC)
-            .unwrap(),
+            sec_fields,
         }
     }
 

@@ -11,7 +11,7 @@ pub use error_support::{breadcrumb, handle_error, report_error};
 pub use error_support::{debug, error, info, trace, warn};
 
 use error_support::{ErrorHandling, GetErrorHandling};
-use jwcrypto::EncryptorDecryptorError;
+use jwcrypto::JwCryptoError;
 use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
@@ -100,7 +100,7 @@ pub enum Error {
     InvalidPath(OsString),
 
     #[error("CryptoError({0})")]
-    CryptoError(#[from] EncryptorDecryptorError),
+    CryptoError(#[from] JwCryptoError),
 
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),

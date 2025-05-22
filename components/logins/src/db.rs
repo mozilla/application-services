@@ -396,7 +396,8 @@ impl LoginDb {
                     let sec_fields = SecureLoginFields {
                         username: new_entry.username,
                         password: new_entry.password,
-                    };
+                    }
+                    .encrypt(encdec, &entry_with_meta.meta.id)?;
                     let encrypted_login = EncryptedLogin {
                         meta: entry_with_meta.meta,
                         fields: LoginFields {
@@ -406,7 +407,7 @@ impl LoginDb {
                             username_field: new_entry.username_field,
                             password_field: new_entry.password_field,
                         },
-                        sec_fields: sec_fields.encrypt(encdec)?,
+                        sec_fields,
                     };
                     let result = self
                         .insert_new_login(&encrypted_login)
@@ -502,7 +503,8 @@ impl LoginDb {
         let sec_fields = SecureLoginFields {
             username: entry.username,
             password: entry.password,
-        };
+        }
+        .encrypt(encdec, &existing.id)?;
         let result = EncryptedLogin {
             meta: LoginMeta {
                 id: existing.id,
@@ -518,7 +520,7 @@ impl LoginDb {
                 username_field: entry.username_field,
                 password_field: entry.password_field,
             },
-            sec_fields: sec_fields.encrypt(encdec)?,
+            sec_fields,
         };
 
         self.update_existing_login(&result)?;
