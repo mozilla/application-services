@@ -18,8 +18,8 @@
 // So now, this *is* our JWT library.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+pub use error::JwCryptoError;
 use error::Result;
-pub use error::{EncryptorDecryptorError, JwCryptoError};
 use rc_crypto::agreement::EphemeralKeyPair;
 use serde_derive::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};

@@ -316,16 +316,20 @@ impl SecureLoginFields {
         let string = serde_json::to_string(&self)?;
         let cipherbytes = encdec
             .encrypt(string.as_bytes().into())
-            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting)")))?;
         let ciphertext = std::str::from_utf8(&cipherbytes)
-            .map_err(|e| Error::EncryptionFailed(e.to_string()))?;
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypted data not utf8)")))?;
         Ok(ciphertext.to_owned())
     }
 
-    pub fn decrypt(ciphertext: &str, encdec: &dyn EncryptorDecryptor) -> Result<Self> {
+    pub fn decrypt(
+        ciphertext: &str,
+        encdec: &dyn EncryptorDecryptor,
+        login_id: &str,
+    ) -> Result<Self> {
         let jsonbytes = encdec
             .decrypt(ciphertext.as_bytes().into())
-            .map_err(|e| Error::DecryptionFailed(e.to_string()))?;
+            .map_err(|e| Error::DecryptionFailed(format!("{e} (decrypting {login_id})")))?;
         let json =
             std::str::from_utf8(&jsonbytes).map_err(|e| Error::DecryptionFailed(e.to_string()))?;
         Ok(serde_json::from_str(json)?)
@@ -543,15 +547,12 @@ impl EncryptedLogin {
     }
 
     pub fn decrypt(self, encdec: &dyn EncryptorDecryptor) -> Result<Login> {
-        Ok(Login::new(
-            self.meta,
-            self.fields,
-            SecureLoginFields::decrypt(&self.sec_fields, encdec)?,
-        ))
+        let sec_fields = self.decrypt_fields(encdec)?;
+        Ok(Login::new(self.meta, self.fields, sec_fields))
     }
 
     pub fn decrypt_fields(&self, encdec: &dyn EncryptorDecryptor) -> Result<SecureLoginFields> {
-        SecureLoginFields::decrypt(&self.sec_fields, encdec)
+        SecureLoginFields::decrypt(&self.sec_fields, encdec, &self.meta.id)
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<EncryptedLogin> {

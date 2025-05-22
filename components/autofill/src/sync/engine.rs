@@ -344,7 +344,7 @@ mod tests {
         let cc = InternalCreditCard {
             guid: Guid::random(),
             cc_name: "Ms Jane Doe".to_string(),
-            cc_number_enc: encdec.encrypt("12341232412341234", "cc_number")?,
+            cc_number_enc: encdec.encrypt("12341232412341234")?,
             cc_number_last_4: "1234".to_string(),
             cc_exp_month: 12,
             cc_exp_year: 2021,
