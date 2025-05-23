@@ -38,12 +38,11 @@ pub enum SuggestionProvider {
     Amp = 1,
     Wikipedia = 2,
     Amo = 3,
-    Pocket = 4,
-    Yelp = 5,
-    Mdn = 6,
-    Weather = 7,
-    Fakespot = 8,
-    Dynamic = 9,
+    Yelp = 4,
+    Mdn = 5,
+    Weather = 6,
+    Fakespot = 7,
+    Dynamic = 8,
 }
 
 impl fmt::Display for SuggestionProvider {
@@ -52,7 +51,6 @@ impl fmt::Display for SuggestionProvider {
             Self::Amp => write!(f, "amp"),
             Self::Wikipedia => write!(f, "wikipedia"),
             Self::Amo => write!(f, "amo"),
-            Self::Pocket => write!(f, "pocket"),
             Self::Yelp => write!(f, "yelp"),
             Self::Mdn => write!(f, "mdn"),
             Self::Weather => write!(f, "weather"),
@@ -73,12 +71,11 @@ impl FromSql for SuggestionProvider {
 }
 
 impl SuggestionProvider {
-    pub fn all() -> [Self; 9] {
+    pub fn all() -> [Self; 8] {
         [
             Self::Amp,
             Self::Wikipedia,
             Self::Amo,
-            Self::Pocket,
             Self::Yelp,
             Self::Mdn,
             Self::Weather,
@@ -93,12 +90,11 @@ impl SuggestionProvider {
             1 => Some(Self::Amp),
             2 => Some(Self::Wikipedia),
             3 => Some(Self::Amo),
-            4 => Some(Self::Pocket),
-            5 => Some(Self::Yelp),
-            6 => Some(Self::Mdn),
-            7 => Some(Self::Weather),
-            8 => Some(Self::Fakespot),
-            9 => Some(Self::Dynamic),
+            4 => Some(Self::Yelp),
+            5 => Some(Self::Mdn),
+            6 => Some(Self::Weather),
+            7 => Some(Self::Fakespot),
+            8 => Some(Self::Dynamic),
             _ => None,
         }
     }
@@ -118,7 +114,6 @@ impl SuggestionProvider {
             Self::Amp => SuggestRecordType::Amp,
             Self::Wikipedia => SuggestRecordType::Wikipedia,
             Self::Amo => SuggestRecordType::Amo,
-            Self::Pocket => SuggestRecordType::Pocket,
             Self::Yelp => SuggestRecordType::Yelp,
             Self::Mdn => SuggestRecordType::Mdn,
             Self::Weather => SuggestRecordType::Weather,
