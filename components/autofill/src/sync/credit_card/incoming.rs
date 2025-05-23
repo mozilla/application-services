@@ -27,7 +27,7 @@ fn raw_payload_to_incoming(
     raw: String,
     encdec: &EncryptorDecryptor,
 ) -> Result<IncomingContent<InternalCreditCard>> {
-    let payload = encdec.decrypt(&raw, "raw payload")?;
+    let payload = encdec.decrypt(&raw)?;
     // Turn it into a BSO
     let bso = IncomingBso {
         envelope: IncomingEnvelope {
@@ -76,7 +76,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
             .into_iter()
             .map(|bso| {
                 // consider turning this into malformed?
-                let encrypted = self.encdec.encrypt(&bso.payload, "bso payload")?;
+                let encrypted = self.encdec.encrypt(&bso.payload)?;
                 Ok((bso.envelope.id, encrypted, bso.envelope.modified))
             })
             .collect::<Result<_>>()?;
@@ -208,9 +208,9 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
             Ok(Self::Record::from_row(row)?)
         })?;
 
-        let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc, "cc_number")?;
+        let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;
         for record in records {
-            if self.encdec.decrypt(&record.cc_number_enc, "cc_number")? == incoming_cc_number {
+            if self.encdec.decrypt(&record.cc_number_enc)? == incoming_cc_number {
                 return Ok(Some(record));
             }
         }
@@ -395,7 +395,7 @@ mod tests {
                     mirror_sql,
                     rusqlite::named_params! {
                         ":guid": payload["id"].as_str().unwrap(),
-                        ":payload": encdec.encrypt(&payload.to_string(), "payload")?,
+                        ":payload": encdec.encrypt(&payload.to_string())?,
                     },
                 )
                 .expect("should insert mirror record");

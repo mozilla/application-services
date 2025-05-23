@@ -52,7 +52,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             if let Some(enc_s) = row.get::<_, Option<String>>("payload")? {
                 // The full payload in the credit cards mirror is encrypted
                 let mirror_payload: CreditCardPayload =
-                    serde_json::from_str(&self.encdec.decrypt(&enc_s, "cc payload")?)?;
+                    serde_json::from_str(&self.encdec.decrypt(&enc_s)?)?;
                 record.entry.unknown_fields = mirror_payload.entry.unknown_fields;
             };
 
@@ -74,7 +74,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         .into_iter()
         .map(|(bso, change_counter)| {
             // Turn the record into an encrypted repr to save in the mirror.
-            let encrypted = self.encdec.encrypt(&bso.payload, "bso payload")?;
+            let encrypted = self.encdec.encrypt(&bso.payload)?;
             Ok((bso.envelope.id, encrypted, change_counter))
         })
         .collect::<Result<_>>()?;
@@ -243,7 +243,7 @@ mod tests {
         //test_insert_mirror_record doesn't encrypt the mirror payload, but in reality we do
         // so we encrypt here so our fetch_outgoing_records doesn't break
         let mut bso = test_record.into_test_incoming_bso(&co.encdec, Default::default());
-        bso.payload = co.encdec.encrypt(&bso.payload, "bso payload").unwrap();
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
         test_insert_mirror_record(&tx, bso);
         exists_with_counter_value_in_table(&tx, DATA_TABLE_NAME, &guid, initial_change_counter_val);
 
@@ -305,7 +305,7 @@ mod tests {
         let mut bso = test_record
             .clone()
             .into_test_incoming_bso(&co.encdec, unknown_fields);
-        bso.payload = co.encdec.encrypt(&bso.payload, "bso payload").unwrap();
+        bso.payload = co.encdec.encrypt(&bso.payload).unwrap();
         test_insert_mirror_record(&tx, bso);
         exists_with_counter_value_in_table(
             &tx,

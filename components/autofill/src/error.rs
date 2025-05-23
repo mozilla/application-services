@@ -58,7 +58,7 @@ pub enum Error {
     InvalidSyncPayload(String),
 
     #[error("Crypto Error: {0}")]
-    CryptoError(#[from] jwcrypto::EncryptorDecryptorError),
+    CryptoError(#[from] jwcrypto::JwCryptoError),
 
     #[error("Missing local encryption key")]
     MissingEncryptionKey,

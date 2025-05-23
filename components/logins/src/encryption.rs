@@ -108,16 +108,16 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
         let key = std::str::from_utf8(&keybytes).map_err(|_| LoginsApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
-            .map_err(|_: jwcrypto::EncryptorDecryptorError| LoginsApiError::InvalidKey)?;
+            .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
 
         let cleartext =
             std::str::from_utf8(&clearbytes).map_err(|e| LoginsApiError::EncryptionFailed {
                 reason: e.to_string(),
             })?;
         encdec
-            .encrypt(cleartext, "encrypt SecureLoginFields")
+            .encrypt(cleartext)
             .map_err(
-                |e: jwcrypto::EncryptorDecryptorError| LoginsApiError::EncryptionFailed {
+                |e: jwcrypto::JwCryptoError| LoginsApiError::EncryptionFailed {
                     reason: e.to_string(),
                 },
             )
@@ -132,16 +132,16 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
         let key = std::str::from_utf8(&keybytes).map_err(|_| LoginsApiError::InvalidKey)?;
 
         let encdec = jwcrypto::EncryptorDecryptor::new(key)
-            .map_err(|_: jwcrypto::EncryptorDecryptorError| LoginsApiError::InvalidKey)?;
+            .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
 
         let ciphertext =
             std::str::from_utf8(&cipherbytes).map_err(|e| LoginsApiError::DecryptionFailed {
                 reason: e.to_string(),
             })?;
         encdec
-            .decrypt(ciphertext, "decrypt SecureLoginFields")
+            .decrypt(ciphertext)
             .map_err(
-                |e: jwcrypto::EncryptorDecryptorError| LoginsApiError::DecryptionFailed {
+                |e: jwcrypto::JwCryptoError| LoginsApiError::DecryptionFailed {
                     reason: e.to_string(),
                 },
             )
@@ -306,18 +306,18 @@ impl KeyManager for NSSKeyManager {
 
 #[handle_error(Error)]
 pub fn create_canary(text: &str, key: &str) -> ApiResult<String> {
-    jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)
+    Ok(jwcrypto::EncryptorDecryptor::new(key)?.create_canary(text)?)
 }
 
 pub fn check_canary(canary: &str, text: &str, key: &str) -> ApiResult<bool> {
     let encdec = jwcrypto::EncryptorDecryptor::new(key)
-        .map_err(|_: jwcrypto::EncryptorDecryptorError| LoginsApiError::InvalidKey)?;
+        .map_err(|_: jwcrypto::JwCryptoError| LoginsApiError::InvalidKey)?;
     Ok(encdec.check_canary(canary, text).unwrap_or(false))
 }
 
 #[handle_error(Error)]
 pub fn create_key() -> ApiResult<String> {
-    jwcrypto::EncryptorDecryptor::create_key()
+    Ok(jwcrypto::EncryptorDecryptor::create_key()?)
 }
 
 #[cfg(test)]
@@ -403,19 +403,17 @@ mod test {
             }),
         };
 
-        assert_eq!(other_encdec.decrypt(ciphertext).err().unwrap().to_string(), "decryption failed: Crypto error: NSS error: NSS error: -8190  (decrypt SecureLoginFields)");
+        assert_eq!(
+            other_encdec.decrypt(ciphertext).err().unwrap().to_string(),
+            "decryption failed: Crypto error: NSS error: NSS error: -8190 "
+        );
     }
 
     #[test]
     fn test_key_error() {
         let storage_err = jwcrypto::EncryptorDecryptor::new("bad-key").err().unwrap();
-        assert!(matches!(
-            storage_err,
-            Error::CryptoError(jwcrypto::EncryptorDecryptorError {
-                from: jwcrypto::JwCryptoError::InvalidKey,
-                ..
-            })
-        ));
+        println!("{storage_err:?}");
+        assert!(matches!(storage_err, jwcrypto::JwCryptoError::InvalidKey));
     }
 
     #[test]

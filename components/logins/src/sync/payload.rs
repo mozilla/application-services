@@ -180,7 +180,7 @@ impl EncryptedLogin {
             Some(s) => UnknownFields::decrypt(&s, encdec)?,
             None => Default::default(),
         };
-        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec)?;
+        let sec_fields = SecureLoginFields::decrypt(&self.sec_fields, encdec, &self.meta.id)?;
         Ok(OutgoingBso::from_content_with_id(
             crate::sync::LoginPayload {
                 guid: self.guid(),
