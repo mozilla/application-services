@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 39;
+pub const VERSION: u32 = 40;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -48,16 +48,16 @@ CREATE TABLE keywords(
     PRIMARY KEY (keyword, suggestion_id)
 ) WITHOUT ROWID;
 
--- Metrics for the `keywords` table per provider. Not all providers use or
--- update it. If you modify an existing provider to use this, you will need to
--- populate this table somehow with metrics for the provider's existing
--- keywords, for example as part of a schema migration.
+-- Keywords metrics per record ID and type. Currently we only record metrics for
+-- a small number of record types.
 CREATE TABLE keywords_metrics(
     record_id TEXT NOT NULL PRIMARY KEY,
-    provider INTEGER NOT NULL,
-    max_length INTEGER NOT NULL,
+    record_type TEXT NOT NULL,
+    max_len INTEGER NOT NULL,
     max_word_count INTEGER NOT NULL
 ) WITHOUT ROWID;
+
+CREATE INDEX keywords_metrics_record_type ON keywords_metrics(record_type);
 
 -- full keywords are what we display to the user when a (partial) keyword matches
 CREATE TABLE full_keywords(
@@ -265,6 +265,11 @@ impl<'a> SuggestConnectionInitializer<'a> {
         }
         Ok(())
     }
+
+    fn create_custom_functions(&self, conn: &Connection) -> open_database::Result<()> {
+        conn.create_collation("geonames_collate", geonames_collate)?;
+        Ok(())
+    }
 }
 
 impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
@@ -276,7 +281,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
         sql_support::setup_sqlite_defaults(conn)?;
         conn.execute("PRAGMA foreign_keys = ON", ())?;
         sql_support::debug_tools::define_debug_functions(conn)?;
-        conn.create_collation("geonames_collate", geonames_collate)?;
+        self.create_custom_functions(conn)?;
         Ok(())
     }
 
@@ -286,6 +291,10 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
     }
 
     fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+        // Custom functions are per connection. `prepare` usually handles
+        // creating them but on upgrade it's not called before this method is.
+        self.create_custom_functions(tx)?;
+
         match version {
             1..=15 => {
                 // Treat databases with these older schema versions as corrupt,
@@ -674,7 +683,6 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
             }
             38 => {
                 // This migration makes changes to geonames.
-                tx.create_collation("geonames_collate", geonames_collate)?;
                 tx.execute_batch(
                     r#"
                     DROP INDEX geonames_alternates_geoname_id;
@@ -718,6 +726,24 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 )?;
                 Ok(())
             }
+            39 => {
+                // This migration makes changes to keywords metrics.
+                clear_database(tx)?;
+                tx.execute_batch(
+                    r#"
+                    DROP TABLE keywords_metrics;
+                    CREATE TABLE keywords_metrics(
+                        record_id TEXT NOT NULL PRIMARY KEY,
+                        record_type TEXT NOT NULL,
+                        max_len INTEGER NOT NULL,
+                        max_word_count INTEGER NOT NULL
+                    ) WITHOUT ROWID;
+                    CREATE INDEX keywords_metrics_record_type ON keywords_metrics(record_type);
+                    "#,
+                )?;
+                Ok(())
+            }
+
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
