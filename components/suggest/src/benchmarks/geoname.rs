@@ -17,7 +17,6 @@ pub struct GeonameBenchmark {
 pub struct FetchGeonamesArgs {
     query: &'static str,
     match_name_prefix: bool,
-    geoname_type: Option<GeonameType>,
     filter: Option<Vec<Geoname>>,
 }
 
@@ -49,7 +48,6 @@ impl BenchmarkWithInput for GeonameBenchmark {
             .fetch_geonames(
                 i_input.fetch_args.query,
                 i_input.fetch_args.match_name_prefix,
-                i_input.fetch_args.geoname_type,
                 i_input.fetch_args.filter,
             )
             .unwrap_or_else(|e| panic!("Error fetching geonames: {e}"));
@@ -67,13 +65,19 @@ impl BenchmarkWithInput for GeonameBenchmark {
 
 pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
     let ny_state = Geoname {
-        geoname_id: 8,
+        geoname_id: 5128638,
+        geoname_type: GeonameType::Admin1,
         name: "New York".to_string(),
-        latitude: 43.00035,
-        longitude: -75.4999,
+        feature_class: "A".to_string(),
+        feature_code: "ADM1".to_string(),
         country_code: "US".to_string(),
-        admin1_code: "NY".to_string(),
+        admin1_code: Some("NY".to_string()),
+        admin2_code: None,
+        admin3_code: None,
+        admin4_code: None,
         population: 19274244,
+        latitude: "43.00035".to_string(),
+        longitude: "-75.4999".to_string(),
     };
 
     vec![
@@ -84,7 +88,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "nomatch",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -96,7 +99,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "no match",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -108,7 +110,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "no match either",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -120,7 +121,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "this is a very long string that does not match anything in the geonames database but it sure is very long",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -134,7 +134,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "nomatch",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -146,7 +145,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "no match",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -158,7 +156,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "no match either",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -170,7 +167,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "this is a very long string that does not match anything in the geonames database but it sure is very long",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: false,
@@ -184,7 +180,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "ny",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -196,7 +191,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "nyc",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -208,7 +202,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "ca",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -220,7 +213,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "pdx",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -232,7 +224,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "roc",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -246,7 +237,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "ny",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -258,7 +248,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "nyc",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -270,7 +259,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "ca",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -282,7 +270,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "pdx",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -294,7 +281,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "roc",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -308,7 +294,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "new york",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -320,7 +305,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "rochester",
                     match_name_prefix: false,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -334,7 +318,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "new york",
                     match_name_prefix: true,
-                    geoname_type: None,
                     filter: None,
                 },
                 should_match: true,
@@ -346,33 +329,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "rochester",
                     match_name_prefix: true,
-                    geoname_type: None,
-                    filter: None,
-                },
-                should_match: true,
-            }
-        ),
-
-        // restricting to a geoname type
-        (
-            "geoname-fetch-type-city-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: false,
-                    geoname_type: Some(GeonameType::City),
-                    filter: None,
-                },
-                should_match: true,
-            }
-        ),
-        (
-            "geoname-fetch-type-region-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: false,
-                    geoname_type: Some(GeonameType::Region),
                     filter: None,
                 },
                 should_match: true,
@@ -386,59 +342,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
                 args: FetchGeonamesArgs {
                     query: "ny",
                     match_name_prefix: false,
-                    geoname_type: None,
-                    filter: Some(vec![ny_state.clone()]),
-                },
-                should_match: true,
-            }
-        ),
-
-        // restricting to a geoname type + filtering
-        (
-            "geoname-fetch-type-filter-city-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: false,
-                    geoname_type: Some(GeonameType::City),
-                    filter: Some(vec![ny_state.clone()]),
-                },
-                should_match: true,
-            }
-        ),
-        (
-            "geoname-fetch-type-filter-region-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: false,
-                    geoname_type: Some(GeonameType::Region),
-                    filter: Some(vec![ny_state.clone()]),
-                },
-                should_match: true,
-            }
-        ),
-
-        // restricting to a geoname type + filtering w/ prefix matching
-        (
-            "geoname-fetch-type-filter-prefix-city-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: true,
-                    geoname_type: Some(GeonameType::City),
-                    filter: Some(vec![ny_state.clone()]),
-                },
-                should_match: true,
-            }
-        ),
-        (
-            "geoname-fetch-type-filter-prefix-region-ny",
-            GeonameBenchmark {
-                args: FetchGeonamesArgs {
-                    query: "ny",
-                    match_name_prefix: true,
-                    geoname_type: Some(GeonameType::Region),
                     filter: Some(vec![ny_state.clone()]),
                 },
                 should_match: true,
