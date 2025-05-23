@@ -66,15 +66,12 @@ impl BenchmarkWithInput for GeonameBenchmark {
 pub fn all_benchmarks() -> Vec<(&'static str, GeonameBenchmark)> {
     let ny_state = Geoname {
         geoname_id: 5128638,
-        geoname_type: GeonameType::Admin1,
+        geoname_type: GeonameType::AdminDivision { level: 1 },
         name: "New York".to_string(),
         feature_class: "A".to_string(),
         feature_code: "ADM1".to_string(),
         country_code: "US".to_string(),
-        admin1_code: Some("NY".to_string()),
-        admin2_code: None,
-        admin3_code: None,
-        admin4_code: None,
+        admin_division_codes: [(1, "NY".to_string())].into(),
         population: 19274244,
         latitude: "43.00035".to_string(),
         longitude: "-75.4999".to_string(),

@@ -17,6 +17,7 @@ use serde::Deserialize;
 use sql_support::ConnExt;
 use std::{
     borrow::Cow,
+    collections::HashMap,
     hash::{Hash, Hasher},
 };
 use unicase::UniCase;
@@ -36,11 +37,10 @@ use crate::{
 pub enum GeonameType {
     Country,
     /// A state, province, prefecture, district, borough, etc.
-    Admin1,
-    Admin2,
-    Admin3,
-    Admin4,
-    AdminOther,
+    AdminDivision {
+        level: u8,
+    },
+    AdminDivisionOther,
     /// A city, town, village, populated place, etc.
     City,
     Other,
@@ -80,14 +80,11 @@ pub struct Geoname {
     /// "ADM1" - Administrative division 1
     /// "PPL" - Populated place like a city
     pub feature_code: String,
-    /// Administrative division 1.
-    pub admin1_code: Option<String>,
-    /// Administrative division 2.
-    pub admin2_code: Option<String>,
-    /// Administrative division 3.
-    pub admin3_code: Option<String>,
-    /// Administrative division 4.
-    pub admin4_code: Option<String>,
+    /// Administrative divisions. This maps admin division levels (1-based) to
+    /// their corresponding codes. For example, Liverpool has two admin
+    /// divisions: "ENG" at level 1 and "H8" at level 2. They would be
+    /// represented in this map with entries `(1, "ENG")` and `(2, "H8")`.
+    pub admin_division_codes: HashMap<u8, String>,
     /// Population size.
     pub population: u64,
     /// Latitude in decimal degrees (as a string).
@@ -101,21 +98,29 @@ impl Geoname {
     /// and the other is an administrative division, this will return `true` if
     /// the city is located in the division.
     pub fn is_related_to(&self, other: &Self) -> bool {
-        let self_level = usize::from(self.admin_level());
-        let other_level = usize::from(other.admin_level());
+        if self.country_code != other.country_code {
+            return false;
+        }
 
-        let self_admins = self.admin_array();
-        let other_admins = other.admin_array();
+        let self_level = self.admin_level();
+        let other_level = other.admin_level();
+
+        // Build a sorted vec of levels in both `self and `other`.
+        let mut levels_asc: Vec<_> = self
+            .admin_division_codes
+            .keys()
+            .chain(other.admin_division_codes.keys())
+            .copied()
+            .collect();
+        levels_asc.sort();
 
         // Each admin level needs to be the same in `self` and `other` up to the
         // minimum level of `self` and `other`.
-        for (level, (self_admin, other_admin)) in
-            std::iter::zip(self_admins.iter(), other_admins.iter()).enumerate()
-        {
+        for level in levels_asc {
             if self_level < level || other_level < level {
                 break;
             }
-            if self_admin != other_admin {
+            if self.admin_division_codes.get(&level) != other.admin_division_codes.get(&level) {
                 return false;
             }
         }
@@ -127,22 +132,10 @@ impl Geoname {
         self.geoname_type != other.geoname_type || self.geoname_id == other.geoname_id
     }
 
-    fn admin_array(&self) -> [Option<&str>; 5] {
-        [
-            Some(&self.country_code),
-            self.admin1_code.as_deref(),
-            self.admin2_code.as_deref(),
-            self.admin3_code.as_deref(),
-            self.admin4_code.as_deref(),
-        ]
-    }
-
     fn admin_level(&self) -> u8 {
         match self.geoname_type {
             GeonameType::Country => 0,
-            GeonameType::Admin1 => 1,
-            GeonameType::Admin2 => 2,
-            GeonameType::Admin3 => 3,
+            GeonameType::AdminDivision { level } => level,
             _ => 4,
         }
     }
@@ -344,11 +337,11 @@ impl SuggestDao<'_> {
                                 GeonameType::Country
                             } else {
                                 match feature_code.as_str() {
-                                    "ADM1" => GeonameType::Admin1,
-                                    "ADM2" => GeonameType::Admin2,
-                                    "ADM3" => GeonameType::Admin3,
-                                    "ADM4" => GeonameType::Admin4,
-                                    _ => GeonameType::AdminOther,
+                                    "ADM1" => GeonameType::AdminDivision { level: 1 },
+                                    "ADM2" => GeonameType::AdminDivision { level: 2 },
+                                    "ADM3" => GeonameType::AdminDivision { level: 3 },
+                                    "ADM4" => GeonameType::AdminDivision { level: 4 },
+                                    _ => GeonameType::AdminDivisionOther,
                                 }
                             }
                         }
@@ -363,10 +356,15 @@ impl SuggestDao<'_> {
                             feature_class,
                             feature_code,
                             country_code: row.get("country_code")?,
-                            admin1_code: row.get("admin1_code")?,
-                            admin2_code: row.get("admin2_code")?,
-                            admin3_code: row.get("admin3_code")?,
-                            admin4_code: row.get("admin4_code")?,
+                            admin_division_codes: [
+                                row.get::<_, Option<String>>("admin1_code")?.map(|c| (1, c)),
+                                row.get::<_, Option<String>>("admin2_code")?.map(|c| (2, c)),
+                                row.get::<_, Option<String>>("admin3_code")?.map(|c| (3, c)),
+                                row.get::<_, Option<String>>("admin4_code")?.map(|c| (4, c)),
+                            ]
+                            .into_iter()
+                            .flatten()
+                            .collect(),
                             population: row
                                 .get::<_, Option<u64>>("population")?
                                 .unwrap_or_default(),
@@ -1062,10 +1060,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPL".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("AL".to_string()),
-            admin2_code: Some("077".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "AL".to_string()), (2, "077".to_string())].into(),
             population: 200,
             latitude: "34.91814".to_string(),
             longitude: "-88.0642".to_string(),
@@ -1080,10 +1075,12 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("IA".to_string()),
-            admin2_code: Some("013".to_string()),
-            admin3_code: Some("94597".to_string()),
-            admin4_code: None,
+            admin_division_codes: [
+                (1, "IA".to_string()),
+                (2, "013".to_string()),
+                (3, "94597".to_string()),
+            ]
+            .into(),
             population: 68460,
             latitude: "42.49276".to_string(),
             longitude: "-92.34296".to_string(),
@@ -1098,10 +1095,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPL".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("NY".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "NY".to_string())].into(),
             population: 8804190,
             latitude: "40.71427".to_string(),
             longitude: "-74.00597".to_string(),
@@ -1116,10 +1110,12 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("NY".to_string()),
-            admin2_code: Some("055".to_string()),
-            admin3_code: Some("63000".to_string()),
-            admin4_code: None,
+            admin_division_codes: [
+                (1, "NY".to_string()),
+                (2, "055".to_string()),
+                (3, "63000".to_string()),
+            ]
+            .into(),
             population: 209802,
             latitude: "43.15478".to_string(),
             longitude: "-77.61556".to_string(),
@@ -1134,10 +1130,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("TX".to_string()),
-            admin2_code: Some("309".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "TX".to_string()), (2, "309".to_string())].into(),
             population: 132356,
             latitude: "31.54933".to_string(),
             longitude: "-97.14667".to_string(),
@@ -1152,10 +1145,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("NY".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "NY".to_string())].into(),
             population: 2,
             latitude: "38.06084".to_string(),
             longitude: "-97.92977".to_string(),
@@ -1165,15 +1155,12 @@ pub(crate) mod tests {
     pub(crate) fn al() -> Geoname {
         Geoname {
             geoname_id: 4829764,
-            geoname_type: GeonameType::Admin1,
+            geoname_type: GeonameType::AdminDivision { level: 1 },
             name: "Alabama".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM1".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("AL".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "AL".to_string())].into(),
             population: 4530315,
             latitude: "32.75041".to_string(),
             longitude: "-86.75026".to_string(),
@@ -1183,15 +1170,12 @@ pub(crate) mod tests {
     pub(crate) fn ia() -> Geoname {
         Geoname {
             geoname_id: 4862182,
-            geoname_type: GeonameType::Admin1,
+            geoname_type: GeonameType::AdminDivision { level: 1 },
             name: "Iowa".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM1".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("IA".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "IA".to_string())].into(),
             population: 2955010,
             latitude: "42.00027".to_string(),
             longitude: "-93.50049".to_string(),
@@ -1201,15 +1185,12 @@ pub(crate) mod tests {
     pub(crate) fn ny_state() -> Geoname {
         Geoname {
             geoname_id: 5128638,
-            geoname_type: GeonameType::Admin1,
+            geoname_type: GeonameType::AdminDivision { level: 1 },
             name: "New York".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM1".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("NY".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "NY".to_string())].into(),
             population: 19274244,
             latitude: "43.00035".to_string(),
             longitude: "-75.4999".to_string(),
@@ -1224,10 +1205,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("MO".to_string()),
-            admin2_code: Some("510".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "MO".to_string()), (2, "510".to_string())].into(),
             population: 315685,
             latitude: "38.62727".to_string(),
             longitude: "-90.19789".to_string(),
@@ -1242,10 +1220,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPL".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("CA".to_string()),
-            admin2_code: Some("053".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "CA".to_string()), (2, "053".to_string())].into(),
             population: 3897,
             latitude: "36.55524".to_string(),
             longitude: "-121.92329".to_string(),
@@ -1260,10 +1235,7 @@ pub(crate) mod tests {
             feature_class: "A".to_string(),
             feature_code: "PCLI".to_string(),
             country_code: "US".to_string(),
-            admin1_code: Some("00".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "00".to_string())].into(),
             population: 327167434,
             latitude: "39.76".to_string(),
             longitude: "-98.5".to_string(),
@@ -1278,10 +1250,7 @@ pub(crate) mod tests {
             feature_class: "A".to_string(),
             feature_code: "PCLI".to_string(),
             country_code: "CA".to_string(),
-            admin1_code: Some("00".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "00".to_string())].into(),
             population: 37058856,
             latitude: "60.10867".to_string(),
             longitude: "-113.64258".to_string(),
@@ -1291,15 +1260,12 @@ pub(crate) mod tests {
     pub(crate) fn on() -> Geoname {
         Geoname {
             geoname_id: 6093943,
-            geoname_type: GeonameType::Admin1,
+            geoname_type: GeonameType::AdminDivision { level: 1 },
             name: "Ontario".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM1".to_string(),
             country_code: "CA".to_string(),
-            admin1_code: Some("08".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "08".to_string())].into(),
             population: 12861940,
             latitude: "49.25014".to_string(),
             longitude: "-84.49983".to_string(),
@@ -1314,10 +1280,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPL".to_string(),
             country_code: "CA".to_string(),
-            admin1_code: Some("08".to_string()),
-            admin2_code: Some("3530".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "08".to_string()), (2, "3530".to_string())].into(),
             population: 104986,
             latitude: "43.4668".to_string(),
             longitude: "-80.51639".to_string(),
@@ -1332,10 +1295,7 @@ pub(crate) mod tests {
             feature_class: "A".to_string(),
             feature_code: "PCLI".to_string(),
             country_code: "GB".to_string(),
-            admin1_code: Some("00".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "00".to_string())].into(),
             population: 66488991,
             latitude: "54.75844".to_string(),
             longitude: "-2.69531".to_string(),
@@ -1345,15 +1305,12 @@ pub(crate) mod tests {
     pub(crate) fn england() -> Geoname {
         Geoname {
             geoname_id: 6269131,
-            geoname_type: GeonameType::Admin1,
+            geoname_type: GeonameType::AdminDivision { level: 1 },
             name: "England".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM1".to_string(),
             country_code: "GB".to_string(),
-            admin1_code: Some("ENG".to_string()),
-            admin2_code: None,
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "ENG".to_string())].into(),
             population: 57106398,
             latitude: "52.16045".to_string(),
             longitude: "-0.70312".to_string(),
@@ -1363,15 +1320,12 @@ pub(crate) mod tests {
     pub(crate) fn liverpool_metro() -> Geoname {
         Geoname {
             geoname_id: 3333167,
-            geoname_type: GeonameType::Admin2,
+            geoname_type: GeonameType::AdminDivision { level: 2 },
             name: "Liverpool".to_string(),
             feature_class: "A".to_string(),
             feature_code: "ADM2".to_string(),
             country_code: "GB".to_string(),
-            admin1_code: Some("ENG".to_string()),
-            admin2_code: Some("H8".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "ENG".to_string()), (2, "H8".to_string())].into(),
             population: 484578,
             latitude: "53.41667".to_string(),
             longitude: "-2.91667".to_string(),
@@ -1386,10 +1340,7 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "GB".to_string(),
-            admin1_code: Some("ENG".to_string()),
-            admin2_code: Some("H8".to_string()),
-            admin3_code: None,
-            admin4_code: None,
+            admin_division_codes: [(1, "ENG".to_string()), (2, "H8".to_string())].into(),
             population: 864122,
             latitude: "53.41058".to_string(),
             longitude: "-2.97794".to_string(),
@@ -1404,10 +1355,13 @@ pub(crate) mod tests {
             feature_class: "P".to_string(),
             feature_code: "PPL".to_string(),
             country_code: "DE".to_string(),
-            admin1_code: Some("15".to_string()),
-            admin2_code: Some("00".to_string()),
-            admin3_code: Some("16077".to_string()),
-            admin4_code: Some("16077012".to_string()),
+            admin_division_codes: [
+                (1, "15".to_string()),
+                (2, "00".to_string()),
+                (3, "16077".to_string()),
+                (4, "16077012".to_string()),
+            ]
+            .into(),
             population: 4104,
             latitude: "50.88902".to_string(),
             longitude: "12.43292".to_string(),
