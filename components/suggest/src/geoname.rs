@@ -17,6 +17,7 @@ use serde::Deserialize;
 use sql_support::ConnExt;
 use std::{
     borrow::Cow,
+    cell::OnceCell,
     collections::HashMap,
     hash::{Hash, Hasher},
 };
@@ -61,11 +62,7 @@ pub struct Geoname {
     /// The geoname type. This is derived from `feature_class` and
     /// `feature_code` as a more convenient representation of the type.
     pub geoname_type: GeonameType,
-    /// This is pretty much the place's canonical name. Usually there will be a
-    /// row in the alternates table with the same name, but not always. When
-    /// there is such a row, it doesn't always have `is_preferred_name` set, and
-    /// in fact fact there may be another row with a different name with
-    /// `is_preferred_name` set.
+    /// The place's primary name.
     pub name: String,
     /// ISO-3166 two-letter uppercase country code, e.g., "US".
     pub country_code: String,
@@ -91,6 +88,33 @@ pub struct Geoname {
     pub latitude: String,
     /// Longitude in decimal degrees (as a string).
     pub longitude: String,
+}
+
+/// Alternate names for a geoname and its country and admin divisions.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct GeonameAlternates {
+    /// Names for the geoname itself.
+    geoname: AlternateNames,
+    /// Names for the geoname's country. This will be `Some` as long as the
+    /// country is also in the ingested data, which should typically be true.
+    country: Option<AlternateNames>,
+    /// Names for the geoname's admin divisions. This is parallel to
+    /// `Geoname::admin_division_codes`. If there are no names in the ingested
+    /// data for an admin division, then it will be absent from this map.
+    admin_divisions: HashMap<u8, AlternateNames>,
+}
+
+/// A set of names for a single entity.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct AlternateNames {
+    /// The entity's primary name. For a `Geoname`, this is `Geoname::name`.
+    primary: String,
+    /// The entity's name in the language that was ingested according to the
+    /// locale in the remote settings context. If none exists and this
+    /// `AlternateNames` is for a `Geoname`, then this will be its primary name.
+    localized: Option<String>,
+    /// The entity's abbreviation, if any.
+    abbreviation: Option<String>,
 }
 
 impl Geoname {
@@ -207,8 +231,42 @@ struct DownloadedGeonamesAlternatesAttachment {
     /// code: "en", "de", "fr", etc. Can also be a geonames pseduo-language like
     /// "abbr" for abbreviations and "iata" for airport codes.
     language: String,
-    /// Tuples of geoname IDs and their localized names.
-    names_by_geoname_id: Vec<(GeonameId, Vec<String>)>,
+    /// Tuples of geoname IDs and their alternate names.
+    alternates_by_geoname_id: Vec<(GeonameId, Vec<DownloadedGeonamesAlternate<String>>)>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum DownloadedGeonamesAlternate<S: AsRef<str>> {
+    Name(S),
+    Full {
+        name: S,
+        is_preferred: Option<bool>,
+        is_short: Option<bool>,
+    },
+}
+
+impl<S: AsRef<str>> DownloadedGeonamesAlternate<S> {
+    fn name(&self) -> &str {
+        match self {
+            Self::Name(name) => name.as_ref(),
+            Self::Full { name, .. } => name.as_ref(),
+        }
+    }
+
+    fn is_preferred(&self) -> bool {
+        match self {
+            Self::Name(_) => false,
+            Self::Full { is_preferred, .. } => is_preferred.unwrap_or(false),
+        }
+    }
+
+    fn is_short(&self) -> bool {
+        match self {
+            Self::Name(_) => false,
+            Self::Full { is_short, .. } => is_short.unwrap_or(false),
+        }
+    }
 }
 
 /// Compares two strings ignoring case, Unicode combining marks, and some
@@ -395,6 +453,154 @@ impl SuggestDao<'_> {
             .collect())
     }
 
+    /// Fetches alternate names for a geoname and its country and admin
+    /// divisions.
+    pub fn fetch_geoname_alternates(&self, geoname: &Geoname) -> Result<GeonameAlternates> {
+        #[derive(Debug)]
+        struct Row {
+            geoname_id: GeonameId,
+            feature_code: String,
+            primary_name: String,
+            alt_language: Option<String>,
+            alt_name: String,
+        }
+
+        let rows = self.conn.query_rows_and_then_cached(
+            r#"
+            SELECT
+                g.id,
+                g.feature_code,
+                g.name AS primary_name,
+                a.language AS alt_language,
+                a.name AS alt_name
+            FROM
+                geonames g
+            JOIN
+                geonames_alternates a ON g.id = a.geoname_id
+            WHERE
+                -- Ignore airport codes
+                (a.language IS NULL OR a.language NOT IN ('iata', 'icao', 'faac'))
+                AND (
+                    -- The row matches the passed-in geoname
+                    g.id = :geoname_id
+                    -- The row matches the geoname's country
+                    OR (
+                        g.feature_code IN ('PCLI', 'PCL', 'PCLD', 'PCLF', 'PCLS')
+                        AND g.country_code = :country
+                    )
+                    -- The row matches one of the geoname's admin divisions
+                    OR (g.feature_code = 'ADM1' AND g.admin1_code = :admin1)
+                    OR (g.feature_code = 'ADM2' AND g.admin2_code = :admin2)
+                    OR (g.feature_code = 'ADM3' AND g.admin3_code = :admin3)
+                    OR (g.feature_code = 'ADM4' AND g.admin4_code = :admin4)
+                )
+            ORDER BY
+                -- Group rows for the same geoname together
+                g.id ASC,
+                -- Sort preferred and short names first; longer names tend to be
+                -- less commonly used ("California" vs. "State of California")
+                a.is_preferred DESC,
+                a.is_short DESC,
+                -- `a.language` is null for the primary and ASCII name (see
+                -- `insert_geonames`); sort those last
+                a.language IS NULL ASC,
+                -- Group by language; `a.language` should be either null, 'abbr'
+                -- for abbreviations, or the language code that was ingested
+                -- according to the locale in the RS context
+                a.language ASC,
+                -- Sort shorter names first, same reason as above
+                length(a.name) ASC,
+                a.name ASC
+            "#,
+            named_params! {
+                ":geoname_id": geoname.geoname_id,
+                ":country": geoname.country_code,
+                ":admin1": geoname.admin_division_codes.get(&1),
+                ":admin2": geoname.admin_division_codes.get(&2),
+                ":admin3": geoname.admin_division_codes.get(&3),
+                ":admin4": geoname.admin_division_codes.get(&4),
+            },
+            |row| -> Result<Row> {
+                Ok(Row {
+                    geoname_id: row.get("id")?,
+                    feature_code: row.get("feature_code")?,
+                    primary_name: row.get("primary_name")?,
+                    alt_language: row.get("alt_language")?,
+                    alt_name: row.get("alt_name")?,
+                })
+            },
+        )?;
+
+        let mut geoname_localized: OnceCell<String> = OnceCell::new();
+        let mut geoname_abbr: OnceCell<String> = OnceCell::new();
+        let mut country_primary: OnceCell<String> = OnceCell::new();
+        let mut country_localized: OnceCell<String> = OnceCell::new();
+        let mut country_abbr: OnceCell<String> = OnceCell::new();
+        let mut admin_primary: HashMap<u8, String> = HashMap::new();
+        let mut admin_localized: HashMap<u8, String> = HashMap::new();
+        let mut admin_abbr: HashMap<u8, String> = HashMap::new();
+
+        // Loop through the rows. For each of the geoname, country, and admin
+        // divisions, save the first primary name, localized name, abbreviation
+        // we encounter. The `ORDER BY` in the query ensures that these will be
+        // the best names for each (or what we guess will be the best names).
+        for row in rows.into_iter() {
+            if row.geoname_id == geoname.geoname_id {
+                match row.alt_language.as_deref() {
+                    Some("abbr") => geoname_abbr.get_or_init(|| row.alt_name),
+                    _ => geoname_localized.get_or_init(|| row.alt_name),
+                };
+            } else if let Some(level) = match row.feature_code.as_str() {
+                "ADM1" => Some(1),
+                "ADM2" => Some(2),
+                "ADM3" => Some(3),
+                "ADM4" => Some(4),
+                _ => None,
+            } {
+                admin_primary.entry(level).or_insert(row.primary_name);
+                match row.alt_language.as_deref() {
+                    Some("abbr") => admin_abbr.entry(level).or_insert(row.alt_name),
+                    _ => admin_localized.entry(level).or_insert(row.alt_name),
+                };
+            } else {
+                country_primary.get_or_init(|| row.primary_name);
+                match row.alt_language.as_deref() {
+                    Some("abbr") => country_abbr.get_or_init(|| row.alt_name),
+                    _ => country_localized.get_or_init(|| row.alt_name),
+                };
+            }
+        }
+
+        Ok(GeonameAlternates {
+            geoname: AlternateNames {
+                primary: geoname.name.clone(),
+                localized: geoname_localized.take(),
+                abbreviation: geoname_abbr.take(),
+            },
+            country: country_primary.take().map(|primary| AlternateNames {
+                primary,
+                localized: country_localized.take(),
+                abbreviation: country_abbr.take(),
+            }),
+            admin_divisions: geoname
+                .admin_division_codes
+                .keys()
+                .filter_map(|level| {
+                    admin_primary.remove(level).map(|primary| {
+                        (
+                            *level,
+                            AlternateNames {
+                                primary,
+                                localized: admin_localized.remove(level),
+                                abbreviation: admin_abbr.remove(level),
+                            },
+                        )
+                    })
+                })
+                .collect(),
+        })
+    }
+
     /// Inserts GeoNames data into the database.
     fn insert_geonames(
         &mut self,
@@ -404,23 +610,38 @@ impl SuggestDao<'_> {
         self.scope.err_if_interrupted()?;
 
         let mut geoname_insert = GeonameInsertStatement::new(self.conn)?;
+        let mut alt_insert = GeonameAlternateInsertStatement::new(self.conn)?;
+        let mut metrics_updater = KeywordsMetricsUpdater::new();
+
         for geoname in geonames {
             geoname_insert.execute(record_id, geoname)?;
+
+            // Add alternates for each geoname's primary name (`geoname.name`)
+            // and ASCII name. `language` is set to null for these alternates.
+            alt_insert.execute(
+                record_id,
+                geoname.id,
+                None, // language
+                &DownloadedGeonamesAlternate::Name(geoname.name.as_str()),
+            )?;
+            metrics_updater.update(&geoname.name);
+
+            if let Some(ascii_name) = &geoname.ascii_name {
+                alt_insert.execute(
+                    record_id,
+                    geoname.id,
+                    None, // language
+                    &DownloadedGeonamesAlternate::Name(ascii_name.as_str()),
+                )?;
+                metrics_updater.update(ascii_name);
+            }
         }
 
-        // Add alternates for each geoname's primary name (`geoname.name`) and
-        // ASCII name. `language` is set to null for these alternates.
-        self.insert_geonames_alternates_from_iter(
+        metrics_updater.finish(
+            self.conn,
             record_id,
-            None, // language
-            geonames.iter().flat_map(|g| {
-                [
-                    Some((g.id, g.name.as_str())),
-                    g.ascii_name.as_deref().map(|ascii_name| (g.id, ascii_name)),
-                ]
-                .into_iter()
-                .flatten()
-            }),
+            SuggestRecordType::GeonamesAlternates,
+            &mut self.geoname_cache,
         )?;
 
         Ok(())
@@ -432,36 +653,15 @@ impl SuggestDao<'_> {
         record_id: &SuggestRecordId,
         attachments: &[DownloadedGeonamesAlternatesAttachment],
     ) -> Result<()> {
-        for attach in attachments {
-            self.insert_geonames_alternates_from_iter(
-                record_id,
-                Some(&attach.language),
-                attach
-                    .names_by_geoname_id
-                    .iter()
-                    .flat_map(|(geoname_id, names)| {
-                        names.iter().map(|name| (*geoname_id, name.as_str()))
-                    }),
-            )?;
-        }
-        Ok(())
-    }
-
-    fn insert_geonames_alternates_from_iter<'a, I>(
-        &mut self,
-        record_id: &SuggestRecordId,
-        language: Option<&str>,
-        iter: I,
-    ) -> Result<()>
-    where
-        I: Iterator<Item = (GeonameId, &'a str)>,
-    {
-        self.scope.err_if_interrupted()?;
         let mut alt_insert = GeonameAlternateInsertStatement::new(self.conn)?;
         let mut metrics_updater = KeywordsMetricsUpdater::new();
-        for (geoname_id, name) in iter {
-            alt_insert.execute(record_id, geoname_id, language, name)?;
-            metrics_updater.update(name);
+        for attach in attachments {
+            for (geoname_id, alts) in &attach.alternates_by_geoname_id {
+                for alt in alts {
+                    alt_insert.execute(record_id, *geoname_id, Some(&attach.language), alt)?;
+                    metrics_updater.update(alt.name());
+                }
+            }
         }
         metrics_updater.finish(
             self.conn,
@@ -562,26 +762,36 @@ struct GeonameAlternateInsertStatement<'conn>(rusqlite::Statement<'conn>);
 impl<'conn> GeonameAlternateInsertStatement<'conn> {
     fn new(conn: &'conn Connection) -> Result<Self> {
         Ok(Self(conn.prepare(
-            "INSERT OR IGNORE INTO geonames_alternates(
-                 record_id,
-                 geoname_id,
-                 language,
-                 name
-             )
-             VALUES(?, ?, ?, ?)
-             ",
+            r#"
+            INSERT INTO geonames_alternates(
+                record_id,
+                geoname_id,
+                language,
+                name,
+                is_preferred,
+                is_short
+            )
+            VALUES(?, ?, ?, ?, ?, ?)
+            "#,
         )?))
     }
 
-    fn execute(
+    fn execute<S: AsRef<str>>(
         &mut self,
         record_id: &SuggestRecordId,
         geoname_id: GeonameId,
         language: Option<&str>,
-        name: &str,
+        alt: &DownloadedGeonamesAlternate<S>,
     ) -> Result<()> {
         self.0
-            .execute((record_id.as_str(), geoname_id, language, name))
+            .execute((
+                record_id.as_str(),
+                geoname_id,
+                language,
+                alt.name(),
+                alt.is_preferred(),
+                alt.is_short(),
+            ))
             .with_context("geoname alternate insert")?;
         Ok(())
     }
@@ -600,7 +810,7 @@ pub(crate) mod tests {
     use itertools::Itertools;
     use serde_json::Value as JsonValue;
 
-    pub(crate) const LONG_NAME: &str = "aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt uuu vvv www x yyy zzz";
+    pub(crate) const LONG_NAME: &str = "123 aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk lll mmm nnn ooo ppp qqq rrr sss ttt uuu vvv www x yyy zzz";
 
     pub(crate) fn geoname_mock_record(id: &str, json: JsonValue) -> MockRecord {
         MockRecord {
@@ -656,6 +866,7 @@ pub(crate) mod tests {
                 "latitude": "34.91814",
                 "longitude": "-88.0642",
             },
+
             // AL
             {
                 "id": 4829764,
@@ -668,6 +879,7 @@ pub(crate) mod tests {
                 "latitude": "32.75041",
                 "longitude": "-86.75026",
             },
+
             // Waterloo, IA
             {
                 "id": 4880889,
@@ -682,6 +894,7 @@ pub(crate) mod tests {
                 "latitude": "42.49276",
                 "longitude": "-92.34296",
             },
+
             // IA
             {
                 "id": 4862182,
@@ -694,6 +907,7 @@ pub(crate) mod tests {
                 "latitude": "42.00027",
                 "longitude": "-93.50049",
             },
+
             // New York City
             {
                 "id": 5128581,
@@ -706,6 +920,7 @@ pub(crate) mod tests {
                 "latitude": "40.71427",
                 "longitude": "-74.00597",
             },
+
             // Rochester, NY
             {
                 "id": 5134086,
@@ -720,6 +935,7 @@ pub(crate) mod tests {
                 "latitude": "43.15478",
                 "longitude": "-77.61556",
             },
+
             // NY state
             {
                 "id": 5128638,
@@ -732,6 +948,7 @@ pub(crate) mod tests {
                 "latitude": "43.00035",
                 "longitude": "-75.4999",
             },
+
             // Waco, TX: Has a surprising IATA airport code that's a
             // common English word and not a prefix of the city name
             {
@@ -746,6 +963,7 @@ pub(crate) mod tests {
                 "latitude": "31.54933",
                 "longitude": "-97.14667",
             },
+
             // TX
             {
                 "id": 4736286,
@@ -758,10 +976,12 @@ pub(crate) mod tests {
                 "latitude": "31.25044",
                 "longitude": "-99.25061",
             },
-            // Made-up city with a long name
+
+            // Made-up city with a long name (the digits in the name are to
+            // prevent matches on this geoname in weather tests, etc.)
             {
                 "id": 999,
-                "name": "Long Name",
+                "name": "123 Long Name",
                 "feature_class": "P",
                 "feature_code": "PPLA2",
                 "country": "US",
@@ -770,6 +990,71 @@ pub(crate) mod tests {
                 "latitude": "38.06084",
                 "longitude": "-97.92977",
             },
+
+            // Made-up cities with punctuation their alternates (the digits in
+            // the names are to prevent matches on these geonames in weather
+            // tests, etc.)
+            {
+                "id": 1000,
+                "name": "123 Punctuation City 0",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+            {
+                "id": 1001,
+                "name": "123 Punctuation City 1",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+            {
+                "id": 1002,
+                "name": "123 Punctuation City 2",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+            {
+                "id": 1003,
+                "name": "123 Punctuation City 3",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+            {
+                "id": 1004,
+                "name": "123 Punctuation City 4",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+            {
+                "id": 1005,
+                "name": "123 Punctuation City 5",
+                "feature_class": "P",
+                "feature_code": "PPLA2",
+                "country": "XX",
+                "population": 2,
+                "latitude": "38.06084",
+                "longitude": "-97.92977",
+            },
+
             // St. Louis (has '.' in name)
             {
                 "id": 4407066,
@@ -783,6 +1068,7 @@ pub(crate) mod tests {
                 "latitude": "38.62727",
                 "longitude": "-90.19789",
             },
+
             // Carmel-by-the-Sea (has '-' in name)
             {
                 "id": 5334320,
@@ -796,6 +1082,7 @@ pub(crate) mod tests {
                 "latitude": "36.55524",
                 "longitude": "-121.92329",
             },
+
             // United States
             {
                 "id": 6252001,
@@ -808,6 +1095,7 @@ pub(crate) mod tests {
                 "latitude": "39.76",
                 "longitude": "-98.5",
             },
+
             // Canada
             {
                 "id": 6251999,
@@ -820,6 +1108,7 @@ pub(crate) mod tests {
                 "latitude": "60.10867",
                 "longitude": "-113.64258",
             },
+
             // ON
             {
                 "id": 6093943,
@@ -832,6 +1121,7 @@ pub(crate) mod tests {
                 "latitude": "49.25014",
                 "longitude": "-84.49983",
             },
+
             // Waterloo, ON
             {
                 "id": 6176823,
@@ -845,6 +1135,7 @@ pub(crate) mod tests {
                 "latitude": "43.4668",
                 "longitude": "-80.51639",
             },
+
             // UK
             {
                 "id": 2635167,
@@ -857,6 +1148,7 @@ pub(crate) mod tests {
                 "latitude": "54.75844",
                 "longitude": "-2.69531",
             },
+
             // England
             {
                 "id": 6269131,
@@ -869,6 +1161,7 @@ pub(crate) mod tests {
                 "latitude": "52.16045",
                 "longitude": "-0.70312",
             },
+
             // Liverpool (metropolitan borough, admin2 for Liverpool city)
             {
                 "id": 3333167,
@@ -882,6 +1175,7 @@ pub(crate) mod tests {
                 "latitude": "53.41667",
                 "longitude": "-2.91667",
             },
+
             // Liverpool (city)
             {
                 "id": 2644210,
@@ -895,6 +1189,7 @@ pub(crate) mod tests {
                 "latitude": "53.41058",
                 "longitude": "-2.97794",
             },
+
             // Gößnitz, DE (has non-basic-Latin chars and an `ascii_name`)
             {
                 "id": 2918770,
@@ -917,30 +1212,73 @@ pub(crate) mod tests {
     fn geonames_alternates_data_en() -> serde_json::Value {
         json!({
             "language": "en",
-            "names_by_geoname_id": [
+            "alternates_by_geoname_id": [
                 // United States
                 [6252001, [
-                    "United States",
+                    { "name": "United States", "is_preferred": true, "is_short": true },
+                    { "name": "United States of America", "is_preferred": true },
+                    { "name": "USA", "is_short": true },
                     "America",
-                    "United States of America",
-                    "USA",
                 ]],
+
                 // UK
                 [2635167, [
-                    "Great Britain",
+                    { "name": "United Kingdom", "is_preferred": true, "is_short": true },
+                    { "name": "Great Britain", "is_short": true },
+                    { "name": "UK", "is_short": true },
                     "Britain",
-                    "United Kingdom",
-                    "UK",
                     "U.K.",
                     "United Kingdom of Great Britain and Northern Ireland",
                     "U.K",
                 ]],
+
                 // New York City
                 [5128581, [
-                    "New York",
+                    { "name": "New York", "is_preferred": true, "is_short": true },
                 ]],
+
                 // Made-up city with a long name
                 [999, [LONG_NAME]],
+
+                // Made-up cities with punctuation in their alternates
+                [1000, [
+                    // The first name is shorter, so we should prefer it.
+                    "123 Made Up City w Punct in Alternates",
+                    "123 Made-Up City. w/ Punct. in Alternates",
+                ]],
+                [1001, [
+                    // The second name is shorter, so we should prefer it.
+                    "123 Made-Up City. w/ Punct. in Alternates",
+                    "123 Made Up City w Punct in Alternates",
+                ]],
+                [1002, [
+                    // These names are the same length but the second will be
+                    // sorted first due to the `a.name ASC` in the `ORDER BY`,
+                    // so we should prefer it.
+                    "123 Made-Up City. w/ Punct. in Alternates",
+                    "123 Made Up City  w  Punct  in Alternates",
+                    "123 Made-Up City. w/ Punct. in Alternatex",
+                ]],
+                [1003, [
+                    // The second name has `is_preferred`, so we should prefer
+                    // it.
+                    "123 Aaa Bbb Ccc Ddd",
+                    { "name": "123 Aaa, Bbb-Ccc. Ddd", "is_preferred": true },
+                    "123 Aaa Bbb Ccc Eee",
+                ]],
+                [1004, [
+                    // The second name has `is_short`, so we should prefer it.
+                    "123 Aaa Bbb Ccc Ddd",
+                    { "name": "123 Aaa, Bbb-Ccc. Ddd", "is_short": true },
+                    "123 Aaa Bbb Ccc Eee",
+                ]],
+                [1005, [
+                    // The second name has `is_preferred` and `is_short`, so we
+                    // should prefer it.
+                    "123 Aaa Bbb Ccc Ddd",
+                    { "name": "123 Aaa, Bbb-Ccc. Ddd", "is_preferred": true, "is_short": true },
+                    "123 Aaa Bbb Ccc Eee",
+                ]],
             ],
         })
     }
@@ -948,7 +1286,7 @@ pub(crate) mod tests {
     fn geonames_alternates_data_abbr() -> serde_json::Value {
         json!({
             "language": "abbr",
-            "names_by_geoname_id": [
+            "alternates_by_geoname_id": [
                 // AL
                 [4829764, ["AL"]],
                 // IA
@@ -969,22 +1307,16 @@ pub(crate) mod tests {
                 ]],
                 // United States
                 [6252001, [
+                    { "name": "US", "is_short": true },
                     "U.S.",
                     "USA",
                     "U.S.A.",
-                    "US",
                 ]],
                 // Liverpool (metropolitan borough, admin2 for Liverpool city)
                 [3333167, ["LIV"]],
                 // UK
                 [2635167, [
-                    "Great Britain",
-                    "Britain",
-                    "United Kingdom",
                     "UK",
-                    "U.K.",
-                    "United Kingdom of Great Britain and Northern Ireland",
-                    "U.K",
                 ]],
             ],
         })
@@ -993,7 +1325,7 @@ pub(crate) mod tests {
     fn geonames_alternates_data_iata() -> serde_json::Value {
         json!({
             "language": "iata",
-            "names_by_geoname_id": [
+            "alternates_by_geoname_id": [
                 // Waco, TX
                 [4739526, ["ACT"]],
                 // Rochester, NY
@@ -1091,11 +1423,26 @@ pub(crate) mod tests {
         Geoname {
             geoname_id: 999,
             geoname_type: GeonameType::City,
-            name: "Long Name".to_string(),
+            name: "123 Long Name".to_string(),
             feature_class: "P".to_string(),
             feature_code: "PPLA2".to_string(),
             country_code: "US".to_string(),
             admin_division_codes: [(1, "NY".to_string())].into(),
+            population: 2,
+            latitude: "38.06084".to_string(),
+            longitude: "-97.92977".to_string(),
+        }
+    }
+
+    pub(crate) fn punctuation_city(i: i64) -> Geoname {
+        Geoname {
+            geoname_id: 1000 + i,
+            geoname_type: GeonameType::City,
+            name: format!("123 Punctuation City {i}"),
+            feature_class: "P".to_string(),
+            feature_code: "PPLA2".to_string(),
+            country_code: "XX".to_string(),
+            admin_division_codes: [].into(),
             population: 2,
             latitude: "38.06084".to_string(),
             longitude: "-97.92977".to_string(),
@@ -1422,6 +1769,183 @@ pub(crate) mod tests {
                 );
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn alternates() -> anyhow::Result<()> {
+        before_each();
+
+        let store = new_test_store();
+
+        // Ingest weather to also ingest geonames.
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Weather]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        #[derive(Debug)]
+        struct Test {
+            geoname: Geoname,
+            expected: GeonameAlternates,
+        }
+
+        impl Test {
+            fn new<F: FnOnce(&Geoname) -> GeonameAlternates>(
+                geoname: Geoname,
+                expected: F,
+            ) -> Self {
+                Test {
+                    expected: expected(&geoname),
+                    geoname,
+                }
+            }
+        }
+
+        let tests = [
+            Test::new(nyc(), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("New York".to_string()),
+                    abbreviation: Some("NY".to_string()),
+                },
+                country: Some(AlternateNames {
+                    primary: "United States".to_string(),
+                    localized: Some("United States".to_string()),
+                    abbreviation: Some("US".to_string()),
+                }),
+                admin_divisions: [(
+                    1,
+                    AlternateNames {
+                        primary: ny_state().name.clone(),
+                        localized: Some("New York".to_string()),
+                        abbreviation: Some("NY".to_string()),
+                    },
+                )]
+                .into(),
+            }),
+            Test::new(waterloo_on(), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("Waterloo".to_string()),
+                    abbreviation: None,
+                },
+                country: Some(AlternateNames {
+                    primary: "Canada".to_string(),
+                    // There are no alternates for Canada so `localized` should
+                    // be the primary name
+                    localized: Some("Canada".to_string()),
+                    abbreviation: None,
+                }),
+                admin_divisions: [(
+                    1,
+                    AlternateNames {
+                        primary: on().name.clone(),
+                        localized: Some("Ontario".to_string()),
+                        abbreviation: Some("ON".to_string()),
+                    },
+                )]
+                .into(),
+            }),
+            Test::new(liverpool_city(), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("Liverpool".to_string()),
+                    abbreviation: None,
+                },
+                country: Some(AlternateNames {
+                    primary: "United Kingdom of Great Britain and Northern Ireland".to_string(),
+                    localized: Some("United Kingdom".to_string()),
+                    abbreviation: Some("UK".to_string()),
+                }),
+                admin_divisions: [
+                    (
+                        1,
+                        AlternateNames {
+                            primary: england().name.clone(),
+                            localized: Some("England".to_string()),
+                            abbreviation: None,
+                        },
+                    ),
+                    (
+                        2,
+                        AlternateNames {
+                            primary: liverpool_metro().name.clone(),
+                            localized: Some("Liverpool".to_string()),
+                            abbreviation: Some("LIV".to_string()),
+                        },
+                    ),
+                ]
+                .into(),
+            }),
+            Test::new(punctuation_city(0), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Made Up City w Punct in Alternates".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+            Test::new(punctuation_city(1), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Made Up City w Punct in Alternates".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+            Test::new(punctuation_city(2), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Made Up City  w  Punct  in Alternates".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+            Test::new(punctuation_city(3), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Aaa, Bbb-Ccc. Ddd".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+            Test::new(punctuation_city(4), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Aaa, Bbb-Ccc. Ddd".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+            Test::new(punctuation_city(5), |g| GeonameAlternates {
+                geoname: AlternateNames {
+                    primary: g.name.clone(),
+                    localized: Some("123 Aaa, Bbb-Ccc. Ddd".to_string()),
+                    abbreviation: None,
+                },
+                country: None,
+                admin_divisions: [].into(),
+            }),
+        ];
+
+        store.read(|dao| {
+            for t in tests {
+                assert_eq!(
+                    dao.fetch_geoname_alternates(&t.geoname)?,
+                    t.expected,
+                    "geoname={:?}",
+                    t.geoname
+                );
+            }
+            Ok(())
+        })?;
+
         Ok(())
     }
 
@@ -1956,7 +2480,7 @@ pub(crate) mod tests {
                 ],
             },
             Test {
-                query: "long name",
+                query: "123 long name",
                 match_name_prefix: false,
                 filter: None,
                 expected: vec![GeonameMatch {
@@ -2537,7 +3061,7 @@ pub(crate) mod tests {
                     "geonames-alternates-0",
                     json!({
                         "language": "en",
-                        "names_by_geoname_id": [
+                        "alternates_by_geoname_id": [
                             [4096497, ["a b c d e"]],
                         ],
                     }),
@@ -2546,7 +3070,7 @@ pub(crate) mod tests {
                     "geonames-alternates-1",
                     json!({
                         "language": "en",
-                        "names_by_geoname_id": [
+                        "alternates_by_geoname_id": [
                             [1, ["abcdefghik lmnopqrstu"]],
                         ],
                     }),
@@ -2603,7 +3127,7 @@ pub(crate) mod tests {
                 "geonames-alternates-2",
                 json!({
                     "language": "en",
-                    "names_by_geoname_id": [
+                    "alternates_by_geoname_id": [
                         [2, ["abcd efgh iklm"]],
                     ],
                 }),

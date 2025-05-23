@@ -20,7 +20,7 @@ use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     db::{ConnectionType, IngestedRecord, Sqlite3Extension, SuggestDao, SuggestDb},
     error::Error,
-    geoname::{Geoname, GeonameMatch},
+    geoname::{Geoname, GeonameAlternates, GeonameMatch},
     metrics::{MetricsContext, SuggestIngestionMetrics, SuggestQueryMetrics},
     provider::{SuggestionProvider, SuggestionProviderConstraints, DEFAULT_INGEST_PROVIDERS},
     rs::{
@@ -316,6 +316,17 @@ impl SuggestStore {
     ) -> SuggestApiResult<Vec<GeonameMatch>> {
         self.inner.fetch_geonames(query, match_name_prefix, filter)
     }
+
+    /// Fetches a geoname's names stored in the database.
+    ///
+    /// See `fetch_geoname_alternates` in `geoname.rs` for documentation.
+    #[handle_error(Error)]
+    pub fn fetch_geoname_alternates(
+        &self,
+        geoname: &Geoname,
+    ) -> SuggestApiResult<GeonameAlternates> {
+        self.inner.fetch_geoname_alternates(geoname)
+    }
 }
 
 impl SuggestStore {
@@ -557,6 +568,12 @@ impl<S> SuggestStoreInner<S> {
                 filter.as_ref().map(|f| f.iter().collect()),
             )
         })
+    }
+
+    pub fn fetch_geoname_alternates(&self, geoname: &Geoname) -> Result<GeonameAlternates> {
+        self.dbs()?
+            .reader
+            .read(|dao| dao.fetch_geoname_alternates(geoname))
     }
 }
 
