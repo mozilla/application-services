@@ -12,13 +12,13 @@ use std::{cmp::Ordering, collections::HashSet};
 use crate::{
     config::SuggestProviderConfig,
     db::{
-        KeywordInsertStatement, KeywordMetricsInsertStatement, SuggestDao,
+        KeywordInsertStatement, KeywordsMetrics, KeywordsMetricsUpdater, SuggestDao,
         SuggestionInsertStatement, DEFAULT_SUGGESTION_SCORE,
     },
     geoname::GeonameMatch,
     metrics::MetricsContext,
     provider::SuggestionProvider,
-    rs::{Client, Record, SuggestRecordId},
+    rs::{Client, Record, SuggestRecordId, SuggestRecordType},
     store::SuggestStoreInner,
     suggestion::Suggestion,
     util::filter_map_chunks,
@@ -39,14 +39,6 @@ pub(crate) struct DownloadedWeatherAttachment {
     /// Score for weather suggestions. If there are multiple weather records, we
     /// use the `score` from the most recently ingested record.
     pub score: Option<f64>,
-    /// The max length of all keywords in the attachment. Used for keyword
-    /// metrics. We pre-compute this to avoid doing duplicate work on all user's
-    /// machines.
-    pub max_keyword_length: u32,
-    /// The max word count of all keywords in the attachment. Used for keyword
-    /// metrics. We pre-compute this to avoid doing duplicate work on all user's
-    /// machines.
-    pub max_keyword_word_count: u32,
 }
 
 /// This data is used to service every query handled by the weather provider, so
@@ -57,10 +49,8 @@ pub struct WeatherCache {
     min_keyword_length: i32,
     /// Cached value of the same name from `SuggestProviderConfig::Weather`.
     score: f64,
-    /// Max length of all weather keywords.
-    max_keyword_length: usize,
-    /// Max word count across all weather keywords.
-    max_keyword_word_count: usize,
+    /// Cached weather keywords metrics.
+    keywords_metrics: KeywordsMetrics,
 }
 
 impl SuggestDao<'_> {
@@ -93,13 +83,16 @@ impl SuggestDao<'_> {
 
         let g_cache = self.geoname_cache();
         let w_cache = self.weather_cache();
-        let max_query_len = 3 * g_cache.max_name_length + w_cache.max_keyword_length + 10;
+        let max_query_len =
+            3 * g_cache.keywords_metrics.max_len + w_cache.keywords_metrics.max_len + 10;
         if max_query_len < query.keyword.len() {
             return Ok(vec![]);
         }
 
-        let max_chunk_size =
-            std::cmp::max(g_cache.max_name_word_count, w_cache.max_keyword_word_count);
+        let max_chunk_size = std::cmp::max(
+            g_cache.keywords_metrics.max_word_count,
+            w_cache.keywords_metrics.max_word_count,
+        );
 
         // Lowercase, strip punctuation, and split the query into words.
         let kw_lower = query.keyword.to_lowercase();
@@ -279,9 +272,8 @@ impl SuggestDao<'_> {
         self.scope.err_if_interrupted()?;
         let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
-        let mut keyword_metrics_insert = KeywordMetricsInsertStatement::new(self.conn)?;
-        let mut max_len = 0;
-        let mut max_word_count = 0;
+        let mut metrics_updater = KeywordsMetricsUpdater::new();
+
         for attach in attachments {
             let suggestion_id = suggestion_insert.execute(
                 record_id,
@@ -292,49 +284,29 @@ impl SuggestDao<'_> {
             )?;
             for (i, keyword) in attach.keywords.iter().enumerate() {
                 keyword_insert.execute(suggestion_id, keyword, None, i)?;
+                metrics_updater.update(keyword);
             }
             self.put_provider_config(SuggestionProvider::Weather, &attach.into())?;
-            max_len = std::cmp::max(max_len, attach.max_keyword_length as usize);
-            max_word_count = std::cmp::max(max_word_count, attach.max_keyword_word_count as usize);
         }
 
-        // Update keyword metrics.
-        keyword_metrics_insert.execute(
+        metrics_updater.finish(
+            self.conn,
             record_id,
-            SuggestionProvider::Weather,
-            max_len,
-            max_word_count,
+            SuggestRecordType::Weather,
+            &mut self.weather_cache,
         )?;
-
-        // We just made some insertions that might invalidate the data in the
-        // cache. Clear it so it's repopulated the next time it's accessed.
-        self.weather_cache.take();
 
         Ok(())
     }
 
     fn weather_cache(&self) -> &WeatherCache {
         self.weather_cache.get_or_init(|| {
-            let mut cache = WeatherCache::default();
-
-            // keyword metrics
-            if let Ok((len, word_count)) = self.conn.query_row_and_then(
-                r#"
-                SELECT
-                    max(max_length) AS len, max(max_word_count) AS word_count
-                FROM
-                    keywords_metrics
-                WHERE
-                    provider = :provider
-                "#,
-                named_params! {
-                    ":provider": SuggestionProvider::Weather
-                },
-                |row| -> Result<(usize, usize)> { Ok((row.get("len")?, row.get("word_count")?)) },
-            ) {
-                cache.max_keyword_length = len;
-                cache.max_keyword_word_count = word_count;
-            }
+            let mut cache = WeatherCache {
+                keywords_metrics: self
+                    .get_keywords_metrics(SuggestRecordType::Weather)
+                    .unwrap_or_default(),
+                ..WeatherCache::default()
+            };
 
             // provider config
             if let Ok(Some(SuggestProviderConfig::Weather {
@@ -462,8 +434,6 @@ mod tests {
                 json!({
                     "min_keyword_length": 3,
                     "keywords": ["ab", "xyz", "weather"],
-                    "max_keyword_length": "weather".len(),
-                    "max_keyword_word_count": 1,
                     "score": 0.24
                 }),
             ),
@@ -493,8 +463,6 @@ mod tests {
                     // min_keyword_length > 0 means prefixes are allowed.
                     "min_keyword_length": 5,
                     "keywords": ["ab", "xyz", "cdefg", "weather"],
-                    "max_keyword_length": "weather".len(),
-                    "max_keyword_word_count": 1,
                     "score": 0.24
                 }),
             ),
@@ -569,8 +537,6 @@ mod tests {
                     // min_keyword_length == 0 means prefixes are not allowed.
                     "min_keyword_length": 0,
                     "keywords": ["weather"],
-                    "max_keyword_length": "weather".len(),
-                    "max_keyword_word_count": 1,
                     "score": 0.24
                 }),
             ),
@@ -616,8 +582,6 @@ mod tests {
                     // not two.
                     "keywords": ["ab", "xyz", "weather", "weather near me"],
                     "min_keyword_length": 5,
-                    "max_keyword_length": "weather".len(),
-                    "max_keyword_word_count": 1,
                     "score": 0.24
                 }),
             ));
@@ -1556,21 +1520,21 @@ mod tests {
                 .with_record(SuggestionProvider::Weather.record(
                     "weather-0",
                     json!({
-                        "max_keyword_length": 10,
-                        "max_keyword_word_count": 5,
                         "min_keyword_length": 3,
                         "score": 0.24,
-                        "keywords": []
+                        "keywords": [
+                            "a b c d ef"
+                        ],
                     }),
                 ))
                 .with_record(SuggestionProvider::Weather.record(
                     "weather-1",
                     json!({
-                        "max_keyword_length": 20,
-                        "max_keyword_word_count": 2,
                         "min_keyword_length": 3,
                         "score": 0.24,
-                        "keywords": []
+                        "keywords": [
+                            "abcdefghik lmnopqrst"
+                        ],
                     }),
                 )),
         );
@@ -1582,8 +1546,8 @@ mod tests {
 
         store.read(|dao| {
             let cache = dao.weather_cache();
-            assert_eq!(cache.max_keyword_length, 20);
-            assert_eq!(cache.max_keyword_word_count, 5);
+            assert_eq!(cache.keywords_metrics.max_len, 20);
+            assert_eq!(cache.keywords_metrics.max_word_count, 5);
             Ok(())
         })?;
 
@@ -1597,8 +1561,8 @@ mod tests {
         });
         store.read(|dao| {
             let cache = dao.weather_cache();
-            assert_eq!(cache.max_keyword_length, 20);
-            assert_eq!(cache.max_keyword_word_count, 2);
+            assert_eq!(cache.keywords_metrics.max_len, 20);
+            assert_eq!(cache.keywords_metrics.max_word_count, 2);
             Ok(())
         })?;
 
@@ -1608,11 +1572,11 @@ mod tests {
             .add_record(SuggestionProvider::Weather.record(
                 "weather-3",
                 json!({
-                    "max_keyword_length": 15,
-                    "max_keyword_word_count": 3,
                     "min_keyword_length": 3,
                     "score": 0.24,
-                    "keywords": []
+                    "keywords": [
+                        "abcde fghij klmno"
+                    ]
                 }),
             ));
         store.ingest(SuggestIngestionConstraints {
@@ -1621,8 +1585,8 @@ mod tests {
         });
         store.read(|dao| {
             let cache = dao.weather_cache();
-            assert_eq!(cache.max_keyword_length, 20);
-            assert_eq!(cache.max_keyword_word_count, 3);
+            assert_eq!(cache.keywords_metrics.max_len, 20);
+            assert_eq!(cache.keywords_metrics.max_word_count, 3);
             Ok(())
         })?;
 

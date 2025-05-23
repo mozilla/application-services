@@ -261,6 +261,12 @@ impl fmt::Display for SuggestRecordType {
     }
 }
 
+impl ToSql for SuggestRecordType {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(self.as_str()))
+    }
+}
+
 impl SuggestRecordType {
     /// Get all record types to iterate over
     ///

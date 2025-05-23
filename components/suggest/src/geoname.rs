@@ -24,10 +24,10 @@ use unicase::UniCase;
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 use crate::{
-    db::SuggestDao,
+    db::{KeywordsMetrics, KeywordsMetricsUpdater, SuggestDao},
     error::RusqliteResultExt,
     metrics::MetricsContext,
-    rs::{Client, Record, SuggestRecordId},
+    rs::{Client, Record, SuggestRecordId, SuggestRecordType},
     store::SuggestStoreInner,
     Result,
 };
@@ -180,10 +180,7 @@ impl GeonameMatchType {
 /// potentially other providers, so we cache it from the DB.
 #[derive(Debug, Default)]
 pub struct GeonameCache {
-    /// Max length of all geoname names.
-    pub max_name_length: usize,
-    /// Max word count across all geoname names.
-    pub max_name_word_count: usize,
+    pub keywords_metrics: KeywordsMetrics,
 }
 
 /// See `Geoname` for documentation.
@@ -461,44 +458,25 @@ impl SuggestDao<'_> {
     {
         self.scope.err_if_interrupted()?;
         let mut alt_insert = GeonameAlternateInsertStatement::new(self.conn)?;
-        let mut metrics_insert = GeonameMetricsInsertStatement::new(self.conn)?;
-        let mut max_len = 0;
-        let mut max_word_count = 0;
+        let mut metrics_updater = KeywordsMetricsUpdater::new();
         for (geoname_id, name) in iter {
             alt_insert.execute(record_id, geoname_id, language, name)?;
-            max_len = std::cmp::max(max_len, name.len());
-            max_word_count = std::cmp::max(max_word_count, name.split_whitespace().count());
+            metrics_updater.update(name);
         }
-
-        // Update alternates metrics.
-        metrics_insert.execute(record_id, max_len, max_word_count)?;
-
-        // We just made some insertions that might invalidate the data in the
-        // cache. Clear it so it's repopulated the next time it's accessed.
-        self.geoname_cache.take();
-
+        metrics_updater.finish(
+            self.conn,
+            record_id,
+            SuggestRecordType::GeonamesAlternates,
+            &mut self.geoname_cache,
+        )?;
         Ok(())
     }
 
     pub fn geoname_cache(&self) -> &GeonameCache {
-        self.geoname_cache.get_or_init(|| {
-            self.conn
-                .query_row_and_then(
-                    r#"
-                    SELECT
-                        max(max_name_length) AS len, max(max_name_word_count) AS word_count
-                    FROM
-                        geonames_metrics
-                    "#,
-                    [],
-                    |row| -> Result<GeonameCache> {
-                        Ok(GeonameCache {
-                            max_name_length: row.get("len")?,
-                            max_name_word_count: row.get("word_count")?,
-                        })
-                    },
-                )
-                .unwrap_or_default()
+        self.geoname_cache.get_or_init(|| GeonameCache {
+            keywords_metrics: self
+                .get_keywords_metrics(SuggestRecordType::GeonamesAlternates)
+                .unwrap_or_default(),
         })
     }
 }
@@ -605,34 +583,6 @@ impl<'conn> GeonameAlternateInsertStatement<'conn> {
         self.0
             .execute((record_id.as_str(), geoname_id, language, name))
             .with_context("geoname alternate insert")?;
-        Ok(())
-    }
-}
-
-struct GeonameMetricsInsertStatement<'conn>(rusqlite::Statement<'conn>);
-
-impl<'conn> GeonameMetricsInsertStatement<'conn> {
-    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
-        Ok(Self(conn.prepare(
-            "INSERT OR REPLACE INTO geonames_metrics(
-                 record_id,
-                 max_name_length,
-                 max_name_word_count
-             )
-             VALUES(?, ?, ?)
-             ",
-        )?))
-    }
-
-    pub(crate) fn execute(
-        &mut self,
-        record_id: &SuggestRecordId,
-        max_len: usize,
-        max_word_count: usize,
-    ) -> Result<()> {
-        self.0
-            .execute((record_id.as_str(), max_len, max_word_count))
-            .with_context("geoname metrics insert")?;
         Ok(())
     }
 }
@@ -2611,8 +2561,8 @@ pub(crate) mod tests {
 
         store.read(|dao| {
             let cache = dao.geoname_cache();
-            assert_eq!(cache.max_name_length, 21); // "abcdefghik lmnopqrstu"
-            assert_eq!(cache.max_name_word_count, 5); // "a b c d e"
+            assert_eq!(cache.keywords_metrics.max_len, 21); // "abcdefghik lmnopqrstu"
+            assert_eq!(cache.keywords_metrics.max_word_count, 5); // "a b c d e"
             Ok(())
         })?;
 
@@ -2626,8 +2576,8 @@ pub(crate) mod tests {
         });
         store.read(|dao| {
             let cache = dao.geoname_cache();
-            assert_eq!(cache.max_name_length, 21); // "abcdefghik lmnopqrstu"
-            assert_eq!(cache.max_name_word_count, 2); // "abcdefghik lmnopqrstu"
+            assert_eq!(cache.keywords_metrics.max_len, 21); // "abcdefghik lmnopqrstu"
+            assert_eq!(cache.keywords_metrics.max_word_count, 2); // "abcdefghik lmnopqrstu"
             Ok(())
         })?;
 
@@ -2641,8 +2591,8 @@ pub(crate) mod tests {
         });
         store.read(|dao| {
             let cache = dao.geoname_cache();
-            assert_eq!(cache.max_name_length, 8); // "waterloo"
-            assert_eq!(cache.max_name_word_count, 1); // "waterloo"
+            assert_eq!(cache.keywords_metrics.max_len, 8); // "waterloo"
+            assert_eq!(cache.keywords_metrics.max_word_count, 1); // "waterloo"
             Ok(())
         })?;
 
@@ -2664,8 +2614,8 @@ pub(crate) mod tests {
         });
         store.read(|dao| {
             let cache = dao.geoname_cache();
-            assert_eq!(cache.max_name_length, 14); // "abcd efgh iklm"
-            assert_eq!(cache.max_name_word_count, 3); // "abcd efgh iklm"
+            assert_eq!(cache.keywords_metrics.max_len, 14); // "abcd efgh iklm"
+            assert_eq!(cache.keywords_metrics.max_word_count, 3); // "abcd efgh iklm"
             Ok(())
         })?;
 
