@@ -370,7 +370,6 @@ impl SuggestIngestionConstraints {
                 SuggestionProvider::Amp,
                 SuggestionProvider::Wikipedia,
                 SuggestionProvider::Amo,
-                SuggestionProvider::Pocket,
                 SuggestionProvider::Yelp,
                 SuggestionProvider::Mdn,
                 SuggestionProvider::Weather,
@@ -451,7 +450,6 @@ impl<S> SuggestStoreInner<S> {
                     SuggestionProvider::Amp => dao.fetch_amp_suggestions(&query),
                     SuggestionProvider::Wikipedia => dao.fetch_wikipedia_suggestions(&query),
                     SuggestionProvider::Amo => dao.fetch_amo_suggestions(&query),
-                    SuggestionProvider::Pocket => dao.fetch_pocket_suggestions(&query),
                     SuggestionProvider::Yelp => dao.fetch_yelp_suggestions(&query),
                     SuggestionProvider::Mdn => dao.fetch_mdn_suggestions(&query),
                     SuggestionProvider::Weather => dao.fetch_weather_suggestions(&query),
@@ -729,11 +727,6 @@ where
             SuggestRecord::Amo => {
                 self.download_attachment(dao, record, context, |dao, record_id, suggestions| {
                     dao.insert_amo_suggestions(record_id, suggestions)
-                })?;
-            }
-            SuggestRecord::Pocket => {
-                self.download_attachment(dao, record, context, |dao, record_id, suggestions| {
-                    dao.insert_pocket_suggestions(record_id, suggestions)
                 })?;
             }
             SuggestRecord::Yelp => {
@@ -1746,10 +1739,6 @@ pub(crate) mod tests {
                     SuggestionProvider::Amo
                         .record("data-2", json!([relay_amo(), multimatch_amo(),])),
                 )
-                .with_record(
-                    SuggestionProvider::Pocket
-                        .record("data-3", json!([burnout_pocket(), multimatch_pocket(),])),
-                )
                 .with_record(SuggestionProvider::Yelp.record("data-4", json!([ramen_yelp(),])))
                 .with_record(SuggestionProvider::Mdn.record("data-5", json!([array_mdn(),])))
                 .with_record(SuggestionProvider::Amp.icon(good_place_eats_icon()))
@@ -1772,7 +1761,6 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("multimatch")),
             vec![
-                multimatch_pocket_suggestion(true),
                 multimatch_amo_suggestion(),
                 multimatch_wiki_suggestion(),
             ]
@@ -1780,7 +1768,6 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("MultiMatch")),
             vec![
-                multimatch_pocket_suggestion(true),
                 multimatch_amo_suggestion(),
                 multimatch_wiki_suggestion(),
             ]
@@ -1788,7 +1775,6 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("multimatch").limit(2)),
             vec![
-                multimatch_pocket_suggestion(true),
                 multimatch_amo_suggestion(),
             ],
         );
@@ -1813,7 +1799,6 @@ pub(crate) mod tests {
                 vec![
                     SuggestionProvider::Amp,
                     SuggestionProvider::Amo,
-                    SuggestionProvider::Pocket,
                 ]
             )),
             vec![],
@@ -1854,26 +1839,6 @@ pub(crate) mod tests {
                 "soft",
                 vec![SuggestionProvider::Amp, SuggestionProvider::Wikipedia]
             )),
-            vec![],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::pocket("soft")),
-            vec![burnout_suggestion(false),],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::pocket("soft l")),
-            vec![burnout_suggestion(false),],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::pocket("sof")),
-            vec![],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::pocket("burnout women")),
-            vec![burnout_suggestion(true),],
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::pocket("burnout person")),
             vec![],
         );
         assert_eq!(
@@ -2267,7 +2232,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    // Tests querying AMP / Wikipedia / Pocket
+    // Tests querying AMP / Wikipedia
     #[test]
     fn query_with_multiple_providers_and_diff_scores() -> anyhow::Result<()> {
         before_each();
@@ -2295,21 +2260,8 @@ pub(crate) mod tests {
                 .with_record(SuggestionProvider::Wikipedia.record(
                     "wikipedia-1",
                     json!([california_wiki().merge(json!({
-                        "keywords": ["amp wiki match", "pocket wiki match"],
+                        "keywords": ["amp wiki match", "wiki match"],
                     })),]),
-                ))
-                .with_record(SuggestionProvider::Pocket.record(
-                    "data-3",
-                    json!([
-                        burnout_pocket().merge(json!({
-                            "lowConfidenceKeywords": ["work-life balance", "pocket wiki match"],
-                            "score": 0.05,
-                        })),
-                        multimatch_pocket().merge(json!({
-                            "highConfidenceKeywords": ["pocket wiki match"],
-                            "score": 0.88,
-                        })),
-                    ]),
                 ))
                 .with_record(SuggestionProvider::Amp.icon(los_pollos_icon()))
                 .with_record(SuggestionProvider::Amp.icon(good_place_eats_icon()))
@@ -2334,24 +2286,10 @@ pub(crate) mod tests {
             ]
         );
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::all_providers("pocket wiki match")),
+            store.fetch_suggestions(SuggestionQuery::all_providers("wiki match")),
             vec![
-                multimatch_pocket_suggestion(true).with_score(0.88),
-                california_suggestion("pocket wiki match"),
-                burnout_suggestion(false).with_score(0.05),
+                california_suggestion("wiki match"),
             ]
-        );
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::all_providers("pocket wiki match").limit(1)),
-            vec![multimatch_pocket_suggestion(true).with_score(0.88),]
-        );
-        // test duplicate providers
-        assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::with_providers(
-                "work-life balance",
-                vec![SuggestionProvider::Pocket, SuggestionProvider::Pocket],
-            )),
-            vec![burnout_suggestion(false).with_score(0.05),]
         );
 
         Ok(())
@@ -2421,7 +2359,7 @@ pub(crate) mod tests {
         );
 
         let constraints = SuggestIngestionConstraints {
-            providers: Some(vec![SuggestionProvider::Amp, SuggestionProvider::Pocket]),
+            providers: Some(vec![SuggestionProvider::Amp]),
             ..SuggestIngestionConstraints::all_providers()
         };
         store.ingest(constraints);
@@ -2643,12 +2581,6 @@ pub(crate) mod tests {
                 .with_record(SuggestionProvider::Amo.record(
                     "amo-1",
                     json!([relay_amo().merge(json!({"keywords": ["cats"]})),]),
-                ))
-                .with_record(SuggestionProvider::Pocket.record(
-                    "pocket-1",
-                    json!([burnout_pocket().merge(json!({
-                        "lowConfidenceKeywords": ["cats"],
-                    }))]),
                 ))
                 .with_record(SuggestionProvider::Mdn.record(
                     "mdn-1",
