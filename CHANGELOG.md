@@ -1,4 +1,8 @@
-# v140.0 (In progress)
+# v141.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v140.0 (_2025-05-23_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -39,7 +43,7 @@
 - The `SearchEngineSelector::filter_engine_configuration` will now sort any
   unordered engines by name rather than identifier.
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v139.0...v140.0)
 
 # v139.0 (_2025-04-28_)
 
