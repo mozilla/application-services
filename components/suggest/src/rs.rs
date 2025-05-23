@@ -37,7 +37,7 @@ use remote_settings::{
     Attachment, RemoteSettingsClient, RemoteSettingsError, RemoteSettingsRecord,
     RemoteSettingsService,
 };
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{error::Error, query::full_keywords_to_fts_content, Result};
@@ -200,8 +200,10 @@ pub(crate) enum SuggestRecord {
     Fakespot,
     #[serde(rename = "dynamic-suggestions")]
     Dynamic(DownloadedDynamicRecord),
-    #[serde(rename = "geonames")]
+    #[serde(rename = "geonames-2")] // version 2
     Geonames,
+    #[serde(rename = "geonames-alternates")]
+    GeonamesAlternates,
 }
 
 impl SuggestRecord {
@@ -230,6 +232,7 @@ pub enum SuggestRecordType {
     Fakespot,
     Dynamic,
     Geonames,
+    GeonamesAlternates,
 }
 
 impl From<&SuggestRecord> for SuggestRecordType {
@@ -247,6 +250,7 @@ impl From<&SuggestRecord> for SuggestRecordType {
             SuggestRecord::Fakespot => Self::Fakespot,
             SuggestRecord::Dynamic(_) => Self::Dynamic,
             SuggestRecord::Geonames => Self::Geonames,
+            SuggestRecord::GeonamesAlternates => Self::GeonamesAlternates,
         }
     }
 }
@@ -276,6 +280,7 @@ impl SuggestRecordType {
             Self::Fakespot,
             Self::Dynamic,
             Self::Geonames,
+            Self::GeonamesAlternates,
         ]
     }
 
@@ -292,7 +297,8 @@ impl SuggestRecordType {
             Self::GlobalConfig => "configuration",
             Self::Fakespot => "fakespot-suggestions",
             Self::Dynamic => "dynamic-suggestions",
-            Self::Geonames => "geonames",
+            Self::Geonames => "geonames-2",
+            Self::GeonamesAlternates => "geonames-alternates",
         }
     }
 }
@@ -606,15 +612,6 @@ pub(crate) struct DownloadedGlobalConfigInner {
     /// The maximum number of times the user can click "Show less frequently"
     /// for a suggestion in the UI.
     pub show_less_frequently_cap: i32,
-}
-
-pub(crate) fn deserialize_f64_or_default<'de, D>(
-    deserializer: D,
-) -> std::result::Result<f64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    String::deserialize(deserializer).map(|s| s.parse().ok().unwrap_or_default())
 }
 
 #[cfg(test)]

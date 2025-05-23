@@ -20,7 +20,7 @@ use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     db::{ConnectionType, IngestedRecord, Sqlite3Extension, SuggestDao, SuggestDb},
     error::Error,
-    geoname::{Geoname, GeonameMatch, GeonameType},
+    geoname::{Geoname, GeonameMatch},
     metrics::{MetricsContext, SuggestIngestionMetrics, SuggestQueryMetrics},
     provider::{SuggestionProvider, SuggestionProviderConstraints, DEFAULT_INGEST_PROVIDERS},
     rs::{
@@ -306,36 +306,15 @@ impl SuggestStore {
     /// Fetches geonames stored in the database. A geoname represents a
     /// geographic place.
     ///
-    /// `query` is a string that will be matched directly against geoname names.
-    /// It is not a query string in the usual Suggest sense. `match_name_prefix`
-    /// determines whether prefix matching is performed on names excluding
-    /// abbreviations and airport codes. When `true`, names that start with
-    /// `query` will match. When false, names that equal `query` will match.
-    ///
-    /// `geoname_type` restricts returned geonames to a [`GeonameType`].
-    ///
-    /// `filter` restricts returned geonames to certain cities or regions.
-    /// Cities can be restricted to regions by including the regions in
-    /// `filter`, and regions can be restricted to those containing certain
-    /// cities by including the cities in `filter`. This is especially useful
-    /// since city and region names are not unique. `filter` is disjunctive: If
-    /// any item in `filter` matches a geoname, the geoname will be filtered in.
-    ///
-    /// The query can match a single geoname in more than one way. For example,
-    /// it can match both a full name and an abbreviation. The returned vec of
-    /// [`GeonameMatch`] values will include all matches for a geoname, one
-    /// match per `match_type` per geoname. In other words, a matched geoname
-    /// can map to more than one `GeonameMatch`.
+    /// See `fetch_geonames` in `geoname.rs` for documentation.
     #[handle_error(Error)]
     pub fn fetch_geonames(
         &self,
         query: &str,
         match_name_prefix: bool,
-        geoname_type: Option<GeonameType>,
         filter: Option<Vec<Geoname>>,
     ) -> SuggestApiResult<Vec<GeonameMatch>> {
-        self.inner
-            .fetch_geonames(query, match_name_prefix, geoname_type, filter)
+        self.inner.fetch_geonames(query, match_name_prefix, filter)
     }
 }
 
@@ -569,14 +548,12 @@ impl<S> SuggestStoreInner<S> {
         &self,
         query: &str,
         match_name_prefix: bool,
-        geoname_type: Option<GeonameType>,
         filter: Option<Vec<Geoname>>,
     ) -> Result<Vec<GeonameMatch>> {
         self.dbs()?.reader.read(|dao| {
             dao.fetch_geonames(
                 query,
                 match_name_prefix,
-                geoname_type,
                 filter.as_ref().map(|f| f.iter().collect()),
             )
         })
@@ -776,7 +753,10 @@ where
                     )?;
                 }
             }
-            SuggestRecord::Geonames => self.process_geoname_record(dao, record, context)?,
+            SuggestRecord::Geonames => self.process_geonames_record(dao, record, context)?,
+            SuggestRecord::GeonamesAlternates => {
+                self.process_geonames_alternates_record(dao, record, context)?
+            }
         }
         Ok(())
     }
@@ -1062,11 +1042,10 @@ pub(crate) mod tests {
             &self,
             query: &str,
             match_name_prefix: bool,
-            geoname_type: Option<GeonameType>,
             filter: Option<Vec<Geoname>>,
         ) -> Vec<GeonameMatch> {
             self.inner
-                .fetch_geonames(query, match_name_prefix, geoname_type, filter)
+                .fetch_geonames(query, match_name_prefix, filter)
                 .expect("Error fetching geonames")
         }
     }

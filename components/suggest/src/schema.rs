@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::db::Sqlite3Extension;
+use crate::{db::Sqlite3Extension, geoname::geonames_collate};
 use rusqlite::{Connection, Transaction};
 use sql_support::{
     open_database::{self, ConnectionInitializer},
@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 38;
+pub const VERSION: u32 = 39;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -196,28 +196,38 @@ CREATE TABLE geonames(
     id INTEGER PRIMARY KEY,
     record_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
     feature_class TEXT NOT NULL,
     feature_code TEXT NOT NULL,
     country_code TEXT NOT NULL,
-    admin1_code TEXT NOT NULL,
-    population INTEGER NOT NULL
+    admin1_code TEXT,
+    admin2_code TEXT,
+    admin3_code TEXT,
+    admin4_code TEXT,
+    population INTEGER,
+    latitude TEXT,
+    longitude TEXT
 );
-CREATE INDEX geonames_feature_class ON geonames(feature_class);
-CREATE INDEX geonames_feature_code ON geonames(feature_code);
 
+-- `language` is a lowercase ISO 639 code: 'en', 'de', 'fr', etc. It can also be
+-- a geonames pseudo-language like 'abbr' for abbreviations and 'iata' for
+-- airport codes. It will be null for names derived from a geoname's primary
+-- name (see `Geoname::name` and `Geoname::ascii_name`).
+-- `geoname_id` is not defined as a foreign key because the main geonames
+-- records are not guaranteed to be ingested before alternates records.
 CREATE TABLE geonames_alternates(
-    name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
     geoname_id INTEGER NOT NULL,
-    -- The value of the `iso_language` field for the alternate. This will be
-    -- null for the alternate we artificially create for the `name` in the
-    -- corresponding geoname record.
-    iso_language TEXT,
-    PRIMARY KEY (name, geoname_id),
-    FOREIGN KEY(geoname_id) REFERENCES geonames(id) ON DELETE CASCADE
-) WITHOUT ROWID;
+    language TEXT,
+    name TEXT NOT NULL COLLATE geonames_collate,
+    PRIMARY KEY(geoname_id, language, name)
+);
 CREATE INDEX geonames_alternates_geoname_id ON geonames_alternates(geoname_id);
+CREATE INDEX geonames_alternates_name ON geonames_alternates(name);
+
+CREATE TRIGGER geonames_alternates_delete AFTER DELETE ON geonames BEGIN
+    DELETE FROM geonames_alternates
+    WHERE geoname_id = old.id;
+END;
 
 CREATE TABLE geonames_metrics(
     record_id TEXT NOT NULL PRIMARY KEY,
@@ -266,7 +276,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
         sql_support::setup_sqlite_defaults(conn)?;
         conn.execute("PRAGMA foreign_keys = ON", ())?;
         sql_support::debug_tools::define_debug_functions(conn)?;
-
+        conn.create_collation("geonames_collate", geonames_collate)?;
         Ok(())
     }
 
@@ -659,6 +669,52 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                         record_id TEXT NOT NULL
                     ) WITHOUT ROWID;
                     ",
+                )?;
+                Ok(())
+            }
+            38 => {
+                // This migration makes changes to geonames.
+                tx.create_collation("geonames_collate", geonames_collate)?;
+                tx.execute_batch(
+                    r#"
+                    DROP INDEX geonames_alternates_geoname_id;
+                    DROP TABLE geonames_alternates;
+
+                    DROP INDEX geonames_feature_class;
+                    DROP INDEX geonames_feature_code;
+                    DROP TABLE geonames;
+
+                    CREATE TABLE geonames(
+                        id INTEGER PRIMARY KEY,
+                        record_id TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        feature_class TEXT NOT NULL,
+                        feature_code TEXT NOT NULL,
+                        country_code TEXT NOT NULL,
+                        admin1_code TEXT,
+                        admin2_code TEXT,
+                        admin3_code TEXT,
+                        admin4_code TEXT,
+                        population INTEGER,
+                        latitude TEXT,
+                        longitude TEXT
+                    );
+
+                    CREATE TABLE geonames_alternates(
+                        record_id TEXT NOT NULL,
+                        geoname_id INTEGER NOT NULL,
+                        language TEXT,
+                        name TEXT NOT NULL COLLATE geonames_collate,
+                        PRIMARY KEY(geoname_id, language, name)
+                    );
+                    CREATE INDEX geonames_alternates_geoname_id ON geonames_alternates(geoname_id);
+                    CREATE INDEX geonames_alternates_name ON geonames_alternates(name);
+
+                    CREATE TRIGGER geonames_alternates_delete AFTER DELETE ON geonames BEGIN
+                        DELETE FROM geonames_alternates
+                        WHERE geoname_id = old.id;
+                    END;
+                    "#,
                 )?;
                 Ok(())
             }
