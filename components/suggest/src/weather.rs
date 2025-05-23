@@ -99,7 +99,7 @@ impl SuggestDao<'_> {
         let words: Vec<_> = kw_lower
             .split_whitespace()
             .flat_map(|w| {
-                w.split(|c| !char::is_alphabetic(c))
+                w.split(|c| !char::is_alphanumeric(c))
                     .filter(|s| !s.is_empty())
             })
             .collect();
@@ -628,8 +628,6 @@ mod tests {
             (
                 "weather a",
                 vec![
-                    // The made-up long-name city starts with "a".
-                    geoname::tests::long_name_city().into(),
                     // A suggestion without a city is returned because the query
                     // also matches a keyword ("weather") + a prefix of another
                     // keyword ("ab").

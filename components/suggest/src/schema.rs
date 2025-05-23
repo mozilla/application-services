@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 40;
+pub const VERSION: u32 = 41;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -215,14 +215,20 @@ CREATE TABLE geonames(
 -- `geoname_id` is not defined as a foreign key because the main geonames
 -- records are not guaranteed to be ingested before alternates records.
 CREATE TABLE geonames_alternates(
+    id INTEGER PRIMARY KEY,
     record_id TEXT NOT NULL,
     geoname_id INTEGER NOT NULL,
     language TEXT,
     name TEXT NOT NULL COLLATE geonames_collate,
-    PRIMARY KEY(geoname_id, language, name)
+    is_preferred INTEGER,
+    is_short INTEGER
 );
-CREATE INDEX geonames_alternates_geoname_id ON geonames_alternates(geoname_id);
-CREATE INDEX geonames_alternates_name ON geonames_alternates(name);
+
+CREATE INDEX geonames_alternates_geoname_id_language
+    ON geonames_alternates(geoname_id, language);
+
+CREATE INDEX geonames_alternates_name
+    ON geonames_alternates(name);
 
 CREATE TRIGGER geonames_alternates_delete AFTER DELETE ON geonames BEGIN
     DELETE FROM geonames_alternates
@@ -743,7 +749,32 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 )?;
                 Ok(())
             }
+            40 => {
+                // This migration makes changes to geonames.
+                clear_database(tx)?;
+                tx.execute_batch(
+                    r#"
+                    DROP INDEX geonames_alternates_geoname_id;
+                    DROP INDEX geonames_alternates_name;
+                    DROP TABLE geonames_alternates;
 
+                    CREATE TABLE geonames_alternates(
+                        id INTEGER PRIMARY KEY,
+                        record_id TEXT NOT NULL,
+                        geoname_id INTEGER NOT NULL,
+                        language TEXT,
+                        name TEXT NOT NULL COLLATE geonames_collate,
+                        is_preferred INTEGER,
+                        is_short INTEGER
+                    );
+                    CREATE INDEX geonames_alternates_geoname_id_language
+                        ON geonames_alternates(geoname_id, language);
+                    CREATE INDEX geonames_alternates_name
+                        ON geonames_alternates(name);
+                    "#,
+                )?;
+                Ok(())
+            }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
     }
