@@ -19,4 +19,3 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features = ["build"] }
-
