@@ -130,13 +130,6 @@ projects:
     - name: full-megazord-libsForTests
       type: jar
     description: Megazord containing all features
-  tooling-nimbus-gradle:
-    path: tools/nimbus-gradle-plugin
-    artifactId: tooling-nimbus-gradle
-    description: A Gradle plugin to generate code for the Nimbus Feature API.
-    publications:
-    - name: tooling-nimbus-gradle
-      type: jar
   init_rust_components:
     path: components/init_rust_components/android
     artifactId: init_rust_components
