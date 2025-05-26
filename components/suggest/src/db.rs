@@ -24,8 +24,7 @@ use crate::{
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedDynamicRecord,
         DownloadedDynamicSuggestion, DownloadedFakespotSuggestion, DownloadedMdnSuggestion,
-        DownloadedWikipediaSuggestion, Record, SuggestRecordId,
-        SuggestRecordType,
+        DownloadedWikipediaSuggestion, Record, SuggestRecordId, SuggestRecordType,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, FtsMatchInfo, Suggestion},
@@ -584,13 +583,6 @@ impl<'a> SuggestDao<'a> {
 
     /// Split the keyword by the first whitespace into the prefix and the suffix.
     /// Return an empty string as the suffix if there is no whitespace.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// assert_eq!(SuggestDao::split_keyword("foo"), ("foo", ""));
-    /// assert_eq!(SuggestDao::split_keyword("foo bar baz"), ("foo", "bar baz"));
-    /// ```
     fn split_keyword(keyword: &str) -> (&str, &str) {
         keyword.split_once(' ').unwrap_or((keyword, ""))
     }
@@ -1858,4 +1850,15 @@ impl<'conn> AmpFtsInsertStatement<'conn> {
 
 fn provider_config_meta_key(provider: SuggestionProvider) -> String {
     format!("{}{}", PROVIDER_CONFIG_META_KEY_PREFIX, provider as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_keyword() {
+        assert_eq!(SuggestDao::split_keyword("foo"), ("foo", ""));
+        assert_eq!(SuggestDao::split_keyword("foo bar baz"), ("foo", "bar baz"));
+    }
 }
