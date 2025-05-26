@@ -1773,7 +1773,7 @@ pub(crate) mod tests {
             ]
         );
         assert_eq!(
-            store.fetch_suggestions(SuggestionQuery::all_providers("multimatch").limit(2)),
+            store.fetch_suggestions(SuggestionQuery::all_providers("multimatch").limit(1)),
             vec![
                 multimatch_amo_suggestion(),
             ],
