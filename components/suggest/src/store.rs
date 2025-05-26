@@ -1760,23 +1760,15 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("multimatch")),
-            vec![
-                multimatch_amo_suggestion(),
-                multimatch_wiki_suggestion(),
-            ]
+            vec![multimatch_amo_suggestion(), multimatch_wiki_suggestion(),]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("MultiMatch")),
-            vec![
-                multimatch_amo_suggestion(),
-                multimatch_wiki_suggestion(),
-            ]
+            vec![multimatch_amo_suggestion(), multimatch_wiki_suggestion(),]
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("multimatch").limit(1)),
-            vec![
-                multimatch_amo_suggestion(),
-            ],
+            vec![multimatch_amo_suggestion(),],
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::amp("la")),
@@ -1796,10 +1788,7 @@ pub(crate) mod tests {
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::with_providers(
                 "cal",
-                vec![
-                    SuggestionProvider::Amp,
-                    SuggestionProvider::Amo,
-                ]
+                vec![SuggestionProvider::Amp, SuggestionProvider::Amo,]
             )),
             vec![],
         );
@@ -2287,9 +2276,7 @@ pub(crate) mod tests {
         );
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::all_providers("wiki match")),
-            vec![
-                california_suggestion("wiki match"),
-            ]
+            vec![california_suggestion("wiki match"),]
         );
 
         Ok(())
