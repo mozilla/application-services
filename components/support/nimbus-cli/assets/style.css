@@ -3,19 +3,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 .wrapper {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .wrapper button {
-    height: 80%;
-    width: 80%;
-    font-size: 18rem;
+  height: 80%;
+  width: 80%;
+  font-size: 18rem;
 }
 
 ul#platform-list {
-    display: none;
+  display: none;
 }

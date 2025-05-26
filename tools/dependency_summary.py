@@ -931,8 +931,7 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "fixup": "https://raw.githubusercontent.com/microsoft/windows-rs/master/license-apache-2.0",
         },
-
-    }
+    },
 }
 
 # Sets of common licence file names, by license type.
