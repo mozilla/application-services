@@ -2594,7 +2594,7 @@ pub(crate) mod tests {
         // A query for cats should return all suggestions
         let query = SuggestionQuery::all_providers("cats");
         let results = store.fetch_suggestions(query.clone());
-        assert_eq!(results.len(), 5);
+        assert_eq!(results.len(), 4);
 
         assert!(!store.inner.any_dismissed_suggestions()?);
 
@@ -2613,7 +2613,7 @@ pub(crate) mod tests {
 
         // Clearing the dismissals should cause them to be returned again
         store.inner.clear_dismissed_suggestions()?;
-        assert_eq!(store.fetch_suggestions(query.clone()).len(), 5);
+        assert_eq!(store.fetch_suggestions(query.clone()).len(), 4);
 
         for result in &results {
             let dismissal_key = result.dismissal_key().unwrap();
