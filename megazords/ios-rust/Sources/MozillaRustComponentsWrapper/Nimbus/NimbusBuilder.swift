@@ -9,9 +9,11 @@ import Foundation
  */
 public class NimbusBuilder {
     let dbFilePath: String
+    let remoteSettingsService: RemoteSettingsService?
 
-    public init(dbPath: String) {
+    public init(dbPath: String, collectionName: String?, rsService: RemoteSettingsService?) {
         dbFilePath = dbPath
+        remoteSettingsService = rsService
     }
 
     /**
@@ -187,7 +189,10 @@ public class NimbusBuilder {
      * network. This is to allow the networking stack to be initialized after this method is called
      * and the networking stack to be involved in experiments.
      */
-    public func build(appInfo: NimbusAppSettings) -> NimbusInterface {
+    public func build(
+        appInfo: NimbusAppSettings,
+        remoteSettingsService: RemoteSettingsService?
+    ) -> NimbusInterface {
         let serverSettings: NimbusServerSettings?
         if let string = url,
            let url = URL(string: string)
@@ -202,7 +207,11 @@ public class NimbusBuilder {
         }
 
         do {
-            let nimbus = try newNimbus(appInfo, serverSettings: serverSettings)
+            let nimbus = try newNimbus(
+                appInfo,
+                serverSettings: serverSettings,
+                remoteSettingsService: remoteSettingsService
+            )
             let fm = featureManifest
             let onApplyCallback = onApplyCallback
             if fm != nil || onApplyCallback != nil {
@@ -259,7 +268,11 @@ public class NimbusBuilder {
         featureManifest?.getCoenrollingFeatureIds() ?? []
     }
 
-    func newNimbus(_ appInfo: NimbusAppSettings, serverSettings: NimbusServerSettings?) throws -> NimbusInterface {
+    func newNimbus(
+        _ appInfo: NimbusAppSettings,
+        serverSettings: NimbusServerSettings?,
+        remoteSettingsService: RemoteSettingsService?
+    ) throws -> NimbusInterface {
         try Nimbus.create(serverSettings,
                           appSettings: appInfo,
                           coenrollingFeatureIds: getCoenrollingFeatureIds(),
@@ -267,7 +280,9 @@ public class NimbusBuilder {
                           resourceBundles: resourceBundles,
                           userDefaults: userDefaults,
                           errorReporter: errorReporter,
-                          recordedContext: recordedContext)
+                          recordedContext: recordedContext,
+                          remoteSettingsService: remoteSettingsService,
+                          collectionName: serverSettings?.collection)
     }
 
     func newNimbusDisabled() -> NimbusInterface {
