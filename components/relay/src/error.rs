@@ -4,23 +4,41 @@
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum Error {
     #[error("Network error: {0}")]
-    Network(#[from] viaduct::Error),
+    Network(String),
 
     #[error("UTF-8 error: {0}")]
-    Utf8(#[from] std::string::FromUtf8Error),
+    Utf8(String),
 
     #[error("URL parse error: {0}")]
-    UrlParse(#[from] url::ParseError),
+    UrlParse(String),
 
     #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
+    Json(String),
 
     #[error("Status error: {0}")]
-    Status(#[from] viaduct::UnexpectedStatus),
+    Status(String),
 
     #[error("Relay API returned an error: {0}")]
     RelayApi(String),
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::RelayApi(format!("URL parse error: {}", err))
+    }
+}
+
+impl From<viaduct::Error> for Error {
+    fn from(err: viaduct::Error) -> Self {
+        Error::RelayApi(format!("Viaduct error: {}", err))
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Error::RelayApi(format!("JSON error: {}", err))
+    }
 }

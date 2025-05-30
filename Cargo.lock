@@ -4212,6 +4212,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.31",
+ "uniffi",
  "url",
  "viaduct",
  "viaduct-reqwest",
