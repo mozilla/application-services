@@ -45,11 +45,6 @@ if (!gradle.root.hasProperty("mozconfig")) {
 }
 
 def setupProject(name, projectProps, appServicesRootDir) {
-    if (name == "tooling-nimbus-gradle") {
-        // Could look for `publications.type != "jar"`.
-        return
-    }
-
     def path = projectProps.path
     def description = projectProps.description
     def artifactId = projectProps.artifactId
@@ -164,7 +159,9 @@ class Config {
 }
 
 gradle.projectsLoaded { ->
-    gradle.rootProject.tasks.register("generateUniffiBindings")
+    if (gradle.hasProperty("mozconfig")) {
+        gradle.rootProject.tasks.register("generateUniffiBindings")
+    }
 
     // Wait until root project is "loaded" before we set "config"
     // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
