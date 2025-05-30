@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StoreId"],"struct":["Database","SingleStore","SingleStoreDatabase"],"trait":["Readable"],"type":["Writer"]};
