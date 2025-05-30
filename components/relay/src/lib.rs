@@ -4,18 +4,21 @@
 
 mod error;
 
+uniffi::setup_scaffolding!("relay");
+
 pub use error::{Error, Result};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::{header_names, Method, Request};
 
+#[derive(uniffi::Object)]
 pub struct RelayClient {
     server_url: String,
     auth_token: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, uniffi::Record)]
 pub struct RelayAddress {
     pub mask_type: String,
     pub enabled: bool,
@@ -51,13 +54,6 @@ struct ApiErrorMessage {
 }
 
 impl RelayClient {
-    pub fn new(server_url: String, auth_token: Option<String>) -> Self {
-        Self {
-            server_url,
-            auth_token,
-        }
-    }
-
     fn build_url(&self, path: &str) -> Result<Url> {
         Ok(Url::parse(&format!("{}{}", self.server_url, path))?)
     }
@@ -69,6 +65,17 @@ impl RelayClient {
             request = request.header(header_names::AUTHORIZATION, format!("Bearer {}", token))?;
         }
         Ok(request)
+    }
+}
+
+#[uniffi::export]
+impl RelayClient {
+    #[uniffi::constructor]
+    pub fn new(server_url: String, auth_token: Option<String>) -> Self {
+        Self {
+            server_url,
+            auth_token,
+        }
     }
 
     pub fn fetch_addresses(&self) -> Result<Vec<RelayAddress>> {
