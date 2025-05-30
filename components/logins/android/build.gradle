@@ -7,7 +7,12 @@ apply from: "$appServicesRootDir/publish.gradle"
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
-ext.gleanNamespace = "mozilla.telemetry.glean"
+ext {
+    gleanNamespace = "mozilla.telemetry.glean"
+    if (gradle.hasProperty("mozconfig")) {
+        gleanPythonEnvDir = gradle.mozconfig.substs.GRADLE_GLEAN_PARSER_VENV
+    }
+}
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 android {
