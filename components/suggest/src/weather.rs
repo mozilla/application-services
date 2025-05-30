@@ -245,29 +245,35 @@ impl SuggestDao<'_> {
                 // keyword.
                 //
                 // Prefix matching is always allowed when the query contains
-                // other matching terms and the keyword prefix is the last term.
+                // other terms and the keyword prefix is the last term.
                 let min_len = self.weather_cache().min_keyword_length;
                 if is_first_chunk && is_last_chunk && candidate.len() < min_len {
                     // `min_keyword_length` is non-zero, the candidate is the
                     // only term in the query, and it's too short.
                     Ok(vec![])
-                } else if self.matches_weather_keyword(
-                    candidate,
-                    is_last_chunk && (!is_first_chunk || min_len > 0),
-                )? {
-                    Ok(vec![Token::WeatherKeyword])
                 } else {
-                    Ok(vec![])
+                    Ok(self
+                        .match_weather_keywords(
+                            candidate,
+                            is_last_chunk && (!is_first_chunk || min_len > 0),
+                        )?
+                        .into_iter()
+                        .map(Token::WeatherKeyword)
+                        .collect())
                 }
             }
         }
     }
 
-    fn matches_weather_keyword(&self, candidate: &str, prefix: bool) -> Result<bool> {
-        let val = self.conn.try_query_one(
+    fn match_weather_keywords(
+        &self,
+        candidate: &str,
+        prefix: bool,
+    ) -> Result<Vec<WeatherKeywordMatch>> {
+        self.conn.query_rows_and_then_cached(
             r#"
             SELECT
-                1
+                k.keyword != :keyword AS matched_prefix
             FROM
                 suggestions s
             JOIN
@@ -279,16 +285,18 @@ impl SuggestDao<'_> {
                     CASE :prefix WHEN FALSE THEN k.keyword = :keyword
                     ELSE (k.keyword BETWEEN :keyword AND :keyword || X'FFFF') END
                 )
-            LIMIT 1
             "#,
             named_params! {
                 ":prefix": prefix,
                 ":keyword": candidate,
                 ":provider": SuggestionProvider::Weather
             },
-            true,
-        )?;
-        Ok(val == Some(1))
+            |row| -> Result<WeatherKeywordMatch> {
+                Ok(WeatherKeywordMatch {
+                    is_prefix: row.get("matched_prefix")?,
+                })
+            },
+        )
     }
 
     /// Inserts weather suggestions data into the database.
@@ -390,7 +398,7 @@ enum Token {
         geoname_match: GeonameMatch,
         match_len: usize,
     },
-    WeatherKeyword,
+    WeatherKeyword(WeatherKeywordMatch),
 }
 
 impl Token {
@@ -400,6 +408,11 @@ impl Token {
             _ => None,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+struct WeatherKeywordMatch {
+    is_prefix: bool,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -417,6 +430,7 @@ struct CityTokenPath {
 impl TokenPath {
     fn from_raw_token_path(rtp: Vec<Token>) -> Option<Self> {
         let mut kw_matched = false;
+        let mut any_kw_match_full = false;
         let mut city_match: Option<GeonameMatch> = None;
         let mut city_match_len = 0;
         let mut any_other_geoname_full = false;
@@ -424,8 +438,9 @@ impl TokenPath {
 
         for t in rtp {
             match t {
-                Token::WeatherKeyword => {
+                Token::WeatherKeyword(kwm) => {
                     kw_matched = true;
+                    any_kw_match_full = any_kw_match_full || !kwm.is_prefix;
                 }
                 Token::Geoname {
                     geoname_match,
@@ -449,13 +464,57 @@ impl TokenPath {
         }
 
         if let Some(cm) = city_match {
+            // This path matched a city. See if it has a valid combination of
+            // tokens. Keep a few things in mind:
+            //
+            // (1) The query contains a city name of some sort: a proper name,
+            //     abbreviation, or airport code
+            // (2) It may be a name prefix and not a full name
+            // (3) Prefix matching happens only at the end of the query string
             let is_valid =
-                // weather keyword(s) typed
-                kw_matched
-                    // city name typed in full ("new york")
+                // The query has full weather keyword(s):
+                //
+                // weather l
+                // weather la
+                // weather lo
+                // weather los angeles
+                // weather pdx
+                // la weather
+                // los angeles weather
+                // pdx weather
+                (kw_matched && any_kw_match_full)
+                    // The query has weather keyword(s) (full or prefix) + a
+                    // full city abbreviation:
+                    //
+                    // la w
+                    // la we
+                    // la weather
+                    // la ca w
+                    // weather la
+                    // weather la c
+                    // weather la ca
+                    || (kw_matched && !cm.prefix && cm.match_type.is_abbreviation())
+                    // The query has a full city proper name:
+                    //
+                    // los angeles
+                    // los angeles c
+                    // los angeles ca
+                    // ca los angeles
+                    // los angeles w
+                    // los angeles we
+                    // los angeles weather
+                    // los angeles ca w
+                    // weather los angeles
+                    // weather los angeles c
+                    // weather los angeles ca
                     || (!cm.prefix && cm.match_type.is_name())
-                    // city abbreviation typed in full + another related
-                    // geoname typed in full ("ny new york")
+                    // The query has a full city abbreviation + a full related
+                    // geoname:
+                    //
+                    // la ca
+                    // la california
+                    // ca la
+                    // california la
                     || (!cm.prefix
                         && cm.match_type.is_abbreviation()
                         && any_other_geoname_full);
@@ -467,7 +526,7 @@ impl TokenPath {
                 }));
             }
         } else if kw_matched && max_other_geoname_match_len == 0 {
-            // weather keyword(s) alone ("weather")
+            // This path matched weather keyword(s) alone.
             return Some(Self::WeatherKeywordAlone);
         }
 
@@ -669,8 +728,8 @@ mod tests {
         };
 
         let tests: &[Test] = &[
-            // "act" is Waco's airport code. A suggestion should be returned
-            // once the query ends with any prefix of "weather" (a keyword).
+            // "act" is Waco's airport code. Airport codes require full weather
+            // keywords to match.
             Test {
                 query: "act",
                 min_keyword_len_0: vec![],
@@ -678,28 +737,28 @@ mod tests {
             },
             Test {
                 query: "act w",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act we",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act wea",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act weat",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act weath",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act weather",
@@ -708,8 +767,8 @@ mod tests {
             },
 
             Test {
-                // A suggestion without a city should be returned because the
-                // query also matches a keyword ("weather") + a prefix of
+                // A suggestion without a city should be returned because this
+                // query matches a full keyword ("weather") + a prefix of
                 // another keyword ("ab").
                 query: "weather a",
                 min_keyword_len_0: vec![KW_SUGGESTION.clone()],
@@ -737,16 +796,21 @@ mod tests {
             },
             Test {
                 query: "act tx w",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act tx weat",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act tx weath",
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
+            },
+            Test {
+                query: "act tx weather",
                 min_keyword_len_0: vec![geoname::tests::waco().into()],
                 min_keyword_len_5: vec![geoname::tests::waco().into()],
             },
@@ -767,16 +831,21 @@ mod tests {
             },
             Test {
                 query: "tx act w",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "tx act weat",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "tx act weath",
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
+            },
+            Test {
+                query: "tx act weather",
                 min_keyword_len_0: vec![geoname::tests::waco().into()],
                 min_keyword_len_5: vec![geoname::tests::waco().into()],
             },
@@ -802,16 +871,21 @@ mod tests {
             },
             Test {
                 query: "act texas w",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act texas weat",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "act texas weath",
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
+            },
+            Test {
+                query: "act texas weather",
                 min_keyword_len_0: vec![geoname::tests::waco().into()],
                 min_keyword_len_5: vec![geoname::tests::waco().into()],
             },
@@ -832,16 +906,21 @@ mod tests {
             },
             Test {
                 query: "texas act w",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "texas act weat",
-                min_keyword_len_0: vec![geoname::tests::waco().into()],
-                min_keyword_len_5: vec![geoname::tests::waco().into()],
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
             },
             Test {
                 query: "texas act weath",
+                min_keyword_len_0: vec![],
+                min_keyword_len_5: vec![],
+            },
+            Test {
+                query: "texas act weather",
                 min_keyword_len_0: vec![geoname::tests::waco().into()],
                 min_keyword_len_5: vec![geoname::tests::waco().into()],
             },
@@ -1040,7 +1119,7 @@ mod tests {
             },
 
             // These shouldn't match anything. "ny" is an NYC abbreviation, and
-            // without a weather keyword abbreviations require another fully
+            // without a weather keyword, abbreviations require another fully
             // typed related geoname. "york" is also a weather keyword but that
             // shouldn't matter here since "new" by itself is not a full name.
             Test {
