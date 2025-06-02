@@ -197,14 +197,14 @@ fn filter_map_chunks_recurse<T: Clone>(
             break;
         }
 
-        // Get the current chunk within the remaining query. Its char length is
+        // Get the current chunk within the remaining query. Its byte length is
         // the sum of the lengths of the words in the chunk + `chunk_size - 1`
         // spaces between the words. There will only be one space between each
         // word in `remaining_query` because `remaining_query` is normalized.
-        let chunk_char_len = remaining_words[..chunk_size]
+        let chunk_byte_len = remaining_words[..chunk_size]
             .iter()
             .fold(chunk_size - 1, |memo, w| memo + w.len());
-        let chunk = &remaining_query[..chunk_char_len];
+        let chunk = &remaining_query[..chunk_byte_len];
         let is_last_chunk = chunk_size == remaining_words.len();
 
         // Call the mapper function.
@@ -220,7 +220,7 @@ fn filter_map_chunks_recurse<T: Clone>(
                     path.push(value.clone());
                     let subtree_paths = filter_map_chunks_recurse(
                         &remaining_words[chunk_size..],
-                        &remaining_query[(chunk_char_len + 1)..],
+                        &remaining_query[(chunk_byte_len + 1)..],
                         path,
                         chunk_index + chunk_size,
                         max_chunk_size,
