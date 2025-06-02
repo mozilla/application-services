@@ -28,7 +28,7 @@ use crate::{
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, FtsMatchInfo, Suggestion},
-    util::full_keyword,
+    util::{full_keyword, split_keyword},
     weather::WeatherCache,
     Result, SuggestionQuery,
 };
@@ -581,12 +581,6 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    /// Split the keyword by the first whitespace into the prefix and the suffix.
-    /// Return an empty string as the suffix if there is no whitespace.
-    fn split_keyword(keyword: &str) -> (&str, &str) {
-        keyword.split_once(' ').unwrap_or((keyword, ""))
-    }
-
     /// Query for suggestions using the keyword prefix and provider
     fn map_prefix_keywords<T>(
         &self,
@@ -595,7 +589,7 @@ impl<'a> SuggestDao<'a> {
         mut mapper: impl FnMut(&rusqlite::Row, &str) -> Result<T>,
     ) -> Result<Vec<T>> {
         let keyword_lowercased = &query.keyword.to_lowercase();
-        let (keyword_prefix, keyword_suffix) = Self::split_keyword(keyword_lowercased);
+        let (keyword_prefix, keyword_suffix) = split_keyword(keyword_lowercased);
         let suggestions_limit = query.limit.unwrap_or(-1);
         self.conn.query_rows_and_then_cached(
             r#"
@@ -956,7 +950,7 @@ impl<'a> SuggestDao<'a> {
             )?;
             amo_insert.execute(suggestion_id, suggestion)?;
             for (index, keyword) in suggestion.keywords.iter().enumerate() {
-                let (keyword_prefix, keyword_suffix) = Self::split_keyword(keyword);
+                let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
                 prefix_keyword_insert.execute(
                     suggestion_id,
                     None,
@@ -1067,7 +1061,7 @@ impl<'a> SuggestDao<'a> {
             )?;
             mdn_insert.execute(suggestion_id, suggestion)?;
             for (index, keyword) in suggestion.keywords.iter().enumerate() {
-                let (keyword_prefix, keyword_suffix) = Self::split_keyword(keyword);
+                let (keyword_prefix, keyword_suffix) = split_keyword(keyword);
                 prefix_keyword_insert.execute(
                     suggestion_id,
                     None,
@@ -1850,15 +1844,4 @@ impl<'conn> AmpFtsInsertStatement<'conn> {
 
 fn provider_config_meta_key(provider: SuggestionProvider) -> String {
     format!("{}{}", PROVIDER_CONFIG_META_KEY_PREFIX, provider as u8)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_split_keyword() {
-        assert_eq!(SuggestDao::split_keyword("foo"), ("foo", ""));
-        assert_eq!(SuggestDao::split_keyword("foo bar baz"), ("foo", "bar baz"));
-    }
 }
