@@ -32,7 +32,8 @@ pub(crate) const DEFAULT_INGEST_PROVIDERS: [SuggestionProvider; 5] = [
 ];
 
 /// A provider is a source of search suggestions.
-/// Please preserve values after removing or adding providers.
+/// Please preserve the integer values after removing or adding providers.
+/// Provider configs are associated with integer keys stored in the database.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, uniffi::Enum)]
 #[repr(u8)]
 pub enum SuggestionProvider {
@@ -91,11 +92,11 @@ impl SuggestionProvider {
             1 => Some(Self::Amp),
             2 => Some(Self::Wikipedia),
             3 => Some(Self::Amo),
-            4 => Some(Self::Yelp),
-            5 => Some(Self::Mdn),
-            6 => Some(Self::Weather),
-            7 => Some(Self::Fakespot),
-            8 => Some(Self::Dynamic),
+            5 => Some(Self::Yelp),
+            6 => Some(Self::Mdn),
+            7 => Some(Self::Weather),
+            8 => Some(Self::Fakespot),
+            9 => Some(Self::Dynamic),
             _ => None,
         }
     }
