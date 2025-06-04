@@ -433,6 +433,31 @@ mod test {
         drop(store);
         assert!(STORE_FOR_MANAGER.lock().upgrade().is_none());
     }
+
+    #[test]
+    fn test_wipe_local_on_a_fresh_database_is_a_noop() {
+        ensure_initialized();
+        // If the database has data, then wipe_local() returns > 0 rows deleted
+        let db = LoginDb::open_in_memory().unwrap();
+        db.add_or_update(
+            LoginEntry {
+                origin: "https://www.example.com".into(),
+                form_action_origin: Some("https://www.example.com".into()),
+                username_field: "user_input".into(),
+                password_field: "pass_input".into(),
+                username: "coolperson21".into(),
+                password: "p4ssw0rd".into(),
+                ..Default::default()
+            },
+            &TEST_ENCDEC.clone(),
+        )
+        .unwrap();
+        assert!(db.wipe_local().unwrap() > 0);
+
+        // If the database is empty, then wipe_local() returns 0 rows deleted
+        let db = LoginDb::open_in_memory().unwrap();
+        assert_eq!(db.wipe_local().unwrap(), 0);
+    }
 }
 
 #[test]
