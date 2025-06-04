@@ -797,16 +797,16 @@ impl LoginDb {
         Ok(self.execute_cached(&CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
-    pub fn wipe_local(&self) -> Result<()> {
+    /// Wipe all local data, returns the number of rows deleted
+    pub fn wipe_local(&self) -> Result<usize> {
         info!("Executing wipe_local on password engine!");
         let tx = self.unchecked_transaction()?;
-        self.execute_all(&[
-            "DELETE FROM loginsL",
-            "DELETE FROM loginsM",
-            "DELETE FROM loginsSyncMeta",
-        ])?;
+        let mut row_count = 0;
+        row_count += self.execute("DELETE FROM loginsL", [])?;
+        row_count += self.execute("DELETE FROM loginsM", [])?;
+        row_count += self.execute("DELETE FROM loginsSyncMeta", [])?;
         tx.commit()?;
-        Ok(())
+        Ok(row_count)
     }
 }
 
