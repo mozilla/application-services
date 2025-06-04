@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
     let client = RelayClient::new("https://relay.firefox.com".to_string(), Some(token));
 
     match cli.command {
-        Commands::Fetch => fetch_addresses(client),
+        Commands::Fetch => fetch_addresses(client?),
     }
 }
 

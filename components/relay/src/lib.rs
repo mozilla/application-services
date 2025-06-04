@@ -6,7 +6,8 @@ mod error;
 
 uniffi::setup_scaffolding!("relay");
 
-pub use error::{Error, Result};
+pub use error::{ApiError, ApiResult, Error, Result};
+use error_support::handle_error;
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -71,14 +72,16 @@ impl RelayClient {
 #[uniffi::export]
 impl RelayClient {
     #[uniffi::constructor]
-    pub fn new(server_url: String, auth_token: Option<String>) -> Self {
-        Self {
+    #[handle_error(Error)]
+    pub fn new(server_url: String, auth_token: Option<String>) -> ApiResult<Self> {
+        Ok(Self {
             server_url,
             auth_token,
-        }
+        })
     }
 
-    pub fn fetch_addresses(&self) -> Result<Vec<RelayAddress>> {
+    #[handle_error(Error)]
+    pub fn fetch_addresses(&self) -> ApiResult<Vec<RelayAddress>> {
         let url = self.build_url("/api/v1/relayaddresses/")?;
         let request = self.prepare_request(Method::Get, url)?;
 
@@ -93,7 +96,8 @@ impl RelayClient {
         Ok(addresses)
     }
 
-    pub fn accept_terms(&self) -> Result<()> {
+    #[handle_error(Error)]
+    pub fn accept_terms(&self) -> ApiResult<()> {
         let url = self.build_url("/api/v1/terms-accepted-user/")?;
         let request = self.prepare_request(Method::Post, url)?;
 
@@ -106,12 +110,13 @@ impl RelayClient {
         Ok(())
     }
 
+    #[handle_error(Error)]
     pub fn create_address(
         &self,
         description: &str,
         generated_for: &str,
         used_on: &str,
-    ) -> Result<RelayAddress> {
+    ) -> ApiResult<RelayAddress> {
         let url = self.build_url("/api/v1/relayaddresses/")?;
 
         let payload = CreateAddressPayload {
@@ -186,7 +191,10 @@ mod tests {
 
         let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
 
-        let addresses = client.fetch_addresses().expect("should fetch addresses");
+        let addresses = client
+            .expect("success")
+            .fetch_addresses()
+            .expect("should fetch addresses");
 
         assert_eq!(addresses.len(), 1);
         let addr = &addresses[0];
@@ -209,7 +217,10 @@ mod tests {
             .create();
 
         let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
-        let addresses = client.fetch_addresses().expect("should fetch addresses");
+        let addresses = client
+            .expect("success")
+            .fetch_addresses()
+            .expect("should fetch addresses");
 
         assert_eq!(addresses.len(), 1);
         assert_eq!(addresses[0].used_on, None);
@@ -229,7 +240,10 @@ mod tests {
             .create();
 
         let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
-        let addresses = client.fetch_addresses().expect("should fetch addresses");
+        let addresses = client
+            .expect("success")
+            .fetch_addresses()
+            .expect("should fetch addresses");
 
         assert_eq!(addresses.len(), 1);
         assert_eq!(addresses[0].last_used_at, None);
@@ -254,7 +268,7 @@ mod tests {
         let _mock = mock.create();
         let client = RelayClient::new(mockito::server_url(), token.map(String::from));
 
-        let result = client.accept_terms();
+        let result = client.expect("success").accept_terms();
 
         if expect_error {
             assert!(result.is_err(), "Expected error but got success.");
@@ -351,6 +365,7 @@ mod tests {
         let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
 
         let address = client
+            .expect("success")
             .create_address("Created Address", "example.com", "example.com")
             .expect("should create address successfully");
 
