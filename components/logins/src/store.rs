@@ -5,6 +5,7 @@ use crate::db::LoginDb;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
+use crate::schema;
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
@@ -257,6 +258,16 @@ impl LoginStore {
             .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
     }
 
+    #[handle_error(Error)]
+    pub fn set_checkpoint(&self, checkpoint: &str) -> ApiResult<()> {
+        self.db.lock().put_meta(schema::CHECKPOINT_KEY, &checkpoint)
+    }
+
+    #[handle_error(Error)]
+    pub fn get_checkpoint(&self) -> ApiResult<Option<String>> {
+        self.db.lock().get_meta(schema::CHECKPOINT_KEY)
+    }
+
     // This allows the embedding app to say "make this instance available to
     // the sync manager". The implementation is more like "offer to sync mgr"
     // (thereby avoiding us needing to link with the sync manager) but
@@ -302,6 +313,8 @@ mod test {
 
     #[test]
     fn test_general() {
+        ensure_initialized();
+
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
@@ -412,6 +425,15 @@ mod test {
         assert_ge!(b_after_update.time_last_used, now_us);
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
+    }
+
+    #[test]
+    fn test_checkpoint() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let checkpoint = "a-checkpoint";
+        store.set_checkpoint(checkpoint).ok();
+        assert_eq!(store.get_checkpoint().unwrap().unwrap(), checkpoint);
     }
 
     #[test]

@@ -4,6 +4,9 @@
 - Added the first version of a component for checking if base domains exist in a
   list of base domains for adult websites.
 
+### Logins
+- add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)

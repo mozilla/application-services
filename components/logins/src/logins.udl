@@ -235,6 +235,12 @@ interface LoginStore {
     [Throws=LoginsApiError]
     Login? get([ByRef] string id);
 
+    [Throws=LoginsApiError]
+    void set_checkpoint([ByRef] string checkpoint);
+
+    [Throws=LoginsApiError]
+    string? get_checkpoint();
+
     [Self=ByArc]
     void register_with_sync_manager();
 };
