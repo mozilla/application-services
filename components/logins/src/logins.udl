@@ -224,6 +224,15 @@ interface LoginStore {
     boolean is_empty();
 
     [Throws=LoginsApiError]
+    i64 count();
+
+    [Throws=LoginsApiError]
+    i64 count_by_origin([ByRef] string origin);
+
+    [Throws=LoginsApiError]
+    i64 count_by_form_action_origin([ByRef] string form_action_origin);
+
+    [Throws=LoginsApiError]
     sequence<Login> list();
 
     [Throws=LoginsApiError]

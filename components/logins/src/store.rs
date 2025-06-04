@@ -118,6 +118,23 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn count(&self) -> ApiResult<i64> {
+        self.db.lock().count_all()
+    }
+
+    #[handle_error(Error)]
+    pub fn count_by_origin(&self, origin: &str) -> ApiResult<i64> {
+        self.db.lock().count_by_origin(origin)
+    }
+
+    #[handle_error(Error)]
+    pub fn count_by_form_action_origin(&self, form_action_origin: &str) -> ApiResult<i64> {
+        self.db
+            .lock()
+            .count_by_form_action_origin(form_action_origin)
+    }
+
+    #[handle_error(Error)]
     pub fn get(&self, id: &str) -> ApiResult<Option<Login>> {
         match self.db.lock().get_by_id(id) {
             Ok(result) => match result {

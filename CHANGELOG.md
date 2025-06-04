@@ -9,6 +9,7 @@
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 - add `delete_many(ids)` for batch deletion within a single transaction
+- Add `count()`, `count_by_origin()` and `count_by_form_action_origin()` methods
 
 ### Sync Manager
 - Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)

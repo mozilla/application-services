@@ -132,6 +132,30 @@ impl LoginDb {
         Ok(())
     }
 
+    pub fn count_all(&self) -> Result<i64> {
+        let mut stmt = self.db.prepare_cached(&COUNT_ALL_SQL)?;
+
+        let count: i64 = stmt.query_row([], |row| row.get(0))?;
+        Ok(count)
+    }
+
+    pub fn count_by_origin(&self, origin: &str) -> Result<i64> {
+        let mut stmt = self.db.prepare_cached(&COUNT_BY_ORIGIN_SQL)?;
+
+        let count: i64 = stmt.query_row(named_params! { ":origin": origin }, |row| row.get(0))?;
+        Ok(count)
+    }
+
+    pub fn count_by_form_action_origin(&self, form_action_origin: &str) -> Result<i64> {
+        let mut stmt = self.db.prepare_cached(&COUNT_BY_FORM_ACTION_ORIGIN_SQL)?;
+
+        let count: i64 = stmt.query_row(
+            named_params! { ":form_action_origin": form_action_origin },
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
     pub fn get_all(&self) -> Result<Vec<EncryptedLogin>> {
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
         let rows = stmt.query_and_then([], EncryptedLogin::from_row)?;
@@ -835,6 +859,27 @@ lazy_static! {
          SELECT {common_cols} FROM loginsM WHERE is_overridden = 0",
         common_cols = schema::COMMON_COLS,
     );
+    static ref COUNT_ALL_SQL: String = format!(
+        "SELECT COUNT(*) FROM (
+          SELECT guid FROM loginsL WHERE is_deleted = 0
+          UNION ALL
+          SELECT guid FROM loginsM WHERE is_overridden = 0
+        )"
+    );
+    static ref COUNT_BY_ORIGIN_SQL: String = format!(
+        "SELECT COUNT(*) FROM (
+          SELECT guid FROM loginsL WHERE is_deleted = 0 AND origin = :origin
+          UNION ALL
+          SELECT guid FROM loginsM WHERE is_overridden = 0 AND origin = :origin
+        )"
+    );
+    static ref COUNT_BY_FORM_ACTION_ORIGIN_SQL: String = format!(
+        "SELECT COUNT(*) FROM (
+          SELECT guid FROM loginsL WHERE is_deleted = 0 AND formActionOrigin = :form_action_origin
+          UNION ALL
+          SELECT guid FROM loginsM WHERE is_overridden = 0 AND formActionOrigin = :form_action_origin
+        )"
+    );
     static ref GET_BY_GUID_SQL: String = format!(
         "SELECT {common_cols}
          FROM loginsL
@@ -1118,6 +1163,66 @@ mod tests {
             .expect("should get a record");
 
         assert_eq!(fetched_b.fields.origin, login_b.origin);
+
+        assert_eq!(db.count_all().unwrap(), 2);
+    }
+
+    #[test]
+    fn test_count_by_origin() {
+        ensure_initialized();
+
+        let origin_a = "https://a.example.com";
+        let login_a = LoginEntry {
+            origin: origin_a.into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let login_b = LoginEntry {
+            origin: "https://b.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
+            .expect("should be able to add logins");
+
+        assert_eq!(db.count_by_origin(origin_a).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_count_by_form_action_origin() {
+        ensure_initialized();
+
+        let origin_a = "https://a.example.com";
+        let login_a = LoginEntry {
+            origin: origin_a.into(),
+            form_action_origin: Some(origin_a.into()),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let login_b = LoginEntry {
+            origin: "https://b.example.com".into(),
+            form_action_origin: Some("https://b.example.com".into()),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
+            .expect("should be able to add logins");
+
+        assert_eq!(db.count_by_form_action_origin(origin_a).unwrap(), 1);
     }
 
     #[test]
