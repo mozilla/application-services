@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>EncryptorDecryptorImpl Class Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset='utf-8'>
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
+  </head>
+  <body>
+    <a name="//apple_ref/swift/Class/EncryptorDecryptorImpl" class="dashAnchor"></a>
+    <a title="EncryptorDecryptorImpl Class Reference"></a>
+    <header>
+      <div class="content-wrapper">
+        <p><a href="../index.html"> Docs</a> (100% documented)</p>
+        <div class="header-right">
+          <form role="search" action="../search.json">
+            <input type="text" placeholder="Search documentation" data-typeahead>
+          </form>
+        </div>
+      </div>
+    </header>
+    <div class="content-wrapper">
+      <p id="breadcrumbs">
+        <a href="../index.html">Index</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        <a href="../Classes.html">Classes</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        SwiftComponents.EncryptorDecryptorImpl Class Reference
+      </p>
+    </div>
+    <div class="content-wrapper">
+      <nav class="sidebar">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Classes/ContextIdComponent.html">ContextIdComponent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/CuratedRecommendationsClient.html">CuratedRecommendationsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/EncryptorDecryptorImpl.html">EncryptorDecryptorImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FirefoxAccount.html">FirefoxAccount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FxaStateMachineChecker.html">FxaStateMachineChecker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/KeyManagerImpl.html">KeyManagerImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/LoginStore.html">LoginStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/ManagedEncryptorDecryptor.html">ManagedEncryptorDecryptor</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusClient.html">NimbusClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusStringHelper.html">NimbusStringHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusTargetingHelper.html">NimbusTargetingHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesApi.html">PlacesApi</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesConnection.html">PlacesConnection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PushManager.html">PushManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RecordedContextImpl.html">RecordedContextImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteCommandStore.html">RemoteCommandStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettings.html">RemoteSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettingsClient.html">RemoteSettingsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettingsService.html">RemoteSettingsService</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SearchEngineSelector.html">SearchEngineSelector</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SqlInterruptHandle.html">SqlInterruptHandle</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/StaticKeyManager.html">StaticKeyManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/Store.html">Store</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStore.html">SuggestStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStoreBuilder.html">SuggestStoreBuilder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SyncManager.html">SyncManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsBridgedEngine.html">TabsBridgedEngine</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsStore.html">TabsStore</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Enums/AccountEvent.html">AccountEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/AmpMatchingStrategy.html">AmpMatchingStrategy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ApiError.html">ApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/AutofillApiError.html">AutofillApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkItem.html">BookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkPosition.html">BookmarkPosition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BridgeType.html">BridgeType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BulkResultEntry.html">BulkResultEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CloseTabsResult.html">CloseTabsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ConnectionType.html">ConnectionType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CrashTestError.html">CrashTestError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CuratedRecommendationLocale.html">CuratedRecommendationLocale</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CuratedRecommendationsApiError.html">CuratedRecommendationsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceCapability.html">DeviceCapability</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceType.html">DeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DocumentType.html">DocumentType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/EnrollmentChangeEventType.html">EnrollmentChangeEventType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FrecencyThresholdOption.html">FrecencyThresholdOption</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaError.html">FxaError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaEvent.html">FxaEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaRustAuthState.html">FxaRustAuthState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaServer.html">FxaServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaState.html">FxaState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaStateCheckerEvent.html">FxaStateCheckerEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaStateCheckerState.html">FxaStateCheckerState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/GeonameMatchType.html">GeonameMatchType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/GeonameType.html">GeonameType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/HistoryMetadataPageMissingBehavior.html">HistoryMetadataPageMissingBehavior</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/IncomingDeviceCommand.html">IncomingDeviceCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InsertableBookmarkItem.html">InsertableBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InterruptKind.html">InterruptKind</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/JsonEngineMethod.html">JsonEngineMethod</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Level.html">Level</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/LoginOrErrorMessage.html">LoginOrErrorMessage</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/LoginsApiError.html">LoginsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/NimbusError.html">NimbusError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PlacesApiError.html">PlacesApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushApiError.html">PushApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushHttpProtocol.html">PushHttpProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteCommand.html">RemoteCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsError.html">RemoteSettingsError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsServer.html">RemoteSettingsServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchApiError.html">SearchApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchApplicationName.html">SearchApplicationName</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchDeviceType.html">SearchDeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchEngineClassification.html">SearchEngineClassification</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchUpdateChannel.html">SearchUpdateChannel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ServiceStatus.html">ServiceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestApiError.html">SuggestApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestProviderConfig.html">SuggestProviderConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Suggestion.html">Suggestion</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestionProvider.html">SuggestionProvider</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncEngineSelection.html">SyncEngineSelection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncManagerError.html">SyncManagerError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncReason.html">SyncReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/TabsApiError.html">TabsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/TracingLevel.html">TracingLevel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/VisitType.html">VisitType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/YelpSubjectType.html">YelpSubjectType</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Extensions.html">Extensions</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AccessTokenInfo">AccessTokenInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AccountEvent">AccountEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Address">Address</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AlternateNames">AlternateNames</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AmpMatchingStrategy">AmpMatchingStrategy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AppContext">AppContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AttachedClient">AttachedClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Attachment">Attachment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AuthorizationInfo">AuthorizationInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AuthorizationParameters">AuthorizationParameters</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/AvailableExperiment">AvailableExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkData">BookmarkData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkFolder">BookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkItem">BookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkPosition">BookmarkPosition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkSeparator">BookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BookmarkUpdateInfo">BookmarkUpdateInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BridgeType">BridgeType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/BulkResultEntry">BulkResultEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CalculatedAttributes">CalculatedAttributes</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ClientRemoteTabs">ClientRemoteTabs</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CloseTabsPayload">CloseTabsPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CloseTabsResult">CloseTabsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ConnectionType">ConnectionType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CreditCard">CreditCard</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CuratedRecommendationLocale">CuratedRecommendationLocale</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CuratedRecommendationsBucket">CuratedRecommendationsBucket</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CuratedRecommendationsConfig">CuratedRecommendationsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CuratedRecommendationsRequest">CuratedRecommendationsRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/CuratedRecommendationsResponse">CuratedRecommendationsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DecryptResponse">DecryptResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Device">Device</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DeviceCapability">DeviceCapability</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DeviceConfig">DeviceConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DevicePushSubscription">DevicePushSubscription</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DeviceSettings">DeviceSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DeviceType">DeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/DocumentType">DocumentType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Dummy">Dummy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/EnrolledExperiment">EnrolledExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/EnrollmentChangeEvent">EnrollmentChangeEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/EnrollmentChangeEventType">EnrollmentChangeEventType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/EnrollmentStatusExtraDef">EnrollmentStatusExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ExperimentBranch">ExperimentBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FakespotCta">FakespotCta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FakespotFeed">FakespotFeed</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FakespotProduct">FakespotProduct</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FeatureExposureExtraDef">FeatureExposureExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FeedSection">FeedSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Feeds">Feeds</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FrecencyThresholdOption">FrecencyThresholdOption</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FtsMatchInfo">FtsMatchInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaConfig">FxaConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaEvent">FxaEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaRustAuthState">FxaRustAuthState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaServer">FxaServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaState">FxaState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaStateCheckerEvent">FxaStateCheckerEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/FxaStateCheckerState">FxaStateCheckerState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Geoname">Geoname</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/GeonameAlternates">GeonameAlternates</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/GeonameMatch">GeonameMatch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/GeonameMatchType">GeonameMatchType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/GeonameType">GeonameType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryHighlight">HistoryHighlight</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryHighlightWeights">HistoryHighlightWeights</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryMetadata">HistoryMetadata</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryMetadataObservation">HistoryMetadataObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryMetadataPageMissingBehavior">HistoryMetadataPageMissingBehavior</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryMigrationResult">HistoryMigrationResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryVisitInfo">HistoryVisitInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/HistoryVisitInfosWithBound">HistoryVisitInfosWithBound</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/IncomingDeviceCommand">IncomingDeviceCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InsertableBookmark">InsertableBookmark</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InsertableBookmarkFolder">InsertableBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InsertableBookmarkItem">InsertableBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InsertableBookmarkSeparator">InsertableBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InterestPicker">InterestPicker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InterestPickerSection">InterestPickerSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/InterruptKind">InterruptKind</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/JsonEngineMethod">JsonEngineMethod</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/JsonEngineUrl">JsonEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/JsonEngineUrls">JsonEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/KeyInfo">KeyInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LabeledTimingSample">LabeledTimingSample</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Layout">Layout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Level">Level</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LocalDevice">LocalDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Login">Login</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LoginEntry">LoginEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LoginEntryWithMeta">LoginEntryWithMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LoginMeta">LoginMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/LoginOrErrorMessage">LoginOrErrorMessage</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/MalformedFeatureConfigExtraDef">MalformedFeatureConfigExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/NoteHistoryMetadataObservationOptions">NoteHistoryMetadataObservationOptions</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/PendingCommand">PendingCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Profile">Profile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/PushConfiguration">PushConfiguration</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/PushHttpProtocol">PushHttpProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/PushSubscriptionChanged">PushSubscriptionChanged</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/QueryWithMetricsResult">QueryWithMetricsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RecommendationDataItem">RecommendationDataItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Record">Record</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RefinedSearchConfig">RefinedSearchConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteCommand">RemoteCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsConfig">RemoteSettingsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsConfig2">RemoteSettingsConfig2</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsContext">RemoteSettingsContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsRecord">RemoteSettingsRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsResponse">RemoteSettingsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteSettingsServer">RemoteSettingsServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RemoteTabRecord">RemoteTabRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ResponsiveLayout">ResponsiveLayout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/RunMaintenanceMetrics">RunMaintenanceMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ScopedKey">ScopedKey</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchApplicationName">SearchApplicationName</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchDeviceType">SearchDeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchEngineClassification">SearchEngineClassification</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchEngineDefinition">SearchEngineDefinition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchEngineUrl">SearchEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchEngineUrls">SearchEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchResult">SearchResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchUpdateChannel">SearchUpdateChannel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchUrlParam">SearchUrlParam</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SearchUserEnvironment">SearchUserEnvironment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SectionSettings">SectionSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SendTabPayload">SendTabPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/ServiceStatus">ServiceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SubscriptionInfo">SubscriptionInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SubscriptionResponse">SubscriptionResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestGlobalConfig">SuggestGlobalConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestIngestionConstraints">SuggestIngestionConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestIngestionMetrics">SuggestIngestionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestProviderConfig">SuggestProviderConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Suggestion">Suggestion</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestionProvider">SuggestionProvider</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestionProviderConstraints">SuggestionProviderConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SuggestionQuery">SuggestionQuery</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SyncAuthInfo">SyncAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SyncEngineSelection">SyncEngineSelection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SyncParams">SyncParams</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SyncReason">SyncReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/SyncResult">SyncResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/TabHistoryEntry">TabHistoryEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/Tile">Tile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/TopFrecentSiteInfo">TopFrecentSiteInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/TracingEvent">TracingEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/TracingLevel">TracingLevel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/UpdatableAddressFields">UpdatableAddressFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/UpdatableCreditCardFields">UpdatableCreditCardFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/UserData">UserData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/VisitObservation">VisitObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/VisitType">VisitType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Extensions.html#/YelpSubjectType">YelpSubjectType</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Functions.html">Functions</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11checkCanary6canary4text13encryptionKeySbSS_S2StKF">checkCanary(canary:text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17createAutofillKeySSyKF">createAutofillKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12createCanary4text13encryptionKeyS2S_SStKF">createCanary(text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9createKeySSyKF">createKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36createLoginStoreWithStaticKeyManager4path3keyAA0dE0CSS_SStF">createLoginStoreWithStaticKeyManager(path:key:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents19createManagedEncdec10keyManagerAA18EncryptorDecryptor_pAA03KeyG0_p_tF">createManagedEncdec(keyManager:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents22createStaticKeyManager3keyAA0eF0_pSS_tF">createStaticKeyManager(key:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13decryptString3key10ciphertextS2S_SStKF">decryptString(key:ciphertext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13encryptString3key9cleartextS2S_SStKF">encryptString(key:cleartext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23getCalculatedAttributes16installationDate6dbPath6localeAA0dE0Vs5Int64VSg_S2StKF">getCalculatedAttributes(installationDate:dbPath:locale:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents10initializeyyF">initialize()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12placesApiNew6dbPathAA06PlacesD0CSS_tKF">placesApiNew(dbPath:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23rawSuggestionUrlMatches0cE006cookedE0SbSS_SStF">rawSuggestionUrlMatches(rawUrl:cookedUrl:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17registerEventSink6target5level4sinkySS_AA12TracingLevelOAA0dE0_ptF">registerEventSink(target:level:sink:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27setApplicationErrorReporter05errorF0yAA0deF0_p_tF">setApplicationErrorReporter(errorReporter:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9setLogger6loggeryAA011AppServicesD0_pSg_tF">setLogger(logger:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11setMaxLevel5levelyAA0E0O_tF">setMaxLevel(level:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustAbortyyF">triggerRustAbort()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustErroryyKF">triggerRustError()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustPanicyyF">triggerRustPanic()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31uniffiEnsureAutofillInitializedyyF">uniffiEnsureAutofillInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureContextIdInitializedyyF">uniffiEnsureContextIdInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureCrashtestInitializedyyF">uniffiEnsureCrashtestInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35uniffiEnsureErrorSupportInitializedyyF">uniffiEnsureErrorSupportInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureFxaClientInitializedyyF">uniffiEnsureFxaClientInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents020uniffiEnsureInitRustB11InitializedyyF">uniffiEnsureInitRustComponentsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureLoginsInitializedyyF">uniffiEnsureLoginsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureMerinoInitializedyyF">uniffiEnsureMerinoInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureNimbusInitializedyyF">uniffiEnsureNimbusInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsurePlacesInitializedyyF">uniffiEnsurePlacesInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27uniffiEnsurePushInitializedyyF">uniffiEnsurePushInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37uniffiEnsureRemoteSettingsInitializedyyF">uniffiEnsureRemoteSettingsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39uniffiEnsureRustLogForwarderInitializedyyF">uniffiEnsureRustLogForwarderInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureSearchInitializedyyF">uniffiEnsureSearchInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30uniffiEnsureSuggestInitializedyyF">uniffiEnsureSuggestInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureSync15InitializedyyF">uniffiEnsureSync15Initialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34uniffiEnsureSyncManagerInitializedyyF">uniffiEnsureSyncManagerInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27uniffiEnsureTabsInitializedyyF">uniffiEnsureTabsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37uniffiEnsureTracingSupportInitializedyyF">uniffiEnsureTracingSupportInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents19unregisterEventSink6targetySS_tF">unregisterEventSink(target:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29unsetApplicationErrorReporteryyF">unsetApplicationErrorReporter()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents20validateEventQueries15recordedContextyAA08RecordedG0_p_tKF">validateEventQueries(recordedContext:)</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Protocols.html">Protocols</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Protocols/AppServicesLogger.html">AppServicesLogger</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ApplicationErrorReporter.html">ApplicationErrorReporter</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ContextIdCallback.html">ContextIdCallback</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ContextIdComponentProtocol.html">ContextIdComponentProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/CuratedRecommendationsClientProtocol.html">CuratedRecommendationsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/EncryptorDecryptor.html">EncryptorDecryptor</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/EventSink.html">EventSink</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/FirefoxAccountProtocol.html">FirefoxAccountProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/FxaStateMachineCheckerProtocol.html">FxaStateMachineCheckerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/KeyManager.html">KeyManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/LoginStoreProtocol.html">LoginStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols.html#/s:15SwiftComponents33ManagedEncryptorDecryptorProtocolP">ManagedEncryptorDecryptorProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MetricsHandler.html">MetricsHandler</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusClientProtocol.html">NimbusClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusStringHelperProtocol.html">NimbusStringHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusTargetingHelperProtocol.html">NimbusTargetingHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesApiProtocol.html">PlacesApiProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesConnectionProtocol.html">PlacesConnectionProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PushManagerProtocol.html">PushManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RecordedContext.html">RecordedContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteCommandStoreProtocol.html">RemoteCommandStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsClientProtocol.html">RemoteSettingsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsProtocol.html">RemoteSettingsProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsServiceProtocol.html">RemoteSettingsServiceProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SearchEngineSelectorProtocol.html">SearchEngineSelectorProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SqlInterruptHandleProtocol.html">SqlInterruptHandleProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols.html#/s:15SwiftComponents24StaticKeyManagerProtocolP">StaticKeyManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/StoreProtocol.html">StoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreBuilderProtocol.html">SuggestStoreBuilderProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreProtocol.html">SuggestStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SyncManagerProtocol.html">SyncManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsBridgedEngineProtocol.html">TabsBridgedEngineProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsStoreProtocol.html">TabsStoreProtocol</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Structs.html">Structures</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Structs/AccessTokenInfo.html">AccessTokenInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Address.html">Address</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AlternateNames.html">AlternateNames</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AppContext.html">AppContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AttachedClient.html">AttachedClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Attachment.html">Attachment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationInfo.html">AuthorizationInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationParameters.html">AuthorizationParameters</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AvailableExperiment.html">AvailableExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkData.html">BookmarkData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkFolder.html">BookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkSeparator.html">BookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkUpdateInfo.html">BookmarkUpdateInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CalculatedAttributes.html">CalculatedAttributes</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ClientRemoteTabs.html">ClientRemoteTabs</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CloseTabsPayload.html">CloseTabsPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CreditCard.html">CreditCard</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsBucket.html">CuratedRecommendationsBucket</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsConfig.html">CuratedRecommendationsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsRequest.html">CuratedRecommendationsRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsResponse.html">CuratedRecommendationsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DecryptResponse.html">DecryptResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Device.html">Device</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceConfig.html">DeviceConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DevicePushSubscription.html">DevicePushSubscription</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceSettings.html">DeviceSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Dummy.html">Dummy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrolledExperiment.html">EnrolledExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentChangeEvent.html">EnrollmentChangeEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentStatusExtraDef.html">EnrollmentStatusExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ExperimentBranch.html">ExperimentBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotCta.html">FakespotCta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotFeed.html">FakespotFeed</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotProduct.html">FakespotProduct</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FeatureExposureExtraDef.html">FeatureExposureExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FeedSection.html">FeedSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Feeds.html">Feeds</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FtsMatchInfo.html">FtsMatchInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FxaConfig.html">FxaConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Geoname.html">Geoname</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeonameAlternates.html">GeonameAlternates</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeonameMatch.html">GeonameMatch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlight.html">HistoryHighlight</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlightWeights.html">HistoryHighlightWeights</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadata.html">HistoryMetadata</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadataObservation.html">HistoryMetadataObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMigrationResult.html">HistoryMigrationResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfo.html">HistoryVisitInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfosWithBound.html">HistoryVisitInfosWithBound</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmark.html">InsertableBookmark</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkFolder.html">InsertableBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkSeparator.html">InsertableBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InterestPicker.html">InterestPicker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InterestPickerSection.html">InterestPickerSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/JsonEngineUrl.html">JsonEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/JsonEngineUrls.html">JsonEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/KeyInfo.html">KeyInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LabeledTimingSample.html">LabeledTimingSample</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Layout.html">Layout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LocalDevice.html">LocalDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Login.html">Login</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginEntry.html">LoginEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginEntryWithMeta.html">LoginEntryWithMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginMeta.html">LoginMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MalformedFeatureConfigExtraDef.html">MalformedFeatureConfigExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/NoteHistoryMetadataObservationOptions.html">NoteHistoryMetadataObservationOptions</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PendingCommand.html">PendingCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Profile.html">Profile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushConfiguration.html">PushConfiguration</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushSubscriptionChanged.html">PushSubscriptionChanged</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/QueryWithMetricsResult.html">QueryWithMetricsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RecommendationDataItem.html">RecommendationDataItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Record.html">Record</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RefinedSearchConfig.html">RefinedSearchConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsConfig.html">RemoteSettingsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsConfig2.html">RemoteSettingsConfig2</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsContext.html">RemoteSettingsContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsRecord.html">RemoteSettingsRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsResponse.html">RemoteSettingsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteTabRecord.html">RemoteTabRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ResponsiveLayout.html">ResponsiveLayout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RunMaintenanceMetrics.html">RunMaintenanceMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ScopedKey.html">ScopedKey</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineDefinition.html">SearchEngineDefinition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineUrl.html">SearchEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineUrls.html">SearchEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchResult.html">SearchResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchUrlParam.html">SearchUrlParam</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchUserEnvironment.html">SearchUserEnvironment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SectionSettings.html">SectionSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SendTabPayload.html">SendTabPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionInfo.html">SubscriptionInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionResponse.html">SubscriptionResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestGlobalConfig.html">SuggestGlobalConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionConstraints.html">SuggestIngestionConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionMetrics.html">SuggestIngestionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionProviderConstraints.html">SuggestionProviderConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionQuery.html">SuggestionQuery</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncAuthInfo.html">SyncAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncParams.html">SyncParams</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncResult.html">SyncResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TabHistoryEntry.html">TabHistoryEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Tile.html">Tile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TopFrecentSiteInfo.html">TopFrecentSiteInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TracingEvent.html">TracingEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableAddressFields.html">UpdatableAddressFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableCreditCardFields.html">UpdatableCreditCardFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UserData.html">UserData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/VisitObservation.html">VisitObservation</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Typealiases.html">Type Aliases</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents10JsonObjecta">JsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9JsonValuea">JsonValue</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents12RsJsonObjecta">RsJsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents8TabsGuida">TabsGuid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9Timestampa">Timestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents16TracingJsonValuea">TracingJsonValue</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+        <section>
+          <section class="section">
+            <h1>EncryptorDecryptorImpl</h1>
+              <div class="declaration">
+                <div class="language">
+                  
+                  <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">class</span> <span class="kt">EncryptorDecryptorImpl</span> <span class="p">:</span> <span class="kt"><a href="../Protocols/EncryptorDecryptor.html">EncryptorDecryptor</a></span><span class="p">,</span> <span class="kd">@unchecked</span> <span class="kt">Sendable</span></code></pre>
+
+                </div>
+              </div>
+            
+          </section>
+          <section class="section task-group-section">
+            <div class="task-group">
+              <ul>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents22EncryptorDecryptorImplC20unsafeFromRawPointerACSv_tcfc"></a>
+                    <a name="//apple_ref/swift/Method/init(unsafeFromRawPointer:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents22EncryptorDecryptorImplC20unsafeFromRawPointerACSv_tcfc">init(unsafeFromRawPointer:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">required</span> <span class="kd">public</span> <span class="nf">init</span><span class="p">(</span><span class="n">unsafeFromRawPointer</span> <span class="nv">pointer</span><span class="p">:</span> <span class="kt">UnsafeMutableRawPointer</span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents22EncryptorDecryptorImplC7decrypt10ciphertext10Foundation4DataVAH_tKF"></a>
+                    <a name="//apple_ref/swift/Method/decrypt(ciphertext:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents22EncryptorDecryptorImplC7decrypt10ciphertext10Foundation4DataVAH_tKF">decrypt(ciphertext:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">decrypt</span><span class="p">(</span><span class="nv">ciphertext</span><span class="p">:</span> <span class="kt">Data</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Data</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents22EncryptorDecryptorImplC7encrypt9cleartext10Foundation4DataVAH_tKF"></a>
+                    <a name="//apple_ref/swift/Method/encrypt(cleartext:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents22EncryptorDecryptorImplC7encrypt9cleartext10Foundation4DataVAH_tKF">encrypt(cleartext:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">encrypt</span><span class="p">(</span><span class="nv">cleartext</span><span class="p">:</span> <span class="kt">Data</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Data</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </section>
+        <section id="footer">
+          <p>&copy; 2025 <a class="link" href="" target="_blank" rel="external noopener"></a>. All rights reserved. (Last updated: 2025-06-05)</p>
+          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external noopener">jazzy ♪♫ v0.15.3</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external noopener">Realm</a> project.</p>
+        </section>
+      </article>
+    </div>
+  </body>
+</html>
