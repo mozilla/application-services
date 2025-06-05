@@ -21,7 +21,7 @@ pub fn init_for_tests() {
     });
 }
 
-/// Like `init_for_tests` but uses the specified `level` is logging is not configured in the environment.
+/// Like `init_for_tests` but uses the specified `level` if logging is not configured in the environment.
 pub fn init_for_tests_with_level(level: crate::Level) {
     // This is intended to be equivalent to `env_logger::try_init().ok();`
     // `debug!()` output is seen. We could maybe add logging for `#[tracing::instrument]`?

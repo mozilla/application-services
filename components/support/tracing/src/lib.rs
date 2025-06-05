@@ -142,6 +142,7 @@ pub type Event = TracingEvent;
 pub struct TracingEvent {
     pub level: Level,
     pub target: String,
+    pub target_prefix: String,
     pub name: String,
     pub message: String,
     pub fields: serde_json::Value,

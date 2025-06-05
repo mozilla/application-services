@@ -79,6 +79,7 @@ where
                 let event = crate::Event {
                     level: level.into(),
                     target: target.to_string(),
+                    target_prefix: prefix.to_string(),
                     name: event.metadata().name().to_string(),
                     message,
                     fields: serde_json::to_value(&fields).unwrap_or_default(),
