@@ -138,6 +138,12 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
+    pub fn count_all(&self) -> Result<i64> {
+        let mut stmt = self.db.prepare_cached(&COUNT_ALL_SQL)?;
+        let count: i64 = stmt.query_row([], |row| row.get(0))?;
+        Ok(count)
+    }
+
     pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         // We first parse the input string as a host so it is normalized.
         let base_host = match Host::parse(base_domain) {
@@ -817,6 +823,13 @@ lazy_static! {
          SELECT {common_cols} FROM loginsM WHERE is_overridden = 0",
         common_cols = schema::COMMON_COLS,
     );
+    static ref COUNT_ALL_SQL: String = format!(
+        "SELECT COUNT (*) FROM (
+            SELECT guid FROM loginsL WHERE is_deleted = 0
+            UNION ALL
+            SELECT guid FROM loginsM WHERE is_overridden = 0
+         )"
+    );
     static ref GET_BY_GUID_SQL: String = format!(
         "SELECT {common_cols}
          FROM loginsL
@@ -1056,6 +1069,36 @@ mod tests {
 
         // one with a username, 1 without.
         assert_eq!(db.get_all().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_count_all() {
+        ensure_initialized();
+
+        let login_a = LoginEntry {
+            origin: "https://a.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let login_b = LoginEntry {
+            origin: "https://b.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+
+        db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
+            .expect("should be able to add logins");
+
+        let count = db.count_all().expect("should work");
+
+        assert_eq!(count, 2);
     }
 
     #[test]
