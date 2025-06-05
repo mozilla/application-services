@@ -6,12 +6,16 @@ license = "MPL-2.0"
 
 [dependencies]
 base64 = "0.22.1"
-clap = { version = "4.5.36", features = ["derive"] }
+clap = { version = "4.5.36", features = ["derive"], optional = true }
 error-support = { path = "../support/error" }
 md-5 = "0.10"
-regex = "1.11.1"
+regex = "1"
 thiserror = "1.0"
 uniffi = { version = "0.29.0" }
 
 [[bin]]
 name = "import-site-list"
+required-features = ["build-binary"]
+
+[features]
+build-binary = ["clap"]
