@@ -6,6 +6,7 @@
 
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
+- add `count()` method to return the number of logins
 
 [Full Changelog](In progress)
 
