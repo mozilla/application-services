@@ -5,7 +5,7 @@ Java, or Swift might have to write debug logs. To do so, one should generally
 log using the normal logging facilities for the language. Where the logs go
 depends on the application which is embedding the components.
 
-### Accessing logs when running Fenix
+### Accessing logs when running Firefox Android
 
 On android, logs currently go to logcat. (This may change in the future.)
 Android Studio can be used to view the logcat logs; connect the device over USB
@@ -20,12 +20,23 @@ There are also many other utilities, command line and graphical, that can be
 used to view logcat logs from a connected android device in a more flexible
 manner.
 
-#### Changing the loglevel in Fenix
+#### Changing the loglevel in Firefox Android
 
 If you need more verbose logging, after the call to `RustLog.enable()` in
 `FenixApplication`, you may call `RustLog.setMaxLevel(Log.Priority.DEBUG,
 true)`.
 
-### Accessing logs when running iOS
+### Accessing logs when running Firefox iOS
+
+If you're using `Xcode`, then you can view the logs in the debugger.
+
+If you're not using `Xcode`, then:
+
+* Navigate to the settings page
+* tap the version number 5 times to get to the secret menu
+* Select "copy log files to container"
+* Find the logs on your files folder
+
+### Accessing logs when running Firefox Desktop
 
 [TODO]
