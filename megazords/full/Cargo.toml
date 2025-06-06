@@ -31,3 +31,4 @@ tracing-support = { path = "../../components/support/tracing" }
 lazy_static = "1.4"
 init_rust_components = { path = "../../components/init_rust_components" }
 merino = { path = "../../components/merino" }
+relay = { path = "../../components/relay" }
