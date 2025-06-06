@@ -105,6 +105,7 @@ default-members = [
     "components/nimbus",
     "components/places",
     "components/push",
+    "components/relay",
     "components/remote_settings",
     "components/search",
     "components/relevancy",

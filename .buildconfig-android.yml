@@ -158,3 +158,10 @@ projects:
     - name: merino
       type: aar
     description: A client for merino APIs
+  relay:
+    path: components/relay/android
+    artifactId: relay
+    publications:
+    - name: relay
+      type: aar
+    description: Client for Firefox Relay.
