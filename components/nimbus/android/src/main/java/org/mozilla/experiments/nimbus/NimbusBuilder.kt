@@ -6,9 +6,9 @@ package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
+import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 
@@ -103,26 +103,14 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * network. This is to allow the networking stack to be initialized after this method is called
      * and the networking stack to be involved in experiments.
      */
-    fun build(appInfo: NimbusAppInfo): T {
-        // Eventually we'll want to use `NimbusDisabled` when we have no NIMBUS_ENDPOINT.
-        // but we keep this here to not mix feature flags and how we configure Nimbus.
-        val serverSettings: NimbusServerSettings? = if (!url.isNullOrBlank()) {
-            if (usePreviewCollection) {
-                NimbusServerSettings(url = Uri.parse(url), collection = "nimbus-preview")
-            } else {
-                NimbusServerSettings(url = Uri.parse(url))
-            }
-        } else {
-            null
-        }
-
+    fun build(appInfo: NimbusAppInfo, collectionName: String?, remoteSettingsService: RemoteSettingsService?): T {
         // Is the app being built locally, and the nimbus-cli
         // hasn't been used before this run.
         fun NimbusInterface.isLocalBuild() = url.isNullOrBlank() && isFetchEnabled()
 
         @Suppress("TooGenericExceptionCaught")
         return try {
-            newNimbus(appInfo, serverSettings).apply {
+            newNimbus(appInfo, collectionName, remoteSettingsService).apply {
                 // Apply any experiment recipes we downloaded last time, or
                 // if this is the first time, we load the ones bundled in the res/raw
                 // directory.
@@ -163,7 +151,8 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      */
     protected abstract fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?,
+        collectionName: String?,
+        remoteSettingsService: RemoteSettingsService?,
     ): T
 
     /**
@@ -218,17 +207,18 @@ private class Observer(
 }
 
 class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
-    override fun newNimbus(appInfo: NimbusAppInfo, serverSettings: NimbusServerSettings?) =
+    override fun newNimbus(appInfo: NimbusAppInfo, collectionName: String?, remoteSettingsService: RemoteSettingsService?) =
         Nimbus(
             context,
             appInfo = appInfo,
             prefs = sharedPreferences,
             coenrollingFeatureIds = getCoenrollingFeatureIds(),
-            server = serverSettings,
             deviceInfo = createDeviceInfo(),
             delegate = createDelegate(),
             observer = createObserver(),
             recordedContext = recordedContext,
+            collectionName = collectionName,
+            remoteSettingsService = remoteSettingsService,
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)
