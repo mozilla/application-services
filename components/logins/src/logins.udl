@@ -214,6 +214,10 @@ interface LoginStore {
     [Throws=LoginsApiError, Self=ByArc]
     void delete_undecryptable_records_for_remote_replacement();
 
+    /// Locally delete many records identified by id. These deletion will not propagate via sync.
+    [Throws=LoginsApiError, Self=ByArc]
+    void delete_local_records_for_remote_replacement(sequence<string> ids);
+
     [Throws=LoginsApiError]
     void touch([ByRef] string id);
 

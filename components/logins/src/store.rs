@@ -178,6 +178,20 @@ impl LoginStore {
         Ok(())
     }
 
+    // Note we need to receive a vector of String here because `Vec<&str>` is not supported
+    // with UDL.
+    #[handle_error(Error)]
+    pub fn delete_local_records_for_remote_replacement(
+        self: Arc<Self>,
+        ids: Vec<String>,
+    ) -> ApiResult<()> {
+        let ids: Vec<&str> = ids.iter().map(|id| &**id).collect();
+        self.db
+            .lock()
+            .delete_local_records_for_remote_replacement(ids)?;
+        Ok(())
+    }
+
     #[handle_error(Error)]
     pub fn wipe_local(&self) -> ApiResult<()> {
         self.db.lock().wipe_local()?;

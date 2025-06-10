@@ -6,6 +6,7 @@
 
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
+- expose `delete_local_records_for_remote_replacement(ids)` to be used during desktop's rolling migration
 
 [Full Changelog](In progress)
 
