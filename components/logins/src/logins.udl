@@ -188,6 +188,9 @@ interface LoginStore {
     [Throws=LoginsApiError]
     boolean delete([ByRef] string id);
 
+    [Throws=LoginsApiError, Self=ByArc]
+    sequence<boolean> delete_many(sequence<string> ids);
+
     /// Clear out locally stored logins data
     ///
     /// If sync is enabled, then we will try to recover the data on the next sync.
