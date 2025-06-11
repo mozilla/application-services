@@ -166,6 +166,14 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn delete_many(&self, ids: Vec<String>) -> ApiResult<Vec<bool>> {
+        // Note we need to receive a vector of String here because `Vec<&str>` is not supported
+        // with UDL.
+        let ids: Vec<&str> = ids.iter().map(|id| &**id).collect();
+        self.db.lock().delete_many(ids)
+    }
+
+    #[handle_error(Error)]
     pub fn delete_undecryptable_records_for_remote_replacement(self: Arc<Self>) -> ApiResult<()> {
         // This function was created for the iOS logins verification logic that will
         // remove records that prevent logins syncing. Once the verification logic is
