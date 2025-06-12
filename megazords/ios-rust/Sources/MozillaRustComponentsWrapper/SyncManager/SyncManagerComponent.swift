@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import Glean
 
 open class SyncManagerComponent {
     private var api: SyncManager
@@ -28,5 +29,17 @@ open class SyncManagerComponent {
             let telemetry = try RustSyncTelemetryPing.fromJSONString(jsonObjectText: json)
             try processSyncTelemetry(syncTelemetry: telemetry)
         }
+    }
+
+    public static func reportOpenSyncSettingsMenuTelemetry() {
+        GleanMetrics.SyncSettings.openMenu.record()
+    }
+
+    public static func reportSaveSyncSettingsTelemetry(enabledEngines: [String], disabledEngines: [String]) {
+        let enabledList = enabledEngines.isEmpty ? nil : enabledEngines.joined(separator: ",")
+        let disabledList = disabledEngines.isEmpty ? nil : disabledEngines.joined(separator: ",")
+        let extras = GleanMetrics.SyncSettings.SaveExtra(disabledEngines: disabledList, enabledEngines: enabledList)
+
+        GleanMetrics.SyncSettings.save.record(extras)
     }
 }

@@ -13,6 +13,7 @@ import mozilla.telemetry.glean.private.StringMetricType
 import org.json.JSONException
 import org.json.JSONObject
 import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
+import org.mozilla.appservices.syncmanager.GleanMetrics.SyncSettings
 import org.mozilla.appservices.syncmanager.GleanMetrics.AddressesSyncV2 as AddressesSync
 import org.mozilla.appservices.syncmanager.GleanMetrics.BookmarksSyncV2 as BookmarksSync
 import org.mozilla.appservices.syncmanager.GleanMetrics.CreditcardsSyncV2 as CreditcardsSync
@@ -484,5 +485,20 @@ object SyncTelemetry {
             errors.add(InvalidTelemetryException.InvalidEvents(e))
         }
         return errors
+    }
+
+    fun processOpenSyncSettingsMenuTelemetry() {
+        SyncSettings.openMenu.record()
+    }
+
+    fun processSaveSyncSettingsTelemetry(enabledEngines: List<String>, disabledEngines: List<String>) {
+        val enabledList = if (enabledEngines.any()) enabledEngines.joinToString(separator = ",") else null
+        val disabledList = if (disabledEngines.any()) disabledEngines.joinToString(separator = ",") else null
+        val extras = SyncSettings.SaveExtra(
+            disabledEngines = disabledList,
+            enabledEngines = enabledList,
+        )
+
+        SyncSettings.save.record(extras)
     }
 }
