@@ -274,4 +274,24 @@ class SyncManagerTelemetryTests: XCTestCase {
                                   submitCreditCardsPing: submitCreditCardsPing,
                                   submitTabsPing: submitTabsPing)
     }
+
+    func testReceivesOpenSyncSettingsMenuTelemetry() {
+        SyncManagerComponent.reportOpenSyncSettingsMenuTelemetry()
+        let events = GleanMetrics.SyncSettings.openMenu.testGetValue()!
+        XCTAssertEqual(1, events.count)
+        XCTAssertEqual("sync_settings", events[0].category)
+        XCTAssertEqual("open_menu", events[0].name)
+    }
+
+    func testReceivesSaveSyncSettingsTelemetry() {
+        let enabledEngines = ["bookmarks", "tabs"]
+        let disabledEngines = ["logins"]
+        SyncManagerComponent.reportSaveSyncSettingsTelemetry(enabledEngines: enabledEngines, disabledEngines: disabledEngines)
+        let events = GleanMetrics.SyncSettings.save.testGetValue()!
+        XCTAssertEqual(1, events.count)
+        XCTAssertEqual("sync_settings", events[0].category)
+        XCTAssertEqual("save", events[0].name)
+        XCTAssertEqual("bookmarks,tabs", events[0].extra!["enabled_engines"])
+        XCTAssertEqual("logins", events[0].extra!["disabled_engines"])
+    }
 }
