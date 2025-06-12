@@ -31,14 +31,14 @@ impl ContextIDComponent {
     ///
     /// If no creation timestamp is provided, the current time will be used.
     #[uniffi::constructor]
-    #[handle_error(Error)]
+
     pub fn new(
         init_context_id: &str,
         creation_timestamp_s: i64,
         running_in_test_automation: bool,
         callback: Box<dyn ContextIdCallback>,
-    ) -> ApiResult<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             inner: Mutex::new(ContextIDComponentInner::new(
                 init_context_id,
                 creation_timestamp_s,
@@ -46,8 +46,8 @@ impl ContextIDComponent {
                 callback,
                 Utc::now(),
                 Box::new(SimpleMARSClient::new()),
-            )?),
-        })
+            )),
+        }
     }
 
     /// Return the current context ID string.
@@ -91,7 +91,7 @@ impl ContextIDComponentInner {
         callback: Box<dyn ContextIdCallback>,
         now: DateTime<Utc>,
         mars_client: Box<dyn MARSClient>,
-    ) -> Result<Self> {
+    ) -> Self {
         // Some historical context IDs are stored within opening and closing
         // braces, and our endpoints have tolerated this, but ideally we'd
         // send without the braces, so we strip any off here.
@@ -136,7 +136,7 @@ impl ContextIDComponentInner {
             instance.persist();
         }
 
-        Ok(instance)
+        instance
     }
 
     pub fn request(&mut self, rotation_days: u8, now: DateTime<Utc>) -> Result<String> {
@@ -246,8 +246,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We should have left the context_id and creation_timestamp
             // untouched if a creation_timestamp was passed.
@@ -267,8 +266,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // If 0 was passed as the creation_timestamp, we'll interpret that
             // as there having been no stored creation_timestamp. In that case,
@@ -289,8 +287,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
@@ -309,8 +306,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
@@ -329,8 +325,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
@@ -349,8 +344,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
@@ -370,8 +364,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect neither the UUID nor creation_timestamp to have been changed.
             assert_eq!(component.context_id, TEST_CONTEXT_ID);
@@ -421,8 +414,7 @@ mod tests {
                 Box::new(callback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect neither the UUID nor creation_timestamp to have been changed.
             assert_eq!(component.context_id, TEST_CONTEXT_ID);
@@ -480,8 +472,7 @@ mod tests {
                 Box::new(callback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             component.force_rotation(*FAKE_NOW);
             assert!(Uuid::parse_str(&component.request(2, *FAKE_NOW).unwrap()).is_ok());
@@ -513,8 +504,7 @@ mod tests {
                 Box::new(DefaultContextIdCallback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             // We expect to be storing TEST_CONTEXT_ID, and to return
             // TEST_CONTEXT_ID without the braces.
@@ -560,8 +550,7 @@ mod tests {
                 Box::new(callback),
                 *FAKE_NOW,
                 mars,
-            )
-            .unwrap();
+            );
 
             component.force_rotation(*FAKE_NOW);
 
