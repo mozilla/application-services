@@ -104,6 +104,13 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
             {{- f|quoted }}
             {%- if !loop.last %}, {% endif %}
             {%- endfor %})
+
+    override fun getPrefs(): Map<String, String> =
+        mapOf(
+            {%- for f in self.fm.iter_prefs() %}
+            {{ f.branch()|quoted }} to {{ f.key()|quoted }}{% if !loop.last %},{% endif %}
+        {% endfor %})
+
     /**
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in
      * default values.

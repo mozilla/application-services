@@ -17,6 +17,8 @@ pub enum FMLError {
     UrlError(#[from] url::ParseError),
     #[error("Email Error: {0}")]
     EmailError(#[from] email_address::Error),
+    #[error("Regex Error: {0}")]
+    RegexError(#[from] regex::Error),
 
     #[error("Fetch Error: {0}")]
     FetchError(#[from] reqwest::Error),
