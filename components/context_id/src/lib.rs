@@ -117,7 +117,7 @@ impl ContextIDComponentInner {
                 (false, secs) if secs > 0 => (
                     DateTime::<Utc>::from_timestamp(secs, 0).unwrap_or(now),
                     false,
-                    false
+                    false,
                 ),
                 // Pre-existing context ID with zero timestamp then use current time, no rotation needed
                 (false, 0) => (now, false, false),
@@ -132,7 +132,6 @@ impl ContextIDComponentInner {
             mars_client,
             running_in_test_automation,
         };
-
 
         if force_rotation {
             instance.force_rotation(creation_timestamp)
