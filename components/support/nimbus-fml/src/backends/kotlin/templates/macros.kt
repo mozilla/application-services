@@ -55,7 +55,7 @@ private constructor(
    val {{ prop_kt }}: {{ type_kt }}
       get() =
          {%- let prefs = "it" %}
-         {%- let key = p.pref_key().unwrap() %}
+         {%- let key = p.pref().unwrap().key() %}
          {% call prefs() %}?.let {
             if ({{ prefs }}.contains({{ key|quoted }})) {
                try {

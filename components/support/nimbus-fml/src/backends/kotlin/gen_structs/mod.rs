@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::intermediate_representation::PropDef;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
+    intermediate_representation::{FeatureDef, FeatureManifest, PrefDef, TypeFinder},
 };
 
 mod bundled;
@@ -75,6 +75,16 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
         self.fm.iter_feature_defs().collect::<_>()
+    }
+
+    #[allow(unused)]
+    pub fn iter_prefs(&self) -> Vec<&PrefDef> {
+        self.fm.iter_prefs().collect::<_>()
+    }
+
+    #[allow(unused)]
+    pub fn iter_prefs_with_feature(&self) -> Vec<(&PrefDef, String)> {
+        self.fm.iter_prefs_with_feature().collect::<_>()
     }
 
     pub fn initialization_code(&self) -> Vec<String> {

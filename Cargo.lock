@@ -3245,6 +3245,7 @@ dependencies = [
  "itertools 0.14.0",
  "jsonschema",
  "lazy_static",
+ "regex",
  "reqwest 0.11.18",
  "serde",
  "serde_json",

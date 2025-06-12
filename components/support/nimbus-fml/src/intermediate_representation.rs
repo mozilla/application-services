@@ -13,7 +13,7 @@ use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum TargetLanguage {
@@ -325,6 +325,7 @@ impl FeatureManifest {
         for feature_def in self.iter_feature_defs() {
             validator.validate_feature_def(feature_def)?;
         }
+        validator.validate_prefs(self)?;
         Ok(())
     }
 
@@ -369,6 +370,18 @@ impl FeatureManifest {
 
     pub fn iter_feature_defs(&self) -> impl Iterator<Item = &FeatureDef> {
         self.feature_defs.values()
+    }
+
+    pub fn iter_prefs(&self) -> impl Iterator<Item = &PrefDef> {
+        self.iter_feature_defs()
+            .filter(|f| f.has_prefs())
+            .flat_map(|f| f.iter_prefs().map(|p| p.0))
+    }
+
+    pub fn iter_prefs_with_feature(&self) -> impl Iterator<Item = (&PrefDef, String)> {
+        self.iter_feature_defs()
+            .filter(|f| f.has_prefs())
+            .flat_map(|f| f.iter_prefs())
     }
 
     pub fn iter_all_feature_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
@@ -560,6 +573,19 @@ impl FeatureDef {
     pub fn get_prop(&self, name: &str) -> Option<&PropDef> {
         self.props.iter().find(|p| p.name == name)
     }
+
+    pub fn iter_prefs(&self) -> impl Iterator<Item = (&PrefDef, String)> {
+        self.props
+            .iter()
+            .filter_map(|p| {
+                if p.has_prefs() && p.pref.is_some() {
+                    p.pref.as_ref()
+                } else {
+                    None
+                }
+            })
+            .map(|p| (p, self.name()))
+    }
 }
 
 impl TypeFinder for FeatureDef {
@@ -650,6 +676,37 @@ impl TypeFinder for ObjectDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PrefBranch {
+    Default,
+    User,
+}
+
+impl Display for PrefBranch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrefBranch::Default => f.write_str("default"),
+            PrefBranch::User => f.write_str("user"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PrefDef {
+    pub(crate) key: String,
+    pub(crate) branch: PrefBranch,
+}
+
+impl PrefDef {
+    pub fn key(&self) -> String {
+        self.key.clone()
+    }
+    pub fn branch(&self) -> PrefBranch {
+        self.branch.clone()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropDef {
     pub(crate) name: String,
     pub(crate) doc: String,
@@ -658,7 +715,7 @@ pub struct PropDef {
     pub(crate) default: Literal,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) pref_key: Option<String>,
+    pub(crate) pref: Option<PrefDef>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) string_alias: Option<TypeRef>,
@@ -678,10 +735,10 @@ impl PropDef {
         self.default.clone()
     }
     pub fn has_prefs(&self) -> bool {
-        self.pref_key.is_some() && self.typ.supports_prefs()
+        self.pref.is_some() && self.typ.supports_prefs()
     }
-    pub fn pref_key(&self) -> Option<String> {
-        self.pref_key.clone()
+    pub fn pref(&self) -> Option<PrefDef> {
+        self.pref.clone()
     }
 }
 
