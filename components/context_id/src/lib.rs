@@ -134,11 +134,10 @@ impl ContextIDComponentInner {
         };
 
         if force_rotation {
+            // force_rotation will cause a implicit persist
             instance.force_rotation(creation_timestamp)
-        }
-
-        // We only need to persist these if we just generated one.
-        if generated_context_id || generated_creation_timestamp {
+        } else if generated_context_id || generated_creation_timestamp {
+            // We only need to persist these if we just generated one.
             instance.persist();
         }
 
