@@ -159,7 +159,7 @@ impl ContextIDComponentInner {
         Ok(self.context_id.clone())
     }
 
-    pub fn rotate_context_id(&mut self, now: DateTime<Utc>) {
+    fn rotate_context_id(&mut self, now: DateTime<Utc>) {
         let original_context_id = self.context_id.clone();
 
         self.context_id = Uuid::new_v4().to_string();
