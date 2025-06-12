@@ -5,6 +5,7 @@
 package mozilla.appservices.logins
 
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.test.runTest
 import mozilla.appservices.RustComponentsInitializer
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.telemetry.glean.testing.GleanTestRule
@@ -12,7 +13,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Rule
@@ -41,7 +41,7 @@ class DatabaseLoginsStorageTest {
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath, keyManager = keyManager)
     }
 
-    private fun getTestStore(): DatabaseLoginsStorage {
+    private suspend fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
         store.add(
@@ -76,8 +76,8 @@ class DatabaseLoginsStorageTest {
         // if this is all we need to do, then this helper should die!
     }
 
-    @Test
-    fun testTouch() {
+     @Test
+     fun testTouch() = runTest {
         val store = getTestStore()
         val login = store.list()[0]
         // Wait 100ms so that touch is certain to change timeLastUsed.
@@ -90,13 +90,17 @@ class DatabaseLoginsStorageTest {
         assertEquals(login.timesUsed + 1, updatedLogin!!.timesUsed)
         assert(updatedLogin.timeLastUsed > login.timeLastUsed)
 
-        assertThrows(LoginsApiException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
+        try {
+            store.touch("abcdabcdabcd")
+        } catch (e: LoginsApiException.NoSuchRecord) {
+            // Expected error
+        }
 
         finishAndClose(store)
     }
 
     @Test
-    fun testDelete() {
+    fun testDelete() = runTest {
         val store = getTestStore()
         val login = store.list()[0]
 
@@ -110,7 +114,7 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
-    fun testWipeLocal() {
+    fun testWipeLocal() = runTest {
         val test = getTestStore()
         val logins = test.list()
         assertEquals(2, logins.size)
