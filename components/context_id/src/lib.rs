@@ -109,27 +109,34 @@ impl ContextIDComponentInner {
             },
         };
 
-        let (creation_timestamp, generated_creation_timestamp) = if generated_context_id {
-            // If we had to generate a UUID, also force a new timestamp.
-            (now, true)
-        } else {
-            match creation_timestamp_s {
-                secs if secs > 0 => (
-                    DateTime::<Utc>::from_timestamp(secs, 0)
-                        .ok_or(Error::InvalidTimestamp { timestamp: secs })?,
+        let (creation_timestamp, generated_creation_timestamp, force_rotation) =
+            match (generated_context_id, creation_timestamp_s) {
+                // We generated a new context ID then we need a fresh timestamp and no rotation needed
+                (true, _) => (now, true, false),
+                // Pre-existing context ID with valid timestamp then use timestamp and no rotation needed
+                (false, secs) if secs > 0 => (
+                    DateTime::<Utc>::from_timestamp(secs, 0).unwrap_or(now),
                     false,
+                    false
                 ),
-                _ => (now, true),
-            }
-        };
+                // Pre-existing context ID with zero timestamp then use current time, no rotation needed
+                (false, 0) => (now, false, false),
+                // Pre-existing context ID but INVALID timestamp then use current time but FORCE rotation
+                (false, _) => (now, false, true),
+            };
 
-        let instance = Self {
+        let mut instance = Self {
             context_id,
             creation_timestamp,
             callback_handle: RwLock::new(callback),
             mars_client,
             running_in_test_automation,
         };
+
+
+        if force_rotation {
+            instance.force_rotation(creation_timestamp)
+        }
 
         // We only need to persist these if we just generated one.
         if generated_context_id || generated_creation_timestamp {
