@@ -114,7 +114,7 @@ impl ContextIDComponentInner {
                 // We generated a new context ID then we need a fresh timestamp and no rotation needed
                 (true, _) => (now, true, false),
                 // Pre-existing context ID with a positive timestamp:
-                // try parsing it (any real UNIX-epoch timestamp is orders of magnitude within chrono’s 262 000-year range),
+                // try parsing it (any real UNIX-epoch timestamp is orders of magnitude within chrono’s 262_000-year range),
                 // and if it’s somehow out-of-range fall back to `now`  and force rotation
                 // See: https://docs.rs/chrono/latest/chrono/naive/struct.NaiveDateTime.html#panics
                 (false, secs) if secs > 0 => DateTime::<Utc>::from_timestamp(secs, 0)
@@ -458,7 +458,7 @@ mod tests {
     fn test_context_id_with_out_of_range_creation_date() {
         with_test_mars(|mars, delete_called| {
             let spy = SpyCallback::new();
-            // Way beyond chrono’s 262.000 syear range
+            // Way beyond chrono’s 262_000-year range
             let huge_secs = i64::MAX;
             let component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
