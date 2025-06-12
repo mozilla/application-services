@@ -7,6 +7,9 @@
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 
+### Sync Manager
+- Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)
