@@ -11,7 +11,7 @@ public class {{ inner.name()|class_name }}  {% call kt::render_constructor() %} 
             listOf(
             {%- for p in inner.props() %}
             {%- if p.has_prefs() %}
-                {{ p.pref_key().unwrap()|quoted }},
+                {{ p.pref().unwrap().key()|quoted }},
             {%- endif %}
             {%- endfor %}
             ).any { prefs.contains(it) }

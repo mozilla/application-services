@@ -8,7 +8,32 @@ use crate::{
     error::Result,
     intermediate_representation::{EnumDef, ObjectDef},
 };
+use regex::Regex;
 use std::collections::{BTreeMap, HashSet};
+
+const DISALLOWED_PREFS: &[(&str, &str)] = &[
+    (
+        r#"app\.shield\.optoutstudies\.enabled"#,
+        "disabling Nimbus causes immediate unenrollment",
+    ),
+    (
+        r#"datareporting\.healthreport\.uploadEnabled"#,
+        "disabling telemetry causes immediate unenrollment",
+    ),
+    (
+        r#"services\.settings\.server"#,
+        "changing the Remote Settings endpoint will break clients",
+    ),
+    (
+        r#"messaging-system\.rsexperimentloader\.collection"#,
+        "changing the Nimbus collection will break clients",
+    ),
+    (r#"nimbus\.debug"#, "internal Nimbus preference for QA"),
+    (
+        r#"security\.turn_off_all_security_so_that_viruses_can_take_over_this_computer"#,
+        "this pref is automation-only and is unsafe to enable outside tests",
+    ),
+];
 
 pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
@@ -47,6 +72,7 @@ impl<'a> SchemaValidator<'a> {
         Ok(())
     }
 
+    #[allow(deprecated)]
     pub(crate) fn validate_feature_def(&self, feature_def: &FeatureDef) -> Result<()> {
         let feat_nm = &feature_def.name;
         let mut string_aliases: HashSet<_> = Default::default();
@@ -60,8 +86,25 @@ impl<'a> SchemaValidator<'a> {
             // Check the types exist for this property.
             self.validate_type_ref(&path, prop_t)?;
 
+            // Check pref is not in the disallowed prefs list.
+            if let Some(pref) = &prop.pref {
+                for (pref_str, error) in DISALLOWED_PREFS {
+                    let regex = Regex::new(pref_str)?;
+                    if regex.is_match(&pref.key()) {
+                        return Err(FMLError::ValidationError(
+                            path,
+                            format!(
+                                "Cannot use pref `{}` in experiments, reason: {}",
+                                pref.key(),
+                                error
+                            ),
+                        ));
+                    }
+                }
+            }
+
             // Check pref support for this type.
-            if prop.pref_key.is_some() && !prop.typ.supports_prefs() {
+            if prop.pref.is_some() && !prop.typ.supports_prefs() {
                 return Err(FMLError::ValidationError(
                     path,
                     "Pref keys can only be used with Boolean, String, Int and Text variables"
@@ -198,7 +241,7 @@ mod manifest_schema {
 
     use super::*;
     use crate::error::Result;
-    use crate::intermediate_representation::PropDef;
+    use crate::intermediate_representation::{PrefBranch, PropDef};
 
     #[test]
     fn validate_enum_type_ref_doesnt_match_def() -> Result<()> {
@@ -371,6 +414,29 @@ mod manifest_schema {
         validator
             .validate_feature_def(&fm)
             .expect_err("Should fail since we can't have nested optionals");
+        Ok(())
+    }
+
+    #[test]
+    fn validate_disallowed_pref_fails() -> Result<()> {
+        let enums = Default::default();
+        let objs = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs);
+        let fm = FeatureDef::new(
+            "some_def",
+            "test doc",
+            vec![PropDef::new_with_pref(
+                "prop name",
+                &TypeRef::String,
+                &json!(null),
+                "app.shield.optoutstudies.enabled",
+                PrefBranch::User,
+            )],
+            false,
+        );
+        validator
+            .validate_feature_def(&fm)
+            .expect_err("Should fail since we can't use that pref for experimentation");
         Ok(())
     }
 }

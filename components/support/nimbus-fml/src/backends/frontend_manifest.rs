@@ -140,9 +140,10 @@ impl From<PropDef> for FieldBody {
 }
 
 impl From<PropDef> for FeatureFieldBody {
+    #[allow(deprecated)]
     fn from(value: PropDef) -> Self {
         Self {
-            pref_key: value.pref_key.clone(),
+            pref: value.pref.clone(),
             string_alias: value.string_alias.as_ref().map(TypeRef::to_string),
             field: value.into(),
         }

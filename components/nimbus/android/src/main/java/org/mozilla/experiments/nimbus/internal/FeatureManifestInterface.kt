@@ -43,4 +43,6 @@ interface FeatureManifestInterface<T> {
     fun getFeature(featureId: String): FeatureHolder<*>?
 
     fun getCoenrollingFeatureIds(): List<String>
+
+    fun getPrefs(): Map<String, String>
 }
