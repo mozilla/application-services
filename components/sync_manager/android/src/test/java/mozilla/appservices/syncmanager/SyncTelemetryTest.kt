@@ -29,6 +29,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.appservices.syncmanager.GleanMetrics.Pings
+import org.mozilla.appservices.syncmanager.GleanMetrics.SyncSettings
 import java.util.Date
 import java.util.UUID
 import org.mozilla.appservices.syncmanager.GleanMetrics.BookmarksSyncV2 as BookmarksSync
@@ -1272,5 +1273,27 @@ class SyncTelemetryTest {
 
     private fun MutableMap<String, Int>.incrementForKey(key: String) {
         this[key] = 1 + this.getOrElse(key, { 0 })
+    }
+
+    @Test
+    fun `checks received open sync settings menu telemetry when it should`() {
+        SyncTelemetry.processOpenSyncSettingsMenuTelemetry()
+        val events = SyncSettings.openMenu.testGetValue()!!
+        assertEquals(1, events.size)
+        assertEquals("sync_settings", events.elementAt(0).category)
+        assertEquals("open_menu", events.elementAt(0).name)
+    }
+
+    @Test
+    fun `checks received save sync settings telemetry when it should`() {
+        val enabledEngines = listOf<String>("bookmarks", "tabs")
+        val disabledEngines = listOf<String>("logins")
+        SyncTelemetry.processSaveSyncSettingsTelemetry(enabledEngines, disabledEngines)
+        val events = SyncSettings.save.testGetValue()!!
+        assertEquals(1, events.size)
+        assertEquals("sync_settings", events.elementAt(0).category)
+        assertEquals("save", events.elementAt(0).name)
+        assertEquals("bookmarks,tabs", events.elementAt(0).extra!!["enabled_engines"])
+        assertEquals("logins", events.elementAt(0).extra!!["disabled_engines"])
     }
 }

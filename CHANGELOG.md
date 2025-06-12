@@ -12,6 +12,9 @@
 - The `ContextIDComponent` constructor can now synchronously invoke the rotation callback when it receives an invalid timestamp from callers; in such cases, it falls back to the current timestamp and forces an ID rotation.
 - `rotate_context_id` is no longer public since consumers can use `force_rotation` instead.
 
+### Sync Manager
+- Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)

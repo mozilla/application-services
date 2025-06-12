@@ -1017,3 +1017,41 @@ fxa_tab_v2:
       - sync-team@mozilla.com
       - skhamis@mozilla.com
     expires: never
+
+sync_settings:
+  open_menu:
+    type: event
+    description: |
+      Records when the user opens the choose sync settings menu.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/SYNC-4792
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/6786#issuecomment-2967802374
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - sync-dev@mozilla.org
+    expires: never
+
+  save:
+    type: event
+    description: |
+      Records when the user makes sync settings changes.
+    bugs:
+      - https://mozilla-hub.atlassian.net/browse/SYNC-4792
+    data_reviews:
+      - https://github.com/mozilla/application-services/pull/6786#issuecomment-2967802374
+    data_sensitivity:
+      - interaction
+    notification_emails:
+      - sync-dev@mozilla.org
+    expires: never
+    extra_keys:
+      enabled_engines:
+        description: |
+          A comma-delimited list of engines that were enabled by the user.
+        type: string
+      disabled_engines:
+        description: |
+          A comma-delimited list of engines that were disabled by the user.
+        type: string
