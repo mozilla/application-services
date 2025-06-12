@@ -120,9 +120,9 @@ impl ContextIDComponentInner {
                     false,
                 ),
                 // Pre-existing context ID with zero timestamp then use current time, no rotation needed
-                (false, 0) => (now, false, false),
+                (false, 0) => (now, true, false),
                 // Pre-existing context ID but INVALID timestamp then use current time but FORCE rotation
-                (false, _) => (now, false, true),
+                (false, _) => (now, true, true),
             };
 
         let mut instance = Self {
