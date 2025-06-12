@@ -119,7 +119,7 @@ impl ContextIDComponentInner {
                     false,
                     false,
                 ),
-                // Pre-existing context ID with zero timestamp then use current time, no rotation needed
+                // Pre-existing context ID with zero timestamp then use current time and no rotation needed
                 (false, 0) => (now, true, false),
                 // Pre-existing context ID but INVALID timestamp then use current time but FORCE rotation
                 (false, _) => (now, true, true),
@@ -200,6 +200,7 @@ impl ContextIDComponentInner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::callback::utils::SpyCallback;
     use chrono::Utc;
     use lazy_static::lazy_static;
 
@@ -243,12 +244,13 @@ mod tests {
     #[test]
     fn test_creation_timestamp_with_some_value() {
         with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
             let creation_timestamp = FAKE_NOW_TS;
             let component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 creation_timestamp,
                 false,
-                Box::new(DefaultContextIdCallback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -258,17 +260,29 @@ mod tests {
             assert_eq!(component.context_id, TEST_CONTEXT_ID);
             assert_eq!(component.creation_timestamp.timestamp(), creation_timestamp);
             assert!(!*delete_called.lock().unwrap());
+            // Neither persist nor rotate should have been called
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                0,
+                "persist() should NOTE have been called"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
         });
     }
 
     #[test]
     fn test_creation_timestamp_with_zero_value() {
         with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
             let component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 0,
                 false,
-                Box::new(DefaultContextIdCallback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -279,24 +293,40 @@ mod tests {
             assert_eq!(component.context_id, TEST_CONTEXT_ID);
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
             assert!(!*delete_called.lock().unwrap());
+            // zero‐timestamp should trigger a persist, but NOT a rotation
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
         });
     }
 
     #[test]
     fn test_empty_initial_context_id() {
         with_test_mars(|mars, delete_called| {
-            let component = ContextIDComponentInner::new(
-                "",
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
-                *FAKE_NOW,
-                mars,
-            );
+            let spy = SpyCallback::new();
+            let component =
+                ContextIDComponentInner::new("", 0, false, spy.callback, *FAKE_NOW, mars);
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
             assert!(!*delete_called.lock().unwrap());
         });
     }
@@ -304,30 +334,36 @@ mod tests {
     #[test]
     fn test_empty_initial_context_id_with_creation_date() {
         with_test_mars(|mars, delete_called| {
-            let component = ContextIDComponentInner::new(
-                "",
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
-                *FAKE_NOW,
-                mars,
-            );
+            let spy = SpyCallback::new();
+            let component =
+                ContextIDComponentInner::new("", 0, false, spy.callback, *FAKE_NOW, mars);
 
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
             assert!(!*delete_called.lock().unwrap());
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
         });
     }
 
     #[test]
     fn test_invalid_context_id_with_no_creation_date() {
         with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
             let component = ContextIDComponentInner::new(
                 "something-invalid",
                 0,
                 false,
-                Box::new(DefaultContextIdCallback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -335,6 +371,17 @@ mod tests {
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
+            // Also expect a persist to have been called, but not a rotation.
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
             assert!(!*delete_called.lock().unwrap());
         });
     }
@@ -342,11 +389,12 @@ mod tests {
     #[test]
     fn test_invalid_context_id_with_creation_date() {
         with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
             let component = ContextIDComponentInner::new(
                 "something-invalid",
                 FAKE_LONG_AGO_TS,
                 false,
-                Box::new(DefaultContextIdCallback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -354,6 +402,17 @@ mod tests {
             // We expect a new UUID to have been generated for context_id.
             assert!(Uuid::parse_str(&component.context_id).is_ok());
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
+            // Also expect a persist to have been called, but not a rotation.
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                0,
+                "rotated() should NOT have been called"
+            );
             assert!(!*delete_called.lock().unwrap());
         });
     }
@@ -361,11 +420,12 @@ mod tests {
     #[test]
     fn test_context_id_with_invalid_creation_date() {
         with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
             let component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 -1,
                 false,
-                Box::new(DefaultContextIdCallback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -377,6 +437,17 @@ mod tests {
             // The creation timestamp must have been set to now.
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
 
+            // Also expect a persist to have been called and a rotation.
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                1,
+                "rotated() should have been called once"
+            );
             // Since we forced a rotation, the MARS delete should have been called.
             assert!(*delete_called.lock().unwrap());
         });
@@ -413,34 +484,13 @@ mod tests {
     #[test]
     fn test_request_with_rotation() {
         with_test_mars(|mars, delete_called| {
-            struct FakeContextIdCallback {
-                rotated_called: Arc<Mutex<bool>>,
-                original_context_id: Arc<Mutex<Option<String>>>,
-            }
-
-            impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, _context_id: String, _creation_date: i64) {}
-
-                fn rotated(&self, original_context_id: String) {
-                    *self.rotated_called.lock().unwrap() = true;
-                    *self.original_context_id.lock().unwrap() = Some(original_context_id);
-                }
-            }
-
-            let rotated_called_flag = Arc::new(Mutex::new(false));
-            let original_context_id = Arc::new(Mutex::new(None));
-
-            let callback = FakeContextIdCallback {
-                rotated_called: Arc::clone(&rotated_called_flag),
-                original_context_id: Arc::clone(&original_context_id),
-            };
-
+            let spy = SpyCallback::new();
             // Let's create a context_id with a creation date far in the past.
             let mut component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 FAKE_LONG_AGO_TS,
                 false,
-                Box::new(callback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -458,12 +508,18 @@ mod tests {
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
             assert!(*delete_called.lock().unwrap());
 
-            assert!(
-                *rotated_called_flag.lock().unwrap(),
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                1,
                 "rotated() should have been called"
             );
             assert_eq!(
-                original_context_id.lock().unwrap().as_deref().unwrap(),
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called"
+            );
+            assert_eq!(
+                spy.last_rotated_id.lock().unwrap().as_deref().unwrap(),
                 TEST_CONTEXT_ID
             );
         });
@@ -472,33 +528,13 @@ mod tests {
     #[test]
     fn test_force_rotation() {
         with_test_mars(|mars, delete_called| {
-            struct FakeContextIdCallback {
-                rotated_called: Arc<Mutex<bool>>,
-                original_context_id: Arc<Mutex<Option<String>>>,
-            }
-
-            impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, _context_id: String, _creation_date: i64) {}
-
-                fn rotated(&self, original_context_id: String) {
-                    *self.rotated_called.lock().unwrap() = true;
-                    *self.original_context_id.lock().unwrap() = Some(original_context_id);
-                }
-            }
-
-            let rotated_called_flag = Arc::new(Mutex::new(false));
-            let original_context_id = Arc::new(Mutex::new(None));
-
-            let callback = FakeContextIdCallback {
-                rotated_called: Arc::clone(&rotated_called_flag),
-                original_context_id: Arc::clone(&original_context_id),
-            };
+            let spy = SpyCallback::new();
 
             let mut component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 FAKE_LONG_AGO_TS,
                 false,
-                Box::new(callback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
@@ -508,12 +544,13 @@ mod tests {
             assert_ne!(component.context_id, TEST_CONTEXT_ID);
             assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
             assert!(*delete_called.lock().unwrap());
-            assert!(
-                *rotated_called_flag.lock().unwrap(),
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                1,
                 "rotated() should have been called"
             );
             assert_eq!(
-                original_context_id.lock().unwrap().as_deref().unwrap(),
+                spy.last_rotated_id.lock().unwrap().as_deref().unwrap(),
                 TEST_CONTEXT_ID
             );
         });
@@ -546,55 +583,32 @@ mod tests {
     #[test]
     fn test_persist_callback() {
         with_test_mars(|mars, delete_called| {
-            struct FakeContextIdCallback {
-                persist_called: Arc<Mutex<bool>>,
-                context_id: Arc<Mutex<Option<String>>>,
-                creation_timestamp: Arc<Mutex<Option<i64>>>,
-            }
-
-            impl ContextIdCallback for FakeContextIdCallback {
-                fn persist(&self, context_id: String, creation_date: i64) {
-                    *self.persist_called.lock().unwrap() = true;
-                    *self.context_id.lock().unwrap() = Some(context_id);
-                    *self.creation_timestamp.lock().unwrap() = Some(creation_date);
-                }
-
-                fn rotated(&self, _original_context_id: String) {}
-            }
-
-            let persist_called_flag = Arc::new(Mutex::new(false));
-            let context_id = Arc::new(Mutex::new(None));
-            let creation_timestamp = Arc::new(Mutex::new(None));
-
-            let callback = FakeContextIdCallback {
-                persist_called: Arc::clone(&persist_called_flag),
-                context_id: Arc::clone(&context_id),
-                creation_timestamp: Arc::clone(&creation_timestamp),
-            };
+            let spy = SpyCallback::new();
 
             let mut component = ContextIDComponentInner::new(
                 TEST_CONTEXT_ID,
                 FAKE_LONG_AGO_TS,
                 false,
-                Box::new(callback),
+                spy.callback,
                 *FAKE_NOW,
                 mars,
             );
 
             component.force_rotation(*FAKE_NOW);
 
-            assert!(
-                *persist_called_flag.lock().unwrap(),
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
                 "persist() should have been called"
             );
 
             assert!(
-                Uuid::parse_str(context_id.lock().unwrap().as_deref().unwrap()).is_ok(),
+                Uuid::parse_str(spy.last_rotated_id.lock().unwrap().as_deref().unwrap()).is_ok(),
                 "persist() should have received a valid context_id string"
             );
 
             assert_eq!(
-                *creation_timestamp.lock().unwrap(),
+                *spy.last_persist_ts.lock().unwrap(),
                 Some(FAKE_NOW_TS),
                 "persist() should have received the expected creation date"
             );
