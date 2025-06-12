@@ -7,6 +7,10 @@
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 
+### Context ID
+- The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
+- `rotate_context_id` is no longer public since consumers can use `force_rotation` instead.
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)
