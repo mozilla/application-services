@@ -674,45 +674,61 @@ impl LoginDb {
     /// Delete the record with the provided id. Returns true if the record
     /// existed already.
     pub fn delete(&self, id: &str) -> Result<bool> {
+        let mut results = self.delete_many(vec![id])?;
+        Ok(results.pop().expect("there should be a single result"))
+    }
+
+    /// Delete the records with the specified IDs. Returns a list of Boolean values
+    /// indicating whether the respective records already existed.
+    pub fn delete_many(&self, ids: Vec<&str>) -> Result<Vec<bool>> {
         let tx = self.unchecked_transaction_imm()?;
-        let exists = self.exists(id)?;
-        let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        // For IDs that have, mark is_deleted and clear sensitive fields
-        self.execute(
-            &format!(
-                "UPDATE loginsL
-                 SET local_modified = :now_ms,
-                     sync_status = {status_changed},
-                     is_deleted = 1,
-                     secFields = '',
-                     origin = '',
-                     httpRealm = NULL,
-                     formActionOrigin = NULL
-                 WHERE guid = :guid",
-                status_changed = SyncStatus::Changed as u8
-            ),
-            named_params! { ":now_ms": now_ms, ":guid": id },
-        )?;
+        let mut result = vec![];
 
-        // Mark the mirror as overridden
-        self.execute(
-            "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
-            named_params! { ":guid": id },
-        )?;
+        for id in ids {
+            let exists = self.exists(id)?;
+            let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        // If we don't have a local record for this ID, but do have it in the mirror
-        // insert a tombstone.
-        self.execute(&format!("
-            INSERT OR IGNORE INTO loginsL
-                    (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
-            SELECT   guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
-            FROM loginsM
-            WHERE guid = :guid",
-            changed = SyncStatus::Changed as u8),
-            named_params! { ":now_ms": now_ms, ":guid": id })?;
+            // For IDs that have, mark is_deleted and clear sensitive fields
+            self.execute(
+                &format!(
+                    "UPDATE loginsL
+                     SET local_modified = :now_ms,
+                         sync_status = {status_changed},
+                         is_deleted = 1,
+                         secFields = '',
+                         origin = '',
+                         httpRealm = NULL,
+                         formActionOrigin = NULL
+                     WHERE guid = :guid",
+                    status_changed = SyncStatus::Changed as u8
+                ),
+                named_params! { ":now_ms": now_ms, ":guid": id },
+            )?;
+
+            // Mark the mirror as overridden
+            self.execute(
+                "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
+                named_params! { ":guid": id },
+            )?;
+
+            // If we don't have a local record for this ID, but do have it in the mirror
+            // insert a tombstone.
+            self.execute(&format!("
+                INSERT OR IGNORE INTO loginsL
+                        (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
+                SELECT   guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
+                FROM loginsM
+                WHERE guid = :guid",
+                changed = SyncStatus::Changed as u8),
+                named_params! { ":now_ms": now_ms, ":guid": id })?;
+
+            result.push(exists);
+        }
+
         tx.commit()?;
-        Ok(exists)
+
+        Ok(result)
     }
 
     pub fn delete_undecryptable_records_for_remote_replacement(
@@ -1460,6 +1476,46 @@ mod tests {
         assert_eq!(local_login.fields.form_action_origin, None);
 
         assert!(!db.exists(login.guid_str()).unwrap());
+    }
+
+    #[test]
+    fn test_delete_many() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory().unwrap();
+
+        let login_a = db
+            .add(
+                LoginEntry {
+                    origin: "https://a.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test_user".into(),
+                    password: "test_password".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+
+        let login_b = db
+            .add(
+                LoginEntry {
+                    origin: "https://b.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "test_user".into(),
+                    password: "test_password".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+
+        let result = db
+            .delete_many(vec![login_a.guid_str(), login_b.guid_str()])
+            .unwrap();
+        assert!(result[0]);
+        assert!(result[1]);
+        assert!(!db.exists(login_a.guid_str()).unwrap());
+        assert!(!db.exists(login_b.guid_str()).unwrap());
     }
 
     #[test]

@@ -6,6 +6,7 @@
 
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
+- add `delete_many(ids)` for batch deletion within a single transaction
 
 ### Context ID
 - The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
