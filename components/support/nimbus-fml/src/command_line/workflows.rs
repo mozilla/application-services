@@ -761,6 +761,25 @@ mod kts_tests {
     }
 
     #[test]
+    fn test_with_full_fenix_nightly_with_prefs() -> Result<()> {
+        generate_and_assert_with_config(
+            "test/fenix_nightly.kts",
+            "fixtures/fe/browser-with-prefs.yaml",
+            "nightly",
+            false,
+            AboutBlock {
+                kotlin_about: Some(KotlinAboutBlock {
+                    package: "com.example.app".to_string(),
+                    class: "com.example.nightly.FxNimbus".to_string(),
+                }),
+                swift_about: None,
+                ..Default::default()
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn test_with_dx_improvements() -> Result<()> {
         generate_and_assert(
             "test/dx_improvements_testing.kts",

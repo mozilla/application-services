@@ -104,6 +104,29 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
             {{- f|quoted }}
             {%- if !loop.last %}, {% endif %}
             {%- endfor %})
+
+    /**
+     * Get a map of prefs to their respective branches.
+     */
+    override fun prefsToBranchesMap(): Map<String, String> =
+        mapOf(
+            {%- for f in self.fm.iter_prefs() %}
+            {{ f.branch()|quoted }} to {{ f.key()|quoted }}
+            {%- if !loop.last %},{% endif -%}
+            {% endfor %}
+        )
+
+    /**
+     * Get a map of prefs to their repective feature IDs.
+     */
+    override fun prefsToFeatureIdsMap(): Map<String, String> =
+        mapOf(
+            {%- for f in self.fm.iter_prefs_with_feature() %}
+            {{ f.1|quoted }} to {{ f.0.key()|quoted }}
+            {%- if !loop.last %},{% endif -%}
+            {% endfor %}
+        )
+
     /**
      * Accessor object for generated configuration classes extracted from Nimbus, with built-in
      * default values.
