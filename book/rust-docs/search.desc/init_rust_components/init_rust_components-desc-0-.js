@@ -1,0 +1,1 @@
+searchState.loadedDescShard("init_rust_components", 0, "Global initialization routines for Rust components, when …")
