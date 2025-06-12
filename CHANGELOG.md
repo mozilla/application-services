@@ -9,6 +9,7 @@
 
 ### Context ID
 - The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
+- The `ContextIDComponent` can now synchronously invoke the rotation callback when it receives an invalid timestamp from callers; in such cases, it falls back to the current timestamp and forces an ID rotation.
 - `rotate_context_id` is no longer public since consumers can use `force_rotation` instead.
 
 [Full Changelog](In progress)
