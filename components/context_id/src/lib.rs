@@ -361,6 +361,30 @@ mod tests {
     }
 
     #[test]
+    fn test_context_id_with_invalid_creation_date() {
+        with_test_mars(|mars, delete_called| {
+            let component = ContextIDComponentInner::new(
+                TEST_CONTEXT_ID,
+                -1,
+                false,
+                Box::new(DefaultContextIdCallback),
+                *FAKE_NOW,
+                mars,
+            );
+
+            // A new UUID should have been generated.
+            assert!(Uuid::parse_str(&component.context_id).is_ok());
+            assert_ne!(component.context_id, TEST_CONTEXT_ID);
+
+            // The creation timestamp must have been set to now.
+            assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
+
+            // Since we forced a rotation, the MARS delete should have been called.
+            assert!(*delete_called.lock().unwrap());
+        });
+    }
+
+    #[test]
     fn test_request_no_rotation() {
         with_test_mars(|mars, delete_called| {
             // Let's create a context_id with a creation date far in the past.
