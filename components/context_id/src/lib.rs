@@ -113,12 +113,13 @@ impl ContextIDComponentInner {
             match (generated_context_id, creation_timestamp_s) {
                 // We generated a new context ID then we need a fresh timestamp and no rotation needed
                 (true, _) => (now, true, false),
-                // Pre-existing context ID with valid timestamp then use timestamp and no rotation needed
-                (false, secs) if secs > 0 => (
-                    DateTime::<Utc>::from_timestamp(secs, 0).unwrap_or(now),
-                    false,
-                    false,
-                ),
+                // Pre-existing context ID with a positive timestamp:
+                // try parsing it (any real UNIX-epoch timestamp is orders of magnitude within chrono’s 262 000-year range),
+                // and if it’s somehow out-of-range fall back to `now`  and force rotation
+                // See: https://docs.rs/chrono/latest/chrono/naive/struct.NaiveDateTime.html#panics
+                (false, secs) if secs > 0 => DateTime::<Utc>::from_timestamp(secs, 0)
+                    .map(|ts| (ts, false, false))
+                    .unwrap_or((now, true, true)),
                 // Pre-existing context ID with zero timestamp then use current time and no rotation needed
                 (false, 0) => (now, true, false),
                 // Pre-existing context ID but INVALID timestamp then use current time but FORCE rotation
@@ -449,6 +450,44 @@ mod tests {
                 "rotated() should have been called once"
             );
             // Since we forced a rotation, the MARS delete should have been called.
+            assert!(*delete_called.lock().unwrap());
+        });
+    }
+
+    #[test]
+    fn test_context_id_with_out_of_range_creation_date() {
+        with_test_mars(|mars, delete_called| {
+            let spy = SpyCallback::new();
+            // Way beyond chrono’s 262.000 syear range
+            let huge_secs = i64::MAX;
+            let component = ContextIDComponentInner::new(
+                TEST_CONTEXT_ID,
+                huge_secs,
+                false,
+                spy.callback,
+                *FAKE_NOW,
+                mars,
+            );
+
+            // A new UUID should have been generated.
+            assert!(Uuid::parse_str(&component.context_id).is_ok());
+            assert_ne!(component.context_id, TEST_CONTEXT_ID);
+
+            // The creation timestamp must have been set to now.
+            assert_eq!(component.creation_timestamp, FAKE_NOW.clone());
+
+            // Also expect a persist to have been called and a rotation.
+            assert_eq!(
+                *spy.persist_called.lock().unwrap(),
+                1,
+                "persist() should have been called once"
+            );
+            assert_eq!(
+                *spy.rotated_called.lock().unwrap(),
+                1,
+                "rotated() should have been called once"
+            );
+            // Since we forced a rotation on out-of-range, the MARS delete should have been called.
             assert!(*delete_called.lock().unwrap());
         });
     }
