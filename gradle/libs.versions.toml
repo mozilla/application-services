@@ -14,6 +14,7 @@ protobuf-plugin = "0.9.5"
 # Kotlin
 kotlin-compiler = "2.1.21"
 kotlin-coroutines = "1.10.2"
+kotlin-coroutines-test = "1.10.2"
 
 # Mozilla
 android-components = "139.0.20250417022706"
@@ -58,6 +59,7 @@ protobuf-compiler = { group = "com.google.protobuf", name = "protoc", version.re
 # Kotlin
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin-compiler" }
 kotlin-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlin-coroutines" }
+kotlin-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlin-coroutines-test" }
 
 # Mozilla
 mozilla-concept-fetch = { group = "org.mozilla.components", name = "concept-fetch", version.ref = "android-components" }
