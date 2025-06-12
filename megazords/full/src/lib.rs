@@ -18,6 +18,7 @@ pub use merino;
 pub use nimbus;
 pub use places;
 pub use push;
+pub use relay;
 pub use remote_settings;
 pub use rust_log_forwarder;
 pub use search;
