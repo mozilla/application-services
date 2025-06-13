@@ -244,6 +244,13 @@ interface LoginStore {
     [Throws=LoginsApiError]
     string? get_checkpoint();
 
+    /// Run maintenance on the DB
+    ///
+    /// This is intended to be run during idle time and will take steps / to clean up / shrink the
+    /// database.
+    [Throws=LoginsApiError]
+    void run_maintenance();
+
     [Self=ByArc]
     void register_with_sync_manager();
 };
