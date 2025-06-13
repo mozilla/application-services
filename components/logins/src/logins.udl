@@ -224,6 +224,9 @@ interface LoginStore {
     sequence<Login> list();
 
     [Throws=LoginsApiError]
+    i64 count();
+
+    [Throws=LoginsApiError]
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsApiError]
