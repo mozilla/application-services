@@ -5,7 +5,11 @@
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, LazyLock};
-use tracing_subscriber::Layer;
+use tracing::{subscriber::Interest, Metadata};
+use tracing_subscriber::{
+    layer::{Context, Filter},
+    Layer,
+};
 
 use crate::EventSink;
 use tracing::field::{Field, Visit};
@@ -42,6 +46,13 @@ pub fn unregister_event_sink(target: &str) {
     SINKS_BY_TARGET.write().remove(target);
 }
 
+pub fn simple_event_layer<S>() -> impl Layer<S>
+where
+    S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+{
+    SimpleEventLayer.with_filter(SimpleEventFilter)
+}
+
 pub struct SimpleEventLayer;
 
 impl<S> Layer<S> for SimpleEventLayer
@@ -75,6 +86,33 @@ where
                 entry.sink.on_event(event);
             }
         }
+    }
+}
+
+struct SimpleEventFilter;
+
+impl<S> Filter<S> for SimpleEventFilter
+where
+    S: tracing::Subscriber,
+{
+    fn callsite_enabled(&self, meta: &Metadata<'_>) -> Interest {
+        if meta.fields().field("tracing_support").is_some() {
+            // Event came from `tracing_support`'s logging macros.
+            // Enable the layer for this callsite.
+            // Whether we actually do anything for an event is controlled by `SimpleEventLayer.on_event()`
+            Interest::always()
+        } else {
+            // Event came from a crate not using `tracing_support`, we don't want to handle it.
+            // By returning `Interest::never`, tracing_subscriber will ensure that this callsite is
+            // permanently filtered and we avoid the lock + map lookup.
+            // In fact, `callsite_enabled` won't even be called again.
+            Interest::never()
+        }
+    }
+
+    fn enabled(&self, _meta: &Metadata<'_>, _cx: &Context<'_, S>) -> bool {
+        // callsite_enabled() does the real filtering, we just return `true` here.
+        true
     }
 }
 

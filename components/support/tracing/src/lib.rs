@@ -6,8 +6,91 @@ mod testing;
 #[cfg(feature = "testing")]
 pub use testing::{init_for_tests, init_for_tests_with_level};
 
-pub use layer::{register_event_sink, unregister_event_sink, SimpleEventLayer};
-pub use tracing::{debug, error, info, trace, warn};
+pub use layer::{register_event_sink, simple_event_layer, unregister_event_sink};
+// Re-export tracing so that our dependencies can use it.
+pub use tracing;
+
+// Define standard logging macros.
+//
+// These all add `tracing_support = true`, which we use as an event filter in our layer.
+// This will statically disable the layer for events from outside crates that use tracing.
+// This way we don't pay a performance penalty for those events.
+// See `SimpleEventFilter` for details.
+
+#[macro_export]
+macro_rules! trace {
+    (target: $target:expr, $($tt:tt)*) => {
+        $crate::tracing::trace!(
+        target: $target,
+        tracing_support = true,
+        $($tt)*)
+    };
+    ($($tt:tt)*) => {
+        $crate::tracing::trace!(
+        tracing_support = true,
+        $($tt)*)
+    };
+}
+
+#[macro_export]
+macro_rules! debug {
+    (target: $target:expr, $($tt:tt)*) => {
+        $crate::tracing::debug!(
+        target: $target,
+        tracing_support = true,
+        $($tt)*)
+    };
+    ($($tt:tt)*) => {
+        $crate::tracing::debug!(
+        tracing_support = true,
+        $($tt)*)
+    };
+}
+
+#[macro_export]
+macro_rules! info {
+    (target: $target:expr, $($tt:tt)*) => {
+        $crate::tracing::info!(
+        target: $target,
+        tracing_support = true,
+        $($tt)*)
+    };
+    ($($tt:tt)*) => {
+        $crate::tracing::info!(
+        tracing_support = true,
+        $($tt)*)
+    };
+}
+
+#[macro_export]
+macro_rules! warn {
+    (target: $target:expr, $($tt:tt)*) => {
+        $crate::tracing::warn!(
+        target: $target,
+        tracing_support = true,
+        $($tt)*)
+    };
+    ($($tt:tt)*) => {
+        $crate::tracing::warn!(
+        tracing_support = true,
+        $($tt)*)
+    };
+}
+
+#[macro_export]
+macro_rules! error {
+    (target: $target:expr, $($tt:tt)*) => {
+        $crate::tracing::error!(
+        target: $target,
+        tracing_support = true,
+        $($tt)*)
+    };
+    ($($tt:tt)*) => {
+        $crate::tracing::error!(
+        tracing_support = true,
+        $($tt)*)
+    };
+}
 
 // grr - swift has name collision with `Level`? Can uniifi help make this cleaner?
 pub type Level = TracingLevel;
@@ -97,7 +180,7 @@ mod tests {
     fn test_app() {
         use tracing_subscriber::prelude::*;
         tracing_subscriber::registry()
-            .with(layer::SimpleEventLayer)
+            .with(layer::simple_event_layer())
             .init();
 
         struct Sink {
@@ -120,15 +203,24 @@ mod tests {
         let sink = Arc::new(Sink::new());
 
         crate::layer::register_event_sink("first_target", Level::Info, sink.clone());
-        crate::layer::register_event_sink("second_target", Level::Info, sink.clone());
+        crate::layer::register_event_sink("second_target", Level::Debug, sink.clone());
 
-        tracing::event!(target: "first_target", tracing::Level::INFO, extra = -1, "event message");
+        info!(target: "first_target", extra=-1, "event message");
+        debug!(target: "first_target", extra=-2, "event message (should be filtered)");
+        debug!(target: "second_target", extra=-3, "event message2");
+        info!(target: "third_target", extra=-4, "event message (should be filtered)");
 
-        assert_eq!(sink.events.read().len(), 1);
+        assert_eq!(sink.events.read().len(), 2);
         let event = &sink.events.read()[0];
         assert_eq!(event.target, "first_target");
         assert_eq!(event.level, Level::Info);
         assert_eq!(event.message, "event message");
         assert_eq!(event.fields.get("extra").unwrap().as_i64(), Some(-1));
+
+        let event2 = &sink.events.read()[1];
+        assert_eq!(event2.target, "second_target");
+        assert_eq!(event2.level, Level::Debug);
+        assert_eq!(event2.message, "event message2");
+        assert_eq!(event2.fields.get("extra").unwrap().as_i64(), Some(-3));
     }
 }
