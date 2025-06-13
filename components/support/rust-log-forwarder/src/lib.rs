@@ -96,7 +96,7 @@ pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
     GLOBAL_SUBSCRIBER.call_once(|| {
         use tracing_subscriber::prelude::*;
         tracing_subscriber::registry()
-            .with(tracing_support::SimpleEventLayer)
+            .with(tracing_support::simple_event_layer())
             .init();
     });
 
@@ -182,8 +182,8 @@ mod test {
         let sink = Arc::new(ForwarderEventSink {});
         tracing_support::register_event_sink("rust_log_forwarder", Level::Debug.into(), sink);
 
-        tracing::event!(tracing::Level::INFO, "Test message");
-        tracing::event!(tracing::Level::WARN, "Test message2");
+        tracing_support::info!("Test message");
+        tracing_support::warn!("Test message2");
         logger.check_records(vec![
             Record {
                 level: Level::Info,
