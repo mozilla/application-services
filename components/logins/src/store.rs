@@ -8,6 +8,7 @@ use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntr
 use crate::schema;
 use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
+use sql_support::run_maintenance;
 use std::path::Path;
 use std::sync::{Arc, Weak};
 use sync15::{
@@ -266,6 +267,13 @@ impl LoginStore {
     #[handle_error(Error)]
     pub fn get_checkpoint(&self) -> ApiResult<Option<String>> {
         self.db.lock().get_meta(schema::CHECKPOINT_KEY)
+    }
+
+    #[handle_error(Error)]
+    pub fn run_maintenance(&self) -> ApiResult<()> {
+        let conn = self.db.lock();
+        run_maintenance(&conn)?;
+        Ok(())
     }
 
     // This allows the embedding app to say "make this instance available to

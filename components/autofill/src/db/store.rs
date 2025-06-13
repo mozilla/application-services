@@ -11,7 +11,7 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
 };
-use sql_support::{self, ConnExt};
+use sql_support::{self, run_maintenance, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::engine::{SyncEngine, SyncEngineId};
@@ -159,6 +159,13 @@ impl Store {
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
         crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
+        Ok(())
+    }
+
+    #[handle_error(Error)]
+    pub fn run_maintenance(&self) -> ApiResult<()> {
+        let conn = self.db.lock().unwrap();
+        run_maintenance(&conn)?;
         Ok(())
     }
 
