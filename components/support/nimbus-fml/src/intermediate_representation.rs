@@ -372,16 +372,24 @@ impl FeatureManifest {
         self.feature_defs.values()
     }
 
-    pub fn iter_prefs(&self) -> impl Iterator<Item = &PrefDef> {
+    pub fn iter_gecko_prefs(&self) -> impl Iterator<Item = &GeckoPrefDef> {
         self.iter_feature_defs()
-            .filter(|f| f.has_prefs())
-            .flat_map(|f| f.iter_prefs().map(|p| p.0))
+            .filter(|f| f.has_gecko_prefs())
+            .flat_map(|f| {
+                f.feature_mapped_to_prop_and_gecko_pref()
+                    .iter()
+                    .flat_map(|p| p.1.clone())
+                    .collect::<Vec<_>>()
+            })
+            .map(|p| p.1)
     }
 
-    pub fn iter_prefs_with_feature(&self) -> impl Iterator<Item = (&PrefDef, String)> {
+    pub fn iter_features_with_prefs(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<(String, &GeckoPrefDef)>)> {
         self.iter_feature_defs()
-            .filter(|f| f.has_prefs())
-            .flat_map(|f| f.iter_prefs())
+            .filter(|f| f.has_gecko_prefs())
+            .flat_map(|f| f.feature_mapped_to_prop_and_gecko_pref())
     }
 
     pub fn iter_all_feature_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
@@ -560,6 +568,10 @@ impl FeatureDef {
         self.props.iter().any(|p| p.has_prefs())
     }
 
+    pub fn has_gecko_prefs(&self) -> bool {
+        self.props.iter().any(|p| p.has_gecko_prefs())
+    }
+
     pub fn get_string_aliases(&self) -> HashMap<&str, &PropDef> {
         let mut res: HashMap<_, _> = Default::default();
         for p in &self.props {
@@ -574,17 +586,26 @@ impl FeatureDef {
         self.props.iter().find(|p| p.name == name)
     }
 
-    pub fn iter_prefs(&self) -> impl Iterator<Item = (&PrefDef, String)> {
+    pub fn feature_mapped_to_prop_and_gecko_pref(
+        &self,
+    ) -> Vec<(String, Vec<(String, &GeckoPrefDef)>)> {
         self.props
             .iter()
-            .filter_map(|p| {
-                if p.has_prefs() && p.pref.is_some() {
-                    p.pref.as_ref()
-                } else {
-                    None
+            .filter(|p| p.has_gecko_prefs() && p.gecko_pref.is_some())
+            .map(|p| (p.gecko_pref.as_ref(), p.name()))
+            .map(|(p, n)| (p, (n, self.name())))
+            .rfold(Vec::new(), |mut acc: Vec<(String, Vec<(String, &GeckoPrefDef)>)>, (pref, (prop, feature)): (Option<&GeckoPrefDef>, (String, String))| {
+                match acc.iter_mut().find(|p| p.0 == feature) {
+                    Some((_, ref mut props)) => {
+                        props.push((prop, pref.unwrap()));
+                    }
+                    None => {
+                        let props = vec![(prop, pref.unwrap())];
+                        acc.push((feature, props));
+                    }
                 }
+                acc
             })
-            .map(|p| (p, self.name()))
     }
 }
 
@@ -692,14 +713,14 @@ impl Display for PrefBranch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PrefDef {
-    pub(crate) key: String,
+pub struct GeckoPrefDef {
+    pub(crate) pref: String,
     pub(crate) branch: PrefBranch,
 }
 
-impl PrefDef {
-    pub fn key(&self) -> String {
-        self.key.clone()
+impl GeckoPrefDef {
+    pub fn pref(&self) -> String {
+        self.pref.clone()
     }
     pub fn branch(&self) -> PrefBranch {
         self.branch.clone()
@@ -715,7 +736,10 @@ pub struct PropDef {
     pub(crate) default: Literal,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) pref: Option<PrefDef>,
+    pub(crate) pref_key: Option<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) gecko_pref: Option<GeckoPrefDef>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) string_alias: Option<TypeRef>,
@@ -735,10 +759,16 @@ impl PropDef {
         self.default.clone()
     }
     pub fn has_prefs(&self) -> bool {
-        self.pref.is_some() && self.typ.supports_prefs()
+        self.pref_key.is_some() && self.typ.supports_prefs()
     }
-    pub fn pref(&self) -> Option<PrefDef> {
-        self.pref.clone()
+    pub fn has_gecko_prefs(&self) -> bool {
+        self.gecko_pref.is_some() && self.typ.supports_prefs()
+    }
+    pub fn pref_key(&self) -> Option<String> {
+        self.pref_key.clone()
+    }
+    pub fn gecko_pref(&self) -> Option<GeckoPrefDef> {
+        self.gecko_pref.clone()
     }
 }
 

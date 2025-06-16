@@ -77,7 +77,7 @@ public class {{class_name}}: FMLObjectInterface {
     {%- else %}
     public var {{ prop_swift }}: {{ type_swift }} {
         {%- let prefs = "prefs" %}
-        {%- let key = p.pref().unwrap().key() %}
+        {%- let key = p.pref_key().unwrap() %}
         {#- Using `object(forKey:)` here as it returns an optional that just needs to be cast.
             `integer(forKey:)` returns zero, `bool(forKey:)` returns `false` if the key is not
             present.

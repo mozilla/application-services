@@ -86,15 +86,15 @@ impl<'a> SchemaValidator<'a> {
             self.validate_type_ref(&path, prop_t)?;
 
             // Check pref is not in the disallowed prefs list.
-            if let Some(pref) = &prop.pref {
+            if let Some(pref) = &prop.gecko_pref {
                 for (pref_str, error) in DISALLOWED_PREFS {
                     let regex = Regex::new(pref_str)?;
-                    if regex.is_match(&pref.key()) {
+                    if regex.is_match(&pref.pref()) {
                         return Err(FMLError::ValidationError(
                             path,
                             format!(
                                 "Cannot use pref `{}` in experiments, reason: {}",
-                                pref.key(),
+                                pref.pref(),
                                 error
                             ),
                         ));
@@ -103,7 +103,7 @@ impl<'a> SchemaValidator<'a> {
             }
 
             // Check pref support for this type.
-            if prop.pref.is_some() && !prop.typ.supports_prefs() {
+            if prop.gecko_pref.is_some() && !prop.typ.supports_prefs() {
                 return Err(FMLError::ValidationError(
                     path,
                     "Pref keys can only be used with Boolean, String, Int and Text variables"
@@ -150,8 +150,8 @@ impl<'a> SchemaValidator<'a> {
 
     pub(crate) fn validate_prefs(&self, feature_manifest: &FeatureManifest) -> Result<()> {
         let prefs = feature_manifest
-            .iter_prefs()
-            .map(|p| p.key())
+            .iter_gecko_prefs()
+            .map(|p| p.pref())
             .collect::<Vec<String>>();
         for pref in prefs.clone() {
             if prefs
@@ -447,7 +447,7 @@ mod manifest_schema {
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
-            vec![PropDef::new_with_pref(
+            vec![PropDef::new_with_gecko_pref(
                 "prop name",
                 &TypeRef::String,
                 &json!(null),

@@ -9,13 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
 
-use crate::intermediate_representation::PrefDef;
 use crate::{
     defaults::DefaultsMerger,
     error::Result,
     intermediate_representation::{
-        EnumDef, FeatureDef, FeatureManifest, ModuleId, ObjectDef, PropDef, TargetLanguage,
-        TypeRef, VariantDef,
+        EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
+        TargetLanguage, TypeRef, VariantDef,
     },
     parser::get_typeref_from_string,
 };
@@ -42,7 +41,11 @@ pub(crate) struct FeatureFieldBody {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) pref: Option<PrefDef>,
+    pub(crate) pref_key: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) gecko_pref: Option<GeckoPrefDef>,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -344,10 +347,10 @@ impl ManifestFrontEnd {
         res
     }
 
-    #[allow(deprecated)]
     fn get_prop_def_from_feature_field(&self, nm: &str, body: &FeatureFieldBody) -> PropDef {
         let mut prop = self.get_prop_def_from_field(nm, &body.field);
-        prop.pref.clone_from(&body.pref);
+        prop.pref_key.clone_from(&body.pref_key);
+        prop.gecko_pref.clone_from(&body.gecko_pref);
         if let Some(s) = &body.string_alias {
             prop.string_alias = Some(TypeRef::StringAlias(s.clone()));
         }
@@ -362,7 +365,6 @@ impl ManifestFrontEnd {
     ///
     /// # Returns
     /// return the IR [`PropDef`]
-    #[allow(deprecated)]
     fn get_prop_def_from_field(&self, nm: &str, body: &FieldBody) -> PropDef {
         let types = self.get_types();
         PropDef {
@@ -383,7 +385,8 @@ impl ManifestFrontEnd {
             },
             default: json!(body.default),
             string_alias: None,
-            pref: Default::default(),
+            pref_key: Default::default(),
+            gecko_pref: Default::default(),
         }
     }
 

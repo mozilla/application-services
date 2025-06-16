@@ -16,20 +16,28 @@ features:
       my-boolean:
         type: Boolean
         description: A boolean
-        pref-key: my-boolean-pref-key
+        pref:
+          key: my-boolean-pref-key
+          branch: default
         default: false
       my-int:
         type: Int
         description: An Int
-        pref-key: my-int-pref-key
+        pref:
+          key: my-int-pref-key
+          branch: default
         default: 0
       my-string:
         type: String
         description: A String
-        pref-key: my-string-pref-key
+        pref:
+          key: my-string-pref-key
+          branch: default
         default: from manifest
       my-text:
         type: Text
         description: A Text
-        pref-key: my-text-pref-key
+        pref:
+          key: my-text-pref-key
+          branch: default
         default: from manifest

@@ -38,7 +38,5 @@ public protocol FeatureManifestInterface {
 
     func getCoenrollingFeatureIds() -> [String]
 
-    func prefsToBranchesMap() -> [String: String]
-
-    func prefsToFeatureIdsMap() -> [String: String]
+    func geckoPrefsMap() -> [String: [String: String]]
 }

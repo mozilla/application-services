@@ -13,7 +13,7 @@ extension {{ class_name }}: FMLFeatureInterface {
         let keys = [
             {%- for p in inner.props() %}
             {%- if p.has_prefs() %}
-            {{ p.pref().unwrap().key()|quoted }},
+            {{ p.pref_key().unwrap()|quoted }},
             {%- endif %}
             {%- endfor %}
         ]
