@@ -968,9 +968,9 @@ dependencies = [
 
 [[package]]
 name = "ctest2"
-version = "0.4.8"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5441a800778f5ea6e22299f4f6274d3db6576689306c15692fce0aa6504e694"
+checksum = "7cf53ed2a9e25d98cd444fd6e73eae7de0a26a8cb9e3f998170c6901a1afa0e5"
 dependencies = [
  "cc",
  "garando_syntax",

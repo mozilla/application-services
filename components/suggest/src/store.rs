@@ -387,9 +387,7 @@ impl SuggestIngestionConstraints {
             .and_then(|c| c.dynamic_suggestion_types.as_ref())
         {
             None => false,
-            Some(suggestion_types) => suggestion_types
-                .iter()
-                .any(|t| *t == record.suggestion_type),
+            Some(suggestion_types) => suggestion_types.contains(&record.suggestion_type),
         }
     }
 

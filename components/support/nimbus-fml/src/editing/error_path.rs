@@ -136,7 +136,7 @@ fn collect_path(literals: &mut Vec<String>, value: &Value) {
 
         Value::Object(map) => {
             literals.push(String::from("{"));
-            if let Some((k, v)) = map.iter().last() {
+            if let Some((k, v)) = map.iter().next_back() {
                 literals.push(format!("\"{k}\""));
                 collect_path(literals, v);
             }

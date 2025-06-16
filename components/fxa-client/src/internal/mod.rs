@@ -160,7 +160,7 @@ impl FirefoxAccount {
     /// all the details of their account.
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
-    ///                  through which the page was accessed, for metrics purposes.
+    ///   through which the page was accessed, for metrics purposes.
     pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<String> {
         let mut url = self.state.config().settings_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
@@ -177,7 +177,7 @@ impl FirefoxAccount {
     /// the devices connected to their account.
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
-    ///                  through which the page was accessed, for metrics purposes.
+    ///   through which the page was accessed, for metrics purposes.
     pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<String> {
         let mut url = self.state.config().settings_clients_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);

@@ -382,7 +382,7 @@ impl<'a> DefaultsValidator<'a> {
     ///
     /// - path The error path at which to report any errors
     /// - typ The type of the value we're validating. Only objects, structural types and string-aliases will do anything.
-    ///     We'll be recursing into this type.
+    ///   We'll be recursing into this type.
     /// - value The value we're validating. We'll be recursing into this value.
     /// - definitions The properties in this feature that define the string-alias types.
     /// - feature_value The merged value for the entire feature

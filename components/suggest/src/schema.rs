@@ -18,7 +18,7 @@ use sql_support::{
 ///  2. Add a migration from the old version to the new version in
 ///     [`SuggestConnectionInitializer::upgrade_from`].
 ///     a. If suggestions should be re-ingested after the migration, call `clear_database()` inside
-///        the migration.
+///     the migration.
 ///  3. If the migration adds any tables, delete their their rows in
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good

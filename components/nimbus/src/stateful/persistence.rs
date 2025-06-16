@@ -114,15 +114,15 @@ pub enum StoreId {
     /// are serialized items whose type depends on the constant. Known constraints
     /// include:
     ///   * "db_version":   u16, the version number of the most revent migration
-    ///                     applied to this database.
+    ///     applied to this database.
     ///   * "nimbus-id":    String, the randomly-generated identifier for the
-    ///                     current client instance.
+    ///     current client instance.
     ///   * "user-opt-in":  bool, whether the user has explicitly opted in or out
-    ///                     of participating in experiments.
+    ///     of participating in experiments.
     ///   * "installation-date": a UTC DateTime string, defining the date the consuming app was
-    ///                     installed
+    ///     installed
     ///   * "update-date": a UTC DateTime string, defining the date the consuming app was
-    ///                     last updated
+    ///     last updated
     ///   * "app-version": String, the version of the app last persisted
     Meta,
     /// Store containing pending updates to experiment data.

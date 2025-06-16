@@ -417,7 +417,6 @@ impl TryFrom<Device> for crate::Device {
                 commands::close_tabs::COMMAND_NAME => Some(DeviceCapability::CloseTabs),
                 _ => None,
             })
-            .map(Into::into)
             .collect();
         Ok(crate::Device {
             id: d.common.id,
