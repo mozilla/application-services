@@ -102,15 +102,15 @@ features:
       pref-string:
         description: Test of pref string
         type: String
-        pref:
-          key: "my.pref.key.string"
+        gecko-pref:
+          pref: "my.pref.key.string"
           branch: "default"
         default: ""
       pref-bool:
         description: Test of pref bool
         type: Boolean
-        pref:
-          key: "my.pref.key.bool"
+        gecko-pref:
+          pref: "my.pref.key.bool"
           branch: "user"
         default: false
   search-term-groups:

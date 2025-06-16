@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use crate::intermediate_representation::{
-    EnumDef, ObjectDef, PrefBranch, PrefDef, PropDef, TypeRef, VariantDef,
+    EnumDef, GeckoPrefDef, ObjectDef, PrefBranch, PropDef, TypeRef, VariantDef,
 };
 
 pub(crate) mod intermediate_representation;
@@ -54,12 +54,13 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
-            pref: None,
+            pref_key: None,
+            gecko_pref: None,
             string_alias: None,
         }
     }
 
-    pub(crate) fn new_with_pref(
+    pub(crate) fn new_with_gecko_pref(
         nm: &str,
         typ: &TypeRef,
         value: &Value,
@@ -71,8 +72,9 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: format!("{nm} property of type {typ}"),
-            pref: Some(PrefDef {
-                key: pref_key.into(),
+            pref_key: None,
+            gecko_pref: Some(GeckoPrefDef {
+                pref: pref_key.into(),
                 branch: pref_branch,
             }),
             string_alias: None,
@@ -85,7 +87,8 @@ impl PropDef {
             typ: typ.clone(),
             default: value.clone(),
             doc: nm.to_string(),
-            pref: None,
+            pref_key: None,
+            gecko_pref: None,
             string_alias: Some(sa.clone()),
         }
     }
@@ -96,7 +99,8 @@ impl PropDef {
             doc: doc.to_string(),
             typ: typ.clone(),
             default: default.clone(),
-            pref: None,
+            pref_key: None,
+            gecko_pref: None,
             string_alias: None,
         }
     }

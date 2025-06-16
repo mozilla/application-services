@@ -106,23 +106,17 @@ object {{ nimbus_object }} : FeatureManifestInterface<{{ nimbus_object }}.Featur
             {%- endfor %})
 
     /**
-     * Get a map of prefs to their respective branches.
-     */
-    override fun prefsToBranchesMap(): Map<String, String> =
-        mapOf(
-            {%- for f in self.fm.iter_prefs() %}
-            {{ f.branch()|quoted }} to {{ f.key()|quoted }}
-            {%- if !loop.last %},{% endif -%}
-            {% endfor %}
-        )
-
-    /**
      * Get a map of prefs to their repective feature IDs.
      */
-    override fun prefsToFeatureIdsMap(): Map<String, String> =
+    override fun geckoPrefsMap(): Map<String, Map<String, GeckoPref>> =
         mapOf(
-            {%- for f in self.fm.iter_prefs_with_feature() %}
-            {{ f.1|quoted }} to {{ f.0.key()|quoted }}
+            {%- for f in self.fm.iter_features_with_prefs() %}
+            {{ f.0|quoted }} to mapOf(
+                {%- for p in f.1.iter() %}
+                {{ p.0|quoted }} to GeckoPref({{ p.1.pref()|quoted }}, {{ p.1.branch()|quoted }})
+                {%- if !loop.last %},{% endif -%}
+                {% endfor %}
+            )
             {%- if !loop.last %},{% endif -%}
             {% endfor %}
         )
