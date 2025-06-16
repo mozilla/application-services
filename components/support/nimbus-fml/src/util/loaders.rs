@@ -202,7 +202,7 @@ impl FilePath {
                 ext.to_str()?
             }
             Self::GitHub(GitHubRepoFilePath { url, .. }) | Self::Remote(url) => {
-                let file = url.path_segments()?.last()?;
+                let file = url.path_segments()?.next_back()?;
                 let (_, ext) = file.rsplit_once('.')?;
                 ext
             }
@@ -491,7 +491,7 @@ impl FileLoader {
         url.hash(&mut hasher);
         let checksum = hasher.finish();
         let filename = match url.path_segments() {
-            Some(segments) => segments.last().unwrap_or("unknown.txt"),
+            Some(mut segments) => segments.next_back().unwrap_or("unknown.txt"),
             None => "unknown.txt",
         };
         // Take the last 16 bytes of the hash to make sure our prefixes are still random, but

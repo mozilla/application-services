@@ -562,7 +562,7 @@ impl TryFrom<AccessTokenInfo> for crate::AccessTokenInfo {
         Ok(crate::AccessTokenInfo {
             scope: info.scope,
             token: info.token,
-            key: info.key.map(ScopedKey::into),
+            key: info.key,
             expires_at: info.expires_at.try_into()?,
         })
     }

@@ -142,7 +142,7 @@ impl<'object> DefaultsMerger<'object> {
     /// # Arguments
     /// - `feature_def`: a [`FeatureDef`] representing the feature definition to transform
     /// - `channel`: a [`Option<&String>`] representing the channel to merge back into the field variables.
-    ///    If the `channel` is `None` we default to using the `release` channel.
+    ///   If the `channel` is `None` we default to using the `release` channel.
     /// - `supported_channels`: a [`&[String]`] representing the channels that are supported by the manifest
     ///
     /// # Returns
@@ -218,7 +218,7 @@ impl<'object> DefaultsMerger<'object> {
 /// # Arguments:
 /// - `old_default`: a reference to a [`serde_json::Value`], that represents the old default
 /// - `new_default`: a reference to a [`serde_json::Value`], that represents the new default, this takes
-///     precedence over the `old_default` if they have conflicting fields
+///   precedence over the `old_default` if they have conflicting fields
 ///
 /// # Returns
 /// A merged [`serde_json::Value`] that contains all fields from `old_default` and `new_default`, merging
@@ -265,7 +265,7 @@ fn merge_two_defaults(
 /// Will return errors in the following cases (not exhaustive):
 /// - The `defaults` argument is not an array
 /// - There is a `channel` in the `defaults` argument that doesn't
-///     exist in the `channels` argument
+///   exist in the `channels` argument
 fn collect_channel_defaults(
     defaults: &[DefaultBlock],
     channels: &[String],

@@ -482,7 +482,7 @@ impl PlacesConnection {
     ) -> ApiResult<Option<BookmarkItem>> {
         self.with_conn(|conn| {
             let bookmark = bookmarks::fetch::fetch_bookmark(conn, guid, get_direct_children)?;
-            Ok(bookmark.map(BookmarkItem::from))
+            Ok(bookmark)
         })
     }
 

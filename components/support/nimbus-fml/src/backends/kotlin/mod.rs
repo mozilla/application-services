@@ -24,7 +24,7 @@ impl AboutBlock {
 
     fn nimbus_object_name_kt(&self) -> String {
         let fqe = self.nimbus_fully_qualified_name();
-        let last = fqe.split('.').last().unwrap_or(&fqe);
+        let last = fqe.split('.').next_back().unwrap_or(&fqe);
         last.to_string()
     }
 

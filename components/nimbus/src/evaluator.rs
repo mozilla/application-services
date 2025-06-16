@@ -135,8 +135,8 @@ pub fn evaluate_enrollment(
 /// - `app_context` The application parameters to use for targeting purposes
 /// - `exp` The `Experiment` to evaluate
 /// - `is_release` Supports two modes:
-///     if `true`, available means available for enrollment: i.e. does the `app_name` and `channel` match.
-///     if `false`, available means available for testing: i.e. does only the `app_name` match.
+///   if `true`, available means available for enrollment: i.e. does the `app_name` and `channel` match.
+///   if `false`, available means available for testing: i.e. does only the `app_name` match.
 ///
 /// # Returns:
 /// Returns `true` if the experiment matches the targeting

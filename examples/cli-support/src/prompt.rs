@@ -24,10 +24,7 @@ pub fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
 }
 
 pub fn prompt_password<S: AsRef<str>>(prompt: S) -> Option<String> {
-    match rpassword::prompt_password(format!("{}: ", prompt.as_ref())) {
-        Ok(password) => Some(password),
-        Err(_) => None,
-    }
+    rpassword::prompt_password(format!("{}: ", prompt.as_ref())).ok()
 }
 
 pub fn prompt_char(msg: &str) -> Option<char> {

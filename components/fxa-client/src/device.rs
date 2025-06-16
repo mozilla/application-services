@@ -53,8 +53,7 @@ impl FirefoxAccount {
         supported_capabilities: Vec<DeviceCapability>,
     ) -> ApiResult<LocalDevice> {
         // UniFFI doesn't have good handling of lists of references, work around it.
-        let supported_capabilities: Vec<_> =
-            supported_capabilities.into_iter().map(Into::into).collect();
+        let supported_capabilities: Vec<_> = supported_capabilities.into_iter().collect();
         self.internal
             .lock()
             .initialize_device(name, device_type, &supported_capabilities)
@@ -188,8 +187,7 @@ impl FirefoxAccount {
         &self,
         supported_capabilities: Vec<DeviceCapability>,
     ) -> ApiResult<LocalDevice> {
-        let supported_capabilities: Vec<_> =
-            supported_capabilities.into_iter().map(Into::into).collect();
+        let supported_capabilities: Vec<_> = supported_capabilities.into_iter().collect();
         self.internal
             .lock()
             .ensure_capabilities(&supported_capabilities)

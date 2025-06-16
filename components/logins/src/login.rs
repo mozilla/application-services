@@ -105,11 +105,11 @@
 //!   - Add a field with the original unicode versions of the URLs instead of punycode?
 //!
 //! - `sec_fields`: The `username` and `password` for the site, stored as a encrypted JSON
-//!    representation of an `SecureLoginFields`.
+//!   representation of an `SecureLoginFields`.
 //!
 //!   This field is required and usually encrypted.  There are two different value types:
-//!       - Plaintext empty string: Used for deleted records
-//!       - Encrypted value: The credentials associated with the login.
+//!   - Plaintext empty string: Used for deleted records
+//!   - Encrypted value: The credentials associated with the login.
 //!
 //! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
 //!
@@ -242,7 +242,7 @@
 //!   - test that we correctly merge dupes
 //!
 //! - `time_password_changed`: A lower bound on the time that the `password` field was last changed, in integer
-//!                          milliseconds from the unix epoch.
+//!   milliseconds from the unix epoch.
 //!
 //!   Changes to other fields (such as `username`) are not reflected in this timestamp.
 //!   This is a lower bound because some legacy sync clients do not record this information;
@@ -273,10 +273,10 @@
 //! callers to ensure that they're only working with valid records:
 //!
 //! - `Login::check_valid()`:    Checks validity of a login record, returning `()` if it is valid
-//!                              or an error if it is not.
+//!   or an error if it is not.
 //!
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
-//!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
+//!   fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
 use crate::{encryption::EncryptorDecryptor, error::*};
 use rusqlite::Row;
