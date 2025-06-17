@@ -6,10 +6,10 @@ pub use error_support::error;
 use error_support::{ErrorHandling, GetErrorHandling};
 
 pub type Result<T> = std::result::Result<T, Error>;
-pub type ApiResult<T> = std::result::Result<T, ApiError>;
+pub type ApiResult<T> = std::result::Result<T, RelayApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum ApiError {
+pub enum RelayApiError {
     #[error("Relay network error: {reason}")]
     Network { reason: String },
 
@@ -34,21 +34,21 @@ pub enum Error {
 }
 
 impl GetErrorHandling for Error {
-    type ExternalError = ApiError;
+    type ExternalError = RelayApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
             Error::Viaduct(viaduct::Error::NetworkError(e)) => {
-                ErrorHandling::convert(ApiError::Network {
+                ErrorHandling::convert(RelayApiError::Network {
                     reason: e.to_string(),
                 })
                 .log_warning()
             }
-            Error::RelayApi(detail) => ErrorHandling::convert(ApiError::RelayApi {
+            Error::RelayApi(detail) => ErrorHandling::convert(RelayApiError::RelayApi {
                 detail: detail.clone(),
             })
             .report_error("relay-api-error"),
-            _ => ErrorHandling::convert(ApiError::Other {
+            _ => ErrorHandling::convert(RelayApiError::Other {
                 reason: self.to_string(),
             })
             .report_error("relay-unexpected-error"),
