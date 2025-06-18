@@ -1,5 +1,7 @@
 # v141.0 (In progress)
 
+## ✨ What's New ✨
+
 ### Filter Adult
 - Added the first version of a component for checking if base domains exist in a
   list of base domains for adult websites.
@@ -8,13 +10,18 @@
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 - add `delete_many(ids)` for batch deletion within a single transaction
 
+### Sync Manager
+- Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
+
+## 🦊 What's Changed 🦊
+
 ### Context ID
 - The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
 - The `ContextIDComponent` constructor can now synchronously invoke the rotation callback when it receives an invalid timestamp from callers; in such cases, it falls back to the current timestamp and forces an ID rotation.
 - `rotate_context_id` is no longer public since consumers can use `force_rotation` instead.
 
-### Sync Manager
-- Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
+### Glean
+- Updated to v64.4.0 ([#6795](https://github.com/mozilla/application-services/pull/6795))
 
 [Full Changelog](In progress)
 
