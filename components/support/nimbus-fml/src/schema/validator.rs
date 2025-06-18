@@ -13,24 +13,20 @@ use std::collections::{BTreeMap, HashSet};
 
 const DISALLOWED_PREFS: &[(&str, &str)] = &[
     (
-        r#"app\.shield\.optoutstudies\.enabled"#,
+        r#"^app\.shield\.optoutstudies\.enabled$"#,
         "disabling Nimbus causes immediate unenrollment",
     ),
     (
-        r#"datareporting\.healthreport\.uploadEnabled"#,
+        r#"^datareporting\.healthreport\.uploadEnabled$"#,
         "disabling telemetry causes immediate unenrollment",
     ),
     (
-        r#"services\.settings\.server"#,
+        r#"^services\.settings\.server$"#,
         "changing the Remote Settings endpoint will break clients",
     ),
+    (r#"^nimbus\.debug$"#, "internal Nimbus preference for QA"),
     (
-        r#"messaging-system\.rsexperimentloader\.collection"#,
-        "changing the Nimbus collection will break clients",
-    ),
-    (r#"nimbus\.debug"#, "internal Nimbus preference for QA"),
-    (
-        r#"security\.turn_off_all_security_so_that_viruses_can_take_over_this_computer"#,
+        r#"^security\.turn_off_all_security_so_that_viruses_can_take_over_this_computer$"#,
         "this pref is automation-only and is unsafe to enable outside tests",
     ),
 ];
