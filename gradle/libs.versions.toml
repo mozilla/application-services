@@ -5,10 +5,10 @@
 
 [versions]
 # AGP
-android-plugin = "8.10.0"
+android-plugin = "8.10.1"
 
 # Google
-protobuf = "4.30.2"
+protobuf = "4.31.1"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
@@ -16,7 +16,7 @@ kotlin-compiler = "2.1.21"
 kotlin-coroutines = "1.10.2"
 
 # Mozilla
-android-components = "139.0.20250417022706"
+android-components = "139.0.4"
 glean = "64.3.1"
 rust-android-gradle = "0.9.6"
 
