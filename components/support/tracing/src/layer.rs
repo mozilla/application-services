@@ -91,28 +91,36 @@ where
 
 struct SimpleEventFilter;
 
+impl SimpleEventFilter {
+    /// Check if we should process events from a callsite
+    fn should_process_callsite(&self, meta: &Metadata<'_>) -> bool {
+        if meta.fields().field("tracing_support").is_some() {
+            // Event came from `tracing_support`'s logging macros.
+            // Enable the layer for this callsite.
+            // Whether we actually do anything for an event is controlled by `SimpleEventLayer.on_event()`
+            true
+        } else {
+            // Event came from a crate not using `tracing_support`, we don't want to handle it.
+            // By returning `Interest::never`, we avoid the lock + map lookup.
+            false
+        }
+    }
+}
+
 impl<S> Filter<S> for SimpleEventFilter
 where
     S: tracing::Subscriber,
 {
     fn callsite_enabled(&self, meta: &Metadata<'_>) -> Interest {
-        if meta.fields().field("tracing_support").is_some() {
-            // Event came from `tracing_support`'s logging macros.
-            // Enable the layer for this callsite.
-            // Whether we actually do anything for an event is controlled by `SimpleEventLayer.on_event()`
+        if self.should_process_callsite(meta) {
             Interest::always()
         } else {
-            // Event came from a crate not using `tracing_support`, we don't want to handle it.
-            // By returning `Interest::never`, tracing_subscriber will ensure that this callsite is
-            // permanently filtered and we avoid the lock + map lookup.
-            // In fact, `callsite_enabled` won't even be called again.
             Interest::never()
         }
     }
 
-    fn enabled(&self, _meta: &Metadata<'_>, _cx: &Context<'_, S>) -> bool {
-        // callsite_enabled() does the real filtering, we just return `true` here.
-        true
+    fn enabled(&self, meta: &Metadata<'_>, _cx: &Context<'_, S>) -> bool {
+        self.should_process_callsite(meta)
     }
 }
 
