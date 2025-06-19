@@ -94,6 +94,7 @@ pub struct ManagedEncryptorDecryptor {
 }
 
 impl ManagedEncryptorDecryptor {
+    #[uniffi::constructor()]
     pub fn new(key_manager: Arc<dyn KeyManager>) -> Self {
         Self { key_manager }
     }
@@ -232,15 +233,21 @@ pub struct NSSKeyManager {
 }
 
 #[cfg(feature = "keydb")]
+#[uniffi::export]
 impl NSSKeyManager {
     /// Initialize new `NSSKeyManager` with a given `PrimaryPasswordAuthenticator`.
     /// There must be a previous initializiation of NSS before initializing
     /// `NSSKeyManager`, otherwise this panics.
+    #[uniffi::constructor()]
     pub fn new(primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>) -> Self {
         assert_nss_initialized();
         Self {
             primary_password_authenticator,
         }
+    }
+
+    pub fn into_dyn_key_manager(self: Arc<Self>) -> Arc<dyn KeyManager> {
+        self
     }
 }
 
