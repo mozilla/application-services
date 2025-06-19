@@ -2,10 +2,10 @@
 
 set -euvx
 
-NSS="nss-3.110"
-NSS_ARCHIVE="nss-3.110-with-nspr-4.36.tar.gz"
-NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_110_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="96114bef9e9692dda6e7793da26fedef0dc0449c3644ebe1122464e599a39dc0"
+NSS="nss-3.113"
+NSS_ARCHIVE="nss-3.113-with-nspr-4.36.tar.gz"
+NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_113_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="b62d51d900b59502eea34be33e3089537fb73977ea6b76cea8d8e6a80e1d95df"
 
 # End of configuration.
 
