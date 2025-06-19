@@ -1,6 +1,117 @@
 {
   "data": [
     {
+      "codeParamName": "tn",
+      "extraAdServersRegexps": [
+        "^https?://www\\.baidu\\.com/baidu\\.php?"
+      ],
+      "followOnParamNames": [
+        "oq"
+      ],
+      "id": "19c434a3-d173-4871-9743-290ac92a3f6a",
+      "last_modified": 1741781945955,
+      "organicCodes": [],
+      "queryParamName": "wd",
+      "queryParamNames": [
+        "wd",
+        "word"
+      ],
+      "schema": 1741189702306,
+      "searchPageMatches": [
+        "https://m.baidu.com/s*",
+        "https://m.baidu.com/baidu*",
+        "https://www.baidu.com/s*",
+        "https://www.baidu.com/baidu*"
+      ],
+      "searchPageRegexp": "^https://(?:m|www)\\.baidu\\.com/(?:s|baidu)",
+      "subframes": [],
+      "taggedCodes": [
+        "monline_dg",
+        "monline_3_dg",
+        "monline_4_dg",
+        "monline_7_dg"
+      ],
+      "telemetryId": "baidu"
+    },
+    {
+      "codeParamName": "client",
+      "components": [
+        {
+          "included": {
+            "children": [
+              {
+                "countChildren": true,
+                "selector": "[data-slide-index]"
+              }
+            ],
+            "parent": {
+              "selector": "[data-testid='pam.container']"
+            }
+          },
+          "type": "ad_image_row"
+        },
+        {
+          "included": {
+            "parent": {
+              "selector": "[data-testid='adResult']"
+            }
+          },
+          "type": "ad_link"
+        },
+        {
+          "included": {
+            "children": [
+              {
+                "selector": "input[type='search']"
+              }
+            ],
+            "parent": {
+              "selector": "._1zdrb._1cR1n"
+            },
+            "related": {
+              "selector": "#search-suggestions"
+            }
+          },
+          "topDown": true,
+          "type": "incontent_searchbox"
+        },
+        {
+          "default": true,
+          "type": "ad_link"
+        }
+      ],
+      "defaultPageQueryParam": {
+        "key": "t",
+        "value": "web"
+      },
+      "extraAdServersRegexps": [
+        "^https://www\\.bing\\.com/acli?c?k",
+        "^https://api\\.qwant\\.com/v3/r/",
+        "^https://fdn\\.qwant\\.com/v3/r/"
+      ],
+      "filter_expression": "env.version|versionCompare(\"124.0a1\")>=0",
+      "followOnParamNames": [],
+      "id": "19c434a3-d173-4871-9743-290ac92a3f6b",
+      "isSPA": true,
+      "last_modified": 1741781945960,
+      "organicCodes": [],
+      "queryParamName": "q",
+      "queryParamNames": [
+        "q"
+      ],
+      "schema": 1741189704472,
+      "searchPageMatches": [
+        "https://www.qwant.com/*"
+      ],
+      "searchPageRegexp": "^https://www\\.qwant\\.com/",
+      "subframes": [],
+      "taggedCodes": [
+        "brz-moz",
+        "firefoxqwant"
+      ],
+      "telemetryId": "qwant"
+    },
+    {
       "adServerAttributes": [
         "rw"
       ],
@@ -296,6 +407,259 @@
       "telemetryId": "google"
     },
     {
+      "codeParamName": "tt",
+      "components": [
+        {
+          "included": {
+            "children": [
+              {
+                "countChildren": true,
+                "selector": ".product-ads-carousel__item"
+              }
+            ],
+            "parent": {
+              "selector": ".product-ads-carousel"
+            },
+            "related": {
+              "selector": ".snippet__control"
+            }
+          },
+          "type": "ad_carousel"
+        },
+        {
+          "included": {
+            "children": [
+              {
+                "selector": ".result__extra-content .deep-links--descriptions",
+                "type": "ad_sitelink"
+              }
+            ],
+            "parent": {
+              "selector": ".ad-result"
+            }
+          },
+          "type": "ad_link"
+        },
+        {
+          "included": {
+            "children": [
+              {
+                "selector": ".search-form__input, .search-form__submit"
+              }
+            ],
+            "parent": {
+              "selector": "form.search-form"
+            },
+            "related": {
+              "selector": ".search-form__suggestions"
+            }
+          },
+          "topDown": true,
+          "type": "incontent_searchbox"
+        },
+        {
+          "default": true,
+          "type": "ad_link"
+        }
+      ],
+      "expectedOrganicCodes": [],
+      "extraAdServersRegexps": [
+        "^https://www\\.bing\\.com/acli?c?k",
+        "^https://syndicatedsearch\\.goog/aclk\\?"
+      ],
+      "filter_expression": "env.version|versionCompare(\"110.0a1\")>=0",
+      "id": "9a487171-3a06-4647-8866-36250ec84f3a",
+      "last_modified": 1741781945953,
+      "organicCodes": [],
+      "queryParamName": "q",
+      "queryParamNames": [
+        "q"
+      ],
+      "schema": 1741189700650,
+      "searchPageMatches": [
+        "https://www.ecosia.org/*"
+      ],
+      "searchPageRegexp": "^https://www\\.ecosia\\.org/",
+      "shoppingTab": {
+        "regexp": "/shopping?",
+        "selector": "nav li[data-test-id='search-navigation-item-shopping'] a"
+      },
+      "subframes": [
+        {
+          "inspectRegexpInParent": true,
+          "inspectRegexpInSERP": true,
+          "regexp": "^https://syndicatedsearch\\.goog/afs/ads"
+        }
+      ],
+      "taggedCodes": [
+        "mzl",
+        "813cf1dd",
+        "16eeffc4"
+      ],
+      "telemetryId": "ecosia"
+    },
+    {
+      "codeParamName": "t",
+      "components": [
+        {
+          "included": {
+            "children": [
+              {
+                "countChildren": true,
+                "selector": ".module--carousel__item"
+              }
+            ],
+            "parent": {
+              "selector": ".module--carousel"
+            },
+            "related": {
+              "selector": ".module--carousel__left, .module--carousel__right"
+            }
+          },
+          "type": "ad_carousel"
+        },
+        {
+          "excluded": {
+            "parent": {
+              "selector": ".js-results-sidebar"
+            }
+          },
+          "included": {
+            "children": [
+              {
+                "selector": "ul",
+                "type": "ad_sitelink"
+              }
+            ],
+            "parent": {
+              "selector": "article[data-testid='ad']"
+            }
+          },
+          "type": "ad_link"
+        },
+        {
+          "included": {
+            "children": [
+              {
+                "selector": " input#search_form_input"
+              }
+            ],
+            "parent": {
+              "selector": "form#search_form"
+            },
+            "related": {
+              "selector": "input#search_button, .search__autocomplete"
+            }
+          },
+          "topDown": true,
+          "type": "incontent_searchbox"
+        },
+        {
+          "included": {
+            "children": [
+              {
+                "countChildren": true,
+                "selector": "article[data-testid='ad']"
+              }
+            ],
+            "parent": {
+              "selector": ".js-results-sidebar"
+            }
+          },
+          "type": "ad_sidebar"
+        },
+        {
+          "default": true,
+          "type": "ad_link"
+        }
+      ],
+      "domainExtraction": {
+        "ads": [
+          {
+            "method": "href",
+            "options": {
+              "queryParamKey": "ad_domain"
+            },
+            "selectors": ".products-carousel a.js-carousel-item-title, [data-testid='ad'] a[data-testid='result-title-a']"
+          }
+        ],
+        "nonAds": [
+          {
+            "method": "href",
+            "selectors": "[data-layout='organic'] a[data-testid='result-title-a']"
+          }
+        ]
+      },
+      "expectedOrganicCodes": [
+        "h_",
+        "ha",
+        "hb",
+        "hc",
+        "hd",
+        "he",
+        "hf",
+        "hg",
+        "hh",
+        "hi",
+        "hj",
+        "hk",
+        "hl",
+        "hm",
+        "hn",
+        "ho",
+        "hp",
+        "hq",
+        "hr",
+        "hs",
+        "ht",
+        "hu",
+        "hv",
+        "hw",
+        "hx",
+        "hy",
+        "hz"
+      ],
+      "extraAdServersRegexps": [
+        "^https://duckduckgo.com/y\\.js?.*ad_provider\\=",
+        "^https://www\\.amazon\\.(?:[a-z.]{2,24}).*(?:tag=duckduckgo-)"
+      ],
+      "id": "9dfd626b-26f2-4913-9d0a-27db6cb7d8ca",
+      "last_modified": 1741781945958,
+      "organicCodes": [],
+      "queryParamName": "q",
+      "queryParamNames": [
+        "q"
+      ],
+      "schema": 1741189703395,
+      "searchPageMatches": [
+        "https://duckduckgo.com/*"
+      ],
+      "searchPageRegexp": "^https://duckduckgo\\.com/",
+      "shoppingTab": {
+        "regexp": "&iax=shopping&ia=shopping",
+        "selector": "#duckbar a[data-zci-link='products']"
+      },
+      "subframes": [],
+      "taggedCodes": [
+        "ffab",
+        "ffcm",
+        "ffhp",
+        "ffip",
+        "ffit",
+        "ffnt",
+        "ffocus",
+        "ffos",
+        "ffsb",
+        "fpas",
+        "fpsa",
+        "ftas",
+        "ftsa",
+        "lm",
+        "newext"
+      ],
+      "telemetryId": "duckduckgo"
+    },
+    {
       "codeParamName": "pc",
       "components": [
         {
@@ -485,370 +849,6 @@
         "MZSL03"
       ],
       "telemetryId": "bing"
-    },
-    {
-      "codeParamName": "client",
-      "components": [
-        {
-          "included": {
-            "children": [
-              {
-                "countChildren": true,
-                "selector": "[data-slide-index]"
-              }
-            ],
-            "parent": {
-              "selector": "[data-testid='pam.container']"
-            }
-          },
-          "type": "ad_image_row"
-        },
-        {
-          "included": {
-            "parent": {
-              "selector": "[data-testid='adResult']"
-            }
-          },
-          "type": "ad_link"
-        },
-        {
-          "included": {
-            "children": [
-              {
-                "selector": "input[type='search']"
-              }
-            ],
-            "parent": {
-              "selector": "._1zdrb._1cR1n"
-            },
-            "related": {
-              "selector": "#search-suggestions"
-            }
-          },
-          "topDown": true,
-          "type": "incontent_searchbox"
-        },
-        {
-          "default": true,
-          "type": "ad_link"
-        }
-      ],
-      "defaultPageQueryParam": {
-        "key": "t",
-        "value": "web"
-      },
-      "extraAdServersRegexps": [
-        "^https://www\\.bing\\.com/acli?c?k",
-        "^https://api\\.qwant\\.com/v3/r/",
-        "^https://fdn\\.qwant\\.com/v3/r/"
-      ],
-      "filter_expression": "env.version|versionCompare(\"124.0a1\")>=0",
-      "followOnParamNames": [],
-      "id": "19c434a3-d173-4871-9743-290ac92a3f6b",
-      "isSPA": true,
-      "last_modified": 1741781945960,
-      "organicCodes": [],
-      "queryParamName": "q",
-      "queryParamNames": [
-        "q"
-      ],
-      "schema": 1741189704472,
-      "searchPageMatches": [
-        "https://www.qwant.com/*"
-      ],
-      "searchPageRegexp": "^https://www\\.qwant\\.com/",
-      "subframes": [],
-      "taggedCodes": [
-        "brz-moz",
-        "firefoxqwant"
-      ],
-      "telemetryId": "qwant"
-    },
-    {
-      "codeParamName": "t",
-      "components": [
-        {
-          "included": {
-            "children": [
-              {
-                "countChildren": true,
-                "selector": ".module--carousel__item"
-              }
-            ],
-            "parent": {
-              "selector": ".module--carousel"
-            },
-            "related": {
-              "selector": ".module--carousel__left, .module--carousel__right"
-            }
-          },
-          "type": "ad_carousel"
-        },
-        {
-          "excluded": {
-            "parent": {
-              "selector": ".js-results-sidebar"
-            }
-          },
-          "included": {
-            "children": [
-              {
-                "selector": "ul",
-                "type": "ad_sitelink"
-              }
-            ],
-            "parent": {
-              "selector": "article[data-testid='ad']"
-            }
-          },
-          "type": "ad_link"
-        },
-        {
-          "included": {
-            "children": [
-              {
-                "selector": " input#search_form_input"
-              }
-            ],
-            "parent": {
-              "selector": "form#search_form"
-            },
-            "related": {
-              "selector": "input#search_button, .search__autocomplete"
-            }
-          },
-          "topDown": true,
-          "type": "incontent_searchbox"
-        },
-        {
-          "included": {
-            "children": [
-              {
-                "countChildren": true,
-                "selector": "article[data-testid='ad']"
-              }
-            ],
-            "parent": {
-              "selector": ".js-results-sidebar"
-            }
-          },
-          "type": "ad_sidebar"
-        },
-        {
-          "default": true,
-          "type": "ad_link"
-        }
-      ],
-      "domainExtraction": {
-        "ads": [
-          {
-            "method": "href",
-            "options": {
-              "queryParamKey": "ad_domain"
-            },
-            "selectors": ".products-carousel a.js-carousel-item-title, [data-testid='ad'] a[data-testid='result-title-a']"
-          }
-        ],
-        "nonAds": [
-          {
-            "method": "href",
-            "selectors": "[data-layout='organic'] a[data-testid='result-title-a']"
-          }
-        ]
-      },
-      "expectedOrganicCodes": [
-        "h_",
-        "ha",
-        "hb",
-        "hc",
-        "hd",
-        "he",
-        "hf",
-        "hg",
-        "hh",
-        "hi",
-        "hj",
-        "hk",
-        "hl",
-        "hm",
-        "hn",
-        "ho",
-        "hp",
-        "hq",
-        "hr",
-        "hs",
-        "ht",
-        "hu",
-        "hv",
-        "hw",
-        "hx",
-        "hy",
-        "hz"
-      ],
-      "extraAdServersRegexps": [
-        "^https://duckduckgo.com/y\\.js?.*ad_provider\\=",
-        "^https://www\\.amazon\\.(?:[a-z.]{2,24}).*(?:tag=duckduckgo-)"
-      ],
-      "id": "9dfd626b-26f2-4913-9d0a-27db6cb7d8ca",
-      "last_modified": 1741781945958,
-      "organicCodes": [],
-      "queryParamName": "q",
-      "queryParamNames": [
-        "q"
-      ],
-      "schema": 1741189703395,
-      "searchPageMatches": [
-        "https://duckduckgo.com/*"
-      ],
-      "searchPageRegexp": "^https://duckduckgo\\.com/",
-      "shoppingTab": {
-        "regexp": "&iax=shopping&ia=shopping",
-        "selector": "#duckbar a[data-zci-link='products']"
-      },
-      "subframes": [],
-      "taggedCodes": [
-        "ffab",
-        "ffcm",
-        "ffhp",
-        "ffip",
-        "ffit",
-        "ffnt",
-        "ffocus",
-        "ffos",
-        "ffsb",
-        "fpas",
-        "fpsa",
-        "ftas",
-        "ftsa",
-        "lm",
-        "newext"
-      ],
-      "telemetryId": "duckduckgo"
-    },
-    {
-      "codeParamName": "tn",
-      "extraAdServersRegexps": [
-        "^https?://www\\.baidu\\.com/baidu\\.php?"
-      ],
-      "followOnParamNames": [
-        "oq"
-      ],
-      "id": "19c434a3-d173-4871-9743-290ac92a3f6a",
-      "last_modified": 1741781945955,
-      "organicCodes": [],
-      "queryParamName": "wd",
-      "queryParamNames": [
-        "wd",
-        "word"
-      ],
-      "schema": 1741189702306,
-      "searchPageMatches": [
-        "https://m.baidu.com/s*",
-        "https://m.baidu.com/baidu*",
-        "https://www.baidu.com/s*",
-        "https://www.baidu.com/baidu*"
-      ],
-      "searchPageRegexp": "^https://(?:m|www)\\.baidu\\.com/(?:s|baidu)",
-      "subframes": [],
-      "taggedCodes": [
-        "monline_dg",
-        "monline_3_dg",
-        "monline_4_dg",
-        "monline_7_dg"
-      ],
-      "telemetryId": "baidu"
-    },
-    {
-      "codeParamName": "tt",
-      "components": [
-        {
-          "included": {
-            "children": [
-              {
-                "countChildren": true,
-                "selector": ".product-ads-carousel__item"
-              }
-            ],
-            "parent": {
-              "selector": ".product-ads-carousel"
-            },
-            "related": {
-              "selector": ".snippet__control"
-            }
-          },
-          "type": "ad_carousel"
-        },
-        {
-          "included": {
-            "children": [
-              {
-                "selector": ".result__extra-content .deep-links--descriptions",
-                "type": "ad_sitelink"
-              }
-            ],
-            "parent": {
-              "selector": ".ad-result"
-            }
-          },
-          "type": "ad_link"
-        },
-        {
-          "included": {
-            "children": [
-              {
-                "selector": ".search-form__input, .search-form__submit"
-              }
-            ],
-            "parent": {
-              "selector": "form.search-form"
-            },
-            "related": {
-              "selector": ".search-form__suggestions"
-            }
-          },
-          "topDown": true,
-          "type": "incontent_searchbox"
-        },
-        {
-          "default": true,
-          "type": "ad_link"
-        }
-      ],
-      "expectedOrganicCodes": [],
-      "extraAdServersRegexps": [
-        "^https://www\\.bing\\.com/acli?c?k",
-        "^https://syndicatedsearch\\.goog/aclk\\?"
-      ],
-      "filter_expression": "env.version|versionCompare(\"110.0a1\")>=0",
-      "id": "9a487171-3a06-4647-8866-36250ec84f3a",
-      "last_modified": 1741781945953,
-      "organicCodes": [],
-      "queryParamName": "q",
-      "queryParamNames": [
-        "q"
-      ],
-      "schema": 1741189700650,
-      "searchPageMatches": [
-        "https://www.ecosia.org/*"
-      ],
-      "searchPageRegexp": "^https://www\\.ecosia\\.org/",
-      "shoppingTab": {
-        "regexp": "/shopping?",
-        "selector": "nav li[data-test-id='search-navigation-item-shopping'] a"
-      },
-      "subframes": [
-        {
-          "inspectRegexpInParent": true,
-          "inspectRegexpInSERP": true,
-          "regexp": "^https://syndicatedsearch\\.goog/afs/ads"
-        }
-      ],
-      "taggedCodes": [
-        "mzl",
-        "813cf1dd",
-        "16eeffc4"
-      ],
-      "telemetryId": "ecosia"
     }
   ],
   "timestamp": 1749153997368

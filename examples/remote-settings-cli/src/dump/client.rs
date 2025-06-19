@@ -64,6 +64,10 @@ struct AttachmentsCapability {
     base_url: String,
 }
 
+// fn sort_search_config_collection() {
+
+// }
+
 impl CollectionDownloader {
     pub fn new(root_path: PathBuf) -> Self {
         let url = RemoteSettingsServer::Prod
@@ -401,7 +405,7 @@ impl CollectionDownloader {
     async fn process_collection_update(
         &self,
         collection: String,
-        data: CollectionData,
+        data: &mut CollectionData,
         dry_run: bool,
     ) -> Result<CollectionUpdate> {
         let mut attachments_updated = 0;
@@ -422,6 +426,19 @@ impl CollectionDownloader {
                 .join(format!("{}.json", name));
 
             std::fs::create_dir_all(dumps_path.parent().unwrap())?;
+            // We sort both the keys and the records in search-config-v2 to make it
+            // easier to read and to experiment with making changes via the dump file.
+            if name == "search-config-v2" {
+                data.data.sort_by(|a, b| {
+                    if a["recordType"] == b["recordType"] {
+                        a["identifier"].as_str().cmp(&b["identifier"].as_str())
+                    } else {
+                        a["recordType"].as_str().cmp(&b["recordType"].as_str())
+                    }
+                });
+            } else {
+                data.data.sort_by_key(|r| r["id"].to_string());
+            }
             std::fs::write(&dumps_path, serde_json::to_string_pretty(&data)?)?;
 
             // Count attachments needing updates
@@ -523,10 +540,10 @@ impl CollectionDownloader {
 
             let pb_clone = Arc::clone(&pb);
             futures.push(async move {
-                let (collection, data) = self
+                let (collection, mut data) = self
                     .fetch_collection(collection_key, remote_timestamp, pb_clone)
                     .await?;
-                self.process_collection_update(collection, data, dry_run)
+                self.process_collection_update(collection, &mut data, dry_run)
                     .await
             });
         }
@@ -556,9 +573,9 @@ impl CollectionDownloader {
                 .unwrap(),
         );
 
-        let (collection, data) = self.fetch_collection(collection_key.clone(), 0, pb).await?;
+        let (collection, mut data) = self.fetch_collection(collection_key.clone(), 0, pb).await?;
         let update = self
-            .process_collection_update(collection, data, false)
+            .process_collection_update(collection, &mut data, false)
             .await?;
 
         println!(
