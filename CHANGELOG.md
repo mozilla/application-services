@@ -5,6 +5,9 @@
 - expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
 - change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
 
+### Nimbus
+- Updated the Nimbus API Stage URL
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨
