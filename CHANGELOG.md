@@ -23,6 +23,9 @@
 ### Glean
 - Updated to v64.4.0 ([#6795](https://github.com/mozilla/application-services/pull/6795))
 
+### Nimbus
+- Updated the Nimbus API Stage URL
+
 [Full Changelog](In progress)
 
 # v140.0 (_2025-05-23_)
