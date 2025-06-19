@@ -7,6 +7,9 @@
 - return Result in PrimaryPasswordAuthenticator callbacks (again a breaking change, but not yet used by anyone)
 - add factory for login store with nss key manager: `create_login_store_with_nss_keymanager` to avoid round-tripping the KeyManager trait interface through JS.
 
+### Nimbus
+- Updated the Nimbus API Stage URL
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨
