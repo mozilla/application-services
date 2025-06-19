@@ -2,6 +2,23 @@
   "data": [
     {
       "attachment": {
+        "filename": "perplexity.svg",
+        "hash": "6a743574353de0ec7c85b49f46b2b554caa0fc1d064b90544c5dea0fea2b8901",
+        "location": "main-workspace/search-config-icons/8d95238a-e1ac-42f1-995e-85db180f413d.svg",
+        "mimetype": "image/svg+xml",
+        "size": 2015
+      },
+      "engineIdentifiers": [
+        "perplexity"
+      ],
+      "filter_expression": "env.appinfo.OS != \"iOS\"",
+      "id": "9d96547d-7575-49ca-8908-1e046b8ea90e",
+      "imageSize": 16,
+      "last_modified": 1746562822691,
+      "schema": 1746437702969
+    },
+    {
+      "attachment": {
         "filename": "daum-kr_mobile.png",
         "hash": "c2718c5e416670426475dd8cc496f5464bf95224e8f8f0a72b695360ddc917c0",
         "location": "main-workspace/search-config-icons/d992fe72-6c09-4fb4-aec3-97206bb906c1.png",
@@ -1172,5 +1189,5 @@
       "schema": 1743687738876
     }
   ],
-  "timestamp": 1744118264981
+  "timestamp": 1746562822691
 }

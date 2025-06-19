@@ -1,6 +1,256 @@
 {
   "data": [
     {
+      "base": {
+        "aliases": [
+          "perplexity"
+        ],
+        "classification": "general",
+        "name": "Perplexity",
+        "partnerCode": "firefox",
+        "urls": {
+          "search": {
+            "base": "https://www.perplexity.ai/search",
+            "params": [
+              {
+                "name": "pc",
+                "value": "{partnerCode}"
+              }
+            ],
+            "searchTermParamName": "q"
+          },
+          "suggestions": {
+            "base": "https://suggest.perplexity.ai/suggest",
+            "searchTermParamName": "q"
+          },
+          "trending": {
+            "base": "https://www.perplexity.ai/rest/autosuggest/list-trending-suggest"
+          }
+        }
+      },
+      "id": "bb836721-7be9-4de6-ac18-520189a69076",
+      "identifier": "perplexity",
+      "last_modified": 1749848937099,
+      "recordType": "engine",
+      "schema": 1749743664865,
+      "variants": [
+        {
+          "environment": {
+            "experiment": "perplexity"
+          },
+          "subVariants": [
+            {
+              "environment": {
+                "locales": [
+                  "de"
+                ],
+                "regions": [
+                  "de",
+                  "us",
+                  "gb"
+                ]
+              },
+              "urls": {
+                "trending": {
+                  "base": "https://www.perplexity.ai/rest/autosuggest/list-trending-suggest?lang=de-DE"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": {
+        "aliases": [
+          "bing"
+        ],
+        "classification": "general",
+        "name": "Bing",
+        "partnerCode": "MOZI",
+        "urls": {
+          "search": {
+            "base": "https://www.bing.com/search",
+            "params": [
+              {
+                "name": "pc",
+                "value": "{partnerCode}"
+              },
+              {
+                "name": "form",
+                "value": "MOZLBR"
+              }
+            ],
+            "searchTermParamName": "q"
+          },
+          "suggestions": {
+            "base": "https://www.bing.com/osjson.aspx",
+            "params": [
+              {
+                "name": "form",
+                "value": "OSDJAS"
+              }
+            ],
+            "searchTermParamName": "query"
+          },
+          "trending": {
+            "base": "https://www.bing.com/osjson.aspx"
+          }
+        }
+      },
+      "id": "05645095-d26e-4f20-9137-f24a14a23f28",
+      "identifier": "bing",
+      "last_modified": 1747257920659,
+      "recordType": "engine",
+      "schema": 1747180809142,
+      "variants": [
+        {
+          "environment": {
+            "allRegionsAndLocales": true,
+            "applications": [
+              "firefox",
+              "firefox-android",
+              "firefox-ios"
+            ]
+          },
+          "subVariants": [
+            {
+              "environment": {
+                "channels": [
+                  "esr"
+                ]
+              },
+              "partnerCode": "MOZR",
+              "telemetrySuffix": "esr"
+            },
+            {
+              "environment": {
+                "applications": [
+                  "firefox-android"
+                ]
+              },
+              "partnerCode": "MOZB",
+              "urls": {
+                "search": {
+                  "params": [
+                    {
+                      "name": "pc",
+                      "value": "{partnerCode}"
+                    },
+                    {
+                      "name": "form",
+                      "value": "MOZMBA"
+                    }
+                  ],
+                  "searchTermParamName": "q"
+                }
+              }
+            },
+            {
+              "environment": {
+                "applications": [
+                  "firefox-ios"
+                ]
+              },
+              "partnerCode": "MOZW",
+              "urls": {
+                "search": {
+                  "params": [
+                    {
+                      "name": "pc",
+                      "value": "{partnerCode}"
+                    },
+                    {
+                      "name": "form",
+                      "value": "MOZWSB"
+                    }
+                  ],
+                  "searchTermParamName": "q"
+                }
+              }
+            },
+            {
+              "environment": {
+                "applications": [
+                  "firefox-android",
+                  "focus-android"
+                ],
+                "distributions": [
+                  "dt-001"
+                ]
+              },
+              "partnerCode": "MZTOF",
+              "telemetrySuffix": "MZTOF",
+              "urls": {
+                "search": {
+                  "params": [
+                    {
+                      "name": "pc",
+                      "value": "{partnerCode}"
+                    },
+                    {
+                      "name": "form",
+                      "value": "MZTOFO"
+                    }
+                  ],
+                  "searchTermParamName": "q"
+                }
+              }
+            },
+            {
+              "environment": {
+                "applications": [
+                  "firefox-android",
+                  "focus-android"
+                ],
+                "distributions": [
+                  "vivo-001"
+                ]
+              },
+              "partnerCode": "MZCP",
+              "telemetrySuffix": "MZCP",
+              "urls": {
+                "search": {
+                  "params": [
+                    {
+                      "name": "pc",
+                      "value": "{partnerCode}"
+                    },
+                    {
+                      "name": "form",
+                      "value": "MZVIVO"
+                    }
+                  ],
+                  "searchTermParamName": "q"
+                }
+              }
+            },
+            {
+              "environment": {
+                "experiment": "adblockers"
+              },
+              "partnerCode": "MZABT",
+              "urls": {
+                "search": {
+                  "params": [
+                    {
+                      "name": "pc",
+                      "value": "{partnerCode}"
+                    },
+                    {
+                      "name": "form",
+                      "value": "ABT"
+                    }
+                  ],
+                  "searchTermParamName": "q"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "96ad4fd9-4bbb-454d-bbe5-24225a2cbe04",
       "last_modified": 1745933974542,
       "locales": [
@@ -111,44 +361,6 @@
       ],
       "recordType": "availableLocales",
       "schema": 1745887776020
-    },
-    {
-      "base": {
-        "aliases": [
-          "perplexity"
-        ],
-        "classification": "general",
-        "name": "Perplexity",
-        "partnerCode": "firefox",
-        "urls": {
-          "search": {
-            "base": "https://www.perplexity.ai/search",
-            "params": [
-              {
-                "name": "pc",
-                "value": "{partnerCode}"
-              }
-            ],
-            "searchTermParamName": "q"
-          },
-          "suggestions": {
-            "base": "https://suggest.perplexity.ai/suggest",
-            "searchTermParamName": "q"
-          }
-        }
-      },
-      "id": "bb836721-7be9-4de6-ac18-520189a69076",
-      "identifier": "perplexity",
-      "last_modified": 1745933974539,
-      "recordType": "engine",
-      "schema": 1745887296200,
-      "variants": [
-        {
-          "environment": {
-            "experiment": "perplexity"
-          }
-        }
-      ]
     },
     {
       "base": {
@@ -405,175 +617,6 @@
           },
           "partnerCode": "firefox-b-tf",
           "telemetrySuffix": "b-tf"
-        }
-      ]
-    },
-    {
-      "base": {
-        "aliases": [
-          "bing"
-        ],
-        "classification": "general",
-        "name": "Bing",
-        "partnerCode": "MOZI",
-        "urls": {
-          "search": {
-            "base": "https://www.bing.com/search",
-            "params": [
-              {
-                "name": "pc",
-                "value": "{partnerCode}"
-              },
-              {
-                "name": "form",
-                "value": "MOZLBR"
-              }
-            ],
-            "searchTermParamName": "q"
-          },
-          "suggestions": {
-            "base": "https://www.bing.com/osjson.aspx",
-            "params": [
-              {
-                "name": "form",
-                "value": "OSDJAS"
-              }
-            ],
-            "searchTermParamName": "query"
-          },
-          "trending": {
-            "base": "https://www.bing.com/osjson.aspx"
-          }
-        }
-      },
-      "id": "05645095-d26e-4f20-9137-f24a14a23f28",
-      "identifier": "bing",
-      "last_modified": 1742996759040,
-      "recordType": "engine",
-      "schema": 1742810344329,
-      "variants": [
-        {
-          "environment": {
-            "allRegionsAndLocales": true,
-            "applications": [
-              "firefox",
-              "firefox-android",
-              "firefox-ios"
-            ]
-          },
-          "subVariants": [
-            {
-              "environment": {
-                "channels": [
-                  "esr"
-                ]
-              },
-              "partnerCode": "MOZR",
-              "telemetrySuffix": "esr"
-            },
-            {
-              "environment": {
-                "applications": [
-                  "firefox-android"
-                ]
-              },
-              "partnerCode": "MOZB",
-              "urls": {
-                "search": {
-                  "params": [
-                    {
-                      "name": "pc",
-                      "value": "{partnerCode}"
-                    },
-                    {
-                      "name": "form",
-                      "value": "MOZMBA"
-                    }
-                  ],
-                  "searchTermParamName": "q"
-                }
-              }
-            },
-            {
-              "environment": {
-                "applications": [
-                  "firefox-ios"
-                ]
-              },
-              "partnerCode": "MOZW",
-              "urls": {
-                "search": {
-                  "params": [
-                    {
-                      "name": "pc",
-                      "value": "{partnerCode}"
-                    },
-                    {
-                      "name": "form",
-                      "value": "MOZWSB"
-                    }
-                  ],
-                  "searchTermParamName": "q"
-                }
-              }
-            },
-            {
-              "environment": {
-                "applications": [
-                  "firefox-android",
-                  "focus-android"
-                ],
-                "distributions": [
-                  "dt-001"
-                ]
-              },
-              "partnerCode": "MZTOF",
-              "telemetrySuffix": "MZTOF",
-              "urls": {
-                "search": {
-                  "params": [
-                    {
-                      "name": "pc",
-                      "value": "{partnerCode}"
-                    },
-                    {
-                      "name": "form",
-                      "value": "MZTOFO"
-                    }
-                  ],
-                  "searchTermParamName": "q"
-                }
-              }
-            },
-            {
-              "environment": {
-                "applications": [
-                  "firefox-android",
-                  "focus-android"
-                ],
-                "distributions": [
-                  "vivo-001"
-                ]
-              },
-              "partnerCode": "MZCP",
-              "telemetrySuffix": "MZCP",
-              "urls": {
-                "search": {
-                  "params": [
-                    {
-                      "name": "pc",
-                      "value": "{partnerCode}"
-                    },
-                    {
-                      "name": "form",
-                      "value": "MZVIVO"
-                    }
-                  ],
-                  "searchTermParamName": "q"
-                }
-              }
-            }
-          ]
         }
       ]
     },
@@ -8199,5 +8242,5 @@
       ]
     }
   ],
-  "timestamp": 1745933974542
+  "timestamp": 1749848937099
 }
