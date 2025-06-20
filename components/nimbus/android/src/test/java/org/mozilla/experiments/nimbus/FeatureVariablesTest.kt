@@ -36,6 +36,25 @@ class FeatureVariablesTest {
     }
 
     @Test
+    fun `test integer-like text values are not mistakenly used as resource IDs`() {
+        val json = JSONObject(
+            """
+            {"textVariable": "1234"}
+            """.trimIndent(),
+        )
+
+        val variables: Variables = JSONVariables(context, json)
+
+        // `getIdentifier()` in `ResourcesImpl.java` treats strings that look
+        // like integers as valid identifiers, without even checking them,
+        // because why not... So we should get a valid string resource ID here,
+        // even when it makes no sense.
+        assertEquals(variables.getStringResource("textVariable"), 1234)
+        // We should expect the value as text, though, and not an error.
+        assertEquals(variables.getText("textVariable"), "1234")
+    }
+
+    @Test
     fun `test values are null if the wrong type`() {
         val json = JSONObject(
             """

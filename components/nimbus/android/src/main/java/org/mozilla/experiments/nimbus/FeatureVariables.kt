@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
+import android.content.res.Resources.NotFoundException
 import android.graphics.drawable.Drawable
 import org.json.JSONArray
 import org.json.JSONObject
@@ -376,7 +377,15 @@ interface VariablesWithContext : Variables {
     // defaults from manifest information.
     fun asText(res: Int) = context.getString(res)
     fun asDrawable(res: Int): Res<Drawable> = DrawableRes(context, res)
-    fun asText(string: String): String? = asStringResource(string)?.let(this::asText) ?: string
+    fun asText(string: String): String =
+        try {
+            // It's possible `asStringResource` will return an ID for a
+            // resource that doesn't actually exist, and `asText(Int)` might
+            // throw as a result.
+            asStringResource(string)?.let(this::asText) ?: string
+        } catch (e: NotFoundException) {
+            string
+        }
     fun asStringResource(string: String) = context.getResource(string, "string")
     fun asDrawableResource(string: String) = context.getResource(string, "drawable")
 }
