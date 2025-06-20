@@ -5,29 +5,31 @@
 package org.mozilla.experiments.nimbus.util
 
 import android.content.Context
+import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.mozilla.experiments.nimbus.AbstractNimbusBuilder
 import org.mozilla.experiments.nimbus.Nimbus
 import org.mozilla.experiments.nimbus.NimbusAppInfo
 import org.mozilla.experiments.nimbus.NimbusDelegate
 import org.mozilla.experiments.nimbus.NimbusDeviceInfo
 import org.mozilla.experiments.nimbus.NimbusInterface
-import org.mozilla.experiments.nimbus.NimbusServerSettings
 import org.mozilla.experiments.nimbus.uninitialized
 
 class TestNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {
     override fun newNimbus(
         appInfo: NimbusAppInfo,
-        serverSettings: NimbusServerSettings?,
+        collectionName: String?,
+        remoteSettingsService: RemoteSettingsService?,
     ): NimbusInterface =
         Nimbus(
             context = context,
             prefs = sharedPreferences,
             appInfo = appInfo,
             coenrollingFeatureIds = listOf(),
-            server = serverSettings,
             deviceInfo = NimbusDeviceInfo("en-US"),
             observer = null,
             delegate = NimbusDelegate.default(),
+            collectionName = collectionName,
+            remoteSettingsService = remoteSettingsService,
         )
 
     override fun newNimbusDisabled(): NimbusInterface =
