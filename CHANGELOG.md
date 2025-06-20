@@ -6,6 +6,9 @@
 - Added the first version of a component for checking if base domains exist in a
   list of base domains for adult websites.
 
+### Relay
+- Added the first version of a component for using Firefox Relay.
+
 ### Logins
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 - add `delete_many(ids)` for batch deletion within a single transaction
