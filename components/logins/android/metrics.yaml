@@ -166,3 +166,35 @@ logins_store:
       - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
     expires: "never"
+
+  local_undecryptable_deleted:
+    type: counter
+    description: >
+      Track how many logins we deleted locally due to various reasons
+      that prevent us from decrypting the login
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1972437
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1972437
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - skhamis@mozilla.com
+      - synced-client-integrations@mozilla.com
+    expires: "never"
+
+  mirror_undecryptable_deleted:
+    type: counter
+    description: >
+      Track how many logins we deleted in the mirror table due to various reasons
+      that prevent us from decrypting the login
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1972437
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1972437
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - skhamis@mozilla.com
+      - synced-client-integrations@mozilla.com
+    expires: "never"
