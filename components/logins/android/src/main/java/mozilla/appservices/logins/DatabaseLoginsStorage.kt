@@ -139,6 +139,17 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
             LoginsStoreMetrics.writeQueryErrorCount,
         )
     }
+
+    @Throws(LoginsApiException::class)
+    fun deleteUndecryptableLoginsAndRecordMetrics() {
+        val result = store.deleteUndecryptableRecordsForRemoteReplacement()
+        if (result.localDeleted > 0u) {
+            LoginsStoreMetrics.localUndecryptableDeleted.add(result.localDeleted.toInt())
+        }
+        if (result.mirrorDeleted > 0u) {
+            LoginsStoreMetrics.mirrorUndecryptableDeleted.add(result.mirrorDeleted.toInt())
+        }
+    }
 }
 
 enum class KeyRegenerationEventReason {

@@ -24,7 +24,7 @@ uniffi::include_scaffolding!("logins");
 #[cfg(feature = "keydb")]
 pub use crate::encryption::{NSSKeyManager, PrimaryPasswordAuthenticator};
 
-pub use crate::db::LoginDb;
+pub use crate::db::{LoginDb, LoginsDeletionMetrics};
 use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
