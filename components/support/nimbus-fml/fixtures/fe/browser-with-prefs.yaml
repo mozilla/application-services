@@ -1,0 +1,154 @@
+---
+about:
+  description: This file codes for all features in the Fenix browser
+  kotlin:
+    class: .nimbus.FxNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
+channels:
+  - release
+  - beta
+  - nightly
+  - developer
+features:
+  homescreen:
+    description: The homescreen that the user goes to when they press home or new tab.
+    variables:
+      sections-enabled:
+        description: "This property provides a lookup table of whether or not the given section should be enabled.
+        If the section is enabled, it should be toggleable in the settings screen, and on by default."
+        type: Map<HomeScreenSection, Boolean>
+        default:
+          {
+            "top-sites": true,
+            "jump-back-in": false,
+            "recently-saved": false,
+            "recent-explorations": false,
+            "pocket": false
+          }
+    defaults:
+      - channel: nightly
+        value: {
+          "sections-enabled": {
+            "top-sites": true,
+            "jump-back-in": true,
+            "recently-saved": true,
+            "recent-explorations": true,
+            "pocket": true
+          }
+        }
+    allow-coenrollment: true
+  nimbus-validation:
+    description: "A feature that does not correspond to an application feature suitable for showing
+    that Nimbus is working."
+    variables:
+      settings-title:
+        description: The title of displayed in the Settings screen and app menu.
+        type: Option<Text>
+        default: app_menu_settings_title
+      settings-punctuation:
+        description: The emoji displayed in the Settings screen title.
+        type: Text
+        default: app_menu_settings_punctuation
+      settings-icon:
+        description: The drawable displayed in the app menu for Settings
+        type: Drawable
+        default: mozac_ic_settings
+      string-map:
+        description: A string map that was causing problem
+        type: Map<String, String>
+        default: {}
+      string-int-map:
+        description: A int map that was causing problem
+        type: Map<String, Int>
+        default: {}
+      icon-type:
+        type: Option<IconType>
+        default: letter
+        description: "Describes the icon of spotlight"
+      enum-map:
+        description: A enum map that was causing problem
+        type: Map<IconType, Int>
+        default:
+          screenshot: 1
+          letter: 2
+          favicon: 3
+      nested:
+        description: Test of single nested object
+        type: ValidationObject
+        default:
+          is-useful: true
+      nested-optional:
+        description: Test of optional nested object
+        type: Option<ValidationObject>
+        default: null
+      nested-list:
+        description: Test of list of nested object
+        type: List<ValidationObject>
+        default: []
+      nested-map:
+        description: Test of map of nested object
+        type: Map<String, ValidationObject>
+        default: {}
+      nested-enum-map:
+        description: Test of map of nested object
+        type: Map<IconType, ValidationObject>
+        default:
+          screenshot: {}
+          letter: {}
+          favicon: {}
+      pref-string:
+        description: Test of pref string
+        type: String
+        gecko-pref:
+          pref: "my.pref.key.string"
+          branch: "default"
+        default: ""
+      pref-bool:
+        description: Test of pref bool
+        type: Boolean
+        gecko-pref:
+          pref: "my.pref.key.bool"
+          branch: "user"
+        default: false
+  search-term-groups:
+    description: A feature allowing the grouping of URLs around the search term that it came from.
+    variables:
+      enabled:
+        description: If true, the feature shows up on the homescreen and on the new tab screen.
+        type: Boolean
+        default: false
+types:
+  objects:
+    ValidationObject:
+      description: Used in NimbusValidation
+      fields:
+        is-useful:
+          description: Is this useful?
+          type: Boolean
+          default: false
+  enums:
+    HomeScreenSection:
+        description: The identifiers for the sections of the homescreen.
+        variants:
+          top-sites:
+            description: The frecency and pinned sites.
+          recently-saved:
+            description: The sites the user has bookmarked recently.
+          jump-back-in:
+            description: The tabs the user was looking immediately before being interrupted.
+          recent-explorations:
+            description: The tab groups
+          pocket:
+            description: The pocket section. This should only be available in the US.
+    IconType:
+      description: The different types of icons
+      variants:
+        screenshot:
+          description: A screenshot icon
+        favicon:
+          description: A favicon icon
+        letter:
+          description: A letter icon

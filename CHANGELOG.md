@@ -16,6 +16,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Nimbus FML ⛅️🔬🔭🔧
+- Updated Nimbus FML to support pref key+branch being set on feature properties (#[6788](https://github.com/mozilla/application-services/pull/6788)).
+
 ### Context ID
 - The `ContextIDComponent` constructor no longer throws an error. This is not a breaking change since neither iOS or Android implement this yet.
 - The `ContextIDComponent` constructor can now synchronously invoke the rotation callback when it receives an invalid timestamp from callers; in such cases, it falls back to the current timestamp and forces an ID rotation.

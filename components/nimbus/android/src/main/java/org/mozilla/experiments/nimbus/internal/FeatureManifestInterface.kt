@@ -6,6 +6,11 @@ package org.mozilla.experiments.nimbus.internal
 
 import org.mozilla.experiments.nimbus.FeaturesInterface
 
+data class GeckoPref(
+    val pref: String,
+    val branch: String,
+)
+
 interface FeatureManifestInterface<T> {
     /**
      * This method should be called as early in the startup sequence of the app as possible.
@@ -43,4 +48,6 @@ interface FeatureManifestInterface<T> {
     fun getFeature(featureId: String): FeatureHolder<*>?
 
     fun getCoenrollingFeatureIds(): List<String>
+
+    fun geckoPrefsMap(): Map<String, Map<String, GeckoPref>>
 }

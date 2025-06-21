@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::intermediate_representation::PropDef;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder},
+    intermediate_representation::{FeatureDef, FeatureManifest, GeckoPrefDef, TypeFinder},
 };
 
 mod bundled;
@@ -77,6 +77,16 @@ impl<'a> FeatureManifestDeclaration<'a> {
         self.fm.iter_feature_defs().collect::<_>()
     }
 
+    #[allow(unused)]
+    pub fn iter_gecko_prefs(&self) -> Vec<&GeckoPrefDef> {
+        self.fm.iter_gecko_prefs().collect::<_>()
+    }
+
+    #[allow(unused)]
+    pub fn iter_features_with_prefs(&self) -> Vec<(String, Vec<(String, &GeckoPrefDef)>)> {
+        self.fm.iter_features_with_prefs().collect::<_>()
+    }
+
     pub fn initialization_code(&self) -> Vec<String> {
         let oracle = &self.oracle;
         self.members()
@@ -116,6 +126,7 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 "org.mozilla.experiments.nimbus.Variables".to_string(),
                 "org.mozilla.experiments.nimbus.internal.FeatureHolder".to_string(),
                 "org.mozilla.experiments.nimbus.internal.FeatureManifestInterface".to_string(),
+                "org.mozilla.experiments.nimbus.internal.GeckoPref".to_string(),
                 "org.mozilla.experiments.nimbus.FeaturesInterface".to_string(),
                 "org.json.JSONObject".to_string(),
                 "android.content.SharedPreferences".to_string(),

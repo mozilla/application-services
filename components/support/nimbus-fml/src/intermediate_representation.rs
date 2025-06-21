@@ -13,7 +13,7 @@ use anyhow::{bail, Error, Result as AnyhowResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum TargetLanguage {
@@ -325,6 +325,7 @@ impl FeatureManifest {
         for feature_def in self.iter_feature_defs() {
             validator.validate_feature_def(feature_def)?;
         }
+        validator.validate_prefs(self)?;
         Ok(())
     }
 
@@ -369,6 +370,26 @@ impl FeatureManifest {
 
     pub fn iter_feature_defs(&self) -> impl Iterator<Item = &FeatureDef> {
         self.feature_defs.values()
+    }
+
+    pub fn iter_gecko_prefs(&self) -> impl Iterator<Item = &GeckoPrefDef> {
+        self.iter_feature_defs()
+            .filter(|f| f.has_gecko_prefs())
+            .flat_map(|f| {
+                f.feature_mapped_to_prop_and_gecko_pref()
+                    .iter()
+                    .flat_map(|p| p.1.clone())
+                    .collect::<Vec<_>>()
+            })
+            .map(|p| p.1)
+    }
+
+    pub fn iter_features_with_prefs(
+        &self,
+    ) -> impl Iterator<Item = (String, Vec<(String, &GeckoPrefDef)>)> {
+        self.iter_feature_defs()
+            .filter(|f| f.has_gecko_prefs())
+            .flat_map(|f| f.feature_mapped_to_prop_and_gecko_pref())
     }
 
     pub fn iter_all_feature_defs(&self) -> impl Iterator<Item = (&FeatureManifest, &FeatureDef)> {
@@ -547,6 +568,10 @@ impl FeatureDef {
         self.props.iter().any(|p| p.has_prefs())
     }
 
+    pub fn has_gecko_prefs(&self) -> bool {
+        self.props.iter().any(|p| p.has_gecko_prefs())
+    }
+
     pub fn get_string_aliases(&self) -> HashMap<&str, &PropDef> {
         let mut res: HashMap<_, _> = Default::default();
         for p in &self.props {
@@ -559,6 +584,28 @@ impl FeatureDef {
 
     pub fn get_prop(&self, name: &str) -> Option<&PropDef> {
         self.props.iter().find(|p| p.name == name)
+    }
+
+    pub fn feature_mapped_to_prop_and_gecko_pref(
+        &self,
+    ) -> Vec<(String, Vec<(String, &GeckoPrefDef)>)> {
+        self.props
+            .iter()
+            .filter(|p| p.has_gecko_prefs() && p.gecko_pref.is_some())
+            .map(|p| (p.gecko_pref.as_ref(), p.name()))
+            .map(|(p, n)| (p, (n, self.name())))
+            .rfold(Vec::new(), |mut acc: Vec<(String, Vec<(String, &GeckoPrefDef)>)>, (pref, (prop, feature)): (Option<&GeckoPrefDef>, (String, String))| {
+                match acc.iter_mut().find(|p| p.0 == feature) {
+                    Some((_, ref mut props)) => {
+                        props.push((prop, pref.unwrap()));
+                    }
+                    None => {
+                        let props = vec![(prop, pref.unwrap())];
+                        acc.push((feature, props));
+                    }
+                }
+                acc
+            })
     }
 }
 
@@ -650,6 +697,37 @@ impl TypeFinder for ObjectDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PrefBranch {
+    Default,
+    User,
+}
+
+impl Display for PrefBranch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrefBranch::Default => f.write_str("default"),
+            PrefBranch::User => f.write_str("user"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GeckoPrefDef {
+    pub(crate) pref: String,
+    pub(crate) branch: PrefBranch,
+}
+
+impl GeckoPrefDef {
+    pub fn pref(&self) -> String {
+        self.pref.clone()
+    }
+    pub fn branch(&self) -> PrefBranch {
+        self.branch.clone()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PropDef {
     pub(crate) name: String,
     pub(crate) doc: String,
@@ -659,6 +737,9 @@ pub struct PropDef {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) pref_key: Option<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) gecko_pref: Option<GeckoPrefDef>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) string_alias: Option<TypeRef>,
@@ -680,8 +761,14 @@ impl PropDef {
     pub fn has_prefs(&self) -> bool {
         self.pref_key.is_some() && self.typ.supports_prefs()
     }
+    pub fn has_gecko_prefs(&self) -> bool {
+        self.gecko_pref.is_some() && self.typ.supports_prefs()
+    }
     pub fn pref_key(&self) -> Option<String> {
         self.pref_key.clone()
+    }
+    pub fn gecko_pref(&self) -> Option<GeckoPrefDef> {
+        self.gecko_pref.clone()
     }
 }
 

@@ -13,6 +13,9 @@ public class {{ inner.name()|class_name }}  {% call kt::render_constructor() %} 
             {%- if p.has_prefs() %}
                 {{ p.pref_key().unwrap()|quoted }},
             {%- endif %}
+            {%- if p.has_gecko_prefs() %}
+                {{ p.gecko_pref().unwrap().pref()|quoted }},
+            {%- endif %}
             {%- endfor %}
             ).any { prefs.contains(it) }
         } ?: false
