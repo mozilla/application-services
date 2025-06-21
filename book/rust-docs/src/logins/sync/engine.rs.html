@@ -1,0 +1,1018 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/logins/src/sync/engine.rs`."><title>engine.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="logins" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../static.files/storage-82c7156e.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">logins/sync/</div>engine.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+<a href=#2 id=2 data-nosnippet>2</a> * License, v. 2.0. If a copy of the MPL was not distributed with this
+<a href=#3 id=3 data-nosnippet>3</a> * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use </span><span class="kw">super</span>::merge::{LocalLogin, MirrorLogin, SyncLoginData};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span><span class="kw">super</span>::update_plan::UpdatePlan;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">super</span>::SyncStatus;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::db::CLONE_ENTIRE_MIRROR_SQL;
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::error::<span class="kw-2">*</span>;
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::login::EncryptedLogin;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::schema;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::util;
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span><span class="kw">crate</span>::LoginDb;
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span><span class="kw">crate</span>::LoginStore;
+<a href=#15 id=15 data-nosnippet>15</a><span class="kw">use </span>interrupt_support::SqlInterruptScope;
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>rusqlite::named_params;
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>sql_support::ConnExt;
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>std::cell::RefCell;
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>std::collections::HashSet;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>std::sync::Arc;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>std::time::{Duration, UNIX_EPOCH};
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>sync15::{telemetry, ServerTimestamp};
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>sync_guid::Guid;
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="comment">// The sync engine.
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">pub struct </span>LoginsSyncEngine {
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="kw">pub </span>store: Arc&lt;LoginStore&gt;,
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">pub </span>scope: SqlInterruptScope,
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">pub </span>staged: RefCell&lt;Vec&lt;IncomingBso&gt;&gt;,
+<a href=#32 id=32 data-nosnippet>32</a>}
+<a href=#33 id=33 data-nosnippet>33</a>
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">impl </span>LoginsSyncEngine {
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">pub fn </span>new(store: Arc&lt;LoginStore&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">let </span>scope = store.db.lock().begin_interrupt_scope()<span class="question-mark">?</span>;
+<a href=#37 id=37 data-nosnippet>37</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+<a href=#38 id=38 data-nosnippet>38</a>            store,
+<a href=#39 id=39 data-nosnippet>39</a>            scope,
+<a href=#40 id=40 data-nosnippet>40</a>            staged: RefCell::new(<span class="macro">vec!</span>[]),
+<a href=#41 id=41 data-nosnippet>41</a>        })
+<a href=#42 id=42 data-nosnippet>42</a>    }
+<a href=#43 id=43 data-nosnippet>43</a>
+<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">fn </span>reconcile(
+<a href=#45 id=45 data-nosnippet>45</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#46 id=46 data-nosnippet>46</a>        records: Vec&lt;SyncLoginData&gt;,
+<a href=#47 id=47 data-nosnippet>47</a>        server_now: ServerTimestamp,
+<a href=#48 id=48 data-nosnippet>48</a>        telem: <span class="kw-2">&amp;mut </span>telemetry::EngineIncoming,
+<a href=#49 id=49 data-nosnippet>49</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;UpdatePlan&gt; {
+<a href=#50 id=50 data-nosnippet>50</a>        <span class="kw">let </span><span class="kw-2">mut </span>plan = UpdatePlan::default();
+<a href=#51 id=51 data-nosnippet>51</a>
+<a href=#52 id=52 data-nosnippet>52</a>        <span class="kw">for </span><span class="kw-2">mut </span>record <span class="kw">in </span>records {
+<a href=#53 id=53 data-nosnippet>53</a>            <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#54 id=54 data-nosnippet>54</a>            <span class="macro">debug!</span>(<span class="string">"Processing remote change {}"</span>, record.guid());
+<a href=#55 id=55 data-nosnippet>55</a>            <span class="kw">let </span>upstream = <span class="kw">if let </span><span class="prelude-val">Some</span>(inbound) = record.inbound.take() {
+<a href=#56 id=56 data-nosnippet>56</a>                inbound
+<a href=#57 id=57 data-nosnippet>57</a>            } <span class="kw">else </span>{
+<a href=#58 id=58 data-nosnippet>58</a>                <span class="macro">debug!</span>(<span class="string">"Processing inbound deletion (always prefer)"</span>);
+<a href=#59 id=59 data-nosnippet>59</a>                plan.plan_delete(record.guid.clone());
+<a href=#60 id=60 data-nosnippet>60</a>                <span class="kw">continue</span>;
+<a href=#61 id=61 data-nosnippet>61</a>            };
+<a href=#62 id=62 data-nosnippet>62</a>            <span class="kw">let </span>upstream_time = record.inbound_ts;
+<a href=#63 id=63 data-nosnippet>63</a>            <span class="kw">match </span>(record.mirror.take(), record.local.take()) {
+<a href=#64 id=64 data-nosnippet>64</a>                (<span class="prelude-val">Some</span>(mirror), <span class="prelude-val">Some</span>(local)) =&gt; {
+<a href=#65 id=65 data-nosnippet>65</a>                    <span class="macro">debug!</span>(<span class="string">"  Conflict between remote and local, Resolving with 3WM"</span>);
+<a href=#66 id=66 data-nosnippet>66</a>                    plan.plan_three_way_merge(
+<a href=#67 id=67 data-nosnippet>67</a>                        local,
+<a href=#68 id=68 data-nosnippet>68</a>                        mirror,
+<a href=#69 id=69 data-nosnippet>69</a>                        upstream,
+<a href=#70 id=70 data-nosnippet>70</a>                        upstream_time,
+<a href=#71 id=71 data-nosnippet>71</a>                        server_now,
+<a href=#72 id=72 data-nosnippet>72</a>                        <span class="self">self</span>.store.encdec.as_ref(),
+<a href=#73 id=73 data-nosnippet>73</a>                    )<span class="question-mark">?</span>;
+<a href=#74 id=74 data-nosnippet>74</a>                    telem.reconciled(<span class="number">1</span>);
+<a href=#75 id=75 data-nosnippet>75</a>                }
+<a href=#76 id=76 data-nosnippet>76</a>                (<span class="prelude-val">Some</span>(_mirror), <span class="prelude-val">None</span>) =&gt; {
+<a href=#77 id=77 data-nosnippet>77</a>                    <span class="macro">debug!</span>(<span class="string">"  Forwarding mirror to remote"</span>);
+<a href=#78 id=78 data-nosnippet>78</a>                    plan.plan_mirror_update(upstream, upstream_time);
+<a href=#79 id=79 data-nosnippet>79</a>                    telem.applied(<span class="number">1</span>);
+<a href=#80 id=80 data-nosnippet>80</a>                }
+<a href=#81 id=81 data-nosnippet>81</a>                (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(local)) =&gt; {
+<a href=#82 id=82 data-nosnippet>82</a>                    <span class="macro">debug!</span>(<span class="string">"  Conflicting record without shared parent,  Resolving with 2WM"</span>);
+<a href=#83 id=83 data-nosnippet>83</a>                    plan.plan_two_way_merge(local, (upstream, upstream_time));
+<a href=#84 id=84 data-nosnippet>84</a>                    telem.reconciled(<span class="number">1</span>);
+<a href=#85 id=85 data-nosnippet>85</a>                }
+<a href=#86 id=86 data-nosnippet>86</a>                (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
+<a href=#87 id=87 data-nosnippet>87</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(dupe) = <span class="self">self</span>.find_dupe_login(<span class="kw-2">&amp;</span>upstream.login)<span class="question-mark">? </span>{
+<a href=#88 id=88 data-nosnippet>88</a>                        <span class="macro">debug!</span>(
+<a href=#89 id=89 data-nosnippet>89</a>                            <span class="string">"  Incoming record {} was is a dupe of local record {}"</span>,
+<a href=#90 id=90 data-nosnippet>90</a>                            upstream.guid(),
+<a href=#91 id=91 data-nosnippet>91</a>                            dupe.guid()
+<a href=#92 id=92 data-nosnippet>92</a>                        );
+<a href=#93 id=93 data-nosnippet>93</a>                        <span class="kw">let </span>local_modified = UNIX_EPOCH
+<a href=#94 id=94 data-nosnippet>94</a>                            + Duration::from_millis(dupe.meta.time_password_changed <span class="kw">as </span>u64);
+<a href=#95 id=95 data-nosnippet>95</a>                        <span class="kw">let </span>local = LocalLogin::Alive {
+<a href=#96 id=96 data-nosnippet>96</a>                            login: dupe,
+<a href=#97 id=97 data-nosnippet>97</a>                            local_modified,
+<a href=#98 id=98 data-nosnippet>98</a>                        };
+<a href=#99 id=99 data-nosnippet>99</a>                        plan.plan_two_way_merge(local, (upstream, upstream_time));
+<a href=#100 id=100 data-nosnippet>100</a>                    } <span class="kw">else </span>{
+<a href=#101 id=101 data-nosnippet>101</a>                        <span class="macro">debug!</span>(<span class="string">"  No dupe found, inserting into mirror"</span>);
+<a href=#102 id=102 data-nosnippet>102</a>                        plan.plan_mirror_insert(upstream, upstream_time, <span class="bool-val">false</span>);
+<a href=#103 id=103 data-nosnippet>103</a>                    }
+<a href=#104 id=104 data-nosnippet>104</a>                    telem.applied(<span class="number">1</span>);
+<a href=#105 id=105 data-nosnippet>105</a>                }
+<a href=#106 id=106 data-nosnippet>106</a>            }
+<a href=#107 id=107 data-nosnippet>107</a>        }
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="prelude-val">Ok</span>(plan)
+<a href=#109 id=109 data-nosnippet>109</a>    }
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">fn </span>execute_plan(<span class="kw-2">&amp;</span><span class="self">self</span>, plan: UpdatePlan) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="comment">// Because rusqlite want a mutable reference to create a transaction
+<a href=#113 id=113 data-nosnippet>113</a>        // (as a way to save us from ourselves), we side-step that by creating
+<a href=#114 id=114 data-nosnippet>114</a>        // it manually.
+<a href=#115 id=115 data-nosnippet>115</a>        </span><span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="kw">let </span>tx = db.unchecked_transaction()<span class="question-mark">?</span>;
+<a href=#117 id=117 data-nosnippet>117</a>        plan.execute(<span class="kw-2">&amp;</span>tx, <span class="kw-2">&amp;</span><span class="self">self</span>.scope)<span class="question-mark">?</span>;
+<a href=#118 id=118 data-nosnippet>118</a>        tx.commit()<span class="question-mark">?</span>;
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="prelude-val">Ok</span>(())
+<a href=#120 id=120 data-nosnippet>120</a>    }
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="comment">// Fetch all the data for the provided IDs.
+<a href=#123 id=123 data-nosnippet>123</a>    // TODO: Might be better taking a fn instead of returning all of it... But that func will likely
+<a href=#124 id=124 data-nosnippet>124</a>    // want to insert stuff while we're doing this so ugh.
+<a href=#125 id=125 data-nosnippet>125</a>    </span><span class="kw">fn </span>fetch_login_data(
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#127 id=127 data-nosnippet>127</a>        records: Vec&lt;IncomingBso&gt;,
+<a href=#128 id=128 data-nosnippet>128</a>        telem: <span class="kw-2">&amp;mut </span>telemetry::EngineIncoming,
+<a href=#129 id=129 data-nosnippet>129</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;SyncLoginData&gt;&gt; {
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span><span class="kw-2">mut </span>sync_data = Vec::with_capacity(records.len());
+<a href=#131 id=131 data-nosnippet>131</a>        {
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="kw">let </span><span class="kw-2">mut </span>seen_ids: HashSet&lt;Guid&gt; = HashSet::with_capacity(records.len());
+<a href=#133 id=133 data-nosnippet>133</a>            <span class="kw">for </span>incoming <span class="kw">in </span>records.into_iter() {
+<a href=#134 id=134 data-nosnippet>134</a>                <span class="kw">let </span>id = incoming.envelope.id.clone();
+<a href=#135 id=135 data-nosnippet>135</a>                <span class="kw">match </span>SyncLoginData::from_bso(incoming, <span class="self">self</span>.store.encdec.as_ref()) {
+<a href=#136 id=136 data-nosnippet>136</a>                    <span class="prelude-val">Ok</span>(v) =&gt; sync_data.push(v),
+<a href=#137 id=137 data-nosnippet>137</a>                    <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#138 id=138 data-nosnippet>138</a>                        <span class="kw">match </span>e {
+<a href=#139 id=139 data-nosnippet>139</a>                            <span class="comment">// This is a known error with Desktop logins (see #5233), just log it
+<a href=#140 id=140 data-nosnippet>140</a>                            // rather than reporting to sentry
+<a href=#141 id=141 data-nosnippet>141</a>                            </span>Error::InvalidLogin(InvalidLogin::IllegalOrigin) =&gt; {
+<a href=#142 id=142 data-nosnippet>142</a>                                <span class="macro">warn!</span>(<span class="string">"logins-deserialize-error: {e}"</span>);
+<a href=#143 id=143 data-nosnippet>143</a>                            }
+<a href=#144 id=144 data-nosnippet>144</a>                            <span class="comment">// For all other errors, report them to Sentry
+<a href=#145 id=145 data-nosnippet>145</a>                            </span><span class="kw">_ </span>=&gt; {
+<a href=#146 id=146 data-nosnippet>146</a>                                <span class="macro">report_error!</span>(
+<a href=#147 id=147 data-nosnippet>147</a>                                    <span class="string">"logins-deserialize-error"</span>,
+<a href=#148 id=148 data-nosnippet>148</a>                                    <span class="string">"Failed to deserialize record {:?}: {e}"</span>,
+<a href=#149 id=149 data-nosnippet>149</a>                                    id
+<a href=#150 id=150 data-nosnippet>150</a>                                );
+<a href=#151 id=151 data-nosnippet>151</a>                            }
+<a href=#152 id=152 data-nosnippet>152</a>                        };
+<a href=#153 id=153 data-nosnippet>153</a>                        <span class="comment">// Ideally we'd track new_failed, but it's unclear how
+<a href=#154 id=154 data-nosnippet>154</a>                        // much value it has.
+<a href=#155 id=155 data-nosnippet>155</a>                        </span>telem.failed(<span class="number">1</span>);
+<a href=#156 id=156 data-nosnippet>156</a>                    }
+<a href=#157 id=157 data-nosnippet>157</a>                }
+<a href=#158 id=158 data-nosnippet>158</a>                seen_ids.insert(id);
+<a href=#159 id=159 data-nosnippet>159</a>            }
+<a href=#160 id=160 data-nosnippet>160</a>        }
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#162 id=162 data-nosnippet>162</a>
+<a href=#163 id=163 data-nosnippet>163</a>        sql_support::each_chunk(
+<a href=#164 id=164 data-nosnippet>164</a>            <span class="kw-2">&amp;</span>sync_data
+<a href=#165 id=165 data-nosnippet>165</a>                .iter()
+<a href=#166 id=166 data-nosnippet>166</a>                .map(|s| s.guid.as_str().to_string())
+<a href=#167 id=167 data-nosnippet>167</a>                .collect::&lt;Vec&lt;String&gt;&gt;(),
+<a href=#168 id=168 data-nosnippet>168</a>            |chunk, offset| -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#169 id=169 data-nosnippet>169</a>                <span class="comment">// pairs the bound parameter for the guid with an integer index.
+<a href=#170 id=170 data-nosnippet>170</a>                </span><span class="kw">let </span>values_with_idx = sql_support::repeat_display(chunk.len(), <span class="string">","</span>, |i, f| {
+<a href=#171 id=171 data-nosnippet>171</a>                    <span class="macro">write!</span>(f, <span class="string">"({},?)"</span>, i + offset)
+<a href=#172 id=172 data-nosnippet>172</a>                });
+<a href=#173 id=173 data-nosnippet>173</a>                <span class="kw">let </span>query = <span class="macro">format!</span>(
+<a href=#174 id=174 data-nosnippet>174</a>                    <span class="string">"WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
+<a href=#175 id=175 data-nosnippet>175</a>                     SELECT
+<a href=#176 id=176 data-nosnippet>176</a>                         {common_cols},
+<a href=#177 id=177 data-nosnippet>177</a>                         is_overridden,
+<a href=#178 id=178 data-nosnippet>178</a>                         server_modified,
+<a href=#179 id=179 data-nosnippet>179</a>                         NULL as local_modified,
+<a href=#180 id=180 data-nosnippet>180</a>                         NULL as is_deleted,
+<a href=#181 id=181 data-nosnippet>181</a>                         NULL as sync_status,
+<a href=#182 id=182 data-nosnippet>182</a>                         1 as is_mirror,
+<a href=#183 id=183 data-nosnippet>183</a>                         to_fetch.guid_idx as guid_idx
+<a href=#184 id=184 data-nosnippet>184</a>                     FROM loginsM
+<a href=#185 id=185 data-nosnippet>185</a>                     JOIN to_fetch
+<a href=#186 id=186 data-nosnippet>186</a>                         ON loginsM.guid = to_fetch.fetch_guid
+<a href=#187 id=187 data-nosnippet>187</a>
+<a href=#188 id=188 data-nosnippet>188</a>                     UNION ALL
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>                     SELECT
+<a href=#191 id=191 data-nosnippet>191</a>                         {common_cols},
+<a href=#192 id=192 data-nosnippet>192</a>                         NULL as is_overridden,
+<a href=#193 id=193 data-nosnippet>193</a>                         NULL as server_modified,
+<a href=#194 id=194 data-nosnippet>194</a>                         local_modified,
+<a href=#195 id=195 data-nosnippet>195</a>                         is_deleted,
+<a href=#196 id=196 data-nosnippet>196</a>                         sync_status,
+<a href=#197 id=197 data-nosnippet>197</a>                         0 as is_mirror,
+<a href=#198 id=198 data-nosnippet>198</a>                         to_fetch.guid_idx as guid_idx
+<a href=#199 id=199 data-nosnippet>199</a>                     FROM loginsL
+<a href=#200 id=200 data-nosnippet>200</a>                     JOIN to_fetch
+<a href=#201 id=201 data-nosnippet>201</a>                         ON loginsL.guid = to_fetch.fetch_guid"</span>,
+<a href=#202 id=202 data-nosnippet>202</a>                    <span class="comment">// give each VALUES item 2 entries, an index and the parameter.
+<a href=#203 id=203 data-nosnippet>203</a>                    </span>vals = values_with_idx,
+<a href=#204 id=204 data-nosnippet>204</a>                    common_cols = schema::COMMON_COLS,
+<a href=#205 id=205 data-nosnippet>205</a>                );
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a>                <span class="kw">let </span>db = <span class="kw-2">&amp;</span><span class="self">self</span>.store.db.lock();
+<a href=#208 id=208 data-nosnippet>208</a>                <span class="kw">let </span><span class="kw-2">mut </span>stmt = db.prepare(<span class="kw-2">&amp;</span>query)<span class="question-mark">?</span>;
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a>                <span class="kw">let </span>rows = stmt.query_and_then(rusqlite::params_from_iter(chunk), |row| {
+<a href=#211 id=211 data-nosnippet>211</a>                    <span class="kw">let </span>guid_idx_i = row.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="string">"guid_idx"</span>)<span class="question-mark">?</span>;
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="comment">// Hitting this means our math is wrong...
+<a href=#213 id=213 data-nosnippet>213</a>                    </span><span class="macro">assert!</span>(guid_idx_i &gt;= <span class="number">0</span>);
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a>                    <span class="kw">let </span>guid_idx = guid_idx_i <span class="kw">as </span>usize;
+<a href=#216 id=216 data-nosnippet>216</a>                    <span class="kw">let </span>is_mirror: bool = row.get(<span class="string">"is_mirror"</span>)<span class="question-mark">?</span>;
+<a href=#217 id=217 data-nosnippet>217</a>                    <span class="kw">if </span>is_mirror {
+<a href=#218 id=218 data-nosnippet>218</a>                        sync_data[guid_idx].set_mirror(MirrorLogin::from_row(row)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href=#219 id=219 data-nosnippet>219</a>                    } <span class="kw">else </span>{
+<a href=#220 id=220 data-nosnippet>220</a>                        sync_data[guid_idx].set_local(LocalLogin::from_row(row)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href=#221 id=221 data-nosnippet>221</a>                    }
+<a href=#222 id=222 data-nosnippet>222</a>                    <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#223 id=223 data-nosnippet>223</a>                    <span class="prelude-val">Ok</span>(())
+<a href=#224 id=224 data-nosnippet>224</a>                })<span class="question-mark">?</span>;
+<a href=#225 id=225 data-nosnippet>225</a>                <span class="comment">// `rows` is an Iterator&lt;Item = Result&lt;()&gt;&gt;, so we need to collect to handle the errors.
+<a href=#226 id=226 data-nosnippet>226</a>                </span>rows.collect::&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#227 id=227 data-nosnippet>227</a>                <span class="prelude-val">Ok</span>(())
+<a href=#228 id=228 data-nosnippet>228</a>            },
+<a href=#229 id=229 data-nosnippet>229</a>        )<span class="question-mark">?</span>;
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="prelude-val">Ok</span>(sync_data)
+<a href=#231 id=231 data-nosnippet>231</a>    }
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">fn </span>fetch_outgoing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;OutgoingBso&gt;&gt; {
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="comment">// Taken from iOS. Arbitrarily large, so that clients that want to
+<a href=#235 id=235 data-nosnippet>235</a>        // process deletions first can; for us it doesn't matter.
+<a href=#236 id=236 data-nosnippet>236</a>        </span><span class="kw">const </span>TOMBSTONE_SORTINDEX: i32 = <span class="number">5_000_000</span>;
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">const </span>DEFAULT_SORTINDEX: i32 = <span class="number">1</span>;
+<a href=#238 id=238 data-nosnippet>238</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#239 id=239 data-nosnippet>239</a>        <span class="kw">let </span><span class="kw-2">mut </span>stmt = db.prepare_cached(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#240 id=240 data-nosnippet>240</a>            <span class="string">"SELECT L.*, M.enc_unknown_fields
+<a href=#241 id=241 data-nosnippet>241</a>             FROM loginsL L LEFT JOIN loginsM M ON L.guid = M.guid
+<a href=#242 id=242 data-nosnippet>242</a>             WHERE sync_status IS NOT {synced}"</span>,
+<a href=#243 id=243 data-nosnippet>243</a>            synced = SyncStatus::Synced <span class="kw">as </span>u8
+<a href=#244 id=244 data-nosnippet>244</a>        ))<span class="question-mark">?</span>;
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>bsos = stmt.query_and_then([], |row| {
+<a href=#246 id=246 data-nosnippet>246</a>            <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#247 id=247 data-nosnippet>247</a>            <span class="prelude-val">Ok</span>(<span class="kw">if </span>row.get::&lt;<span class="kw">_</span>, bool&gt;(<span class="string">"is_deleted"</span>)<span class="question-mark">? </span>{
+<a href=#248 id=248 data-nosnippet>248</a>                <span class="kw">let </span>envelope = OutgoingEnvelope {
+<a href=#249 id=249 data-nosnippet>249</a>                    id: row.get::&lt;<span class="kw">_</span>, String&gt;(<span class="string">"guid"</span>)<span class="question-mark">?</span>.into(),
+<a href=#250 id=250 data-nosnippet>250</a>                    sortindex: <span class="prelude-val">Some</span>(TOMBSTONE_SORTINDEX),
+<a href=#251 id=251 data-nosnippet>251</a>                    ..Default::default()
+<a href=#252 id=252 data-nosnippet>252</a>                };
+<a href=#253 id=253 data-nosnippet>253</a>                OutgoingBso::new_tombstone(envelope)
+<a href=#254 id=254 data-nosnippet>254</a>            } <span class="kw">else </span>{
+<a href=#255 id=255 data-nosnippet>255</a>                <span class="kw">let </span>unknown = row.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="string">"enc_unknown_fields"</span>)<span class="question-mark">?</span>;
+<a href=#256 id=256 data-nosnippet>256</a>                <span class="kw">let </span><span class="kw-2">mut </span>bso =
+<a href=#257 id=257 data-nosnippet>257</a>                    EncryptedLogin::from_row(row)<span class="question-mark">?</span>.into_bso(<span class="self">self</span>.store.encdec.as_ref(), unknown)<span class="question-mark">?</span>;
+<a href=#258 id=258 data-nosnippet>258</a>                bso.envelope.sortindex = <span class="prelude-val">Some</span>(DEFAULT_SORTINDEX);
+<a href=#259 id=259 data-nosnippet>259</a>                bso
+<a href=#260 id=260 data-nosnippet>260</a>            })
+<a href=#261 id=261 data-nosnippet>261</a>        })<span class="question-mark">?</span>;
+<a href=#262 id=262 data-nosnippet>262</a>        bsos.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#263 id=263 data-nosnippet>263</a>    }
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">fn </span>do_apply_incoming(
+<a href=#266 id=266 data-nosnippet>266</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#267 id=267 data-nosnippet>267</a>        inbound: Vec&lt;IncomingBso&gt;,
+<a href=#268 id=268 data-nosnippet>268</a>        timestamp: ServerTimestamp,
+<a href=#269 id=269 data-nosnippet>269</a>        telem: <span class="kw-2">&amp;mut </span>telemetry::Engine,
+<a href=#270 id=270 data-nosnippet>270</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;OutgoingBso&gt;&gt; {
+<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span><span class="kw-2">mut </span>incoming_telemetry = telemetry::EngineIncoming::new();
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">let </span>data = <span class="self">self</span>.fetch_login_data(inbound, <span class="kw-2">&amp;mut </span>incoming_telemetry)<span class="question-mark">?</span>;
+<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>plan = {
+<a href=#274 id=274 data-nosnippet>274</a>            <span class="kw">let </span>result = <span class="self">self</span>.reconcile(data, timestamp, <span class="kw-2">&amp;mut </span>incoming_telemetry);
+<a href=#275 id=275 data-nosnippet>275</a>            telem.incoming(incoming_telemetry);
+<a href=#276 id=276 data-nosnippet>276</a>            result
+<a href=#277 id=277 data-nosnippet>277</a>        }<span class="question-mark">?</span>;
+<a href=#278 id=278 data-nosnippet>278</a>        <span class="self">self</span>.execute_plan(plan)<span class="question-mark">?</span>;
+<a href=#279 id=279 data-nosnippet>279</a>        <span class="self">self</span>.fetch_outgoing()
+<a href=#280 id=280 data-nosnippet>280</a>    }
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">pub fn </span>set_last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, db: <span class="kw-2">&amp;</span>LoginDb, last_sync: ServerTimestamp) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="macro">debug!</span>(<span class="string">"Updating last sync to {}"</span>, last_sync);
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>last_sync_millis = last_sync.as_millis();
+<a href=#285 id=285 data-nosnippet>285</a>        db.put_meta(schema::LAST_SYNC_META_KEY, <span class="kw-2">&amp;</span>last_sync_millis)
+<a href=#286 id=286 data-nosnippet>286</a>    }
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>    <span class="kw">fn </span>get_last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, db: <span class="kw-2">&amp;</span>LoginDb) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ServerTimestamp&gt;&gt; {
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span>millis = db.get_meta::&lt;i64&gt;(schema::LAST_SYNC_META_KEY)<span class="question-mark">?</span>.unwrap();
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ServerTimestamp(millis)))
+<a href=#291 id=291 data-nosnippet>291</a>    }
+<a href=#292 id=292 data-nosnippet>292</a>
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">pub fn </span>set_global_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">let </span>to_write = <span class="kw">match </span>state {
+<a href=#295 id=295 data-nosnippet>295</a>            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>s) =&gt; s,
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="prelude-val">None </span>=&gt; <span class="string">""</span>,
+<a href=#297 id=297 data-nosnippet>297</a>        };
+<a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#299 id=299 data-nosnippet>299</a>        db.put_meta(schema::GLOBAL_STATE_META_KEY, <span class="kw-2">&amp;</span>to_write)
+<a href=#300 id=300 data-nosnippet>300</a>    }
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">pub fn </span>get_global_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#304 id=304 data-nosnippet>304</a>        db.get_meta::&lt;String&gt;(schema::GLOBAL_STATE_META_KEY)
+<a href=#305 id=305 data-nosnippet>305</a>    }
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">fn </span>mark_as_synchronized(<span class="kw-2">&amp;</span><span class="self">self</span>, guids: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str], ts: ServerTimestamp) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#308 id=308 data-nosnippet>308</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">let </span>tx = db.unchecked_transaction()<span class="question-mark">?</span>;
+<a href=#310 id=310 data-nosnippet>310</a>        sql_support::each_chunk(guids, |chunk, <span class="kw">_</span>| -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#311 id=311 data-nosnippet>311</a>            db.execute(
+<a href=#312 id=312 data-nosnippet>312</a>                <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#313 id=313 data-nosnippet>313</a>                    <span class="string">"DELETE FROM loginsM WHERE guid IN ({vars})"</span>,
+<a href=#314 id=314 data-nosnippet>314</a>                    vars = sql_support::repeat_sql_vars(chunk.len())
+<a href=#315 id=315 data-nosnippet>315</a>                ),
+<a href=#316 id=316 data-nosnippet>316</a>                rusqlite::params_from_iter(chunk),
+<a href=#317 id=317 data-nosnippet>317</a>            )<span class="question-mark">?</span>;
+<a href=#318 id=318 data-nosnippet>318</a>            <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>            db.execute(
+<a href=#321 id=321 data-nosnippet>321</a>                <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#322 id=322 data-nosnippet>322</a>                    <span class="string">"INSERT OR IGNORE INTO loginsM (
+<a href=#323 id=323 data-nosnippet>323</a>                         {common_cols}, is_overridden, server_modified
+<a href=#324 id=324 data-nosnippet>324</a>                     )
+<a href=#325 id=325 data-nosnippet>325</a>                     SELECT {common_cols}, 0, {modified_ms_i64}
+<a href=#326 id=326 data-nosnippet>326</a>                     FROM loginsL
+<a href=#327 id=327 data-nosnippet>327</a>                     WHERE is_deleted = 0 AND guid IN ({vars})"</span>,
+<a href=#328 id=328 data-nosnippet>328</a>                    common_cols = schema::COMMON_COLS,
+<a href=#329 id=329 data-nosnippet>329</a>                    modified_ms_i64 = ts.as_millis(),
+<a href=#330 id=330 data-nosnippet>330</a>                    vars = sql_support::repeat_sql_vars(chunk.len())
+<a href=#331 id=331 data-nosnippet>331</a>                ),
+<a href=#332 id=332 data-nosnippet>332</a>                rusqlite::params_from_iter(chunk),
+<a href=#333 id=333 data-nosnippet>333</a>            )<span class="question-mark">?</span>;
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a>            db.execute(
+<a href=#337 id=337 data-nosnippet>337</a>                <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#338 id=338 data-nosnippet>338</a>                    <span class="string">"DELETE FROM loginsL WHERE guid IN ({vars})"</span>,
+<a href=#339 id=339 data-nosnippet>339</a>                    vars = sql_support::repeat_sql_vars(chunk.len())
+<a href=#340 id=340 data-nosnippet>340</a>                ),
+<a href=#341 id=341 data-nosnippet>341</a>                rusqlite::params_from_iter(chunk),
+<a href=#342 id=342 data-nosnippet>342</a>            )<span class="question-mark">?</span>;
+<a href=#343 id=343 data-nosnippet>343</a>            <span class="self">self</span>.scope.err_if_interrupted()<span class="question-mark">?</span>;
+<a href=#344 id=344 data-nosnippet>344</a>            <span class="prelude-val">Ok</span>(())
+<a href=#345 id=345 data-nosnippet>345</a>        })<span class="question-mark">?</span>;
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="self">self</span>.set_last_sync(<span class="kw-2">&amp;</span>db, ts)<span class="question-mark">?</span>;
+<a href=#347 id=347 data-nosnippet>347</a>        tx.commit()<span class="question-mark">?</span>;
+<a href=#348 id=348 data-nosnippet>348</a>        <span class="prelude-val">Ok</span>(())
+<a href=#349 id=349 data-nosnippet>349</a>    }
+<a href=#350 id=350 data-nosnippet>350</a>
+<a href=#351 id=351 data-nosnippet>351</a>    <span class="comment">// This exists here as a public function so the store can call it. Ideally
+<a href=#352 id=352 data-nosnippet>352</a>    // the store would not do that :) Then it can go back into the sync trait
+<a href=#353 id=353 data-nosnippet>353</a>    // and return an anyhow::Result
+<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="kw">pub fn </span>do_reset(<span class="kw-2">&amp;</span><span class="self">self</span>, assoc: <span class="kw-2">&amp;</span>EngineSyncAssociation) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="macro">info!</span>(<span class="string">"Executing reset on password engine!"</span>);
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>tx = db.unchecked_transaction()<span class="question-mark">?</span>;
+<a href=#358 id=358 data-nosnippet>358</a>        db.execute_all(<span class="kw-2">&amp;</span>[
+<a href=#359 id=359 data-nosnippet>359</a>            <span class="kw-2">&amp;</span>CLONE_ENTIRE_MIRROR_SQL,
+<a href=#360 id=360 data-nosnippet>360</a>            <span class="string">"DELETE FROM loginsM"</span>,
+<a href=#361 id=361 data-nosnippet>361</a>            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"UPDATE loginsL SET sync_status = {}"</span>, SyncStatus::New <span class="kw">as </span>u8),
+<a href=#362 id=362 data-nosnippet>362</a>        ])<span class="question-mark">?</span>;
+<a href=#363 id=363 data-nosnippet>363</a>        <span class="self">self</span>.set_last_sync(<span class="kw-2">&amp;</span>db, ServerTimestamp(<span class="number">0</span>))<span class="question-mark">?</span>;
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="kw">match </span>assoc {
+<a href=#365 id=365 data-nosnippet>365</a>            EngineSyncAssociation::Disconnected =&gt; {
+<a href=#366 id=366 data-nosnippet>366</a>                db.delete_meta(schema::GLOBAL_SYNCID_META_KEY)<span class="question-mark">?</span>;
+<a href=#367 id=367 data-nosnippet>367</a>                db.delete_meta(schema::COLLECTION_SYNCID_META_KEY)<span class="question-mark">?</span>;
+<a href=#368 id=368 data-nosnippet>368</a>            }
+<a href=#369 id=369 data-nosnippet>369</a>            EngineSyncAssociation::Connected(ids) =&gt; {
+<a href=#370 id=370 data-nosnippet>370</a>                db.put_meta(schema::GLOBAL_SYNCID_META_KEY, <span class="kw-2">&amp;</span>ids.global)<span class="question-mark">?</span>;
+<a href=#371 id=371 data-nosnippet>371</a>                db.put_meta(schema::COLLECTION_SYNCID_META_KEY, <span class="kw-2">&amp;</span>ids.coll)<span class="question-mark">?</span>;
+<a href=#372 id=372 data-nosnippet>372</a>            }
+<a href=#373 id=373 data-nosnippet>373</a>        };
+<a href=#374 id=374 data-nosnippet>374</a>        db.delete_meta(schema::GLOBAL_STATE_META_KEY)<span class="question-mark">?</span>;
+<a href=#375 id=375 data-nosnippet>375</a>        tx.commit()<span class="question-mark">?</span>;
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="prelude-val">Ok</span>(())
+<a href=#377 id=377 data-nosnippet>377</a>    }
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="comment">// It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
+<a href=#380 id=380 data-nosnippet>380</a>    // for each one if they exist)... I can't think of how to write that query, though.
+<a href=#381 id=381 data-nosnippet>381</a>    // This is subtly different from dupe handling by the main API and maybe
+<a href=#382 id=382 data-nosnippet>382</a>    // could be consolidated, but for now it remains sync specific.
+<a href=#383 id=383 data-nosnippet>383</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_dupe_login(<span class="kw-2">&amp;</span><span class="self">self</span>, l: <span class="kw-2">&amp;</span>EncryptedLogin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EncryptedLogin&gt;&gt; {
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>form_submit_host_port = l
+<a href=#385 id=385 data-nosnippet>385</a>            .fields
+<a href=#386 id=386 data-nosnippet>386</a>            .form_action_origin
+<a href=#387 id=387 data-nosnippet>387</a>            .as_ref()
+<a href=#388 id=388 data-nosnippet>388</a>            .and_then(|s| util::url_host_port(s));
+<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>enc_fields = l.decrypt_fields(<span class="self">self</span>.store.encdec.as_ref())<span class="question-mark">?</span>;
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>args = <span class="macro">named_params!</span> {
+<a href=#391 id=391 data-nosnippet>391</a>            <span class="string">":origin"</span>: l.fields.origin,
+<a href=#392 id=392 data-nosnippet>392</a>            <span class="string">":http_realm"</span>: l.fields.http_realm,
+<a href=#393 id=393 data-nosnippet>393</a>            <span class="string">":form_submit"</span>: form_submit_host_port,
+<a href=#394 id=394 data-nosnippet>394</a>        };
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="kw">let </span><span class="kw-2">mut </span>query = <span class="macro">format!</span>(
+<a href=#396 id=396 data-nosnippet>396</a>            <span class="string">"SELECT {common}
+<a href=#397 id=397 data-nosnippet>397</a>             FROM loginsL
+<a href=#398 id=398 data-nosnippet>398</a>             WHERE origin IS :origin
+<a href=#399 id=399 data-nosnippet>399</a>               AND httpRealm IS :http_realm"</span>,
+<a href=#400 id=400 data-nosnippet>400</a>            common = schema::COMMON_COLS,
+<a href=#401 id=401 data-nosnippet>401</a>        );
+<a href=#402 id=402 data-nosnippet>402</a>        <span class="kw">if </span>form_submit_host_port.is_some() {
+<a href=#403 id=403 data-nosnippet>403</a>            <span class="comment">// Stolen from iOS
+<a href=#404 id=404 data-nosnippet>404</a>            </span>query += <span class="string">" AND (formActionOrigin = '' OR (instr(formActionOrigin, :form_submit) &gt; 0))"</span>;
+<a href=#405 id=405 data-nosnippet>405</a>        } <span class="kw">else </span>{
+<a href=#406 id=406 data-nosnippet>406</a>            query += <span class="string">" AND formActionOrigin IS :form_submit"
+<a href=#407 id=407 data-nosnippet>407</a>        </span>}
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">let </span><span class="kw-2">mut </span>stmt = db.prepare_cached(<span class="kw-2">&amp;</span>query)<span class="question-mark">?</span>;
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">for </span>login <span class="kw">in </span>stmt
+<a href=#411 id=411 data-nosnippet>411</a>            .query_and_then(args, EncryptedLogin::from_row)<span class="question-mark">?
+<a href=#412 id=412 data-nosnippet>412</a>            </span>.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;EncryptedLogin&gt;&gt;&gt;()<span class="question-mark">?
+<a href=#413 id=413 data-nosnippet>413</a>        </span>{
+<a href=#414 id=414 data-nosnippet>414</a>            <span class="kw">let </span>this_enc_fields = login.decrypt_fields(<span class="self">self</span>.store.encdec.as_ref())<span class="question-mark">?</span>;
+<a href=#415 id=415 data-nosnippet>415</a>            <span class="kw">if </span>enc_fields.username == this_enc_fields.username {
+<a href=#416 id=416 data-nosnippet>416</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(login));
+<a href=#417 id=417 data-nosnippet>417</a>            }
+<a href=#418 id=418 data-nosnippet>418</a>        }
+<a href=#419 id=419 data-nosnippet>419</a>        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#420 id=420 data-nosnippet>420</a>    }
+<a href=#421 id=421 data-nosnippet>421</a>}
+<a href=#422 id=422 data-nosnippet>422</a>
+<a href=#423 id=423 data-nosnippet>423</a><span class="kw">impl </span>SyncEngine <span class="kw">for </span>LoginsSyncEngine {
+<a href=#424 id=424 data-nosnippet>424</a>    <span class="kw">fn </span>collection_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::borrow::Cow&lt;<span class="lifetime">'static</span>, str&gt; {
+<a href=#425 id=425 data-nosnippet>425</a>        <span class="string">"passwords"</span>.into()
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">fn </span>stage_incoming(
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw-2">mut </span>inbound: Vec&lt;IncomingBso&gt;,
+<a href=#431 id=431 data-nosnippet>431</a>        _telem: <span class="kw-2">&amp;mut </span>telemetry::Engine,
+<a href=#432 id=432 data-nosnippet>432</a>    ) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="comment">// We don't have cross-item dependencies like bookmarks does, so we can
+<a href=#434 id=434 data-nosnippet>434</a>        // just apply now instead of "staging"
+<a href=#435 id=435 data-nosnippet>435</a>        </span><span class="self">self</span>.staged.borrow_mut().append(<span class="kw-2">&amp;mut </span>inbound);
+<a href=#436 id=436 data-nosnippet>436</a>        <span class="prelude-val">Ok</span>(())
+<a href=#437 id=437 data-nosnippet>437</a>    }
+<a href=#438 id=438 data-nosnippet>438</a>
+<a href=#439 id=439 data-nosnippet>439</a>    <span class="kw">fn </span>apply(
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#441 id=441 data-nosnippet>441</a>        timestamp: ServerTimestamp,
+<a href=#442 id=442 data-nosnippet>442</a>        telem: <span class="kw-2">&amp;mut </span>telemetry::Engine,
+<a href=#443 id=443 data-nosnippet>443</a>    ) -&gt; anyhow::Result&lt;Vec&lt;OutgoingBso&gt;&gt; {
+<a href=#444 id=444 data-nosnippet>444</a>        <span class="kw">let </span>inbound = (<span class="kw-2">*</span><span class="self">self</span>.staged.borrow_mut()).drain(..).collect();
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="prelude-val">Ok</span>(<span class="self">self</span>.do_apply_incoming(inbound, timestamp, telem)<span class="question-mark">?</span>)
+<a href=#446 id=446 data-nosnippet>446</a>    }
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a>    <span class="kw">fn </span>set_uploaded(<span class="kw-2">&amp;</span><span class="self">self</span>, new_timestamp: ServerTimestamp, ids: Vec&lt;Guid&gt;) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="prelude-val">Ok</span>(<span class="self">self</span>.mark_as_synchronized(
+<a href=#450 id=450 data-nosnippet>450</a>            <span class="kw-2">&amp;</span>ids.iter().map(Guid::as_str).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#451 id=451 data-nosnippet>451</a>            new_timestamp,
+<a href=#452 id=452 data-nosnippet>452</a>        )<span class="question-mark">?</span>)
+<a href=#453 id=453 data-nosnippet>453</a>    }
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>    <span class="kw">fn </span>get_collection_request(
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#457 id=457 data-nosnippet>457</a>        server_timestamp: ServerTimestamp,
+<a href=#458 id=458 data-nosnippet>458</a>    ) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;CollectionRequest&gt;&gt; {
+<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">let </span>since = <span class="self">self</span>.get_last_sync(<span class="kw-2">&amp;</span>db)<span class="question-mark">?</span>.unwrap_or_default();
+<a href=#461 id=461 data-nosnippet>461</a>        <span class="prelude-val">Ok</span>(<span class="kw">if </span>since == server_timestamp {
+<a href=#462 id=462 data-nosnippet>462</a>            <span class="prelude-val">None
+<a href=#463 id=463 data-nosnippet>463</a>        </span>} <span class="kw">else </span>{
+<a href=#464 id=464 data-nosnippet>464</a>            <span class="prelude-val">Some</span>(
+<a href=#465 id=465 data-nosnippet>465</a>                CollectionRequest::new(<span class="string">"passwords"</span>.into())
+<a href=#466 id=466 data-nosnippet>466</a>                    .full()
+<a href=#467 id=467 data-nosnippet>467</a>                    .newer_than(since),
+<a href=#468 id=468 data-nosnippet>468</a>            )
+<a href=#469 id=469 data-nosnippet>469</a>        })
+<a href=#470 id=470 data-nosnippet>470</a>    }
+<a href=#471 id=471 data-nosnippet>471</a>
+<a href=#472 id=472 data-nosnippet>472</a>    <span class="kw">fn </span>get_sync_assoc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;EngineSyncAssociation&gt; {
+<a href=#473 id=473 data-nosnippet>473</a>        <span class="kw">let </span>db = <span class="self">self</span>.store.db.lock();
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="kw">let </span>global = db.get_meta(schema::GLOBAL_SYNCID_META_KEY)<span class="question-mark">?</span>;
+<a href=#475 id=475 data-nosnippet>475</a>        <span class="kw">let </span>coll = db.get_meta(schema::COLLECTION_SYNCID_META_KEY)<span class="question-mark">?</span>;
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="prelude-val">Ok</span>(<span class="kw">if let </span>(<span class="prelude-val">Some</span>(global), <span class="prelude-val">Some</span>(coll)) = (global, coll) {
+<a href=#477 id=477 data-nosnippet>477</a>            EngineSyncAssociation::Connected(CollSyncIds { global, coll })
+<a href=#478 id=478 data-nosnippet>478</a>        } <span class="kw">else </span>{
+<a href=#479 id=479 data-nosnippet>479</a>            EngineSyncAssociation::Disconnected
+<a href=#480 id=480 data-nosnippet>480</a>        })
+<a href=#481 id=481 data-nosnippet>481</a>    }
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a>    <span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>, assoc: <span class="kw-2">&amp;</span>EngineSyncAssociation) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="self">self</span>.do_reset(assoc)<span class="question-mark">?</span>;
+<a href=#485 id=485 data-nosnippet>485</a>        <span class="prelude-val">Ok</span>(())
+<a href=#486 id=486 data-nosnippet>486</a>    }
+<a href=#487 id=487 data-nosnippet>487</a>}
+<a href=#488 id=488 data-nosnippet>488</a>
+<a href=#489 id=489 data-nosnippet>489</a><span class="attr">#[cfg(not(feature = <span class="string">"keydb"</span>))]
+<a href=#490 id=490 data-nosnippet>490</a>#[cfg(test)]
+<a href=#491 id=491 data-nosnippet>491</a></span><span class="kw">mod </span>tests {
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#493 id=493 data-nosnippet>493</a>    <span class="kw">use </span><span class="kw">crate</span>::db::test_utils::insert_login;
+<a href=#494 id=494 data-nosnippet>494</a>    <span class="kw">use </span><span class="kw">crate</span>::encryption::test_utils::TEST_ENCDEC;
+<a href=#495 id=495 data-nosnippet>495</a>    <span class="kw">use </span><span class="kw">crate</span>::login::test_utils::enc_login;
+<a href=#496 id=496 data-nosnippet>496</a>    <span class="kw">use crate</span>::{LoginEntry, LoginFields, LoginMeta, SecureLoginFields};
+<a href=#497 id=497 data-nosnippet>497</a>    <span class="kw">use </span>nss::ensure_initialized;
+<a href=#498 id=498 data-nosnippet>498</a>    <span class="kw">use </span>std::collections::HashMap;
+<a href=#499 id=499 data-nosnippet>499</a>    <span class="kw">use </span>std::sync::Arc;
+<a href=#500 id=500 data-nosnippet>500</a>
+<a href=#501 id=501 data-nosnippet>501</a>    <span class="comment">// Wrap sync functions for easier testing
+<a href=#502 id=502 data-nosnippet>502</a>    </span><span class="kw">fn </span>run_fetch_login_data(
+<a href=#503 id=503 data-nosnippet>503</a>        engine: <span class="kw-2">&amp;mut </span>LoginsSyncEngine,
+<a href=#504 id=504 data-nosnippet>504</a>        records: Vec&lt;IncomingBso&gt;,
+<a href=#505 id=505 data-nosnippet>505</a>    ) -&gt; (Vec&lt;SyncLoginData&gt;, telemetry::EngineIncoming) {
+<a href=#506 id=506 data-nosnippet>506</a>        <span class="kw">let </span><span class="kw-2">mut </span>telem = sync15::telemetry::EngineIncoming::new();
+<a href=#507 id=507 data-nosnippet>507</a>        (engine.fetch_login_data(records, <span class="kw-2">&amp;mut </span>telem).unwrap(), telem)
+<a href=#508 id=508 data-nosnippet>508</a>    }
+<a href=#509 id=509 data-nosnippet>509</a>
+<a href=#510 id=510 data-nosnippet>510</a>    <span class="kw">fn </span>run_fetch_outgoing(store: LoginStore) -&gt; Vec&lt;OutgoingBso&gt; {
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="kw">let </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#512 id=512 data-nosnippet>512</a>        engine.fetch_outgoing().unwrap()
+<a href=#513 id=513 data-nosnippet>513</a>    }
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a>    <span class="attr">#[test]
+<a href=#516 id=516 data-nosnippet>516</a>    </span><span class="kw">fn </span>test_fetch_login_data() {
+<a href=#517 id=517 data-nosnippet>517</a>        ensure_initialized();
+<a href=#518 id=518 data-nosnippet>518</a>        <span class="comment">// Test some common cases with fetch_login data
+<a href=#519 id=519 data-nosnippet>519</a>        </span><span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#520 id=520 data-nosnippet>520</a>        insert_login(<span class="kw-2">&amp;</span>store.db.lock(), <span class="string">"updated_remotely"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+<a href=#521 id=521 data-nosnippet>521</a>        insert_login(<span class="kw-2">&amp;</span>store.db.lock(), <span class="string">"deleted_remotely"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+<a href=#522 id=522 data-nosnippet>522</a>        insert_login(
+<a href=#523 id=523 data-nosnippet>523</a>            <span class="kw-2">&amp;</span>store.db.lock(),
+<a href=#524 id=524 data-nosnippet>524</a>            <span class="string">"three_way_merge"</span>,
+<a href=#525 id=525 data-nosnippet>525</a>            <span class="prelude-val">Some</span>(<span class="string">"new-local-password"</span>),
+<a href=#526 id=526 data-nosnippet>526</a>            <span class="prelude-val">Some</span>(<span class="string">"password"</span>),
+<a href=#527 id=527 data-nosnippet>527</a>        );
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>        <span class="kw">let </span><span class="kw-2">mut </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">let </span>(res, <span class="kw">_</span>) = run_fetch_login_data(
+<a href=#532 id=532 data-nosnippet>532</a>            <span class="kw-2">&amp;mut </span>engine,
+<a href=#533 id=533 data-nosnippet>533</a>            <span class="macro">vec!</span>[
+<a href=#534 id=534 data-nosnippet>534</a>                IncomingBso::new_test_tombstone(Guid::new(<span class="string">"deleted_remotely"</span>)),
+<a href=#535 id=535 data-nosnippet>535</a>                enc_login(<span class="string">"added_remotely"</span>, <span class="string">"password"</span>)
+<a href=#536 id=536 data-nosnippet>536</a>                    .into_bso(<span class="kw-2">&amp;*</span>TEST_ENCDEC, <span class="prelude-val">None</span>)
+<a href=#537 id=537 data-nosnippet>537</a>                    .unwrap()
+<a href=#538 id=538 data-nosnippet>538</a>                    .to_test_incoming(),
+<a href=#539 id=539 data-nosnippet>539</a>                enc_login(<span class="string">"updated_remotely"</span>, <span class="string">"new-password"</span>)
+<a href=#540 id=540 data-nosnippet>540</a>                    .into_bso(<span class="kw-2">&amp;*</span>TEST_ENCDEC, <span class="prelude-val">None</span>)
+<a href=#541 id=541 data-nosnippet>541</a>                    .unwrap()
+<a href=#542 id=542 data-nosnippet>542</a>                    .to_test_incoming(),
+<a href=#543 id=543 data-nosnippet>543</a>                enc_login(<span class="string">"three_way_merge"</span>, <span class="string">"new-remote-password"</span>)
+<a href=#544 id=544 data-nosnippet>544</a>                    .into_bso(<span class="kw-2">&amp;*</span>TEST_ENCDEC, <span class="prelude-val">None</span>)
+<a href=#545 id=545 data-nosnippet>545</a>                    .unwrap()
+<a href=#546 id=546 data-nosnippet>546</a>                    .to_test_incoming(),
+<a href=#547 id=547 data-nosnippet>547</a>            ],
+<a href=#548 id=548 data-nosnippet>548</a>        );
+<a href=#549 id=549 data-nosnippet>549</a>        <span class="comment">// For simpler testing, extract/decrypt passwords and put them in a hash map
+<a href=#550 id=550 data-nosnippet>550</a>        </span><span class="attr">#[derive(Debug, PartialEq)]
+<a href=#551 id=551 data-nosnippet>551</a>        </span><span class="kw">struct </span>SyncPasswords {
+<a href=#552 id=552 data-nosnippet>552</a>            local: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#553 id=553 data-nosnippet>553</a>            mirror: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#554 id=554 data-nosnippet>554</a>            inbound: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#555 id=555 data-nosnippet>555</a>        }
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span>extracted_passwords: HashMap&lt;String, SyncPasswords&gt; = res
+<a href=#557 id=557 data-nosnippet>557</a>            .into_iter()
+<a href=#558 id=558 data-nosnippet>558</a>            .map(|sync_login_data| {
+<a href=#559 id=559 data-nosnippet>559</a>                <span class="kw">let </span><span class="kw-2">mut </span>guids_seen = HashSet::new();
+<a href=#560 id=560 data-nosnippet>560</a>                <span class="kw">let </span>passwords = SyncPasswords {
+<a href=#561 id=561 data-nosnippet>561</a>                    local: sync_login_data.local.map(|local_login| {
+<a href=#562 id=562 data-nosnippet>562</a>                        guids_seen.insert(local_login.guid_str().to_string());
+<a href=#563 id=563 data-nosnippet>563</a>                        <span class="kw">let </span>LocalLogin::Alive { login, .. } = local_login <span class="kw">else </span>{
+<a href=#564 id=564 data-nosnippet>564</a>                            <span class="macro">unreachable!</span>(<span class="string">"this test is not expecting a tombstone"</span>);
+<a href=#565 id=565 data-nosnippet>565</a>                        };
+<a href=#566 id=566 data-nosnippet>566</a>                        login.decrypt_fields(<span class="kw-2">&amp;*</span>TEST_ENCDEC).unwrap().password
+<a href=#567 id=567 data-nosnippet>567</a>                    }),
+<a href=#568 id=568 data-nosnippet>568</a>                    mirror: sync_login_data.mirror.map(|mirror_login| {
+<a href=#569 id=569 data-nosnippet>569</a>                        guids_seen.insert(mirror_login.login.meta.id.clone());
+<a href=#570 id=570 data-nosnippet>570</a>                        mirror_login
+<a href=#571 id=571 data-nosnippet>571</a>                            .login
+<a href=#572 id=572 data-nosnippet>572</a>                            .decrypt_fields(<span class="kw-2">&amp;*</span>TEST_ENCDEC)
+<a href=#573 id=573 data-nosnippet>573</a>                            .unwrap()
+<a href=#574 id=574 data-nosnippet>574</a>                            .password
+<a href=#575 id=575 data-nosnippet>575</a>                    }),
+<a href=#576 id=576 data-nosnippet>576</a>                    inbound: sync_login_data.inbound.map(|incoming| {
+<a href=#577 id=577 data-nosnippet>577</a>                        guids_seen.insert(incoming.login.meta.id.clone());
+<a href=#578 id=578 data-nosnippet>578</a>                        incoming
+<a href=#579 id=579 data-nosnippet>579</a>                            .login
+<a href=#580 id=580 data-nosnippet>580</a>                            .decrypt_fields(<span class="kw-2">&amp;*</span>TEST_ENCDEC)
+<a href=#581 id=581 data-nosnippet>581</a>                            .unwrap()
+<a href=#582 id=582 data-nosnippet>582</a>                            .password
+<a href=#583 id=583 data-nosnippet>583</a>                    }),
+<a href=#584 id=584 data-nosnippet>584</a>                };
+<a href=#585 id=585 data-nosnippet>585</a>                (guids_seen.into_iter().next().unwrap(), passwords)
+<a href=#586 id=586 data-nosnippet>586</a>            })
+<a href=#587 id=587 data-nosnippet>587</a>            .collect();
+<a href=#588 id=588 data-nosnippet>588</a>
+<a href=#589 id=589 data-nosnippet>589</a>        <span class="macro">assert_eq!</span>(extracted_passwords.len(), <span class="number">4</span>);
+<a href=#590 id=590 data-nosnippet>590</a>        <span class="macro">assert_eq!</span>(
+<a href=#591 id=591 data-nosnippet>591</a>            extracted_passwords.get(<span class="string">"added_remotely"</span>).unwrap(),
+<a href=#592 id=592 data-nosnippet>592</a>            <span class="kw-2">&amp;</span>SyncPasswords {
+<a href=#593 id=593 data-nosnippet>593</a>                local: <span class="prelude-val">None</span>,
+<a href=#594 id=594 data-nosnippet>594</a>                mirror: <span class="prelude-val">None</span>,
+<a href=#595 id=595 data-nosnippet>595</a>                inbound: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.into()),
+<a href=#596 id=596 data-nosnippet>596</a>            }
+<a href=#597 id=597 data-nosnippet>597</a>        );
+<a href=#598 id=598 data-nosnippet>598</a>        <span class="macro">assert_eq!</span>(
+<a href=#599 id=599 data-nosnippet>599</a>            extracted_passwords.get(<span class="string">"updated_remotely"</span>).unwrap(),
+<a href=#600 id=600 data-nosnippet>600</a>            <span class="kw-2">&amp;</span>SyncPasswords {
+<a href=#601 id=601 data-nosnippet>601</a>                local: <span class="prelude-val">None</span>,
+<a href=#602 id=602 data-nosnippet>602</a>                mirror: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.into()),
+<a href=#603 id=603 data-nosnippet>603</a>                inbound: <span class="prelude-val">Some</span>(<span class="string">"new-password"</span>.into()),
+<a href=#604 id=604 data-nosnippet>604</a>            }
+<a href=#605 id=605 data-nosnippet>605</a>        );
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="macro">assert_eq!</span>(
+<a href=#607 id=607 data-nosnippet>607</a>            extracted_passwords.get(<span class="string">"deleted_remotely"</span>).unwrap(),
+<a href=#608 id=608 data-nosnippet>608</a>            <span class="kw-2">&amp;</span>SyncPasswords {
+<a href=#609 id=609 data-nosnippet>609</a>                local: <span class="prelude-val">None</span>,
+<a href=#610 id=610 data-nosnippet>610</a>                mirror: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.into()),
+<a href=#611 id=611 data-nosnippet>611</a>                inbound: <span class="prelude-val">None</span>,
+<a href=#612 id=612 data-nosnippet>612</a>            }
+<a href=#613 id=613 data-nosnippet>613</a>        );
+<a href=#614 id=614 data-nosnippet>614</a>        <span class="macro">assert_eq!</span>(
+<a href=#615 id=615 data-nosnippet>615</a>            extracted_passwords.get(<span class="string">"three_way_merge"</span>).unwrap(),
+<a href=#616 id=616 data-nosnippet>616</a>            <span class="kw-2">&amp;</span>SyncPasswords {
+<a href=#617 id=617 data-nosnippet>617</a>                local: <span class="prelude-val">Some</span>(<span class="string">"new-local-password"</span>.into()),
+<a href=#618 id=618 data-nosnippet>618</a>                mirror: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.into()),
+<a href=#619 id=619 data-nosnippet>619</a>                inbound: <span class="prelude-val">Some</span>(<span class="string">"new-remote-password"</span>.into()),
+<a href=#620 id=620 data-nosnippet>620</a>            }
+<a href=#621 id=621 data-nosnippet>621</a>        );
+<a href=#622 id=622 data-nosnippet>622</a>    }
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>    <span class="attr">#[test]
+<a href=#625 id=625 data-nosnippet>625</a>    </span><span class="kw">fn </span>test_fetch_outgoing() {
+<a href=#626 id=626 data-nosnippet>626</a>        ensure_initialized();
+<a href=#627 id=627 data-nosnippet>627</a>        <span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#628 id=628 data-nosnippet>628</a>        insert_login(
+<a href=#629 id=629 data-nosnippet>629</a>            <span class="kw-2">&amp;</span>store.db.lock(),
+<a href=#630 id=630 data-nosnippet>630</a>            <span class="string">"changed"</span>,
+<a href=#631 id=631 data-nosnippet>631</a>            <span class="prelude-val">Some</span>(<span class="string">"new-password"</span>),
+<a href=#632 id=632 data-nosnippet>632</a>            <span class="prelude-val">Some</span>(<span class="string">"password"</span>),
+<a href=#633 id=633 data-nosnippet>633</a>        );
+<a href=#634 id=634 data-nosnippet>634</a>        insert_login(<span class="kw-2">&amp;</span>store.db.lock(), <span class="string">"unchanged"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+<a href=#635 id=635 data-nosnippet>635</a>        insert_login(<span class="kw-2">&amp;</span>store.db.lock(), <span class="string">"added"</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>), <span class="prelude-val">None</span>);
+<a href=#636 id=636 data-nosnippet>636</a>        insert_login(<span class="kw-2">&amp;</span>store.db.lock(), <span class="string">"deleted"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+<a href=#637 id=637 data-nosnippet>637</a>        store.db.lock().delete(<span class="string">"deleted"</span>).unwrap();
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a>        <span class="kw">let </span>changeset = run_fetch_outgoing(store);
+<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">let </span>changes: HashMap&lt;String, serde_json::Value&gt; = changeset
+<a href=#641 id=641 data-nosnippet>641</a>            .into_iter()
+<a href=#642 id=642 data-nosnippet>642</a>            .map(|b| {
+<a href=#643 id=643 data-nosnippet>643</a>                (
+<a href=#644 id=644 data-nosnippet>644</a>                    b.envelope.id.to_string(),
+<a href=#645 id=645 data-nosnippet>645</a>                    serde_json::from_str(<span class="kw-2">&amp;</span>b.payload).unwrap(),
+<a href=#646 id=646 data-nosnippet>646</a>                )
+<a href=#647 id=647 data-nosnippet>647</a>            })
+<a href=#648 id=648 data-nosnippet>648</a>            .collect();
+<a href=#649 id=649 data-nosnippet>649</a>        <span class="macro">assert_eq!</span>(changes.len(), <span class="number">3</span>);
+<a href=#650 id=650 data-nosnippet>650</a>        <span class="macro">assert_eq!</span>(changes[<span class="string">"added"</span>].get(<span class="string">"password"</span>).unwrap(), <span class="string">"password"</span>);
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="macro">assert_eq!</span>(changes[<span class="string">"changed"</span>].get(<span class="string">"password"</span>).unwrap(), <span class="string">"new-password"</span>);
+<a href=#652 id=652 data-nosnippet>652</a>        <span class="macro">assert!</span>(changes[<span class="string">"deleted"</span>].get(<span class="string">"deleted"</span>).is_some());
+<a href=#653 id=653 data-nosnippet>653</a>        <span class="macro">assert!</span>(changes[<span class="string">"added"</span>].get(<span class="string">"deleted"</span>).is_none());
+<a href=#654 id=654 data-nosnippet>654</a>        <span class="macro">assert!</span>(changes[<span class="string">"changed"</span>].get(<span class="string">"deleted"</span>).is_none());
+<a href=#655 id=655 data-nosnippet>655</a>    }
+<a href=#656 id=656 data-nosnippet>656</a>
+<a href=#657 id=657 data-nosnippet>657</a>    <span class="attr">#[test]
+<a href=#658 id=658 data-nosnippet>658</a>    </span><span class="kw">fn </span>test_bad_record() {
+<a href=#659 id=659 data-nosnippet>659</a>        ensure_initialized();
+<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">let </span>test_ids = [<span class="string">"dummy_000001"</span>, <span class="string">"dummy_000002"</span>, <span class="string">"dummy_000003"</span>];
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">for </span>id <span class="kw">in </span>test_ids {
+<a href=#663 id=663 data-nosnippet>663</a>            insert_login(<span class="kw-2">&amp;</span>store.db.lock(), id, <span class="prelude-val">Some</span>(<span class="string">"password"</span>), <span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+<a href=#664 id=664 data-nosnippet>664</a>        }
+<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">let </span><span class="kw-2">mut </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#666 id=666 data-nosnippet>666</a>        engine
+<a href=#667 id=667 data-nosnippet>667</a>            .mark_as_synchronized(<span class="kw-2">&amp;</span>test_ids, ServerTimestamp::from_millis(<span class="number">100</span>))
+<a href=#668 id=668 data-nosnippet>668</a>            .unwrap();
+<a href=#669 id=669 data-nosnippet>669</a>        <span class="kw">let </span>(res, telem) = run_fetch_login_data(
+<a href=#670 id=670 data-nosnippet>670</a>            <span class="kw-2">&amp;mut </span>engine,
+<a href=#671 id=671 data-nosnippet>671</a>            <span class="macro">vec!</span>[
+<a href=#672 id=672 data-nosnippet>672</a>                IncomingBso::new_test_tombstone(Guid::new(<span class="string">"dummy_000001"</span>)),
+<a href=#673 id=673 data-nosnippet>673</a>                <span class="comment">// invalid
+<a href=#674 id=674 data-nosnippet>674</a>                </span>IncomingBso::from_test_content(<span class="macro">serde_json::json!</span>({
+<a href=#675 id=675 data-nosnippet>675</a>                    <span class="string">"id"</span>: <span class="string">"dummy_000002"</span>,
+<a href=#676 id=676 data-nosnippet>676</a>                    <span class="string">"garbage"</span>: <span class="string">"data"</span>,
+<a href=#677 id=677 data-nosnippet>677</a>                    <span class="string">"etc"</span>: <span class="string">"not a login"
+<a href=#678 id=678 data-nosnippet>678</a>                </span>})),
+<a href=#679 id=679 data-nosnippet>679</a>                <span class="comment">// valid
+<a href=#680 id=680 data-nosnippet>680</a>                </span>IncomingBso::from_test_content(<span class="macro">serde_json::json!</span>({
+<a href=#681 id=681 data-nosnippet>681</a>                    <span class="string">"id"</span>: <span class="string">"dummy_000003"</span>,
+<a href=#682 id=682 data-nosnippet>682</a>                    <span class="string">"formSubmitURL"</span>: <span class="string">"https://www.example.com/submit"</span>,
+<a href=#683 id=683 data-nosnippet>683</a>                    <span class="string">"hostname"</span>: <span class="string">"https://www.example.com"</span>,
+<a href=#684 id=684 data-nosnippet>684</a>                    <span class="string">"username"</span>: <span class="string">"test"</span>,
+<a href=#685 id=685 data-nosnippet>685</a>                    <span class="string">"password"</span>: <span class="string">"test"</span>,
+<a href=#686 id=686 data-nosnippet>686</a>                })),
+<a href=#687 id=687 data-nosnippet>687</a>            ],
+<a href=#688 id=688 data-nosnippet>688</a>        );
+<a href=#689 id=689 data-nosnippet>689</a>        <span class="macro">assert_eq!</span>(telem.get_failed(), <span class="number">1</span>);
+<a href=#690 id=690 data-nosnippet>690</a>        <span class="macro">assert_eq!</span>(res.len(), <span class="number">2</span>);
+<a href=#691 id=691 data-nosnippet>691</a>        <span class="macro">assert_eq!</span>(res[<span class="number">0</span>].guid, <span class="string">"dummy_000001"</span>);
+<a href=#692 id=692 data-nosnippet>692</a>        <span class="macro">assert_eq!</span>(res[<span class="number">1</span>].guid, <span class="string">"dummy_000003"</span>);
+<a href=#693 id=693 data-nosnippet>693</a>        <span class="macro">assert_eq!</span>(engine.fetch_outgoing().unwrap().len(), <span class="number">0</span>);
+<a href=#694 id=694 data-nosnippet>694</a>    }
+<a href=#695 id=695 data-nosnippet>695</a>
+<a href=#696 id=696 data-nosnippet>696</a>    <span class="kw">fn </span>make_enc_login(
+<a href=#697 id=697 data-nosnippet>697</a>        username: <span class="kw-2">&amp;</span>str,
+<a href=#698 id=698 data-nosnippet>698</a>        password: <span class="kw-2">&amp;</span>str,
+<a href=#699 id=699 data-nosnippet>699</a>        fao: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#700 id=700 data-nosnippet>700</a>        realm: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#701 id=701 data-nosnippet>701</a>    ) -&gt; EncryptedLogin {
+<a href=#702 id=702 data-nosnippet>702</a>        ensure_initialized();
+<a href=#703 id=703 data-nosnippet>703</a>        <span class="kw">let </span>id = Guid::random().to_string();
+<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">let </span>sec_fields = SecureLoginFields {
+<a href=#705 id=705 data-nosnippet>705</a>            username: username.into(),
+<a href=#706 id=706 data-nosnippet>706</a>            password: password.into(),
+<a href=#707 id=707 data-nosnippet>707</a>        }
+<a href=#708 id=708 data-nosnippet>708</a>        .encrypt(<span class="kw-2">&amp;*</span>TEST_ENCDEC, <span class="kw-2">&amp;</span>id)
+<a href=#709 id=709 data-nosnippet>709</a>        .unwrap();
+<a href=#710 id=710 data-nosnippet>710</a>        EncryptedLogin {
+<a href=#711 id=711 data-nosnippet>711</a>            meta: LoginMeta {
+<a href=#712 id=712 data-nosnippet>712</a>                id,
+<a href=#713 id=713 data-nosnippet>713</a>                ..Default::default()
+<a href=#714 id=714 data-nosnippet>714</a>            },
+<a href=#715 id=715 data-nosnippet>715</a>            fields: LoginFields {
+<a href=#716 id=716 data-nosnippet>716</a>                form_action_origin: fao,
+<a href=#717 id=717 data-nosnippet>717</a>                http_realm: realm,
+<a href=#718 id=718 data-nosnippet>718</a>                origin: <span class="string">"http://not-relevant-here.com"</span>.into(),
+<a href=#719 id=719 data-nosnippet>719</a>                ..Default::default()
+<a href=#720 id=720 data-nosnippet>720</a>            },
+<a href=#721 id=721 data-nosnippet>721</a>            sec_fields,
+<a href=#722 id=722 data-nosnippet>722</a>        }
+<a href=#723 id=723 data-nosnippet>723</a>    }
+<a href=#724 id=724 data-nosnippet>724</a>
+<a href=#725 id=725 data-nosnippet>725</a>    <span class="attr">#[test]
+<a href=#726 id=726 data-nosnippet>726</a>    </span><span class="kw">fn </span>find_dupe_login() {
+<a href=#727 id=727 data-nosnippet>727</a>        ensure_initialized();
+<a href=#728 id=728 data-nosnippet>728</a>        <span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>        <span class="kw">let </span>to_add = LoginEntry {
+<a href=#731 id=731 data-nosnippet>731</a>            form_action_origin: <span class="prelude-val">Some</span>(<span class="string">"https://www.example.com"</span>.into()),
+<a href=#732 id=732 data-nosnippet>732</a>            origin: <span class="string">"http://not-relevant-here.com"</span>.into(),
+<a href=#733 id=733 data-nosnippet>733</a>            username: <span class="string">"test"</span>.into(),
+<a href=#734 id=734 data-nosnippet>734</a>            password: <span class="string">"test"</span>.into(),
+<a href=#735 id=735 data-nosnippet>735</a>            ..Default::default()
+<a href=#736 id=736 data-nosnippet>736</a>        };
+<a href=#737 id=737 data-nosnippet>737</a>        <span class="kw">let </span>first_id = store.add(to_add).expect(<span class="string">"should insert first"</span>).id;
+<a href=#738 id=738 data-nosnippet>738</a>
+<a href=#739 id=739 data-nosnippet>739</a>        <span class="kw">let </span>to_add = LoginEntry {
+<a href=#740 id=740 data-nosnippet>740</a>            form_action_origin: <span class="prelude-val">Some</span>(<span class="string">"https://www.example1.com"</span>.into()),
+<a href=#741 id=741 data-nosnippet>741</a>            origin: <span class="string">"http://not-relevant-here.com"</span>.into(),
+<a href=#742 id=742 data-nosnippet>742</a>            username: <span class="string">"test1"</span>.into(),
+<a href=#743 id=743 data-nosnippet>743</a>            password: <span class="string">"test1"</span>.into(),
+<a href=#744 id=744 data-nosnippet>744</a>            ..Default::default()
+<a href=#745 id=745 data-nosnippet>745</a>        };
+<a href=#746 id=746 data-nosnippet>746</a>        <span class="kw">let </span>second_id = store.add(to_add).expect(<span class="string">"should insert second"</span>).id;
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a>        <span class="kw">let </span>to_add = LoginEntry {
+<a href=#749 id=749 data-nosnippet>749</a>            http_realm: <span class="prelude-val">Some</span>(<span class="string">"http://some-realm.com"</span>.into()),
+<a href=#750 id=750 data-nosnippet>750</a>            origin: <span class="string">"http://not-relevant-here.com"</span>.into(),
+<a href=#751 id=751 data-nosnippet>751</a>            username: <span class="string">"test1"</span>.into(),
+<a href=#752 id=752 data-nosnippet>752</a>            password: <span class="string">"test1"</span>.into(),
+<a href=#753 id=753 data-nosnippet>753</a>            ..Default::default()
+<a href=#754 id=754 data-nosnippet>754</a>        };
+<a href=#755 id=755 data-nosnippet>755</a>        <span class="kw">let </span>no_form_origin_id = store.add(to_add).expect(<span class="string">"should insert second"</span>).id;
+<a href=#756 id=756 data-nosnippet>756</a>
+<a href=#757 id=757 data-nosnippet>757</a>        <span class="kw">let </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#758 id=758 data-nosnippet>758</a>
+<a href=#759 id=759 data-nosnippet>759</a>        <span class="kw">let </span>to_find = make_enc_login(<span class="string">"test"</span>, <span class="string">"test"</span>, <span class="prelude-val">Some</span>(<span class="string">"https://www.example.com"</span>.into()), <span class="prelude-val">None</span>);
+<a href=#760 id=760 data-nosnippet>760</a>        <span class="macro">assert_eq!</span>(
+<a href=#761 id=761 data-nosnippet>761</a>            engine
+<a href=#762 id=762 data-nosnippet>762</a>                .find_dupe_login(<span class="kw-2">&amp;</span>to_find)
+<a href=#763 id=763 data-nosnippet>763</a>                .expect(<span class="string">"should work"</span>)
+<a href=#764 id=764 data-nosnippet>764</a>                .expect(<span class="string">"should be Some()"</span>)
+<a href=#765 id=765 data-nosnippet>765</a>                .meta
+<a href=#766 id=766 data-nosnippet>766</a>                .id,
+<a href=#767 id=767 data-nosnippet>767</a>            first_id
+<a href=#768 id=768 data-nosnippet>768</a>        );
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>        <span class="kw">let </span>to_find = make_enc_login(
+<a href=#771 id=771 data-nosnippet>771</a>            <span class="string">"test"</span>,
+<a href=#772 id=772 data-nosnippet>772</a>            <span class="string">"test"</span>,
+<a href=#773 id=773 data-nosnippet>773</a>            <span class="prelude-val">Some</span>(<span class="string">"https://something-else.com"</span>.into()),
+<a href=#774 id=774 data-nosnippet>774</a>            <span class="prelude-val">None</span>,
+<a href=#775 id=775 data-nosnippet>775</a>        );
+<a href=#776 id=776 data-nosnippet>776</a>        <span class="macro">assert!</span>(engine
+<a href=#777 id=777 data-nosnippet>777</a>            .find_dupe_login(<span class="kw-2">&amp;</span>to_find)
+<a href=#778 id=778 data-nosnippet>778</a>            .expect(<span class="string">"should work"</span>)
+<a href=#779 id=779 data-nosnippet>779</a>            .is_none());
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>        <span class="kw">let </span>to_find = make_enc_login(
+<a href=#782 id=782 data-nosnippet>782</a>            <span class="string">"test1"</span>,
+<a href=#783 id=783 data-nosnippet>783</a>            <span class="string">"test1"</span>,
+<a href=#784 id=784 data-nosnippet>784</a>            <span class="prelude-val">Some</span>(<span class="string">"https://www.example1.com"</span>.into()),
+<a href=#785 id=785 data-nosnippet>785</a>            <span class="prelude-val">None</span>,
+<a href=#786 id=786 data-nosnippet>786</a>        );
+<a href=#787 id=787 data-nosnippet>787</a>        <span class="macro">assert_eq!</span>(
+<a href=#788 id=788 data-nosnippet>788</a>            engine
+<a href=#789 id=789 data-nosnippet>789</a>                .find_dupe_login(<span class="kw-2">&amp;</span>to_find)
+<a href=#790 id=790 data-nosnippet>790</a>                .expect(<span class="string">"should work"</span>)
+<a href=#791 id=791 data-nosnippet>791</a>                .expect(<span class="string">"should be Some()"</span>)
+<a href=#792 id=792 data-nosnippet>792</a>                .meta
+<a href=#793 id=793 data-nosnippet>793</a>                .id,
+<a href=#794 id=794 data-nosnippet>794</a>            second_id
+<a href=#795 id=795 data-nosnippet>795</a>        );
+<a href=#796 id=796 data-nosnippet>796</a>
+<a href=#797 id=797 data-nosnippet>797</a>        <span class="kw">let </span>to_find = make_enc_login(
+<a href=#798 id=798 data-nosnippet>798</a>            <span class="string">"other"</span>,
+<a href=#799 id=799 data-nosnippet>799</a>            <span class="string">"other"</span>,
+<a href=#800 id=800 data-nosnippet>800</a>            <span class="prelude-val">Some</span>(<span class="string">"https://www.example1.com"</span>.into()),
+<a href=#801 id=801 data-nosnippet>801</a>            <span class="prelude-val">None</span>,
+<a href=#802 id=802 data-nosnippet>802</a>        );
+<a href=#803 id=803 data-nosnippet>803</a>        <span class="macro">assert!</span>(engine
+<a href=#804 id=804 data-nosnippet>804</a>            .find_dupe_login(<span class="kw-2">&amp;</span>to_find)
+<a href=#805 id=805 data-nosnippet>805</a>            .expect(<span class="string">"should work"</span>)
+<a href=#806 id=806 data-nosnippet>806</a>            .is_none());
+<a href=#807 id=807 data-nosnippet>807</a>
+<a href=#808 id=808 data-nosnippet>808</a>        <span class="comment">// no form origin.
+<a href=#809 id=809 data-nosnippet>809</a>        </span><span class="kw">let </span>to_find = make_enc_login(<span class="string">"test1"</span>, <span class="string">"test1"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"http://some-realm.com"</span>.into()));
+<a href=#810 id=810 data-nosnippet>810</a>        <span class="macro">assert_eq!</span>(
+<a href=#811 id=811 data-nosnippet>811</a>            engine
+<a href=#812 id=812 data-nosnippet>812</a>                .find_dupe_login(<span class="kw-2">&amp;</span>to_find)
+<a href=#813 id=813 data-nosnippet>813</a>                .expect(<span class="string">"should work"</span>)
+<a href=#814 id=814 data-nosnippet>814</a>                .expect(<span class="string">"should be Some()"</span>)
+<a href=#815 id=815 data-nosnippet>815</a>                .meta
+<a href=#816 id=816 data-nosnippet>816</a>                .id,
+<a href=#817 id=817 data-nosnippet>817</a>            no_form_origin_id
+<a href=#818 id=818 data-nosnippet>818</a>        );
+<a href=#819 id=819 data-nosnippet>819</a>    }
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a>    <span class="attr">#[test]
+<a href=#822 id=822 data-nosnippet>822</a>    </span><span class="kw">fn </span>test_roundtrip_unknown() {
+<a href=#823 id=823 data-nosnippet>823</a>        ensure_initialized();
+<a href=#824 id=824 data-nosnippet>824</a>        <span class="comment">// A couple of helpers
+<a href=#825 id=825 data-nosnippet>825</a>        </span><span class="kw">fn </span>apply_incoming_payload(engine: <span class="kw-2">&amp;</span>LoginsSyncEngine, payload: serde_json::Value) {
+<a href=#826 id=826 data-nosnippet>826</a>            <span class="kw">let </span>bso = IncomingBso::from_test_content(payload);
+<a href=#827 id=827 data-nosnippet>827</a>            <span class="kw">let </span><span class="kw-2">mut </span>telem = sync15::telemetry::Engine::new(engine.collection_name());
+<a href=#828 id=828 data-nosnippet>828</a>            engine.stage_incoming(<span class="macro">vec!</span>[bso], <span class="kw-2">&amp;mut </span>telem).unwrap();
+<a href=#829 id=829 data-nosnippet>829</a>            engine
+<a href=#830 id=830 data-nosnippet>830</a>                .apply(ServerTimestamp::from_millis(<span class="number">0</span>), <span class="kw-2">&amp;mut </span>telem)
+<a href=#831 id=831 data-nosnippet>831</a>                .unwrap();
+<a href=#832 id=832 data-nosnippet>832</a>        }
+<a href=#833 id=833 data-nosnippet>833</a>
+<a href=#834 id=834 data-nosnippet>834</a>        <span class="kw">fn </span>get_outgoing_payload(engine: <span class="kw-2">&amp;</span>LoginsSyncEngine) -&gt; serde_json::Value {
+<a href=#835 id=835 data-nosnippet>835</a>            <span class="comment">// Edit it so it's considered outgoing.
+<a href=#836 id=836 data-nosnippet>836</a>            </span>engine
+<a href=#837 id=837 data-nosnippet>837</a>                .store
+<a href=#838 id=838 data-nosnippet>838</a>                .update(
+<a href=#839 id=839 data-nosnippet>839</a>                    <span class="string">"dummy_000001"</span>,
+<a href=#840 id=840 data-nosnippet>840</a>                    LoginEntry {
+<a href=#841 id=841 data-nosnippet>841</a>                        origin: <span class="string">"https://www.example2.com"</span>.into(),
+<a href=#842 id=842 data-nosnippet>842</a>                        http_realm: <span class="prelude-val">Some</span>(<span class="string">"https://www.example2.com"</span>.into()),
+<a href=#843 id=843 data-nosnippet>843</a>                        username: <span class="string">"test"</span>.into(),
+<a href=#844 id=844 data-nosnippet>844</a>                        password: <span class="string">"test"</span>.into(),
+<a href=#845 id=845 data-nosnippet>845</a>                        ..Default::default()
+<a href=#846 id=846 data-nosnippet>846</a>                    },
+<a href=#847 id=847 data-nosnippet>847</a>                )
+<a href=#848 id=848 data-nosnippet>848</a>                .unwrap();
+<a href=#849 id=849 data-nosnippet>849</a>            <span class="kw">let </span>changeset = engine.fetch_outgoing().unwrap();
+<a href=#850 id=850 data-nosnippet>850</a>            <span class="macro">assert_eq!</span>(changeset.len(), <span class="number">1</span>);
+<a href=#851 id=851 data-nosnippet>851</a>            serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>changeset[<span class="number">0</span>].payload).unwrap()
+<a href=#852 id=852 data-nosnippet>852</a>        }
+<a href=#853 id=853 data-nosnippet>853</a>
+<a href=#854 id=854 data-nosnippet>854</a>        <span class="comment">// The test itself...
+<a href=#855 id=855 data-nosnippet>855</a>        </span><span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#856 id=856 data-nosnippet>856</a>        <span class="kw">let </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#857 id=857 data-nosnippet>857</a>
+<a href=#858 id=858 data-nosnippet>858</a>        apply_incoming_payload(
+<a href=#859 id=859 data-nosnippet>859</a>            <span class="kw-2">&amp;</span>engine,
+<a href=#860 id=860 data-nosnippet>860</a>            <span class="macro">serde_json::json!</span>({
+<a href=#861 id=861 data-nosnippet>861</a>                <span class="string">"id"</span>: <span class="string">"dummy_000001"</span>,
+<a href=#862 id=862 data-nosnippet>862</a>                <span class="string">"formSubmitURL"</span>: <span class="string">"https://www.example.com/submit"</span>,
+<a href=#863 id=863 data-nosnippet>863</a>                <span class="string">"hostname"</span>: <span class="string">"https://www.example.com"</span>,
+<a href=#864 id=864 data-nosnippet>864</a>                <span class="string">"username"</span>: <span class="string">"test"</span>,
+<a href=#865 id=865 data-nosnippet>865</a>                <span class="string">"password"</span>: <span class="string">"test"</span>,
+<a href=#866 id=866 data-nosnippet>866</a>                <span class="string">"unknown1"</span>: <span class="string">"?"</span>,
+<a href=#867 id=867 data-nosnippet>867</a>                <span class="string">"unknown2"</span>: {<span class="string">"sub"</span>: <span class="string">"object"</span>},
+<a href=#868 id=868 data-nosnippet>868</a>            }),
+<a href=#869 id=869 data-nosnippet>869</a>        );
+<a href=#870 id=870 data-nosnippet>870</a>
+<a href=#871 id=871 data-nosnippet>871</a>        <span class="kw">let </span>payload = get_outgoing_payload(<span class="kw-2">&amp;</span>engine);
+<a href=#872 id=872 data-nosnippet>872</a>
+<a href=#873 id=873 data-nosnippet>873</a>        <span class="comment">// The outgoing payload for our item should have the unknown fields.
+<a href=#874 id=874 data-nosnippet>874</a>        </span><span class="macro">assert_eq!</span>(payload.get(<span class="string">"unknown1"</span>).unwrap().as_str().unwrap(), <span class="string">"?"</span>);
+<a href=#875 id=875 data-nosnippet>875</a>        <span class="macro">assert_eq!</span>(
+<a href=#876 id=876 data-nosnippet>876</a>            payload.get(<span class="string">"unknown2"</span>).unwrap(),
+<a href=#877 id=877 data-nosnippet>877</a>            <span class="kw-2">&amp;</span><span class="macro">serde_json::json!</span>({<span class="string">"sub"</span>: <span class="string">"object"</span>})
+<a href=#878 id=878 data-nosnippet>878</a>        );
+<a href=#879 id=879 data-nosnippet>879</a>
+<a href=#880 id=880 data-nosnippet>880</a>        <span class="comment">// test mirror updates - record is already in our mirror, but now it's
+<a href=#881 id=881 data-nosnippet>881</a>        // incoming with different unknown fields.
+<a href=#882 id=882 data-nosnippet>882</a>        </span>apply_incoming_payload(
+<a href=#883 id=883 data-nosnippet>883</a>            <span class="kw-2">&amp;</span>engine,
+<a href=#884 id=884 data-nosnippet>884</a>            <span class="macro">serde_json::json!</span>({
+<a href=#885 id=885 data-nosnippet>885</a>                <span class="string">"id"</span>: <span class="string">"dummy_000001"</span>,
+<a href=#886 id=886 data-nosnippet>886</a>                <span class="string">"formSubmitURL"</span>: <span class="string">"https://www.example.com/submit"</span>,
+<a href=#887 id=887 data-nosnippet>887</a>                <span class="string">"hostname"</span>: <span class="string">"https://www.example.com"</span>,
+<a href=#888 id=888 data-nosnippet>888</a>                <span class="string">"username"</span>: <span class="string">"test"</span>,
+<a href=#889 id=889 data-nosnippet>889</a>                <span class="string">"password"</span>: <span class="string">"test"</span>,
+<a href=#890 id=890 data-nosnippet>890</a>                <span class="string">"unknown2"</span>: <span class="number">99</span>,
+<a href=#891 id=891 data-nosnippet>891</a>                <span class="string">"unknown3"</span>: {<span class="string">"something"</span>: <span class="string">"else"</span>},
+<a href=#892 id=892 data-nosnippet>892</a>            }),
+<a href=#893 id=893 data-nosnippet>893</a>        );
+<a href=#894 id=894 data-nosnippet>894</a>        <span class="kw">let </span>payload = get_outgoing_payload(<span class="kw-2">&amp;</span>engine);
+<a href=#895 id=895 data-nosnippet>895</a>        <span class="comment">// old unknown values were replaced.
+<a href=#896 id=896 data-nosnippet>896</a>        </span><span class="macro">assert!</span>(payload.get(<span class="string">"unknown1"</span>).is_none());
+<a href=#897 id=897 data-nosnippet>897</a>        <span class="macro">assert_eq!</span>(payload.get(<span class="string">"unknown2"</span>).unwrap().as_u64().unwrap(), <span class="number">99</span>);
+<a href=#898 id=898 data-nosnippet>898</a>        <span class="macro">assert_eq!</span>(
+<a href=#899 id=899 data-nosnippet>899</a>            payload
+<a href=#900 id=900 data-nosnippet>900</a>                .get(<span class="string">"unknown3"</span>)
+<a href=#901 id=901 data-nosnippet>901</a>                .unwrap()
+<a href=#902 id=902 data-nosnippet>902</a>                .as_object()
+<a href=#903 id=903 data-nosnippet>903</a>                .unwrap()
+<a href=#904 id=904 data-nosnippet>904</a>                .get(<span class="string">"something"</span>)
+<a href=#905 id=905 data-nosnippet>905</a>                .unwrap()
+<a href=#906 id=906 data-nosnippet>906</a>                .as_str()
+<a href=#907 id=907 data-nosnippet>907</a>                .unwrap(),
+<a href=#908 id=908 data-nosnippet>908</a>            <span class="string">"else"
+<a href=#909 id=909 data-nosnippet>909</a>        </span>);
+<a href=#910 id=910 data-nosnippet>910</a>    }
+<a href=#911 id=911 data-nosnippet>911</a>
+<a href=#912 id=912 data-nosnippet>912</a>    <span class="kw">fn </span>count(engine: <span class="kw-2">&amp;</span>LoginsSyncEngine, table_name: <span class="kw-2">&amp;</span>str) -&gt; u32 {
+<a href=#913 id=913 data-nosnippet>913</a>        ensure_initialized();
+<a href=#914 id=914 data-nosnippet>914</a>        <span class="kw">let </span>sql = <span class="macro">format!</span>(<span class="string">"SELECT COUNT(*) FROM {table_name}"</span>);
+<a href=#915 id=915 data-nosnippet>915</a>        engine
+<a href=#916 id=916 data-nosnippet>916</a>            .store
+<a href=#917 id=917 data-nosnippet>917</a>            .db
+<a href=#918 id=918 data-nosnippet>918</a>            .lock()
+<a href=#919 id=919 data-nosnippet>919</a>            .try_query_one(<span class="kw-2">&amp;</span>sql, [], <span class="bool-val">false</span>)
+<a href=#920 id=920 data-nosnippet>920</a>            .unwrap()
+<a href=#921 id=921 data-nosnippet>921</a>            .unwrap()
+<a href=#922 id=922 data-nosnippet>922</a>    }
+<a href=#923 id=923 data-nosnippet>923</a>
+<a href=#924 id=924 data-nosnippet>924</a>    <span class="kw">fn </span>do_test_incoming_with_local_unmirrored_tombstone(local_newer: bool) {
+<a href=#925 id=925 data-nosnippet>925</a>        ensure_initialized();
+<a href=#926 id=926 data-nosnippet>926</a>        <span class="kw">fn </span>apply_incoming_payload(engine: <span class="kw-2">&amp;</span>LoginsSyncEngine, payload: serde_json::Value) {
+<a href=#927 id=927 data-nosnippet>927</a>            <span class="kw">let </span>bso = IncomingBso::from_test_content(payload);
+<a href=#928 id=928 data-nosnippet>928</a>            <span class="kw">let </span><span class="kw-2">mut </span>telem = sync15::telemetry::Engine::new(engine.collection_name());
+<a href=#929 id=929 data-nosnippet>929</a>            engine.stage_incoming(<span class="macro">vec!</span>[bso], <span class="kw-2">&amp;mut </span>telem).unwrap();
+<a href=#930 id=930 data-nosnippet>930</a>            engine
+<a href=#931 id=931 data-nosnippet>931</a>                .apply(ServerTimestamp::from_millis(<span class="number">0</span>), <span class="kw-2">&amp;mut </span>telem)
+<a href=#932 id=932 data-nosnippet>932</a>                .unwrap();
+<a href=#933 id=933 data-nosnippet>933</a>        }
+<a href=#934 id=934 data-nosnippet>934</a>
+<a href=#935 id=935 data-nosnippet>935</a>        <span class="comment">// The test itself...
+<a href=#936 id=936 data-nosnippet>936</a>        </span><span class="kw">let </span>(local_timestamp, remote_timestamp) = <span class="kw">if </span>local_newer { (<span class="number">123</span>, <span class="number">0</span>) } <span class="kw">else </span>{ (<span class="number">0</span>, <span class="number">123</span>) };
+<a href=#937 id=937 data-nosnippet>937</a>
+<a href=#938 id=938 data-nosnippet>938</a>        <span class="kw">let </span>store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+<a href=#939 id=939 data-nosnippet>939</a>        <span class="kw">let </span>engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
+<a href=#940 id=940 data-nosnippet>940</a>
+<a href=#941 id=941 data-nosnippet>941</a>        <span class="comment">// apply an incoming record - will be in the mirror.
+<a href=#942 id=942 data-nosnippet>942</a>        </span>apply_incoming_payload(
+<a href=#943 id=943 data-nosnippet>943</a>            <span class="kw-2">&amp;</span>engine,
+<a href=#944 id=944 data-nosnippet>944</a>            <span class="macro">serde_json::json!</span>({
+<a href=#945 id=945 data-nosnippet>945</a>                <span class="string">"id"</span>: <span class="string">"dummy_000001"</span>,
+<a href=#946 id=946 data-nosnippet>946</a>                <span class="string">"formSubmitURL"</span>: <span class="string">"https://www.example.com/submit"</span>,
+<a href=#947 id=947 data-nosnippet>947</a>                <span class="string">"hostname"</span>: <span class="string">"https://www.example.com"</span>,
+<a href=#948 id=948 data-nosnippet>948</a>                <span class="string">"username"</span>: <span class="string">"test"</span>,
+<a href=#949 id=949 data-nosnippet>949</a>                <span class="string">"password"</span>: <span class="string">"test"</span>,
+<a href=#950 id=950 data-nosnippet>950</a>                <span class="string">"timePasswordChanged"</span>: local_timestamp,
+<a href=#951 id=951 data-nosnippet>951</a>                <span class="string">"unknown1"</span>: <span class="string">"?"</span>,
+<a href=#952 id=952 data-nosnippet>952</a>                <span class="string">"unknown2"</span>: {<span class="string">"sub"</span>: <span class="string">"object"</span>},
+<a href=#953 id=953 data-nosnippet>953</a>            }),
+<a href=#954 id=954 data-nosnippet>954</a>        );
+<a href=#955 id=955 data-nosnippet>955</a>
+<a href=#956 id=956 data-nosnippet>956</a>        <span class="comment">// Reset the engine - this wipes the mirror.
+<a href=#957 id=957 data-nosnippet>957</a>        </span>engine.reset(<span class="kw-2">&amp;</span>EngineSyncAssociation::Disconnected).unwrap();
+<a href=#958 id=958 data-nosnippet>958</a>        <span class="comment">// But the local record does still exist.
+<a href=#959 id=959 data-nosnippet>959</a>        </span><span class="macro">assert!</span>(engine
+<a href=#960 id=960 data-nosnippet>960</a>            .store
+<a href=#961 id=961 data-nosnippet>961</a>            .get(<span class="string">"dummy_000001"</span>)
+<a href=#962 id=962 data-nosnippet>962</a>            .expect(<span class="string">"should work"</span>)
+<a href=#963 id=963 data-nosnippet>963</a>            .is_some());
+<a href=#964 id=964 data-nosnippet>964</a>
+<a href=#965 id=965 data-nosnippet>965</a>        <span class="comment">// Delete the local record.
+<a href=#966 id=966 data-nosnippet>966</a>        </span>engine.store.delete(<span class="string">"dummy_000001"</span>).unwrap();
+<a href=#967 id=967 data-nosnippet>967</a>        <span class="macro">assert!</span>(engine
+<a href=#968 id=968 data-nosnippet>968</a>            .store
+<a href=#969 id=969 data-nosnippet>969</a>            .get(<span class="string">"dummy_000001"</span>)
+<a href=#970 id=970 data-nosnippet>970</a>            .expect(<span class="string">"should work"</span>)
+<a href=#971 id=971 data-nosnippet>971</a>            .is_none());
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>        <span class="comment">// double-check our test preconditions - should now have 1 in LoginsL and 0 in LoginsM
+<a href=#974 id=974 data-nosnippet>974</a>        </span><span class="macro">assert_eq!</span>(count(<span class="kw-2">&amp;</span>engine, <span class="string">"LoginsL"</span>), <span class="number">1</span>);
+<a href=#975 id=975 data-nosnippet>975</a>        <span class="macro">assert_eq!</span>(count(<span class="kw-2">&amp;</span>engine, <span class="string">"LoginsM"</span>), <span class="number">0</span>);
+<a href=#976 id=976 data-nosnippet>976</a>
+<a href=#977 id=977 data-nosnippet>977</a>        <span class="comment">// Now we assume we've been reconnected to sync and have an incoming change for the record.
+<a href=#978 id=978 data-nosnippet>978</a>        </span>apply_incoming_payload(
+<a href=#979 id=979 data-nosnippet>979</a>            <span class="kw-2">&amp;</span>engine,
+<a href=#980 id=980 data-nosnippet>980</a>            <span class="macro">serde_json::json!</span>({
+<a href=#981 id=981 data-nosnippet>981</a>                <span class="string">"id"</span>: <span class="string">"dummy_000001"</span>,
+<a href=#982 id=982 data-nosnippet>982</a>                <span class="string">"formSubmitURL"</span>: <span class="string">"https://www.example.com/submit"</span>,
+<a href=#983 id=983 data-nosnippet>983</a>                <span class="string">"hostname"</span>: <span class="string">"https://www.example.com"</span>,
+<a href=#984 id=984 data-nosnippet>984</a>                <span class="string">"username"</span>: <span class="string">"test"</span>,
+<a href=#985 id=985 data-nosnippet>985</a>                <span class="string">"password"</span>: <span class="string">"test2"</span>,
+<a href=#986 id=986 data-nosnippet>986</a>                <span class="string">"timePasswordChanged"</span>: remote_timestamp,
+<a href=#987 id=987 data-nosnippet>987</a>                <span class="string">"unknown1"</span>: <span class="string">"?"</span>,
+<a href=#988 id=988 data-nosnippet>988</a>                <span class="string">"unknown2"</span>: {<span class="string">"sub"</span>: <span class="string">"object"</span>},
+<a href=#989 id=989 data-nosnippet>989</a>            }),
+<a href=#990 id=990 data-nosnippet>990</a>        );
+<a href=#991 id=991 data-nosnippet>991</a>
+<a href=#992 id=992 data-nosnippet>992</a>        <span class="comment">// Desktop semantics here are that a local tombstone is treated as though it doesn't exist at all.
+<a href=#993 id=993 data-nosnippet>993</a>        // ie, the remote record should be taken whether it is newer or older than the tombstone.
+<a href=#994 id=994 data-nosnippet>994</a>        </span><span class="macro">assert!</span>(engine
+<a href=#995 id=995 data-nosnippet>995</a>            .store
+<a href=#996 id=996 data-nosnippet>996</a>            .get(<span class="string">"dummy_000001"</span>)
+<a href=#997 id=997 data-nosnippet>997</a>            .expect(<span class="string">"should work"</span>)
+<a href=#998 id=998 data-nosnippet>998</a>            .is_some());
+<a href=#999 id=999 data-nosnippet>999</a>        <span class="comment">// and there should never be an outgoing record.
+<a href=#1000 id=1000 data-nosnippet>1000</a>        // XXX - but there is! But this is exceedingly rare, we
+<a href=#1001 id=1001 data-nosnippet>1001</a>        // should fix it :)
+<a href=#1002 id=1002 data-nosnippet>1002</a>        // assert_eq!(engine.fetch_outgoing().unwrap().len(), 0);
+<a href=#1003 id=1003 data-nosnippet>1003</a>
+<a href=#1004 id=1004 data-nosnippet>1004</a>        // should now be no records in loginsL and 1 in loginsM
+<a href=#1005 id=1005 data-nosnippet>1005</a>        </span><span class="macro">assert_eq!</span>(count(<span class="kw-2">&amp;</span>engine, <span class="string">"LoginsL"</span>), <span class="number">0</span>);
+<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="macro">assert_eq!</span>(count(<span class="kw-2">&amp;</span>engine, <span class="string">"LoginsM"</span>), <span class="number">1</span>);
+<a href=#1007 id=1007 data-nosnippet>1007</a>    }
+<a href=#1008 id=1008 data-nosnippet>1008</a>
+<a href=#1009 id=1009 data-nosnippet>1009</a>    <span class="attr">#[test]
+<a href=#1010 id=1010 data-nosnippet>1010</a>    </span><span class="kw">fn </span>test_incoming_non_mirror_tombstone_local_newer() {
+<a href=#1011 id=1011 data-nosnippet>1011</a>        do_test_incoming_with_local_unmirrored_tombstone(<span class="bool-val">true</span>);
+<a href=#1012 id=1012 data-nosnippet>1012</a>    }
+<a href=#1013 id=1013 data-nosnippet>1013</a>
+<a href=#1014 id=1014 data-nosnippet>1014</a>    <span class="attr">#[test]
+<a href=#1015 id=1015 data-nosnippet>1015</a>    </span><span class="kw">fn </span>test_incoming_non_mirror_tombstone_local_older() {
+<a href=#1016 id=1016 data-nosnippet>1016</a>        do_test_incoming_with_local_unmirrored_tombstone(<span class="bool-val">false</span>);
+<a href=#1017 id=1017 data-nosnippet>1017</a>    }
+<a href=#1018 id=1018 data-nosnippet>1018</a>}</code></pre></div></section></main></body></html>
