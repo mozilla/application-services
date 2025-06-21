@@ -5,9 +5,7 @@ import org.yaml.snakeyaml.Yaml
 
 // We prefer `appServicesRootDir` over `rootDir` to help us on the path to the monorepo.
 // (They are the same in app-services but different in moz-central)
-def maybeAppServicesRootDir = new File(rootDir, "services/app-services")
-def appServicesRootDir = maybeAppServicesRootDir.isDirectory() ? maybeAppServicesRootDir : rootDir;
-
+def appServicesRootDir = gradle.root.hasProperty("mozconfig") ? new File(ext.topsrcdir, "services/app-services/") : rootDir
 
 includeBuild("$appServicesRootDir/tools/nimbus-gradle-plugin") {
     dependencySubstitution {
@@ -161,6 +159,10 @@ class Config {
 }
 
 gradle.projectsLoaded { ->
+    if (gradle.hasProperty("mozconfig")) {
+        gradle.rootProject.tasks.register("generateUniffiBindings")
+    }
+
     // Wait until root project is "loaded" before we set "config"
     // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
     // gradle files. This means that they can just access "config.<value>", and it'll function properly
