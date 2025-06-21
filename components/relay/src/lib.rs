@@ -6,7 +6,7 @@ mod error;
 
 uniffi::setup_scaffolding!("relay");
 
-pub use error::{ApiError, ApiResult, Error, Result};
+pub use error::{ApiResult, Error, RelayApiError, Result};
 use error_support::handle_error;
 
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ struct CreateAddressPayload<'a> {
 }
 
 #[derive(Deserialize)]
-struct ApiErrorMessage {
+struct RelayApiErrorMessage {
     detail: String,
 }
 
@@ -88,7 +88,7 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
             return Err(Error::RelayApi(parsed.detail));
         }
 
@@ -104,7 +104,7 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
             return Err(Error::RelayApi(parsed.detail));
         }
         Ok(())
@@ -132,7 +132,7 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<ApiErrorMessage>(&body) {
+        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
             return Err(Error::RelayApi(parsed.detail));
         }
 
