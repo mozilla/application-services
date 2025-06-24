@@ -116,6 +116,7 @@ fn main() -> Result<()> {
             DEFAULT_LOG_FILTER
         },
     ));
+    nss::ensure_initialized();
     viaduct_reqwest::use_reqwest_backend();
     let store = build_store(&cli)?;
     match cli.command {

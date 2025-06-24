@@ -14,3 +14,4 @@ clap = {version = "4.2", features = ["derive"]}
 suggest = { path = "../../components/suggest" }
 anyhow = "1.0"
 env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
+nss = { version = "0.1.0", path = "../../components/support/rc_crypto/nss" }

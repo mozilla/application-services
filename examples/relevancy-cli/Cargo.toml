@@ -16,3 +16,4 @@ places = { path = "../../components/places" }
 relevancy = { path = "../../components/relevancy" }
 anyhow = "1.0"
 sync15 = { path = "../../components/sync15" }
+nss = { version = "0.1.0", path = "../../components/support/rc_crypto/nss" }
