@@ -169,6 +169,10 @@ pub(crate) struct JSONEngineVariant {
     /// Details of the possible user environments that this variant applies to.
     pub environment: JSONVariantEnvironment,
 
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
     /// This search engine is presented as an option that the user may enable.
     /// If not specified, defaults to false.
     #[serde(default)]

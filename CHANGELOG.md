@@ -79,6 +79,7 @@
 
 - The `SearchEngineSelector::filter_engine_configuration` will now sort any
   unordered engines by name rather than identifier.
+- Added `is_new_until` field to the SearchEngineDefinition struct. This optional field represents the date in YYYY-MM-DD format until which a search engine variant or subvariant is considered "new".
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v139.0...v140.0)
 

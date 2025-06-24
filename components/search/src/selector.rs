@@ -549,6 +549,7 @@ mod tests {
                         charset: "UTF-8".to_string(),
                         classification: SearchEngineClassification::Unknown,
                         identifier: "test2".to_string(),
+                        is_new_until: None,
                         name: "Test 2".to_string(),
                         optional: false,
                         order_hint: None,
