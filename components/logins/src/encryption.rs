@@ -184,8 +184,8 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
     /// Get a primary password for authentication, otherwise return the
     /// AuthenticationCancelled error to cancel the authentication process.
     async fn get_primary_password(&self) -> ApiResult<String>;
-    fn on_authentication_success(&self);
-    fn on_authentication_failure(&self);
+    async fn on_authentication_success(&self);
+    async fn on_authentication_failure(&self);
 }
 
 /// Use the `NSSKeyManager` to use NSS for key management.
@@ -215,11 +215,11 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 ///         Ok("secret".to_string())
 ///     }
 ///
-///     fn on_authentication_success(&self) {
+///     async fn on_authentication_success(&self) {
 ///         println!("success");
 ///     }
 ///
-///     fn on_authentication_failure(&self) {
+///     async fn on_authentication_failure(&self) {
 ///         println!("this did not work, please try again:");
 ///     }
 /// }
@@ -284,19 +284,25 @@ impl KeyManager for NSSKeyManager {
             let mut result = api_authenticate_with_primary_password(&primary_password)?;
 
             if result {
-                self.primary_password_authenticator
-                    .on_authentication_success();
+                block_on(
+                    self.primary_password_authenticator
+                        .on_authentication_success(),
+                );
             } else {
                 while !result {
-                    self.primary_password_authenticator
-                        .on_authentication_failure();
+                    block_on(
+                        self.primary_password_authenticator
+                            .on_authentication_failure(),
+                    );
 
                     let primary_password =
                         block_on(self.primary_password_authenticator.get_primary_password())?;
                     result = api_authenticate_with_primary_password(&primary_password)?;
                 }
-                self.primary_password_authenticator
-                    .on_authentication_success();
+                block_on(
+                    self.primary_password_authenticator
+                        .on_authentication_success(),
+                );
             }
         }
 
@@ -458,8 +464,8 @@ mod keydb_test {
         async fn get_primary_password(&self) -> ApiResult<String> {
             Ok(self.password.clone())
         }
-        fn on_authentication_success(&self) {}
-        fn on_authentication_failure(&self) {}
+        async fn on_authentication_success(&self) {}
+        async fn on_authentication_failure(&self) {}
     }
 
     fn profile_path() -> PathBuf {
