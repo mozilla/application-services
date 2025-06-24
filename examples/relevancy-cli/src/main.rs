@@ -36,6 +36,7 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    nss::ensure_initialized();
     viaduct_reqwest::use_reqwest_backend();
     if let Some(dir) = std::path::PathBuf::from(CREDENTIALS_PATH).parent() {
         std::fs::create_dir_all(dir)?;
