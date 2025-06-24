@@ -1,6 +1,10 @@
 # v142.0 (In progress)
 [Full Changelog](In progress)
 
+### Logins
+- expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
+- change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨
@@ -13,7 +17,6 @@
 - add checkpoint API: `set_checkpoint(checkpoint)` and `get_checkpoint()` for desktop's rolling migration
 - add `delete_many(ids)` for batch deletion within a single transaction
 - Add `count()`, `count_by_origin()` and `count_by_form_action_origin()` methods
-- expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
 
 ### Sync Manager
 - Added sync settings metrics for mobile. [#6786](https://github.com/mozilla/application-services/pull/6786)
