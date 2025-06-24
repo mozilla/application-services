@@ -37,6 +37,4 @@ public protocol FeatureManifestInterface {
     func getFeature(featureId: String) -> FeatureHolderAny?
 
     func getCoenrollingFeatureIds() -> [String]
-
-    func geckoPrefsMap() -> [String: [String: String]]
 }
