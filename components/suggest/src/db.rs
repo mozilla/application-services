@@ -1204,6 +1204,11 @@ impl<'a> SuggestDao<'a> {
         )?;
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
+            "DELETE FROM keywords_i18n WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
             "DELETE FROM full_keywords WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
@@ -1886,7 +1891,7 @@ fn provider_config_meta_key(provider: SuggestionProvider) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{store::tests::TestStore, testing::*};
+    use crate::{store::tests::TestStore, testing::*, SuggestIngestionConstraints};
 
     #[test]
     fn keywords_metrics_updater() -> anyhow::Result<()> {
@@ -2002,6 +2007,187 @@ mod tests {
 
             Ok(())
         })?;
+
+        Ok(())
+    }
+
+    // Keywords in `keywords_i18n` should be dropped when their records are
+    // deleted.
+    #[test]
+    fn keywords_i18n_delete_record() -> anyhow::Result<()> {
+        // Add some records whose keywords are stored in `keywords_i18n`. We'll
+        // use weather records.
+        let kws_1 = ["aaa", "bbb", "ccc"];
+        let kws_2 = ["yyy", "zzz"];
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(SuggestionProvider::Weather.record(
+                    "weather-1",
+                    json!({
+                        "score": 0.24,
+                        "keywords": kws_1,
+                    }),
+                ))
+                .with_record(SuggestionProvider::Weather.record(
+                    "weather-2",
+                    json!({
+                        "score": 0.24,
+                        "keywords": kws_2,
+                    }),
+                )),
+        );
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Weather]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Make sure all keywords are present.
+        assert_eq!(
+            store.count_rows("keywords_i18n") as usize,
+            kws_1.len() + kws_2.len()
+        );
+
+        for q in kws_1.iter().chain(kws_2.iter()) {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![Suggestion::Weather {
+                    score: 0.24,
+                    city: None,
+                }],
+                "query: {:?}",
+                q
+            );
+        }
+
+        // Delete the first record.
+        store
+            .client_mut()
+            .delete_record(SuggestionProvider::Weather.empty_record("weather-1"));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Weather]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Its keywords should be dropped and the keywords from the second
+        // record should still be present.
+        assert_eq!(store.count_rows("keywords_i18n") as usize, kws_2.len());
+
+        for q in kws_1 {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![],
+                "query: {:?}",
+                q
+            );
+        }
+        for q in kws_2 {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![Suggestion::Weather {
+                    score: 0.24,
+                    city: None,
+                }],
+                "query: {:?}",
+                q
+            );
+        }
+
+        Ok(())
+    }
+
+    // Keywords in `keywords_i18n` should be dropped when their records are
+    // updated and the keywords are no longer present, and new keywords should
+    // be added.
+    #[test]
+    fn keywords_i18n_update_record() -> anyhow::Result<()> {
+        // Add some records whose keywords are stored in `keywords_i18n`. We'll
+        // use weather records.
+        let kws_1 = ["aaa", "bbb", "ccc"];
+        let kws_2 = ["yyy", "zzz"];
+        let mut store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(SuggestionProvider::Weather.record(
+                    "weather-1",
+                    json!({
+                        "score": 0.24,
+                        "keywords": kws_1,
+                    }),
+                ))
+                .with_record(SuggestionProvider::Weather.record(
+                    "weather-2",
+                    json!({
+                        "score": 0.24,
+                        "keywords": kws_2,
+                    }),
+                )),
+        );
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Weather]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Make sure all keywords are present.
+        assert_eq!(
+            store.count_rows("keywords_i18n") as usize,
+            kws_1.len() + kws_2.len()
+        );
+
+        for q in kws_1.iter().chain(kws_2.iter()) {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![Suggestion::Weather {
+                    score: 0.24,
+                    city: None,
+                }],
+                "query: {:?}",
+                q
+            );
+        }
+
+        // Update the first record.
+        let kws_1_new = [
+            "bbb", // keyword from the old record
+            "mmm", // new keyword
+        ];
+        store
+            .client_mut()
+            .update_record(SuggestionProvider::Weather.record(
+                "weather-1",
+                json!({
+                    "score": 0.24,
+                    "keywords": kws_1_new,
+                }),
+            ));
+        store.ingest(SuggestIngestionConstraints {
+            providers: Some(vec![SuggestionProvider::Weather]),
+            ..SuggestIngestionConstraints::all_providers()
+        });
+
+        // Check all keywords.
+        assert_eq!(
+            store.count_rows("keywords_i18n") as usize,
+            kws_1_new.len() + kws_2.len()
+        );
+
+        for q in ["aaa", "ccc"] {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![],
+                "query: {:?}",
+                q
+            );
+        }
+        for q in kws_1_new.iter().chain(kws_2.iter()) {
+            assert_eq!(
+                store.fetch_suggestions(SuggestionQuery::weather(q)),
+                vec![Suggestion::Weather {
+                    score: 0.24,
+                    city: None,
+                }],
+                "query: {:?}",
+                q
+            );
+        }
 
         Ok(())
     }

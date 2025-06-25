@@ -1708,16 +1708,24 @@ pub(crate) mod tests {
                     SuggestionProvider::Amp.record("data-2", json!([good_place_eats_amp()])),
                 )
                 .with_record(SuggestionProvider::Amp.icon(los_pollos_icon()))
-                .with_record(SuggestionProvider::Amp.icon(good_place_eats_icon())),
+                .with_record(SuggestionProvider::Amp.icon(good_place_eats_icon()))
+                .with_record(
+                    SuggestionProvider::Weather
+                        .record("weather-1", json!({ "keywords": ["abcde"], })),
+                ),
         );
         store.ingest(SuggestIngestionConstraints::all_providers());
         assert!(store.count_rows("suggestions") > 0);
         assert!(store.count_rows("keywords") > 0);
+        assert!(store.count_rows("keywords_i18n") > 0);
+        assert!(store.count_rows("keywords_metrics") > 0);
         assert!(store.count_rows("icons") > 0);
 
         store.inner.clear()?;
         assert!(store.count_rows("suggestions") == 0);
         assert!(store.count_rows("keywords") == 0);
+        assert!(store.count_rows("keywords_i18n") == 0);
+        assert!(store.count_rows("keywords_metrics") == 0);
         assert!(store.count_rows("icons") == 0);
 
         Ok(())
