@@ -815,6 +815,9 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
 
 /// Clears the database, removing all suggestions, icons, and metadata.
 pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
+    // If you update this, you probably need to update
+    // `SuggestDao::drop_suggestions` too!
+
     db.execute_batch(
         "
         DELETE FROM meta;
@@ -833,6 +836,7 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
         "geonames",
         "geonames_metrics",
         "ingested_records",
+        "keywords_i18n",
         "keywords_metrics",
     ];
     for t in conditional_tables {
