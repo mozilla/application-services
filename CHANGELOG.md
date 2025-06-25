@@ -4,6 +4,7 @@
 ### Logins
 - expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
 - change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
+- return Result in PrimaryPasswordAuthenticator callbacks (again a breaking change, but not yet used by anyone)
 
 # v141.0 (_2025-06-23_)
 

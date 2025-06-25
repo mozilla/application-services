@@ -213,3 +213,11 @@ impl GetErrorHandling for Error {
         }
     }
 }
+
+impl From<uniffi::UnexpectedUniFFICallbackError> for LoginsApiError {
+    fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        LoginsApiError::UnexpectedLoginsApiError {
+            reason: error.to_string(),
+        }
+    }
+}

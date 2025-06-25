@@ -306,12 +306,14 @@ impl PrimaryPasswordAuthenticator for MyPrimaryPasswordAuthenticator {
         Ok(password)
     }
 
-    async fn on_authentication_success(&self) {
+    async fn on_authentication_success(&self) -> Result<(), LoginsApiError> {
         println!("success");
+        Ok(())
     }
 
-    async fn on_authentication_failure(&self) {
+    async fn on_authentication_failure(&self) -> Result<(), LoginsApiError> {
         println!("this did not work, please try again:");
+        Ok(())
     }
 }
 
