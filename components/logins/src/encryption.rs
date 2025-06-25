@@ -184,8 +184,8 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
     /// Get a primary password for authentication, otherwise return the
     /// AuthenticationCancelled error to cancel the authentication process.
     async fn get_primary_password(&self) -> ApiResult<String>;
-    async fn on_authentication_success(&self);
-    async fn on_authentication_failure(&self);
+    async fn on_authentication_success(&self) -> ApiResult<()>;
+    async fn on_authentication_failure(&self) -> ApiResult<()>;
 }
 
 /// Use the `NSSKeyManager` to use NSS for key management.
@@ -200,10 +200,10 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 ///
 /// # Examples
 /// ```no_run
-/// use std::sync::Arc;
 /// use async_trait::async_trait;
-/// use logins::{PrimaryPasswordAuthenticator, LoginsApiError, NSSKeyManager};
 /// use logins::encryption::KeyManager;
+/// use logins::{PrimaryPasswordAuthenticator, LoginsApiError, NSSKeyManager};
+/// use std::sync::Arc;
 ///
 /// struct MyPrimaryPasswordAuthenticator {}
 ///
@@ -215,12 +215,14 @@ pub trait PrimaryPasswordAuthenticator: Send + Sync {
 ///         Ok("secret".to_string())
 ///     }
 ///
-///     async fn on_authentication_success(&self) {
+///     async fn on_authentication_success(&self) -> Result<(), LoginsApiError> {
 ///         println!("success");
+///         Ok(())
 ///     }
 ///
-///     async fn on_authentication_failure(&self) {
+///     async fn on_authentication_failure(&self) -> Result<(), LoginsApiError> {
 ///         println!("this did not work, please try again:");
+///         Ok(())
 ///     }
 /// }
 /// let key_manager = NSSKeyManager::new(Arc::new(MyPrimaryPasswordAuthenticator {}));
@@ -287,13 +289,13 @@ impl KeyManager for NSSKeyManager {
                 block_on(
                     self.primary_password_authenticator
                         .on_authentication_success(),
-                );
+                )?;
             } else {
                 while !result {
                     block_on(
                         self.primary_password_authenticator
                             .on_authentication_failure(),
-                    );
+                    )?;
 
                     let primary_password =
                         block_on(self.primary_password_authenticator.get_primary_password())?;
@@ -302,7 +304,7 @@ impl KeyManager for NSSKeyManager {
                 block_on(
                     self.primary_password_authenticator
                         .on_authentication_success(),
-                );
+                )?;
             }
         }
 
@@ -464,8 +466,12 @@ mod keydb_test {
         async fn get_primary_password(&self) -> ApiResult<String> {
             Ok(self.password.clone())
         }
-        async fn on_authentication_success(&self) {}
-        async fn on_authentication_failure(&self) {}
+        async fn on_authentication_success(&self) -> ApiResult<()> {
+            Ok(())
+        }
+        async fn on_authentication_failure(&self) -> ApiResult<()> {
+            Ok(())
+        }
     }
 
     fn profile_path() -> PathBuf {
