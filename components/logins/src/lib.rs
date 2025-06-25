@@ -55,3 +55,19 @@ pub fn create_login_store_with_static_key_manager(path: String, key: String) -> 
         ManagedEncryptorDecryptor::new(Arc::new(StaticKeyManager::new(key)));
     Arc::new(LoginStore::new(path, Arc::new(encdec)).unwrap())
 }
+
+// Create a LoginStore with NSSKeyManager by passing in a db path and a PrimaryPasswordAuthenticator.
+//
+// Note this is only temporarily needed until a bug with UniFFI and JavaScript is fixed, which
+// prevents passing around traits in JS
+#[cfg(feature = "keydb")]
+#[uniffi::export]
+pub fn create_login_store_with_nss_keymanager(
+    path: String,
+    primary_password_authenticator: Arc<dyn PrimaryPasswordAuthenticator>,
+) -> Arc<LoginStore> {
+    let encdec: ManagedEncryptorDecryptor = ManagedEncryptorDecryptor::new(Arc::new(
+        NSSKeyManager::new(primary_password_authenticator),
+    ));
+    Arc::new(LoginStore::new(path, Arc::new(encdec)).unwrap())
+}
