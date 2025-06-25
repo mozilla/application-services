@@ -77,7 +77,8 @@ gyp -f ninja-android "${NSS_SRC_DIR}/nss/nss.gyp" \
   -Dsign_libs=0 \
   -Denable_sslkeylogfile=0 \
   -Ddisable_tests=1 \
-  -Ddisable_libpkix=1
+  -Ddisable_libpkix=1 \
+  -Dpython=python3
 
 GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release"
 ninja -C "${GENERATED_DIR}"
