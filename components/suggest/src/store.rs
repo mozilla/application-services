@@ -1017,6 +1017,10 @@ pub(crate) mod tests {
             self.inner.dbs().unwrap().reader.read(op)
         }
 
+        pub fn write<T>(&self, op: impl FnMut(&mut SuggestDao) -> Result<T>) -> Result<T> {
+            self.inner.dbs().unwrap().writer.write(op)
+        }
+
         pub fn count_rows(&self, table_name: &str) -> u64 {
             let sql = format!("SELECT count(*) FROM {table_name}");
             self.read(|dao| Ok(dao.conn.query_one(&sql)?))
