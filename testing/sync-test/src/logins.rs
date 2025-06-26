@@ -382,8 +382,8 @@ fn test_delete_undecryptable_records_for_remote_replacement(
 
     let login1 = c0
         .logins_store
-        .db
-        .lock()
+        .lock_db()
+        .expect("db lock retrieved")
         .add(
             LoginEntry {
                 origin: "http://www.example3.com".into(),
@@ -404,8 +404,8 @@ fn test_delete_undecryptable_records_for_remote_replacement(
     // can provided our own EncryptorDecryptor.
     let retrieved_login = c0
         .logins_store
-        .db
-        .lock()
+        .lock_db()
+        .expect("db lock retrieved")
         .get_by_id(&l1id)
         .expect("get_by_id returns successfully")
         .expect("login to be retrieved")

@@ -62,6 +62,9 @@ pub enum LoginsApiError {
 /// is never returned to the consumer.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Database is closed")]
+    DatabaseClosed,
+
     #[error("Malformed incoming record")]
     MalformedIncomingRecord,
 

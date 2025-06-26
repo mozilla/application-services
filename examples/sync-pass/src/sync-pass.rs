@@ -574,7 +574,7 @@ fn main() -> Result<()> {
             'x' | 'X' => {
                 log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
-                    let db = store.db.lock();
+                    let db = store.lock_db()?;
                     if let Err(e) = show_sql(&db, &sql) {
                         log::warn!("Failed to run sql query: {}", e);
                     }
