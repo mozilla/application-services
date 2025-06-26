@@ -103,7 +103,11 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * network. This is to allow the networking stack to be initialized after this method is called
      * and the networking stack to be involved in experiments.
      */
-    fun build(appInfo: NimbusAppInfo, collectionName: String?, remoteSettingsService: RemoteSettingsService?): T {
+    fun build(appInfo: NimbusAppInfo, remoteSettingsService: RemoteSettingsService?): T {
+        val collectionName: String? = if (usePreviewCollection) {
+            "nimbus-preview"
+        } else { null }
+
         // Is the app being built locally, and the nimbus-cli
         // hasn't been used before this run.
         fun NimbusInterface.isLocalBuild() = url.isNullOrBlank() && isFetchEnabled()

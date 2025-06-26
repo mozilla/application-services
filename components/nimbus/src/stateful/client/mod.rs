@@ -15,7 +15,6 @@ use remote_settings::RemoteSettingsService;
 use url::Url;
 
 pub(crate) fn create_client(
-    //config: Option<RemoteSettingsConfig>,
     collection_name: Option<String>,
     rs_service: Option<Arc<RemoteSettingsService>>,
 ) -> Result<Box<dyn SettingsClient + Send>> {
