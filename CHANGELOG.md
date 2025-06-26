@@ -10,6 +10,9 @@
 ### Nimbus
 - Updated the Nimbus API Stage URL
 
+### Nimbus FML && CLI
+- handle http status codes when fetching feature manifests from GitHub. 
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨
