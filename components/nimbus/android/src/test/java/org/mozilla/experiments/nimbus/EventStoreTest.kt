@@ -23,7 +23,9 @@ class EventStoreTest {
         channel = "test",
     )
 
-    private val nimbus = TestNimbusBuilder(context).build(appInfo)
+    val collectionName = "test-collection-name"
+
+    private val nimbus = TestNimbusBuilder(context).build(appInfo, null)
 
     val events: NimbusEventStore
         get() = nimbus.events
