@@ -5,6 +5,9 @@
 - expose constructors for `ManagedEncryptorDecryptor` and `NSSKeyManager`
 - change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
 
+### Nimbus FML && CLI
+- handle http status codes when fetching feature manifests from GitHub. 
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨

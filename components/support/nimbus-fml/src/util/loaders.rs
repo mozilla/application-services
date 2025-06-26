@@ -470,7 +470,11 @@ impl FileLoader {
         Ok(if path_buf.exists() {
             std::fs::read_to_string(path_buf)?
         } else {
-            let res = self.fetch_client.get(url.clone()).send()?;
+            let res = self
+                .fetch_client
+                .get(url.clone())
+                .send()?
+                .error_for_status()?;
             let text = res.text()?;
 
             let parent = path_buf.parent().expect("Cache directory is specified");
