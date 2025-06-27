@@ -263,4 +263,7 @@ interface LoginStore {
 
     [Self=ByArc]
     void register_with_sync_manager();
+
+    [Throws=LoginsApiError, Self=ByArc]
+    void shutdown();
 };
