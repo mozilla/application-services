@@ -297,12 +297,14 @@ impl LoginStore {
         Ok(())
     }
 
-    // #[handle_error(Error)]
-    // pub fn shutdown(&self) -> ApiResult<()> {
-    //     let conn = self.lock_db()?;
-    //     conn.close().unwrap();
-    //     Ok(())
-    // }
+    #[handle_error(Error)]
+    pub fn shutdown(&self) -> ApiResult<()> {
+        if let Some(conn) = self.db.lock().take() {
+            conn.shutdown()
+        } else {
+            Ok(())
+        }
+    }
 
     // This allows the embedding app to say "make this instance available to
     // the sync manager". The implementation is more like "offer to sync mgr"
@@ -515,6 +517,17 @@ mod test {
         // If the database is empty, then wipe_local() returns 0 rows deleted
         let db = LoginDb::open_in_memory().unwrap();
         assert_eq!(db.wipe_local().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_shutdown() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        store.shutdown().unwrap();
+        assert!(matches!(
+            store.list(),
+            Err(LoginsApiError::UnexpectedLoginsApiError { reason: _ })
+        ));
     }
 }
 
