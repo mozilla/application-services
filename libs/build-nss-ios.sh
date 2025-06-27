@@ -37,7 +37,7 @@ elif [[ "${ARCH}" == "arm64-sim" ]]; then
   TARGET="aarch64-apple-darwin"
   GYP_ARCH="arm64"
   # ARCH is used further down the line, but arm64-sim doesn't exist so we swap it back
-  # to the original 
+  # to the original
   ARCH="arm64"
   EXTRA_TARGET="arm64-apple-ios-simulator"
 else
@@ -89,7 +89,8 @@ gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   -Denable_sslkeylogfile=0 \
   -Ddisable_tests=1 \
   -Ddisable_libpkix=1 \
-  -Diphone_deployment_target="${IOS_MIN_SDK_VERSION}"
+  -Diphone_deployment_target="${IOS_MIN_SDK_VERSION}" \
+  -Dpython=python3
 
 GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release-$(echo ${OS_COMPILER} | tr '[:upper:]' '[:lower:]')/"
 ninja -C "${GENERATED_DIR}"

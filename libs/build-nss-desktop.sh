@@ -74,6 +74,7 @@ elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
     --opt \
     --static \
     --disable-tests \
+    --python=python3 \
     -Ddisable_dbm=1 \
     -Dsign_libs=0 \
     -Ddisable_libpkix=1
