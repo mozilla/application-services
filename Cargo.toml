@@ -13,6 +13,7 @@ members = [
     "components/init_rust_components",
     "components/logins",
     "components/merino",
+    "components/marc",
     "components/nimbus",
     "components/places",
     "components/push",
