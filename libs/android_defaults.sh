@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 
 # Find the NDK.
-pushd ..
-NDK_VERSION=$(./gradlew -q printNdkVersion | tail -1)
-export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
-export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
-popd || exit
+
+if [[ -z "${ANDROID_NDK_HOME:-}" || -z "${ANDROID_NDK_ROOT:-}" ]]; then
+    pushd ..
+    NDK_VERSION=$(./gradlew -q printNdkVersion | tail -1)
+    export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+    export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+    popd || exit
+else
+    echo "Using ANDROID_NDK_HOME=${ANDROID_NDK_HOME} and ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT}"
+fi
 
 if [[ -z "${ANDROID_NDK_API_VERSION:-}" ]]; then
     export ANDROID_NDK_API_VERSION=21
