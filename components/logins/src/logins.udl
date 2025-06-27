@@ -94,6 +94,13 @@ dictionary Login {
     string username;
 };
 
+/// Metrics tracking deletion of logins that cannot be decrypted, see `delete_undecryptable_records_for_remote_replacement`
+/// for more details
+dictionary LoginsDeletionMetrics {
+    u64 local_deleted;
+    u64 mirror_deleted;
+};
+
 /// These are the errors returned by our public API.
 [Error]
 interface LoginsApiError {
@@ -216,7 +223,7 @@ interface LoginStore {
     /// NB: This function was created to unblock iOS logins users who are unable to sync logins and should not be used
     /// outside of this use case.
     [Throws=LoginsApiError, Self=ByArc]
-    void delete_undecryptable_records_for_remote_replacement();
+    LoginsDeletionMetrics delete_undecryptable_records_for_remote_replacement();
 
     [Throws=LoginsApiError]
     void touch([ByRef] string id);
