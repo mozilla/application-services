@@ -94,6 +94,9 @@ impl SearchEngineDefinition {
         if let Some(urls) = &variant.urls {
             self.urls.merge(urls);
         }
+        if let Some(is_new_until) = &variant.is_new_until {
+            self.is_new_until = Some(is_new_until.clone());
+        }
     }
 
     fn merge_override(&mut self, override_record: &JSONOverridesRecord) {
@@ -124,6 +127,7 @@ impl SearchEngineDefinition {
             telemetry_suffix: String::new(),
             urls: base.urls.into(),
             click_url: None,
+            is_new_until: None,
         };
 
         engine_definition.merge_variant(variant);
@@ -542,6 +546,7 @@ mod tests {
                     all_regions_and_locales: true,
                     ..Default::default()
                 },
+                is_new_until: None,
                 optional: false,
                 partner_code: None,
                 telemetry_suffix: None,
@@ -558,6 +563,7 @@ mod tests {
                 charset: "UTF-8".to_string(),
                 classification: SearchEngineClassification::General,
                 identifier: "test".to_string(),
+                is_new_until: None,
                 partner_code: String::new(),
                 name: "Test".to_string(),
                 optional: false,
@@ -651,6 +657,7 @@ mod tests {
                     all_regions_and_locales: true,
                     ..Default::default()
                 },
+                is_new_until: None,
                 optional: false,
                 partner_code: None,
                 telemetry_suffix: None,
@@ -667,6 +674,7 @@ mod tests {
                 charset: "ISO-8859-15".to_string(),
                 classification: SearchEngineClassification::Unknown,
                 identifier: "test".to_string(),
+                is_new_until: None,
                 partner_code: "firefox".to_string(),
                 name: "Test".to_string(),
                 optional: false,
@@ -741,6 +749,7 @@ mod tests {
                     all_regions_and_locales: true,
                     ..Default::default()
                 },
+                is_new_until: Some("2063-04-05".to_string()),
                 optional: true,
                 partner_code: Some("trek".to_string()),
                 telemetry_suffix: Some("star".to_string()),
@@ -802,6 +811,7 @@ mod tests {
                 charset: "ISO-8859-15".to_string(),
                 classification: SearchEngineClassification::Unknown,
                 identifier: "test".to_string(),
+                is_new_until: Some("2063-04-05".to_string()),
                 partner_code: "trek".to_string(),
                 name: "Test".to_string(),
                 optional: true,
@@ -868,6 +878,7 @@ mod tests {
                     all_regions_and_locales: true,
                     ..Default::default()
                 },
+                is_new_until: None,
                 optional: true,
                 partner_code: Some("trek".to_string()),
                 telemetry_suffix: Some("star".to_string()),
@@ -928,6 +939,7 @@ mod tests {
                     all_regions_and_locales: true,
                     ..Default::default()
                 },
+                is_new_until: Some("2063-04-05".to_string()),
                 optional: true,
                 partner_code: Some("trek2".to_string()),
                 telemetry_suffix: Some("star2".to_string()),
@@ -988,6 +1000,7 @@ mod tests {
                 charset: "ISO-8859-15".to_string(),
                 classification: SearchEngineClassification::Unknown,
                 identifier: "test".to_string(),
+                is_new_until: Some("2063-04-05".to_string()),
                 partner_code: "trek2".to_string(),
                 name: "Test".to_string(),
                 optional: true,

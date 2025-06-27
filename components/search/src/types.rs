@@ -183,6 +183,10 @@ pub struct SearchEngineDefinition {
     /// also used to form the base telemetry id and may be extended by telemetrySuffix.
     pub identifier: String,
 
+    /// Indicates the date until which the engine variant or subvariant is considered new
+    /// (format: YYYY-MM-DD).
+    pub is_new_until: Option<String>,
+
     /// The user visible name of the search engine.
     pub name: String,
 
