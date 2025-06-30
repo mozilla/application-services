@@ -65,6 +65,9 @@ pub enum Error {
     #[error("Database is closed")]
     DatabaseClosed,
 
+    #[error("EncryptorDecryptor is closed")]
+    EncryptorDecryptorClosed,
+
     #[error("Malformed incoming record")]
     MalformedIncomingRecord,
 
