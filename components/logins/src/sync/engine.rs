@@ -69,7 +69,7 @@ impl LoginsSyncEngine {
                         upstream,
                         upstream_time,
                         server_now,
-                        self.store.encdec.as_ref(),
+                        self.store.lock_encdec()?.as_ref(),
                     )?;
                     telem.reconciled(1);
                 }
@@ -132,7 +132,7 @@ impl LoginsSyncEngine {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.into_iter() {
                 let id = incoming.envelope.id.clone();
-                match SyncLoginData::from_bso(incoming, self.store.encdec.as_ref()) {
+                match SyncLoginData::from_bso(incoming, self.store.lock_encdec()?.as_ref()) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         match e {
@@ -253,8 +253,8 @@ impl LoginsSyncEngine {
                 OutgoingBso::new_tombstone(envelope)
             } else {
                 let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
-                let mut bso =
-                    EncryptedLogin::from_row(row)?.into_bso(self.store.encdec.as_ref(), unknown)?;
+                let mut bso = EncryptedLogin::from_row(row)?
+                    .into_bso(self.store.lock_encdec()?.as_ref(), unknown)?;
                 bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
                 bso
             })
@@ -382,12 +382,13 @@ impl LoginsSyncEngine {
     // This is subtly different from dupe handling by the main API and maybe
     // could be consolidated, but for now it remains sync specific.
     pub(crate) fn find_dupe_login(&self, l: &EncryptedLogin) -> Result<Option<EncryptedLogin>> {
+        let encdec = self.store.lock_encdec()?;
         let form_submit_host_port = l
             .fields
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(s));
-        let enc_fields = l.decrypt_fields(self.store.encdec.as_ref())?;
+        let enc_fields = l.decrypt_fields(encdec.as_ref())?;
         let args = named_params! {
             ":origin": l.fields.origin,
             ":http_realm": l.fields.http_realm,
@@ -412,7 +413,7 @@ impl LoginsSyncEngine {
             .query_and_then(args, EncryptedLogin::from_row)?
             .collect::<Result<Vec<EncryptedLogin>>>()?
         {
-            let this_enc_fields = login.decrypt_fields(self.store.encdec.as_ref())?;
+            let this_enc_fields = login.decrypt_fields(encdec.as_ref())?;
             if enc_fields.username == this_enc_fields.username {
                 return Ok(Some(login));
             }
