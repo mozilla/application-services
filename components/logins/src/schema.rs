@@ -256,11 +256,14 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::LoginDb;
+    use nss::ensure_initialized;
     use rusqlite::Connection;
 
     #[test]
     fn test_create_schema() {
+        ensure_initialized();
         let db = LoginDb::open_in_memory();
         // should be VERSION.
         let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
@@ -269,6 +272,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_v1() {
+        ensure_initialized();
         // manually setup a V1 schema.
         let connection = Connection::open_in_memory().unwrap();
         connection
@@ -304,7 +308,7 @@ mod tests {
             .unwrap();
 
         // Now open the DB - it will create loginsL for us and migrate loginsM.
-        let db = LoginDb::with_connection(connection).unwrap();
+        let db = LoginDb::with_connection(connection, TEST_ENCDEC.clone()).unwrap();
         // all migrations should have succeeded.
         let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);

@@ -45,6 +45,7 @@ use url::{Host, Url};
 
 pub struct LoginDb {
     pub db: Connection,
+    pub encdec: Arc<dyn EncryptorDecryptor>,
     interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
@@ -54,7 +55,7 @@ pub struct LoginsDeletionMetrics {
 }
 
 impl LoginDb {
-    pub fn with_connection(db: Connection) -> Result<Self> {
+    pub fn with_connection(db: Connection, encdec: Arc<dyn EncryptorDecryptor>) -> Result<Self> {
         #[cfg(test)]
         {
             util::init_test_logging();
@@ -68,6 +69,7 @@ impl LoginDb {
 
         let mut logins = Self {
             interrupt_handle: Arc::new(SqlInterruptHandle::new(&db)),
+            encdec,
             db,
         };
         let tx = logins.db.transaction()?;
@@ -76,13 +78,15 @@ impl LoginDb {
         Ok(logins)
     }
 
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        Self::with_connection(Connection::open(path)?)
+    pub fn open(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> Result<Self> {
+        Self::with_connection(Connection::open(path)?, encdec)
     }
 
     #[cfg(test)]
     pub fn open_in_memory() -> Self {
-        Self::with_connection(Connection::open_in_memory().unwrap()).unwrap()
+        let encdec: Arc<dyn EncryptorDecryptor> =
+            crate::encryption::test_utils::TEST_ENCDEC.clone();
+        Self::with_connection(Connection::open_in_memory().unwrap(), encdec).unwrap()
     }
 
     pub fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
@@ -1682,6 +1686,7 @@ mod tests {
 
     #[test]
     fn test_delete_local_for_remote_replacement() {
+        ensure_initialized();
         let db = LoginDb::open_in_memory();
         let login = db
             .add(

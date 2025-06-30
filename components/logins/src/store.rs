@@ -79,44 +79,30 @@ fn map_bulk_result_entry(
 
 pub struct LoginStore {
     pub db: Mutex<Option<LoginDb>>,
-    pub encdec: Mutex<Option<Arc<dyn EncryptorDecryptor>>>,
 }
 
 impl LoginStore {
     #[handle_error(Error)]
     pub fn new(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
-        let db = Mutex::new(Some(LoginDb::open(path)?));
-        let encdec = Mutex::new(Some(encdec));
-        Ok(Self { db, encdec })
+        let db = Mutex::new(Some(LoginDb::open(path, encdec)?));
+        Ok(Self { db })
     }
 
-    pub fn new_from_db(db: LoginDb, encdec: Arc<dyn EncryptorDecryptor>) -> Self {
+    pub fn new_from_db(db: LoginDb) -> Self {
         let db = Mutex::new(Some(db));
-        let encdec = Mutex::new(Some(encdec));
-        Self { db, encdec }
+        Self { db }
     }
 
+    // Only used for tests, but it's `pub` the `sync-test` crate uses it.
     #[cfg(test)]
     pub fn new_in_memory() -> Self {
         let db = Mutex::new(Some(LoginDb::open_in_memory()));
-        let encdec: Arc<dyn EncryptorDecryptor> =
-            crate::encryption::test_utils::TEST_ENCDEC.clone();
-        Self {
-            db,
-            encdec: Mutex::new(Some(encdec)),
-        }
+        Self { db }
     }
 
     pub fn lock_db(&self) -> Result<parking_lot::MappedMutexGuard<'_, LoginDb>> {
         parking_lot::MutexGuard::try_map(self.db.lock(), |db| db.as_mut())
             .map_err(|_| Error::DatabaseClosed)
-    }
-
-    pub fn lock_encdec(
-        &self,
-    ) -> Result<parking_lot::MappedMutexGuard<'_, Arc<dyn EncryptorDecryptor>>> {
-        parking_lot::MutexGuard::try_map(self.encdec.lock(), |encdec| encdec.as_mut())
-            .map_err(|_| Error::EncryptorDecryptorClosed)
     }
 
     #[handle_error(Error)]
@@ -126,10 +112,11 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn list(&self) -> ApiResult<Vec<Login>> {
-        self.lock_db()?.get_all().and_then(|logins| {
+        let db = self.lock_db()?;
+        db.get_all().and_then(|logins| {
             logins
                 .into_iter()
-                .map(|login| login.decrypt(self.lock_encdec()?.as_ref()))
+                .map(|login| login.decrypt(db.encdec.as_ref()))
                 .collect()
         })
     }
@@ -152,9 +139,10 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn get(&self, id: &str) -> ApiResult<Option<Login>> {
-        match self.lock_db()?.get_by_id(id) {
+        let db = self.lock_db()?;
+        match db.get_by_id(id) {
             Ok(result) => match result {
-                Some(enc_login) => enc_login.decrypt(self.lock_encdec()?.as_ref()).map(Some),
+                Some(enc_login) => enc_login.decrypt(db.encdec.as_ref()).map(Some),
                 None => Ok(None),
             },
             Err(err) => Err(err),
@@ -163,15 +151,13 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<Login>> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .get_by_base_domain(base_domain)
-            .and_then(|logins| {
-                logins
-                    .into_iter()
-                    .map(|login| login.decrypt(encdec.as_ref()))
-                    .collect()
-            })
+        let db = self.lock_db()?;
+        db.get_by_base_domain(base_domain).and_then(|logins| {
+            logins
+                .into_iter()
+                .map(|login| login.decrypt(db.encdec.as_ref()))
+                .collect()
+        })
     }
 
     #[handle_error(Error)]
@@ -183,8 +169,8 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn find_login_to_update(&self, entry: LoginEntry) -> ApiResult<Option<Login>> {
-        self.lock_db()?
-            .find_login_to_update(entry, self.lock_encdec()?.as_ref())
+        let db = self.lock_db()?;
+        db.find_login_to_update(entry, db.encdec.as_ref())
     }
 
     #[handle_error(Error)]
@@ -212,11 +198,10 @@ impl LoginStore {
         // This function was created for the iOS logins verification logic that will
         // remove records that prevent logins syncing. Once the verification logic is
         // removed from iOS, this function can be removed from the store.
-        let deletion_stats = self
-            .lock_db()?
-            .delete_undecryptable_records_for_remote_replacement(self.lock_encdec()?.as_ref())?;
-        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         let db = self.lock_db()?;
+        let deletion_stats =
+            db.delete_undecryptable_records_for_remote_replacement(db.encdec.as_ref())?;
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         engine.set_last_sync(&db, ServerTimestamp(0))?;
         Ok(deletion_stats)
     }
@@ -239,31 +224,27 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn update(&self, id: &str, entry: LoginEntry) -> ApiResult<Login> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .update(id, entry, encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
+        let db = self.lock_db()?;
+        db.update(id, entry, db.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add(&self, entry: LoginEntry) -> ApiResult<Login> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .add(entry, encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
+        let db = self.lock_db()?;
+        db.add(entry, db.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add_many(&self, entries: Vec<LoginEntry>) -> ApiResult<Vec<BulkResultEntry>> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .add_many(entries, encdec.as_ref())
-            .map(|enc_logins| {
-                enc_logins
-                    .into_iter()
-                    .map(|enc_login| map_bulk_result_entry(enc_login, encdec.as_ref()))
-                    .collect()
-            })
+        let db = self.lock_db()?;
+        db.add_many(entries, db.encdec.as_ref()).map(|enc_logins| {
+            enc_logins
+                .into_iter()
+                .map(|enc_login| map_bulk_result_entry(enc_login, db.encdec.as_ref()))
+                .collect()
+        })
     }
 
     /// This method is intended to preserve metadata (LoginMeta) during a migration.
@@ -271,10 +252,9 @@ impl LoginStore {
     /// use `add(entry)`, which manages the corresponding fields itself.
     #[handle_error(Error)]
     pub fn add_with_meta(&self, entry_with_meta: LoginEntryWithMeta) -> ApiResult<Login> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .add_with_meta(entry_with_meta, encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
+        let db = self.lock_db()?;
+        db.add_with_meta(entry_with_meta, db.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
@@ -282,23 +262,21 @@ impl LoginStore {
         &self,
         entries_with_meta: Vec<LoginEntryWithMeta>,
     ) -> ApiResult<Vec<BulkResultEntry>> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .add_many_with_meta(entries_with_meta, encdec.as_ref())
+        let db = self.lock_db()?;
+        db.add_many_with_meta(entries_with_meta, db.encdec.as_ref())
             .map(|enc_logins| {
                 enc_logins
                     .into_iter()
-                    .map(|enc_login| map_bulk_result_entry(enc_login, encdec.as_ref()))
+                    .map(|enc_login| map_bulk_result_entry(enc_login, db.encdec.as_ref()))
                     .collect()
             })
     }
 
     #[handle_error(Error)]
     pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login> {
-        let encdec = self.lock_encdec()?;
-        self.lock_db()?
-            .add_or_update(entry, encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
+        let db = self.lock_db()?;
+        db.add_or_update(entry, db.encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(db.encdec.as_ref()))
     }
 
     #[handle_error(Error)]
@@ -319,19 +297,10 @@ impl LoginStore {
         Ok(())
     }
 
-    fn shutdown_db(&self) {
+    pub fn shutdown(&self) {
         if let Some(db) = self.db.lock().take() {
             let _ = db.shutdown();
         }
-    }
-
-    fn shutdown_encdec(&self) {
-        self.encdec.lock().take();
-    }
-
-    pub fn shutdown(&self) {
-        self.shutdown_db();
-        self.shutdown_encdec();
     }
 
     // This allows the embedding app to say "make this instance available to
@@ -557,7 +526,6 @@ mod test {
             Err(LoginsApiError::UnexpectedLoginsApiError { reason: _ })
         ));
         assert!(store.db.lock().is_none());
-        assert!(store.encdec.lock().is_none());
     }
 }
 

@@ -70,7 +70,7 @@ impl TestClient {
             cli,
             device,
             autofill_store: Arc::new(AutofillStore::new_shared_memory("sync-test")?),
-            logins_store: Arc::new(LoginStore::new_in_memory(encdec.clone())?),
+            logins_store: Arc::new(LoginStore::new(":memory:", encdec.clone())?),
             encdec,
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
             sync_manager: SyncManager::new(),
@@ -163,7 +163,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
         self.autofill_store = Arc::new(AutofillStore::new_shared_memory("sync-test")?);
-        self.logins_store = Arc::new(LoginStore::new_in_memory(self.encdec.clone())?);
+        self.logins_store = Arc::new(LoginStore::new(":memory:", self.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
         Ok(())
     }
