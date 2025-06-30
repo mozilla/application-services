@@ -80,8 +80,9 @@ impl LoginDb {
         Self::with_connection(Connection::open(path)?)
     }
 
-    pub fn open_in_memory() -> Result<Self> {
-        Self::with_connection(Connection::open_in_memory()?)
+    #[cfg(test)]
+    pub fn open_in_memory() -> Self {
+        Self::with_connection(Connection::open_in_memory().unwrap()).unwrap()
     }
 
     pub fn new_interrupt_handle(&self) -> Arc<SqlInterruptHandle> {
@@ -1113,7 +1114,7 @@ mod tests {
             ..LoginEntry::default()
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         db.add(login.clone(), &*TEST_ENCDEC)
             .expect("should be able to add first login");
 
@@ -1160,7 +1161,7 @@ mod tests {
             ..LoginEntry::default()
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let added = db
             .add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
             .expect("should be able to add logins");
@@ -1207,7 +1208,7 @@ mod tests {
             ..LoginEntry::default()
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
             .expect("should be able to add logins");
 
@@ -1237,7 +1238,7 @@ mod tests {
             ..LoginEntry::default()
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
             .expect("should be able to add logins");
 
@@ -1265,7 +1266,7 @@ mod tests {
             ..LoginEntry::default()
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let added = db
             .add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
             .expect("should be able to add logins");
@@ -1307,7 +1308,7 @@ mod tests {
             times_used: 42,
         };
 
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let entry_with_meta = LoginEntryWithMeta {
             entry: login.clone(),
             meta: meta.clone(),
@@ -1327,7 +1328,7 @@ mod tests {
     #[test]
     fn test_unicode_submit() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let added = db
             .add(
                 LoginEntry {
@@ -1362,7 +1363,7 @@ mod tests {
     #[test]
     fn test_unicode_realm() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let added = db
             .add(
                 LoginEntry {
@@ -1404,7 +1405,7 @@ mod tests {
         good_queries: Vec<&str>,
         zero_queries: Vec<&str>,
     ) {
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         for h in good.iter().chain(bad.iter()) {
             db.add(
                 LoginEntry {
@@ -1491,7 +1492,7 @@ mod tests {
     #[test]
     fn test_add() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let to_add = LoginEntry {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
@@ -1510,7 +1511,7 @@ mod tests {
     #[test]
     fn test_update() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let login = db
             .add(
                 LoginEntry {
@@ -1551,7 +1552,7 @@ mod tests {
     #[test]
     fn test_touch() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let login = db
             .add(
                 LoginEntry {
@@ -1575,7 +1576,7 @@ mod tests {
     #[test]
     fn test_delete() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let login = db
             .add(
                 LoginEntry {
@@ -1607,7 +1608,7 @@ mod tests {
     #[test]
     fn test_delete_many() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
 
         let login_a = db
             .add(
@@ -1647,7 +1648,7 @@ mod tests {
     #[test]
     fn test_subsequent_delete_many() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
 
         let login = db
             .add(
@@ -1673,7 +1674,7 @@ mod tests {
     #[test]
     fn test_delete_many_with_non_existent_id() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
 
         let result = db.delete_many(vec![&Guid::random()]).unwrap();
         assert!(!result[0]);
@@ -1681,7 +1682,7 @@ mod tests {
 
     #[test]
     fn test_delete_local_for_remote_replacement() {
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         let login = db
             .add(
                 LoginEntry {
@@ -1731,7 +1732,7 @@ mod tests {
         #[test]
         fn test_match() {
             ensure_initialized();
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             let login = make_saved_login(&db, "user", "pass");
             assert_eq!(
                 Some(login),
@@ -1743,7 +1744,7 @@ mod tests {
         #[test]
         fn test_non_matches() {
             ensure_initialized();
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             // Non-match because the username is different
             make_saved_login(&db, "other-user", "pass");
             // Non-match because the http_realm is different
@@ -1780,7 +1781,7 @@ mod tests {
         #[test]
         fn test_match_blank_password() {
             ensure_initialized();
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             let login = make_saved_login(&db, "", "pass");
             assert_eq!(
                 Some(login),
@@ -1792,7 +1793,7 @@ mod tests {
         #[test]
         fn test_username_match_takes_precedence_over_blank_username() {
             ensure_initialized();
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             make_saved_login(&db, "", "pass");
             let username_match = make_saved_login(&db, "user", "pass");
             assert_eq!(
@@ -1805,7 +1806,7 @@ mod tests {
         #[test]
         fn test_invalid_login() {
             ensure_initialized();
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             assert!(db
                 .find_login_to_update(
                     LoginEntry {
@@ -1823,7 +1824,7 @@ mod tests {
             ensure_initialized();
             // If we have duplicate logins in the database, it should be possible to update them
             // without triggering a DuplicateLogin error
-            let db = LoginDb::open_in_memory().unwrap();
+            let db = LoginDb::open_in_memory();
             let login = make_saved_login(&db, "user", "pass");
             let mut dupe = login.clone().encrypt(&*TEST_ENCDEC).unwrap();
             dupe.meta.id = "different-guid".to_string();

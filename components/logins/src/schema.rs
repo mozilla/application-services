@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_create_schema() {
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         // should be VERSION.
         let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);
