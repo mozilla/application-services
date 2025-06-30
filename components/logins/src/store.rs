@@ -78,67 +78,79 @@ fn map_bulk_result_entry(
 }
 
 pub struct LoginStore {
-    pub db: Mutex<LoginDb>,
-    pub encdec: Arc<dyn EncryptorDecryptor>,
+    pub db: Mutex<Option<LoginDb>>,
+    pub encdec: Mutex<Option<Arc<dyn EncryptorDecryptor>>>,
 }
 
 impl LoginStore {
     #[handle_error(Error)]
     pub fn new(path: impl AsRef<Path>, encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
-        let db = Mutex::new(LoginDb::open(path)?);
+        let db = Mutex::new(Some(LoginDb::open(path)?));
+        let encdec = Mutex::new(Some(encdec));
         Ok(Self { db, encdec })
     }
 
     pub fn new_from_db(db: LoginDb, encdec: Arc<dyn EncryptorDecryptor>) -> Self {
-        Self {
-            db: Mutex::new(db),
-            encdec,
-        }
+        let db = Mutex::new(Some(db));
+        let encdec = Mutex::new(Some(encdec));
+        Self { db, encdec }
     }
 
     #[handle_error(Error)]
     pub fn new_in_memory(encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
-        let db = Mutex::new(LoginDb::open_in_memory()?);
+        let db = Mutex::new(Some(LoginDb::open_in_memory()?));
+        let encdec = Mutex::new(Some(encdec));
         Ok(Self { db, encdec })
+    }
+
+    pub fn lock_db(&self) -> Result<parking_lot::MappedMutexGuard<'_, LoginDb>> {
+        parking_lot::MutexGuard::try_map(self.db.lock(), |db| db.as_mut())
+            .map_err(|_| Error::DatabaseClosed)
+    }
+
+    pub fn lock_encdec(
+        &self,
+    ) -> Result<parking_lot::MappedMutexGuard<'_, Arc<dyn EncryptorDecryptor>>> {
+        parking_lot::MutexGuard::try_map(self.encdec.lock(), |encdec| encdec.as_mut())
+            .map_err(|_| Error::EncryptorDecryptorClosed)
     }
 
     #[handle_error(Error)]
     pub fn is_empty(&self) -> ApiResult<bool> {
-        self.db.lock().get_all().map(|logins| logins.is_empty())
+        Ok(self.lock_db()?.count_all()? == 0)
     }
 
     #[handle_error(Error)]
     pub fn list(&self) -> ApiResult<Vec<Login>> {
-        self.db.lock().get_all().and_then(|logins| {
+        self.lock_db()?.get_all().and_then(|logins| {
             logins
                 .into_iter()
-                .map(|login| login.decrypt(self.encdec.as_ref()))
+                .map(|login| login.decrypt(self.lock_encdec()?.as_ref()))
                 .collect()
         })
     }
 
     #[handle_error(Error)]
     pub fn count(&self) -> ApiResult<i64> {
-        self.db.lock().count_all()
+        self.lock_db()?.count_all()
     }
 
     #[handle_error(Error)]
     pub fn count_by_origin(&self, origin: &str) -> ApiResult<i64> {
-        self.db.lock().count_by_origin(origin)
+        self.lock_db()?.count_by_origin(origin)
     }
 
     #[handle_error(Error)]
     pub fn count_by_form_action_origin(&self, form_action_origin: &str) -> ApiResult<i64> {
-        self.db
-            .lock()
+        self.lock_db()?
             .count_by_form_action_origin(form_action_origin)
     }
 
     #[handle_error(Error)]
     pub fn get(&self, id: &str) -> ApiResult<Option<Login>> {
-        match self.db.lock().get_by_id(id) {
+        match self.lock_db()?.get_by_id(id) {
             Ok(result) => match result {
-                Some(enc_login) => enc_login.decrypt(self.encdec.as_ref()).map(Some),
+                Some(enc_login) => enc_login.decrypt(self.lock_encdec()?.as_ref()).map(Some),
                 None => Ok(None),
             },
             Err(err) => Err(err),
@@ -147,40 +159,38 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn get_by_base_domain(&self, base_domain: &str) -> ApiResult<Vec<Login>> {
-        self.db
-            .lock()
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
             .get_by_base_domain(base_domain)
             .and_then(|logins| {
                 logins
                     .into_iter()
-                    .map(|login| login.decrypt(self.encdec.as_ref()))
+                    .map(|login| login.decrypt(encdec.as_ref()))
                     .collect()
             })
     }
 
     #[handle_error(Error)]
     pub fn has_logins_by_base_domain(&self, base_domain: &str) -> ApiResult<bool> {
-        self.db
-            .lock()
+        self.lock_db()?
             .get_by_base_domain(base_domain)
             .map(|logins| !logins.is_empty())
     }
 
     #[handle_error(Error)]
     pub fn find_login_to_update(&self, entry: LoginEntry) -> ApiResult<Option<Login>> {
-        self.db
-            .lock()
-            .find_login_to_update(entry, self.encdec.as_ref())
+        self.lock_db()?
+            .find_login_to_update(entry, self.lock_encdec()?.as_ref())
     }
 
     #[handle_error(Error)]
     pub fn touch(&self, id: &str) -> ApiResult<()> {
-        self.db.lock().touch(id)
+        self.lock_db()?.touch(id)
     }
 
     #[handle_error(Error)]
     pub fn delete(&self, id: &str) -> ApiResult<bool> {
-        self.db.lock().delete(id)
+        self.lock_db()?.delete(id)
     }
 
     #[handle_error(Error)]
@@ -188,7 +198,7 @@ impl LoginStore {
         // Note we need to receive a vector of String here because `Vec<&str>` is not supported
         // with UDL.
         let ids: Vec<&str> = ids.iter().map(|id| &**id).collect();
-        self.db.lock().delete_many(ids)
+        self.lock_db()?.delete_many(ids)
     }
 
     #[handle_error(Error)]
@@ -196,17 +206,17 @@ impl LoginStore {
         // This function was created for the iOS logins verification logic that will
         // remove records that prevent logins syncing. Once the verification logic is
         // removed from iOS, this function can be removed from the store.
-        self.db
-            .lock()
-            .delete_undecryptable_records_for_remote_replacement(self.encdec.as_ref())?;
+        self.lock_db()?
+            .delete_undecryptable_records_for_remote_replacement(self.lock_encdec()?.as_ref())?;
         let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
-        engine.set_last_sync(&self.db.lock(), ServerTimestamp(0))?;
+        let db = self.lock_db()?;
+        engine.set_last_sync(&db, ServerTimestamp(0))?;
         Ok(())
     }
 
     #[handle_error(Error)]
     pub fn wipe_local(&self) -> ApiResult<()> {
-        self.db.lock().wipe_local()?;
+        self.lock_db()?.wipe_local()?;
         Ok(())
     }
 
@@ -222,29 +232,29 @@ impl LoginStore {
 
     #[handle_error(Error)]
     pub fn update(&self, id: &str, entry: LoginEntry) -> ApiResult<Login> {
-        self.db
-            .lock()
-            .update(id, entry, self.encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .update(id, entry, encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add(&self, entry: LoginEntry) -> ApiResult<Login> {
-        self.db
-            .lock()
-            .add(entry, self.encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .add(entry, encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn add_many(&self, entries: Vec<LoginEntry>) -> ApiResult<Vec<BulkResultEntry>> {
-        self.db
-            .lock()
-            .add_many(entries, self.encdec.as_ref())
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .add_many(entries, encdec.as_ref())
             .map(|enc_logins| {
                 enc_logins
                     .into_iter()
-                    .map(|enc_login| map_bulk_result_entry(enc_login, self.encdec.as_ref()))
+                    .map(|enc_login| map_bulk_result_entry(enc_login, encdec.as_ref()))
                     .collect()
             })
     }
@@ -254,10 +264,10 @@ impl LoginStore {
     /// use `add(entry)`, which manages the corresponding fields itself.
     #[handle_error(Error)]
     pub fn add_with_meta(&self, entry_with_meta: LoginEntryWithMeta) -> ApiResult<Login> {
-        self.db
-            .lock()
-            .add_with_meta(entry_with_meta, self.encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .add_with_meta(entry_with_meta, encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
     }
 
     #[handle_error(Error)]
@@ -265,40 +275,56 @@ impl LoginStore {
         &self,
         entries_with_meta: Vec<LoginEntryWithMeta>,
     ) -> ApiResult<Vec<BulkResultEntry>> {
-        self.db
-            .lock()
-            .add_many_with_meta(entries_with_meta, self.encdec.as_ref())
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .add_many_with_meta(entries_with_meta, encdec.as_ref())
             .map(|enc_logins| {
                 enc_logins
                     .into_iter()
-                    .map(|enc_login| map_bulk_result_entry(enc_login, self.encdec.as_ref()))
+                    .map(|enc_login| map_bulk_result_entry(enc_login, encdec.as_ref()))
                     .collect()
             })
     }
 
     #[handle_error(Error)]
     pub fn add_or_update(&self, entry: LoginEntry) -> ApiResult<Login> {
-        self.db
-            .lock()
-            .add_or_update(entry, self.encdec.as_ref())
-            .and_then(|enc_login| enc_login.decrypt(self.encdec.as_ref()))
+        let encdec = self.lock_encdec()?;
+        self.lock_db()?
+            .add_or_update(entry, encdec.as_ref())
+            .and_then(|enc_login| enc_login.decrypt(encdec.as_ref()))
     }
 
     #[handle_error(Error)]
     pub fn set_checkpoint(&self, checkpoint: &str) -> ApiResult<()> {
-        self.db.lock().put_meta(schema::CHECKPOINT_KEY, &checkpoint)
+        self.lock_db()?
+            .put_meta(schema::CHECKPOINT_KEY, &checkpoint)
     }
 
     #[handle_error(Error)]
     pub fn get_checkpoint(&self) -> ApiResult<Option<String>> {
-        self.db.lock().get_meta(schema::CHECKPOINT_KEY)
+        self.lock_db()?.get_meta(schema::CHECKPOINT_KEY)
     }
 
     #[handle_error(Error)]
     pub fn run_maintenance(&self) -> ApiResult<()> {
-        let conn = self.db.lock();
+        let conn = self.lock_db()?;
         run_maintenance(&conn)?;
         Ok(())
+    }
+
+    fn shutdown_db(&self) {
+        if let Some(db) = self.db.lock().take() {
+            let _ = db.shutdown();
+        }
+    }
+
+    fn shutdown_encdec(&self) {
+        self.encdec.lock().take();
+    }
+
+    pub fn shutdown(&self) {
+        self.shutdown_db();
+        self.shutdown_encdec();
     }
 
     // This allows the embedding app to say "make this instance available to
@@ -512,6 +538,19 @@ mod test {
         // If the database is empty, then wipe_local() returns 0 rows deleted
         let db = LoginDb::open_in_memory().unwrap();
         assert_eq!(db.wipe_local().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_shutdown() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        store.shutdown();
+        assert!(matches!(
+            store.list(),
+            Err(LoginsApiError::UnexpectedLoginsApiError { reason: _ })
+        ));
+        assert!(store.db.lock().is_none());
+        assert!(store.encdec.lock().is_none());
     }
 }
 

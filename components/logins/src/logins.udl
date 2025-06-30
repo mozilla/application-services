@@ -263,4 +263,7 @@ interface LoginStore {
 
     [Self=ByArc]
     void register_with_sync_manager();
+
+    [Self=ByArc]
+    void shutdown();
 };

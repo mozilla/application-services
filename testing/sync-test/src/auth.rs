@@ -5,7 +5,9 @@ use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use cli_support::fxa_creds::CliFxa;
 use fxa_client::{Device, FxaConfig, FxaServer};
-use logins::encryption::{create_key, ManagedEncryptorDecryptor, StaticKeyManager};
+use logins::encryption::{
+    create_key, EncryptorDecryptor, ManagedEncryptorDecryptor, StaticKeyManager,
+};
 use logins::LoginStore;
 use std::collections::{hash_map::RandomState, HashMap};
 use std::sync::Arc;
@@ -31,6 +33,7 @@ pub struct TestClient {
     // XXX do this more generically...
     pub autofill_store: Arc<AutofillStore>,
     pub logins_store: Arc<LoginStore>,
+    pub encdec: Arc<dyn EncryptorDecryptor>,
     pub tabs_store: Arc<TabsStore>,
     sync_manager: SyncManager,
     persisted_state: Option<String>,
@@ -67,7 +70,8 @@ impl TestClient {
             cli,
             device,
             autofill_store: Arc::new(AutofillStore::new_shared_memory("sync-test")?),
-            logins_store: Arc::new(LoginStore::new_in_memory(encdec)?),
+            logins_store: Arc::new(LoginStore::new_in_memory(encdec.clone())?),
+            encdec,
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
             sync_manager: SyncManager::new(),
             persisted_state: None,
@@ -159,7 +163,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
         self.autofill_store = Arc::new(AutofillStore::new_shared_memory("sync-test")?);
-        self.logins_store = Arc::new(LoginStore::new_in_memory(self.logins_store.encdec.clone())?);
+        self.logins_store = Arc::new(LoginStore::new_in_memory(self.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
         Ok(())
     }

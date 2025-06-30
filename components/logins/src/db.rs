@@ -850,6 +850,10 @@ impl LoginDb {
         tx.commit()?;
         Ok(row_count)
     }
+
+    pub fn shutdown(self) -> Result<()> {
+        self.db.close().map_err(|(_, e)| Error::SqlError(e))
+    }
 }
 
 lazy_static! {

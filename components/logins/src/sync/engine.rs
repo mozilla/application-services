@@ -33,7 +33,7 @@ pub struct LoginsSyncEngine {
 
 impl LoginsSyncEngine {
     pub fn new(store: Arc<LoginStore>) -> Result<Self> {
-        let scope = store.db.lock().begin_interrupt_scope()?;
+        let scope = store.lock_db()?.begin_interrupt_scope()?;
         Ok(Self {
             store,
             scope,
@@ -69,7 +69,7 @@ impl LoginsSyncEngine {
                         upstream,
                         upstream_time,
                         server_now,
-                        self.store.encdec.as_ref(),
+                        self.store.lock_encdec()?.as_ref(),
                     )?;
                     telem.reconciled(1);
                 }
@@ -112,7 +112,7 @@ impl LoginsSyncEngine {
         // Because rusqlite want a mutable reference to create a transaction
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let tx = db.unchecked_transaction()?;
         plan.execute(&tx, &self.scope)?;
         tx.commit()?;
@@ -132,7 +132,7 @@ impl LoginsSyncEngine {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.into_iter() {
                 let id = incoming.envelope.id.clone();
-                match SyncLoginData::from_bso(incoming, self.store.encdec.as_ref()) {
+                match SyncLoginData::from_bso(incoming, self.store.lock_encdec()?.as_ref()) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         match e {
@@ -204,7 +204,7 @@ impl LoginsSyncEngine {
                     common_cols = schema::COMMON_COLS,
                 );
 
-                let db = &self.store.db.lock();
+                let db = &self.store.lock_db()?;
                 let mut stmt = db.prepare(&query)?;
 
                 let rows = stmt.query_and_then(rusqlite::params_from_iter(chunk), |row| {
@@ -235,7 +235,7 @@ impl LoginsSyncEngine {
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
         const DEFAULT_SORTINDEX: i32 = 1;
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let mut stmt = db.prepare_cached(&format!(
             "SELECT L.*, M.enc_unknown_fields
              FROM loginsL L LEFT JOIN loginsM M ON L.guid = M.guid
@@ -253,8 +253,8 @@ impl LoginsSyncEngine {
                 OutgoingBso::new_tombstone(envelope)
             } else {
                 let unknown = row.get::<_, Option<String>>("enc_unknown_fields")?;
-                let mut bso =
-                    EncryptedLogin::from_row(row)?.into_bso(self.store.encdec.as_ref(), unknown)?;
+                let mut bso = EncryptedLogin::from_row(row)?
+                    .into_bso(self.store.lock_encdec()?.as_ref(), unknown)?;
                 bso.envelope.sortindex = Some(DEFAULT_SORTINDEX);
                 bso
             })
@@ -279,6 +279,7 @@ impl LoginsSyncEngine {
         self.fetch_outgoing()
     }
 
+    // Note this receives the db to prevent a deadlock
     pub fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
         debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis();
@@ -295,17 +296,17 @@ impl LoginsSyncEngine {
             Some(ref s) => s,
             None => "",
         };
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         db.put_meta(schema::GLOBAL_STATE_META_KEY, &to_write)
     }
 
     pub fn get_global_state(&self) -> Result<Option<String>> {
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         db.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
     }
 
     fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let tx = db.unchecked_transaction()?;
         sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
             db.execute(
@@ -353,7 +354,7 @@ impl LoginsSyncEngine {
     // and return an anyhow::Result
     pub fn do_reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
         info!("Executing reset on password engine!");
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let tx = db.unchecked_transaction()?;
         db.execute_all(&[
             &CLONE_ENTIRE_MIRROR_SQL,
@@ -381,12 +382,13 @@ impl LoginsSyncEngine {
     // This is subtly different from dupe handling by the main API and maybe
     // could be consolidated, but for now it remains sync specific.
     pub(crate) fn find_dupe_login(&self, l: &EncryptedLogin) -> Result<Option<EncryptedLogin>> {
+        let encdec = self.store.lock_encdec()?;
         let form_submit_host_port = l
             .fields
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(s));
-        let enc_fields = l.decrypt_fields(self.store.encdec.as_ref())?;
+        let enc_fields = l.decrypt_fields(encdec.as_ref())?;
         let args = named_params! {
             ":origin": l.fields.origin,
             ":http_realm": l.fields.http_realm,
@@ -405,13 +407,13 @@ impl LoginsSyncEngine {
         } else {
             query += " AND formActionOrigin IS :form_submit"
         }
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let mut stmt = db.prepare_cached(&query)?;
         for login in stmt
             .query_and_then(args, EncryptedLogin::from_row)?
             .collect::<Result<Vec<EncryptedLogin>>>()?
         {
-            let this_enc_fields = login.decrypt_fields(self.store.encdec.as_ref())?;
+            let this_enc_fields = login.decrypt_fields(encdec.as_ref())?;
             if enc_fields.username == this_enc_fields.username {
                 return Ok(Some(login));
             }
@@ -456,7 +458,7 @@ impl SyncEngine for LoginsSyncEngine {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Option<CollectionRequest>> {
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let since = self.get_last_sync(&db)?.unwrap_or_default();
         Ok(if since == server_timestamp {
             None
@@ -470,7 +472,7 @@ impl SyncEngine for LoginsSyncEngine {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let db = self.store.db.lock();
+        let db = self.store.lock_db()?;
         let global = db.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = db.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -517,10 +519,20 @@ mod tests {
         ensure_initialized();
         // Test some common cases with fetch_login data
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
-        insert_login(&store.db.lock(), "updated_remotely", None, Some("password"));
-        insert_login(&store.db.lock(), "deleted_remotely", None, Some("password"));
         insert_login(
-            &store.db.lock(),
+            &store.lock_db().unwrap(),
+            "updated_remotely",
+            None,
+            Some("password"),
+        );
+        insert_login(
+            &store.lock_db().unwrap(),
+            "deleted_remotely",
+            None,
+            Some("password"),
+        );
+        insert_login(
+            &store.lock_db().unwrap(),
             "three_way_merge",
             Some("new-local-password"),
             Some("password"),
@@ -626,15 +638,20 @@ mod tests {
         ensure_initialized();
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         insert_login(
-            &store.db.lock(),
+            &store.lock_db().unwrap(),
             "changed",
             Some("new-password"),
             Some("password"),
         );
-        insert_login(&store.db.lock(), "unchanged", None, Some("password"));
-        insert_login(&store.db.lock(), "added", Some("password"), None);
-        insert_login(&store.db.lock(), "deleted", None, Some("password"));
-        store.db.lock().delete("deleted").unwrap();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "unchanged",
+            None,
+            Some("password"),
+        );
+        insert_login(&store.lock_db().unwrap(), "added", Some("password"), None);
+        insert_login(&store.lock_db().unwrap(), "deleted", None, Some("password"));
+        store.lock_db().unwrap().delete("deleted").unwrap();
 
         let changeset = run_fetch_outgoing(store);
         let changes: HashMap<String, serde_json::Value> = changeset
@@ -660,7 +677,12 @@ mod tests {
         let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
         let test_ids = ["dummy_000001", "dummy_000002", "dummy_000003"];
         for id in test_ids {
-            insert_login(&store.db.lock(), id, Some("password"), Some("password"));
+            insert_login(
+                &store.lock_db().unwrap(),
+                id,
+                Some("password"),
+                Some("password"),
+            );
         }
         let mut engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
         engine
@@ -914,8 +936,9 @@ mod tests {
         let sql = format!("SELECT COUNT(*) FROM {table_name}");
         engine
             .store
-            .db
-            .lock()
+            .lock_db()
+            // TODO: get rid of this unwrap
+            .unwrap()
             .try_query_one(&sql, [], false)
             .unwrap()
             .unwrap()

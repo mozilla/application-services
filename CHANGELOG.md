@@ -6,6 +6,8 @@
 - change PrimaryPasswordAuthenticator callbacks to be async (a breaking change, but not yet used by anyone)
 - return Result in PrimaryPasswordAuthenticator callbacks (again a breaking change, but not yet used by anyone)
 - add factory for login store with nss key manager: `create_login_store_with_nss_keymanager` to avoid round-tripping the KeyManager trait interface through JS.
+- add LoginStore `shutdown()` function to close database connection
+- extend LoginStore `shutdown()` to also remove the encdec
 
 ### Nimbus
 - Updated the Nimbus API Stage URL
