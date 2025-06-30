@@ -518,7 +518,7 @@ mod tests {
     fn test_fetch_login_data() {
         ensure_initialized();
         // Test some common cases with fetch_login data
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         insert_login(
             &store.lock_db().unwrap(),
             "updated_remotely",
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn test_fetch_outgoing() {
         ensure_initialized();
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         insert_login(
             &store.lock_db().unwrap(),
             "changed",
@@ -674,7 +674,7 @@ mod tests {
     #[test]
     fn test_bad_record() {
         ensure_initialized();
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         let test_ids = ["dummy_000001", "dummy_000002", "dummy_000003"];
         for id in test_ids {
             insert_login(
@@ -747,7 +747,7 @@ mod tests {
     #[test]
     fn find_dupe_login() {
         ensure_initialized();
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
 
         let to_add = LoginEntry {
             form_action_origin: Some("https://www.example.com".into()),
@@ -874,7 +874,7 @@ mod tests {
         }
 
         // The test itself...
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         apply_incoming_payload(
@@ -958,7 +958,7 @@ mod tests {
         // The test itself...
         let (local_timestamp, remote_timestamp) = if local_newer { (123, 0) } else { (0, 123) };
 
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         let engine = LoginsSyncEngine::new(Arc::new(store)).unwrap();
 
         // apply an incoming record - will be in the mirror.

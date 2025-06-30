@@ -96,11 +96,15 @@ impl LoginStore {
         Self { db, encdec }
     }
 
-    #[handle_error(Error)]
-    pub fn new_in_memory(encdec: Arc<dyn EncryptorDecryptor>) -> ApiResult<Self> {
-        let db = Mutex::new(Some(LoginDb::open_in_memory()?));
-        let encdec = Mutex::new(Some(encdec));
-        Ok(Self { db, encdec })
+    #[cfg(test)]
+    pub fn new_in_memory() -> Self {
+        let db = Mutex::new(Some(LoginDb::open_in_memory()));
+        let encdec: Arc<dyn EncryptorDecryptor> =
+            crate::encryption::test_utils::TEST_ENCDEC.clone();
+        Self {
+            db,
+            encdec: Mutex::new(Some(encdec)),
+        }
     }
 
     pub fn lock_db(&self) -> Result<parking_lot::MappedMutexGuard<'_, LoginDb>> {
@@ -377,7 +381,7 @@ mod test {
     fn test_general() {
         ensure_initialized();
 
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
@@ -492,7 +496,7 @@ mod test {
     #[test]
     fn test_checkpoint() {
         ensure_initialized();
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         let checkpoint = "a-checkpoint";
         store.set_checkpoint(checkpoint).ok();
         assert_eq!(store.get_checkpoint().unwrap().unwrap(), checkpoint);
@@ -501,7 +505,7 @@ mod test {
     #[test]
     fn test_sync_manager_registration() {
         ensure_initialized();
-        let store = Arc::new(LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap());
+        let store = Arc::new(LoginStore::new_in_memory());
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);
         Arc::clone(&store).register_with_sync_manager();
@@ -522,7 +526,7 @@ mod test {
     fn test_wipe_local_on_a_fresh_database_is_a_noop() {
         ensure_initialized();
         // If the database has data, then wipe_local() returns > 0 rows deleted
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         db.add_or_update(
             LoginEntry {
                 origin: "https://www.example.com".into(),
@@ -539,14 +543,14 @@ mod test {
         assert!(db.wipe_local().unwrap() > 0);
 
         // If the database is empty, then wipe_local() returns 0 rows deleted
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         assert_eq!(db.wipe_local().unwrap(), 0);
     }
 
     #[test]
     fn test_shutdown() {
         ensure_initialized();
-        let store = LoginStore::new_in_memory(TEST_ENCDEC.clone()).unwrap();
+        let store = LoginStore::new_in_memory();
         store.shutdown();
         assert!(matches!(
             store.list(),

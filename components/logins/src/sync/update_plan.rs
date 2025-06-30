@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn test_deletes() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         insert_login(&db, "login1", Some("password"), Some("password"));
         insert_login(&db, "login2", Some("password"), Some("password"));
         insert_login(&db, "login3", Some("password"), Some("password"));
@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn test_mirror_updates() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         insert_login(&db, "unchanged", None, Some("password"));
         insert_login(&db, "changed", None, Some("password"));
         insert_login(
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn test_mirror_inserts() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         UpdatePlan {
             mirror_inserts: vec![
                 (inc_login("login1", "new-password"), 20000, false),
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn test_local_updates() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         insert_login(&db, "login", Some("password"), Some("password"));
         let before_update = util::system_time_ms_i64(SystemTime::now());
 
@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn test_plan_three_way_merge_server_wins() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         // First we create our expected logins
         let login = enc_login("login", "old local password");
         let mirror_login = enc_login("login", "mirror password");
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn test_plan_three_way_merge_local_wins() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         // First we create our expected logins
         let login = enc_login("login", "new local password");
         let mirror_login = enc_login("login", "mirror password");
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn test_plan_three_way_merge_local_tombstone_loses() {
         ensure_initialized();
-        let db = LoginDb::open_in_memory().unwrap();
+        let db = LoginDb::open_in_memory();
         // First we create our expected logins
         let login = enc_login("login", "new local password");
         let mirror_login = enc_login("login", "mirror password");
