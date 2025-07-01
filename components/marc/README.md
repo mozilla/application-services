@@ -6,7 +6,7 @@ Mozilla Ads Rust Component (MARC) is a library that handles integration with the
 
 MARC can request and display standard ad placements, and calls the appropriate callback URLs to send anonymized impressions and clicks back to Mozilla. MARC also provides a facility to report user dissatisfaction with ads so we can take appropriate action as necessary.
 
-Like MARS, MARC is privacy-first. It does not track users information and it does not send sensitive identifiable information to Mozilla. Of the information Mozilla does receive, anything shared with advertisers is aggregated and/or de-identified to preserve user privacy.
+Like MARS, MARC is privacy-first. It does not track user information and it does not send sensitive identifiable information to Mozilla. Of the information Mozilla does receive, anything shared with advertisers is aggregated and/or de-identified to preserve user privacy.
 
 While we welcome outside feedback and are committed to open source, this library is intended solely for use on Mozilla properties.
 
