@@ -48,6 +48,11 @@ pub struct LoginDb {
     interrupt_handle: Arc<SqlInterruptHandle>,
 }
 
+pub struct LoginsDeletionMetrics {
+    pub local_deleted: u64,
+    pub mirror_deleted: u64,
+}
+
 impl LoginDb {
     pub fn with_connection(db: Connection) -> Result<Self> {
         #[cfg(test)]
@@ -760,7 +765,7 @@ impl LoginDb {
     pub fn delete_undecryptable_records_for_remote_replacement(
         &self,
         encdec: &dyn EncryptorDecryptor,
-    ) -> Result<()> {
+    ) -> Result<LoginsDeletionMetrics> {
         // Retrieve a list of guids for logins that cannot be decrypted
         let corrupted_logins = self
             .get_all()?
@@ -775,33 +780,43 @@ impl LoginDb {
         self.delete_local_records_for_remote_replacement(ids)
     }
 
-    pub fn delete_local_records_for_remote_replacement(&self, ids: Vec<&str>) -> Result<()> {
+    pub fn delete_local_records_for_remote_replacement(
+        &self,
+        ids: Vec<&str>,
+    ) -> Result<LoginsDeletionMetrics> {
         let tx = self.unchecked_transaction_imm()?;
+        let mut local_deleted = 0;
+        let mut mirror_deleted = 0;
 
         sql_support::each_chunk(&ids, |chunk, _| -> Result<()> {
-            self.execute(
+            let deleted = self.execute(
                 &format!(
-                    "DELETE FROM loginsL WHERE guid IN ({guids})",
-                    guids = sql_support::repeat_sql_values(chunk.len())
+                    "DELETE FROM loginsL WHERE guid IN ({})",
+                    sql_support::repeat_sql_values(chunk.len())
                 ),
                 rusqlite::params_from_iter(chunk),
             )?;
+            local_deleted += deleted;
             Ok(())
         })?;
 
         sql_support::each_chunk(&ids, |chunk, _| -> Result<()> {
-            self.execute(
+            let deleted = self.execute(
                 &format!(
-                    "DELETE FROM loginsM WHERE guid IN ({guids})",
-                    guids = sql_support::repeat_sql_values(chunk.len())
+                    "DELETE FROM loginsM WHERE guid IN ({})",
+                    sql_support::repeat_sql_values(chunk.len())
                 ),
                 rusqlite::params_from_iter(chunk),
             )?;
+            mirror_deleted += deleted;
             Ok(())
         })?;
 
         tx.commit()?;
-        Ok(())
+        Ok(LoginsDeletionMetrics {
+            local_deleted: local_deleted as u64,
+            mirror_deleted: mirror_deleted as u64,
+        })
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
@@ -1680,7 +1695,8 @@ mod tests {
             )
             .unwrap();
 
-        db.delete_local_records_for_remote_replacement(vec![login.guid_str()])
+        let result = db
+            .delete_local_records_for_remote_replacement(vec![login.guid_str()])
             .unwrap();
 
         let local_guids = get_local_guids(&db);
@@ -1688,6 +1704,8 @@ mod tests {
 
         let mirror_guids = get_mirror_guids(&db);
         assert_eq!(mirror_guids.len(), 0);
+
+        assert_eq!(result.local_deleted, 1);
     }
 
     mod test_find_login_to_update {

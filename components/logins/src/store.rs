@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::LoginDb;
+use crate::db::{LoginDb, LoginsDeletionMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
@@ -202,16 +202,19 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
-    pub fn delete_undecryptable_records_for_remote_replacement(self: Arc<Self>) -> ApiResult<()> {
+    pub fn delete_undecryptable_records_for_remote_replacement(
+        self: Arc<Self>,
+    ) -> ApiResult<LoginsDeletionMetrics> {
         // This function was created for the iOS logins verification logic that will
         // remove records that prevent logins syncing. Once the verification logic is
         // removed from iOS, this function can be removed from the store.
-        self.lock_db()?
+        let deletion_stats = self
+            .lock_db()?
             .delete_undecryptable_records_for_remote_replacement(self.lock_encdec()?.as_ref())?;
         let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         let db = self.lock_db()?;
         engine.set_last_sync(&db, ServerTimestamp(0))?;
-        Ok(())
+        Ok(deletion_stats)
     }
 
     #[handle_error(Error)]
