@@ -6,7 +6,7 @@ use error_support::{ErrorHandling, GetErrorHandling};
 // reexport logging helpers.
 pub use error_support::error;
 
-pub type Result<T> = std::result::Result<T, Error>;
+//pub type Result<T> = std::result::Result<T, Error>;
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
