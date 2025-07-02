@@ -6,7 +6,8 @@
 use super::error::Error;
 use crate::{
     error::ApiResult,
-    models::{AdRequest, AdResponse},
+    models::{self, AdRequest, AdResponse},
+    MozAdsPlacement, MozAdsPlacementConfig,
 };
 use error_support::handle_error;
 use url::Url;
@@ -24,8 +25,27 @@ impl MARSClient {
         Self {}
     }
 
+    /*
     #[handle_error(Error)]
-    pub fn request_ad(&self, ad_request: &AdRequest) -> ApiResult<AdResponse> {
+    pub fn request_ads(
+        &self,
+        ad_configs: Vec<MozAdsPlacementConfig>,
+    ) -> Result<Vec<MozAdsPlacement>> {
+        let request = build_request_from_placement_configs(&ad_configs);
+
+        let mars_response = self.request_ad_from_mars(&request);
+
+        match mars_response {
+            Ok(v) ->
+
+        }
+
+        return Ok(vec![]);
+    }
+    */
+
+    #[handle_error(Error)]
+    pub fn request_ad_from_mars(&self, ad_request: &AdRequest) -> ApiResult<AdResponse> {
         let url = Url::parse(&format!("{DEFAULT_MARS_API_ENDPOINT}ads"))?;
 
         let request: Request = Request::post(url).json(ad_request);
@@ -61,17 +81,65 @@ impl MARSClient {
     }
 }
 
+pub fn build_request_from_placement_configs(
+    placement_configs: &Vec<MozAdsPlacementConfig>,
+) -> AdRequest {
+    let mut request = AdRequest {
+        placements: vec![],
+        context_id: "".to_string(),
+    };
+
+    for placement_config in placement_configs {
+        request.placements.push(models::AdPlacementRequest {
+            placement: placement_config.placement_id.clone(),
+            count: 1,
+            content: None,
+        });
+    }
+
+    request
+}
+
+pub fn build_placements(
+    placement_configs: Vec<MozAdsPlacementConfig>,
+    mut mars_response: AdResponse,
+) -> Vec<MozAdsPlacement> {
+    let mut moz_ad_placements: Vec<MozAdsPlacement> = vec![];
+
+    for config in placement_configs {
+        let placement_content = mars_response.data.get_mut(&config.placement_id);
+
+        match placement_content {
+            Some(v) => {
+                let ad_content = v.pop();
+                match ad_content {
+                    Some(c) => {
+                        moz_ad_placements.push(MozAdsPlacement {
+                            content: c,
+                            placement_config: config,
+                        });
+                    }
+                    None => continue,
+                }
+            }
+            None => continue,
+        }
+    }
+
+    moz_ad_placements
+}
+
 #[cfg(test)]
 mod tests {
     use crate::mars::MARSClient;
-    use crate::models::{AdPlacement, AdRequest};
+    use crate::models::{AdPlacementRequest, AdRequest};
 
     #[test]
     fn mars_client_can_call() {
         viaduct_reqwest::use_reqwest_backend();
         let ad_request = AdRequest {
             context_id: "03267ad1-0074-4aa6-8e0c-ec18e0906bfe".to_string(),
-            placements: vec![AdPlacement {
+            placements: vec![AdPlacementRequest {
                 placement: "pocket_billboard_1".to_string(),
                 count: 1,
                 content: None,
@@ -79,10 +147,12 @@ mod tests {
         };
 
         let client = MARSClient::new();
-        let resp = client.request_ad(&ad_request);
+        let resp = client.request_ad_from_mars(&ad_request);
 
         match resp {
-            Ok(v) => println!("{:?}", v),
+            Ok(v) => {
+                println!("{:?}", v);
+            }
             Err(v) => println!("Error {:?}", v),
         }
     }
