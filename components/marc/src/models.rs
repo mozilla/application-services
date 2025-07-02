@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
-pub struct AdPlacement {
+pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
     pub content: Option<AdContentCategory>,
@@ -23,7 +23,7 @@ pub struct AdContentCategory {
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
 pub struct AdRequest {
     pub context_id: String,
-    pub placements: Vec<AdPlacement>,
+    pub placements: Vec<AdPlacementRequest>,
 }
 
 #[derive(Debug, Deserialize, uniffi::Record)]
@@ -46,5 +46,5 @@ pub struct MozAd {
 #[derive(Debug, Deserialize, uniffi::Record)]
 pub struct AdResponse {
     #[serde(flatten)]
-    data: HashMap<String, Vec<MozAd>>,
+    pub data: HashMap<String, Vec<MozAd>>,
 }
