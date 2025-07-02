@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use models::{AdRequest, MozAd};
 use serde::{Deserialize, Serialize};
 
 mod client;
@@ -83,5 +84,5 @@ pub struct MozAdsPlacementConfig {
 #[derive(uniffi::Object)]
 pub struct MozAdsPlacement {
     pub placement_config: MozAdsPlacementConfig,
-    pub content: String,
+    pub content: MozAd,
 }
