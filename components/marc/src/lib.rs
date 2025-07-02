@@ -3,10 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use models::{AdRequest, MozAd};
+use models::MozAd;
 use serde::{Deserialize, Serialize};
 
-mod client;
 mod error;
 mod mars;
 mod models;
@@ -32,7 +31,7 @@ pub enum IABAdUnitFormat {
     FeaturePhoneLargeBanner,
 }
 
-#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
@@ -50,38 +49,26 @@ pub enum IABContentTaxonomy {
     IAB3_0,
 }
 
-#[derive(uniffi::Object)]
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct IABContent {
     pub taxonomy: IABContentTaxonomy,
     pub category_ids: Vec<String>,
 }
 
-#[derive(uniffi::Object)]
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct MozAdsSize {
     pub width: u16,
     pub height: u16,
 }
 
-#[derive(uniffi::Object)]
-pub struct ImageAd {
-    pub image_url: url::Url,
-    pub alt_text: String,
-    pub block_key: String,
-    pub format: String,
-    pub destination_url: url::Url,
-    pub click_callback: url::Url,
-    pub impression_callback: url::Url,
-    pub report_callback: url::Url,
-}
-
-#[derive(uniffi::Object)]
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct MozAdsPlacementConfig {
     pub placement_id: String,
     pub fixed_size: Option<MozAdsSize>,
     pub iab_content: Option<IABContent>,
 }
 
-#[derive(uniffi::Object)]
+#[derive(Debug, uniffi::Record)]
 pub struct MozAdsPlacement {
     pub placement_config: MozAdsPlacementConfig,
     pub content: MozAd,
