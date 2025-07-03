@@ -3,6 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use std::collections::HashMap;
+
 use super::error::Error;
 use crate::{
     error::ApiResult,
@@ -29,10 +31,7 @@ impl MARSClient {
     pub fn request_ads(
         &self,
         ad_configs: &Vec<MozAdsPlacementConfig>,
-    ) -> ApiResult<Vec<MozAdsPlacement>> {
-        // TODO: we would probably prefer this return a HashMap with
-        // placementId as a key rather than just a vec
-
+    ) -> ApiResult<HashMap<String, MozAdsPlacement>> {
         let request = build_request_from_placement_configs(ad_configs);
 
         let mars_response = self.request_ad_from_mars(&request);
@@ -107,8 +106,8 @@ fn build_request_from_placement_configs(
 fn build_placements(
     placement_configs: &Vec<MozAdsPlacementConfig>,
     mut mars_response: AdResponse,
-) -> Vec<MozAdsPlacement> {
-    let mut moz_ad_placements: Vec<MozAdsPlacement> = vec![];
+) -> HashMap<String, MozAdsPlacement> {
+    let mut moz_ad_placements: HashMap<String, MozAdsPlacement> = HashMap::new();
 
     for config in placement_configs {
         let placement_content = mars_response.data.get_mut(&config.placement_id);
@@ -118,10 +117,21 @@ fn build_placements(
                 let ad_content = v.pop();
                 match ad_content {
                     Some(c) => {
-                        moz_ad_placements.push(MozAdsPlacement {
-                            content: c,
-                            placement_config: config.clone(),
-                        });
+                        let is_updated = moz_ad_placements.insert(
+                            config.placement_id.clone(),
+                            MozAdsPlacement {
+                                content: c,
+                                placement_config: config.clone(),
+                            },
+                        );
+                        if let Some(v) = is_updated {
+                            //TODO: Some error needs to occur if we have more than one instance of
+                            //a placement_id
+                            println!(
+                                "Duplicate placement_id found: {:?}",
+                                v.placement_config.placement_id
+                            )
+                        }
                     }
                     None => continue,
                 }
