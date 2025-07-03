@@ -28,6 +28,40 @@ impl MARSClient {
     }
 
     #[handle_error(Error)]
+    pub fn record_impression(&self, placement: &MozAdsPlacement) -> ApiResult<()> {
+        let impression_callback = placement
+            .content
+            .callbacks
+            .as_ref()
+            .and_then(|callbacks| callbacks.impression.as_ref());
+
+        match impression_callback {
+            Some(v) => {
+                let url = Url::parse(v)?;
+                let request: Request = Request::get(url);
+                let response = request.send()?;
+                let status = response.status;
+                if status >= 400 {
+                    // TODO: Better error handling
+                    return Err(Error::Unexpected {
+                        code: status,
+                        message: "Failed to register impression.".to_string(),
+                    });
+                }
+            }
+            None => {
+                // TODO: Better error handling
+                return Err(Error::Unexpected {
+                    code: 500,
+                    message: "Impression URL missing".to_string(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    #[handle_error(Error)]
     pub fn request_ads(
         &self,
         ad_configs: &Vec<MozAdsPlacementConfig>,
