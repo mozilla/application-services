@@ -75,6 +75,7 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
   with FxA, access encryption keys for sync, and more.
 * [logins](components/logins) - for storage and syncing of a user's saved login
   credentials
+* [marc](components/marc) - Mozilla Ads Rust Component (MARC) is a library that handles integration with the Mozilla Ads Routing Service (MARS).
 * [nimbus](components/nimbus) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
 * [places](components/places) - for storage and syncing of a user's saved
   browsing history
