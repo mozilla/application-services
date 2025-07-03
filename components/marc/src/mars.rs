@@ -36,25 +36,38 @@ impl MARSClient {
             .and_then(|callbacks| callbacks.impression.as_ref());
 
         match impression_callback {
-            Some(v) => {
-                let url = Url::parse(v)?;
-                let request: Request = Request::get(url);
-                let response = request.send()?;
-                let error = check_response_error(&response);
+            Some(callback) => {
+                let result = self.make_callback_request(callback);
 
-                if let Some(err) = error {
-                    return Err(err);
+                if let Err(err) = result {
+                    return Err(Error::Unexpected {
+                        code: 500,
+                        message: err.to_string(),
+                    });
                 }
+                Ok(())
             }
             None => {
                 // TODO: Better error handling
                 return Err(Error::Unexpected {
-                    code: 500,
-                    message: "Impression URL missing".to_string(),
+                    code: 404,
+                    message: format!(
+                        "Missing impression callback URL for placement {:?}",
+                        placement.placement_config.placement_id
+                    ),
                 });
             }
         }
+    }
 
+    #[handle_error(Error)]
+    fn make_callback_request(&self, callback: &str) -> ApiResult<()> {
+        let request = Request::get(Url::parse(callback)?);
+        let response = request.send()?;
+
+        if let Some(err) = check_response_error(&response) {
+            return Err(err);
+        }
         Ok(())
     }
 
@@ -82,7 +95,7 @@ impl MARSClient {
     fn request_ad_from_mars(&self, ad_request: &AdRequest) -> ApiResult<AdResponse> {
         let url = Url::parse(&format!("{DEFAULT_MARS_API_ENDPOINT}/ads"))?;
 
-        let request: Request = Request::post(url).json(ad_request);
+        let request = Request::post(url).json(ad_request);
 
         let response = request.send()?;
         let error = check_response_error(&response);
@@ -107,7 +120,7 @@ fn build_request_from_placement_configs(
     for placement_config in placement_configs {
         request.placements.push(models::AdPlacementRequest {
             placement: placement_config.placement_id.clone(),
-            count: 1,
+            count: 1, // Placement_id should be treated as unique, so count is always 1
             content: None,
         });
     }
