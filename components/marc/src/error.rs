@@ -5,6 +5,7 @@
 use error_support::{ErrorHandling, GetErrorHandling};
 // reexport logging helpers.
 pub use error_support::error;
+use viaduct::Response;
 
 //pub type Result<T> = std::result::Result<T, Error>;
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
@@ -48,4 +49,31 @@ impl GetErrorHandling for Error {
             reason: self.to_string(),
         })
     }
+}
+
+pub fn check_response_error(response: &Response) -> Option<Error> {
+    let status = response.status;
+    if status >= 400 {
+        let error_message = response.text();
+        let error = match status {
+            400 => Error::BadRequest {
+                code: status,
+                message: error_message.to_string(),
+            },
+            422 => Error::Validation {
+                code: status,
+                message: error_message.to_string(),
+            },
+            500..=599 => Error::Server {
+                code: status,
+                message: error_message.to_string(),
+            },
+            _ => Error::Unexpected {
+                code: status,
+                message: error_message.to_string(),
+            },
+        };
+        return Some(error);
+    }
+    None
 }

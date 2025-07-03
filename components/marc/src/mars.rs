@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::error::Error;
 use crate::{
-    error::ApiResult,
+    error::{check_response_error, ApiResult},
     models::{self, AdRequest, AdResponse},
     MozAdsPlacement, MozAdsPlacementConfig,
 };
@@ -40,13 +40,10 @@ impl MARSClient {
                 let url = Url::parse(v)?;
                 let request: Request = Request::get(url);
                 let response = request.send()?;
-                let status = response.status;
-                if status >= 400 {
-                    // TODO: Better error handling
-                    return Err(Error::Unexpected {
-                        code: status,
-                        message: "Failed to register impression.".to_string(),
-                    });
+                let error = check_response_error(&response);
+
+                if let Some(err) = error {
+                    return Err(err);
                 }
             }
             None => {
@@ -88,29 +85,10 @@ impl MARSClient {
         let request: Request = Request::post(url).json(ad_request);
 
         let response = request.send()?;
+        let error = check_response_error(&response);
 
-        let status = response.status;
-        if status >= 400 {
-            let error_message = response.text();
-            let error = match status {
-                400 => Error::BadRequest {
-                    code: status,
-                    message: error_message.to_string(),
-                },
-                422 => Error::Validation {
-                    code: status,
-                    message: error_message.to_string(),
-                },
-                500..=599 => Error::Server {
-                    code: status,
-                    message: error_message.to_string(),
-                },
-                _ => Error::Unexpected {
-                    code: status,
-                    message: error_message.to_string(),
-                },
-            };
-            return Err(error);
+        if let Some(err) = error {
+            return Err(err);
         }
 
         let response_json: AdResponse = response.json()?;
