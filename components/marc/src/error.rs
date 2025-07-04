@@ -7,7 +7,7 @@ use error_support::{ErrorHandling, GetErrorHandling};
 pub use error_support::error;
 use viaduct::Response;
 
-//pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -38,6 +38,12 @@ pub enum Error {
 
     #[error("Unexpected error ({code}): {message}")]
     Unexpected { code: u16, message: String },
+
+    #[error("Callback not found: {message}")]
+    MissingCallback { message: String },
+
+    #[error("Duplicate placement_id found: {placement_id}")]
+    DuplicatePlacementId { placement_id: String },
 }
 
 // Define how our internal errors are handled and converted to external errors.
@@ -51,7 +57,7 @@ impl GetErrorHandling for Error {
     }
 }
 
-pub fn check_response_error(response: &Response) -> Option<Error> {
+pub fn check_http_status_for_error(response: &Response) -> Result<()> {
     let status = response.status;
     if status >= 400 {
         let error_message = response.text();
@@ -73,7 +79,7 @@ pub fn check_response_error(response: &Response) -> Option<Error> {
                 message: error_message.to_string(),
             },
         };
-        return Some(error);
+        return Err(error);
     }
-    None
+    Ok(())
 }
