@@ -3,201 +3,87 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-
-use super::error::Error;
 use crate::{
-    error::{check_response_error, ApiResult},
-    models::{self, AdRequest, AdResponse},
-    MozAdsPlacement, MozAdsPlacementConfig,
+    error::{check_http_status_for_error, Error, Result},
+    models::{AdRequest, AdResponse},
 };
-use error_support::handle_error;
 use url::Url;
+use uuid::Uuid;
 use viaduct::Request;
 
 const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.allizom.org/v1";
 
-#[derive(uniffi::Object)]
-pub struct MARSClient;
-
-#[uniffi::export]
-impl MARSClient {
-    #[uniffi::constructor]
-    pub fn new() -> Self {
-        Self {}
+pub trait MARSClient: Sync + Send {
+    fn fetch_ads(&self, request: &AdRequest) -> Result<AdResponse>;
+    fn record_impression(&self, url_callback_string: Option<&String>) -> Result<()>;
+    fn record_click(&self, url_callback_string: Option<&String>) -> Result<()>;
+    fn record_report_ad(&self, url_callback_string: Option<&String>) -> Result<()>;
+    fn get_context_id(&self) -> &str;
+    fn cycle_context_id(&mut self) -> String;
+    fn get_mars_endpoint(&self) -> String {
+        DEFAULT_MARS_API_ENDPOINT.to_string()
     }
+}
 
-    #[handle_error(Error)]
-    pub fn record_impression(&self, placement: &MozAdsPlacement) -> ApiResult<()> {
-        let impression_callback = placement
-            .content
-            .callbacks
-            .as_ref()
-            .and_then(|callbacks| callbacks.impression.as_ref());
+pub struct DefaultMARSClient {
+    context_id: String,
+}
 
-        match impression_callback {
-            Some(callback) => {
-                let result = self.make_callback_request(callback);
-
-                if let Err(err) = result {
-                    return Err(Error::Unexpected {
-                        code: 500,
-                        message: err.to_string(),
-                    });
-                }
-                Ok(())
-            }
-            None => {
-                // TODO: Better error handling
-                return Err(Error::Unexpected {
-                    code: 404,
-                    message: format!(
-                        "Missing impression callback URL for placement {:?}",
-                        placement.placement_config.placement_id
-                    ),
-                });
-            }
-        }
+impl DefaultMARSClient {
+    pub fn new(context_id: String) -> Self {
+        Self { context_id }
     }
-
-    #[handle_error(Error)]
-    fn make_callback_request(&self, callback: &str) -> ApiResult<()> {
-        let request = Request::get(Url::parse(callback)?);
+    fn make_callback_request(&self, url_callback_string: &str) -> Result<()> {
+        let request = Request::get(Url::parse(url_callback_string)?);
         let response = request.send()?;
-
-        if let Some(err) = check_response_error(&response) {
-            return Err(err);
-        }
-        Ok(())
+        check_http_status_for_error(&response)
     }
+}
 
-    #[handle_error(Error)]
-    pub fn request_ads(
-        &self,
-        ad_configs: &Vec<MozAdsPlacementConfig>,
-    ) -> ApiResult<HashMap<String, MozAdsPlacement>> {
-        let request = build_request_from_placement_configs(ad_configs);
-
-        let mars_response = self.request_ad_from_mars(&request);
-
-        match mars_response {
-            Ok(v) => Ok(build_placements(ad_configs, v)),
-            Err(v) => {
-                return Err(Error::Unexpected {
-                    code: 500, // TODO: better error handling, these should not just be 500s
-                    message: v.to_string(),
-                });
-            }
-        }
+impl MARSClient for DefaultMARSClient {
+    fn get_context_id(&self) -> &str {
+        &self.context_id
     }
-
-    #[handle_error(Error)]
-    fn request_ad_from_mars(&self, ad_request: &AdRequest) -> ApiResult<AdResponse> {
-        let url = Url::parse(&format!("{DEFAULT_MARS_API_ENDPOINT}/ads"))?;
+    /// Updates the client's context_id to the passed value and returns the previous context_id
+    fn cycle_context_id(&mut self) -> String {
+        let old_context_id = self.context_id.clone();
+        self.context_id = Uuid::new_v4().to_string();
+        old_context_id
+    }
+    fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse> {
+        let endpoint = self.get_mars_endpoint();
+        let url = Url::parse(&format!("{endpoint}/ads"))?;
 
         let request = Request::post(url).json(ad_request);
-
         let response = request.send()?;
-        let error = check_response_error(&response);
 
-        if let Some(err) = error {
-            return Err(err);
-        }
+        check_http_status_for_error(&response)?;
 
         let response_json: AdResponse = response.json()?;
         Ok(response_json)
     }
-}
-
-fn build_request_from_placement_configs(
-    placement_configs: &Vec<MozAdsPlacementConfig>,
-) -> AdRequest {
-    let mut request = AdRequest {
-        placements: vec![],
-        context_id: "03267ad1-0074-4aa6-8e0c-ec18e0906bfe".to_string(),
-    };
-
-    for placement_config in placement_configs {
-        request.placements.push(models::AdPlacementRequest {
-            placement: placement_config.placement_id.clone(),
-            count: 1, // Placement_id should be treated as unique, so count is always 1
-            content: None,
-        });
-    }
-
-    request
-}
-
-fn build_placements(
-    placement_configs: &Vec<MozAdsPlacementConfig>,
-    mut mars_response: AdResponse,
-) -> HashMap<String, MozAdsPlacement> {
-    let mut moz_ad_placements: HashMap<String, MozAdsPlacement> = HashMap::new();
-
-    for config in placement_configs {
-        let placement_content = mars_response.data.get_mut(&config.placement_id);
-
-        match placement_content {
-            Some(v) => {
-                let ad_content = v.pop();
-                match ad_content {
-                    Some(c) => {
-                        let is_updated = moz_ad_placements.insert(
-                            config.placement_id.clone(),
-                            MozAdsPlacement {
-                                content: c,
-                                placement_config: config.clone(),
-                            },
-                        );
-                        if let Some(v) = is_updated {
-                            //TODO: Some error needs to occur if we have more than one instance of
-                            //a placement_id
-                            println!(
-                                "Duplicate placement_id found: {:?}",
-                                v.placement_config.placement_id
-                            )
-                        }
-                    }
-                    None => continue,
-                }
-            }
-            None => continue,
+    fn record_impression(&self, url_callback_string: Option<&String>) -> Result<()> {
+        match url_callback_string {
+            Some(callback) => self.make_callback_request(callback),
+            None => Err(Error::MissingCallback {
+                message: "Impression callback url empty.".to_string(),
+            }),
         }
     }
-
-    moz_ad_placements
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::mars::MARSClient;
-    use crate::MozAdsPlacementConfig;
-
-    #[test]
-    fn mars_client_call_with_formatting() {
-        viaduct_reqwest::use_reqwest_backend();
-
-        let ad_configs = vec![
-            MozAdsPlacementConfig {
-                placement_id: "pocket_billboard_1".to_string(),
-                iab_content: None,
-                fixed_size: None,
-            },
-            MozAdsPlacementConfig {
-                placement_id: "pocket_billboard_2".to_string(),
-                iab_content: None,
-                fixed_size: None,
-            },
-        ];
-
-        let client = MARSClient::new();
-        let resp = client.request_ads(&ad_configs);
-
-        match resp {
-            Ok(v) => {
-                println!("{:?}", v);
-            }
-            Err(v) => println!("Error {:?}", v),
+    fn record_click(&self, url_callback_string: Option<&String>) -> Result<()> {
+        match url_callback_string {
+            Some(callback) => self.make_callback_request(callback),
+            None => Err(Error::MissingCallback {
+                message: "Click callback url empty.".to_string(),
+            }),
+        }
+    }
+    fn record_report_ad(&self, url_callback_string: Option<&String>) -> Result<()> {
+        match url_callback_string {
+            Some(callback) => self.make_callback_request(callback),
+            None => Err(Error::MissingCallback {
+                message: "Report callback url empty.".to_string(),
+            }),
         }
     }
 }
