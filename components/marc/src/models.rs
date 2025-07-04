@@ -5,7 +5,18 @@
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+fn empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    Ok(match opt {
+        Some(s) if s.trim().is_empty() => None,
+        other => other,
+    })
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
 pub struct AdPlacementRequest {
@@ -28,8 +39,11 @@ pub struct AdRequest {
 
 #[derive(Debug, Deserialize, uniffi::Record)]
 pub struct AdCallbacks {
+    #[serde(deserialize_with = "empty_string_as_none")]
     pub click: Option<String>,
+    #[serde(deserialize_with = "empty_string_as_none")]
     pub impression: Option<String>,
+    #[serde(deserialize_with = "empty_string_as_none")]
     pub report: Option<String>,
 }
 
