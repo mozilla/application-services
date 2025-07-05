@@ -25,10 +25,18 @@ pub struct MozAdsComponent {
     inner: Mutex<MozAdsComponentInner>,
 }
 
+impl Default for MozAdsComponent {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::new(MozAdsComponentInner::new()),
+        }
+    }
+}
+
 #[uniffi::export]
 impl MozAdsComponent {
     #[uniffi::constructor]
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             inner: Mutex::new(MozAdsComponentInner::new()),
         }
