@@ -5,7 +5,7 @@
 
 [versions]
 # AGP
-android-plugin = "8.10.1"
+android-plugin = "8.11.0"
 
 # Google
 protobuf = "4.31.1"
