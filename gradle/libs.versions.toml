@@ -16,7 +16,7 @@ kotlin-compiler = "2.1.21"
 kotlin-coroutines = "1.10.2"
 
 # Mozilla
-android-components = "139.0.4"
+android-components = "140.0"
 glean = "64.5.1"
 rust-android-gradle = "0.9.6"
 
@@ -40,8 +40,8 @@ androidx-work = "2.10.1"
 
 # Third Party Testing
 junit4 = "4.13.2"
-junit5 = "5.13.1"
-mockito = "5.17.0"
+junit5 = "5.13.3"
+mockito = "5.18.0"
 robolectric = "4.14.1"
 
 # Miscellaneous Gradle plugins
