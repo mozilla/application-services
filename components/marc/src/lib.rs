@@ -16,6 +16,7 @@ use uuid::Uuid;
 mod error;
 mod mars;
 mod models;
+mod test_utils;
 
 uniffi::setup_scaffolding!("MARC");
 
@@ -273,4 +274,14 @@ pub struct MozAdsPlacementConfig {
 pub struct MozAdsPlacement {
     pub placement_config: MozAdsPlacementConfig,
     pub content: MozAd,
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_nothing() {
+        let x = 5;
+        assert_eq!(x, 5);
+    }
 }

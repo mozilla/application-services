@@ -37,7 +37,7 @@ pub struct AdRequest {
     pub placements: Vec<AdPlacementRequest>,
 }
 
-#[derive(Debug, Deserialize, uniffi::Record)]
+#[derive(Debug, Serialize, Deserialize, uniffi::Record)]
 pub struct AdCallbacks {
     #[serde(deserialize_with = "empty_string_as_none")]
     pub click: Option<String>,
@@ -47,7 +47,7 @@ pub struct AdCallbacks {
     pub report: Option<String>,
 }
 
-#[derive(Debug, Deserialize, uniffi::Record)]
+#[derive(Debug, Serialize, Deserialize, uniffi::Record)]
 pub struct MozAd {
     pub alt_text: Option<String>,
     pub block_key: Option<String>,
@@ -57,7 +57,7 @@ pub struct MozAd {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Deserialize, uniffi::Record)]
+#[derive(Debug, Serialize, Deserialize, uniffi::Record)]
 pub struct AdResponse {
     #[serde(flatten)]
     pub data: HashMap<String, Vec<MozAd>>,
