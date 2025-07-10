@@ -198,10 +198,13 @@ impl LoginStore {
         // This function was created for the iOS logins verification logic that will
         // remove records that prevent logins syncing. Once the verification logic is
         // removed from iOS, this function can be removed from the store.
+
+        // Creating an engine requires locking the DB, so make sure to do this first
+        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
+
         let db = self.lock_db()?;
         let deletion_stats =
             db.delete_undecryptable_records_for_remote_replacement(db.encdec.as_ref())?;
-        let engine = LoginsSyncEngine::new(Arc::clone(&self))?;
         engine.set_last_sync(&db, ServerTimestamp(0))?;
         Ok(deletion_stats)
     }
@@ -526,6 +529,16 @@ mod test {
             Err(LoginsApiError::UnexpectedLoginsApiError { reason: _ })
         ));
         assert!(store.db.lock().is_none());
+    }
+
+    #[test]
+    fn test_delete_undecryptable_records_for_remote_replacement() {
+        ensure_initialized();
+        let store = Arc::new(LoginStore::new_in_memory());
+        // Not much of a test, but let's make sure this doesn't deadlock at least.
+        store
+            .delete_undecryptable_records_for_remote_replacement()
+            .unwrap();
     }
 }
 
