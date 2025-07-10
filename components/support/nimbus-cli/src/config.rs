@@ -305,9 +305,8 @@ pub(crate) fn api_v6_production_server() -> String {
 }
 
 pub(crate) fn api_v6_stage_server() -> String {
-    std::env::var("NIMBUS_API_URL_STAGE").unwrap_or_else(|_| {
-        "https://stage.experimenter.nonprod.webservices.mozgcp.net/api/v6".to_string()
-    })
+    std::env::var("NIMBUS_API_URL_STAGE")
+        .unwrap_or_else(|_| "https://stage.experimenter.nonprod.webservices.mozgcp.net".to_string())
 }
 
 pub(crate) fn manifest_cache_dir() -> Option<PathBuf> {
