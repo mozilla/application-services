@@ -20,19 +20,29 @@ pub trait MARSClient: Sync + Send {
     fn record_report_ad(&self, url_callback_string: Option<&String>) -> Result<()>;
     fn get_context_id(&self) -> &str;
     fn cycle_context_id(&mut self) -> String;
-    fn get_mars_endpoint(&self) -> String {
-        DEFAULT_MARS_API_ENDPOINT.to_string()
-    }
+    fn get_mars_endpoint(&self) -> &str;
 }
 
 pub struct DefaultMARSClient {
     context_id: String,
+    endpoint: String,
 }
 
 impl DefaultMARSClient {
     pub fn new(context_id: String) -> Self {
-        Self { context_id }
+        Self {
+            context_id,
+            endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
+        }
     }
+
+    pub fn new_with_endpoint(context_id: String, endpoint: String) -> Self {
+        Self {
+            context_id,
+            endpoint,
+        }
+    }
+
     fn make_callback_request(&self, url_callback_string: &str) -> Result<()> {
         let url = Url::parse(url_callback_string)?;
         let request = Request::get(url);
@@ -44,6 +54,10 @@ impl DefaultMARSClient {
 impl MARSClient for DefaultMARSClient {
     fn get_context_id(&self) -> &str {
         &self.context_id
+    }
+
+    fn get_mars_endpoint(&self) -> &str {
+        &self.endpoint
     }
     /// Updates the client's context_id to the passed value and returns the previous context_id
     fn cycle_context_id(&mut self) -> String {
@@ -60,6 +74,7 @@ impl MARSClient for DefaultMARSClient {
         check_http_status_for_error(&response)?;
 
         let response_json: AdResponse = response.json()?;
+
         Ok(response_json)
     }
     fn record_impression(&self, url_callback_string: Option<&String>) -> Result<()> {
