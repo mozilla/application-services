@@ -2883,6 +2883,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "marc"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "mockito",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.31",
+ "uniffi",
+ "url",
+ "uuid",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
