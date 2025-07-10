@@ -15,9 +15,9 @@ viaduct = { path = "../viaduct" }
 error-support = { path = "../support/error" }
 thiserror = "1"
 
-
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+mockito = "0.31"
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features = ["build"] }
