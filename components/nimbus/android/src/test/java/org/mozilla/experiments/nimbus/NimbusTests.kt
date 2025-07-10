@@ -37,8 +37,13 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.GeckoPref
+import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
+import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.JsonObject
 import org.mozilla.experiments.nimbus.internal.NimbusException
+import org.mozilla.experiments.nimbus.internal.PrefBranch
+import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
@@ -48,6 +53,7 @@ import java.util.Calendar
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
+@Suppress("LargeClass")
 class NimbusTests {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
@@ -76,6 +82,7 @@ class NimbusTests {
     private fun createNimbus(
         coenrollingFeatureIds: List<String> = listOf(),
         recordedContext: RecordedContext? = null,
+        geckoPrefHandler: GeckoPrefHandler? = null,
         block: Nimbus.() -> Unit = {},
     ) = Nimbus(
         context = context,
@@ -86,6 +93,7 @@ class NimbusTests {
         observer = null,
         delegate = nimbusDelegate,
         recordedContext = recordedContext,
+        geckoPrefHandler = geckoPrefHandler,
     ).also(block)
 
     @get:Rule
@@ -830,6 +838,72 @@ class NimbusTests {
         assertEquals(0, calculatedAttributes.daysSinceUpdate)
         assertEquals("en", calculatedAttributes.language)
         assertEquals("US", calculatedAttributes.region)
+    }
+
+    class TestGeckoPrefHandler(
+        var internalMap: Map<String, Map<String, GeckoPrefState>> = mapOf(
+            "about_welcome" to mapOf(
+                "number" to GeckoPrefState(
+                    geckoPref = GeckoPref("pref.number", PrefBranch.DEFAULT),
+                    geckoValue = "1",
+                    enrollmentValue = null,
+                    isUserSet = false,
+                ),
+            ),
+        ),
+        var setValues: List<GeckoPrefState>? = null,
+    ) : GeckoPrefHandler {
+        override fun getPrefsWithState(): Map<String, Map<String, GeckoPrefState>> {
+            return internalMap
+        }
+
+        override fun setGeckoPrefsState(newPrefsState: List<GeckoPrefState>) {
+            setValues = newPrefsState
+        }
+    }
+
+    @Test
+    fun `GeckoPrefHandler functions`() {
+        val handler = TestGeckoPrefHandler()
+
+        val nimbus = createNimbus(geckoPrefHandler = handler)
+
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(1, handler.setValues?.size)
+        assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
+    }
+
+    @Test
+    fun `unenroll for gecko pref functions`() {
+        val handler = TestGeckoPrefHandler()
+
+        val nimbus = createNimbus(geckoPrefHandler = handler)
+
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(1, handler.setValues?.size)
+        assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
+
+        val events = nimbus.unenrollForGeckoPref(handler.internalMap["about_welcome"]?.get("number")!!, PrefUnenrollReason.FAILED_TO_SET)
+
+        assertEquals(1, events.size)
+        assertEquals(EnrollmentChangeEventType.DISQUALIFICATION, events[0].change)
+        assertEquals(0, handler.setValues?.size)
     }
 }
 

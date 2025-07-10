@@ -114,6 +114,40 @@ dictionary MalformedFeatureConfigExtraDef {
     string part;
 };
 
+callback interface GeckoPrefHandler {
+    record<string, record<string, GeckoPrefState>> get_prefs_with_state();
+
+    void set_gecko_prefs_state(sequence<GeckoPrefState> new_prefs_state);
+};
+
+dictionary GeckoPref {
+    string pref;
+    PrefBranch branch;
+};
+
+dictionary GeckoPrefState {
+    GeckoPref gecko_pref;
+    PrefValue? gecko_value;
+    PrefEnrollmentData? enrollment_value;
+    boolean is_user_set;
+};
+
+enum PrefBranch {
+    "Default",
+    "User",
+};
+
+enum PrefUnenrollReason {
+    "Changed",
+    "FailedToSet",
+};
+
+dictionary PrefEnrollmentData {
+    PrefValue pref_value;
+    string feature_id;
+    string variable;
+};
+
 [Error]
 enum NimbusError {
     "InvalidPersistedData", "RkvError", "IOError",
@@ -128,6 +162,9 @@ enum NimbusError {
 
 [Custom]
 typedef string JsonObject;
+
+[Custom]
+typedef string PrefValue;
 
 [Trait, WithForeign]
 interface RecordedContext {
@@ -148,7 +185,8 @@ interface NimbusClient {
         sequence<string> coenrolling_feature_ids,
         string dbpath,
         RemoteSettingsConfig? remote_settings_config,
-        MetricsHandler metrics_handler
+        MetricsHandler metrics_handler,
+        GeckoPrefHandler? gecko_pref_handler
     );
 
     /// Initializes the database and caches enough information so that the
@@ -307,6 +345,9 @@ interface NimbusClient {
 
     [Throws=NimbusError]
     void dump_state_to_log();
+
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> unenroll_for_gecko_pref(GeckoPrefState pref_state, PrefUnenrollReason pref_unenroll_reason);
 
 };
 

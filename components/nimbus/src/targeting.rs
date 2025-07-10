@@ -11,7 +11,7 @@ use serde_json::Value;
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
         use anyhow::anyhow;
-        use crate::{TargetingAttributes, stateful::behavior::{EventStore, EventQueryType, query_event_store}};
+        use crate::{TargetingAttributes, stateful::{behavior::{EventStore, EventQueryType, query_event_store}, gecko_prefs::{GeckoPrefStore, query_gecko_pref_store}}};
         use std::sync::{Arc, Mutex};
         use firefox_versioning::compare::version_compare;
     }
@@ -23,6 +23,8 @@ pub struct NimbusTargetingHelper {
     #[cfg(feature = "stateful")]
     pub(crate) event_store: Arc<Mutex<EventStore>>,
     #[cfg(feature = "stateful")]
+    pub(crate) gecko_pref_store: Option<Arc<GeckoPrefStore>>,
+    #[cfg(feature = "stateful")]
     pub(crate) targeting_attributes: Option<TargetingAttributes>,
 }
 
@@ -30,11 +32,14 @@ impl NimbusTargetingHelper {
     pub fn new<C: Serialize>(
         context: C,
         #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<Arc<GeckoPrefStore>>,
     ) -> Self {
         Self {
             context: serde_json::to_value(context).unwrap(),
             #[cfg(feature = "stateful")]
             event_store,
+            #[cfg(feature = "stateful")]
+            gecko_pref_store,
             #[cfg(feature = "stateful")]
             targeting_attributes: None,
         }
@@ -43,7 +48,7 @@ impl NimbusTargetingHelper {
     pub fn eval_jexl(&self, expr: String) -> Result<bool> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {
-                jexl_eval(&expr, &self.context, self.event_store.clone())
+                jexl_eval(&expr, &self.context, self.event_store.clone(), self.gecko_pref_store.clone())
             } else {
                 jexl_eval(&expr, &self.context)
             }
@@ -53,7 +58,7 @@ impl NimbusTargetingHelper {
     pub fn evaluate_jexl_raw_value(&self, expr: &str) -> Result<Value> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {
-                jexl_eval_raw(expr, &self.context, self.event_store.clone())
+                jexl_eval_raw(expr, &self.context, self.event_store.clone(), self.gecko_pref_store.clone())
             } else {
                 jexl_eval_raw(expr, &self.context)
             }
@@ -74,6 +79,8 @@ impl NimbusTargetingHelper {
             #[cfg(feature = "stateful")]
             event_store: self.event_store.clone(),
             #[cfg(feature = "stateful")]
+            gecko_pref_store: self.gecko_pref_store.clone(),
+            #[cfg(feature = "stateful")]
             targeting_attributes: self.targeting_attributes.clone(),
         }
     }
@@ -83,6 +90,7 @@ pub fn jexl_eval_raw<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
     #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "stateful")] gecko_pref_store: Option<Arc<GeckoPrefStore>>,
 ) -> Result<Value> {
     let evaluator = Evaluator::new();
 
@@ -124,6 +132,9 @@ pub fn jexl_eval_raw<Context: serde::Serialize>(
                 args,
             )?)
         })
+        .with_transform("preferenceIsUserSet", |args| {
+            Ok(query_gecko_pref_store(gecko_pref_store.clone(), args)?)
+        })
         .with_transform("bucketSample", bucket_sample);
 
     evaluator
@@ -139,12 +150,15 @@ pub fn jexl_eval<Context: serde::Serialize>(
     expression_statement: &str,
     context: &Context,
     #[cfg(feature = "stateful")] event_store: Arc<Mutex<EventStore>>,
+    #[cfg(feature = "stateful")] gecko_pref_store: Option<Arc<GeckoPrefStore>>,
 ) -> Result<bool> {
     let res = jexl_eval_raw(
         expression_statement,
         context,
         #[cfg(feature = "stateful")]
         event_store,
+        #[cfg(feature = "stateful")]
+        gecko_pref_store,
     )?;
     match res.as_bool() {
         Some(v) => Ok(v),

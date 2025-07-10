@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use std::fmt::{self, Display};
 
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
-use crate::intermediate_representation::Literal;
+use crate::intermediate_representation::{Literal, PrefBranch};
 
 pub fn type_label(type_: impl Borrow<TypeIdentifier>) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
@@ -101,4 +101,12 @@ pub fn comment(txt: impl fmt::Display, spaces: &str) -> Result<String, askama::E
 
 pub fn quoted(txt: impl fmt::Display) -> Result<String, askama::Error> {
     Ok(common::quoted(&txt))
+}
+
+pub fn pref_branch_string(pref_branch: PrefBranch) -> Result<String, askama::Error> {
+    Ok(match pref_branch {
+        PrefBranch::Default => "PrefBranch.DEFAULT",
+        PrefBranch::User => "PrefBranch.USER",
+    }
+    .into())
 }

@@ -16,7 +16,7 @@ fn test_recorded_context_execute_queries() -> Result<()> {
     let mut event_store = EventStore::new();
     event_store.record_event(1, "event", None)?;
     let event_store = Arc::new(Mutex::new(event_store));
-    let targeting_helper = NimbusTargetingHelper::new(Map::new(), event_store);
+    let targeting_helper = NimbusTargetingHelper::new(Map::new(), event_store, None);
 
     let map = HashMap::from_iter(vec![
         (

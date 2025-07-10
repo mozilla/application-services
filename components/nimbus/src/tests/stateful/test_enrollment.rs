@@ -34,7 +34,7 @@ fn get_experiment_enrollments<'r>(
 impl From<EventStore> for NimbusTargetingHelper {
     fn from(value: EventStore) -> Self {
         let ctx: AppContext = Default::default();
-        NimbusTargetingHelper::new(ctx, Arc::new(Mutex::new(value)))
+        NimbusTargetingHelper::new(ctx, Arc::new(Mutex::new(value)), None)
     }
 }
 

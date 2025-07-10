@@ -1,6 +1,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::PrefUnenrollReason;
 use crate::{
     defaults::Defaults,
     error::{debug, warn, NimbusError, Result},
@@ -87,6 +89,9 @@ pub enum DisqualifiedReason {
     NotTargeted,
     /// The bucketing has changed for an experiment.
     NotSelected,
+    /// A pref used in the experiment was set by the user.
+    #[cfg(feature = "stateful")]
+    PrefUnenrollReason { reason: PrefUnenrollReason },
 }
 
 impl Display for DisqualifiedReason {
@@ -97,6 +102,11 @@ impl Display for DisqualifiedReason {
                 DisqualifiedReason::OptOut => "OptOut",
                 DisqualifiedReason::NotSelected => "NotSelected",
                 DisqualifiedReason::NotTargeted => "NotTargeted",
+                #[cfg(feature = "stateful")]
+                DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
+                    PrefUnenrollReason::Changed => "PrefChanged",
+                    PrefUnenrollReason::FailedToSet => "PrefFailedToSet",
+                },
             },
             f,
         )
@@ -370,6 +380,25 @@ impl ExperimentEnrollment {
         }
     }
 
+    #[cfg(feature = "stateful")]
+    pub(crate) fn on_pref_unenroll(
+        &self,
+        pref_unenroll_reason: PrefUnenrollReason,
+        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
+    ) -> ExperimentEnrollment {
+        match self.status {
+            EnrollmentStatus::Enrolled { .. } => {
+                let enrollment =
+                    self.disqualify_from_enrolled(DisqualifiedReason::PrefUnenrollReason {
+                        reason: pref_unenroll_reason,
+                    });
+                out_enrollment_events.push(enrollment.get_change_event());
+                enrollment
+            }
+            _ => self.clone(),
+        }
+    }
+
     /// Reset identifiers in response to application-level telemetry reset.
     ///
     /// We move any enrolled experiments to the "disqualified" state, since their further
@@ -438,6 +467,11 @@ impl ExperimentEnrollment {
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
                     DisqualifiedReason::Error => Some("error"),
+                    #[cfg(feature = "stateful")]
+                    DisqualifiedReason::PrefUnenrollReason { reason } => match reason {
+                        PrefUnenrollReason::Changed => Some("pref_changed"),
+                        PrefUnenrollReason::FailedToSet => Some("pref_failed_to_set"),
+                    },
                 },
                 EnrollmentChangeEventType::Disqualification,
             ),

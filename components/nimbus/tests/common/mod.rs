@@ -79,6 +79,7 @@ fn new_test_client_internal(
         tmp_dir.path(),
         Some(config),
         Box::new(NoopMetricsHandler),
+        None,
     )
 }
 
