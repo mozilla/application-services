@@ -6,9 +6,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    error::Result,
-    mars::{DefaultMARSClient, MARSClient},
-    models::{AdCallbacks, AdRequest, AdResponse, MozAd},
+    mars::DefaultMARSClient,
+    models::{AdCallbacks, AdResponse, MozAd},
 };
 
 #[allow(dead_code)]
@@ -97,44 +96,6 @@ pub fn get_example_missing_callback_ad_response() -> AdResponse {
 }
 
 #[allow(dead_code)]
-pub fn create_test_client(test_endpoint: String) -> TestClientWithCustomURL {
-    TestClientWithCustomURL {
-        inner: DefaultMARSClient::new(TEST_CONTEXT_ID.to_string()),
-        endpoint: test_endpoint,
-    }
-}
-
-pub struct TestClientWithCustomURL {
-    inner: DefaultMARSClient,
-    endpoint: String,
-}
-
-impl MARSClient for TestClientWithCustomURL {
-    fn get_mars_endpoint(&self) -> String {
-        self.endpoint.clone()
-    }
-
-    fn fetch_ads(&self, req: &AdRequest) -> Result<AdResponse> {
-        self.inner.fetch_ads(req)
-    }
-
-    fn record_impression(&self, url: Option<&String>) -> Result<()> {
-        self.inner.record_impression(url)
-    }
-
-    fn record_click(&self, url: Option<&String>) -> Result<()> {
-        self.inner.record_click(url)
-    }
-
-    fn record_report_ad(&self, url: Option<&String>) -> Result<()> {
-        self.inner.record_report_ad(url)
-    }
-
-    fn get_context_id(&self) -> &str {
-        self.inner.get_context_id()
-    }
-
-    fn cycle_context_id(&mut self) -> String {
-        self.inner.cycle_context_id()
-    }
+pub fn create_test_client(test_endpoint: String) -> DefaultMARSClient {
+    DefaultMARSClient::new_with_endpoint(TEST_CONTEXT_ID.to_string(), test_endpoint)
 }
