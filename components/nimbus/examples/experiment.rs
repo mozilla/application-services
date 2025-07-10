@@ -234,6 +234,7 @@ fn main() -> Result<()> {
         db_path,
         Some(config),
         Box::new(NoopMetricsHandler),
+        None,
     )?;
     info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
@@ -331,7 +332,7 @@ fn main() -> Result<()> {
                 let aru = aru.apply_nimbus_id(&uuid);
                 let mut num_of_experiments_enrolled = 0;
                 let event_store = nimbus_client.event_store();
-                let th = NimbusTargetingHelper::new(&context, event_store.clone());
+                let th = NimbusTargetingHelper::new(&context, event_store.clone(), None);
                 for exp in &all_experiments {
                     let enr = nimbus::evaluate_enrollment(&aru, exp, &th)?;
                     if enr.status.is_enrolled() {
@@ -388,7 +389,7 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_nimbus_id(&uuid);
-                let th = NimbusTargetingHelper::new(&context, event_store.clone());
+                let th = NimbusTargetingHelper::new(&context, event_store.clone(), None);
                 let enrollment = nimbus::evaluate_enrollment(&aru, &exp, &th)?;
                 let key = match enrollment.status.clone() {
                     EnrollmentStatus::Enrolled { .. } => "Enrolled",

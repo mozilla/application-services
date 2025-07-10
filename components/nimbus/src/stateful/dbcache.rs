@@ -9,12 +9,13 @@ use crate::{
     error::{warn, NimbusError, Result},
     stateful::{
         enrollment::get_enrollments,
+        gecko_prefs::GeckoPrefStore,
         persistence::{Database, StoreId, Writer},
     },
     EnrolledExperiment, Experiment,
 };
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 // This module manages an in-memory cache of the database, so that some
 // functions exposed by nimbus can return results without blocking on any
@@ -28,6 +29,7 @@ struct CachedData {
     pub enrollments: Vec<ExperimentEnrollment>,
     pub experiments_by_slug: HashMap<String, EnrolledExperiment>,
     pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
+    pub gecko_pref_to_enrollment_slugs: Option<HashMap<String, HashSet<String>>>,
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
@@ -55,6 +57,7 @@ impl DatabaseCache {
         db: &Database,
         writer: Writer,
         coenrolling_ids: &HashSet<&str>,
+        gecko_pref_store: Option<Arc<GeckoPrefStore>>,
     ) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
@@ -75,6 +78,14 @@ impl DatabaseCache {
         let features_by_feature_id =
             map_features_by_feature_id(&enrollments, &experiments, coenrolling_ids);
 
+        let gecko_pref_to_enrollment_slugs = gecko_pref_store.map(|store| {
+            store.map_gecko_prefs_to_enrollment_slugs_and_update_store(
+                &experiments,
+                &enrollments,
+                &experiments_by_slug,
+            )
+        });
+
         // This is where testing tools would override i.e. replace experimental feature configurations.
         // i.e. testing tools would cause custom feature configs to be stored in a Store.
         // Here, we get those overrides out of the store, and merge it with this map.
@@ -86,6 +97,7 @@ impl DatabaseCache {
             enrollments,
             experiments_by_slug,
             features_by_feature_id,
+            gecko_pref_to_enrollment_slugs,
         };
 
         // Try to commit the change to disk and update the cache as close
@@ -160,5 +172,15 @@ impl DatabaseCache {
 
     pub fn get_enrollments(&self) -> Result<Vec<ExperimentEnrollment>> {
         self.get_data(|data| data.enrollments.to_owned())
+    }
+
+    pub fn get_enrollments_for_pref(&self, pref: &str) -> Result<Option<HashSet<String>>> {
+        self.get_data(|data| {
+            if let Some(a) = &data.gecko_pref_to_enrollment_slugs {
+                Ok(a.get(pref).cloned())
+            } else {
+                Ok(None)
+            }
+        })?
     }
 }

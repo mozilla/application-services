@@ -1901,18 +1901,18 @@ fn test_map_features_by_feature_id_with_coenrollment() -> Result<()> {
 fn test_map_features_by_feature_id_with_coenrolling_multifeature() -> Result<()> {
     let exp1 = get_multi_feature_experiment(
         "exp1",
-        "colliding1",
-        json!({"x": 1 }),
-        "coenrolling",
-        json!({ "a": 1, "b": 2 }),
+        vec![
+            ("colliding1", json!({"x": 1 })),
+            ("coenrolling", json!({ "a": 1, "b": 2 })),
+        ],
     );
     let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "b": 3, "c": 4 }));
     let exp3 = get_multi_feature_experiment(
         "exp3",
-        "colliding2",
-        json!({"y": 1 }),
-        "coenrolling",
-        json!({ "c": 5, "d": 6 }),
+        vec![
+            ("colliding2", json!({"y": 1 })),
+            ("coenrolling", json!({ "c": 5, "d": 6 })),
+        ],
     );
 
     let ids = HashSet::from(["coenrolling"]);
@@ -2081,25 +2081,25 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
 
     let exp1 = get_multi_feature_experiment(
         "exp1",
-        "colliding",
-        json!({"x": 1 }),
-        "coenrolling",
-        json!({ "a": 1, "b": 2 }),
+        vec![
+            ("colliding", json!({"x": 1 })),
+            ("coenrolling", json!({ "a": 1, "b": 2 })),
+        ],
     );
     let exp2 = get_single_feature_experiment("exp2", "coenrolling", json!({ "b": 3, "c": 4 }));
     let exp3 = get_multi_feature_experiment(
         "exp3",
-        "colliding",
-        json!({"y": 1 }),
-        "coenrolling",
-        json!({ "c": 5, "d": 6 }),
+        vec![
+            ("colliding", json!({"y": 1 })),
+            ("coenrolling", json!({ "c": 5, "d": 6 })),
+        ],
     );
     let exp4 = get_multi_feature_experiment(
         "exp4",
-        "another",
-        json!({"p": 1 }),
-        "coenrolling",
-        json!({ "d": 7, "e": 8 }),
+        vec![
+            ("another", json!({"p": 1 })),
+            ("coenrolling", json!({ "d": 7, "e": 8 })),
+        ],
     );
 
     let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];

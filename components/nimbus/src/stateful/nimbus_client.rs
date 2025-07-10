@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #[cfg(test)]
-use crate::tests::helpers::{TestMetrics, TestRecordedContext};
+use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
 use crate::{
     defaults::Defaults,
     enrollment::{
@@ -15,7 +15,7 @@ use crate::{
         get_calculated_attributes, is_experiment_available, CalculatedAttributes,
         TargetingAttributes,
     },
-    json::JsonObject,
+    json::{JsonObject, PrefValue},
     metrics::{
         EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
         MetricsHandler,
@@ -27,7 +27,11 @@ use crate::{
         dbcache::DatabaseCache,
         enrollment::{
             get_global_user_participation, opt_in_with_branch, opt_out,
-            reset_telemetry_identifiers, set_global_user_participation,
+            reset_telemetry_identifiers, set_global_user_participation, unenroll_for_pref,
+        },
+        gecko_prefs::{
+            GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, PrefBranch,
+            PrefEnrollmentData, PrefUnenrollReason,
         },
         matcher::AppContext,
         persistence::{Database, StoreId, Writer},
@@ -89,6 +93,7 @@ pub struct NimbusClient {
     coenrolling_feature_ids: Vec<String>,
     event_store: Arc<Mutex<EventStore>>,
     recorded_context: Option<Arc<dyn RecordedContext>>,
+    pub(crate) gecko_prefs: Option<Arc<GeckoPrefStore>>,
     metrics_handler: Arc<Box<dyn MetricsHandler>>,
 }
 
@@ -102,6 +107,7 @@ impl NimbusClient {
         db_path: P,
         config: Option<RemoteSettingsConfig>,
         metrics_handler: Box<dyn MetricsHandler>,
+        gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
     ) -> Result<Self> {
         let settings_client = Mutex::new(create_client(config)?);
 
@@ -113,6 +119,11 @@ impl NimbusClient {
             update_date: Default::default(),
         });
 
+        let mut prefs = None;
+        if let Some(handler) = gecko_pref_handler {
+            prefs = Some(Arc::new(GeckoPrefStore::new(Arc::new(handler))));
+        }
+
         Ok(Self {
             settings_client,
             mutable_state,
@@ -123,6 +134,7 @@ impl NimbusClient {
             db: OnceCell::default(),
             event_store: Arc::default(),
             recorded_context,
+            gecko_prefs: prefs,
             metrics_handler: Arc::new(metrics_handler),
         })
     }
@@ -178,6 +190,10 @@ impl NimbusClient {
                 .set_recorded_context(recorded_context.to_json());
         }
 
+        if let Some(gecko_prefs) = &self.gecko_prefs {
+            gecko_prefs.initialize()?;
+        }
+
         Ok(())
     }
 
@@ -195,8 +211,12 @@ impl NimbusClient {
             .iter()
             .map(|s| s.as_str())
             .collect();
-        self.database_cache
-            .commit_and_update(db, writer, &coenrolling_ids)?;
+        self.database_cache.commit_and_update(
+            db,
+            writer,
+            &coenrolling_ids,
+            self.gecko_prefs.clone(),
+        )?;
         self.record_enrollment_status_telemetry(state)?;
         Ok(())
     }
@@ -387,6 +407,7 @@ impl NimbusClient {
         let mut targeting_helper = NimbusTargetingHelper::with_targeting_attributes(
             &state.targeting_attributes,
             self.event_store.clone(),
+            self.gecko_prefs.clone(),
         );
         if let Some(ref recorded_context) = self.recorded_context {
             recorded_context.record();
@@ -657,7 +678,8 @@ impl NimbusClient {
         additional_context: Option<JsonObject>,
     ) -> Result<Arc<NimbusTargetingHelper>> {
         let context = self.merge_additional_context(additional_context)?;
-        let helper = NimbusTargetingHelper::new(context, self.event_store.clone());
+        let helper =
+            NimbusTargetingHelper::new(context, self.event_store.clone(), self.gecko_prefs.clone());
         Ok(Arc::new(helper))
     }
 
@@ -668,6 +690,7 @@ impl NimbusClient {
         Arc::new(NimbusTargetingHelper::new(
             context,
             self.event_store.clone(),
+            self.gecko_prefs.clone(),
         ))
     }
 
@@ -753,6 +776,38 @@ impl NimbusClient {
         Ok(())
     }
 
+    /// Given a Gecko pref state and a pref unenroll reason, unenroll from an experiment
+    pub fn unenroll_for_gecko_pref(
+        &self,
+        pref_state: GeckoPrefState,
+        pref_unenroll_reason: PrefUnenrollReason,
+    ) -> Result<Vec<EnrollmentChangeEvent>> {
+        if let Some(prefs) = self.gecko_prefs.clone() {
+            {
+                let mut pref_store_state = prefs.get_mutable_pref_state();
+                pref_store_state.update_pref_state(&pref_state);
+            }
+            let enrollments = self
+                .database_cache
+                .get_enrollments_for_pref(&pref_state.gecko_pref.pref)?;
+
+            let db = self.db()?;
+            let mut writer = db.write()?;
+
+            let mut results = Vec::new();
+            for experiment_slug in enrollments.unwrap() {
+                let result =
+                    unenroll_for_pref(db, &mut writer, &experiment_slug, pref_unenroll_reason)?;
+                results.push(result);
+            }
+
+            let mut state = self.mutable_state.lock().unwrap();
+            self.end_initialize(db, writer, &mut state)?;
+            return Ok(results.concat());
+        }
+        Ok(Vec::new())
+    }
+
     #[cfg(test)]
     pub fn get_metrics_handler(&self) -> &&TestMetrics {
         let metrics = &**self.metrics_handler;
@@ -777,6 +832,23 @@ impl NimbusClient {
                     )
                 })
             .expect("failed to unwrap RecordedContext object")
+    }
+
+    #[cfg(test)]
+    pub fn get_gecko_pref_store(&self) -> Arc<Box<TestGeckoPrefHandler>> {
+        self.gecko_prefs.clone()
+            .clone()
+            .map(|ref pref_store|
+                // SAFETY: The cast to TestGeckoPrefHandler is safe because the Rust instance is
+                // guaranteed to be a TestGeckoPrefHandler instance. TestGeckoPrefHandler is the only
+                // Rust-implemented version of GeckoPrefHandler, and, like this method,  is only
+                // used in tests.
+                unsafe {
+                    std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
+                        pref_store.clone().handler.clone(),
+                    )
+                })
+            .expect("failed to unwrap GeckoPrefHandler object")
     }
 }
 
@@ -848,6 +920,7 @@ impl NimbusClient {
         let targeting_helper = NimbusTargetingHelper::new(
             state.targeting_attributes.clone(),
             self.event_store.clone(),
+            self.gecko_prefs.clone(),
         );
         let experiments = self
             .database_cache
@@ -918,6 +991,22 @@ uniffi::custom_type!(JsonObject, String, {
         }
     },
     lower: |obj| serde_json::Value::Object(obj).to_string(),
+});
+
+#[cfg(feature = "stateful-uniffi-bindings")]
+uniffi::custom_type!(PrefValue, String, {
+    remote,
+    try_lift: |val| {
+        let json: Value = serde_json::from_str(&val)?;
+        if json.is_string() || json.is_boolean() || (json.is_number() && !json.is_f64()) || json.is_null() {
+            Ok(json)
+        } else {
+            Err(anyhow::anyhow!(format!("Value {} is not a string, boolean, number, or null, or is a float", json)))
+        }
+    },
+    lower: |val| {
+        val.to_string()
+    }
 });
 
 #[cfg(feature = "stateful-uniffi-bindings")]

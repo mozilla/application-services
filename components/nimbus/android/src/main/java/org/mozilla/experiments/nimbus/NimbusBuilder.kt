@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
+import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
@@ -94,6 +95,11 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * Additional targeting context that will be recorded to Glean.
      */
     var recordedContext: RecordedContext? = null
+
+    /**
+     * Gecko preference handler that provides state information and setters for Gecko prefs.
+     */
+    var geckoPrefHandler: GeckoPrefHandler? = null
 
     /**
      * Build a [Nimbus] singleton for the given [NimbusAppInfo]. Instances built with this method
@@ -229,6 +235,7 @@ class DefaultNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInter
             delegate = createDelegate(),
             observer = createObserver(),
             recordedContext = recordedContext,
+            geckoPrefHandler = geckoPrefHandler,
         )
 
     override fun newNimbusDisabled() = NullNimbus(context)

@@ -195,6 +195,18 @@ impl Branch {
             _ => Default::default(),
         }
     }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn get_feature_props_and_values(&self) -> Vec<(String, String, Value)> {
+        self.get_feature_configs()
+            .iter()
+            .flat_map(|fc| {
+                fc.value
+                    .iter()
+                    .map(|(k, v)| (fc.feature_id.clone(), k.clone(), v.clone()))
+            })
+            .collect()
+    }
 }
 
 fn default_buckets() -> u32 {

@@ -16,7 +16,7 @@ cfg_if::cfg_if! {
         use crate::{
             metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
             json::JsonObject,
-            stateful::{behavior::EventStore, targeting::RecordedContext}
+            stateful::{behavior::EventStore, gecko_prefs::{GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState}, targeting::RecordedContext}
         };
         use std::collections::HashMap;
         use serde_json::Map;
@@ -38,7 +38,7 @@ impl From<TargetingAttributes> for NimbusTargetingHelper {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {
                 let store = Arc::new(Mutex::new(EventStore::new()));
-                NimbusTargetingHelper::new(value, store)
+                NimbusTargetingHelper::new(value, store, None)
             } else {
                 NimbusTargetingHelper::new(value)
             }
@@ -52,7 +52,7 @@ impl Default for NimbusTargetingHelper {
             if #[cfg(feature = "stateful")] {
                 let ctx: AppContext = Default::default();
                 let store = Arc::new(Mutex::new(EventStore::new()));
-                NimbusTargetingHelper::new(ctx, store)
+                NimbusTargetingHelper::new(ctx, store, None)
             } else {
                 let ctx: AppContext = Default::default();
                 NimbusTargetingHelper::new(ctx)
@@ -217,6 +217,41 @@ impl MetricsHandler for TestMetrics {
     fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
         let mut state = self.state.lock().unwrap();
         state.malformeds.push(event);
+    }
+}
+
+#[cfg(feature = "stateful")]
+pub struct TestGeckoPrefHandlerState {
+    pub prefs_set: Option<Vec<GeckoPrefState>>,
+}
+
+#[cfg(feature = "stateful")]
+pub struct TestGeckoPrefHandler {
+    pub prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState,
+    pub state: Mutex<TestGeckoPrefHandlerState>,
+}
+
+#[cfg(feature = "stateful")]
+impl TestGeckoPrefHandler {
+    pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Self {
+        Self {
+            prefs,
+            state: Mutex::new(TestGeckoPrefHandlerState { prefs_set: None }),
+        }
+    }
+}
+
+#[cfg(feature = "stateful")]
+impl GeckoPrefHandler for TestGeckoPrefHandler {
+    fn get_prefs_with_state(&self) -> MapOfFeatureIdToPropertyNameToGeckoPrefState {
+        self.prefs.clone()
+    }
+
+    fn set_gecko_prefs_state(&self, new_prefs_state: Vec<GeckoPrefState>) {
+        self.state
+            .lock()
+            .expect("Unable to lock TestGeckoPrefHandler state")
+            .prefs_set = Some(new_prefs_state);
     }
 }
 
@@ -542,13 +577,20 @@ pub fn get_bucketed_rollout(slug: &str, count: i64) -> Experiment {
     .unwrap()
 }
 
-pub fn get_multi_feature_experiment(
-    slug: &str,
-    f1: &str,
-    v1: Value,
-    f2: &str,
-    v2: Value,
-) -> Experiment {
+pub fn get_multi_feature_experiment(slug: &str, features: Vec<(&str, Value)>) -> Experiment {
+    let remapped_features = Value::Array(
+        features
+            .clone()
+            .into_iter()
+            .map(|(f, v)| {
+                json!({
+                    "featureId": f,
+                    "enabled": true,
+                    "value": v,
+                })
+            })
+            .collect(),
+    );
     serde_json::from_value(json!(
         {
         "schemaVersion": "1.0.0",
@@ -558,21 +600,10 @@ pub fn get_multi_feature_experiment(
             {
                 "slug": "control",
                 "ratio": 1,
-                "features": [
-                    {
-                        "featureId": f1,
-                        "enabled": true,
-                        "value": v1,
-                    },
-                    {
-                        "featureId": f2,
-                        "enabled": true,
-                        "value": v2,
-                    }
-                ]
+                "features": remapped_features,
             },
         ],
-        "featureIds": [f1, f2],
+        "featureIds": Value::Array(features.iter().map(|(f, _)| Value::String(f.to_string())).collect::<Vec<Value>>()),
         "channel": "nightly",
         "probeSets":[],
         "startDate":null,
@@ -594,6 +625,13 @@ pub fn get_multi_feature_experiment(
     }
     ))
     .unwrap()
+}
+
+impl Experiment {
+    pub fn with_targeting(mut self, targeting: &str) -> Self {
+        self.targeting = Some(targeting.into());
+        self
+    }
 }
 
 pub fn no_coenrolling_features() -> HashSet<&'static str> {

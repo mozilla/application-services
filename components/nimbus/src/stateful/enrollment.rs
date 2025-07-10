@@ -7,7 +7,10 @@ use crate::{
         ExperimentEnrollment,
     },
     error::{debug, warn, Result},
-    stateful::persistence::{Database, Readable, StoreId, Writer},
+    stateful::{
+        gecko_prefs::PrefUnenrollReason,
+        persistence::{Database, Readable, StoreId, Writer},
+    },
     EnrolledExperiment, EnrollmentStatus, Experiment,
 };
 
@@ -129,6 +132,32 @@ pub fn opt_out(
         enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
     {
         let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events);
+        enr_store.put(writer, experiment_slug, updated_enrollment)?;
+    } else {
+        events.push(EnrollmentChangeEvent {
+            experiment_slug: experiment_slug.to_string(),
+            branch_slug: "N/A".to_string(),
+            reason: Some("does-not-exist".to_string()),
+            change: EnrollmentChangeEventType::UnenrollFailed,
+        });
+    }
+
+    Ok(events)
+}
+
+pub fn unenroll_for_pref(
+    db: &Database,
+    writer: &mut Writer,
+    experiment_slug: &str,
+    unenroll_reason: PrefUnenrollReason,
+) -> Result<Vec<EnrollmentChangeEvent>> {
+    let mut events = vec![];
+    let enr_store = db.get_store(StoreId::Enrollments);
+    if let Ok(Some(existing_enrollment)) =
+        enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
+    {
+        let updated_enrollment =
+            &existing_enrollment.on_pref_unenroll(unenroll_reason, &mut events);
         enr_store.put(writer, experiment_slug, updated_enrollment)?;
     } else {
         events.push(EnrollmentChangeEvent {

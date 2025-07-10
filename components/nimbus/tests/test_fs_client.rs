@@ -42,6 +42,7 @@ fn test_simple() -> Result<()> {
         tmp_dir.path(),
         Some(config),
         Box::new(NoopMetricsHandler),
+        None,
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

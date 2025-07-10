@@ -13,7 +13,10 @@ import kotlinx.coroutines.Job
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
+import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
+import org.mozilla.experiments.nimbus.internal.GeckoPrefState
+import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -175,6 +178,15 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      * @param experimentId The string experiment-id or "slug" for which to opt out of
      */
     fun optOut(experimentId: String) = Unit
+
+    /**
+     * Unenroll from experiments that relate to a particular Gecko pref
+     *
+     * @param geckoPrefState The Gecko pref state for which experiments should be unenrolled
+     * @param prefUnenrollReason The reason we are unenrolling from the experiments
+     * @return Returns a list of EnrollmentChangeEvents
+     */
+    fun unenrollForGeckoPref(geckoPrefState: GeckoPrefState, prefUnenrollReason: PrefUnenrollReason): List<EnrollmentChangeEvent> = listOf()
 
     /**
      *  Reset internal state in response to application-level telemetry reset.

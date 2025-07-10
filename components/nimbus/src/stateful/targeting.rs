@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::stateful::gecko_prefs::GeckoPrefStore;
 use crate::{
     enrollment::ExperimentEnrollment,
     error::{warn, BehaviorError},
@@ -16,10 +17,12 @@ impl NimbusTargetingHelper {
     pub(crate) fn with_targeting_attributes(
         targeting_attributes: &TargetingAttributes,
         event_store: Arc<Mutex<EventStore>>,
+        pref_store: Option<Arc<GeckoPrefStore>>,
     ) -> Self {
         Self {
             context: serde_json::to_value(targeting_attributes.clone()).unwrap(),
             event_store,
+            gecko_pref_store: pref_store,
             targeting_attributes: Some(targeting_attributes.clone()),
         }
     }

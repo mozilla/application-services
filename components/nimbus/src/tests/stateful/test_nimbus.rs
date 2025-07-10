@@ -5,19 +5,21 @@
 use crate::{
     enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
     error::{info, Result},
+    json::PrefValue,
     metrics::MalformedFeatureConfigExtraDef,
     stateful::{
         behavior::{
             EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
             SingleIntervalCounter,
         },
+        gecko_prefs::{create_feature_prop_pref_map, GeckoPrefState, PrefUnenrollReason},
         persistence::{Database, StoreId},
         targeting::RecordedContext,
     },
     tests::helpers::{
-        get_bucketed_rollout, get_ios_rollout_experiment, get_single_feature_experiment,
-        get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
-        TestMetrics, TestRecordedContext,
+        get_bucketed_rollout, get_ios_rollout_experiment, get_multi_feature_experiment,
+        get_single_feature_experiment, get_single_feature_rollout, get_targeted_experiment,
+        to_local_experiments_string, TestGeckoPrefHandler, TestMetrics, TestRecordedContext,
     },
     AppContext, Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION,
     DB_KEY_UPDATE_DATE,
@@ -45,6 +47,7 @@ fn test_telemetry_reset() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
 
     let get_targeting_attributes_nimbus_id = || {
@@ -138,6 +141,7 @@ fn test_installation_date() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
 
     client.initialize()?;
@@ -173,6 +177,7 @@ fn test_installation_date() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     delete_test_creation_date(tmp_dir.path()).ok();
     // When we check the filesystem, we will fail. We haven't `set_test_creation_date`
@@ -195,6 +200,7 @@ fn test_installation_date() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.initialize()?;
     // We now store a date for days ago in our file system
@@ -225,6 +231,7 @@ fn test_installation_date() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.initialize()?;
     // now that the store is clear, we will fallback again to the
@@ -256,6 +263,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
 
     // 0. We haven't initialized anything yet, so dates won't be available.
@@ -283,6 +291,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
@@ -303,6 +312,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.initialize()?;
 
@@ -323,6 +333,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -350,6 +361,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -383,6 +395,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.initialize()?;
     client.apply_pending_experiments()?;
@@ -424,6 +437,7 @@ fn test_days_since_install() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_install_time(Utc::now() - Duration::days(10));
     client.initialize()?;
@@ -494,6 +508,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_install_time(Utc::now() - Duration::days(10));
     client.initialize()?;
@@ -563,6 +578,7 @@ fn test_days_since_update() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_update_time(Utc::now() - Duration::days(10));
     client.initialize()?;
@@ -633,6 +649,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_update_time(Utc::now() - Duration::days(10));
     client.initialize()?;
@@ -715,6 +732,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -836,6 +854,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -936,6 +955,7 @@ fn test_ios_rollout() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
 
     let exp = get_ios_rollout_experiment();
@@ -971,6 +991,7 @@ fn test_fetch_enabled() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.set_fetch_enabled(false)?;
 
@@ -984,6 +1005,7 @@ fn test_fetch_enabled() -> Result<()> {
         tmp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     assert!(!client.is_fetch_enabled()?);
     Ok(())
@@ -1008,6 +1030,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -1072,6 +1095,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
 
     let targeting_attributes = TargetingAttributes {
@@ -1215,6 +1239,7 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
 
     let targeting_attributes = TargetingAttributes {
@@ -1341,6 +1366,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
         temp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
 
@@ -1382,6 +1408,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
         temp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
 
@@ -1420,6 +1447,7 @@ fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<Nimb
         temp_dir.path(),
         None,
         Box::new(metrics.clone()),
+        None,
     )
 }
 
@@ -1615,6 +1643,7 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -1672,6 +1701,7 @@ fn test_recorded_context_recorded() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
@@ -1719,6 +1749,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
         temp_dir.path(),
         None,
         Box::new(metrics),
+        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
@@ -1742,6 +1773,203 @@ fn test_recorded_context_event_queries() -> Result<()> {
     );
     assert_eq!(active_experiments.len(), 1);
     assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+
+    Ok(())
+}
+
+#[test]
+fn test_gecko_pref_enrollment() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+
+    let pref_state = GeckoPrefState::new("test.pref", None)
+        .with_gecko_value(PrefValue::Null)
+        .set_by_user();
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "test_feature",
+        "test_prop",
+        pref_state.clone(),
+    )]));
+
+    let client = NimbusClient::new(
+        app_context,
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        Box::new(metrics),
+        Some(Box::new(handler)),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let slug_1 = "slug-1";
+    let experiment = get_multi_feature_experiment(
+        slug_1,
+        vec![(
+            "test_feature",
+            json!({
+                "test_prop": "some-value"
+            }),
+        )],
+    )
+    .with_targeting("'test.pref'|preferenceIsUserSet");
+
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+
+    let handler = client.get_gecko_pref_store();
+    let handler_state = handler
+        .state
+        .lock()
+        .expect("Unable to lock transmuted handler state");
+    let prefs = handler_state.prefs_set.clone().unwrap();
+
+    assert_eq!(1, prefs.len());
+    assert_eq!(prefs[0].gecko_pref.pref, pref_state.gecko_pref.pref);
+    assert_eq!(prefs[0].gecko_value, Some(PrefValue::Null));
+    assert_eq!(
+        prefs[0].enrollment_value.clone().unwrap().pref_value,
+        PrefValue::String("some-value".to_string())
+    );
+    assert_eq!(
+        prefs[0].enrollment_value.clone().unwrap().feature_id,
+        "test_feature".to_string()
+    );
+    assert_eq!(
+        prefs[0].enrollment_value.clone().unwrap().variable,
+        "test_prop".to_string()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_gecko_pref_unenrollment() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+
+    let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "test_feature",
+        "test_prop",
+        pref_state.clone(),
+    )]));
+
+    let client = NimbusClient::new(
+        app_context,
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        None,
+        Box::new(metrics),
+        Some(Box::new(handler)),
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let rollout_slug = "rollout-1";
+    let mut rollout = get_multi_feature_experiment(
+        rollout_slug,
+        vec![(
+            "test_feature",
+            json!({
+                "test_prop": "some-rollout-value"
+            }),
+        )],
+    )
+    .with_targeting("true");
+    rollout.is_rollout = true;
+
+    let experiment_slug = "exp-1";
+    let experiment = get_multi_feature_experiment(
+        experiment_slug,
+        vec![(
+            "test_feature",
+            json!({
+                "test_prop": "some-experiment-value"
+            }),
+        )],
+    )
+    .with_targeting("true");
+
+    client.set_experiments_locally(to_local_experiments_string(&[rollout, experiment])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 2);
+
+    {
+        let handler = client.get_gecko_pref_store();
+        let handler_state = handler
+            .state
+            .lock()
+            .expect("Unable to lock transmuted handler state");
+        let prefs = handler_state.prefs_set.clone().unwrap();
+
+        assert_eq!(1, prefs.len());
+        assert_eq!(
+            prefs[0].enrollment_value.clone().unwrap().pref_value,
+            PrefValue::String("some-experiment-value".to_string())
+        );
+        assert_eq!(
+            prefs[0].enrollment_value.clone().unwrap().feature_id,
+            "test_feature".to_string()
+        );
+        assert_eq!(
+            prefs[0].enrollment_value.clone().unwrap().variable,
+            "test_prop".to_string()
+        );
+    }
+
+    let unenroll_events =
+        client.unenroll_for_gecko_pref(pref_state, PrefUnenrollReason::FailedToSet)?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 0);
+    assert_eq!(2, unenroll_events.len());
+
+    {
+        let handler = client.get_gecko_pref_store();
+        let handler_state = handler
+            .state
+            .lock()
+            .expect("Unable to lock transmuted handler state");
+        let prefs = handler_state.prefs_set.clone().unwrap();
+
+        assert_eq!(0, prefs.len());
+
+        let store = client.gecko_prefs.unwrap();
+        let pref_state = store.get_mutable_pref_state();
+        assert!(
+            pref_state.gecko_prefs_with_state["test_feature"]["test_prop"]
+                .enrollment_value
+                .is_none()
+        );
+    }
 
     Ok(())
 }

@@ -8,6 +8,9 @@ use std::collections::HashMap;
 #[cfg(feature = "stateful")]
 pub type JsonObject = Map<String, Value>;
 
+#[cfg(feature = "stateful")]
+pub type PrefValue = Value;
+
 /// Replace any instance of [from] with [to] in any string within the [serde_json::Value].
 ///
 /// This recursively descends into the object, looking at string values and keys.

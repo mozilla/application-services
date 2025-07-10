@@ -36,11 +36,14 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
+import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
+import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.MalformedFeatureConfigExtraDef
 import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
+import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import java.io.File
 import java.io.IOException
@@ -73,6 +76,7 @@ open class Nimbus(
     private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate,
     private val recordedContext: RecordedContext? = null,
+    private val geckoPrefHandler: GeckoPrefHandler? = null,
 ) : NimbusInterface {
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = delegate.dbScope
@@ -174,6 +178,7 @@ open class Nimbus(
             dataDir.path,
             remoteSettingsConfig,
             metricsHandler,
+            geckoPrefHandler,
         )
     }
 
@@ -406,6 +411,10 @@ open class Nimbus(
         dbScope.launch {
             optOutOnThisThread(experimentId)
         }
+    }
+
+    override fun unenrollForGeckoPref(geckoPrefState: GeckoPrefState, prefUnenrollReason: PrefUnenrollReason): List<EnrollmentChangeEvent> {
+        return nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
     }
 
     @WorkerThread
