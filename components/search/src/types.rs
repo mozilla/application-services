@@ -126,6 +126,10 @@ pub struct SearchEngineUrl {
     /// appended to the end of the query. This may be skipped if `{searchTerms}`
     /// is included in the base.
     pub search_term_param_name: Option<String>,
+
+    /// The display name of the URL, if any. This is useful if the URL
+    /// corresponds to a brand name distinct from the engine's brand name.
+    pub display_name: Option<String>,
 }
 
 /// The URLs associated with the search engine.
@@ -142,6 +146,9 @@ pub struct SearchEngineUrls {
 
     /// The URL of the search engine homepage.
     pub search_form: Option<SearchEngineUrl>,
+
+    /// The URL to use for visual searches.
+    pub visual_search: Option<SearchEngineUrl>,
 }
 
 /// The list of acceptable classifications for a search engine.
