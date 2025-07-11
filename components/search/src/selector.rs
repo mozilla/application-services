@@ -427,7 +427,16 @@ mod tests {
                           "name": "search-form-name",
                           "value": "search-form-value",
                         }]
-                      }
+                      },
+                      "visualSearch": {
+                        "base": "https://example.com/visual-search",
+                        "method": "GET",
+                        "params": [{
+                          "name": "visual-search-name",
+                          "value": "visual-search-value",
+                        }],
+                        "searchTermParamName": "url",
+                      },
                     }
                   },
                   "variants": [{
@@ -504,7 +513,8 @@ mod tests {
                                     enterprise_value: Some("enterprise-value".to_string()),
                                     experiment_config: None
                                 }],
-                                search_term_param_name: Some("q".to_string())
+                                search_term_param_name: Some("q".to_string()),
+                                display_name: None,
                             },
                             suggestions: Some(SearchEngineUrl {
                                 base: "https://example.com/suggestions".to_string(),
@@ -515,7 +525,8 @@ mod tests {
                                     enterprise_value: None,
                                     experiment_config: None
                                 }],
-                                search_term_param_name: Some("suggest".to_string())
+                                search_term_param_name: Some("suggest".to_string()),
+                                display_name: None,
                             }),
                             trending: Some(SearchEngineUrl {
                                 base: "https://example.com/trending".to_string(),
@@ -528,7 +539,8 @@ mod tests {
                                         "trending-experiment-value".to_string()
                                     )
                                 }],
-                                search_term_param_name: None
+                                search_term_param_name: None,
+                                display_name: None,
                             }),
                             search_form: Some(SearchEngineUrl {
                                 base: "https://example.com/search-form".to_string(),
@@ -540,6 +552,19 @@ mod tests {
                                     enterprise_value: None,
                                 }],
                                 search_term_param_name: None,
+                                display_name: None,
+                            }),
+                            visual_search: Some(SearchEngineUrl {
+                                base: "https://example.com/visual-search".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "visual-search-name".to_string(),
+                                    value: Some("visual-search-value".to_string()),
+                                    experiment_config: None,
+                                    enterprise_value: None,
+                                }],
+                                search_term_param_name: Some("url".to_string()),
+                                display_name: None,
                             }),
                         },
                         ..Default::default()
@@ -560,11 +585,13 @@ mod tests {
                                 base: "https://example.com/2".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("search".to_string())
+                                search_term_param_name: Some("search".to_string()),
+                                display_name: None,
                             },
                             suggestions: None,
                             trending: None,
-                            search_form: None
+                            search_form: None,
+                            visual_search: None,
                         },
                         click_url: None,
                     }
@@ -639,7 +666,16 @@ mod tests {
                           "name": "search-form-name",
                           "value": "search-form-value",
                         }]
-                      }
+                      },
+                      "visualSearch": {
+                        "base": "https://example.com/visual-search",
+                        "method": "GET",
+                        "params": [{
+                          "name": "visual-search-name",
+                          "value": "visual-search-value",
+                        }],
+                        "searchTermParamName": "url",
+                      },
                     }
                   },
                   "variants": [{
@@ -735,7 +771,8 @@ mod tests {
                                     enterprise_value: None,
                                     experiment_config: None
                                 }],
-                                search_term_param_name: Some("q".to_string())
+                                search_term_param_name: Some("q".to_string()),
+                                display_name: None,
                             },
                             suggestions: Some(SearchEngineUrl {
                                 base: "https://example.com/suggestions".to_string(),
@@ -746,7 +783,8 @@ mod tests {
                                     enterprise_value: None,
                                     experiment_config: None
                                 }],
-                                search_term_param_name: Some("suggest".to_string())
+                                search_term_param_name: Some("suggest".to_string()),
+                                display_name: None,
                             }),
                             trending: Some(SearchEngineUrl {
                                 base: "https://example.com/trending".to_string(),
@@ -757,7 +795,8 @@ mod tests {
                                     enterprise_value: None,
                                     experiment_config: Some("area-param".to_string())
                                 }],
-                                search_term_param_name: None
+                                search_term_param_name: None,
+                                display_name: None,
                             }),
                             search_form: Some(SearchEngineUrl {
                                 base: "https://example.com/search-form".to_string(),
@@ -769,6 +808,19 @@ mod tests {
                                     experiment_config: None,
                                 }],
                                 search_term_param_name: None,
+                                display_name: None,
+                            }),
+                            visual_search: Some(SearchEngineUrl {
+                                base: "https://example.com/visual-search".to_string(),
+                                method: "GET".to_string(),
+                                params: vec![SearchUrlParam {
+                                    name: "visual-search-name".to_string(),
+                                    value: Some("visual-search-value".to_string()),
+                                    enterprise_value: None,
+                                    experiment_config: None,
+                                }],
+                                search_term_param_name: Some("url".to_string()),
+                                display_name: None,
                             }),
                         },
                         ..Default::default()
@@ -786,7 +838,8 @@ mod tests {
                                 base: "https://example.com/2".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("search".to_string())
+                                search_term_param_name: Some("search".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -862,7 +915,16 @@ mod tests {
                           "name": "search-form-name",
                           "value": "search-form-value",
                         }]
-                      }
+                      },
+                      "visualSearch": {
+                        "base": "https://example.com/visual-search",
+                        "method": "GET",
+                        "params": [{
+                          "name": "visual-search-name",
+                          "value": "visual-search-value",
+                        }],
+                        "searchTermParamName": "url",
+                      },
                     }
                   },
                   "variants": [{
@@ -961,7 +1023,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: None
                             }],
-                            search_term_param_name: Some("q".to_string())
+                            search_term_param_name: Some("q".to_string()),
+                            display_name: None,
                         },
                         suggestions: Some(SearchEngineUrl {
                             base: "https://example.com/suggestions".to_string(),
@@ -972,7 +1035,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: None
                             }],
-                            search_term_param_name: Some("suggest".to_string())
+                            search_term_param_name: Some("suggest".to_string()),
+                            display_name: None,
                         }),
                         trending: Some(SearchEngineUrl {
                             base: "https://example.com/trending".to_string(),
@@ -983,7 +1047,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: Some("area-param".to_string())
                             }],
-                            search_term_param_name: None
+                            search_term_param_name: None,
+                            display_name: None,
                         }),
                         search_form: Some(SearchEngineUrl {
                             base: "https://example.com/search-form".to_string(),
@@ -995,6 +1060,19 @@ mod tests {
                                 experiment_config: None,
                             }],
                             search_term_param_name: None,
+                            display_name: None,
+                        }),
+                        visual_search: Some(SearchEngineUrl {
+                            base: "https://example.com/visual-search".to_string(),
+                            method: "GET".to_string(),
+                            params: vec![SearchUrlParam {
+                                name: "visual-search-name".to_string(),
+                                value: Some("visual-search-value".to_string()),
+                                enterprise_value: None,
+                                experiment_config: None,
+                            }],
+                            search_term_param_name: Some("url".to_string()),
+                            display_name: None,
                         }),
                     },
                     ..Default::default()
@@ -1034,7 +1112,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: None
                             }],
-                            search_term_param_name: Some("q".to_string())
+                            search_term_param_name: Some("q".to_string()),
+                            display_name: None,
                         },
                         suggestions: Some(SearchEngineUrl {
                             base: "https://example.com/suggestions".to_string(),
@@ -1045,7 +1124,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: None
                             }],
-                            search_term_param_name: Some("suggest".to_string())
+                            search_term_param_name: Some("suggest".to_string()),
+                            display_name: None,
                         }),
                         trending: Some(SearchEngineUrl {
                             base: "https://example.com/trending".to_string(),
@@ -1056,7 +1136,8 @@ mod tests {
                                 enterprise_value: None,
                                 experiment_config: Some("area-param".to_string())
                             }],
-                            search_term_param_name: None
+                            search_term_param_name: None,
+                            display_name: None,
                         }),
                         search_form: Some(SearchEngineUrl {
                             base: "https://example.com/search-form".to_string(),
@@ -1068,6 +1149,19 @@ mod tests {
                                 experiment_config: None,
                             }],
                             search_term_param_name: None,
+                            display_name: None,
+                        }),
+                        visual_search: Some(SearchEngineUrl {
+                            base: "https://example.com/visual-search".to_string(),
+                            method: "GET".to_string(),
+                            params: vec![SearchUrlParam {
+                                name: "visual-search-name".to_string(),
+                                value: Some("visual-search-value".to_string()),
+                                enterprise_value: None,
+                                experiment_config: None,
+                            }],
+                            search_term_param_name: Some("url".to_string()),
+                            display_name: None,
                         }),
                     },
                     ..Default::default()
@@ -1210,7 +1304,8 @@ mod tests {
                                 base: "https://example.com/1".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("q".to_string())
+                                search_term_param_name: Some("q".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -1247,7 +1342,8 @@ mod tests {
                                 base: "https://example.com/1".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("q".to_string())
+                                search_term_param_name: Some("q".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -1263,7 +1359,8 @@ mod tests {
                                 base: "https://example.com/2".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("search".to_string())
+                                search_term_param_name: Some("search".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -1301,7 +1398,8 @@ mod tests {
                                 base: "https://example.com/1".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("q".to_string())
+                                search_term_param_name: Some("q".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -1317,7 +1415,8 @@ mod tests {
                                 base: "https://example.com/3".to_string(),
                                 method: "GET".to_string(),
                                 params: Vec::new(),
-                                search_term_param_name: Some("trek".to_string())
+                                search_term_param_name: Some("trek".to_string()),
+                                display_name: None,
                             },
                             ..Default::default()
                         },
@@ -1455,6 +1554,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -1471,6 +1571,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -1487,6 +1588,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2369,6 +2471,7 @@ mod tests {
                         experiment_config: None,
                     }],
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2421,6 +2524,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2437,6 +2541,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2453,6 +2558,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2535,6 +2641,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2551,6 +2658,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2707,6 +2815,7 @@ mod tests {
                         experiment_config: None,
                     }],
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2726,6 +2835,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2847,6 +2957,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
@@ -2863,6 +2974,7 @@ mod tests {
                     method: "GET".to_string(),
                     params: Vec::new(),
                     search_term_param_name: None,
+                    display_name: None,
                 },
                 ..Default::default()
             },
