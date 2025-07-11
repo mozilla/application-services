@@ -9,8 +9,9 @@
 - add LoginStore `shutdown()` function to close database connection
 - extend LoginStore `shutdown()` to also remove the encdec
 
-### Nimbus
+### Nimbus SDK ⛅️🔬🔭
 - Updated the Nimbus API Stage URL
+- Updated the Nimbus SDK to support setting Gecko preferences ([#6826](https://github.com/mozilla/application-services/pull/6826)).
 
 ### Nimbus FML && CLI
 - handle http status codes when fetching feature manifests from GitHub. 
