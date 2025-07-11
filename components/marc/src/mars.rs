@@ -213,5 +213,6 @@ mod tests {
 
         let result = client.fetch_ads(&ad_request);
         assert!(result.is_ok());
+        assert_eq!(expected_response, result.unwrap());
     }
 }
