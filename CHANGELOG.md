@@ -16,6 +16,14 @@
 ### Nimbus FML && CLI
 - handle http status codes when fetching feature manifests from GitHub. 
 
+### Search
+
+- `JSONEngineUrls` now has an optional `visual_search` URL, supporting visual
+  search endpoints in engine configs.
+- `JSONEngineUrl` and `SearchEngineUrl` now have an optional `display_name`,
+  which is useful if a URL corresponds to a brand name distinct from the
+  engine's brand name.
+
 # v141.0 (_2025-06-23_)
 
 ## ✨ What's New ✨
