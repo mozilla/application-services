@@ -18,11 +18,10 @@
 
 ### Search
 
-- `JSONEngineUrls` now has an optional `visual_search` URL, supporting visual
-  search endpoints in engine configs.
-- `JSONEngineUrl` and `SearchEngineUrl` now have an optional `display_name`,
-  which is useful if a URL corresponds to a brand name distinct from the
-  engine's brand name.
+- `SearchEngineUrls` now has an optional `visual_search` field, supporting
+  visual search endpoints in engine configs.
+- `SearchEngineUrl` now has an optional `display_name` field, which is useful if
+  a URL corresponds to a brand name distinct from the engine's brand name.
 
 # v141.0 (_2025-06-23_)
 
