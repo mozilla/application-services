@@ -520,8 +520,8 @@ class NimbusTests: XCTestCase {
     class TestRecordedContext: RecordedContext {
         var recorded: [[String: Any]] = []
         var enabled: Bool
-        var eventQueries: [String: String]? = nil
-        var eventQueryValues: [String: Double]? = nil
+        var eventQueries: [String: String]?
+        var eventQueryValues: [String: Double]?
 
         init(enabled: Bool = true, eventQueries: [String: String]? = nil) {
             self.enabled = enabled
