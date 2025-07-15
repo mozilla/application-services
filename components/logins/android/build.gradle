@@ -9,6 +9,7 @@ apply from: "$appServicesRootDir/publish.gradle"
 // exposed by the plugin to be available for this project.
 ext {
     gleanNamespace = "mozilla.telemetry.glean"
+    gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
     if (gradle.hasProperty("mozconfig")) {
         gleanPythonEnvDir = gradle.mozconfig.substs.GRADLE_GLEAN_PARSER_VENV
     }
