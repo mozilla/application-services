@@ -1,5 +1,10 @@
 # v143.0 (In progress)
 
+## 🦊 What's Changed 🦊
+
+### Logins
+- Updated logins verification telemetry so it can be used in iOS([#6832](https://github.com/mozilla/application-services/pull/6832))
+
 [Full Changelog](In progress)
 
 # v142.0 (_2025-07-21_)
