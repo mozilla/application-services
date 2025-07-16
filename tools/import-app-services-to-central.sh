@@ -64,7 +64,7 @@ git commit -m "Import application-services commit $commit"
 
 # We've committed an app-services unmodified apart from removal of things we don't need.
 # Update Cargo.toml and re-vendor.
-sed -i '' \
+sed -i \
     -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' \
     -e 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' \
     -e 's|interrupt-support = { git = .*$|interrupt-support = { path = "services/app-services/components/support/interrupt" }|' \
@@ -89,20 +89,20 @@ git commit -a -m "Re-vendor application-services from its new in-tree home"
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }\n' >> services/app-services/megazords/full/Cargo.toml
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }\n' >> services/app-services/tools/embedded-uniffi-bindgen/Cargo.toml
 # We need to update the crate-type for the megazord
-sed -i '' -e 's|crate-type = \["cdylib"\]|crate-type = \["staticlib"\]|' services/app-services/megazords/full/Cargo.toml
+sed -i -e 's|crate-type = \["cdylib"\]|crate-type = \["staticlib"\]|' services/app-services/megazords/full/Cargo.toml
 # [features] is conveniently at the end of this toml
 printf 'megazord = []\nembedded-uniffi-bindgen = []\n' >> build/workspace-hack/Cargo.toml
 # and more hacks - sue me ;) In the short term these are more fragile in theory than practice.
 
 # Add the 2 crates to the workspace which have binary targets
-sed -i '' \
+sed -i \
   -e 's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
   "services/app-services/megazords/full",\
   "services/app-services/tools/embedded-uniffi-bindgen",|' \
   Cargo.toml
 
 # exclude all the app-services crates.
-sed -i '' \
+sed -i \
   -e 's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-tests",\
 \
   # app-services excluded members, also to avoid dev dependencies.\
