@@ -64,19 +64,17 @@ git commit -m "Import application-services commit $commit"
 
 # We've committed an app-services unmodified apart from removal of things we don't need.
 # Update Cargo.toml and re-vendor.
-sed -i '' \
-    -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' \
-    -e 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' \
-    -e 's|interrupt-support = { git = .*$|interrupt-support = { path = "services/app-services/components/support/interrupt" }|' \
-    -e 's|relevancy = { git = .*$|relevancy = { path = "services/app-services/components/relevancy" }|' \
-    -e 's|search = { git = .*$|search = { path = "services/app-services/components/search" }|' \
-    -e 's|sql-support = { git = .*$|sql-support = { path = "services/app-services/components/support/sql" }|' \
-    -e 's|suggest = { git = .*$|suggest = { path = "services/app-services/components/suggest" }|' \
-    -e 's|sync15 = { git = .*$|sync15 = { path = "services/app-services/components/sync15" }|' \
-    -e 's|tabs = { git = .*$|tabs = { path = "services/app-services/components/tabs" }|' \
-    -e 's|viaduct = { git = .*$|viaduct = { path = "services/app-services/components/viaduct" }|' \
-    -e 's|webext-storage = { git = .*$|webext-storage = { path = "services/app-services/components/webext-storage" }|' \
-    Cargo.toml
+sed -i 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' Cargo.toml
+sed -i 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' Cargo.toml
+sed -i 's|interrupt-support = { git = .*$|interrupt-support = { path = "services/app-services/components/support/interrupt" }|' Cargo.toml
+sed -i 's|relevancy = { git = .*$|relevancy = { path = "services/app-services/components/relevancy" }|' Cargo.toml
+sed -i 's|search = { git = .*$|search = { path = "services/app-services/components/search" }|' Cargo.toml
+sed -i 's|sql-support = { git = .*$|sql-support = { path = "services/app-services/components/support/sql" }|' Cargo.toml
+sed -i 's|suggest = { git = .*$|suggest = { path = "services/app-services/components/suggest" }|' Cargo.toml
+sed -i 's|sync15 = { git = .*$|sync15 = { path = "services/app-services/components/sync15" }|' Cargo.toml
+sed -i 's|tabs = { git = .*$|tabs = { path = "services/app-services/components/tabs" }|' Cargo.toml
+sed -i 's|viaduct = { git = .*$|viaduct = { path = "services/app-services/components/viaduct" }|' Cargo.toml
+sed -i 's|webext-storage = { git = .*$|webext-storage = { path = "services/app-services/components/webext-storage" }|' Cargo.toml
 
 ./mach vendor rust
 # This will create a commit with Cargo.lock changing just for these crates, and many `third_party/rust` directories removed.
@@ -89,21 +87,21 @@ git commit -a -m "Re-vendor application-services from its new in-tree home"
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }\n' >> services/app-services/megazords/full/Cargo.toml
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }\n' >> services/app-services/tools/embedded-uniffi-bindgen/Cargo.toml
 # We need to update the crate-type for the megazord
-sed -i '' -e 's|crate-type = \["cdylib"\]|crate-type = \["staticlib"\]|' services/app-services/megazords/full/Cargo.toml
+sed -i 's|crate-type = \["cdylib"\]|crate-type = \["staticlib"\]|' services/app-services/megazords/full/Cargo.toml
 # [features] is conveniently at the end of this toml
 printf 'megazord = []\nembedded-uniffi-bindgen = []\n' >> build/workspace-hack/Cargo.toml
 # and more hacks - sue me ;) In the short term these are more fragile in theory than practice.
 
 # Add the 2 crates to the workspace which have binary targets
-sed -i '' \
-  -e 's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
+sed -i \
+  's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
   "services/app-services/megazords/full",\
   "services/app-services/tools/embedded-uniffi-bindgen",|' \
   Cargo.toml
 
 # exclude all the app-services crates.
-sed -i '' \
-  -e 's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-tests",\
+sed -i \
+  's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-tests",\
 \
   # app-services excluded members, also to avoid dev dependencies.\
   "services/app-services/components/autofill",\
