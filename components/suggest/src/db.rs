@@ -250,7 +250,7 @@ impl<'a> SuggestDao<'a> {
     pub fn suggestions_table_empty(&self) -> Result<bool> {
         Ok(self
             .conn
-            .query_one::<bool>("SELECT NOT EXISTS (SELECT 1 FROM suggestions)")?)
+            .conn_ext_query_one::<bool>("SELECT NOT EXISTS (SELECT 1 FROM suggestions)")?)
     }
 
     /// Fetches Suggestions of type Amp provider that match the given query
