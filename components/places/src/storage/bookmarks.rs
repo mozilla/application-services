@@ -1261,7 +1261,7 @@ mod tests {
         assert!(global_change_tracker.changed());
 
         assert_eq!(
-            conn.query_one::<i64>(
+            conn.conn_ext_query_one::<i64>(
                 "SELECT COUNT(*) FROM moz_origins WHERE host='www.example2.com';"
             )?,
             0

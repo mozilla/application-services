@@ -272,7 +272,7 @@ pub fn run_maintenance_prune(
 /// Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
 /// it supports a stop-watch style API, not recording specific values).
 pub fn run_maintenance_vacuum(conn: &PlacesDb) -> Result<()> {
-    let auto_vacuum_setting: u32 = conn.query_one("PRAGMA auto_vacuum")?;
+    let auto_vacuum_setting: u32 = conn.conn_ext_query_one("PRAGMA auto_vacuum")?;
     if auto_vacuum_setting == 2 {
         // Ideally, we run an incremental vacuum to delete 2 pages
         conn.execute_one("PRAGMA incremental_vacuum(2)")?;
@@ -491,7 +491,7 @@ mod tests {
             },
         };
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             5
         ); // our 5 roots.
@@ -503,12 +503,12 @@ mod tests {
             .guid;
         // the place should exist with a foreign_count of 1.
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             6
         ); // our 5 roots + new bookmark
         assert_eq!(
-            conn.query_one::<i64>(
+            conn.conn_ext_query_one::<i64>(
                 "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
             )
             .unwrap(),
@@ -526,13 +526,13 @@ mod tests {
 
         delete_bookmark(&conn, &bookmark_guid).unwrap();
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             5
         ); // our 5 roots
            // the place should have no foreign references, but still exists.
         assert_eq!(
-            conn.query_one::<i64>(
+            conn.conn_ext_query_one::<i64>(
                 "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
             )
             .unwrap(),
@@ -540,12 +540,12 @@ mod tests {
         );
         removal_fn(&conn, &place_guid).expect("removal function should work");
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
                 .unwrap(),
             0
         );
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
                 .unwrap(),
             0
         );
@@ -569,19 +569,19 @@ mod tests {
             },
         };
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             5
         ); // our 5 roots.
         let bookmark_guid = insert_bookmark(&conn, bm).unwrap();
         // the place should exist with a foreign_count of 1.
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             6
         ); // our 5 roots + new bookmark
         assert_eq!(
-            conn.query_one::<i64>(
+            conn.conn_ext_query_one::<i64>(
                 "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
             )
             .unwrap(),
@@ -590,18 +590,18 @@ mod tests {
         // Delete it.
         delete_bookmark(&conn, &bookmark_guid).unwrap();
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_bookmarks;")
                 .unwrap(),
             5
         ); // our 5 roots
            // should be gone from places and origins.
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
                 .unwrap(),
             0
         );
         assert_eq!(
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
+            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_origins;")
                 .unwrap(),
             0
         );
