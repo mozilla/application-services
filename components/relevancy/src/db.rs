@@ -145,7 +145,7 @@ impl<'a> RelevancyDao<'a> {
         // TODO: we probably will need a better check than this.
         Ok(self
             .conn
-            .query_one("SELECT NOT EXISTS (SELECT 1 FROM url_interest)")?)
+            .conn_ext_query_one("SELECT NOT EXISTS (SELECT 1 FROM url_interest)")?)
     }
 
     /// Update the frecency user interest vector based on a new measurement.

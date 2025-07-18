@@ -116,7 +116,7 @@ mod test {
 
         // Should only have 1 row in push_record
         assert_eq!(
-            db.query_one::<u32>("SELECT COUNT(*) FROM push_record")
+            db.conn_ext_query_one::<u32>("SELECT COUNT(*) FROM push_record")
                 .unwrap(),
             1
         );
@@ -134,7 +134,7 @@ mod test {
         // But both metadata ones.
         assert_eq!(
             db.db
-                .query_one::<u32>("SELECT COUNT(*) FROM meta_data")
+                .conn_ext_query_one::<u32>("SELECT COUNT(*) FROM meta_data")
                 .unwrap(),
             2
         );

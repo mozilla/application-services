@@ -565,6 +565,10 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: rusqlite</name>
+    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: mime_guess</name>
     <url>https://github.com/abonander/mime_guess/blob/master/LICENSE</url>
   </license>
@@ -583,10 +587,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: rmp-serde</name>
     <url>https://github.com/3Hren/msgpack-rust/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: rusqlite</name>
-    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: scroll</name>

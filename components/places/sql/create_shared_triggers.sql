@@ -109,14 +109,6 @@ BEGIN
     WHERE id = OLD.place_id;
 END;
 
-CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterdelete_trigger
-AFTER DELETE ON moz_bookmarks FOR EACH ROW
-BEGIN
-    UPDATE moz_places
-    SET foreign_count = foreign_count - 1
-    WHERE id = OLD.fk;
-END;
-
 -- Note that the desktop versions of the triggers below call a note_sync_change()
 -- function in some/all cases, which we will probably end up needing when we
 -- come to sync.
@@ -315,6 +307,13 @@ END;
 CREATE TEMP TRIGGER moz_cleanup_origin_bookmark_deleted_trigger
 AFTER DELETE ON moz_bookmarks
 BEGIN
+    -- Note sqlite doesn't guarantee the order of triggers, and because the trigger which removes an entry from `moz_places`
+    -- depends on the trigger which decrements `foreign_count` having been run first, the only
+    -- way to guarantee that is to order them explicitly within the same trigger.
+    UPDATE moz_places
+        SET foreign_count = foreign_count - 1
+        WHERE id = OLD.fk;
+
     DELETE FROM moz_places
         WHERE id = OLD.fk
         AND foreign_count = 0

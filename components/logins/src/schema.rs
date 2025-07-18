@@ -197,7 +197,7 @@ pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
 pub(crate) static CHECKPOINT_KEY: &str = "checkpoint";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
-    let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+    let user_version = db.conn_ext_query_one::<i64>("PRAGMA user_version")?;
     warn!("user_version: {}", user_version);
     if user_version == 0 {
         return create(db);
@@ -266,7 +266,7 @@ mod tests {
         ensure_initialized();
         let db = LoginDb::open_in_memory();
         // should be VERSION.
-        let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
+        let version = db.conn_ext_query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);
     }
 
@@ -310,7 +310,7 @@ mod tests {
         // Now open the DB - it will create loginsL for us and migrate loginsM.
         let db = LoginDb::with_connection(connection, TEST_ENCDEC.clone()).unwrap();
         // all migrations should have succeeded.
-        let version = db.query_one::<i64>("PRAGMA user_version").unwrap();
+        let version = db.conn_ext_query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);
 
         // and ensure sql selecting the new column works.
