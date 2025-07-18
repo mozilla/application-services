@@ -1302,7 +1302,7 @@ mod tests {
 
             // Verify we actually have 2 pending closures
             let before_count: i64 = db
-                .query_one("SELECT COUNT(*) FROM remote_tab_commands")
+                .conn_ext_query_one("SELECT COUNT(*) FROM remote_tab_commands")
                 .unwrap();
             assert_eq!(before_count, 2);
         }
@@ -1323,12 +1323,12 @@ mod tests {
 
         let reopen_db = storage.open_if_exists().unwrap().unwrap();
         let after_count: i64 = reopen_db
-            .query_one("SELECT COUNT(*) FROM remote_tab_commands")
+            .conn_ext_query_one("SELECT COUNT(*) FROM remote_tab_commands")
             .unwrap();
         assert_eq!(after_count, 1);
 
         let remaining_device_id: String = reopen_db
-            .query_one("SELECT device_id FROM remote_tab_commands")
+            .conn_ext_query_one("SELECT device_id FROM remote_tab_commands")
             .unwrap();
 
         // Only the device that still hasn't synced keeps

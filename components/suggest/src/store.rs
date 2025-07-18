@@ -923,7 +923,7 @@ where
             .into_iter()
             .map(|name| {
                 let count: u32 = conn
-                    .query_one(&format!("SELECT COUNT(*) FROM {name}"))
+                    .conn_ext_query_one(&format!("SELECT COUNT(*) FROM {name}"))
                     .unwrap();
                 (name, count)
             })
@@ -937,8 +937,10 @@ where
 
         let reader = &self.dbs().unwrap().reader;
         let conn = reader.conn.lock();
-        conn.query_one("SELECT page_size * page_count FROM pragma_page_count(), pragma_page_size()")
-            .unwrap()
+        conn.conn_ext_query_one(
+            "SELECT page_size * page_count FROM pragma_page_count(), pragma_page_size()",
+        )
+        .unwrap()
     }
 }
 
@@ -1023,7 +1025,7 @@ pub(crate) mod tests {
 
         pub fn count_rows(&self, table_name: &str) -> u64 {
             let sql = format!("SELECT count(*) FROM {table_name}");
-            self.read(|dao| Ok(dao.conn.query_one(&sql)?))
+            self.read(|dao| Ok(dao.conn.conn_ext_query_one(&sql)?))
                 .unwrap_or_else(|e| panic!("SQL error in count: {e}"))
         }
 
@@ -2332,10 +2334,14 @@ pub(crate) mod tests {
         store.read(|dao| {
             assert_eq!(
                 dao.conn
-                    .query_one::<i64>("SELECT count(*) FROM suggestions")?,
+                    .conn_ext_query_one::<i64>("SELECT count(*) FROM suggestions")?,
                 0
             );
-            assert_eq!(dao.conn.query_one::<i64>("SELECT count(*) FROM icons")?, 0);
+            assert_eq!(
+                dao.conn
+                    .conn_ext_query_one::<i64>("SELECT count(*) FROM icons")?,
+                0
+            );
 
             Ok(())
         })?;

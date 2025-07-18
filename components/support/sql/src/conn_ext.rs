@@ -70,7 +70,10 @@ pub trait ConnExt {
     }
 
     /// Execute a query that returns a single result column, and return that result.
-    fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
+    /// NOTE: rusqlite now has a builtin `query_one` (with not quite these semantics)
+    /// and a `one_column` (with these semantics but subtly different args) which should
+    /// generally be preferred. We've kept this to make upgrading easier.
+    fn conn_ext_query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
         let res: T = self.conn().query_row_and_then(sql, [], |row| row.get(0))?;
         Ok(res)
     }
@@ -238,9 +241,10 @@ pub trait ConnExt {
 
     /// Get the DB size in bytes
     fn get_db_size(&self) -> Result<u32, rusqlite::Error> {
-        let page_count: u32 = self.query_one("SELECT * from pragma_page_count()")?;
-        let page_size: u32 = self.query_one("SELECT * from pragma_page_size()")?;
-        let freelist_count: u32 = self.query_one("SELECT * from pragma_freelist_count()")?;
+        let page_count: u32 = self.conn_ext_query_one("SELECT * from pragma_page_count()")?;
+        let page_size: u32 = self.conn_ext_query_one("SELECT * from pragma_page_size()")?;
+        let freelist_count: u32 =
+            self.conn_ext_query_one("SELECT * from pragma_freelist_count()")?;
 
         Ok((page_count - freelist_count) * page_size)
     }
