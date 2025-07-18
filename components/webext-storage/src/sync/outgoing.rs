@@ -155,7 +155,7 @@ mod tests {
             &NeverInterrupts,
         )?;
 
-        let counter: i32 = tx.conn().query_one(
+        let counter: i32 = tx.conn().conn_ext_query_one(
             "SELECT sync_change_counter FROM storage_sync_data WHERE ext_id = 'ext_with_changes'",
         )?;
         assert_eq!(counter, 0);
