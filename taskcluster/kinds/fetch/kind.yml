@@ -24,6 +24,6 @@ tasks:
         description: fetches the built NSS artifacts from NSS CI
         fetch:
             type: static-url
-            url: https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/JfComCsZTDSI3L0Ya-xd8Q/runs/0/artifacts/public/dist.tar.bz2
-            sha256: 6319c12d5dec61bcae94aeba35e5bc8e2c2555eade07d60fcea298926dfb3524
-            size: 24338546
+            url: https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/D3JbEsM4T4e5TwGgj8A95g/runs/0/artifacts/public/dist.tar.bz2
+            sha256: e2efc1b01dec93feab051449d3e2b208ee3012508b0fbe00c2c51eb3e79a349e
+            size: 24390597
