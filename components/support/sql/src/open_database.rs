@@ -246,7 +246,7 @@ fn try_handle_db_failure<CI: ConnectionInitializer, P: AsRef<Path>>(
 }
 
 fn is_db_empty(conn: &Connection) -> Result<bool> {
-    Ok(conn.query_one::<u32>("SELECT COUNT(*) FROM sqlite_master")? == 0)
+    Ok(conn.conn_ext_query_one::<u32>("SELECT COUNT(*) FROM sqlite_master")? == 0)
 }
 
 fn get_schema_version(conn: &Connection) -> Result<u32> {
@@ -598,7 +598,8 @@ mod test {
         let db_file = MigratedDatabaseFile::new(TestConnectionInitializer::new(), INIT_V2);
         let conn = open_database(db_file.path.clone(), &db_file.connection_initializer).unwrap();
         assert_eq!(
-            conn.query_one::<String>("PRAGMA journal_mode").unwrap(),
+            conn.conn_ext_query_one::<String>("PRAGMA journal_mode")
+                .unwrap(),
             "wal"
         );
     }
@@ -621,7 +622,7 @@ mod test {
         assert_eq!(
             db_file
                 .open()
-                .query_one::<i32>("SELECT COUNT(*) FROM my_old_table_name")
+                .conn_ext_query_one::<i32>("SELECT COUNT(*) FROM my_old_table_name")
                 .unwrap(),
             1
         );
@@ -649,7 +650,7 @@ mod test {
         assert_eq!(
             db_file
                 .open()
-                .query_one::<i32>("SELECT COUNT(*) FROM my_old_table_name")
+                .conn_ext_query_one::<i32>("SELECT COUNT(*) FROM my_old_table_name")
                 .unwrap(),
             1
         );

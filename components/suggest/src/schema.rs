@@ -1004,7 +1004,7 @@ PRAGMA user_version=16;
         // `ingested_records` should be empty.
         let conn = db_file.open();
         assert_eq!(
-            conn.query_one::<i32>("SELECT count(*) FROM ingested_records")?,
+            conn.conn_ext_query_one::<i32>("SELECT count(*) FROM ingested_records")?,
             0,
             "ingested_records should be empty"
         );
