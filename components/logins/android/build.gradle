@@ -24,10 +24,12 @@ dependencies {
     api project(':init_rust_components')
     api project(':sync15')
 
+    implementation libs.kotlin.coroutines
     implementation libs.mozilla.glean
     implementation project(':init_rust_components')
 
     testImplementation libs.mozilla.glean.forUnitTests
+    testImplementation libs.kotlin.coroutines.test
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.work.testing
     testImplementation project(":syncmanager")
