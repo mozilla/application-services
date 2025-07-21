@@ -7,11 +7,34 @@ use std::collections::HashMap;
 
 use crate::{
     mars::DefaultMARSClient,
-    models::{AdCallbacks, AdResponse, MozAd},
+    models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
+    IABContent, MozAdsPlacement, MozAdsPlacementConfig,
 };
 
 #[allow(dead_code)]
 pub const TEST_CONTEXT_ID: &str = "test-context-id";
+
+#[allow(dead_code)]
+pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
+    vec![
+        MozAdsPlacementConfig {
+            placement_id: "example_placement_1".to_string(),
+            iab_content: Some(IABContent {
+                taxonomy: IABContentTaxonomy::IAB2_1,
+                category_ids: vec!["entertainment".to_string()],
+            }),
+            fixed_size: None,
+        },
+        MozAdsPlacementConfig {
+            placement_id: "example_placement_2".to_string(),
+            iab_content: Some(IABContent {
+                taxonomy: IABContentTaxonomy::IAB3_0,
+                category_ids: vec![],
+            }),
+            fixed_size: None,
+        },
+    ]
+}
 
 #[allow(dead_code)]
 pub fn get_example_happy_ad_response() -> AdResponse {
@@ -93,6 +116,66 @@ pub fn get_example_missing_callback_ad_response() -> AdResponse {
             ),
         ]),
     }
+}
+
+#[allow(dead_code)]
+pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
+    let mut placements = HashMap::new();
+    placements.insert(
+        "example_placement_1".to_string(),
+        MozAdsPlacement {
+            placement_config: MozAdsPlacementConfig {
+                placement_id: "example_placement_1".to_string(),
+                iab_content: Some(IABContent {
+                    taxonomy: IABContentTaxonomy::IAB2_1,
+                    category_ids: vec!["entertainment".to_string()],
+                }),
+                fixed_size: None,
+            },
+            content: MozAd {
+                url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
+                image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
+                format: Some("billboard".to_string()),
+                block_key: None,
+                alt_text: Some("An ad for a puppy".to_string()),
+                callbacks: Some(AdCallbacks {
+                    click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
+                    impression: Some(
+                        "https://ads.fakeexample.org/impression/example_ad_1".to_string(),
+                    ),
+                    report: Some("https://ads.fakeexample.org/report/example_ad_1".to_string()),
+                }),
+            },
+        },
+    );
+    placements.insert(
+        "example_placement_2".to_string(),
+        MozAdsPlacement {
+            placement_config: MozAdsPlacementConfig {
+                placement_id: "example_placement_2".to_string(),
+                iab_content: Some(IABContent {
+                    taxonomy: IABContentTaxonomy::IAB3_0,
+                    category_ids: vec![],
+                }),
+                fixed_size: None,
+            },
+            content: MozAd {
+                url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
+                image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
+                format: Some("skyscraper".to_string()),
+                block_key: None,
+                alt_text: Some("An ad for a pet duck".to_string()),
+                callbacks: Some(AdCallbacks {
+                    click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
+                    impression: Some(
+                        "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
+                    ),
+                    report: Some("https://ads.fakeexample.org/report/example_ad_2".to_string()),
+                }),
+            },
+        },
+    );
+    placements
 }
 
 #[allow(dead_code)]

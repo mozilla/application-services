@@ -25,9 +25,27 @@ pub struct AdPlacementRequest {
     pub content: Option<AdContentCategory>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+pub enum IABContentTaxonomy {
+    #[serde(rename = "IAB-1.0")]
+    IAB1_0,
+
+    #[serde(rename = "IAB-2.0")]
+    IAB2_0,
+
+    #[serde(rename = "IAB-2.1")]
+    IAB2_1,
+
+    #[serde(rename = "IAB-2.2")]
+    IAB2_2,
+
+    #[serde(rename = "IAB-3.0")]
+    IAB3_0,
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
 pub struct AdContentCategory {
-    pub taxonomy: String,
+    pub taxonomy: IABContentTaxonomy,
     pub categories: Vec<String>,
 }
 
