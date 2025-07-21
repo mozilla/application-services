@@ -2887,6 +2887,7 @@ name = "marc"
 version = "0.1.0"
 dependencies = [
  "error-support",
+ "mockall",
  "mockito",
  "parking_lot",
  "serde",
