@@ -5,6 +5,7 @@
 //! This module defines the types that we export across the UNIFFI interface.
 
 use serde::Deserialize;
+use std::collections::HashMap;
 
 /// The list of possible application names that are currently supported.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, uniffi::Enum)]
@@ -127,9 +128,13 @@ pub struct SearchEngineUrl {
     /// is included in the base.
     pub search_term_param_name: Option<String>,
 
-    /// The display name of the URL, if any. This is useful if the URL
-    /// corresponds to a brand name distinct from the engine's brand name.
-    pub display_name: Option<String>,
+    /// A map from locale codes to display names of the URL. This is useful if
+    /// the URL corresponds to a brand name distinct from the engine's brand
+    /// name. Since brand names can be localized, this is a map rather than a
+    /// URL. The client will fall back to the special locale code "default" when
+    /// its locale is not present in the map.
+    #[uniffi(default = None)]
+    pub display_name_map: Option<HashMap<String, String>>,
 }
 
 /// The URLs associated with the search engine.
