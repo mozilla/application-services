@@ -43,6 +43,46 @@ pub enum CuratedRecommendationLocale {
     #[serde(rename = "de-CH")]
     DeCh,
 }
+
+impl CuratedRecommendationLocale {
+    /// Returns all supported locale strings (e.g. `"en-US"`, `"fr-FR"`).
+    ///
+    /// These strings are the canonical serialized values of the enum variants.
+    pub fn all_locales() -> Vec<String> {
+        vec![
+            CuratedRecommendationLocale::Fr,
+            CuratedRecommendationLocale::FrFr,
+            CuratedRecommendationLocale::Es,
+            CuratedRecommendationLocale::EsEs,
+            CuratedRecommendationLocale::It,
+            CuratedRecommendationLocale::ItIt,
+            CuratedRecommendationLocale::En,
+            CuratedRecommendationLocale::EnCa,
+            CuratedRecommendationLocale::EnGb,
+            CuratedRecommendationLocale::EnUs,
+            CuratedRecommendationLocale::De,
+            CuratedRecommendationLocale::DeDe,
+            CuratedRecommendationLocale::DeAt,
+            CuratedRecommendationLocale::DeCh,
+        ]
+        .into_iter()
+        .map(|l| {
+            serde_json::to_string(&l)
+                .unwrap()
+                .trim_matches('"')
+                .to_string()
+        })
+        .collect()
+    }
+
+    /// Parses a locale string (e.g. `"en-US"`) into a `CuratedRecommendationLocale` enum variant.
+    ///
+    /// Returns `None` if the string does not match a known variant.
+    pub fn from_locale_string(locale: String) -> Option<CuratedRecommendationLocale> {
+        serde_json::from_str(&format!("\"{}\"", locale)).ok()
+    }
+}
+
 // Configuration settings for a Section
 #[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
 pub struct SectionSettings {
@@ -258,4 +298,57 @@ pub struct Tile {
     pub has_ad: bool,
     #[serde(rename = "hasExcerpt")]
     pub has_excerpt: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_locale_string_valid_cases() {
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("en-US".into()),
+            Some(CuratedRecommendationLocale::EnUs)
+        );
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("fr".into()),
+            Some(CuratedRecommendationLocale::Fr)
+        );
+    }
+
+    #[test]
+    fn test_from_locale_string_invalid_cases() {
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("en_US".into()),
+            None
+        );
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("zz-ZZ".into()),
+            None
+        );
+    }
+
+    #[test]
+    fn test_all_locales_contains_expected_values() {
+        let locales = CuratedRecommendationLocale::all_locales();
+        assert!(locales.contains(&"en-US".to_string()));
+        assert!(locales.contains(&"de-CH".to_string()));
+        assert!(locales.contains(&"fr".to_string()));
+    }
+
+    #[test]
+    fn test_all_locales_round_trip() {
+        for locale_str in CuratedRecommendationLocale::all_locales() {
+            let parsed = CuratedRecommendationLocale::from_locale_string(locale_str.clone());
+            assert!(parsed.is_some(), "Failed to parse locale: {}", locale_str);
+
+            let reserialized = serde_json::to_string(&parsed.unwrap()).unwrap();
+            let clean = reserialized.trim_matches('"');
+            assert_eq!(
+                clean, locale_str,
+                "Round-trip mismatch: {} => {}",
+                locale_str, clean
+            );
+        }
+    }
 }
