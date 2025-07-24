@@ -10,6 +10,7 @@ use crate::{
     SearchUrlParam,
 };
 use serde::Deserialize;
+use std::collections::HashMap;
 
 /// The list of possible submission methods for search engine urls.
 #[derive(Debug, uniffi::Enum, PartialEq, Deserialize, Clone, Default)]
@@ -53,9 +54,12 @@ pub(crate) struct JSONEngineUrl {
     /// is included in the base.
     pub search_term_param_name: Option<String>,
 
-    /// The display name of the URL, if any. This is useful if the URL
-    /// corresponds to a brand name distinct from the engine's brand name.
-    pub display_name: Option<String>,
+    /// A map from locale codes to display names of the URL. This is useful if
+    /// the URL corresponds to a brand name distinct from the engine's brand
+    /// name. Since brand names can be localized, this is a map rather than a
+    /// URL. The client will fall back to the special locale code "default" when
+    /// its locale is not present in the map.
+    pub display_name_map: Option<HashMap<String, String>>,
 }
 
 /// Reflects `types::SearchEngineUrls`, but using `EngineUrl`.
