@@ -9,7 +9,7 @@ use crate::{
 };
 use url::Url;
 use uuid::Uuid;
-use viaduct::Request;
+use viaduct::Request; // wherever the trait is defined
 
 const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.allizom.org/v1";
 

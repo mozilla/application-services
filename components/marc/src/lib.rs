@@ -19,6 +19,8 @@ mod mars;
 mod models;
 mod test_utils;
 
+use crate::instrument::TrackError;
+
 uniffi::setup_scaffolding!("MARC");
 
 /// Top-level API for the marc component
@@ -124,7 +126,7 @@ impl MozAdsComponentInner {
             .as_ref()
             .and_then(|callbacks| callbacks.impression.clone());
 
-        self.client.record_impression(impression_callback)?;
+        self.client.record_impression(impression_callback).track()?;
         Ok(())
     }
 
@@ -135,7 +137,7 @@ impl MozAdsComponentInner {
             .as_ref()
             .and_then(|callbacks| callbacks.click.clone());
 
-        self.client.record_click(click_callback)?;
+        self.client.record_click(click_callback).track()?;
         Ok(())
     }
 
@@ -146,7 +148,7 @@ impl MozAdsComponentInner {
             .as_ref()
             .and_then(|callbacks| callbacks.report.clone());
 
-        self.client.record_report_ad(report_ad_callback)?;
+        self.client.record_report_ad(report_ad_callback).track()?;
         Ok(())
     }
 

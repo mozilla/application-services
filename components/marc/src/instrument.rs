@@ -15,6 +15,7 @@ pub enum TelemetryEvent {
     InvalidUrlError,
 }
 
+#[allow(dead_code)]
 pub trait TrackError<T, E> {
     fn track(self) -> Self;
     fn track_if<F>(self, condition: F) -> Self
