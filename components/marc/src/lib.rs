@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod error;
+mod instrument;
 mod mars;
 mod models;
 mod test_utils;
@@ -579,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn test_request_ads_returns_happy() {
+    fn test_request_ads_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_fetch_ads()
             .returning(|_req| Ok(get_example_happy_ad_response()));
