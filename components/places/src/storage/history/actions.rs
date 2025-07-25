@@ -445,17 +445,17 @@ mod tests {
         .unwrap();
         DbAction::DeleteFromPendingTempTables.apply(&conn).unwrap();
         assert_eq!(
-            conn.query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsinsert_temp")
+            conn.conn_ext_query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsinsert_temp")
                 .unwrap(),
             0
         );
         assert_eq!(
-            conn.query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsupdate_temp")
+            conn.conn_ext_query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsupdate_temp")
                 .unwrap(),
             0
         );
         assert_eq!(
-            conn.query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsdelete_temp")
+            conn.conn_ext_query_one::<u32>("SELECT COUNT(*) FROM moz_updateoriginsdelete_temp")
                 .unwrap(),
             0
         );

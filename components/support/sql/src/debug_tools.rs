@@ -110,13 +110,13 @@ mod test {
     fn test_dbg() {
         let conn = Connection::open_with_flags(":memory:", rusqlite::OpenFlags::default()).unwrap();
         define_debug_functions(&conn).unwrap();
-        assert_eq!(conn.query_one::<i64>("SELECT dbg('foo', 0);").unwrap(), 0);
+        assert_eq!(conn.conn_ext_query_one::<i64>("SELECT dbg('foo', 0);").unwrap(), 0);
         assert_eq!(
-            conn.query_one::<String>("SELECT dbg('foo');").unwrap(),
+            conn.conn_ext_query_one::<String>("SELECT dbg('foo');").unwrap(),
             "foo"
         );
         assert_eq!(
-            conn.query_one::<Option<String>>("SELECT dbg();").unwrap(),
+            conn.conn_ext_query_one::<Option<String>>("SELECT dbg();").unwrap(),
             None
         );
     }
