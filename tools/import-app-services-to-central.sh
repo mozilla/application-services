@@ -74,6 +74,7 @@ sed -i '' \
     -e 's|suggest = { git = .*$|suggest = { path = "services/app-services/components/suggest" }|' \
     -e 's|sync15 = { git = .*$|sync15 = { path = "services/app-services/components/sync15" }|' \
     -e 's|tabs = { git = .*$|tabs = { path = "services/app-services/components/tabs" }|' \
+    -e 's|tracing-support = { git = .*$|tracing-support = { path = "services/app-services/components/support/tracing" }|' \
     -e 's|viaduct = { git = .*$|viaduct = { path = "services/app-services/components/viaduct" }|' \
     -e 's|webext-storage = { git = .*$|webext-storage = { path = "services/app-services/components/webext-storage" }|' \
     Cargo.toml
@@ -112,14 +113,18 @@ sed -i '' \
   "services/app-services/components/nimbus",\
   "services/app-services/components/places",\
   "services/app-services/components/push",\
+  "services/app-services/components/relay",\
   "services/app-services/components/relevancy",\
   "services/app-services/components/remote_settings",\
   "services/app-services/components/search",\
   "services/app-services/components/suggest",\
+  "services/app-services/components/support/error",\
   "services/app-services/components/support/guid",\
   "services/app-services/components/support/sql",\
+  "services/app-services/components/support/tracing",\
   "services/app-services/components/sync15",\
   "services/app-services/components/tabs",\
+  "services/app-services/components/webext-storage",\
   # app-services excluded members, for other reasons.\
   "services/app-services/megazords/ios-rust",|' \
   Cargo.toml
@@ -128,8 +133,9 @@ sed -i '' \
 cargo update -p gkrust-shared
 git commit -a -m "Integrate app-services into the build system"
 
-# XXX - Final vendor due to tracing-subscriber, hack for now
+# XXX - Final vendor for rc_crypto, which doesn't yet `vet` - todo
+# once it vets, we can just do a single vendor with the above one at the end.
 ./mach vendor rust --force --ignore-modified
-git commit -a -m "TODO - fix tracing"
+git commit -a -m "final vendor of rc_crypto ignoring vet issues."
 
 echo "Done!"
