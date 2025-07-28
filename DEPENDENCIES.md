@@ -10,7 +10,7 @@ the details of which are reproduced below.
 * [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
-* [MIT License: cargo_metadata](#mit-license-cargo_metadata)
+* [MIT License: cargo_metadata, winnow](#mit-license-cargo_metadata-winnow)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: extend](#mit-license-extend)
 * [MIT License: generic-array](#mit-license-generic-array)
@@ -19,7 +19,6 @@ the details of which are reproduced below.
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
-* [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
@@ -68,6 +67,7 @@ The following text applies to code linked from these dependencies:
 [uniffi_internal_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
+[uniffi_pipeline](https://github.com/mozilla/uniffi-rs),
 [uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
@@ -453,6 +453,9 @@ The following text applies to code linked from these dependencies:
 [android-tzdata](https://github.com/RumovZ/android-tzdata),
 [android_system_properties](https://github.com/nical/android_system_properties),
 [anyhow](https://github.com/dtolnay/anyhow),
+[askama](https://github.com/askama-rs/askama),
+[askama_derive](https://github.com/askama-rs/askama),
+[askama_parser](https://github.com/askama-rs/askama),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -521,7 +524,6 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
-[once_map](https://github.com/a1phyr/once_map),
 [openssl-macros](https://github.com/sfackler/rust-openssl),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl-src](https://github.com/alexcrichton/openssl-src-rs),
@@ -546,9 +548,6 @@ The following text applies to code linked from these dependencies:
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
 [reqwest](https://github.com/seanmonstar/reqwest),
-[rinja](https://github.com/rinja-rs/rinja),
-[rinja_derive](https://github.com/rinja-rs/rinja),
-[rinja_parser](https://github.com/rinja-rs/rinja),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
@@ -929,10 +928,11 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: cargo_metadata
+## MIT License: cargo_metadata, winnow
 
 The following text applies to code linked from these dependencies:
-[cargo_metadata](https://github.com/oli-obk/cargo_metadata)
+[cargo_metadata](https://github.com/oli-obk/cargo_metadata),
+[winnow](https://github.com/winnow-rs/winnow)
 
 ```
 Permission is hereby granted, free of charge, to any
@@ -1201,37 +1201,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-```
--------------
-## MIT License: mime_guess
-
-The following text applies to code linked from these dependencies:
-[mime_guess](https://github.com/abonander/mime_guess)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Austin Bonander
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 ```
 -------------
