@@ -39,13 +39,13 @@ class NimbusDelegate(
             Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
         )
 
-        private const val logTag = "app-services-Nimbus.kt"
+        private const val LOG_TAG = "app-services-Nimbus.kt"
 
         fun default() = NimbusDelegate(
             dbScope = createCoroutineScope(),
             fetchScope = createCoroutineScope(),
-            errorReporter = { msg: String, e: Throwable -> Log.e(logTag, msg, e) },
-            logger = { Log.i(logTag, it) },
+            errorReporter = { msg: String, e: Throwable -> Log.e(LOG_TAG, msg, e) },
+            logger = { Log.i(LOG_TAG, it) },
         )
     }
 }
