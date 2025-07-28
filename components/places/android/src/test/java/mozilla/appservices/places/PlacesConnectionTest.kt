@@ -520,6 +520,7 @@ class PlacesConnectionTest {
     }
 
     @Test
+    @Suppress("LongMethod")
     fun testHistoryMetadataBasics() = runBlocking {
         val currentTime = System.currentTimeMillis()
 
