@@ -51,6 +51,9 @@ interface WebExtStorageStore {
     JsonValue get([ByRef] string ext_id, JsonValue keys);
 
     [Throws=WebExtStorageApiError]
+    JsonValue get_keys([ByRef] string ext_id);
+
+    [Throws=WebExtStorageApiError]
     u64 get_bytes_in_use([ByRef] string ext_id, JsonValue keys);
 
     [Throws=WebExtStorageApiError]
