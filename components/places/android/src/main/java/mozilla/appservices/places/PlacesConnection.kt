@@ -278,6 +278,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     }
 }
 
+@Suppress("MagicNumber")
 internal fun VisitType.toInt(): Int {
     return when (this) {
         VisitType.LINK -> 1
@@ -342,6 +343,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         }
     }
 
+    @Suppress("MagicNumber")
     override fun runMaintenance(dbSizeLimit: UInt) {
         val pruneMetrics = PlacesManagerMetrics.runMaintenanceTime.measure {
             val pruneMetrics = PlacesManagerMetrics.runMaintenancePruneTime.measure {
