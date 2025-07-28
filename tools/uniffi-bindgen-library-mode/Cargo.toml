@@ -6,9 +6,9 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-uniffi = { version = "0.29.0", features = ["cli"] }
-uniffi_bindgen = { version = "0.29.0" }
+uniffi = { version = "0.29.4", features = ["cli"] }
+uniffi_bindgen = { version = "0.29.4" }
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
-cargo_metadata = "0.15"
+cargo_metadata = "0.19"
 camino = "1"
 anyhow = "1"
