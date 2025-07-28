@@ -8,6 +8,7 @@ package mozilla.appservices.httpconfig
 // dependency is slightly tricky (This also could run before its log sink
 // is setup!). Since logging here very much helps debugging substitution
 // issues, we just use logcat.
+
 import android.util.Log
 import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite
