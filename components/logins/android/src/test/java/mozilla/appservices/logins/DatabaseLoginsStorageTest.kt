@@ -42,7 +42,7 @@ class DatabaseLoginsStorageTest {
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath, keyManager = keyManager)
     }
 
-    protected fun getTestStore(): DatabaseLoginsStorage {
+    private fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
         store.add(
@@ -72,7 +72,7 @@ class DatabaseLoginsStorageTest {
         return store
     }
 
-    protected fun finishAndClose(store: DatabaseLoginsStorage) {
+    private fun finishAndClose(store: DatabaseLoginsStorage) {
         store.close()
         // if this is all we need to do, then this helper should die!
     }
