@@ -20,7 +20,7 @@ class RemoteTabsTest {
     @JvmField
     val dbFolder = TemporaryFolder()
 
-    protected fun getTestStore(): TabsStore {
+    private fun getTestStore(): TabsStore {
         return TabsStore(path = dbFolder.newFile().absolutePath)
     }
 
