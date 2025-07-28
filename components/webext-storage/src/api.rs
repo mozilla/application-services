@@ -232,7 +232,7 @@ pub fn set(tx: &Transaction<'_>, ext_id: &str, val: JsonValue) -> Result<Storage
 // A helper which takes a param indicating what keys should be returned and
 // converts that to a vec of real strings. Also returns "default" values to
 // be used if no item exists for that key.
-fn get_keys(keys: JsonValue) -> Vec<(String, Option<JsonValue>)> {
+fn get_keys_helper(keys: JsonValue) -> Vec<(String, Option<JsonValue>)> {
     match keys {
         JsonValue::String(s) => vec![(s, None)],
         JsonValue::Array(keys) => {
@@ -262,7 +262,7 @@ pub fn get(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue
         return Ok(JsonValue::Object(existing));
     }
     // OK, so we need to build a list of keys to get.
-    let keys_and_defaults = get_keys(keys);
+    let keys_and_defaults = get_keys_helper(keys);
     let mut result = Map::with_capacity(keys_and_defaults.len());
     for (key, maybe_default) in keys_and_defaults {
         if let Some(v) = existing.remove(&key) {
@@ -276,6 +276,22 @@ pub fn get(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue
     Ok(JsonValue::Object(result))
 }
 
+/// The implementation of `storage[.sync].getKeys()`. On success this returns
+/// a Json array of strings.
+pub fn get_keys(conn: &Connection, ext_id: &str) -> Result<JsonValue> {
+    let maybe_existing = get_from_db(conn, ext_id)?;
+    let existing = match maybe_existing {
+        None => return Ok(JsonValue::Array(vec![])),
+        Some(v) => v,
+    };
+    Ok(JsonValue::Array(
+        existing
+            .keys()
+            .map(|k| JsonValue::String(k.to_string()))
+            .collect(),
+    ))
+}
+
 /// The implementation of `storage[.sync].remove()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
@@ -287,7 +303,7 @@ pub fn remove(tx: &Transaction<'_>, ext_id: &str, keys: JsonValue) -> Result<Sto
 
     // Note: get_keys parses strings, arrays and objects, but remove()
     // is expected to only be passed a string or array of strings.
-    let keys_and_defs = get_keys(keys);
+    let keys_and_defs = get_keys_helper(keys);
 
     let mut result = StorageChanges::with_capacity(keys_and_defs.len());
     for (key, _) in keys_and_defs {
@@ -579,6 +595,22 @@ mod tests {
             "object getter with a single key should return an object with a single property"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_check_get_keys_impl() -> Result<()> {
+        let ext_id = "getKeysExtId";
+        let db = new_mem_db();
+        let conn = db.get_connection().expect("should retrieve connection");
+        let tx = conn.unchecked_transaction()?;
+        set(&tx, ext_id, json!({"foo": "bar", "baz": "qux" }))?;
+        let data = get_keys(&tx, ext_id)?;
+        assert_eq!(
+            data,
+            json!(vec!["foo", "baz"]),
+            "get_keys should return all keys"
+        );
         Ok(())
     }
 
