@@ -226,11 +226,11 @@ interface Variables {
 
     fun asVariablesMap(): Map<String, JSONVariables>? = null
 
-    // This may be important when transforming into a code generated object.
     /**
      * Get a `Variables` object for this key, and transforms it to a `T`.
      * If this is not possible, then the `transform` should return `null`.
      */
+    // This may be important when transforming into a code generated object.
     fun <T> getVariables(key: String, transform: (Variables) -> T?) = getVariables(key)?.let(transform)
 
     /**
@@ -544,7 +544,11 @@ internal class DrawableRes(
 
     override val resourceName: String
         @Suppress("TooGenericExceptionCaught")
-        get() = try { context.resources.getResourceName(resourceId) } catch (e: Throwable) { "unknown" }
+        get() = try {
+            context.resources.getResourceName(resourceId)
+        } catch (e: Throwable) {
+            "unknown"
+        }
 }
 
 class StringHolder(
