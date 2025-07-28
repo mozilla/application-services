@@ -264,7 +264,10 @@ class FeatureVariablesTest {
         // Next we test the item ordering, which should all be members of the MenuItemId enum.
         val ordering: List<MenuItemId>? = variables.getEnumList("item-order")
         // open_bad_site doesn't exist, and is filtered out.
-        assertEquals(ordering, listOf(MenuItemId.settings, MenuItemId.history, MenuItemId.addBookmark, MenuItemId.bookmarks))
+        assertEquals(
+            ordering,
+            listOf(MenuItemId.settings, MenuItemId.history, MenuItemId.addBookmark, MenuItemId.bookmarks),
+        )
     }
 }
 

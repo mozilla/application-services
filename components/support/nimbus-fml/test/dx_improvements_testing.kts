@@ -23,7 +23,11 @@ val obj = TestObject()
 assert(obj.enumMap == mapOf(TestEnum.ALICE to 1, TestEnum.BOB to 2, TestEnum.CHARLIE to 3))
 
 // The instance of test object which is specified in the feature has an overridden enum map.
-assert(feature.anObject.enumMap == mapOf(TestEnum.ALICE to 11, TestEnum.BOB to 2, TestEnum.CHARLIE to 3)) { feature.anObject.enumMap }
+assert(feature.anObject.enumMap == mapOf(
+    TestEnum.ALICE to 11,
+    TestEnum.BOB to 2,
+    TestEnum.CHARLIE to 3,
+)) { feature.anObject.enumMap }
 
 // Make sure toJSONObject() works: Objects, Maps<Enum, Int>, Text, nested maps within objects.
 val exp = JSONObject("""

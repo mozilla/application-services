@@ -228,8 +228,8 @@ interface Variables {
 
     // This may be important when transforming into a code generated object.
     /**
-     * Get a `Variables` object for this key, and transforms it to a `T`. If this is not possible, then the `transform` should
-     * return `null`.
+     * Get a `Variables` object for this key, and transforms it to a `T`.
+     * If this is not possible, then the `transform` should return `null`.
      */
     fun <T> getVariables(key: String, transform: (Variables) -> T?) = getVariables(key)?.let(transform)
 
@@ -369,8 +369,10 @@ interface VariablesWithContext : Variables {
     override fun getTextList(key: String) = getStringList(key)?.mapNotNull(this::asText)
     override fun getTextMap(key: String): Map<String, String>? = getStringMap(key)?.mapValuesNotNull(this::asText)
     override fun getDrawable(key: String) = getDrawableResource(key)?.let(this::asDrawable)
-    override fun getDrawableList(key: String) = getStringList(key)?.mapNotNull(this::asDrawableResource)?.mapNotNull(this::asDrawable)
-    override fun getDrawableMap(key: String) = getStringMap(key)?.mapValuesNotNull(this::asDrawableResource)?.mapValuesNotNull(this::asDrawable)
+    override fun getDrawableList(key: String) =
+        getStringList(key)?.mapNotNull(this::asDrawableResource)?.mapNotNull(this::asDrawable)
+    override fun getDrawableMap(key: String) =
+        getStringMap(key)?.mapValuesNotNull(this::asDrawableResource)?.mapValuesNotNull(this::asDrawable)
 
     // These `as*` methods become useful when transforming values found in JSON to actual values
     // the app will use. They're broken out here so they can be re-used by codegen generating

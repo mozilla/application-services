@@ -48,7 +48,9 @@ assert(api.isExposed("homescreen"))
 val validationFeature = MyNimbus.features.nimbusValidation.value()
 assert(validationFeature.settingsTitle == "hello")
 assert(validationFeature.settingsPunctuation == "res:${R.string.app_menu_settings_punctuation}")
-assert(validationFeature.settingsIcon.resourceId == R.drawable.mozac_ic_settings) { "Settings icon is ${validationFeature.settingsIcon.resourceId}" }
+assert(validationFeature.settingsIcon.resourceId == R.drawable.mozac_ic_settings) {
+    "Settings icon is ${validationFeature.settingsIcon.resourceId}"
+}
 // Record the exposure and test it.
 MyNimbus.features.nimbusValidation.recordExposure()
 assert(api.isExposed("nimbus-validation"))

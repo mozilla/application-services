@@ -186,7 +186,10 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      * @param prefUnenrollReason The reason we are unenrolling from the experiments
      * @return Returns a list of EnrollmentChangeEvents
      */
-    fun unenrollForGeckoPref(geckoPrefState: GeckoPrefState, prefUnenrollReason: PrefUnenrollReason): List<EnrollmentChangeEvent> = listOf()
+    fun unenrollForGeckoPref(
+        geckoPrefState: GeckoPrefState,
+        prefUnenrollReason: PrefUnenrollReason,
+    ): List<EnrollmentChangeEvent> = listOf()
 
     /**
      *  Reset internal state in response to application-level telemetry reset.
