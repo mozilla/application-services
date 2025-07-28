@@ -7,6 +7,6 @@
 package mozilla.appservices.remotetabs
 
 // We needed to rename the Rust `TabsGuid` struct to `Guid` in order to circumvent the naming conflict in
-// iOS with the Guid exposed in `places.udl`. But that creates a breaking change for the Android code. So we are aliasing
-// `TabsGuid` back to `Guid` to prevent a breaking change.
+// iOS with the Guid exposed in `places.udl`. But that creates a breaking change for the Android code.
+// So we are aliasing `TabsGuid` back to `Guid` to prevent a breaking change.
 typealias Guid = TabsGuid

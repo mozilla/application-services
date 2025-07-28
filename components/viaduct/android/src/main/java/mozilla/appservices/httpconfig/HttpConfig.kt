@@ -21,7 +21,8 @@ sealed class ViaductClientError(msg: String) : Exception(msg)
 /**
  * Error indicating that the request method is not supported.
  */
-class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) : ViaductClientError("Unsupported HTTP method: $method")
+class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) :
+    ViaductClientError("Unsupported HTTP method: $method")
 
 /**
  * Singleton allowing management of the HTTP backend
@@ -116,7 +117,8 @@ object RustHttpConfig {
                     }
                     rb
                 } catch (e: Throwable) {
-                    MsgTypes.Response.newBuilder().setExceptionMessage("fetch error: ${e.message ?: e.javaClass.canonicalName}")
+                    MsgTypes.Response.newBuilder()
+                        .setExceptionMessage("fetch error: ${e.message ?: e.javaClass.canonicalName}")
                 }
                 val built = rb.build()
                 val needed = built.serializedSize

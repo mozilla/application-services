@@ -116,7 +116,8 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
 }
 
 @Suppress("TooGenericExceptionCaught")
-open class PlacesConnection internal constructor(uniffiConn: UniffiPlacesConnection) : InterruptibleConnection, AutoCloseable {
+open class PlacesConnection internal constructor(uniffiConn: UniffiPlacesConnection) :
+    InterruptibleConnection, AutoCloseable {
     protected var conn: UniffiPlacesConnection
     protected var interruptHandle: SqlInterruptHandle
 
@@ -160,7 +161,10 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
         return this.conn.matchUrl(query)
     }
 
-    override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
+    override fun getTopFrecentSiteInfos(
+        numItems: Int,
+        frecencyThreshold: FrecencyThresholdOption,
+    ): List<TopFrecentSiteInfo> {
         return this.conn.getTopFrecentSiteInfos(numItems, frecencyThreshold)
     }
 
@@ -427,7 +431,12 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         } else {
             BookmarkPosition.Specific(position.toUInt())
         }
-        val folder = InsertableBookmarkFolder(parentGuid = parentGUID, position = p, title = title, children = emptyList())
+        val folder = InsertableBookmarkFolder(
+            parentGuid = parentGUID,
+            position = p,
+            title = title,
+            children = emptyList(),
+        )
         return this.doInsert(InsertableBookmarkItem.Folder(folder))
     }
 
