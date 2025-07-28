@@ -226,14 +226,6 @@ jobs:
       - test-setup
       - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
-  Check Protobuf files are up-to-date:
-    executor: docker
-    resource_class: small
-    steps:
-      - full-checkout
-      - run: sudo apt-get update
-      - run: sudo apt-get install protobuf-compiler
-      - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
@@ -309,9 +301,6 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
-  check-protobuf-uptodate:
-    jobs:
-      - Check Protobuf files are up-to-date
   bash-lint:
     jobs:
       - Lint Bash scripts

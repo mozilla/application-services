@@ -4,6 +4,7 @@
 
 #![warn(rust_2018_idioms)]
 
+use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
 use interrupt_support::Interruptee;
 use places::storage::bookmarks::{
@@ -19,7 +20,6 @@ use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::time::{Duration, SystemTime};
-use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync_guid::Guid as SyncGuid;
@@ -333,126 +333,117 @@ fn sync(
 }
 
 // Note: this uses doc comments to generate the help text.
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Parser)]
 #[structopt(name = "places-utils", about = "Command-line utilities for places")]
 pub struct Opts {
-    #[structopt(
+    #[arg(
         name = "database_path",
         long,
-        short = "d",
+        short = 'd',
         default_value = "./places.db"
     )]
     /// Path to the database, which will be created if it doesn't exist.
     pub database_path: String,
 
     /// Leaves all logging disabled, which may be useful when evaluating perf
-    #[structopt(name = "no-logging", long)]
+    #[arg(name = "no-logging", long)]
     pub no_logging: bool,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Subcommand)]
 enum Command {
-    #[structopt(name = "sync")]
     /// Syncs all or some engines.
     Sync {
-        #[structopt(name = "engines", long)]
+        #[arg(name = "engines", long)]
         /// The names of the engines to sync. If not specified, all engines
         /// will be synced.
         engines: Vec<String>,
 
         /// Path to store our cached fxa credentials.
-        #[structopt(name = "credentials", long, default_value = "./credentials.json")]
+        #[arg(name = "credentials", long, default_value = "./credentials.json")]
         credential_file: String,
 
         /// Wipe ALL storage from the server before syncing.
-        #[structopt(name = "wipe-all-remote", long)]
+        #[arg(name = "wipe-all-remote", long)]
         wipe_all: bool,
 
         /// Wipe the engine data from the server before syncing.
-        #[structopt(name = "wipe-remote", long)]
+        #[arg(name = "wipe-remote", long)]
         wipe: bool,
 
         /// Reset the engine before syncing
-        #[structopt(name = "reset", long)]
+        #[arg(name = "reset", long)]
         reset: bool,
 
         /// Number of syncs to perform
-        #[structopt(name = "nsyncs", long, default_value = "1")]
+        #[arg(name = "nsyncs", long, default_value = "1")]
         nsyncs: u32,
 
         /// Number of milliseconds to wait between syncs
-        #[structopt(name = "wait", long, default_value = "0")]
+        #[arg(name = "wait", long, default_value = "0")]
         wait: u64,
     },
 
-    #[structopt(name = "export-bookmarks")]
     /// Exports bookmarks (but not in a way Desktop can import it!)
     ExportBookmarks {
-        #[structopt(name = "output-file", long, short = "o")]
+        #[arg(name = "output-file", long, short = 'o')]
         /// The name of the output file where the json will be written.
         output_file: String,
     },
 
-    #[structopt(name = "import-bookmarks")]
     /// Import bookmarks from a 'native' export (ie, as exported by this utility)
     ImportBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
+        #[arg(name = "input-file", long, short = 'i')]
         /// The name of the file to read.
         input_file: String,
     },
 
-    #[structopt(name = "import-ios-history")]
     /// Import history from an iOS browser.db
     ImportIosHistory {
-        #[structopt(name = "input-file", long, short = "i")]
+        #[arg(name = "input-file", long, short = 'i')]
         /// The name of the file to read
         input_file: String,
     },
 
-    #[structopt(name = "import-desktop-bookmarks")]
     /// Import bookmarks from JSON file exported by desktop Firefox
     ImportDesktopBookmarks {
-        #[structopt(name = "input-file", long, short = "i")]
+        #[arg(name = "input-file", long, short = 'i')]
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
 
-    #[structopt(name = "create-fake-visits")]
     /// Create a lot of fake visits to a lot of fake sites.
     CreateFakeVisits {
-        #[structopt(name = "num-sites", long)]
+        #[arg(name = "num-sites", long)]
         /// The number of `exampleX.com` sites to use.
         num_sites: usize,
-        #[structopt(name = "num-visits", long)]
+        #[arg(name = "num-visits", long)]
         /// The number of visits per site to create
         num_visits: usize,
     },
 
-    #[structopt(name = "delete-history")]
     /// Remove history
     DeleteHistory,
 
-    #[structopt(name = "run-maintenance")]
     /// Run maintenance on the database
     RunMaintenance {
-        #[structopt(name = "db-size-limit", long, default_value = "75000000")]
+        #[arg(name = "db-size-limit", long, default_value = "75000000")]
         /// Target size of the database (in bytes)
         db_size_limit: u32,
-        #[structopt(name = "count", long, short = "c", default_value = "1")]
+        #[arg(name = "count", long, short = 'c', default_value = "1")]
         /// Repeat the operation N times
         count: u32,
     },
 
-    #[structopt(name = "show-stats")]
     /// Show statistics about the database
     ShowStats,
 }
 
 fn main() -> Result<()> {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     if !opts.no_logging {
         cli_support::init_trace_logging();
     }

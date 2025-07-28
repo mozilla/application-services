@@ -13,6 +13,7 @@ path = "src/autofill-utils.rs"
 [dev-dependencies]
 anyhow = "1.0"
 autofill = { path = "../../components/autofill" }
+clap = { version = "4.2", default-features = false, features = ["std", "derive"] }
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 error-support = { path = "../../components/support/error" }
@@ -21,7 +22,6 @@ log = "0.4"
 rusqlite = { version = "0.37.0", features = ["functions", "bundled", "serde_json", "unlock_notify"]}
 serde_json = "1"
 sql-support = { path = "../../components/support/sql" }
-structopt = "0.3"
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"] }
 sync15 = { path = "../../components/sync15" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }

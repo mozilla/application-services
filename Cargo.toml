@@ -56,7 +56,6 @@ members = [
     "megazords/full",
     "megazords/ios-rust",
     "megazords/ios-rust/focus",
-    "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
     "tools/start-bindings",
     "tools/uniffi-bindgen-library-mode",
@@ -133,7 +132,6 @@ default-members = [
     "components/webext-storage",
     # Disabled for intermittent failures; see SDK-233 and #3909 for details.
     #    "testing/sync-test",
-    "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
     "tools/uniffi-bindgen-library-mode",
     "examples/*/",

@@ -614,7 +614,6 @@ dependencies = [
  "textwrap 0.11.0",
  "unicode-width 0.1.11",
  "vec_map",
- "yaml-rust 0.3.5",
 ]
 
 [[package]]
@@ -1258,6 +1257,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "autofill",
+ "clap 4.5.39",
  "cli-support",
  "error-support",
  "fxa-client",
@@ -1266,7 +1266,6 @@ dependencies = [
  "rusqlite",
  "serde_json",
  "sql-support",
- "structopt",
  "sync-guid",
  "sync15",
  "viaduct-reqwest",
@@ -1313,6 +1312,7 @@ name = "example-places-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap 4.5.39",
  "cli-support",
  "error-support",
  "fxa-client",
@@ -1323,7 +1323,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sql-support",
- "structopt",
  "sync-guid",
  "sync15",
  "tempfile",
@@ -1375,11 +1374,11 @@ dependencies = [
  "anyhow",
  "base64 0.21.2",
  "chrono",
+ "clap 4.5.39",
  "cli-support",
  "interrupt-support",
  "log",
  "serde_json",
- "structopt",
  "sync15",
  "tabs",
  "url",
@@ -1572,12 +1571,6 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
 ]
-
-[[package]]
-name = "fixedbitset"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "flate2"
@@ -3025,12 +3018,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
-name = "multimap"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
-
-[[package]]
 name = "native-tls"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3120,7 +3107,7 @@ dependencies = [
  "anyhow",
  "askama",
  "cfg-if 1.0.0",
- "clap 2.34.0",
+ "clap 4.5.39",
  "console",
  "email_address",
  "glob",
@@ -3149,7 +3136,7 @@ dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
  "chrono",
- "clap 2.34.0",
+ "clap 4.5.39",
  "ctor",
  "error-support",
  "firefox-versioning",
@@ -3539,16 +3526,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
-name = "petgraph"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dd7d28ee937e54fe3080c91faa1c3a46c06de6252988a7f4592ba2310ef22a4"
-dependencies = [
- "fixedbitset",
- "indexmap 1.9.1",
-]
-
-[[package]]
 name = "pin-project"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3726,16 +3703,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prettyplease"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c64d9ba0963cdcea2e1b2230fbae2bab30eb25a174be395c41e764bfb65dd62"
-dependencies = [
- "proc-macro2",
- "syn 2.0.89",
-]
-
-[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3779,28 +3746,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-build"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d3e647e9eb04ddfef78dfee2d5b3fefdf94821c84b710a3d8ebc89ede8b164"
-dependencies = [
- "bytes",
- "heck 0.4.1",
- "itertools 0.10.3",
- "log",
- "multimap",
- "once_cell",
- "petgraph",
- "prettyplease",
- "prost",
- "prost-types",
- "regex",
- "syn 2.0.89",
- "tempfile",
- "which",
-]
-
-[[package]]
 name = "prost-derive"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3811,26 +3756,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cebe0a918c97f86c217b0f76fd754e966f8b9f41595095cf7d74cb4e59d730f6"
-dependencies = [
- "prost",
-]
-
-[[package]]
-name = "protobuf-gen"
-version = "0.1.0"
-dependencies = [
- "clap 2.34.0",
- "prost-build",
- "serde",
- "serde_derive",
- "toml",
 ]
 
 [[package]]
@@ -4560,7 +4485,7 @@ dependencies = [
  "indexmap 1.9.1",
  "ryu",
  "serde",
- "yaml-rust 0.4.5",
+ "yaml-rust",
 ]
 
 [[package]]
@@ -5989,17 +5914,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "which"
-version = "4.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c4fb54e6113b6a8772ee41c3404fb0301ac79604489467e0a9ce1f3e97c24ae"
-dependencies = [
- "either",
- "lazy_static",
- "libc",
-]
-
-[[package]]
 name = "whoami"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6407,12 +6321,6 @@ checksum = "388c44dc09d76f1536602ead6d325eb532f5c122f17782bd57fb47baeeb767e2"
 dependencies = [
  "lzma-sys",
 ]
-
-[[package]]
-name = "yaml-rust"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e66366e18dc58b46801afbf2ca7661a9f59cc8c5962c29892b6039b4f86fa992"
 
 [[package]]
 name = "yaml-rust"

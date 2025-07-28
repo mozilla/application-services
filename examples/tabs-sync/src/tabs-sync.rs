@@ -5,6 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use clap::Parser;
 use cli_support::fxa_creds::{
     get_account_and_token, get_cli_fxa, get_default_fxa_config, SYNC_SCOPE,
 };
@@ -12,7 +13,6 @@ use cli_support::prompt::{prompt_char, prompt_string};
 use interrupt_support::NeverInterrupts;
 use std::path::Path;
 use std::sync::Arc;
-use structopt::StructOpt;
 use sync15::{
     client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
     KeyBundle,
@@ -21,24 +21,24 @@ use tabs::{RemoteTabRecord, TabsEngine, TabsStore};
 
 use anyhow::Result;
 
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(name = "tabs_sync", about = "CLI for Sync tabs store")]
+#[derive(Clone, Debug, Parser)]
+#[command(about = "CLI for Sync tabs store")]
 pub struct Opts {
-    #[structopt(
+    #[arg(
         name = "credential_file",
         value_name = "CREDENTIAL_JSON",
         long = "credentials",
-        short = "c",
+        short = 'c',
         default_value = "./credentials.json"
     )]
     /// Path to credentials.json.
     pub creds_file: String,
 
-    #[structopt(
+    #[arg(
         name = "database_path",
         value_name = "DATABASE_PATH",
         long,
-        short = "d",
+        short = 'd',
         default_value = "./tab-sync.db"
     )]
     /// Path to the database, which will only be created after a sync with incoming records.
@@ -100,7 +100,7 @@ fn do_sync(
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     cli_support::init_logging();
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
 
     let (_, token_info) =
         get_account_and_token(get_default_fxa_config(), &opts.creds_file, &[SYNC_SCOPE])?;
