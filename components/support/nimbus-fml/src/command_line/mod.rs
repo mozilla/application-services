@@ -2,23 +2,20 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod cli;
 pub(crate) mod commands;
 mod workflows;
 
 use crate::intermediate_representation::TargetLanguage;
 use crate::util::loaders::LoaderConfig;
-use anyhow::{bail, Result};
-use clap::{App, ArgMatches};
+use anyhow::Result;
+use clap::Parser;
 use commands::{
     CliCmd, GenerateExperimenterManifestCmd, GenerateSingleFileManifestCmd, GenerateStructCmd,
     PrintChannelsCmd, ValidateCmd,
 };
 
-use std::{
-    collections::BTreeMap,
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, ffi::OsString, path::Path};
 
 use self::commands::PrintInfoCmd;
 
@@ -53,45 +50,42 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let yaml = clap::load_yaml!("cli.yaml");
-    let matches = App::from_yaml(yaml).get_matches_from(args);
+    let app = cli::App::parse_from(args);
 
-    Ok(match matches.subcommand() {
-        ("generate", Some(matches)) => {
-            CliCmd::Generate(create_generate_command_from_cli(matches, cwd)?)
+    Ok(match app.subcommand {
+        cli::Command::Generate(cmd) => {
+            CliCmd::Generate(create_generate_command_from_cli(&cmd, cwd)?)
         }
-        ("generate-experimenter", Some(matches)) => CliCmd::GenerateExperimenter(
-            create_generate_command_experimenter_from_cli(matches, cwd)?,
-        ),
-        ("fetch", Some(matches)) => {
-            CliCmd::FetchFile(create_loader(matches, cwd)?, input_file(matches)?)
+        cli::Command::GenerateExperimenter(cmd) => {
+            CliCmd::GenerateExperimenter(create_generate_command_experimenter_from_cli(&cmd, cwd)?)
         }
-        ("single-file", Some(matches)) => {
-            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(matches, cwd)?)
+        cli::Command::Fetch(cmd) => {
+            CliCmd::FetchFile(create_loader(&cmd.input, &cmd.loader_info, cwd)?, cmd.input)
         }
-        ("validate", Some(matches)) => {
-            CliCmd::Validate(create_validate_command_from_cli(matches, cwd)?)
+        cli::Command::SingleFile(cmd) => {
+            CliCmd::GenerateSingleFileManifest(create_single_file_from_cli(&cmd, cwd)?)
         }
-        ("channels", Some(matches)) => {
-            CliCmd::PrintChannels(create_print_channels_from_cli(matches, cwd)?)
+        cli::Command::Validate(cmd) => {
+            CliCmd::Validate(create_validate_command_from_cli(&cmd, cwd)?)
         }
-        ("info", Some(matches)) => CliCmd::PrintInfo(create_print_info_from_cli(matches, cwd)?),
-        (word, _) => unimplemented!("Command {} not implemented", word),
+        cli::Command::Channels(cmd) => {
+            CliCmd::PrintChannels(create_print_channels_from_cli(&cmd, cwd)?)
+        }
+        cli::Command::Info(cmd) => CliCmd::PrintInfo(create_print_info_from_cli(&cmd, cwd)?),
     })
 }
 
 fn create_single_file_from_cli(
-    matches: &ArgMatches,
+    cmd: &cli::SingleFile,
     cwd: &Path,
 ) -> Result<GenerateSingleFileManifestCmd> {
-    let manifest = input_file(matches)?;
-    let output =
-        file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
-    let channel = matches
-        .value_of("channel")
-        .map(str::to_string)
+    let manifest = cmd.input.clone();
+    let output = cwd.join(&cmd.output);
+    let channel = cmd
+        .channel
+        .clone()
         .unwrap_or_else(|| RELEASE_CHANNEL.into());
-    let loader = create_loader(matches, cwd)?;
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     Ok(GenerateSingleFileManifestCmd {
         manifest,
         output,
@@ -101,19 +95,17 @@ fn create_single_file_from_cli(
 }
 
 fn create_generate_command_experimenter_from_cli(
-    matches: &ArgMatches,
+    cmd: &cli::GenerateExperimenter,
     cwd: &Path,
 ) -> Result<GenerateExperimenterManifestCmd> {
-    let manifest = input_file(matches)?;
+    let manifest = cmd.input.clone();
     let load_from_ir =
         TargetLanguage::ExperimenterJSON == TargetLanguage::from_extension(&manifest)?;
-    let output =
-        file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
+    let output = cwd.join(&cmd.output);
     let language = output.as_path().try_into()?;
-    let _channel = matches.value_of("channel").map(str::to_string);
-    let loader = create_loader(matches, cwd)?;
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     let cmd = GenerateExperimenterManifestCmd {
-        manifest,
+        manifest: cmd.input.clone(),
         output,
         language,
         load_from_ir,
@@ -122,23 +114,19 @@ fn create_generate_command_experimenter_from_cli(
     Ok(cmd)
 }
 
-fn create_generate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<GenerateStructCmd> {
-    let manifest = input_file(matches)?;
+fn create_generate_command_from_cli(cmd: &cli::Generate, cwd: &Path) -> Result<GenerateStructCmd> {
+    let manifest = cmd.input.clone();
     let load_from_ir = matches!(
         TargetLanguage::from_extension(&manifest),
         Ok(TargetLanguage::ExperimenterJSON)
     );
-    let output =
-        file_path("output", matches, cwd).or_else(|_| file_path("OUTPUT", matches, cwd))?;
-    let language = match matches.value_of("language") {
-        Some(s) => TargetLanguage::try_from(s)?, // the language from the cli will always be recognized
+    let output = cwd.join(&cmd.output);
+    let language = match cmd.language {
+        Some(s) => TargetLanguage::from(s),
         None => output.as_path().try_into().map_err(|_| anyhow::anyhow!("Can't infer a target language from the file or directory, so specify a --language flag explicitly"))?,
     };
-    let channel = matches
-        .value_of("channel")
-        .map(str::to_string)
-        .expect("A channel should be specified with --channel");
-    let loader = create_loader(matches, cwd)?;
+    let channel = cmd.channel.clone();
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     Ok(GenerateStructCmd {
         language,
         manifest,
@@ -149,23 +137,27 @@ fn create_generate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<
     })
 }
 
-fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
+fn create_loader(
+    input_file: &str,
+    loader_info: &cli::LoaderInfo,
+    cwd: &Path,
+) -> Result<LoaderConfig> {
     let cwd = cwd.to_path_buf();
-    let cache_dir = matches
-        .value_of("cache-dir")
+    let cache_dir = loader_info
+        .cache_dir
+        .as_ref()
         .map(|f| Some(cwd.join(f)))
         .unwrap_or_default();
 
-    let files = matches.values_of("repo-file").unwrap_or_default();
-    let repo_files = files.into_iter().map(|s| s.to_string()).collect();
-
-    let manifest = input_file(matches)?;
-
-    let _ref = matches.value_of("ref").map(String::from);
+    let repo_files = loader_info
+        .repo_file
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
     let mut refs: BTreeMap<_, _> = Default::default();
-    match (LoaderConfig::repo_and_path(&manifest), _ref) {
-        (Some((repo, _)), Some(ref_)) => refs.insert(repo, ref_),
+    match (LoaderConfig::repo_and_path(input_file), &loader_info.ref_) {
+        (Some((repo, _)), Some(ref_)) => refs.insert(repo, ref_.clone()),
         _ => None,
     };
 
@@ -177,16 +169,16 @@ fn create_loader(matches: &ArgMatches, cwd: &Path) -> Result<LoaderConfig> {
     })
 }
 
-fn create_validate_command_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<ValidateCmd> {
-    let manifest = input_file(matches)?;
-    let loader = create_loader(matches, cwd)?;
+fn create_validate_command_from_cli(cmd: &cli::Validate, cwd: &Path) -> Result<ValidateCmd> {
+    let manifest = cmd.input.clone();
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
     Ok(ValidateCmd { manifest, loader })
 }
 
-fn create_print_channels_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<PrintChannelsCmd> {
-    let manifest = input_file(matches)?;
-    let loader = create_loader(matches, cwd)?;
-    let as_json = matches.is_present("json");
+fn create_print_channels_from_cli(cmd: &cli::Channels, cwd: &Path) -> Result<PrintChannelsCmd> {
+    let manifest = cmd.input.clone();
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+    let as_json = cmd.json;
     Ok(PrintChannelsCmd {
         manifest,
         loader,
@@ -194,13 +186,13 @@ fn create_print_channels_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<Pr
     })
 }
 
-fn create_print_info_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<PrintInfoCmd> {
-    let manifest = input_file(matches)?;
-    let loader = create_loader(matches, cwd)?;
-    let as_json = matches.is_present("json");
+fn create_print_info_from_cli(cmd: &cli::Info, cwd: &Path) -> Result<PrintInfoCmd> {
+    let manifest = cmd.input.clone();
+    let loader = create_loader(&cmd.input, &cmd.loader_info, cwd)?;
+    let as_json = cmd.json;
 
-    let channel = matches.value_of("channel").map(str::to_string);
-    let feature = matches.value_of("feature").map(str::to_string);
+    let channel = cmd.channel.clone();
+    let feature = cmd.feature.clone();
 
     Ok(PrintInfoCmd {
         manifest,
@@ -211,26 +203,9 @@ fn create_print_info_from_cli(matches: &ArgMatches, cwd: &Path) -> Result<PrintI
     })
 }
 
-fn input_file(args: &ArgMatches) -> Result<String> {
-    args.value_of("INPUT")
-        .map(String::from)
-        .ok_or_else(|| anyhow::anyhow!("INPUT file or directory is needed, but not specified"))
-}
-
-fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
-    let mut abs = cwd.to_path_buf();
-    match args.value_of(name) {
-        Some(suffix) => {
-            abs.push(suffix);
-            Ok(abs)
-        }
-        _ => bail!("A file path is needed for {}", name),
-    }
-}
-
 #[cfg(test)]
 mod cli_tests {
-    use std::env;
+    use std::{env, path::PathBuf};
 
     use super::*;
 
