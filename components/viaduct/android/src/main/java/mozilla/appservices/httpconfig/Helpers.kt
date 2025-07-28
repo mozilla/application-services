@@ -200,7 +200,7 @@ inline fun <reified Lib : Library> loadIndirect(
 
 // See the comment on full_megazord_get_version for background
 // on why this exists and what we use it for.
-@Suppress("FunctionNaming")
+@Suppress("FunctionNaming", "ktlint:standard:function-naming")
 internal interface LibMegazordFfi : Library {
     // Note: Rust doesn't want us to free this string (because
     // it's a pain for us to arrange here), so it is actually
