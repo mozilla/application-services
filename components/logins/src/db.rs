@@ -291,7 +291,7 @@ impl LoginDb {
     // just the SQL - no validation or anything.
     fn insert_new_login(&self, login: &EncryptedLogin) -> Result<()> {
         let sql = format!(
-            "INSERT INTO loginsL (
+            "INSERT OR REPLACE INTO loginsL (
                 origin,
                 httpRealm,
                 formActionOrigin,
@@ -1317,12 +1317,60 @@ mod tests {
             entry: login.clone(),
             meta: meta.clone(),
         };
-        let added = db
-            .add_with_meta(entry_with_meta, &*TEST_ENCDEC)
+
+        db.add_with_meta(entry_with_meta, &*TEST_ENCDEC)
             .expect("should be able to add login with record");
 
         let fetched = db
-            .get_by_id(&added.meta.id)
+            .get_by_id(&guid)
+            .expect("should work")
+            .expect("should get a record");
+
+        assert_eq!(fetched.meta, meta);
+    }
+
+    #[test]
+    fn test_add_with_meta_deleted() {
+        ensure_initialized();
+
+        let guid = Guid::random();
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let login = LoginEntry {
+            origin: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+        let meta = LoginMeta {
+            id: guid.to_string(),
+            time_created: now_ms,
+            time_password_changed: now_ms + 100,
+            time_last_used: now_ms + 10,
+            times_used: 42,
+        };
+
+        let db = LoginDb::open_in_memory();
+        let entry_with_meta = LoginEntryWithMeta {
+            entry: login.clone(),
+            meta: meta.clone(),
+        };
+
+        db.add_with_meta(entry_with_meta, &*TEST_ENCDEC)
+            .expect("should be able to add login with record");
+
+        db.delete(&guid).expect("should be able to delete login");
+
+        let entry_with_meta2 = LoginEntryWithMeta {
+            entry: login.clone(),
+            meta: meta.clone(),
+        };
+
+        db.add_with_meta(entry_with_meta2, &*TEST_ENCDEC)
+            .expect("should be able to re-add login with record");
+
+        let fetched = db
+            .get_by_id(&guid)
             .expect("should work")
             .expect("should get a record");
 
