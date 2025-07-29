@@ -4213,7 +4213,6 @@ dependencies = [
  "error-support",
  "expect-test",
  "log",
- "mockall",
  "mockito",
  "serde",
  "serde_json",
