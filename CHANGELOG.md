@@ -7,6 +7,7 @@
 
 ### Logins
 - Updated logins verification telemetry so it can be used in iOS([#6832](https://github.com/mozilla/application-services/pull/6832))
+- Updated insert statement to allow updating previously deleted logins via `add_with_meta`.
 
 ### Webext-Storage
 - Added `get_keys()` method ([bug 1978718](https://bugzilla.mozilla.org/show_bug.cgi?id=1978718))

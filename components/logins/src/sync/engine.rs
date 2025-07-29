@@ -639,6 +639,148 @@ mod tests {
     }
 
     #[test]
+    fn test_sync_local_delete() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "local-deleted",
+            Some("password"),
+            None,
+        );
+        store.lock_db().unwrap().delete("local-deleted").unwrap();
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(changes.len(), 1);
+        assert!(changes["local-deleted"].get("deleted").is_some());
+
+        // hmmm. In theory, we do not need to sync a local-only deletion
+    }
+
+    #[test]
+    fn test_sync_local_readd() {
+        ensure_initialized();
+        let store = LoginStore::new_in_memory();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "local-readded",
+            Some("password"),
+            None,
+        );
+        store.lock_db().unwrap().delete("local-readded").unwrap();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "local-readded",
+            Some("password"),
+            None,
+        );
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(
+            changes["local-readded"].get("password").unwrap(),
+            "password"
+        );
+    }
+
+    #[test]
+    fn test_sync_local_readd_of_remote_deletion() {
+        ensure_initialized();
+        let other_store = LoginStore::new_in_memory();
+        let mut engine = LoginsSyncEngine::new(Arc::new(other_store)).unwrap();
+        let (_res, _telem) = run_fetch_login_data(
+            &mut engine,
+            vec![IncomingBso::new_test_tombstone(Guid::new("remote-readded"))],
+        );
+
+        let store = LoginStore::new_in_memory();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "remote-readded",
+            Some("password"),
+            None,
+        );
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(
+            changes["remote-readded"].get("password").unwrap(),
+            "password"
+        );
+    }
+
+    #[test]
+    fn test_sync_local_readd_redelete_of_remote_login() {
+        ensure_initialized();
+        let other_store = LoginStore::new_in_memory();
+        let mut engine = LoginsSyncEngine::new(Arc::new(other_store)).unwrap();
+        let (_res, _telem) = run_fetch_login_data(
+            &mut engine,
+            vec![IncomingBso::from_test_content(serde_json::json!({
+                "id": "remote-readded-redeleted",
+                "formSubmitURL": "https://www.example.com/submit",
+                "hostname": "https://www.example.com",
+                "username": "test",
+                "password": "test",
+            }))],
+        );
+
+        let store = LoginStore::new_in_memory();
+        store
+            .lock_db()
+            .unwrap()
+            .delete("remote-readded-redeleted")
+            .unwrap();
+        insert_login(
+            &store.lock_db().unwrap(),
+            "remote-readded-redeleted",
+            Some("password"),
+            None,
+        );
+        store
+            .lock_db()
+            .unwrap()
+            .delete("remote-readded-redeleted")
+            .unwrap();
+        let changeset = run_fetch_outgoing(store);
+        let changes: HashMap<String, serde_json::Value> = changeset
+            .into_iter()
+            .map(|b| {
+                (
+                    b.envelope.id.to_string(),
+                    serde_json::from_str(&b.payload).unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(changes.len(), 1);
+        assert!(changes["remote-readded-redeleted"].get("deleted").is_some());
+    }
+
+    #[test]
     fn test_fetch_outgoing() {
         ensure_initialized();
         let store = LoginStore::new_in_memory();
