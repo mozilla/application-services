@@ -131,6 +131,11 @@ pub struct SearchEngineUrl {
     /// corresponds to a brand name distinct from the engine's brand name.
     #[uniffi(default = None)]
     pub display_name: Option<String>,
+
+    /// Indicates the date until which the URL is considered new
+    /// (format: YYYY-MM-DD).
+    #[uniffi(default = None)]
+    pub is_new_until: Option<String>,
 }
 
 /// The URLs associated with the search engine.

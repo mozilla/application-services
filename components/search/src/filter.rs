@@ -24,6 +24,7 @@ impl Default for SearchEngineUrl {
             params: Default::default(),
             search_term_param_name: Default::default(),
             display_name: Default::default(),
+            is_new_until: Default::default(),
         }
     }
 }
@@ -47,6 +48,9 @@ impl SearchEngineUrl {
                 .get(&user_environment.locale)
                 .or_else(|| display_name_map.get("default"))
                 .cloned();
+        }
+        if let Some(is_new_until) = &preferred.is_new_until {
+            self.is_new_until = Some(is_new_until.clone());
         }
     }
 }
@@ -493,6 +497,7 @@ mod tests {
                 params: Vec::new(),
                 search_term_param_name: None,
                 display_name: None,
+                is_new_until: None,
             },
         );
     }
@@ -528,10 +533,7 @@ mod tests {
             urls: JSONEngineUrls {
                 search: Some(JSONEngineUrl {
                     base: Some("https://example.com/override-search".to_string()),
-                    method: None,
-                    params: None,
-                    search_term_param_name: None,
-                    display_name_map: None,
+                    ..Default::default()
                 }),
                 ..Default::default()
             },
@@ -581,15 +583,13 @@ mod tests {
             urls: JSONEngineUrls {
                 search: Some(JSONEngineUrl {
                     base: Some("https://example.com/override-search".to_string()),
-                    method: None,
-                    params: None,
-                    search_term_param_name: None,
                     display_name_map: Some(HashMap::from([
                         // Default display name
                         ("default".to_string(), "My Display Name".to_string()),
                         // en-GB locale with unique display name
                         ("en-GB".to_string(), "en-GB Display Name".to_string()),
                     ])),
+                    ..Default::default()
                 }),
                 ..Default::default()
             },
@@ -631,10 +631,7 @@ mod tests {
                 urls: JSONEngineUrls {
                     search: Some(JSONEngineUrl {
                         base: Some("https://example.com".to_string()),
-                        method: None,
-                        params: None,
-                        search_term_param_name: None,
-                        display_name_map: None,
+                        ..Default::default()
                     }),
                     suggestions: None,
                     trending: None,
@@ -673,10 +670,7 @@ mod tests {
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: None,
                     trending: None,
@@ -713,7 +707,7 @@ mod tests {
                     },
                 ]),
                 search_term_param_name: Some("baz".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             suggestions: Some(JSONEngineUrl {
                 base: Some("https://example.com/suggestions".to_string()),
@@ -725,7 +719,7 @@ mod tests {
                     experiment_config: Some("suggest-experiment-value".to_string()),
                 }]),
                 search_term_param_name: Some("suggest".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             trending: Some(JSONEngineUrl {
                 base: Some("https://example.com/trending".to_string()),
@@ -736,8 +730,7 @@ mod tests {
                     enterprise_value: None,
                     experiment_config: None,
                 }]),
-                search_term_param_name: None,
-                display_name_map: None,
+                ..Default::default()
             }),
             search_form: Some(JSONEngineUrl {
                 base: Some("https://example.com/search_form".to_string()),
@@ -748,8 +741,7 @@ mod tests {
                     enterprise_value: None,
                     experiment_config: None,
                 }]),
-                search_term_param_name: None,
-                display_name_map: None,
+                ..Default::default()
             }),
             visual_search: Some(JSONEngineUrl {
                 base: Some("https://example.com/visual_search".to_string()),
@@ -767,6 +759,7 @@ mod tests {
                     // en-GB locale with unique display name
                     ("en-GB".to_string(), "Visual Search en-GB".to_string()),
                 ])),
+                is_new_until: Some("2095-01-01".to_string()),
             }),
         },
     });
@@ -827,7 +820,7 @@ mod tests {
                             },
                         ],
                         search_term_param_name: Some("baz".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions".to_string(),
@@ -839,7 +832,7 @@ mod tests {
                             experiment_config: Some("suggest-experiment-value".to_string()),
                         }],
                         search_term_param_name: Some("suggest".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending".to_string(),
@@ -850,8 +843,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search_form".to_string(),
@@ -862,8 +854,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual_search".to_string(),
@@ -876,6 +867,7 @@ mod tests {
                         }],
                         search_term_param_name: Some("url".to_string()),
                         display_name: Some("Visual Search".to_string()),
+                        is_new_until: Some("2095-01-01".to_string()),
                     }),
                 },
                 click_url: None
@@ -940,7 +932,7 @@ mod tests {
                             },
                         ],
                         search_term_param_name: Some("baz".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions".to_string(),
@@ -952,7 +944,7 @@ mod tests {
                             experiment_config: Some("suggest-experiment-value".to_string()),
                         }],
                         search_term_param_name: Some("suggest".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending".to_string(),
@@ -963,8 +955,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search_form".to_string(),
@@ -975,8 +966,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual_search".to_string(),
@@ -991,6 +981,7 @@ mod tests {
                         // Should be the en-GB display name since the "en-GB"
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search en-GB".to_string()),
+                        is_new_until: Some("2095-01-01".to_string()),
                     }),
                 },
                 click_url: None
@@ -1018,7 +1009,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("ship".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             suggestions: Some(JSONEngineUrl {
                 base: Some("https://example.com/suggestions-variant".to_string()),
@@ -1030,7 +1021,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("variant".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             trending: Some(JSONEngineUrl {
                 base: Some("https://example.com/trending-variant".to_string()),
@@ -1042,7 +1033,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("trend".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             search_form: Some(JSONEngineUrl {
                 base: Some("https://example.com/search_form".to_string()),
@@ -1053,8 +1044,7 @@ mod tests {
                     enterprise_value: None,
                     experiment_config: None,
                 }]),
-                search_term_param_name: None,
-                display_name_map: None,
+                ..Default::default()
             }),
             visual_search: Some(JSONEngineUrl {
                 base: Some("https://example.com/visual-search-variant".to_string()),
@@ -1074,6 +1064,7 @@ mod tests {
                         "Visual Search Variant en-GB".to_string(),
                     ),
                 ])),
+                is_new_until: Some("2096-02-02".to_string()),
             }),
         }),
         sub_variants: vec![],
@@ -1116,7 +1107,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("ship".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions-variant".to_string(),
@@ -1128,7 +1119,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("variant".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending-variant".to_string(),
@@ -1140,7 +1131,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search_form".to_string(),
@@ -1151,8 +1142,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual-search-variant".to_string(),
@@ -1167,6 +1157,7 @@ mod tests {
                         // Should be the "default" display name since the "fi"
                         // locale isn't present in `display_name_map`.
                         display_name: Some("Visual Search Variant".to_string()),
+                        is_new_until: Some("2096-02-02".to_string()),
                     }),
                 },
                 click_url: None
@@ -1212,7 +1203,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("ship".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions-variant".to_string(),
@@ -1224,7 +1215,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("variant".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending-variant".to_string(),
@@ -1236,7 +1227,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search_form".to_string(),
@@ -1247,8 +1238,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual-search-variant".to_string(),
@@ -1263,6 +1253,7 @@ mod tests {
                         // Should be the en-GB display name since the "en-GB"
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search Variant en-GB".to_string()),
+                        is_new_until: Some("2096-02-02".to_string()),
                     }),
                 },
                 click_url: None
@@ -1290,7 +1281,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("shuttle".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             suggestions: Some(JSONEngineUrl {
                 base: Some("https://example.com/suggestions-subvariant".to_string()),
@@ -1302,7 +1293,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("subvariant".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             trending: Some(JSONEngineUrl {
                 base: Some("https://example.com/trending-subvariant".to_string()),
@@ -1314,7 +1305,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("subtrend".to_string()),
-                display_name_map: None,
+                ..Default::default()
             }),
             search_form: Some(JSONEngineUrl {
                 base: Some("https://example.com/search-form-subvariant".to_string()),
@@ -1325,8 +1316,7 @@ mod tests {
                     enterprise_value: None,
                     experiment_config: None,
                 }]),
-                search_term_param_name: None,
-                display_name_map: None,
+                ..Default::default()
             }),
             visual_search: Some(JSONEngineUrl {
                 base: Some("https://example.com/visual-search-subvariant".to_string()),
@@ -1349,6 +1339,7 @@ mod tests {
                         "Visual Search Subvariant en-GB".to_string(),
                     ),
                 ])),
+                is_new_until: Some("2097-03-03".to_string()),
             }),
         }),
         sub_variants: vec![],
@@ -1391,7 +1382,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("shuttle".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions-subvariant".to_string(),
@@ -1403,7 +1394,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subvariant".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending-subvariant".to_string(),
@@ -1415,7 +1406,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subtrend".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search-form-subvariant".to_string(),
@@ -1426,8 +1417,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual-search-subvariant".to_string(),
@@ -1442,6 +1432,7 @@ mod tests {
                         // Should be the "default" display name since the "fi"
                         // locale isn't present in `display_name_map`.
                         display_name: Some("Visual Search Subvariant".to_string()),
+                        is_new_until: Some("2097-03-03".to_string()),
                     }),
                 },
                 click_url: None
@@ -1487,7 +1478,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("shuttle".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     },
                     suggestions: Some(SearchEngineUrl {
                         base: "https://example.com/suggestions-subvariant".to_string(),
@@ -1499,7 +1490,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subvariant".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
                         base: "https://example.com/trending-subvariant".to_string(),
@@ -1511,7 +1502,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subtrend".to_string()),
-                        display_name: None,
+                        ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
                         base: "https://example.com/search-form-subvariant".to_string(),
@@ -1522,8 +1513,7 @@ mod tests {
                             enterprise_value: None,
                             experiment_config: None,
                         }],
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     }),
                     visual_search: Some(SearchEngineUrl {
                         base: "https://example.com/visual-search-subvariant".to_string(),
@@ -1538,6 +1528,7 @@ mod tests {
                         // Should be the en-GB display name since the "en-GB"
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search Subvariant en-GB".to_string()),
+                        is_new_until: Some("2097-03-03".to_string()),
                     }),
                 },
                 click_url: None
@@ -1553,10 +1544,7 @@ mod tests {
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -1568,10 +1556,7 @@ mod tests {
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/2".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -1583,10 +1568,7 @@ mod tests {
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/3".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
@@ -1598,10 +1580,7 @@ mod tests {
                 urls: SearchEngineUrls {
                     search: SearchEngineUrl {
                         base: "https://example.com/4".to_string(),
-                        method: "GET".to_string(),
-                        params: Vec::new(),
-                        search_term_param_name: None,
-                        display_name: None,
+                        ..Default::default()
                     },
                     ..Default::default()
                 },
