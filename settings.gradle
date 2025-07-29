@@ -178,7 +178,7 @@ gradle.projectsLoaded { ->
             36, // compileSdkVersion,
             21, // minSdkVersion,
             36, // targetSdkVersion,
-            "28.1.13356709", // ndkVersion - Keep it in sync in TC Dockerfile.
+            "28.2.13676358", // ndkVersion - Keep it in sync in TC Dockerfile.
         )
     }
 }

@@ -2,6 +2,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Android
+- Upgraded NDK from r28b to r28c. ([#6848](https://github.com/mozilla/application-services/pull/6848))
+
 ### Logins
 - Updated logins verification telemetry so it can be used in iOS([#6832](https://github.com/mozilla/application-services/pull/6832))
 
