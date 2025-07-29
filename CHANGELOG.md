@@ -11,6 +11,10 @@
 ### Webext-Storage
 - Added `get_keys()` method ([bug 1978718](https://bugzilla.mozilla.org/show_bug.cgi?id=1978718))
 
+### Search
+
+- Added `SearchEngineUrl::is_new_until` ([bug 1979962](https://bugzilla.mozilla.org/show_bug.cgi?id=1979962))
+
 [Full Changelog](In progress)
 
 # v142.0 (_2025-07-21_)
