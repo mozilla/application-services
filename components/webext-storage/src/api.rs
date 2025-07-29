@@ -285,10 +285,7 @@ pub fn get_keys(conn: &Connection, ext_id: &str) -> Result<JsonValue> {
         Some(v) => v,
     };
     Ok(JsonValue::Array(
-        existing
-            .keys()
-            .map(|k| JsonValue::String(k.to_string()))
-            .collect(),
+        existing.keys().map(|k| k.to_string().into()).collect(),
     ))
 }
 
@@ -301,7 +298,7 @@ pub fn remove(tx: &Transaction<'_>, ext_id: &str, keys: JsonValue) -> Result<Sto
         Some(v) => v,
     };
 
-    // Note: get_keys parses strings, arrays and objects, but remove()
+    // Note: get_keys_helper parses strings, arrays and objects, but remove()
     // is expected to only be passed a string or array of strings.
     let keys_and_defs = get_keys_helper(keys);
 
@@ -604,6 +601,11 @@ mod tests {
         let db = new_mem_db();
         let conn = db.get_connection().expect("should retrieve connection");
         let tx = conn.unchecked_transaction()?;
+        assert_eq!(
+            get_keys(&tx, ext_id)?,
+            json!([]),
+            "get_keys should return an empty array when storage is uninitialized"
+        );
         set(&tx, ext_id, json!({"foo": "bar", "baz": "qux" }))?;
         let data = get_keys(&tx, ext_id)?;
         assert_eq!(
