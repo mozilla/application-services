@@ -107,7 +107,7 @@ The following instructions assume that you are building `application-services` f
    1. Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the Android Studio sdk location and add it to your rc file (either `.zshrc` or `.bashrc` depending on the shell you use for your terminal).
    1. Configure the required versions of NDK
   `Configure menu > System Settings > Android SDK > SDK Tools > NDK > Show Package Details > NDK (Side by side)`
-        - 28.1.13356709 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
+        - 28.2.13676358 (required by Application Services, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L33))
 1. If you are on Windows using WSL - drop to the section below, [Windows setup
 for Android (WSL)](building.md#windows-setup-for-android-via-wsl) before proceeding.
 1. Check dependencies, environment variables
