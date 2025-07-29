@@ -7,6 +7,7 @@ mod error;
 mod http;
 mod models;
 
+use crate::curated_recommendations::models::CuratedRecommendationLocale;
 pub use error::{ApiResult, Error, Result};
 use error_support::handle_error;
 pub use models::{
@@ -95,6 +96,22 @@ impl CuratedRecommendationsClient {
         self.inner
             .get_curated_recommendations(request, &self.user_agent_header, &self.endpoint_url)
     }
+}
+/// Parses a serialized locale string (e.g. `"en-US"`) into a `CuratedRecommendationLocale` enum variant.
+///
+///
+/// Returns `None` if the string does not match any known locale.
+#[uniffi::export]
+pub fn curated_recommendation_locale_from_string(
+    locale: String,
+) -> Option<CuratedRecommendationLocale> {
+    CuratedRecommendationLocale::from_locale_string(locale)
+}
+
+/// Returns a list of all supported locale strings that map to `CuratedRecommendationLocale` variants.
+#[uniffi::export]
+pub fn all_curated_recommendation_locales() -> Vec<String> {
+    CuratedRecommendationLocale::all_locales()
 }
 
 impl CuratedRecommendationsClientInner<http::HttpClient> {
@@ -542,5 +559,63 @@ mod tests {
             captured.as_ref().unwrap().as_str(),
             "https://my.custom.host/api/v1/curated-recommendations"
         );
+    }
+
+    #[test]
+    fn test_from_string_valid_locales() {
+        assert_eq!(
+            curated_recommendation_locale_from_string("en-US".to_string()),
+            Some(CuratedRecommendationLocale::EnUs)
+        );
+
+        assert_eq!(
+            curated_recommendation_locale_from_string("fr".to_string()),
+            Some(CuratedRecommendationLocale::Fr)
+        );
+
+        assert_eq!(
+            curated_recommendation_locale_from_string("de-CH".to_string()),
+            Some(CuratedRecommendationLocale::DeCh)
+        );
+    }
+
+    #[test]
+    fn test_from_string_invalid_locale() {
+        // not serde-valid — should return None
+        assert_eq!(
+            curated_recommendation_locale_from_string("en_US".to_string()),
+            None
+        );
+
+        assert_eq!(
+            curated_recommendation_locale_from_string("xx-YY".to_string()),
+            None
+        );
+    }
+
+    #[test]
+    fn test_all_locales_contains_expected_variants() {
+        let all = all_curated_recommendation_locales();
+
+        assert!(all.contains(&"en-US".to_string()));
+        assert!(all.contains(&"fr-FR".to_string()));
+        assert!(all.contains(&"de-AT".to_string()));
+
+        // Ensure a few edge cases are present
+        assert_eq!(all.len(), 14); // total number of variants
+    }
+
+    #[test]
+    fn test_round_trip_from_all() {
+        let all = all_curated_recommendation_locales();
+
+        for locale_str in all {
+            let parsed = curated_recommendation_locale_from_string(locale_str.clone());
+            assert!(parsed.is_some(), "Failed to parse locale: {}", locale_str);
+
+            let reserialized = serde_json::to_string(&parsed.unwrap()).unwrap();
+            let clean = reserialized.trim_matches('"');
+            assert_eq!(clean, locale_str, "Round-trip mismatch: {}", locale_str);
+        }
     }
 }
