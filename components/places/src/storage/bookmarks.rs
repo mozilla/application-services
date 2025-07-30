@@ -1032,7 +1032,6 @@ mod tests {
     use crate::storage::get_meta;
     use crate::tests::{append_invalid_bookmark, assert_json_tree, insert_json_tree};
     use json_tree::*;
-    use pretty_assertions::assert_eq;
     use serde_json::Value;
     use std::collections::HashSet;
 

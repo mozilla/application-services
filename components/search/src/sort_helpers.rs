@@ -74,7 +74,6 @@ fn get_priority(
 mod tests {
     use super::*;
     use crate::types::*;
-    use pretty_assertions::assert_eq;
 
     fn create_engine(
         engine_id: &str,

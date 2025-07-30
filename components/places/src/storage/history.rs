@@ -1548,7 +1548,6 @@ mod tests {
     use crate::storage::bookmarks::{insert_bookmark, InsertableItem};
     use crate::types::VisitTransitionSet;
     use crate::{api::places_api::ConnectionType, storage::bookmarks::BookmarkRootGuid};
-    use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
     use sync15::engine::CollSyncIds;
     use types::Timestamp;
