@@ -10,31 +10,6 @@ pub enum ApiError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum MarsClientError {
-    #[error("Mars client failed to fetch ads: {0}")]
-    FetchAds(#[from] FetchAdsError),
-
-    #[error("Mars client failed to record an impression: {0}")]
-    RecordImpression(#[from] RecordImpressionError),
-
-    #[error("Mars client failed to record a click: {0}")]
-    RecordClick(#[from] RecordClickError),
-
-    #[error("Mars client failed to report an ad: {0}")]
-    ReportAd(#[from] ReportAdError),
-}
-
-impl GetErrorHandling for MarsClientError {
-    type ExternalError = ApiError;
-
-    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        ErrorHandling::convert(ApiError::Other {
-            reason: self.to_string(),
-        })
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
     #[error("Error requesting ads: {0}")]
     RequestAds(#[from] RequestAdsError),
