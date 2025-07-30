@@ -1,4 +1,4 @@
-use crate::error::{Error, Result};
+use crate::error::{ComponentError, EmitTelemetryError};
 use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::Request;
@@ -16,14 +16,14 @@ pub enum TelemetryEvent {
 }
 
 #[allow(dead_code)]
-pub trait TrackError<T, E> {
+pub trait TrackError<T, ComponentError> {
     fn track(self) -> Self;
     fn track_if<F>(self, condition: F) -> Self
     where
-        F: Fn(&E) -> bool;
+        F: Fn(&ComponentError) -> bool;
 }
 
-impl<T> TrackError<T, Error> for Result<T> {
+impl<T> TrackError<T, ComponentError> for Result<T, ComponentError> {
     /// Attempts to emit a telemetry event if the Error type can map to an event type.
     fn track(self) -> Self {
         if let Err(ref err) = self {
@@ -36,7 +36,7 @@ impl<T> TrackError<T, Error> for Result<T> {
     /// Same as `track` but also requires the given closure `condition` returns true.
     fn track_if<F>(self, condition: F) -> Self
     where
-        F: Fn(&Error) -> bool,
+        F: Fn(&ComponentError) -> bool,
     {
         if let Err(ref err) = self {
             if condition(err) {
@@ -48,21 +48,16 @@ impl<T> TrackError<T, Error> for Result<T> {
     }
 }
 
-fn map_error_to_event_type(err: &Error) -> Option<TelemetryEvent> {
+fn map_error_to_event_type(err: &ComponentError) -> Option<TelemetryEvent> {
     match err {
-        Error::UrlParse(_) => Some(TelemetryEvent::InvalidUrlError),
-        Error::Request(_) => Some(TelemetryEvent::FetchError),
-        Error::Json(_) => None,
-        Error::Validation { .. } => Some(TelemetryEvent::FetchError),
-        Error::BadRequest { .. } => Some(TelemetryEvent::FetchError),
-        Error::Server { .. } => Some(TelemetryEvent::FetchError),
-        Error::Unexpected { .. } => Some(TelemetryEvent::FetchError),
-        Error::MissingCallback { .. } => Some(TelemetryEvent::InvalidUrlError),
-        Error::DuplicatePlacementId { .. } => None,
+        ComponentError::RequestAds(_) => None,
+        ComponentError::RecordImpression(_) => None,
+        ComponentError::RecordClick(_) => None,
+        ComponentError::ReportAd(_) => None,
     }
 }
 
-pub fn emit_telemetry_event(event_type: Option<TelemetryEvent>) -> Result<()> {
+pub fn emit_telemetry_event(event_type: Option<TelemetryEvent>) -> Result<(), EmitTelemetryError> {
     let mut url = Url::parse(DEFAULT_TELEMETRY_ENDPOINT)?;
     if let Some(event) = event_type {
         let event_string = serde_json::to_string(&event)?;
