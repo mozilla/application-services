@@ -50,10 +50,10 @@ impl<T> TrackError<T, ComponentError> for Result<T, ComponentError> {
 
 fn map_error_to_event_type(err: &ComponentError) -> Option<TelemetryEvent> {
     match err {
-        ComponentError::RequestAds(_) => None,
-        ComponentError::RecordImpression(_) => None,
-        ComponentError::RecordClick(_) => None,
-        ComponentError::ReportAd(_) => None,
+        ComponentError::RequestAds(_) => Some(TelemetryEvent::FetchError),
+        ComponentError::RecordImpression(_) => Some(TelemetryEvent::InvalidUrlError),
+        ComponentError::RecordClick(_) => Some(TelemetryEvent::InvalidUrlError),
+        ComponentError::ReportAd(_) => Some(TelemetryEvent::InvalidUrlError),
     }
 }
 
@@ -66,4 +66,3 @@ pub fn emit_telemetry_event(event_type: Option<TelemetryEvent>) -> Result<(), Em
     }
     Ok(())
 }
-
