@@ -160,7 +160,6 @@ mod tests {
     use super::*;
     use crate::{types::*, SearchApiError};
     use mockito::mock;
-    use pretty_assertions::assert_eq;
     use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsServer};
     use serde_json::json;
 

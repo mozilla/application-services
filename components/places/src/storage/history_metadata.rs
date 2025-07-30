@@ -797,7 +797,6 @@ mod tests {
     };
     use crate::types::VisitType;
     use crate::VisitTransitionSet;
-    use pretty_assertions::assert_eq;
     use std::{thread, time};
 
     macro_rules! assert_table_size {

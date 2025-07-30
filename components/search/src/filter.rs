@@ -482,7 +482,6 @@ mod tests {
     use super::*;
     use crate::*;
     use once_cell::sync::Lazy;
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_default_search_engine_url() {
