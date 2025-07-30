@@ -4,7 +4,10 @@
 */
 
 use crate::{
-    error::{check_http_status_for_error, Error, Result},
+    error::{
+        check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
+        RecordImpressionError, ReportAdError,
+    },
     models::{AdRequest, AdResponse},
 };
 use url::Url;
@@ -15,10 +18,13 @@ const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.allizom.org/v1";
 
 #[cfg_attr(test, mockall::automock)]
 pub trait MARSClient: Sync + Send {
-    fn fetch_ads(&self, request: &AdRequest) -> Result<AdResponse>;
-    fn record_impression(&self, url_callback_string: Option<String>) -> Result<()>;
-    fn record_click(&self, url_callback_string: Option<String>) -> Result<()>;
-    fn record_report_ad(&self, url_callback_string: Option<String>) -> Result<()>;
+    fn fetch_ads(&self, request: &AdRequest) -> Result<AdResponse, FetchAdsError>;
+    fn record_impression(
+        &self,
+        url_callback_string: Option<String>,
+    ) -> Result<(), RecordImpressionError>;
+    fn record_click(&self, url_callback_string: Option<String>) -> Result<(), RecordClickError>;
+    fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError>;
     fn get_context_id(&self) -> &str;
     fn cycle_context_id(&mut self) -> String;
     fn get_mars_endpoint(&self) -> &str;
@@ -44,11 +50,11 @@ impl DefaultMARSClient {
         }
     }
 
-    fn make_callback_request(&self, url_callback_string: &str) -> Result<()> {
+    fn make_callback_request(&self, url_callback_string: &str) -> Result<(), CallbackRequestError> {
         let url = Url::parse(url_callback_string)?;
         let request = Request::get(url);
         let response = request.send()?;
-        check_http_status_for_error(&response)
+        check_http_status_for_error(&response).map_err(Into::into)
     }
 }
 
@@ -66,7 +72,7 @@ impl MARSClient for DefaultMARSClient {
         self.context_id = Uuid::new_v4().to_string();
         old_context_id
     }
-    fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse> {
+    fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse, FetchAdsError> {
         let endpoint = self.get_mars_endpoint();
         let url = Url::parse(&format!("{endpoint}/ads"))?;
         let request = Request::post(url).json(ad_request);
@@ -78,28 +84,34 @@ impl MARSClient for DefaultMARSClient {
 
         Ok(response_json)
     }
-    fn record_impression(&self, url_callback_string: Option<String>) -> Result<()> {
+    fn record_impression(
+        &self,
+        url_callback_string: Option<String>,
+    ) -> Result<(), RecordImpressionError> {
         match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback),
-            None => Err(Error::MissingCallback {
+            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
+            None => Err(CallbackRequestError::MissingCallback {
                 message: "Impression callback url empty.".to_string(),
-            }),
+            }
+            .into()),
         }
     }
-    fn record_click(&self, url_callback_string: Option<String>) -> Result<()> {
+    fn record_click(&self, url_callback_string: Option<String>) -> Result<(), RecordClickError> {
         match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback),
-            None => Err(Error::MissingCallback {
+            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
+            None => Err(CallbackRequestError::MissingCallback {
                 message: "Click callback url empty.".to_string(),
-            }),
+            }
+            .into()),
         }
     }
-    fn record_report_ad(&self, url_callback_string: Option<String>) -> Result<()> {
+    fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError> {
         match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback),
-            None => Err(Error::MissingCallback {
+            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
+            None => Err(CallbackRequestError::MissingCallback {
                 message: "Report callback url empty.".to_string(),
-            }),
+            }
+            .into()),
         }
     }
 }
@@ -145,7 +157,7 @@ mod tests {
     #[test]
     fn test_record_report_with_empty_callback_should_fail() {
         let client = create_test_client(mockito::server_url());
-        let result = client.record_report_ad(None);
+        let result = client.report_ad(None);
         assert!(result.is_err());
     }
 
@@ -172,14 +184,14 @@ mod tests {
     }
 
     #[test]
-    fn test_record_report_ad_with_valid_url_should_succeed() {
+    fn test_report_ad_with_valid_url_should_succeed() {
         let _m = mock("GET", "/report_ad_callback_url")
             .with_status(200)
             .create();
 
         let client = create_test_client(mockito::server_url());
         let url = format!("{}/report_ad_callback_url", &mockito::server_url());
-        let result = client.record_report_ad(Some(url));
+        let result = client.report_ad(Some(url));
         assert!(result.is_ok());
     }
 

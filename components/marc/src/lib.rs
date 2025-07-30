@@ -5,8 +5,13 @@
 
 use std::collections::{HashMap, HashSet};
 
-use error::{ApiResult, Error, Result};
+use error::ApiResult;
+use error::{
+    BuildPlacementsError, BuildRequestError, ComponentError, RecordClickError,
+    RecordImpressionError, ReportAdError, RequestAdsError,
+};
 use error_support::handle_error;
+use instrument::TrackError;
 use mars::{DefaultMARSClient, MARSClient};
 use models::{AdContentCategory, AdRequest, AdResponse, IABContentTaxonomy, MozAd};
 use parking_lot::Mutex;
@@ -18,8 +23,6 @@ mod instrument;
 mod mars;
 mod models;
 mod test_utils;
-
-use crate::instrument::TrackError;
 
 uniffi::setup_scaffolding!("MARC");
 
@@ -46,45 +49,51 @@ impl MozAdsComponent {
         }
     }
 
-    #[handle_error(Error)]
+    #[handle_error(ComponentError)]
     pub fn request_ads(
         &self,
         moz_ad_configs: Vec<MozAdsPlacementConfig>,
     ) -> ApiResult<HashMap<String, MozAdsPlacement>> {
         let mut inner = self.inner.lock();
-        let placements = inner.request_ads(&moz_ad_configs)?;
+        let placements = inner
+            .request_ads(&moz_ad_configs)
+            .map_err(ComponentError::RequestAds)?;
         Ok(placements)
     }
 
-    #[handle_error(Error)]
+    #[handle_error(ComponentError)]
     pub fn record_impression(&self, placement: MozAdsPlacement) -> ApiResult<()> {
         let inner = self.inner.lock();
-        inner.record_impression(&placement)?;
-        Ok(())
+        inner
+            .record_impression(&placement)
+            .map_err(ComponentError::RecordImpression)
+            .track()
     }
 
-    #[handle_error(Error)]
+    #[handle_error(ComponentError)]
     pub fn record_click(&self, placement: MozAdsPlacement) -> ApiResult<()> {
         let inner = self.inner.lock();
-        inner.record_click(&placement)?;
-        Ok(())
+        inner
+            .record_click(&placement)
+            .map_err(ComponentError::RecordClick)
+            .track()
     }
 
-    #[handle_error(Error)]
-    pub fn record_report_ad(&self, placement: MozAdsPlacement) -> ApiResult<()> {
+    #[handle_error(ComponentError)]
+    pub fn report_ad(&self, placement: MozAdsPlacement) -> ApiResult<()> {
         let inner = self.inner.lock();
-        inner.record_report_ad(&placement)?;
-        Ok(())
+        inner
+            .report_ad(&placement)
+            .map_err(ComponentError::ReportAd)
+            .track()
     }
 
-    #[handle_error(Error)]
     pub fn cycle_context_id(&self) -> ApiResult<String> {
         let mut inner = self.inner.lock();
         let previous_context_id = inner.cycle_context_id();
         Ok(previous_context_id)
     }
 
-    #[handle_error(Error)]
     pub fn clear_cache(&self) -> ApiResult<()> {
         let mut inner = self.inner.lock();
         inner.clear_cache();
@@ -112,43 +121,43 @@ impl MozAdsComponentInner {
     fn request_ads(
         &mut self,
         moz_ad_configs: &Vec<MozAdsPlacementConfig>,
-    ) -> Result<HashMap<String, MozAdsPlacement>> {
+    ) -> Result<HashMap<String, MozAdsPlacement>, RequestAdsError> {
         let ad_request = self.build_request_from_placement_configs(moz_ad_configs)?;
         let response = self.client.fetch_ads(&ad_request)?;
         let placements = self.build_placements(moz_ad_configs, response)?;
         Ok(placements)
     }
 
-    fn record_impression(&self, placement: &MozAdsPlacement) -> Result<()> {
+    fn record_impression(&self, placement: &MozAdsPlacement) -> Result<(), RecordImpressionError> {
         let impression_callback = placement
             .content
             .callbacks
             .as_ref()
             .and_then(|callbacks| callbacks.impression.clone());
 
-        self.client.record_impression(impression_callback).track()?;
+        self.client.record_impression(impression_callback)?;
         Ok(())
     }
 
-    fn record_click(&self, placement: &MozAdsPlacement) -> Result<()> {
+    fn record_click(&self, placement: &MozAdsPlacement) -> Result<(), RecordClickError> {
         let click_callback = placement
             .content
             .callbacks
             .as_ref()
             .and_then(|callbacks| callbacks.click.clone());
 
-        self.client.record_click(click_callback).track()?;
+        self.client.record_click(click_callback)?;
         Ok(())
     }
 
-    fn record_report_ad(&self, placement: &MozAdsPlacement) -> Result<()> {
+    fn report_ad(&self, placement: &MozAdsPlacement) -> Result<(), ReportAdError> {
         let report_ad_callback = placement
             .content
             .callbacks
             .as_ref()
             .and_then(|callbacks| callbacks.report.clone());
 
-        self.client.record_report_ad(report_ad_callback).track()?;
+        self.client.report_ad(report_ad_callback)?;
         Ok(())
     }
 
@@ -159,12 +168,9 @@ impl MozAdsComponentInner {
     fn build_request_from_placement_configs(
         &self,
         moz_ad_configs: &Vec<MozAdsPlacementConfig>,
-    ) -> Result<AdRequest> {
+    ) -> Result<AdRequest, BuildRequestError> {
         if moz_ad_configs.is_empty() {
-            return Err(Error::BadRequest {
-                code: 400,
-                message: "Request for ads cannot be empty.".to_string(),
-            });
+            return Err(BuildRequestError::EmptyConfig);
         }
 
         let context_id = self.client.get_context_id().to_string();
@@ -177,7 +183,7 @@ impl MozAdsComponentInner {
 
         for config in moz_ad_configs {
             if used_placement_ids.contains(&config.placement_id) {
-                return Err(Error::DuplicatePlacementId {
+                return Err(BuildRequestError::DuplicatePlacementId {
                     placement_id: config.placement_id.clone(),
                 });
             }
@@ -204,7 +210,7 @@ impl MozAdsComponentInner {
         &self,
         placement_configs: &Vec<MozAdsPlacementConfig>,
         mut mars_response: AdResponse,
-    ) -> Result<HashMap<String, MozAdsPlacement>> {
+    ) -> Result<HashMap<String, MozAdsPlacement>, BuildPlacementsError> {
         let mut moz_ad_placements: HashMap<String, MozAdsPlacement> = HashMap::new();
 
         for config in placement_configs {
@@ -223,7 +229,7 @@ impl MozAdsComponentInner {
                                 },
                             );
                             if let Some(v) = is_updated {
-                                return Err(Error::DuplicatePlacementId {
+                                return Err(BuildPlacementsError::DuplicatePlacementId {
                                     placement_id: v.placement_config.placement_id,
                                 });
                             }
