@@ -90,13 +90,17 @@ For example, you might end up with something like:
 
 ```
 # application-services overrides to make updating them all simpler.
+context_id = { path = "../application-services/components/context_id" }
+error-support = { path = "../application-services/components/support/error" }
+filter_adult = { path = "../application-services/components/filter_adult" }
 interrupt-support = { path = "../application-services/components/support/interrupt" }
 relevancy = { path = "../application-services/components/relevancy" }
 search = { path = "../application-services/components/search" }
-suggest = { path = "../application-services/components/suggest" }
 sql-support = { path = "../application-services/components/support/sql" }
+suggest = { path = "../application-services/components/suggest" }
 sync15 = { path = "../application-services/components/sync15" }
 tabs = { path = "../application-services/components/tabs" }
+tracing-support = { path = "../application-services/components/support/tracing" }
 viaduct = { path = "../application-services/components/viaduct" }
 webext-storage = { path = "../application-services/components/webext-storage" }
 ```
