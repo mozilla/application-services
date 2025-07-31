@@ -545,7 +545,7 @@ mod tests {
             .open_connection(ConnectionType::ReadOnly)
             .expect("should get reader");
         let val = reader
-            .conn_ext_query_one::<i64>("SELECT test_value FROM test_table")
+            .query_one::<i64>("SELECT test_value FROM test_table")
             .expect("should get value");
         assert_eq!(val, 999);
     }
@@ -566,7 +566,7 @@ mod tests {
             )
             .expect("should insert");
         let val = reader
-            .conn_ext_query_one::<i64>("SELECT test_value FROM test_table")
+            .query_one::<i64>("SELECT test_value FROM test_table")
             .expect("should get value");
         assert_eq!(val, 999);
     }

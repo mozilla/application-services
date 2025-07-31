@@ -332,12 +332,13 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 Ok(())
             }
             17 => {
-                tx.execute_batch(
+                tx.execute(
                     "
                     DROP TABLE dismissed_suggestions;
                     CREATE TABLE dismissed_suggestions (
                         url TEXT PRIMARY KEY
                     ) WITHOUT ROWID;",
+                    (),
                 )?;
                 Ok(())
             }
@@ -1003,7 +1004,7 @@ PRAGMA user_version=16;
         // `ingested_records` should be empty.
         let conn = db_file.open();
         assert_eq!(
-            conn.conn_ext_query_one::<i32>("SELECT count(*) FROM ingested_records")?,
+            conn.query_one::<i32>("SELECT count(*) FROM ingested_records")?,
             0,
             "ingested_records should be empty"
         );
