@@ -64,6 +64,11 @@ pub(crate) struct JSONEngineUrl {
     /// Indicates the date until which the URL is considered new
     /// (format: YYYY-MM-DD).
     pub is_new_until: Option<String>,
+
+    /// Whether the engine's partner code should be excluded from telemetry when
+    /// this URL is visited.
+    #[serde(default)]
+    pub exclude_partner_code_from_telemetry: bool,
 }
 
 /// Reflects `types::SearchEngineUrls`, but using `EngineUrl`.
