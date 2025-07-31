@@ -25,6 +25,7 @@ impl Default for SearchEngineUrl {
             search_term_param_name: Default::default(),
             display_name: Default::default(),
             is_new_until: Default::default(),
+            exclude_partner_code_from_telemetry: Default::default(),
         }
     }
 }
@@ -52,6 +53,7 @@ impl SearchEngineUrl {
         if let Some(is_new_until) = &preferred.is_new_until {
             self.is_new_until = Some(is_new_until.clone());
         }
+        self.exclude_partner_code_from_telemetry = preferred.exclude_partner_code_from_telemetry;
     }
 }
 
@@ -498,6 +500,7 @@ mod tests {
                 search_term_param_name: None,
                 display_name: None,
                 is_new_until: None,
+                exclude_partner_code_from_telemetry: false,
             },
         );
     }
@@ -760,6 +763,7 @@ mod tests {
                     ("en-GB".to_string(), "Visual Search en-GB".to_string()),
                 ])),
                 is_new_until: Some("2095-01-01".to_string()),
+                exclude_partner_code_from_telemetry: true,
             }),
         },
     });
@@ -868,6 +872,7 @@ mod tests {
                         search_term_param_name: Some("url".to_string()),
                         display_name: Some("Visual Search".to_string()),
                         is_new_until: Some("2095-01-01".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                     }),
                 },
                 click_url: None
@@ -982,6 +987,7 @@ mod tests {
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search en-GB".to_string()),
                         is_new_until: Some("2095-01-01".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                     }),
                 },
                 click_url: None
@@ -1033,6 +1039,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("trend".to_string()),
+                exclude_partner_code_from_telemetry: true,
                 ..Default::default()
             }),
             search_form: Some(JSONEngineUrl {
@@ -1065,6 +1072,7 @@ mod tests {
                     ),
                 ])),
                 is_new_until: Some("2096-02-02".to_string()),
+                ..Default::default()
             }),
         }),
         sub_variants: vec![],
@@ -1131,6 +1139,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                         ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
@@ -1158,6 +1167,7 @@ mod tests {
                         // locale isn't present in `display_name_map`.
                         display_name: Some("Visual Search Variant".to_string()),
                         is_new_until: Some("2096-02-02".to_string()),
+                        exclude_partner_code_from_telemetry: false,
                     }),
                 },
                 click_url: None
@@ -1227,6 +1237,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("trend".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                         ..Default::default()
                     }),
                     search_form: Some(SearchEngineUrl {
@@ -1254,6 +1265,7 @@ mod tests {
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search Variant en-GB".to_string()),
                         is_new_until: Some("2096-02-02".to_string()),
+                        exclude_partner_code_from_telemetry: false,
                     }),
                 },
                 click_url: None
@@ -1293,6 +1305,7 @@ mod tests {
                     experiment_config: None,
                 }]),
                 search_term_param_name: Some("subvariant".to_string()),
+                exclude_partner_code_from_telemetry: true,
                 ..Default::default()
             }),
             trending: Some(JSONEngineUrl {
@@ -1340,6 +1353,7 @@ mod tests {
                     ),
                 ])),
                 is_new_until: Some("2097-03-03".to_string()),
+                ..Default::default()
             }),
         }),
         sub_variants: vec![],
@@ -1394,6 +1408,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subvariant".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                         ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
@@ -1433,6 +1448,7 @@ mod tests {
                         // locale isn't present in `display_name_map`.
                         display_name: Some("Visual Search Subvariant".to_string()),
                         is_new_until: Some("2097-03-03".to_string()),
+                        exclude_partner_code_from_telemetry: false,
                     }),
                 },
                 click_url: None
@@ -1490,6 +1506,7 @@ mod tests {
                             experiment_config: None,
                         }],
                         search_term_param_name: Some("subvariant".to_string()),
+                        exclude_partner_code_from_telemetry: true,
                         ..Default::default()
                     }),
                     trending: Some(SearchEngineUrl {
@@ -1529,6 +1546,7 @@ mod tests {
                         // locale is present in `display_name_map`.
                         display_name: Some("Visual Search Subvariant en-GB".to_string()),
                         is_new_until: Some("2097-03-03".to_string()),
+                        exclude_partner_code_from_telemetry: false,
                     }),
                 },
                 click_url: None

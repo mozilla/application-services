@@ -136,6 +136,11 @@ pub struct SearchEngineUrl {
     /// (format: YYYY-MM-DD).
     #[uniffi(default = None)]
     pub is_new_until: Option<String>,
+
+    /// Whether the engine's partner code should be excluded from telemetry when
+    /// this URL is visited.
+    #[uniffi(default = false)]
+    pub exclude_partner_code_from_telemetry: bool,
 }
 
 /// The URLs associated with the search engine.
