@@ -1051,7 +1051,7 @@ mod tests {
 
         // Test the unknownFields column was added
         assert_eq!(
-            db.conn_ext_query_one::<String>("SELECT type FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'").unwrap(),
+            db.query_one::<String>("SELECT type FROM pragma_table_info('moz_bookmarks_synced') WHERE name = 'unknownFields'").unwrap(),
             "TEXT"
         );
     }
@@ -1078,7 +1078,7 @@ mod tests {
         let db = db_file.open();
 
         let sql = db
-            .conn_ext_query_one::<String>(
+            .query_one::<String>(
                 "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'moz_bookmarks'",
             )
             .expect("should retrieve CREATE TABLE statement");
@@ -1169,12 +1169,8 @@ mod tests {
         let upgraded_db = db_file.open();
 
         assert_eq!(
-            fresh_db
-                .conn_ext_query_one::<u32>("PRAGMA user_version")
-                .unwrap(),
-            upgraded_db
-                .conn_ext_query_one::<u32>("PRAGMA user_version")
-                .unwrap(),
+            fresh_db.query_one::<u32>("PRAGMA user_version").unwrap(),
+            upgraded_db.query_one::<u32>("PRAGMA user_version").unwrap(),
         );
         let all_tables = [
             "moz_places",

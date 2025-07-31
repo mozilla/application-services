@@ -1408,7 +1408,7 @@ pub fn get_visit_infos(
 
 pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Result<i64> {
     let count = if exclude_types.is_empty() {
-        db.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")?
+        db.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")?
     } else {
         let allowed_types = exclude_types.complement();
         db.query_row_and_then_cachable(
@@ -2752,7 +2752,7 @@ mod tests {
         for (want, query) in &counts_sql {
             assert_eq!(
                 *want,
-                conn.conn_ext_query_one::<i64>(query).unwrap(),
+                conn.query_one::<i64>(query).unwrap(),
                 "Unexpected value for {}",
                 query
             );
@@ -2844,7 +2844,7 @@ mod tests {
 
         assert_eq!(
             0,
-            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
                 .unwrap(),
         );
 
@@ -2872,13 +2872,13 @@ mod tests {
         .unwrap();
         assert_eq!(
             1,
-            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_places")
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
                 .unwrap(),
         );
         // Only one visit should be applied.
         assert_eq!(
             1,
-            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
                 .unwrap(),
         );
 
@@ -2899,12 +2899,12 @@ mod tests {
         // unchanged.
         assert_eq!(
             1,
-            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_places")
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
                 .unwrap(),
         );
         assert_eq!(
             1,
-            conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
                 .unwrap(),
         );
     }
@@ -2925,7 +2925,7 @@ mod tests {
 
         // We should clear all origins after deleting everything.
         let origin_count = conn
-            .conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_origins")
+            .query_one::<i64>("SELECT COUNT(*) FROM moz_origins")
             .expect("Should fetch origin count");
         assert_eq!(0, origin_count);
     }
@@ -3450,7 +3450,7 @@ mod tests {
         let correct_place_ids: HashSet<RowId> = correct_visits
             .iter()
             .map(|vid| {
-                db.conn_ext_query_one(&format!(
+                db.query_one(&format!(
                     "SELECT v.place_id FROM moz_historyvisits v WHERE v.id = {}",
                     vid
                 ))

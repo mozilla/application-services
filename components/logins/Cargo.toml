@@ -25,7 +25,7 @@ jwcrypto = { path = "../support/jwcrypto" }
 nss = { path = "../support/rc_crypto/nss", default-features = false }
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
-rusqlite = { version = "0.37.0", features = ["limits", "unlock_notify"] }
+rusqlite = { version = "0.33.0", features = ["limits", "unlock_notify"] }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 thiserror = "1.0"
 anyhow = "1.0"

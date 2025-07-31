@@ -509,9 +509,8 @@ impl LoginDb {
 
         if self.check_for_dupes(&guid, &entry, encdec).is_err() {
             // Try to detect if sync is enabled by checking if there are any mirror logins
-            let has_mirror_row: bool = self
-                .db
-                .conn_ext_query_one("SELECT EXISTS (SELECT 1 FROM loginsM)")?;
+            let has_mirror_row: bool =
+                self.db.query_one("SELECT EXISTS (SELECT 1 FROM loginsM)")?;
             let has_http_realm = entry.http_realm.is_some();
             let has_form_action_origin = entry.form_action_origin.is_some();
             report_error!(
@@ -1056,7 +1055,7 @@ pub mod test_utils {
     }
 
     pub fn get_server_modified(db: &LoginDb, guid: &str) -> i64 {
-        db.conn_ext_query_one(&format!(
+        db.query_one(&format!(
             "SELECT server_modified FROM loginsM WHERE guid='{}'",
             guid
         ))
