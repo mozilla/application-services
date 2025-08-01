@@ -67,7 +67,8 @@ enum Command {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    viaduct_reqwest::use_reqwest_backend();
+    nss::ensure_initialized();
+    viaduct_dev::use_dev_backend();
     if cli.log {
         if cli.debug {
             simple_logger::init_with_level(log::Level::Debug).unwrap();

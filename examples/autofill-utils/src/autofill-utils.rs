@@ -484,7 +484,8 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
 }
 
 fn main() -> Result<()> {
-    viaduct_reqwest::use_reqwest_backend();
+    nss::ensure_initialized();
+    viaduct_dev::use_dev_backend();
 
     let opts = Opts::from_args();
     if !opts.no_logging {

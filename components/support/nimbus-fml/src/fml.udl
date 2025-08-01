@@ -9,7 +9,8 @@ typedef string EmailAddress;
 
 [Error]
 enum FMLError {
-    "IOError", "JSONError", "YAMLError", "UrlError", "EmailError", "RegexError", "FetchError", "InvalidPath",
+    "IOError", "JSONError", "YAMLError", "UrlError", "EmailError", "RegexError", "FetchError",
+    "ResponseStatusError", "Utf8DecodingError", "InvalidPath",
     "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
     "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError",
     "InvalidApiToken",

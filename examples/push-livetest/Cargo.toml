@@ -12,7 +12,7 @@ name = "push-livetest"
 
 [dev-dependencies]
 push = { path = "../../components/push" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }
 viaduct = { path = "../../components/viaduct" }
 hex = "0.4"
 tempfile = "3"
