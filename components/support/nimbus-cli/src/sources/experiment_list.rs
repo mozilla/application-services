@@ -220,7 +220,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 is_preview,
             } => {
                 use remote_settings::{RemoteSettings, RemoteSettingsConfig, RemoteSettingsServer};
-                viaduct_reqwest::use_reqwest_backend();
+                viaduct_dev::use_dev_backend();
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
@@ -257,11 +257,8 @@ impl TryFrom<&ExperimentListSource> for Value {
             ExperimentListSource::FromApiV6 { endpoint } => {
                 let url = format!("{endpoint}/api/v6/experiments/");
 
-                let req = reqwest::blocking::Client::builder()
-                    .user_agent(USER_AGENT)
-                    .gzip(true)
-                    .build()?
-                    .get(url);
+                let req = viaduct::Request::get(viaduct::parse_url(&url)?)
+                    .header("User-Agent", USER_AGENT)?;
 
                 let resp = req.send()?;
                 let data: Value = resp.json()?;

@@ -184,7 +184,7 @@ pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
 }
 
 pub fn print_debug_ingestion_sizes() {
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::use_dev_backend();
     let store = SuggestStoreInner::new(
         "file:debug_ingestion_sizes?mode=memory&cache=shared",
         vec![],

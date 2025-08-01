@@ -270,7 +270,7 @@ mod test {
 
     #[test]
     fn test_get_records() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -300,7 +300,7 @@ mod test {
 
     #[test]
     fn test_get_records_since() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -335,7 +335,7 @@ mod test {
     // #[test]
     #[allow(dead_code)]
     fn test_download() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let config = RemoteSettingsConfig {
             server: Some(RemoteSettingsServer::Custom {
                 url: "http://localhost:8888".into(),

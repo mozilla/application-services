@@ -22,4 +22,4 @@ viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
 mockito = "0.31"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+viaduct-dev = { path = "../support/viaduct-dev" }

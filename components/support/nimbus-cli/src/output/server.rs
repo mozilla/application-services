@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::Result;
-use reqwest::StatusCode;
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
 use std::{
@@ -186,14 +186,13 @@ impl StartAppPostPayload {
 fn post_payload<T: Serialize>(payload: &T, addr: &str) -> Result<String> {
     let url = format!("http://{addr}/post");
     let body = serde_json::to_string(payload)?;
-    let req = reqwest::blocking::Client::new()
-        .post(url)
-        .header("Content-type", "application/json; charset=UTF-8")
-        .header("accept", "application/json")
+    let req = viaduct::Request::post(viaduct::parse_url(&url)?)
+        .header("Content-type", "application/json; charset=UTF-8")?
+        .header("accept", "application/json")?
         .body(body);
     let resp = req.send()?;
 
-    Ok(resp.text()?)
+    Ok(resp.text().to_string())
 }
 
 struct InMemoryDb {

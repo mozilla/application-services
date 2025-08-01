@@ -18,7 +18,7 @@ pub mod prompt;
 pub use env_logger;
 
 pub fn init_logging_with(s: &str) {
-    let noisy = "tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
+    let noisy = "tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn";
     let spec = format!("{},{}", s, noisy);
     env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
 }

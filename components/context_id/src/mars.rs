@@ -51,7 +51,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
 
         let expected_context_id = "some-fake-context-id";
         let expected_body = format!(r#"{{"context_id":"{}"}}"#, expected_context_id);
