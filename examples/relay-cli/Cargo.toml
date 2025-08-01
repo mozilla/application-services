@@ -11,4 +11,4 @@ clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 log = "0.4"
 relay = { path = "../../components/relay" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }

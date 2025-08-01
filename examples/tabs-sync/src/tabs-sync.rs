@@ -98,7 +98,8 @@ fn do_sync(
 }
 
 fn main() -> Result<()> {
-    viaduct_reqwest::use_reqwest_backend();
+    nss::ensure_initialized();
+    viaduct_dev::use_dev_backend();
     cli_support::init_logging();
     let opts = Opts::parse();
 

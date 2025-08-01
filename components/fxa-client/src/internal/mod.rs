@@ -570,6 +570,7 @@ mod tests {
 
     #[test]
     fn test_get_auth_state() {
+        viaduct_dev::use_dev_backend();
         let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
 

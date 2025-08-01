@@ -7,8 +7,8 @@ edition = "2021"
 publish = false
 
 [dependencies]
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 nss = { path = "../../components/support/rc_crypto/nss" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }
 log = "0.4"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 cli-support = { path = "../cli-support" }

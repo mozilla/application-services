@@ -25,7 +25,7 @@ use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
-use viaduct_reqwest::use_reqwest_backend;
+use viaduct_dev::use_dev_backend;
 
 use anyhow::Result;
 
@@ -235,7 +235,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    use_reqwest_backend();
+    use_dev_backend();
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
 
@@ -444,6 +444,7 @@ enum Command {
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
+    nss::ensure_initialized();
     if !opts.no_logging {
         cli_support::init_trace_logging();
     }

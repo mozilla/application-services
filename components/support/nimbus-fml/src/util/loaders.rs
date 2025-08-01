@@ -7,7 +7,6 @@ use crate::{
 };
 
 use anyhow::anyhow;
-use reqwest::blocking::{Client, ClientBuilder};
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
     env,
@@ -263,7 +262,6 @@ static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_V
 #[derive(Clone, Debug)]
 pub struct FileLoader {
     cache_dir: Option<PathBuf>,
-    fetch_client: Client,
 
     /// A mapping of repository IDs (without the leading @) to the git refs that
     /// should be used to download files.
@@ -302,14 +300,8 @@ impl FileLoader {
         cache_dir: Option<PathBuf>,
         repo_refs: BTreeMap<String, FilePath>,
     ) -> Result<Self> {
-        let http_client = ClientBuilder::new()
-            .https_only(true)
-            .user_agent(USER_AGENT)
-            .build()?;
-
         Ok(Self {
             cache_dir,
-            fetch_client: http_client,
             cwd,
             repo_refs,
         })
@@ -428,11 +420,11 @@ impl FileLoader {
 
                     // The response format is documented here:
                     // https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#get-repository-content
-                    self.fetch_client
-                        .get(contents_api_url)
-                        .bearer_auth(api_key)
+                    viaduct::Request::get(contents_api_url)
+                        .header("Authorization", format!("Bearer {api_key}"))?
+                        .header("User-Agent", USER_AGENT)?
                         .send()?
-                        .error_for_status()?
+                        .require_success()?
                         .json::<serde_json::Value>()?
                         .get("download_url")
                         .and_then(serde_json::Value::as_str)
@@ -470,12 +462,11 @@ impl FileLoader {
         Ok(if path_buf.exists() {
             std::fs::read_to_string(path_buf)?
         } else {
-            let res = self
-                .fetch_client
-                .get(url.clone())
+            let res = viaduct::Request::get(url.clone())
+                .header("User-Agent", USER_AGENT)?
                 .send()?
-                .error_for_status()?;
-            let text = res.text()?;
+                .require_success()?;
+            let text = String::from_utf8(res.body)?;
 
             let parent = path_buf.parent().expect("Cache directory is specified");
             if !parent.exists() {

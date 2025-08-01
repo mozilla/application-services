@@ -26,7 +26,7 @@ cli-support = { path = "../cli-support" }
 tempfile = "3"
 serde_json = "1.0"
 url = "2.2"
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }
 rusqlite = { version = "0.37.0", features = ["limits"] }
 init_rust_components = { path = "../../components/init_rust_components", features = ["keydb"] }
 

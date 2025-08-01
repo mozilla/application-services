@@ -364,7 +364,7 @@ fn do_sync(
 #[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::use_dev_backend();
 
     let matches = clap::Command::new("sync_pass_sql")
         .about("CLI login syncing tool")

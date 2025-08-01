@@ -78,7 +78,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: base64</name>
-    <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/marshallpierce/rust-base64/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: basic-toml</name>
@@ -150,7 +150,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: fallible-iterator</name>
-    <url>https://github.com/sfackler/rust-fallible-iterator/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/sfackler/rust-fallible-iterator/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fallible-streaming-iterator</name>
@@ -174,7 +174,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
-    <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-random/getrandom/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: glob</name>
@@ -250,7 +250,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: log</name>
-    <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang/log/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: mime</name>
@@ -262,7 +262,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
-    <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-num/num-traits/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: once_cell</name>
@@ -306,7 +306,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
-    <url>https://github.com/dtolnay/proc-macro2/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/dtolnay/proc-macro2/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: prost</name>
@@ -346,15 +346,15 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: rinja</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rinja-rs/rinja/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rinja_derive</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rinja-rs/rinja/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rinja_parser</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rinja-rs/rinja/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rkv</name>
@@ -370,7 +370,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: ryu</name>
-    <url>https://github.com/dtolnay/ryu/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/dtolnay/ryu/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: scopeguard</name>
@@ -398,7 +398,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: sha2</name>
-    <url>https://github.com/RustCrypto/hashes/blob/master/sha2/LICENSE-APACHE</url>
+    <url>https://github.com/RustCrypto/hashes/blob/main/sha2/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: shlex</name>
@@ -442,7 +442,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: thread_local</name>
-    <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/Amanieu/thread_local-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: tinyvec</name>
@@ -490,7 +490,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: vcpkg</name>
-    <url>https://github.com/mcgoo/vcpkg-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/mcgoo/vcpkg-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: version_check</name>
@@ -526,11 +526,11 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: byteorder</name>
-    <url>https://github.com/BurntSushi/byteorder/blob/master/LICENSE-MIT</url>
+    <url>https://github.com/BurntSushi/byteorder/blob/main/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: memchr</name>
-    <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
+    <url>https://github.com/BurntSushi/memchr/blob/main/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: bincode</name>
@@ -546,11 +546,11 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: caseless</name>
-    <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
+    <url>https://github.com/SimonSapin/rust-caseless/blob/main/LICENSE</url>
   </license>
   <license>
     <name>MIT License: extend</name>
-    <url>https://github.com/davidpdrsn/extend/blob/master/LICENSE</url>
+    <url>https://github.com/davidpdrsn/extend/blob/main/LICENSE</url>
   </license>
   <license>
     <name>MIT License: generic-array</name>
@@ -642,7 +642,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>BSD-2-Clause License: arrayref</name>
-    <url>https://github.com/droundy/arrayref/blob/master/LICENSE</url>
+    <url>https://github.com/droundy/arrayref/blob/main/LICENSE</url>
   </license>
   <license>
     <name>BSD-3-Clause License: protobuf</name>

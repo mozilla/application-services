@@ -31,5 +31,5 @@ mockito = "0.31"
 hex = "0.4"
 tempfile = "3.1.0"
 mockall = "0.12"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
+viaduct-dev = { path = "../support/viaduct-dev" }
 nss = { path = "../support/rc_crypto/nss" }
