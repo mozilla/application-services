@@ -369,3 +369,7 @@ pub mod status_codes {
         (505, HTTP_VERSION_NOT_SUPPORTED),
     ];
 }
+
+pub fn parse_url(url: &str) -> Result<Url, Error> {
+    Ok(Url::parse(url)?)
+}

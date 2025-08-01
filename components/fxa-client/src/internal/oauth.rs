@@ -608,7 +608,7 @@ mod tests {
     fn test_oauth_flow_url() {
         nss::ensure_initialized();
         // FIXME: this test shouldn't make network requests.
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
@@ -702,7 +702,7 @@ mod tests {
     fn test_webchannel_context_url() {
         nss::ensure_initialized();
         // FIXME: this test shouldn't make network requests.
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         let config = Config::new(
             "https://accounts.firefox.com",
@@ -1086,6 +1086,7 @@ mod tests {
     #[test]
     fn test_oauth_request_sent_with_session_when_available() {
         nss::ensure_initialized();
+        viaduct_dev::use_dev_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",

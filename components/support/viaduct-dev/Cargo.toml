@@ -1,0 +1,21 @@
+[package]
+name = "viaduct-dev"
+version = "0.2.0"
+authors = ["Sync Team <sync-team@mozilla.com>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+error-support = { path = "../error" }
+viaduct = { path = "../../viaduct" }
+hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"] }
+hyper-tls = { version = "0.5", features = ["vendored"] }
+tokio = { version = "1", features = ["rt"] }
+once_cell = "1.5"
+url = "2"
+
+[dev-dependencies]
+clap = { version = "4.2", default-features = false, features = ["std", "derive"]}

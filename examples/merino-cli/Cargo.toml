@@ -11,4 +11,4 @@ clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 anyhow = "1.0"
 serde_json = "1.0"
 merino = { path = "../../components/merino" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }

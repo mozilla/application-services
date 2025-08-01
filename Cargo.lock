@@ -198,19 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-compression"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0122885821398cc923ece939e24d1056a2384ee719432397fa9db87230ff11"
-dependencies = [
- "flate2",
- "futures-core",
- "memchr",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -220,12 +207,6 @@ dependencies = [
  "quote",
  "syn 2.0.89",
 ]
-
-[[package]]
-name = "atomic-waker"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atty"
@@ -279,9 +260,9 @@ dependencies = [
  "bitflags 1.3.2",
  "bytes",
  "futures-util",
- "http 0.2.9",
- "http-body 0.4.5",
- "hyper 0.14.27",
+ "http",
+ "http-body",
+ "hyper",
  "itoa",
  "matchit",
  "memchr",
@@ -309,8 +290,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
- "http 0.2.9",
- "http-body 0.4.5",
+ "http",
+ "http-body",
  "mime",
  "rustversion",
  "tower-layer",
@@ -744,7 +725,7 @@ dependencies = [
  "url",
  "uuid",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1263,12 +1244,13 @@ dependencies = [
  "fxa-client",
  "interrupt-support",
  "log",
+ "nss",
  "rusqlite",
  "serde_json",
  "sql-support",
  "sync-guid",
  "sync15",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1318,6 +1300,7 @@ dependencies = [
  "fxa-client",
  "interrupt-support",
  "log",
+ "nss",
  "places",
  "serde",
  "serde_derive",
@@ -1328,7 +1311,7 @@ dependencies = [
  "tempfile",
  "types",
  "url",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1339,7 +1322,7 @@ dependencies = [
  "push",
  "tempfile",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1364,7 +1347,7 @@ dependencies = [
  "tempfile",
  "text-table",
  "url",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1378,11 +1361,12 @@ dependencies = [
  "cli-support",
  "interrupt-support",
  "log",
+ "nss",
  "serde_json",
  "sync15",
  "tabs",
  "url",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1394,7 +1378,7 @@ dependencies = [
  "cli-support",
  "env_logger",
  "example-component",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1409,7 +1393,7 @@ dependencies = [
  "nss",
  "sync15",
  "url",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1421,7 +1405,7 @@ dependencies = [
  "env_logger",
  "log",
  "relay",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1438,7 +1422,7 @@ dependencies = [
  "places",
  "relevancy",
  "sync15",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1454,13 +1438,13 @@ dependencies = [
  "log",
  "nss",
  "remote_settings",
- "reqwest 0.12.4",
  "serde",
  "serde_json",
  "sha2",
  "thiserror 1.0.69",
- "tokio",
- "viaduct-reqwest",
+ "url",
+ "viaduct",
+ "viaduct-dev",
  "walkdir",
  "zip",
 ]
@@ -1477,7 +1461,7 @@ dependencies = [
  "nss",
  "remote_settings",
  "suggest",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1756,7 +1740,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1877,26 +1861,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http 0.2.9",
- "indexmap 2.5.0",
- "slab",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "h2"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524e8ac6999421f49a846c2d4411f337e53497d8ec55d67753beffa43c5d9205"
-dependencies = [
- "atomic-waker",
- "bytes",
- "fnv",
- "futures-core",
- "futures-sink",
- "http 1.1.0",
+ "http",
  "indexmap 2.5.0",
  "slab",
  "tokio",
@@ -2017,47 +1982,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "http"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
-dependencies = [
- "bytes",
- "fnv",
- "itoa",
-]
-
-[[package]]
 name = "http-body"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5f38f16d184e36f2408a55281cd658ecbd3ca05cce6d6510a176eca393e26d1"
 dependencies = [
  "bytes",
- "http 0.2.9",
- "pin-project-lite",
-]
-
-[[package]]
-name = "http-body"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
-dependencies = [
- "bytes",
- "http 1.1.0",
-]
-
-[[package]]
-name = "http-body-util"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
-dependencies = [
- "bytes",
- "futures-util",
- "http 1.1.0",
- "http-body 1.0.1",
+ "http",
  "pin-project-lite",
 ]
 
@@ -2104,37 +2035,17 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2 0.3.26",
- "http 0.2.9",
- "http-body 0.4.5",
+ "h2",
+ "http",
+ "http-body",
  "httparse",
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.9",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
- "want",
-]
-
-[[package]]
-name = "hyper"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbff0a806a4728c99295b254c8838933b5b082d75e3cb70c8dab21fdfbcfa9a"
-dependencies = [
- "bytes",
- "futures-channel",
- "futures-util",
- "h2 0.4.6",
- "http 1.1.0",
- "http-body 1.0.1",
- "httparse",
- "itoa",
- "pin-project-lite",
- "smallvec",
- "tokio",
  "want",
 ]
 
@@ -2145,46 +2056,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
 dependencies = [
  "bytes",
- "hyper 0.14.27",
+ "hyper",
  "native-tls",
  "tokio",
  "tokio-native-tls",
-]
-
-[[package]]
-name = "hyper-tls"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
-dependencies = [
- "bytes",
- "http-body-util",
- "hyper 1.5.0",
- "hyper-util",
- "native-tls",
- "tokio",
- "tokio-native-tls",
- "tower-service",
-]
-
-[[package]]
-name = "hyper-util"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cde7055719c54e36e95e8719f95883f22072a48ede39db7fc17a4e1d5281e9b9"
-dependencies = [
- "bytes",
- "futures-channel",
- "futures-util",
- "http 1.1.0",
- "http-body 1.0.1",
- "hyper 1.5.0",
- "pin-project-lite",
- "socket2 0.5.7",
- "tokio",
- "tower",
- "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -2921,7 +2796,7 @@ dependencies = [
  "clap 4.5.39",
  "merino",
  "serde_json",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3072,12 +2947,11 @@ dependencies = [
  "copypasta",
  "glob",
  "heck 0.4.1",
- "hyper 0.14.27",
+ "hyper",
  "local-ip-address",
  "nimbus-fml",
  "percent-encoding",
  "remote_settings",
- "reqwest 0.11.18",
  "serde",
  "serde_json",
  "serde_yaml 0.9.21",
@@ -3088,7 +2962,8 @@ dependencies = [
  "tower-livereload",
  "unicode-segmentation",
  "update-informer",
- "viaduct-reqwest",
+ "viaduct",
+ "viaduct-dev",
  "whoami",
 ]
 
@@ -3116,7 +2991,6 @@ dependencies = [
  "jsonschema",
  "lazy_static",
  "regex",
- "reqwest 0.11.18",
  "serde",
  "serde_json",
  "serde_yaml 0.8.24",
@@ -3127,6 +3001,7 @@ dependencies = [
  "unicode-segmentation",
  "uniffi",
  "url",
+ "viaduct",
 ]
 
 [[package]]
@@ -3156,7 +3031,7 @@ dependencies = [
  "uniffi",
  "url",
  "uuid",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3781,7 +3656,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3971,7 +3846,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -4023,7 +3898,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -4032,17 +3907,16 @@ version = "0.11.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cde824a14b7c14f85caff81225f411faacc04a2013f41670f41443742b1c1c55"
 dependencies = [
- "async-compression",
  "base64 0.21.2",
  "bytes",
  "encoding_rs",
  "futures-core",
  "futures-util",
- "h2 0.3.26",
- "http 0.2.9",
- "http-body 0.4.5",
- "hyper 0.14.27",
- "hyper-tls 0.5.0",
+ "h2",
+ "http",
+ "http-body",
+ "hyper",
+ "hyper-tls",
  "ipnet",
  "js-sys",
  "log",
@@ -4056,55 +3930,12 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
- "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "winreg 0.10.1",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "566cafdd92868e0939d3fb961bd0dc25fcfaaed179291093b3d43e6b3150ea10"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "h2 0.4.6",
- "http 1.1.0",
- "http-body 1.0.1",
- "http-body-util",
- "hyper 1.5.0",
- "hyper-tls 0.6.0",
- "hyper-util",
- "ipnet",
- "js-sys",
- "log",
- "mime",
- "native-tls",
- "once_cell",
- "percent-encoding",
- "pin-project-lite",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper",
- "system-configuration",
- "tokio",
- "tokio-native-tls",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winreg 0.52.0",
+ "winreg",
 ]
 
 [[package]]
@@ -4281,21 +4112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
-]
-
-[[package]]
-name = "rustls-pki-types"
-version = "1.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16f1201b3c9a7ee8039bcadc17b7e605e2945b27eee7631788c1bd2b0643674b"
-
-[[package]]
 name = "rustversion"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4378,7 +4194,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "uniffi",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -4545,15 +4361,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4631,16 +4438,6 @@ checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "socket2"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
-dependencies = [
- "libc",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4754,7 +4551,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -4824,7 +4621,7 @@ dependencies = [
  "tabs",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -4889,27 +4686,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
-]
-
-[[package]]
-name = "system-configuration"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3a3adc5c275d719af8cb4272ea1c4a6d668a777f37e115f6d11ddbc1c8e0e7"
-dependencies = [
- "bitflags 1.3.2",
- "core-foundation",
- "system-configuration-sys",
-]
-
-[[package]]
-name = "system-configuration-sys"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
-dependencies = [
- "core-foundation-sys",
- "libc",
 ]
 
 [[package]]
@@ -5157,10 +4933,8 @@ dependencies = [
  "libc",
  "mio",
  "num_cpus",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
- "socket2 0.4.9",
+ "socket2",
  "tokio-macros",
  "windows-sys 0.48.0",
 ]
@@ -5252,8 +5026,8 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-util",
- "http 0.2.9",
- "http-body 0.4.5",
+ "http",
+ "http-body",
  "http-range-header",
  "httpdate",
  "mime",
@@ -5280,8 +5054,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e90e6da0427c5e111e03c764d49c4e970f5a9f6569fe408e5a1cbe257f48388"
 dependencies = [
  "bytes",
- "http 0.2.9",
- "http-body 0.4.5",
+ "http",
+ "http-body",
  "pin-project-lite",
  "tokio",
  "tower",
@@ -5657,12 +5431,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "viaduct-dev"
+version = "0.2.0"
+dependencies = [
+ "clap 4.5.39",
+ "error-support",
+ "hyper",
+ "hyper-tls",
+ "once_cell",
+ "tokio",
+ "url",
+ "viaduct",
+]
+
+[[package]]
 name = "viaduct-reqwest"
 version = "0.2.0"
 dependencies = [
  "error-support",
  "once_cell",
- "reqwest 0.11.18",
+ "reqwest",
  "viaduct",
 ]
 
@@ -6009,15 +5797,6 @@ dependencies = [
 
 [[package]]
 name = "windows-sys"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
-dependencies = [
- "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-sys"
 version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
@@ -6234,16 +6013,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "winreg"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
-dependencies = [
- "cfg-if 1.0.0",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
