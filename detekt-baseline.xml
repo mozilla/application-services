@@ -1,0 +1,175 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ForbiddenComment:Helpers.kt$// TODO: We'd like to be using the a-c log tooling here, but adding that</ID>
+    <ID>ForbiddenComment:SyncTelemetry.kt$SyncTelemetry$// TODO: Swap this with a local version if we need it</ID>
+    <ID>ForbiddenComment:SyncTelemetry.kt$SyncTelemetry$// TODO: fix</ID>
+    <ID>TooManyFunctions:FeatureVariables.kt$Variables</ID>
+    <ID>TooManyFunctions:FxaClient.kt$FxaClient : AutoCloseable</ID>
+    <ID>UndocumentedPublicClass:AppR.kt$R$drawable</ID>
+    <ID>UndocumentedPublicClass:AppR.kt$R$string</ID>
+    <ID>UndocumentedPublicClass:ArgumentProcessor.kt$CliArgs</ID>
+    <ID>UndocumentedPublicClass:Context.kt$Context</ID>
+    <ID>UndocumentedPublicClass:Context.kt$Resources</ID>
+    <ID>UndocumentedPublicClass:Context.kt$SharedPreferences</ID>
+    <ID>UndocumentedPublicClass:DatabaseLoginsStorage.kt$KeyRegenerationEventReason</ID>
+    <ID>UndocumentedPublicClass:Drawable.kt$Drawable</ID>
+    <ID>UndocumentedPublicClass:FeatureHolder.kt$NimbusFeatureException : Exception</ID>
+    <ID>UndocumentedPublicClass:FeatureManifestInterface.kt$FeatureManifestInterface&lt;T&gt;</ID>
+    <ID>UndocumentedPublicClass:FeatureVariables.kt$NullVariables : Variables</ID>
+    <ID>UndocumentedPublicClass:FeatureVariables.kt$NullVariables$Companion</ID>
+    <ID>UndocumentedPublicClass:FeatureVariables.kt$Res$Companion</ID>
+    <ID>UndocumentedPublicClass:FeatureVariables.kt$StringHolder</ID>
+    <ID>UndocumentedPublicClass:FeatureVariables.kt$VariablesWithContext : Variables</ID>
+    <ID>UndocumentedPublicClass:FxaClient.kt$FxaClient$Companion</ID>
+    <ID>UndocumentedPublicClass:FxaClient.kt$FxaClient$PersistCallback</ID>
+    <ID>UndocumentedPublicClass:Helpers.kt$IncompatibleMegazordVersion : MegazordError</ID>
+    <ID>UndocumentedPublicClass:Helpers.kt$MegazordError : Exception</ID>
+    <ID>UndocumentedPublicClass:Helpers.kt$MegazordNotInitialized : MegazordError</ID>
+    <ID>UndocumentedPublicClass:LibR.kt$R$drawable</ID>
+    <ID>UndocumentedPublicClass:LibR.kt$R$string</ID>
+    <ID>UndocumentedPublicClass:MockNimbus.kt$MockNimbus : FeaturesInterface</ID>
+    <ID>UndocumentedPublicClass:MockNimbusInternal.kt$GeckoPref</ID>
+    <ID>UndocumentedPublicClass:MockNimbusInternal.kt$PrefBranch</ID>
+    <ID>UndocumentedPublicClass:NimbusBuilder.kt$DefaultNimbusBuilder : AbstractNimbusBuilder</ID>
+    <ID>UndocumentedPublicClass:NimbusDelegate.kt$NimbusDelegate$Companion</ID>
+    <ID>UndocumentedPublicClass:NimbusHelpers.kt$NimbusMessagingHelperInterface : NimbusTargetingHelperInterfaceNimbusStringHelperInterface</ID>
+    <ID>UndocumentedPublicClass:NimbusInterface.kt$NimbusEventStore</ID>
+    <ID>UndocumentedPublicClass:NimbusInterface.kt$NullNimbus : NimbusInterface</ID>
+    <ID>UndocumentedPublicClass:NimbusParams.kt$NimbusDeviceInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:PlacesConnection.kt$InterruptibleConnection : AutoCloseable</ID>
+    <ID>UndocumentedPublicClass:PlacesConnection.kt$PlacesApi$Companion</ID>
+    <ID>UndocumentedPublicClass:PlacesConnection.kt$PlacesConnection : InterruptibleConnectionAutoCloseable</ID>
+    <ID>UndocumentedPublicClass:PlacesConnection.kt$ReadableHistoryConnection : InterruptibleConnection</ID>
+    <ID>UndocumentedPublicClass:PlacesConnection.kt$WritableHistoryConnection : ReadableHistoryConnection</ID>
+    <ID>UndocumentedPublicClass:RustBuffer.kt$RustBuffer$ByValue : RustBufferByValue</ID>
+    <ID>UndocumentedPublicClass:RustComponentsInitializer.kt$RustComponentsInitializer</ID>
+    <ID>UndocumentedPublicClass:SmokeTestFeature.kt$SmokeTestFeature</ID>
+    <ID>UndocumentedPublicClass:SubLibR.kt$R$drawable</ID>
+    <ID>UndocumentedPublicClass:SubLibR.kt$R$string</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetry.kt$InvalidTelemetryException : Exception</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetry.kt$InvalidTelemetryException$InvalidData : InvalidTelemetryException</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetry.kt$InvalidTelemetryException$InvalidEvents : InvalidTelemetryException</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetry.kt$InvalidTelemetryException$UnknownEvent : InvalidTelemetryException</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$EngineInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$EngineInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$EventInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$EventInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$FailureReason</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$FailureReason$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$IncomingInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$IncomingInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$OutgoingInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$OutgoingInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$ProblemInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$ProblemInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$SyncInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$SyncInfo$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$SyncTelemetryPing</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$SyncTelemetryPing$Companion</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$ValidationInfo</ID>
+    <ID>UndocumentedPublicClass:SyncTelemetryPing.kt$ValidationInfo$Companion</ID>
+    <ID>UndocumentedPublicFunction:ArgumentProcessor.kt$@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) @Suppress("ReturnCount") fun createCommandLineArgs(uri: Uri): CliArgs?</ID>
+    <ID>UndocumentedPublicFunction:Collection+.kt$fun &lt;K, V, K1, V1&gt; Map&lt;K, V&gt;.mapEntriesNotNull(keyTransform: (K) -&gt; K1?, valueTransform: (V) -&gt; V1?): Map&lt;K1, V1&gt;</ID>
+    <ID>UndocumentedPublicFunction:Collection+.kt$fun &lt;K, V, K1&gt; Map&lt;K, V&gt;.mapKeysNotNull(transform: (K) -&gt; K1?): Map&lt;K1, V&gt;</ID>
+    <ID>UndocumentedPublicFunction:Collection+.kt$fun &lt;K, V, V1&gt; Map&lt;K, V&gt;.mapValuesNotNull(transform: (V) -&gt; V1?): Map&lt;K, V1&gt;</ID>
+    <ID>UndocumentedPublicFunction:Collection+.kt$fun &lt;K, V&gt; Map&lt;K, V&gt;.mergeWith(defaults: Map&lt;K, V&gt;, valueTransform: ((V, V) -&gt; V?)? = null)</ID>
+    <ID>UndocumentedPublicFunction:Config.kt$fun FxaServer.contentUrl()</ID>
+    <ID>UndocumentedPublicFunction:Config.kt$fun FxaServer.isCustom()</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$Context$fun getDrawable(res: Int): Drawable</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$Context$fun getString(res: Int): String</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$Resources$fun getDrawable(resId: Int, theme: String)</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$Resources$fun getIdentifier(resName: String, defType: String, packageName: String): Int?</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$Resources$fun getResourceName(resId: Int)</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun clear()</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun contains(key: String): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun getBoolean(key: String, def: Boolean): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun getInt(key: String, def: Int): Int</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun getString(key: String, def: String): String</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun put(key: String, value: Boolean)</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun put(key: String, value: Int)</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun put(key: String, value: String)</ID>
+    <ID>UndocumentedPublicFunction:Context.kt$SharedPreferences$fun remove(key: String)</ID>
+    <ID>UndocumentedPublicFunction:CreateKey.kt$fun createKey()</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun add(entry: LoginEntry): Login</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun addOrUpdate(entry: LoginEntry): Login</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun delete(id: String): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun deleteUndecryptableLoginsAndRecordMetrics()</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun findLoginToUpdate(look: LoginEntry): Login?</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun get(id: String): Login?</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun getByBaseDomain(baseDomain: String): List&lt;Login&gt;</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun hasLoginsByBaseDomain(baseDomain: String): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun isEmpty(): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun list(): List&lt;Login&gt;</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun reset()</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun touch(id: String)</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun update(id: String, entry: LoginEntry): Login</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$@Throws(LoginsApiException::class) fun wipeLocal()</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$DatabaseLoginsStorage$fun registerWithSyncManager()</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$LoginsStoreCounterMetrics$@Suppress("ComplexMethod", "TooGenericExceptionCaught") inline fun &lt;U&gt; measureIgnoring( shouldIgnore: (Exception) -&gt; Boolean, callback: () -&gt; U, ): U</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$LoginsStoreCounterMetrics$inline fun &lt;U&gt; measure(callback: () -&gt; U): U</ID>
+    <ID>UndocumentedPublicFunction:DatabaseLoginsStorage.kt$fun recordKeyRegenerationEvent(reason: KeyRegenerationEventReason)</ID>
+    <ID>UndocumentedPublicFunction:FeatureHolder.kt$FMLObjectInterface$fun toJSONObject(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:FeatureManifestInterface.kt$FeatureManifestInterface$fun geckoPrefsMap(): Map&lt;String, Map&lt;String, GeckoPref&gt;&gt;</ID>
+    <ID>UndocumentedPublicFunction:FeatureManifestInterface.kt$FeatureManifestInterface$fun getCoenrollingFeatureIds(): List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$NullVariables$fun setContext(context: Context)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Res.Companion$fun drawable(context: Context, resId: Int): Res&lt;Drawable&gt;</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Res.Companion$fun string(literal: String)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Res.Companion$fun string(resId: Int)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$StringHolder$@Suppress("ExceptionRaisedInUnexpectedLocation") fun toString(context: Context): String</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Variables$fun asBoolMap(): Map&lt;String, Boolean&gt;?</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Variables$fun asIntMap(): Map&lt;String, Int&gt;?</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Variables$fun asStringMap(): Map&lt;String, String&gt;?</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$Variables$fun asVariablesMap(): Map&lt;String, JSONVariables&gt;?</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$VariablesWithContext$fun asDrawable(res: Int): Res&lt;Drawable&gt;</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$VariablesWithContext$fun asDrawableResource(string: String)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$VariablesWithContext$fun asStringResource(string: String)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$VariablesWithContext$fun asText(res: Int)</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$VariablesWithContext$fun asText(string: String): String</ID>
+    <ID>UndocumentedPublicFunction:FeatureVariables.kt$inline fun &lt;reified T : Enum&lt;T&gt;&gt; String.asEnum(): T?</ID>
+    <ID>UndocumentedPublicFunction:FxaClient.kt$FxaClient$fun checkAuthorizationStatus(): AuthorizationInfo</ID>
+    <ID>UndocumentedPublicFunction:FxaClient.kt$FxaClient.PersistCallback$fun persist(data: String)</ID>
+    <ID>UndocumentedPublicFunction:MockNimbus.kt$MockNimbus$fun getExposureCount(featureId: String)</ID>
+    <ID>UndocumentedPublicFunction:MockNimbus.kt$MockNimbus$fun isExposed(featureId: String)</ID>
+    <ID>UndocumentedPublicFunction:Nimbus.kt$Nimbus$@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) fun applyLocalExperiments(getString: suspend () -&gt; String): Job</ID>
+    <ID>UndocumentedPublicFunction:NimbusDelegate.kt$NimbusDelegate.Companion$fun default()</ID>
+    <ID>UndocumentedPublicFunction:NimbusHelpers.kt$NimbusMessagingInterface$fun createMessageHelper(additionalContext: JSONObject? = null): NimbusMessagingHelperInterface</ID>
+    <ID>UndocumentedPublicFunction:NimbusParams.kt$NimbusDeviceInfo.Companion$fun default()</ID>
+    <ID>UndocumentedPublicFunction:PlacesConnection.kt$PlacesManagerCounterMetrics$@Suppress("ComplexMethod", "TooGenericExceptionCaught") inline fun &lt;U&gt; measure(callback: () -&gt; U): U</ID>
+    <ID>UndocumentedPublicFunction:PlacesConnection.kt$WritableHistoryMetadataConnection$suspend fun noteHistoryMetadataObservationDocumentType( key: HistoryMetadataKey, documentType: DocumentType, options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions(), )</ID>
+    <ID>UndocumentedPublicFunction:PlacesConnection.kt$WritableHistoryMetadataConnection$suspend fun noteHistoryMetadataObservationViewTime( key: HistoryMetadataKey, viewTime: Int, options: NoteHistoryMetadataObservationOptions = NoteHistoryMetadataObservationOptions(), )</ID>
+    <ID>UndocumentedPublicFunction:PlacesConnection.kt$fun visitTransitionSet(l: List&lt;VisitType&gt;): Int</ID>
+    <ID>UndocumentedPublicFunction:RustBuffer.kt$RustBuffer$@Suppress("TooGenericExceptionThrown") fun asCodedInputStream(): CodedInputStream?</ID>
+    <ID>UndocumentedPublicFunction:RustBuffer.kt$RustBuffer$fun asCodedOutputStream(): CodedOutputStream?</ID>
+    <ID>UndocumentedPublicFunction:RustComponentsInitializer.kt$RustComponentsInitializer$@JvmStatic fun init()</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetry.kt$SyncTelemetry$@Throws(Throwable::class) fun processFxaTelemetry(jsonStr: String): List&lt;Throwable&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetry.kt$SyncTelemetry$fun processOpenSyncSettingsMenuTelemetry()</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetry.kt$SyncTelemetry$fun processSaveSyncSettingsTelemetry(enabledEngines: List&lt;String&gt;, disabledEngines: List&lt;String&gt;)</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EngineInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EngineInfo.Companion$fun fromJSON(jsonObject: JSONObject): EngineInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EngineInfo.Companion$fun fromJSONArray(jsonArray: JSONArray): List&lt;EngineInfo&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EventInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EventInfo.Companion$fun fromJSON(jsonObject: JSONObject): EventInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$EventInfo.Companion$fun fromJSONArray(jsonArray: JSONArray): List&lt;EventInfo&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$FailureReason$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$FailureReason.Companion$fun fromJSON(jsonObject: JSONObject): FailureReason?</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$IncomingInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$IncomingInfo.Companion$fun fromJSON(jsonObject: JSONObject): IncomingInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$OutgoingInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$OutgoingInfo.Companion$fun fromJSON(jsonObject: JSONObject): OutgoingInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$OutgoingInfo.Companion$fun fromJSONArray(jsonArray: JSONArray): List&lt;OutgoingInfo&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$ProblemInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$ProblemInfo.Companion$fun fromJSON(jsonObject: JSONObject): ProblemInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$ProblemInfo.Companion$fun fromJSONArray(jsonArray: JSONArray): List&lt;ProblemInfo&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncInfo.Companion$fun fromJSON(jsonObject: JSONObject): SyncInfo</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncInfo.Companion$fun fromJSONArray(jsonArray: JSONArray): List&lt;SyncInfo&gt;</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncTelemetryPing$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncTelemetryPing.Companion$fun empty(): SyncTelemetryPing</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncTelemetryPing.Companion$fun fromJSON(jsonObject: JSONObject): SyncTelemetryPing</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$SyncTelemetryPing.Companion$fun fromJSONString(jsonObjectText: String): SyncTelemetryPing</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$ValidationInfo$fun toJSON(): JSONObject</ID>
+    <ID>UndocumentedPublicFunction:SyncTelemetryPing.kt$ValidationInfo.Companion$fun fromJSON(jsonObject: JSONObject): ValidationInfo</ID>
+  </CurrentIssues>
+</SmellBaseline>

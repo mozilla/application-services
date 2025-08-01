@@ -832,7 +832,10 @@ class NimbusTests {
         val deviceInfo = NimbusDeviceInfo.default()
         val date = Calendar.getInstance()
 
-        val calculatedAttributes = getCalculatedAttributes(date.timeInMillis - 86400000 * 5, db.path, deviceInfo.localeTag)
+        val calculatedAttributes = getCalculatedAttributes(
+            date.timeInMillis - 86400000 * 5,
+            db.path, deviceInfo.localeTag,
+        )
 
         assertEquals(5, calculatedAttributes.daysSinceInstall)
         assertEquals(0, calculatedAttributes.daysSinceUpdate)
@@ -899,7 +902,10 @@ class NimbusTests {
         assertEquals(1, handler.setValues?.size)
         assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
 
-        val events = nimbus.unenrollForGeckoPref(handler.internalMap["about_welcome"]?.get("number")!!, PrefUnenrollReason.FAILED_TO_SET)
+        val events = nimbus.unenrollForGeckoPref(
+            handler.internalMap["about_welcome"]?.get("number")!!,
+            PrefUnenrollReason.FAILED_TO_SET,
+        )
 
         assertEquals(1, events.size)
         assertEquals(EnrollmentChangeEventType.DISQUALIFICATION, events[0].change)

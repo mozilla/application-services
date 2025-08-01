@@ -1,5 +1,6 @@
-/* Any copyright is dedicated to the Public Domain.
-   http://creativecommons.org/publicdomain/zero/1.0/ */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 package mozilla.appservices.logins
 
@@ -41,7 +42,7 @@ class DatabaseLoginsStorageTest {
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath, keyManager = keyManager)
     }
 
-    protected fun getTestStore(): DatabaseLoginsStorage {
+    private fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
         store.add(
@@ -71,7 +72,7 @@ class DatabaseLoginsStorageTest {
         return store
     }
 
-    protected fun finishAndClose(store: DatabaseLoginsStorage) {
+    private fun finishAndClose(store: DatabaseLoginsStorage) {
         store.close()
         // if this is all we need to do, then this helper should die!
     }

@@ -413,7 +413,10 @@ open class Nimbus(
         }
     }
 
-    override fun unenrollForGeckoPref(geckoPrefState: GeckoPrefState, prefUnenrollReason: PrefUnenrollReason): List<EnrollmentChangeEvent> {
+    override fun unenrollForGeckoPref(
+        geckoPrefState: GeckoPrefState,
+        prefUnenrollReason: PrefUnenrollReason,
+    ): List<EnrollmentChangeEvent> {
         return nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
     }
 

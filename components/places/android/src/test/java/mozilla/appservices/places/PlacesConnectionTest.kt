@@ -1,5 +1,6 @@
-/* Any copyright is dedicated to the Public Domain.
-   http://creativecommons.org/publicdomain/zero/1.0/ */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 package mozilla.appservices.places
 
@@ -227,6 +228,7 @@ class PlacesConnectionTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun testGetTopFrecentSiteInfos() {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.DOWNLOAD))
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.EMBED))
@@ -290,6 +292,7 @@ class PlacesConnectionTest {
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
     // as well as the handling of invalid urls.
     @Test
+    @Suppress("MaxLineLength")
     fun testGetVisitInfos() {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
@@ -308,6 +311,7 @@ class PlacesConnectionTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun testGetVisitPage() {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 110000))
@@ -419,6 +423,7 @@ class PlacesConnectionTest {
     }
 
     @Test
+    @Suppress("MaxLineLength")
     fun testHistoryMetricsGathering() {
         assertNull(PlacesManagerMetrics.writeQueryCount.testGetValue())
         assertNull(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
@@ -520,6 +525,7 @@ class PlacesConnectionTest {
     }
 
     @Test
+    @Suppress("LongMethod")
     fun testHistoryMetadataBasics() = runBlocking {
         val currentTime = System.currentTimeMillis()
 
@@ -552,7 +558,10 @@ class PlacesConnectionTest {
             assertEquals(0, this[0].totalViewTime)
             // assert that we get the preview image and title
             assertEquals("Are All Wireless Earbuds As Evil As AirPods?", this[0].title)
-            assertEquals("https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg", this[0].previewImageUrl)
+            assertEquals(
+                "https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg",
+                this[0].previewImageUrl,
+            )
         }
 
         db.noteHistoryMetadataObservationViewTime(metaKey1, 1337)

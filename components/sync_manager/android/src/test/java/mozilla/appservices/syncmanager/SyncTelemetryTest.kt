@@ -41,7 +41,7 @@ import org.mozilla.appservices.syncmanager.GleanMetrics.SyncV2 as Sync
 private fun Date.asSeconds() = time / BaseGleanSyncPing.MILLIS_PER_SEC
 
 @RunWith(AndroidJUnit4::class)
-@Suppress("LargeClass")
+@Suppress("LargeClass", "LongMethod")
 class SyncTelemetryTest {
     private var now: Long = 0
     private var pingCount = 0

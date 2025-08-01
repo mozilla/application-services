@@ -8,6 +8,7 @@ package mozilla.appservices.httpconfig
 // dependency is slightly tricky (This also could run before its log sink
 // is setup!). Since logging here very much helps debugging substitution
 // issues, we just use logcat.
+
 import android.util.Log
 import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite
@@ -199,7 +200,7 @@ inline fun <reified Lib : Library> loadIndirect(
 
 // See the comment on full_megazord_get_version for background
 // on why this exists and what we use it for.
-@Suppress("FunctionNaming")
+@Suppress("FunctionNaming", "ktlint:standard:function-naming")
 internal interface LibMegazordFfi : Library {
     // Note: Rust doesn't want us to free this string (because
     // it's a pain for us to arrange here), so it is actually
