@@ -33,7 +33,7 @@ url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
-criterion = "0.5"
+criterion = "0.7"
 expect-test = "1.4"
 hex = "0.4"
 itertools = "0.14"
