@@ -69,6 +69,14 @@ pub(crate) struct JSONEngineUrl {
     /// this URL is visited.
     #[serde(default)]
     pub exclude_partner_code_from_telemetry: bool,
+
+    /// If this URL performs searches only for certain MIME types, they should
+    /// be listed here. If this value is `None`, then it's assumed the content
+    /// type is irrelevant. This field is intended to be used for URLs like
+    /// visual search, which might support certain image types and not others.
+    /// Consumers can use it to determine whether search UI corresponding to the
+    /// URL should be shown to the user in a given context.
+    pub accepted_content_types: Option<Vec<String>>,
 }
 
 /// Reflects `types::SearchEngineUrls`, but using `EngineUrl`.

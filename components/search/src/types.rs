@@ -141,6 +141,15 @@ pub struct SearchEngineUrl {
     /// this URL is visited.
     #[uniffi(default = false)]
     pub exclude_partner_code_from_telemetry: bool,
+
+    /// If this URL performs searches only for certain MIME types, they should
+    /// be listed here. If `None`, it's assumed the content type is text or not
+    /// relevant. This field is intended to be used for URLs like visual search,
+    /// which might support certain image types and not others. Consumers can
+    /// use it to determine whether search UI corresponding to the URL should be
+    /// shown to the user in a given context.
+    #[uniffi(default = None)]
+    pub accepted_content_types: Option<Vec<String>>,
 }
 
 /// The URLs associated with the search engine.

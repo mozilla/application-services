@@ -26,6 +26,7 @@ impl Default for SearchEngineUrl {
             display_name: Default::default(),
             is_new_until: Default::default(),
             exclude_partner_code_from_telemetry: Default::default(),
+            accepted_content_types: Default::default(),
         }
     }
 }
@@ -52,6 +53,9 @@ impl SearchEngineUrl {
         }
         if let Some(is_new_until) = &preferred.is_new_until {
             self.is_new_until = Some(is_new_until.clone());
+        }
+        if let Some(accepted_content_types) = &preferred.accepted_content_types {
+            self.accepted_content_types = Some(accepted_content_types.clone());
         }
         self.exclude_partner_code_from_telemetry = preferred.exclude_partner_code_from_telemetry;
     }
@@ -501,6 +505,7 @@ mod tests {
                 display_name: None,
                 is_new_until: None,
                 exclude_partner_code_from_telemetry: false,
+                accepted_content_types: None,
             },
         );
     }
@@ -764,6 +769,10 @@ mod tests {
                 ])),
                 is_new_until: Some("2095-01-01".to_string()),
                 exclude_partner_code_from_telemetry: true,
+                accepted_content_types: Some(vec![
+                    "image/gif".to_string(),
+                    "image/jpeg".to_string(),
+                ]),
             }),
         },
     });
@@ -873,6 +882,10 @@ mod tests {
                         display_name: Some("Visual Search".to_string()),
                         is_new_until: Some("2095-01-01".to_string()),
                         exclude_partner_code_from_telemetry: true,
+                        accepted_content_types: Some(vec![
+                            "image/gif".to_string(),
+                            "image/jpeg".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
@@ -988,6 +1001,10 @@ mod tests {
                         display_name: Some("Visual Search en-GB".to_string()),
                         is_new_until: Some("2095-01-01".to_string()),
                         exclude_partner_code_from_telemetry: true,
+                        accepted_content_types: Some(vec![
+                            "image/gif".to_string(),
+                            "image/jpeg".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
@@ -1072,6 +1089,10 @@ mod tests {
                     ),
                 ])),
                 is_new_until: Some("2096-02-02".to_string()),
+                accepted_content_types: Some(vec![
+                    "image/png".to_string(),
+                    "image/jpeg".to_string(),
+                ]),
                 ..Default::default()
             }),
         }),
@@ -1168,6 +1189,10 @@ mod tests {
                         display_name: Some("Visual Search Variant".to_string()),
                         is_new_until: Some("2096-02-02".to_string()),
                         exclude_partner_code_from_telemetry: false,
+                        accepted_content_types: Some(vec![
+                            "image/png".to_string(),
+                            "image/jpeg".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
@@ -1266,6 +1291,10 @@ mod tests {
                         display_name: Some("Visual Search Variant en-GB".to_string()),
                         is_new_until: Some("2096-02-02".to_string()),
                         exclude_partner_code_from_telemetry: false,
+                        accepted_content_types: Some(vec![
+                            "image/png".to_string(),
+                            "image/jpeg".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
@@ -1353,6 +1382,10 @@ mod tests {
                     ),
                 ])),
                 is_new_until: Some("2097-03-03".to_string()),
+                accepted_content_types: Some(vec![
+                    "image/jpeg".to_string(),
+                    "image/webp".to_string(),
+                ]),
                 ..Default::default()
             }),
         }),
@@ -1449,6 +1482,10 @@ mod tests {
                         display_name: Some("Visual Search Subvariant".to_string()),
                         is_new_until: Some("2097-03-03".to_string()),
                         exclude_partner_code_from_telemetry: false,
+                        accepted_content_types: Some(vec![
+                            "image/jpeg".to_string(),
+                            "image/webp".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
@@ -1547,6 +1584,10 @@ mod tests {
                         display_name: Some("Visual Search Subvariant en-GB".to_string()),
                         is_new_until: Some("2097-03-03".to_string()),
                         exclude_partner_code_from_telemetry: false,
+                        accepted_content_types: Some(vec![
+                            "image/jpeg".to_string(),
+                            "image/webp".to_string(),
+                        ]),
                     }),
                 },
                 click_url: None
