@@ -21,17 +21,19 @@ impl InternalStateMachine for AuthenticatingStateMachine {
             FxaEvent::CancelOAuthFlow => Ok(Complete(FxaState::Disconnected)),
             // These next 2 cases allow apps to begin a new oauth flow when we're already in the
             // middle of an existing one.
-            FxaEvent::BeginOAuthFlow { scopes, entrypoint } => {
-                Ok(State::BeginOAuthFlow { scopes, entrypoint })
+            FxaEvent::BeginOAuthFlow { scopes, entrypoint, service } => {
+                Ok(State::BeginOAuthFlow { scopes, entrypoint, service })
             }
             FxaEvent::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             } => Ok(State::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             }),
             e => Err(Error::InvalidStateTransition(format!(
                 "Authenticating -> {e}"
@@ -114,6 +116,7 @@ mod test {
             FxaEvent::BeginOAuthFlow {
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             },
         );
         assert_eq!(
@@ -121,6 +124,7 @@ mod test {
             BeginOAuthFlow {
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             }
         );
         assert_eq!(
@@ -146,6 +150,7 @@ mod test {
                 pairing_url: "https://example.com/pairing-url".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             },
         );
         assert_eq!(
@@ -154,6 +159,7 @@ mod test {
                 pairing_url: "https://example.com/pairing-url".to_owned(),
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             }
         );
         assert_eq!(

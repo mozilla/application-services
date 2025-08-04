@@ -113,9 +113,10 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     fun beginOAuthFlow(
         scopes: Array<String>,
         entrypoint: String,
+        services: List<String> = listOf("sync"),
     ): String {
         return withMetrics {
-            this.inner.beginOauthFlow(scopes.toList(), entrypoint)
+            this.inner.beginOauthFlow(scopes.toList(), entrypoint, services)
         }
     }
 
@@ -133,9 +134,10 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
         pairingUrl: String,
         scopes: Array<String>,
         entrypoint: String,
+        services: List<String> = listOf("sync"),
     ): String {
         return withMetrics {
-            this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint)
+            this.inner.beginPairingFlow(pairingUrl, scopes.toList(), entrypoint, services)
         }
     }
 
