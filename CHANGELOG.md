@@ -16,6 +16,7 @@
 
 - Added `SearchEngineUrl::is_new_until` ([bug 1979962](https://bugzilla.mozilla.org/show_bug.cgi?id=1979962))
 - Added `SearchEngineUrl::exclude_partner_code_from_telemetry` ([bug 1980474](https://bugzilla.mozilla.org/show_bug.cgi?id=1980474))
+- Added `SearchEngineUrl::accepted_content_types`
 
 [Full Changelog](In progress)
 
