@@ -21,9 +21,15 @@ impl InternalStateMachine for AuthenticatingStateMachine {
             FxaEvent::CancelOAuthFlow => Ok(Complete(FxaState::Disconnected)),
             // These next 2 cases allow apps to begin a new oauth flow when we're already in the
             // middle of an existing one.
-            FxaEvent::BeginOAuthFlow { scopes, entrypoint, service } => {
-                Ok(State::BeginOAuthFlow { scopes, entrypoint, service })
-            }
+            FxaEvent::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            } => Ok(State::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            }),
             FxaEvent::BeginPairingFlow {
                 pairing_url,
                 scopes,
