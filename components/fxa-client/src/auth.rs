@@ -85,10 +85,10 @@ impl FirefoxAccount {
         // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
         scopes: &[T],
         entrypoint: &str,
-        service: &[String],
+        service: &[T],
     ) -> ApiResult<String> {
         let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
-        let service = service.iter().map(AsRef::as_ref).collect::<Vec<_>>();
+        let service = service.iter().map(T::as_ref).collect::<Vec<_>>();
         self.internal
             .lock()
             .begin_oauth_flow(&scopes, entrypoint, &service)
