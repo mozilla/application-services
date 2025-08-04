@@ -1001,8 +1001,8 @@ interface FxaState {
 [Enum]
 interface FxaEvent {
   Initialize(DeviceConfig device_config);
-  BeginOAuthFlow(sequence<string> scopes, string entrypoint, optional sequence<string> service);
-  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint, optional sequence<string> service);
+  BeginOAuthFlow(sequence<string> scopes, string entrypoint, sequence<string> service);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint, sequence<string> service);
   CompleteOAuthFlow(string code, string state);
   CancelOAuthFlow();
   CheckAuthorizationStatus();
@@ -1137,8 +1137,8 @@ interface FxaStateCheckerEvent {
 [Enum]
 interface FxaStateCheckerState {
   GetAuthState();
-  BeginOAuthFlow(sequence<string> scopes, string entrypoint, optional sequence<string> service);
-  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint, optional sequence<string> service);
+  BeginOAuthFlow(sequence<string> scopes, string entrypoint, sequence<string> service);
+  BeginPairingFlow(string pairing_url, sequence<string> scopes, string entrypoint, sequence<string> service);
   CompleteOAuthFlow(string code, string state);
   InitializeDevice();
   EnsureDeviceCapabilities();
