@@ -71,7 +71,7 @@ pub struct MozAd {
     pub block_key: Option<String>,
     pub callbacks: Option<AdCallbacks>,
     pub format: Option<String>,
-    pub image_url: Option<String>,
+    pub image_url: Option<String>, //TODO: Consider if we want to load the image locally
     pub url: Option<String>,
 }
 

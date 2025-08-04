@@ -66,12 +66,14 @@ impl MARSClient for DefaultMARSClient {
     fn get_mars_endpoint(&self) -> &str {
         &self.endpoint
     }
+
     /// Updates the client's context_id to the passed value and returns the previous context_id
     fn cycle_context_id(&mut self) -> String {
         let old_context_id = self.context_id.clone();
         self.context_id = Uuid::new_v4().to_string();
         old_context_id
     }
+
     fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse, FetchAdsError> {
         let endpoint = self.get_mars_endpoint();
         let url = Url::parse(&format!("{endpoint}/ads"))?;
@@ -84,6 +86,7 @@ impl MARSClient for DefaultMARSClient {
 
         Ok(response_json)
     }
+
     fn record_impression(
         &self,
         url_callback_string: Option<String>,
@@ -96,6 +99,7 @@ impl MARSClient for DefaultMARSClient {
             .into()),
         }
     }
+
     fn record_click(&self, url_callback_string: Option<String>) -> Result<(), RecordClickError> {
         match url_callback_string {
             Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
@@ -105,6 +109,7 @@ impl MARSClient for DefaultMARSClient {
             .into()),
         }
     }
+
     fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError> {
         match url_callback_string {
             Some(callback) => self.make_callback_request(&callback).map_err(Into::into),

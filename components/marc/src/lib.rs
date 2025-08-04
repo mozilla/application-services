@@ -54,7 +54,7 @@ impl MozAdsComponent {
         &self,
         moz_ad_configs: Vec<MozAdsPlacementConfig>,
     ) -> ApiResult<HashMap<String, MozAdsPlacement>> {
-        let mut inner = self.inner.lock();
+        let inner = self.inner.lock();
         let placements = inner
             .request_ads(&moz_ad_configs)
             .map_err(ComponentError::RequestAds)?;
@@ -67,7 +67,7 @@ impl MozAdsComponent {
         inner
             .record_impression(&placement)
             .map_err(ComponentError::RecordImpression)
-            .track()
+            .emit_telemetry_if_error()
     }
 
     #[handle_error(ComponentError)]
@@ -76,7 +76,7 @@ impl MozAdsComponent {
         inner
             .record_click(&placement)
             .map_err(ComponentError::RecordClick)
-            .track()
+            .emit_telemetry_if_error()
     }
 
     #[handle_error(ComponentError)]
@@ -85,7 +85,7 @@ impl MozAdsComponent {
         inner
             .report_ad(&placement)
             .map_err(ComponentError::ReportAd)
-            .track()
+            .emit_telemetry_if_error()
     }
 
     pub fn cycle_context_id(&self) -> ApiResult<String> {
@@ -119,7 +119,7 @@ impl MozAdsComponentInner {
     }
 
     fn request_ads(
-        &mut self,
+        &self,
         moz_ad_configs: &Vec<MozAdsPlacementConfig>,
     ) -> Result<HashMap<String, MozAdsPlacement>, RequestAdsError> {
         let ad_request = self.build_request_from_placement_configs(moz_ad_configs)?;
