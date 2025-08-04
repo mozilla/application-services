@@ -37,7 +37,7 @@ pub trait TrackError<T, ComponentError> {
     where
         F: Fn(&ComponentError) -> bool;
 }
-//TODO:: Change to emit_if_error rather than "track"
+
 impl<T> TrackError<T, ComponentError> for Result<T, ComponentError> {
     /// Attempts to emit a telemetry event if the Error type can map to an event type.
     fn emit_telemetry_if_error(self) -> Self {
