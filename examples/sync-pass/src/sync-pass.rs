@@ -14,12 +14,12 @@ use logins::encryption::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswo
 use logins::{Login, LoginEntry, LoginStore, LoginsApiError, LoginsSyncEngine, ValidateAndFixup};
 
 use async_trait::async_trait;
-use prettytable::{row, Cell, Row, Table};
 use std::sync::Arc;
 use sync15::{
     client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
     engine::{EngineSyncAssociation, SyncEngine},
 };
+use text_table::{row, Cell, Row, Table};
 
 // I'm completely punting on good error handling here.
 use anyhow::Result;
@@ -183,7 +183,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     let mut table = Table::new();
     table.add_row(Row::new(
         cols.iter()
-            .map(|name| Cell::new(name).style_spec("bc"))
+            .map(|name| Cell::new(name).align_center())
             .collect(),
     ));
 
@@ -191,11 +191,11 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
         (0..len)
             .map(|idx| {
                 Ok(match row.get::<_, Value>(idx)? {
-                    Value::Null => Cell::new("null").style_spec("Fd"),
-                    Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
-                    Value::Real(r) => Cell::new(&r.to_string()).style_spec("Fb"),
-                    Value::Text(s) => Cell::new(&s).style_spec("Fr"),
-                    Value::Blob(b) => Cell::new(&format!("{}b blob", b.len())),
+                    Value::Null => Cell::new("null"),
+                    Value::Integer(i) => Cell::new(i.to_string()),
+                    Value::Real(r) => Cell::new(r.to_string()),
+                    Value::Text(s) => Cell::new(&s).align_right(),
+                    Value::Blob(b) => Cell::new(format!("{}b blob", b.len())),
                 })
             })
             .collect::<std::result::Result<Vec<_>, _>>()
@@ -214,7 +214,7 @@ fn show_login(
     show_password: PasswordVisibility,
 ) -> Result<Vec<String>> {
     let logins = store.list()?;
-    let mut table = prettytable::Table::new();
+    let mut table = Table::new();
     let mut v = Vec::new();
 
     let index = logins
@@ -259,23 +259,21 @@ fn show_login(
 
 fn show_logins(store: &LoginStore) -> Result<Vec<String>> {
     let logins = store.list()?;
-    let mut table = prettytable::Table::new();
-    let row = row![bc =>
-    "(idx)",
-    "Origin",
-    "Username",
-    ];
+    let mut table = Table::new();
+    let row = Row::default()
+        .add_center("(idx)")
+        .add_cell("Origin")
+        .add_cell("Username");
 
     table.add_row(row);
 
     let mut v = Vec::with_capacity(logins.len());
 
     for login in logins.iter() {
-        let row = row![
-            r->v.len(),
-            &login.origin,
-            &login.username,
-        ];
+        let row = Row::default()
+            .add_right(v.len())
+            .add_cell(&login.origin)
+            .add_cell(&login.username);
 
         table.add_row(row);
         v.push(login.guid().to_string());

@@ -217,14 +217,11 @@ fn delete_history(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-fn show_stats(_db: &PlacesDb) -> Result<()> {
-    println!(
-        "Sorry - this has been temporarily enabled to avoid bringing our pretty-printer into m-c"
-    );
-    // db.execute("ANALYZE;", [])?;
-    // println!("Left most column in `stat` is the record count in the table/index");
-    // println!("See the sqlite docs for `sqlite_stat1` for more info.");
-    // sql_support::debug_tools::print_query(db, "SELECT * from sqlite_stat1")?;
+fn show_stats(db: &PlacesDb) -> Result<()> {
+    db.execute("ANALYZE;", [])?;
+    println!("Left most column in `stat` is the record count in the table/index");
+    println!("See the sqlite docs for `sqlite_stat1` for more info.");
+    sql_support::debug_tools::print_query(db, "SELECT * from sqlite_stat1")?;
     Ok(())
 }
 
@@ -465,12 +462,6 @@ fn main() -> Result<()> {
     let db = api.open_connection(ConnectionType::ReadWrite)?;
     // Needed to make the get_registered_sync_engine() calls work.
     std::sync::Arc::clone(&api).register_with_sync_manager();
-
-    ctrlc::set_handler(move || {
-        println!("\nCTRL-C detected, enabling shutdown mode\n");
-        interrupt_support::shutdown();
-    })
-    .unwrap();
 
     match opts.cmd {
         Command::Sync {
