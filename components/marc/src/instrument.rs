@@ -48,7 +48,7 @@ impl<T> TrackError<T, ComponentError> for Result<T, ComponentError> {
         self
     }
 
-    /// Same as `track` but also requires the given closure `condition` returns true.
+    /// Same as `emit_telemetry_if_error` but also requires the given closure `condition` returns true.
     fn emit_telemetry_if_error_conditionally<F>(self, condition: F) -> Self
     where
         F: Fn(&ComponentError) -> bool,

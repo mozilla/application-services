@@ -25,6 +25,25 @@ pub struct AdPlacementRequest {
     pub content: Option<AdContentCategory>,
 }
 
+#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+pub enum IABAdUnitFormat {
+    Billboard,
+    SmartphoneBanner300,
+    SmartphoneBanner320,
+    Leaderboard,
+    SuperLeaderboardPushdown,
+    Portrait,
+    Skyscraper,
+    MediumRectangle,
+    TwentyBySixty,
+    MobilePhoneInterstitial640,
+    MobilePhoneInterstitial750,
+    MobilePhoneInterstitial1080,
+    FeaturePhoneSmallBanner,
+    FeaturePhoneMediumBanner,
+    FeaturePhoneLargeBanner,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]

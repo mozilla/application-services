@@ -15,7 +15,6 @@ use instrument::TrackError;
 use mars::{DefaultMARSClient, MARSClient};
 use models::{AdContentCategory, AdRequest, AdResponse, IABContentTaxonomy, MozAd};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod error;
@@ -243,25 +242,6 @@ impl MozAdsComponentInner {
 
         Ok(moz_ad_placements)
     }
-}
-
-#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
-pub enum IABAdUnitFormat {
-    Billboard,
-    SmartphoneBanner300,
-    SmartphoneBanner320,
-    Leaderboard,
-    SuperLeaderboardPushdown,
-    Portrait,
-    Skyscraper,
-    MediumRectangle,
-    TwentyBySixty,
-    MobilePhoneInterstitial640,
-    MobilePhoneInterstitial750,
-    MobilePhoneInterstitial1080,
-    FeaturePhoneSmallBanner,
-    FeaturePhoneMediumBanner,
-    FeaturePhoneLargeBanner,
 }
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
