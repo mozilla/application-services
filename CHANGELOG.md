@@ -21,6 +21,10 @@
 ### RC Crypto
 - Fix NSS bindings for key management
 
+### Mozilla Ads Client (MAC)
+
+- Added `mac`, a new component for integrating with the Mozilla Ads Routing Service (MARS) APIs.
+
 [Full Changelog](In progress)
 
 # v142.0 (_2025-07-21_)
