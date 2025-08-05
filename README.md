@@ -75,6 +75,7 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
   with FxA, access encryption keys for sync, and more.
 * [logins](components/logins) - for storage and syncing of a user's saved login
   credentials
+* [mac](/components/mac) - for fetching ads via UAPI
 * [nimbus](components/nimbus) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
 * [places](components/places) - for storage and syncing of a user's saved
   browsing history
