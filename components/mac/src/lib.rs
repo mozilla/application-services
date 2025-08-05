@@ -606,4 +606,3 @@ mod tests {
         assert!(component.clear_cache().is_ok());
     }
 }
-
