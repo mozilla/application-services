@@ -14,7 +14,7 @@ use url::Url;
 use uuid::Uuid;
 use viaduct::Request;
 
-const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.allizom.org/v1";
+const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.mozilla.org/v1";
 
 #[cfg_attr(test, mockall::automock)]
 pub trait MARSClient: Sync + Send {

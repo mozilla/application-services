@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::Request;
 
-static DEFAULT_TELEMETRY_ENDPOINT: &str = "https://ads.allizom.org/v1/log";
+static DEFAULT_TELEMETRY_ENDPOINT: &str = "https://ads.mozilla.org/v1/log";
 static TELEMETRY_ENDPONT: LazyLock<RwLock<String>> =
     LazyLock::new(|| RwLock::new(DEFAULT_TELEMETRY_ENDPOINT.to_string()));
 
