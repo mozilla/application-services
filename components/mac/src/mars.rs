@@ -5,8 +5,8 @@
 
 use crate::{
     error::{
-        CallbackRequestError, FetchAdsError, RecordClickError, RecordImpressionError,
-        ReportAdError, check_http_status_for_error,
+        check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
+        RecordImpressionError, ReportAdError,
     },
     models::{AdRequest, AdResponse},
 };
@@ -127,7 +127,7 @@ mod tests {
     use super::*;
     use crate::{
         models::AdPlacementRequest,
-        test_utils::{TEST_CONTEXT_ID, create_test_client, get_example_happy_ad_response},
+        test_utils::{create_test_client, get_example_happy_ad_response, TEST_CONTEXT_ID},
     };
     use mockito::mock;
 

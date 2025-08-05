@@ -6,9 +6,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    IABContent, MozAdsPlacement, MozAdsPlacementConfig,
     mars::DefaultMARSClient,
     models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
+    IABContent, MozAdsPlacement, MozAdsPlacementConfig,
 };
 
 #[allow(dead_code)]
