@@ -19,7 +19,7 @@
 
 ### Mozilla Ads Client (MAC)
 
-- Added `mac`, a new component for integrating with the Mozilla Ads Routing Service (MARS) APIs.
+- Added `mac`, a new component which acts as an SDK for integrating with the Mozilla Ads Routing Service (MARS) APIs.
 
 [Full Changelog](In progress)
 
