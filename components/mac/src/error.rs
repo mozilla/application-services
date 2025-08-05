@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use error_support::{ErrorHandling, GetErrorHandling, error};
+use error_support::{error, ErrorHandling, GetErrorHandling};
 use viaduct::Response;
 
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
