@@ -179,6 +179,6 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
 }
 
 #[allow(dead_code)]
-pub fn create_test_client(test_endpoint: String) -> DefaultMARSClient {
-    DefaultMARSClient::new_with_endpoint(TEST_CONTEXT_ID.to_string(), test_endpoint)
+pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {
+    DefaultMARSClient::new_with_endpoint(TEST_CONTEXT_ID.to_string(), mock_server_url)
 }

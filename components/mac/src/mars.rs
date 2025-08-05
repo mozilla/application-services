@@ -12,7 +12,7 @@ use crate::{
 };
 use url::Url;
 use uuid::Uuid;
-use viaduct::Request; // wherever the trait is defined
+use viaduct::Request;
 
 const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.allizom.org/v1";
 
@@ -180,6 +180,7 @@ mod tests {
 
     #[test]
     fn test_record_click_with_valid_url_should_succeed() {
+        viaduct_reqwest::use_reqwest_backend();
         let _m = mock("GET", "/click_callback_url").with_status(200).create();
 
         let client = create_test_client(mockito::server_url());
@@ -190,6 +191,7 @@ mod tests {
 
     #[test]
     fn test_report_ad_with_valid_url_should_succeed() {
+        viaduct_reqwest::use_reqwest_backend();
         let _m = mock("GET", "/report_ad_callback_url")
             .with_status(200)
             .create();
@@ -202,6 +204,7 @@ mod tests {
 
     #[test]
     fn test_fetch_ads_success() {
+        viaduct_reqwest::use_reqwest_backend();
         let expected_response = get_example_happy_ad_response();
 
         let _m = mock("POST", "/ads")
