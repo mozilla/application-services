@@ -173,3 +173,65 @@ pub fn check_http_status_for_error(response: &Response) -> Result<(), HTTPError>
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use url::Url;
+
+    fn mock_response(status: u16, body: &str) -> Response {
+        Response {
+            request_method: viaduct::Method::Get,
+            url: Url::parse("https://example.com").unwrap(),
+            status,
+            headers: viaduct::Headers::new(),
+            body: body.as_bytes().to_vec(),
+        }
+    }
+
+    #[test]
+    fn test_ok_status_returns_ok() {
+        let response = mock_response(200, "OK");
+        let result = check_http_status_for_error(&response);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_bad_request_returns_http_error() {
+        let response = mock_response(400, "Bad input");
+        let result = check_http_status_for_error(&response);
+        match result {
+            Err(HTTPError::BadRequest { code, ref message }) => {
+                assert_eq!(code, 400);
+                assert_eq!(message, "Bad input");
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_validation_failure_returns_http_error() {
+        let response = mock_response(422, "Invalid data");
+        let result = check_http_status_for_error(&response);
+        match result {
+            Err(HTTPError::Validation { code, ref message }) => {
+                assert_eq!(code, 422);
+                assert_eq!(message, "Invalid data");
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_server_error_500() {
+        let response = mock_response(500, "Something broke");
+        let result = check_http_status_for_error(&response);
+        match result {
+            Err(HTTPError::Server { code, ref message }) => {
+                assert_eq!(code, 500);
+                assert_eq!(message, "Something broke");
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+}
