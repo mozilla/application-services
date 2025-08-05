@@ -96,6 +96,7 @@ mod tests {
 
     #[test]
     fn test_emit_telemetry_emits_telemetry_for_mappable_error() {
+        viaduct_reqwest::use_reqwest_backend();
         set_telemetry_endpoint(format!("{}{}", mockito::server_url(), "/v1/log"));
         let mock = mock("GET", "/v1/log")
             .match_query(mockito::Matcher::UrlEncoded(
@@ -121,6 +122,7 @@ mod tests {
 
     #[test]
     fn test_emit_telemetry_conditionally_emits_only_when_condition_met() {
+        viaduct_reqwest::use_reqwest_backend();
         set_telemetry_endpoint(format!("{}{}", mockito::server_url(), "/v1/log"));
 
         let mock_1 = mock("GET", "/v1/log")
@@ -162,6 +164,7 @@ mod tests {
 
     #[test]
     fn test_emit_telemetry_event_on_ok_does_nothing() {
+        viaduct_reqwest::use_reqwest_backend();
         set_telemetry_endpoint(format!("{}{}", mockito::server_url(), "/v1/log"));
 
         let mock = mock("GET", "/v1/log").with_status(200).expect(0).create();
