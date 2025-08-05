@@ -12,16 +12,16 @@ use rusqlite::{functions::Context, types::Value, Connection};
 /// `SELECT * FROM table`
 #[cfg(feature = "debug-tools")]
 pub fn print_query(conn: &Connection, query: &str) -> rusqlite::Result<()> {
-    use prettytable::{Cell, Row};
+    use text_table::{Row, Table};
 
     let mut stmt = conn.prepare(query)?;
     let mut rows = stmt.query([])?;
-    let mut table = prettytable::Table::new();
+    let mut table = Table::new();
     let mut titles = Row::empty();
     for col in rows.as_ref().expect("must have statement").columns() {
-        titles.add_cell(Cell::new(col.name()));
+        titles = titles.add_cell(col.name());
     }
-    table.set_titles(titles);
+    table.add_row(titles);
     while let Some(sql_row) = rows.next()? {
         let mut table_row = Row::empty();
         for i in 0..sql_row.as_ref().column_count() {
@@ -32,7 +32,7 @@ pub fn print_query(conn: &Connection, query: &str) -> rusqlite::Result<()> {
                 Value::Text(s) => s,
                 Value::Blob(b) => format!("<blob with {} bytes>", b.len()),
             };
-            table_row.add_cell(Cell::new(&val));
+            table_row = table_row.add_cell(&val);
         }
         table.add_row(table_row);
     }
@@ -110,13 +110,19 @@ mod test {
     fn test_dbg() {
         let conn = Connection::open_with_flags(":memory:", rusqlite::OpenFlags::default()).unwrap();
         define_debug_functions(&conn).unwrap();
-        assert_eq!(conn.conn_ext_query_one::<i64>("SELECT dbg('foo', 0);").unwrap(), 0);
         assert_eq!(
-            conn.conn_ext_query_one::<String>("SELECT dbg('foo');").unwrap(),
+            conn.conn_ext_query_one::<i64>("SELECT dbg('foo', 0);")
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.conn_ext_query_one::<String>("SELECT dbg('foo');")
+                .unwrap(),
             "foo"
         );
         assert_eq!(
-            conn.conn_ext_query_one::<Option<String>>("SELECT dbg();").unwrap(),
+            conn.conn_ext_query_one::<Option<String>>("SELECT dbg();")
+                .unwrap(),
             None
         );
     }

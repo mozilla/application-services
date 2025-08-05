@@ -54,7 +54,7 @@ fn create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<Firef
 fn handle_oauth_flow(path: &str, acct: &FirefoxAccount, scopes: &[&str]) -> Result<()> {
     let oauth_uri = acct.begin_oauth_flow(scopes, "fxa_creds")?;
 
-    if webbrowser::open(oauth_uri.as_ref()).is_err() {
+    if open::that(&oauth_uri).is_err() {
         log::warn!("Failed to open a web browser D:");
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
         println!("\n    {}\n", oauth_uri);

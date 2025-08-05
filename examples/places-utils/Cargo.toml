@@ -29,4 +29,3 @@ structopt = "0.3"
 fxa-client = { path = "../../components/fxa-client" }
 tempfile = "3"
 anyhow = "1.0"
-ctrlc = "3.2.1"

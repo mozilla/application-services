@@ -41,6 +41,7 @@ members = [
     "components/support/rc_crypto/nss/systest",
     "components/support/rust-log-forwarder",
     "components/support/sql",
+    "components/support/text-table",
     "components/support/tracing",
     "components/support/types",
     "components/support/viaduct-reqwest",

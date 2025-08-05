@@ -15,7 +15,7 @@ remote_settings = { features = ["signatures"], path = "../../components/remote_s
 nss = { path = "../../components/support/rc_crypto/nss" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 log = "0.4"
-clap = {version = "4.2", features = ["derive"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 anyhow = "1.0"
 env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 reqwest = { version = "0.12", features = ["json"] }

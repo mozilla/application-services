@@ -7,9 +7,8 @@ license = "MPL-2.0"
 
 [features]
 default = []
-### The debug-tools feature brings in utilities to help with debugging.
-# "dep:prettytable-rs" temp removed for moz-central integration.
-debug-tools = ["rusqlite/column_decltype"]
+# The debug-tools feature brings in utilities to help with debugging.
+debug-tools = ["dep:text-table", "rusqlite/column_decltype"]
 
 [dependencies]
 error-support = { path = "../error" }
@@ -17,9 +16,8 @@ lazy_static = "1.4"
 interrupt-support = { path = "../interrupt" }
 thiserror = "1.0"
 tempfile = "3.1.0"
+text-table = { path = "../text-table", optional = true }
 parking_lot = ">=0.11,<=0.12"
-# disable for m-c :(
-# prettytable-rs = { version = "0.10", optional = true }
 rusqlite = { version = "0.37.0", features = ["functions", "limits", "bundled", "unlock_notify"] }
 
 [dev-dependencies]

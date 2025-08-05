@@ -34,7 +34,7 @@ uniffi = { version = "0.29.0", features = ["build"] }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-mockall = "0.11"
+mockall = "0.12"
 mockito = "0.31"
 
 [features]
