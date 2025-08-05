@@ -18,6 +18,9 @@
 - Added `SearchEngineUrl::exclude_partner_code_from_telemetry` ([bug 1980474](https://bugzilla.mozilla.org/show_bug.cgi?id=1980474))
 - Added `SearchEngineUrl::accepted_content_types`
 
+### RC Crypto
+- Fix NSS bindings for key management
+
 [Full Changelog](In progress)
 
 # v142.0 (_2025-07-21_)
