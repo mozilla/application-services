@@ -10,7 +10,10 @@ mod testing;
 #[cfg(feature = "testing")]
 pub use testing::{init_for_tests, init_for_tests_with_level};
 
-pub use layer::{register_event_sink, simple_event_layer, unregister_event_sink};
+pub use layer::{
+    register_event_sink, register_min_level_event_sink, simple_event_layer, unregister_event_sink,
+    unregister_min_level_event_sink,
+};
 // Re-export tracing so that our dependencies can use it.
 pub use tracing;
 
@@ -151,10 +154,7 @@ pub struct TracingEvent {
     pub fields: serde_json::Value,
 }
 
-// uniffi foreign trait.
-// #[uniffi::export(with_foreign)]
-// oh no - for now, a callback :(
-#[uniffi::export(callback_interface)]
+#[uniffi::export(with_foreign)]
 pub trait EventSink: Send + Sync {
     fn on_event(&self, event: Event);
 }
@@ -205,16 +205,26 @@ mod tests {
             }
         }
         let sink = Arc::new(Sink::new());
+        let level_sink = Arc::new(Sink::new());
 
         crate::layer::register_event_sink("first_target", Level::Info, sink.clone());
         crate::layer::register_event_sink("second_target", Level::Debug, sink.clone());
+
+        // Only 1 sink can be registered with `register_min_level_event_sink`.  The first call
+        // should be ignored and only the second call should take effect.
+        crate::layer::register_min_level_event_sink(Level::Warn, sink.clone());
+        crate::layer::register_min_level_event_sink(Level::Error, level_sink.clone());
 
         info!(target: "first_target", extra=-1, "event message");
         debug!(target: "first_target", extra=-2, "event message (should be filtered)");
         debug!(target: "second_target", extra=-3, "event message2");
         info!(target: "third_target", extra=-4, "event message (should be filtered)");
+        // This should only go to the level sink, since it's an error
+        error!(target: "first_target", extra=-5, "event message");
 
         assert_eq!(sink.events.read().len(), 2);
+        assert_eq!(level_sink.events.read().len(), 1);
+
         let event = &sink.events.read()[0];
         assert_eq!(event.target, "first_target");
         assert_eq!(event.level, Level::Info);
@@ -226,5 +236,11 @@ mod tests {
         assert_eq!(event2.level, Level::Debug);
         assert_eq!(event2.message, "event message2");
         assert_eq!(event2.fields.get("extra").unwrap().as_i64(), Some(-3));
+
+        let event3 = &level_sink.events.read()[0];
+        assert_eq!(event3.target, "first_target");
+        assert_eq!(event3.level, Level::Error);
+        assert_eq!(event3.message, "event message");
+        assert_eq!(event3.fields.get("extra").unwrap().as_i64(), Some(-5));
     }
 }

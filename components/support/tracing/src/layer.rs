@@ -22,16 +22,10 @@ struct LogEntry {
 static SINKS_BY_TARGET: LazyLock<RwLock<HashMap<String, LogEntry>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
-// Callback interface means we get a `Box` instead of an `Arc<>` :(
-// Moving to foreign-traits means we could kill this wrapper.
-#[uniffi::export(name = "register_event_sink")]
-pub fn register_event_sink_box(target: &str, level: crate::Level, sink: Box<dyn EventSink>) {
-    register_event_sink(target, level, sink.into())
-}
+static MIN_LEVEL_SINK: RwLock<Option<LogEntry>> = RwLock::new(None);
 
+#[uniffi::export]
 pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn EventSink>) {
-    // Callback interface means we get a `Box` instead of an `Arc<>`.
-    // We stick with `Arc<>` internally though as callback traits will fix this.
     SINKS_BY_TARGET.write().insert(
         target.to_string(),
         LogEntry {
@@ -41,9 +35,29 @@ pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn Even
     );
 }
 
+/// Register an event sink that will receive events based on a minimum level
+///
+/// If an event's level is at least `level`, then the event will be sent to this sink.
+/// If so, sinks registered with `register_event_sink` will be skiped.
+///
+/// There can only be 1 min-level sink registered at once.
+#[uniffi::export]
+pub fn register_min_level_event_sink(level: crate::Level, sink: Arc<dyn EventSink>) {
+    *MIN_LEVEL_SINK.write() = Some(LogEntry {
+        level: level.into(),
+        sink,
+    });
+}
+
 #[uniffi::export]
 pub fn unregister_event_sink(target: &str) {
     SINKS_BY_TARGET.write().remove(target);
+}
+
+/// Remove the sink registered with [register_min_level_event_sink], if any.
+#[uniffi::export]
+pub fn unregister_min_level_event_sink() {
+    *MIN_LEVEL_SINK.write() = None;
 }
 
 pub fn simple_event_layer<S>() -> impl Layer<S>
@@ -69,23 +83,36 @@ where
             Some(index) => &target[..index],
             None => target,
         };
+        if let Some(entry) = &*MIN_LEVEL_SINK.read() {
+            if entry.level >= *event.metadata().level() {
+                entry.send_event(event);
+                return;
+            }
+        }
+
         if let Some(entry) = SINKS_BY_TARGET.read().get(prefix) {
             let level = *event.metadata().level();
             if level <= entry.level {
-                let mut fields = BTreeMap::new();
-                let mut message = String::default();
-                let mut visitor = JsonVisitor(&mut message, &mut fields);
-                event.record(&mut visitor);
-                let event = crate::Event {
-                    level: level.into(),
-                    target: target.to_string(),
-                    name: event.metadata().name().to_string(),
-                    message,
-                    fields: serde_json::to_value(&fields).unwrap_or_default(),
-                };
-                entry.sink.on_event(event);
+                entry.send_event(event);
             }
         }
+    }
+}
+
+impl LogEntry {
+    fn send_event(&self, event: &tracing::Event<'_>) {
+        let mut fields = BTreeMap::new();
+        let mut message = String::default();
+        let mut visitor = JsonVisitor(&mut message, &mut fields);
+        event.record(&mut visitor);
+        let event = crate::Event {
+            level: (*event.metadata().level()).into(),
+            target: event.metadata().target().to_string(),
+            name: event.metadata().name().to_string(),
+            message,
+            fields: serde_json::to_value(&fields).unwrap_or_default(),
+        };
+        self.sink.on_event(event);
     }
 }
 
