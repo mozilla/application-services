@@ -88,12 +88,13 @@ class NimbusTests {
         context = context,
         appInfo = appInfo,
         coenrollingFeatureIds = coenrollingFeatureIds,
-        server = null,
         deviceInfo = deviceInfo,
         observer = null,
         delegate = nimbusDelegate,
         recordedContext = recordedContext,
         geckoPrefHandler = geckoPrefHandler,
+        collectionName = null,
+        remoteSettingsService = null,
     ).also(block)
 
     @get:Rule
@@ -552,9 +553,10 @@ class NimbusTests {
             context = context,
             appInfo = developmentAppInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
 
         nimbus.setUpTestExperiments("$packageName.nightly", targetedAppInfo)
@@ -573,9 +575,10 @@ class NimbusTests {
             context = context,
             appInfo = developmentAppInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
 
         nimbus.setUpTestExperiments(packageName, targetedAppInfo)
@@ -664,10 +667,11 @@ class NimbusTests {
             context = context,
             appInfo = appInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             observer = observer,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
 
         suspend fun getString() = testExperimentsJsonString(appInfo, packageName)
@@ -695,10 +699,11 @@ class NimbusTests {
             context = context,
             appInfo = appInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             observer = observer,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
 
         suspend fun getString(): String = throw CancellationException()
