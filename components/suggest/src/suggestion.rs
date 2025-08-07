@@ -39,6 +39,7 @@ pub enum Suggestion {
         block_id: i64,
         advertiser: String,
         iab_category: String,
+        categories: Vec<i32>,
         impression_url: String,
         click_url: String,
         raw_click_url: String,
