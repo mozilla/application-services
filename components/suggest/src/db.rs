@@ -294,7 +294,8 @@ impl<'a> SuggestDao<'a> {
                   s.url,
                   s.provider,
                   s.score,
-                  fk.full_keyword
+                  fk.full_keyword,
+                  ssc.category
                 FROM
                   suggestions s
                 JOIN
@@ -303,6 +304,9 @@ impl<'a> SuggestDao<'a> {
                 LEFT JOIN
                   full_keywords fk
                   ON k.full_keyword_id = fk.id
+                LEFT JOIN
+                  suggestion_serp_categories ssc
+                  ON s.id = ssc.suggestion_id
                 WHERE
                   s.provider = :provider
                   AND k.keyword = :keyword
@@ -325,6 +329,7 @@ impl<'a> SuggestDao<'a> {
                 let raw_url: String = row.get("url")?;
                 let score: f64 = row.get("score")?;
                 let full_keyword_from_db: Option<String> = row.get("full_keyword")?;
+                let category: Option<i32> = row.get("category")?;
 
                 self.conn.query_row_and_then(
                     r#"
@@ -355,6 +360,7 @@ impl<'a> SuggestDao<'a> {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
+                            categories: category.into_iter().collect(),
                             title,
                             url: cooked_url,
                             raw_url,
@@ -389,12 +395,16 @@ impl<'a> SuggestDao<'a> {
                   s.title,
                   s.url,
                   s.provider,
-                  s.score
+                  s.score,
+                  ssc.category
                 FROM
                   suggestions s
                 JOIN
                   amp_fts fts
                   ON fts.rowid = s.id
+                LEFT JOIN
+                  suggestion_serp_categories ssc
+                  ON s.id = ssc.suggestion_id
                 WHERE
                   s.provider = :provider
                   AND amp_fts match '{fts_column}: {match_arg}'
@@ -411,6 +421,7 @@ impl<'a> SuggestDao<'a> {
                 let title: String = row.get("title")?;
                 let raw_url: String = row.get("url")?;
                 let score: f64 = row.get("score")?;
+                let category: i32 = row.get("category")?;
 
                 self.conn.query_row_and_then(
                     r#"
@@ -447,6 +458,7 @@ impl<'a> SuggestDao<'a> {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
+                            categories: vec![category],
                             title,
                             url: cooked_url,
                             raw_url,
@@ -976,6 +988,7 @@ impl<'a> SuggestDao<'a> {
         let mut amp_insert = AmpInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
         let mut fts_insert = AmpFtsInsertStatement::new(self.conn)?;
+        let mut category_insert = CategoryInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
             let suggestion_id = suggestion_insert.execute(
@@ -1006,6 +1019,13 @@ impl<'a> SuggestDao<'a> {
                     full_keyword_id,
                     keyword.rank,
                 )?;
+            }
+
+            if let Some(categories) = &suggestion.serp_categories {
+                // for AMP we only want one category
+                if let Some(category) = categories.first() {
+                    category_insert.execute(suggestion_id, *category)?;
+                }
             }
         }
         Ok(())
@@ -1717,6 +1737,39 @@ impl<'conn> KeywordInsertStatement<'conn> {
         self.0
             .execute((suggestion_id, keyword, full_keyword_id, rank))
             .with_context("keyword insert")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct CategoryInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+impl<'conn> CategoryInsertStatement<'conn> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
+        Self::with_details(conn, "suggestion_serp_categories", None)
+    }
+
+    pub(crate) fn with_details(
+        conn: &'conn Connection,
+        table: &str,
+        conflict_resolution: Option<InsertConflictResolution>,
+    ) -> Result<Self> {
+        Ok(Self(conn.prepare(&format!(
+            r#"
+            INSERT OR REPLACE {} INTO {}(
+                suggestion_id,
+                category
+            )
+            VALUES(?, ?)
+            "#,
+            conflict_resolution.as_ref().map(|r| r.as_str()).unwrap_or_default(),
+            table,
+        ))?))
+    }
+
+    pub(crate) fn execute(&mut self, suggestion_id: i64, category: i32) -> Result<()> {
+        self.0
+            .execute((suggestion_id, category))
+            .with_context("category insert")?;
         Ok(())
     }
 }
