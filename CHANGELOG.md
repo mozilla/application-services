@@ -4,6 +4,7 @@
 
 ### Android
 - Upgraded NDK from r28b to r28c. ([#6848](https://github.com/mozilla/application-services/pull/6848))
+- Added service parameter to fxa-client flow allowing clients to specify the list of services to request. ([bug 1925091](https://bugzilla.mozilla.org/show_bug.cgi?id=1925091))
 
 ### Logins
 - Updated logins verification telemetry so it can be used in iOS([#6832](https://github.com/mozilla/application-services/pull/6832))

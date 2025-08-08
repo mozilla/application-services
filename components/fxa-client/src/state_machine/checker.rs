@@ -23,11 +23,13 @@ pub enum FxaStateCheckerState {
     BeginOAuthFlow {
         scopes: Vec<String>,
         entrypoint: String,
+        service: Vec<String>,
     },
     BeginPairingFlow {
         pairing_url: String,
         scopes: Vec<String>,
         entrypoint: String,
+        service: Vec<String>,
     },
     CompleteOAuthFlow {
         code: String,
@@ -217,17 +219,25 @@ impl From<InternalState> for FxaStateCheckerState {
     fn from(state: InternalState) -> Self {
         match state {
             InternalState::GetAuthState => Self::GetAuthState,
-            InternalState::BeginOAuthFlow { scopes, entrypoint } => {
-                Self::BeginOAuthFlow { scopes, entrypoint }
-            }
+            InternalState::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            } => Self::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            },
             InternalState::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             } => Self::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             },
             InternalState::CompleteOAuthFlow { code, state } => {
                 Self::CompleteOAuthFlow { code, state }
@@ -247,17 +257,25 @@ impl From<FxaStateCheckerState> for InternalState {
     fn from(state: FxaStateCheckerState) -> Self {
         match state {
             FxaStateCheckerState::GetAuthState => Self::GetAuthState,
-            FxaStateCheckerState::BeginOAuthFlow { scopes, entrypoint } => {
-                Self::BeginOAuthFlow { scopes, entrypoint }
-            }
+            FxaStateCheckerState::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            } => Self::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            },
             FxaStateCheckerState::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             } => Self::BeginPairingFlow {
                 pairing_url,
                 scopes,
                 entrypoint,
+                service,
             },
             FxaStateCheckerState::CompleteOAuthFlow { code, state } => {
                 Self::CompleteOAuthFlow { code, state }
