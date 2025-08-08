@@ -220,7 +220,6 @@ impl TryFrom<&ExperimentListSource> for Value {
                 is_preview,
             } => {
                 use remote_settings::{RemoteSettings, RemoteSettingsConfig, RemoteSettingsServer};
-                viaduct_dev::use_dev_backend();
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
