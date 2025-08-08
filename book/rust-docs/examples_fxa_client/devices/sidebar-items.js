@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command"],"fn":["list","run","set_name"],"struct":["DeviceArgs"]};
