@@ -2625,6 +2625,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mac"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "mockall",
+ "mockito",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.31",
+ "uniffi",
+ "url",
+ "uuid",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
