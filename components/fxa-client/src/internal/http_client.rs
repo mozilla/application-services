@@ -1043,7 +1043,7 @@ mod tests {
 
     #[test]
     fn test_backoff() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1090,7 +1090,7 @@ mod tests {
 
     #[test]
     fn test_backoff_then_ok() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1140,7 +1140,7 @@ mod tests {
 
     #[test]
     fn test_backoff_per_path() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         let m1 = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")

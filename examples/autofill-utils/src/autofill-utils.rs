@@ -11,11 +11,11 @@ use autofill::db::{
 };
 use autofill::encryption::{create_autofill_key, EncryptorDecryptor};
 use autofill::error::Error;
+use clap::{Parser, Subcommand};
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
 use cli_support::prompt::{prompt_string, prompt_usize};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
 use std::sync::Arc;
-use structopt::StructOpt;
 use sync15::client::{sync_multiple, MemoryCachedState, SetupStorageClient, Sync15StorageClient};
 use sync15::engine::{EngineSyncAssociation, SyncEngine};
 
@@ -44,15 +44,15 @@ fn update_i64(field_name: &str, field: i64) -> i64 {
 }
 
 // Note: this uses doc comments to generate the help text.
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(name = "autofill-utils", about = "Command-line utilities for autofill")]
+#[derive(Clone, Debug, Parser)]
+#[command(name = "autofill-utils", about = "Command-line utilities for autofill")]
 pub struct Opts {
     /// Sets the path to the database
-    #[structopt(name = "database_path", long, short = "d")]
+    #[arg(name = "database_path", long, short = 'd')]
     pub database_path: Option<String>,
 
     /// Disables all logging (useful for performance evaluation)
-    #[structopt(name = "no-logging", long)]
+    #[arg(name = "no-logging", long)]
     pub no_logging: bool,
 
     /// The key to use with the database (use --help to see more about keys)
@@ -67,104 +67,94 @@ pub struct Opts {
     ///
     /// You should never mix these modes with the same database - obviously
     /// the encryption and decryption operations work only with a single key.
-    #[structopt(name = "key", long, short = "k")]
+    #[arg(name = "key", long, short = 'k')]
     pub key: Option<String>,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 }
 
-#[derive(Clone, Debug, StructOpt)]
+#[derive(Clone, Debug, Subcommand)]
 enum Command {
     /// Adds JSON address
-    #[structopt(name = "add-address")]
     AddAddress {},
 
     /// Gets address from database
-    #[structopt(name = "get-address")]
     GetAddress {
-        #[structopt(name = "guid", long, short = "g")]
+        #[arg(name = "guid", long, short = 'g')]
         /// The guid of the address to retrieve
         guid: String,
     },
 
     /// Gets all addresses from database
-    #[structopt(name = "get-all-addresses")]
     GetAllAddresses,
 
     /// Update address with given JSON address data
-    #[structopt(name = "update-address")]
     UpdateAddress {
-        #[structopt(name = "guid", long)]
+        #[arg(name = "guid", long)]
         /// The guid of the item to update
         guid: String,
     },
 
     /// Delete address from database
-    #[structopt(name = "delete-address")]
     DeleteAddress {
-        #[structopt(name = "guid", long, short = "g")]
+        #[arg(name = "guid", long, short = 'g')]
         /// The guid of the address to delete
         guid: String,
     },
 
     /// Adds JSON credit card
-    #[structopt(name = "add-credit-card")]
     AddCreditCard {},
 
     /// Gets credit card from database
-    #[structopt(name = "get-credit-card")]
     GetCreditCard {
-        #[structopt(name = "guid", long, short = "g")]
+        #[arg(name = "guid", long, short = 'g')]
         /// The guid of the credit card to retrieve
         guid: String,
     },
 
     /// Gets all credit cards from database
-    #[structopt(name = "get-all-credit-cards")]
     GetAllCreditCards,
 
     /// Update credit card with given JSON credit card data
-    #[structopt(name = "update-credit-card")]
     UpdateCreditCard {
-        #[structopt(name = "guid", long)]
+        #[arg(name = "guid", long)]
         /// The guid of the item to update
         guid: String,
     },
 
     /// Delete credit card from database
-    #[structopt(name = "delete-credit-card")]
     DeleteCreditCard {
-        #[structopt(name = "guid", long, short = "g")]
+        #[arg(name = "guid", long, short = 'g')]
         /// The guid of the credit card to delete
         guid: String,
     },
 
     /// Syncs all or some engines.
     Sync {
-        #[structopt(name = "engines", long)]
+        #[arg(name = "engines", long)]
         /// Path to store our cached fxa credentials.
-        #[structopt(name = "credentials", long, default_value = "./credentials.json")]
+        #[arg(name = "credentials", long, default_value = "./credentials.json")]
         credential_file: String,
 
         /// Wipe ALL storage from the server before syncing.
-        #[structopt(name = "wipe-all-remote", long)]
+        #[arg(name = "wipe-all-remote", long)]
         wipe_all: bool,
 
         /// Wipe the engine data from the server before syncing.
-        #[structopt(name = "wipe-remote", long)]
+        #[arg(name = "wipe-remote", long)]
         wipe: bool,
 
         /// Reset the engine before syncing
-        #[structopt(name = "reset", long)]
+        #[arg(name = "reset", long)]
         reset: bool,
 
         /// Number of syncs to perform
-        #[structopt(name = "nsyncs", long, default_value = "1")]
+        #[arg(name = "nsyncs", long, default_value = "1")]
         nsyncs: u32,
 
         /// Number of milliseconds to wait between syncs
-        #[structopt(name = "wait", long, default_value = "0")]
+        #[arg(name = "wait", long, default_value = "0")]
         wait: u64,
     },
 }
@@ -484,9 +474,10 @@ fn get_encryption_key(store: &Store, db_path: &str, opts: &Opts) -> Result<Strin
 }
 
 fn main() -> Result<()> {
-    viaduct_reqwest::use_reqwest_backend();
+    nss::ensure_initialized();
+    viaduct_dev::use_dev_backend();
 
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     if !opts.no_logging {
         cli_support::init_trace_logging();
     }

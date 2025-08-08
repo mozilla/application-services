@@ -14,7 +14,7 @@ use push::{BridgeType, PushConfiguration, PushManager};
  */
 fn test_live_server() {
     let tempdir = tempfile::tempdir().unwrap();
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::use_dev_backend();
 
     let push_config = PushConfiguration {
         server_host: "localhost:8082".to_string(),

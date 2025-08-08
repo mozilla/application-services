@@ -21,7 +21,12 @@ pub enum FMLError {
     RegexError(#[from] regex::Error),
 
     #[error("Fetch Error: {0}")]
-    FetchError(#[from] reqwest::Error),
+    FetchError(#[from] viaduct::Error),
+    #[error("Invalid Response Status: {0}")]
+    ResponseStatusError(#[from] viaduct::UnexpectedStatus),
+    #[error("UTF8 Decoding Error: {0}")]
+    Utf8DecodingError(#[from] std::string::FromUtf8Error),
+
     #[error("Can't find file: {0}")]
     InvalidPath(String),
 

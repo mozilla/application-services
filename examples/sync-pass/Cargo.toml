@@ -18,16 +18,16 @@ sync-guid = { path = "../../components/support/guid" }
 log = "0.4"
 sql-support = { path = "../../components/support/sql" }
 anyhow = "1.0"
-prettytable-rs = "0.10"
+text-table = { path = "../../components/support/text-table" }
 fxa-client = { path = "../../components/fxa-client" }
 chrono = "0.4"
-clap = "4"
+clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 cli-support = { path = "../cli-support" }
 tempfile = "3"
 serde_json = "1.0"
 url = "2.2"
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
-rusqlite = { version = "0.33.0", features = ["limits"] }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }
+rusqlite = { version = "0.37.0", features = ["limits"] }
 init_rust_components = { path = "../../components/init_rust_components", features = ["keydb"] }
 
 [dependencies]

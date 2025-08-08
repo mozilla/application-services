@@ -10,18 +10,16 @@ the details of which are reproduced below.
 * [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
-* [MIT License: cargo_metadata](#mit-license-cargo_metadata)
+* [MIT License: cargo_metadata, winnow](#mit-license-cargo_metadata-winnow)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
-* [MIT License: libsqlite3-sys](#mit-license-libsqlite3-sys)
-* [MIT License: mime_guess](#mit-license-mime_guess)
+* [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
-* [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: sharded-slab](#mit-license-sharded-slab)
@@ -55,6 +53,7 @@ The following text applies to code linked from these dependencies:
 [uniffi_internal_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
+[uniffi_pipeline](https://github.com/mozilla/uniffi-rs),
 [uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
@@ -438,6 +437,9 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 The following text applies to code linked from these dependencies:
 [anyhow](https://github.com/dtolnay/anyhow),
+[askama](https://github.com/askama-rs/askama),
+[askama_derive](https://github.com/askama-rs/askama),
+[askama_parser](https://github.com/askama-rs/askama),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -493,6 +495,7 @@ The following text applies to code linked from these dependencies:
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
+[linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
@@ -501,7 +504,6 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
-[once_map](https://github.com/a1phyr/once_map),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
@@ -518,9 +520,6 @@ The following text applies to code linked from these dependencies:
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
 [reqwest](https://github.com/seanmonstar/reqwest),
-[rinja](https://github.com/rinja-rs/rinja),
-[rinja_derive](https://github.com/rinja-rs/rinja),
-[rinja_parser](https://github.com/rinja-rs/rinja),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
@@ -547,7 +546,6 @@ The following text applies to code linked from these dependencies:
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
-[unicase](https://github.com/seanmonstar/unicase),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
 [url](https://github.com/servo/rust-url),
 [utf16_iter](https://github.com/hsivonen/utf16_iter),
@@ -889,10 +887,11 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: cargo_metadata
+## MIT License: cargo_metadata, winnow
 
 The following text applies to code linked from these dependencies:
-[cargo_metadata](https://github.com/oli-obk/cargo_metadata)
+[cargo_metadata](https://github.com/oli-obk/cargo_metadata),
+[winnow](https://github.com/winnow-rs/winnow)
 
 ```
 Permission is hereby granted, free of charge, to any
@@ -1076,10 +1075,11 @@ THE SOFTWARE.
 
 ```
 -------------
-## MIT License: libsqlite3-sys
+## MIT License: libsqlite3-sys, rusqlite
 
 The following text applies to code linked from these dependencies:
-[libsqlite3-sys](https://github.com/rusqlite/rusqlite)
+[libsqlite3-sys](https://github.com/rusqlite/rusqlite),
+[rusqlite](https://github.com/rusqlite/rusqlite)
 
 ```
 Copyright (c) 2014 The rusqlite developers
@@ -1101,37 +1101,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-```
--------------
-## MIT License: mime_guess
-
-The following text applies to code linked from these dependencies:
-[mime_guess](https://github.com/abonander/mime_guess)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Austin Bonander
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 ```
 -------------
@@ -1223,34 +1192,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: rusqlite
-
-The following text applies to code linked from these dependencies:
-[rusqlite](https://github.com/rusqlite/rusqlite)
-
-```
-Copyright (c) 2014-2021 The rusqlite developers
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 
 ```
 -------------

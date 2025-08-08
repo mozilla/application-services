@@ -2,15 +2,101 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+
 #[allow(unused_imports)] // may be unused in some features.
 use nimbus::error::{info, Result};
+
+#[derive(Parser)]
+#[command(name = "Nimbus SDK Demo")]
+#[command(author = "Tarik E. <teshaq@mozilla.com>")]
+#[command(about = "A demo for the Nimbus SDK")]
+struct Args {
+    /// Custom File configuration
+    #[arg(short, long, value_name = "FILE")]
+    config: PathBuf,
+
+    /// Custom collection name
+    #[arg(short = 'n', long)]
+    collection: Option<String>,
+
+    #[arg(short, long, value_name = "SERVER_URL")]
+    /// Specifies the server to use
+    server: Option<String>,
+
+    #[arg(long, value_name = "PATH")]
+    /// Path where the database will be created"
+    db_path: Option<String>,
+
+    #[command(subcommand)]
+    subcommand: Subcommands,
+}
+
+#[derive(Subcommand)]
+enum Subcommands {
+    /// Show all experiments, followed by the enrolled experiments
+    ShowExperiments,
+
+    /// Fetch experiments from the server. Subsequent calls to apply-pending-experiments will change enrolments.
+    FetchExperiments,
+
+    /// Updates enrollments with the experiments last fetched from the server with fetch-experiments
+    ApplyPendingExperiments,
+
+    /// Equivalent to fetch-experiments and apply-pending-experiments together
+    UpdateExperiments,
+
+    /// Opts in to an experiment and branch
+    OptIn {
+        #[arg(long, value_name = "EXPERIMENT_ID")]
+        /// The ID of the experiment to opt in to
+        experiment: String,
+
+        #[arg(long, value_name = "BRANCH_ID")]
+        /// The ID of the branch to opt in to
+        branch: String,
+    },
+
+    /// Opts out of an experiment
+    OptOut {
+        #[arg(long, value_name = "EXPERIMENT_ID")]
+        /// The ID of the experiment to opt out of
+        experiment: String,
+    },
+
+    /// Opts out of all experiments
+    OptOutAll,
+
+    /// Generate a uuid that can get enrolled in experiments
+    GenUuid {
+        /// The number of experiments the uuid generated should be able to enroll in,
+        /// WARNING: This can end in an infinite loop if the number is too high
+        #[arg(long, default_value_t = 1)]
+        number: usize,
+
+        /// Sets the UUID in the database when complete.
+        #[arg(long)]
+        set: bool,
+    },
+
+    /// Brute-force an experiment a number of times, showing enrollment results
+    BruteForce {
+        #[arg(long, value_name = "EXPERIMENT_ID")]
+        /// The ID of the experiment to reset
+        experiment: String,
+
+        #[arg(short, long, default_value_t = 10000)]
+        /// The number of times to generate a UUID and attempt enrollment.
+        num: usize,
+    },
+}
 
 #[cfg(feature = "stateful")]
 fn main() -> Result<()> {
     const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
     const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 
-    use clap::{App, Arg, SubCommand};
     use nimbus::{
         metrics::{
             EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
@@ -49,142 +135,22 @@ fn main() -> Result<()> {
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
     error_support::init_for_tests_with_level(error_support::Level::Info);
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::use_dev_backend();
 
     // Initiate the matches for the command line arguments
-    let matches = App::new("Nimbus SDK")
-        .author("Tarik E. <teshaq@mozilla.com>")
-        .about("A demo for the Nimbus SDK")
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .value_name("FILE")
-                .help("Sets a custom File configuration")
-                .required(true)
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("collection")
-                .short("n")
-                .long("collection")
-                .value_name("COLLECTION")
-                .help("Sets a custom collection name")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("server")
-                .short("s")
-                .long("server")
-                .value_name("SERVER_URL")
-                .help("Specifies the server to use")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("db-path")
-                .long("db-path")
-                .value_name("PATH")
-                .help("The path where the database will be created")
-                .takes_value(true),
-        )
-        .subcommand(
-            SubCommand::with_name("show-experiments")
-                .about("Show all experiments, followed by the enrolled experiments"),
-        )
-        .subcommand(
-            SubCommand::with_name("fetch-experiments")
-            .about("Fetch experiments from the server. Subsequent calls to apply-pending-experiments will change enrolments."),
-        )
-        .subcommand(
-            SubCommand::with_name("apply-pending-experiments")
-            .about("Updates enrollments with the experiments last fetched from the server with fetch-experiments"),
-        )
-        .subcommand(
-            SubCommand::with_name("update-experiments")
-            .about("Equivalent to fetch-experiments and apply-pending-experiments together"),
-        )
-        .subcommand(
-            SubCommand::with_name("opt-in")
-            .about("Opts in to an experiment and branch")
-            .arg(
-                Arg::with_name("experiment")
-                .long("experiment")
-                .value_name("EXPERIMENT_ID")
-                .help("The ID of the experiment to opt in to")
-                .required(true)
-                .takes_value(true)
-            )
-            .arg(
-                Arg::with_name("branch")
-                .long("branch")
-                .value_name("BRANCH_ID")
-                .help("The ID of the branch to opt in to")
-                .required(true)
-                .takes_value(true)
-            )
-        )
-        .subcommand(
-            SubCommand::with_name("opt-out")
-            .about("Opts out of an experiment")
-            .arg(
-                Arg::with_name("experiment")
-                .long("experiment")
-                .value_name("EXPERIMENT_ID")
-                .help("The ID of the experiment to opt out of")
-                .required(true)
-                .takes_value(true)
-            )
-        )
-        .subcommand(
-            SubCommand::with_name("opt-out-all")
-            .about("Opts out of all experiments")
-        )
-        .subcommand(
-            SubCommand::with_name("gen-uuid")
-            .about("Generate a uuid that can get enrolled in experiments")
-            .arg(
-                Arg::with_name("number")
-                .default_value("1")
-                .help("The number of experiments the uuid generated should be able to enroll in, WARNING: This can end in an infinite loop if the number is too high")
-            )
-            .arg(
-                Arg::with_name("set")
-                .long("set")
-                .help("Sets the UUID in the database when complete.")
-            )
-        )
-        .subcommand(
-            SubCommand::with_name("brute-force")
-            .about("Brute-force an experiment a number of times, showing enrollment results")
-            .arg(
-                Arg::with_name("experiment")
-                .long("experiment")
-                .value_name("EXPERIMENT_ID")
-                .help("The ID of the experiment to reset")
-                .required(true)
-                .takes_value(true)
-            )
-            .arg(
-                Arg::with_name("num")
-                .long("num")
-                .short("n")
-                .default_value("10000")
-                .help("The number of times to generate a UUID and attempt enrollment.")
-            )
-        )
-        .get_matches();
+    let args = Args::parse();
 
     // Read command line arguments, or set default values
-    let mut config_file = std::fs::File::open(matches.value_of("config").unwrap())
-        .expect("Config file does not exist");
+    let mut config_file = std::fs::File::open(args.config).expect("Config file does not exist");
     let mut config = String::new();
     config_file.read_to_string(&mut config).unwrap();
     let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
 
     let context = config.get("context").unwrap();
     let context = serde_json::from_value::<AppContext>(context.clone()).unwrap();
-    let server_url = matches
-        .value_of("server")
+    let server_url = args
+        .server
+        .as_deref()
         .unwrap_or_else(|| match config.get("server_url") {
             Some(v) => v.as_str().unwrap(),
             _ => DEFAULT_BASE_URL,
@@ -198,8 +164,8 @@ fn main() -> Result<()> {
     info!("Client ID is {}", client_id);
 
     let collection_name =
-        matches
-            .value_of("collection")
+        args.collection
+            .as_deref()
             .unwrap_or_else(|| match config.get("collection_name") {
                 Some(v) => v.as_str().unwrap(),
                 _ => DEFAULT_COLLECTION_NAME,
@@ -208,8 +174,9 @@ fn main() -> Result<()> {
 
     let temp_dir = std::env::temp_dir();
     let db_path_default = temp_dir.to_str().unwrap();
-    let db_path = matches
-        .value_of("db-path")
+    let db_path = args
+        .db_path
+        .as_deref()
         .unwrap_or_else(|| match config.get("db_path") {
             Some(v) => v.as_str().unwrap(),
             _ => db_path_default,
@@ -243,9 +210,9 @@ fn main() -> Result<()> {
     nimbus_client.apply_pending_experiments()?;
 
     // We match against the subcommands
-    match matches.subcommand() {
+    match args.subcommand {
         // show_enrolled shows only the enrolled experiments and the chosen branches
-        ("show-experiments", _) => {
+        Subcommands::ShowExperiments => {
             println!("======================================");
             println!("Printing all experiments (regardless of enrollment)");
             nimbus_client
@@ -264,39 +231,36 @@ fn main() -> Result<()> {
                     )
                 });
         }
-        ("fetch-experiments", _) => {
+        Subcommands::FetchExperiments => {
             println!("======================================");
             println!("Fetching experiments");
             nimbus_client.fetch_experiments()?;
         }
-        ("apply-pending-experiments", _) => {
+        Subcommands::ApplyPendingExperiments => {
             println!("======================================");
             println!("Applying pending experiments");
             nimbus_client.apply_pending_experiments()?;
         }
-        ("update-experiments", _) => {
+        Subcommands::UpdateExperiments => {
             println!("======================================");
             println!("Fetching and applying experiments");
             nimbus_client.fetch_experiments()?;
             nimbus_client.apply_pending_experiments()?;
         }
-        ("opt-in", Some(matches)) => {
+        Subcommands::OptIn { experiment, branch } => {
             println!("======================================");
-            let experiment = matches.value_of("experiment").unwrap();
-            let branch = matches.value_of("branch").unwrap();
             println!(
                 "Opting in to experiment '{}', branch '{}'",
                 experiment, branch
             );
             nimbus_client.opt_in_with_branch(experiment.to_string(), branch.to_string())?;
         }
-        ("opt-out", Some(matches)) => {
+        Subcommands::OptOut { experiment } => {
             println!("======================================");
-            let experiment = matches.value_of("experiment").unwrap();
             println!("Opting out of experiment '{}'", experiment);
             nimbus_client.opt_out(experiment.to_string())?;
         }
-        ("opt-out-all", _) => {
+        Subcommands::OptOutAll => {
             println!("======================================");
             println!("Opting out of ALL experiments:");
             let experiments = nimbus_client.get_all_experiments().unwrap();
@@ -307,19 +271,14 @@ fn main() -> Result<()> {
         }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
         // experiments, optionally setting the generated ID in the database.
-        ("gen-uuid", Some(matches)) => {
-            let num = matches
-                .value_of("number")
-                .unwrap()
-                .parse::<usize>()
-                .expect("the number parameter should be a number");
+        Subcommands::GenUuid { number, set } => {
             let all_experiments = nimbus_client.get_all_experiments()?;
             // XXX - this check below isn't good enough - we need to know how
             // many of those experiments we are actually eligible for!
-            if all_experiments.len() < num {
+            if all_experiments.len() < number {
                 println!(
                     "Can't try to enroll in {} experiments - only {} exist",
-                    num,
+                    number,
                     all_experiments.len(),
                 );
                 std::process::exit(1);
@@ -337,12 +296,12 @@ fn main() -> Result<()> {
                     let enr = nimbus::evaluate_enrollment(&aru, exp, &th)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
-                        if num_of_experiments_enrolled >= num {
+                        if num_of_experiments_enrolled >= number {
                             println!("======================================");
                             println!("Generated UUID is: {}", uuid);
                             println!("(it took {} goes to find it)", num_tries);
                             // ideally we'd
-                            if matches.is_present("set") {
+                            if set {
                                 println!("Setting uuid in the database...");
                                 nimbus_client.set_nimbus_id(&uuid)?;
                             }
@@ -359,13 +318,10 @@ fn main() -> Result<()> {
                 }
             }
         }
-        ("brute-force", Some(matches)) => {
-            let experiment_id = matches.value_of("experiment").unwrap();
-            let num = matches
-                .value_of("num")
-                .unwrap()
-                .parse::<usize>()
-                .expect("the number of iterations to brute-force");
+        Subcommands::BruteForce {
+            experiment: experiment_id,
+            num,
+        } => {
             println!("Brute-forcing experiment '{}' {} times", experiment_id, num);
 
             // *sob* no way currently to get by id.
@@ -374,7 +330,7 @@ fn main() -> Result<()> {
                     .get_all_experiments()
                     .expect("can't fetch experiments!?")
                 {
-                    if exp.slug == experiment_id {
+                    if exp.slug == *experiment_id {
                         return exp;
                     }
                 }
@@ -402,7 +358,6 @@ fn main() -> Result<()> {
             }
             println!("Results: {:#?}", results);
         }
-        (&_, _) => println!("Invalid subcommand"),
     };
     Ok(())
 }

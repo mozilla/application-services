@@ -9,17 +9,15 @@ the details of which are reproduced below.
 * [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
-* [MIT License: cargo_metadata](#mit-license-cargo_metadata)
+* [MIT License: cargo_metadata, winnow](#mit-license-cargo_metadata-winnow)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: extend](#mit-license-extend)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
-* [MIT License: libsqlite3-sys](#mit-license-libsqlite3-sys)
-* [MIT License: mime_guess](#mit-license-mime_guess)
+* [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: rmp, rmp-serde](#mit-license-rmp-rmp-serde)
-* [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: sharded-slab](#mit-license-sharded-slab)
@@ -53,6 +51,7 @@ The following text applies to code linked from these dependencies:
 [uniffi_internal_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_macros](https://github.com/mozilla/uniffi-rs),
 [uniffi_meta](https://github.com/mozilla/uniffi-rs),
+[uniffi_pipeline](https://github.com/mozilla/uniffi-rs),
 [uniffi_udl](https://github.com/mozilla/uniffi-rs)
 
 ```
@@ -438,6 +437,9 @@ The following text applies to code linked from these dependencies:
 [android-tzdata](https://github.com/RumovZ/android-tzdata),
 [android_system_properties](https://github.com/nical/android_system_properties),
 [anyhow](https://github.com/dtolnay/anyhow),
+[askama](https://github.com/askama-rs/askama),
+[askama_derive](https://github.com/askama-rs/askama),
+[askama_parser](https://github.com/askama-rs/askama),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -456,6 +458,7 @@ The following text applies to code linked from these dependencies:
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
 [env_logger](https://github.com/rust-cli/env_logger),
+[equivalent](https://github.com/cuviper/equivalent),
 [errno](https://github.com/lambda-fairy/rust-errno),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
@@ -473,6 +476,7 @@ The following text applies to code linked from these dependencies:
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [idna_adapter](https://github.com/hsivonen/idna_adapter),
+[indexmap](https://github.com/indexmap-rs/indexmap),
 [io-lifetimes](https://github.com/sunfishcode/io-lifetimes),
 [itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -483,11 +487,9 @@ The following text applies to code linked from these dependencies:
 [linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
-[mime](https://github.com/hyperium/mime),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [num-traits](https://github.com/rust-num/num-traits),
 [once_cell](https://github.com/matklad/once_cell),
-[once_map](https://github.com/a1phyr/once_map),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
@@ -506,9 +508,6 @@ The following text applies to code linked from these dependencies:
 [regex-automata](https://github.com/rust-lang/regex/tree/master/regex-automata),
 [regex-syntax](https://github.com/rust-lang/regex/tree/master/regex-syntax),
 [regex](https://github.com/rust-lang/regex),
-[rinja](https://github.com/rinja-rs/rinja),
-[rinja_derive](https://github.com/rinja-rs/rinja),
-[rinja_parser](https://github.com/rinja-rs/rinja),
 [rkv](https://github.com/mozilla/rkv),
 [rustc-hash](https://github.com/rust-lang/rustc-hash),
 [rustix](https://github.com/bytecodealliance/rustix),
@@ -852,10 +851,11 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: cargo_metadata
+## MIT License: cargo_metadata, winnow
 
 The following text applies to code linked from these dependencies:
-[cargo_metadata](https://github.com/oli-obk/cargo_metadata)
+[cargo_metadata](https://github.com/oli-obk/cargo_metadata),
+[winnow](https://github.com/winnow-rs/winnow)
 
 ```
 Permission is hereby granted, free of charge, to any
@@ -1002,10 +1002,11 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: libsqlite3-sys
+## MIT License: libsqlite3-sys, rusqlite
 
 The following text applies to code linked from these dependencies:
-[libsqlite3-sys](https://github.com/rusqlite/rusqlite)
+[libsqlite3-sys](https://github.com/rusqlite/rusqlite),
+[rusqlite](https://github.com/rusqlite/rusqlite)
 
 ```
 Copyright (c) 2014 The rusqlite developers
@@ -1027,37 +1028,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-```
--------------
-## MIT License: mime_guess
-
-The following text applies to code linked from these dependencies:
-[mime_guess](https://github.com/abonander/mime_guess)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Austin Bonander
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 ```
 -------------
@@ -1152,34 +1122,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-```
--------------
-## MIT License: rusqlite
-
-The following text applies to code linked from these dependencies:
-[rusqlite](https://github.com/rusqlite/rusqlite)
-
-```
-Copyright (c) 2014-2021 The rusqlite developers
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 
 ```
 -------------

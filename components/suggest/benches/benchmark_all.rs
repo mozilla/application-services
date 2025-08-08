@@ -49,7 +49,7 @@ fn run_benchmarks<B: BenchmarkWithInput, M: Measurement>(
 
 fn setup_viaduct() {
     static INIT: Once = Once::new();
-    INIT.call_once(viaduct_reqwest::use_reqwest_backend);
+    INIT.call_once(viaduct_dev::use_dev_backend);
 }
 
 criterion_group!(benches, geoname, ingest, query);

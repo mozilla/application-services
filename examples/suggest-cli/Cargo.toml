@@ -8,9 +8,9 @@ publish = false
 [dependencies]
 cli-support = { path = "../cli-support" }
 remote_settings = { path = "../../components/remote_settings" }
-viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct-dev = { path = "../../components/support/viaduct-dev" }
 log = "0.4"
-clap = {version = "4.2", features = ["derive"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 suggest = { path = "../../components/suggest" }
 anyhow = "1.0"
 env_logger = { version = "0.10", default-features = false, features = ["humantime"] }

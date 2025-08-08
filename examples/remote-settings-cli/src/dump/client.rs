@@ -3,22 +3,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use futures::{stream::FuturesUnordered, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use remote_settings::RemoteSettingsServer;
-use reqwest::Url;
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc};
+use url::Url;
+use viaduct::{Request, Response};
 use walkdir::WalkDir;
 
 const DUMPS_DIR: &str = "dumps";
 
 pub struct CollectionDownloader {
-    client: reqwest::Client,
     multi_progress: Arc<MultiProgress>,
     output_dir: PathBuf,
     url: Url,
@@ -81,15 +80,14 @@ impl CollectionDownloader {
         };
 
         Self {
-            client: reqwest::Client::new(),
             multi_progress: Arc::new(MultiProgress::new()),
             output_dir,
             url,
         }
     }
 
-    pub async fn run(&self, dry_run: bool) -> Result<()> {
-        let result = self.download_all(dry_run).await?;
+    pub fn run(&self, dry_run: bool) -> Result<()> {
+        let result = self.download_all(dry_run)?;
 
         if dry_run {
             println!("\nDry run summary:");
@@ -170,9 +168,9 @@ impl CollectionDownloader {
         Ok(collections)
     }
 
-    async fn fetch_timestamps(&self) -> Result<HashMap<String, u64>> {
+    fn fetch_timestamps(&self) -> Result<HashMap<String, u64>> {
         let monitor_url = format!("{}/buckets/monitor/collections/changes/records", self.url);
-        let monitor_response: Value = self.client.get(&monitor_url).send().await?.json().await?;
+        let monitor_response: Value = self.get(&monitor_url)?.json()?;
 
         Ok(monitor_response["data"]
             .as_array()
@@ -193,7 +191,7 @@ impl CollectionDownloader {
             .collect())
     }
 
-    async fn fetch_collection(
+    fn fetch_collection(
         &self,
         collection_name: String,
         last_modified: u64,
@@ -215,8 +213,8 @@ impl CollectionDownloader {
 
         pb.set_message(format!("Downloading {}", name));
 
-        let response = self.client.get(&url).send().await?;
-        let changeset: Value = response.json().await?;
+        let response = self.get(&url)?;
+        let changeset: Value = response.json()?;
 
         let timestamp = changeset["timestamp"].as_u64().ok_or_else(|| {
             RemoteSettingsError::Json(serde_json::Error::custom("No timestamp in changeset"))
@@ -236,18 +234,12 @@ impl CollectionDownloader {
         ))
     }
 
-    async fn get_attachments_base_url(&self) -> Result<String> {
-        let server_info: ServerInfo = self
-            .client
-            .get(self.url.as_str())
-            .send()
-            .await?
-            .json()
-            .await?;
+    fn get_attachments_base_url(&self) -> Result<String> {
+        let server_info: ServerInfo = self.get(self.url.as_str())?.json()?;
         Ok(server_info.capabilities.attachments.base_url)
     }
 
-    async fn download_attachment(
+    fn download_attachment(
         &self,
         base_url: &str,
         record_id: &str,
@@ -257,9 +249,8 @@ impl CollectionDownloader {
         let url = format!("{}{}", base_url, attachment.location);
         pb.set_message(format!("Downloading attachment for record {}", record_id));
 
-        let response = self.client.get(&url).send().await?;
-        let bytes = response.bytes().await?;
-        let data = bytes.to_vec();
+        let response = self.get(&url)?;
+        let data = response.body;
 
         // Verify size
         if data.len() as u64 != attachment.size {
@@ -347,13 +338,13 @@ impl CollectionDownloader {
         Ok(true)
     }
 
-    async fn download_attachments_bundle(
+    fn download_attachments_bundle(
         &self,
         bucket: &str,
         collection: &str,
         pb: &ProgressBar,
     ) -> Result<()> {
-        let base_url = self.get_attachments_base_url().await?;
+        let base_url = self.get_attachments_base_url()?;
         let url = format!("{}/bundles/{}--{}.zip", base_url, bucket, collection);
 
         pb.set_message(format!(
@@ -362,10 +353,10 @@ impl CollectionDownloader {
         ));
 
         // Try to download the bundle
-        match self.client.get(&url).send().await {
+        match self.get(&url) {
             Ok(response) => {
-                if response.status().is_success() {
-                    let bytes = response.bytes().await?;
+                if response.status == 200 {
+                    let bytes = response.body;
                     let bundle_path = self
                         .output_dir
                         .join(DUMPS_DIR)
@@ -402,7 +393,7 @@ impl CollectionDownloader {
         Ok(())
     }
 
-    async fn process_collection_update(
+    fn process_collection_update(
         &self,
         collection: String,
         data: &mut CollectionData,
@@ -464,8 +455,7 @@ impl CollectionDownloader {
                         .unwrap(),
                 );
 
-                self.process_attachments(bucket, name, &data.data, &pb)
-                    .await?;
+                self.process_attachments(bucket, name, &data.data, &pb)?;
             }
         }
 
@@ -475,7 +465,7 @@ impl CollectionDownloader {
         })
     }
 
-    pub async fn download_all(&self, dry_run: bool) -> Result<UpdateResult> {
+    pub fn download_all(&self, dry_run: bool) -> Result<UpdateResult> {
         std::fs::create_dir_all(self.output_dir.join(DUMPS_DIR))?;
 
         let local_collections = self.scan_local_dumps()?;
@@ -491,7 +481,7 @@ impl CollectionDownloader {
             });
         }
 
-        let remote_timestamps = self.fetch_timestamps().await?;
+        let remote_timestamps = self.fetch_timestamps()?;
         let mut updates_needed = Vec::new();
         let mut up_to_date = Vec::new();
         let mut not_found = Vec::new();
@@ -527,7 +517,7 @@ impl CollectionDownloader {
         }
 
         // Actually perform the updates
-        let mut futures = FuturesUnordered::new();
+        let mut updates = Vec::new();
         let mut updated = Vec::new();
 
         for (collection_key, remote_timestamp) in updates_needed {
@@ -539,18 +529,9 @@ impl CollectionDownloader {
             );
 
             let pb_clone = Arc::clone(&pb);
-            futures.push(async move {
-                let (collection, mut data) = self
-                    .fetch_collection(collection_key, remote_timestamp, pb_clone)
-                    .await?;
-                self.process_collection_update(collection, &mut data, dry_run)
-                    .await
-            });
-        }
-
-        let mut updates = Vec::new();
-        while let Some(result) = futures.next().await {
-            let update = result?;
+            let (collection, mut data) =
+                self.fetch_collection(collection_key, remote_timestamp, pb_clone)?;
+            let update = self.process_collection_update(collection, &mut data, dry_run)?;
             updates.push(update.clone());
             updated.push(update.collection_key.clone());
         }
@@ -562,7 +543,7 @@ impl CollectionDownloader {
         })
     }
 
-    pub async fn download_single(&self, bucket: &str, collection_name: &str) -> Result<()> {
+    pub fn download_single(&self, bucket: &str, collection_name: &str) -> Result<()> {
         std::fs::create_dir_all(self.output_dir.join(DUMPS_DIR))?;
 
         let collection_key = format!("{}/{}", bucket, collection_name);
@@ -573,10 +554,8 @@ impl CollectionDownloader {
                 .unwrap(),
         );
 
-        let (collection, mut data) = self.fetch_collection(collection_key.clone(), 0, pb).await?;
-        let update = self
-            .process_collection_update(collection, &mut data, false)
-            .await?;
+        let (collection, mut data) = self.fetch_collection(collection_key.clone(), 0, pb)?;
+        let update = self.process_collection_update(collection, &mut data, false)?;
 
         println!(
             "Successfully downloaded collection to {:?}/dumps/{}/{}.json",
@@ -590,14 +569,14 @@ impl CollectionDownloader {
         Ok(())
     }
 
-    async fn process_attachments(
+    fn process_attachments(
         &self,
         bucket: &str,
         collection: &str,
         records: &[Value],
         pb: &Arc<ProgressBar>,
     ) -> Result<()> {
-        let base_url = self.get_attachments_base_url().await?;
+        let base_url = self.get_attachments_base_url()?;
         let mut outdated_attachments = Vec::new();
 
         // First pass: check which attachments need updating
@@ -625,10 +604,7 @@ impl CollectionDownloader {
 
         // Try bundle first if we have outdated attachments
         if !outdated_attachments.is_empty() {
-            if let Ok(()) = self
-                .download_attachments_bundle(bucket, collection, pb)
-                .await
-            {
+            if let Ok(()) = self.download_attachments_bundle(bucket, collection, pb) {
                 // Bundle downloaded successfully, verify all attachments now
                 let mut still_outdated = Vec::new();
                 for (record_id, attachment) in outdated_attachments {
@@ -650,9 +626,7 @@ impl CollectionDownloader {
             let (bin_path, meta_path) = self.get_attachment_paths(bucket, collection, &record_id);
             std::fs::create_dir_all(bin_path.parent().unwrap())?;
 
-            let data = self
-                .download_attachment(&base_url, &record_id, &attachment, pb)
-                .await?;
+            let data = self.download_attachment(&base_url, &record_id, &attachment, pb)?;
 
             std::fs::write(&bin_path, data)?;
             std::fs::write(&meta_path, serde_json::to_string_pretty(&attachment)?)?;
@@ -661,5 +635,10 @@ impl CollectionDownloader {
         pb.finish_with_message(format!("Updated attachments for {}/{}", bucket, collection));
 
         Ok(())
+    }
+
+    fn get(&self, url: &str) -> Result<Response> {
+        let url = Url::parse(url)?;
+        Ok(Request::get(url).send()?)
     }
 }

@@ -84,7 +84,7 @@ fn main() -> Result<()> {
         },
     ));
     nss::ensure_initialized();
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::use_dev_backend();
     let service = build_service(&cli)?;
     match cli.command {
         Commands::Sync { collections } => sync(service, collections),
@@ -97,8 +97,7 @@ fn main() -> Result<()> {
         }
         Commands::DumpSync { path, dry_run } => {
             let downloader = CollectionDownloader::new(path);
-            let runtime = tokio::runtime::Runtime::new()?;
-            runtime.block_on(downloader.run(dry_run))
+            downloader.run(dry_run)
         }
         Commands::DumpGet {
             bucket,
@@ -106,8 +105,7 @@ fn main() -> Result<()> {
             path,
         } => {
             let downloader = CollectionDownloader::new(path);
-            let runtime = tokio::runtime::Runtime::new()?;
-            runtime.block_on(downloader.download_single(&bucket, &collection_name))
+            downloader.download_single(&bucket, &collection_name)
         }
     }
 }

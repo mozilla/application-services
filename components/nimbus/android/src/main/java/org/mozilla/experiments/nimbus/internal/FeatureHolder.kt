@@ -38,7 +38,8 @@ class FeatureHolder<T : FMLFeatureInterface>(
      * It will be removed in later releases.
      *
      * @returns T
-     * @throws NimbusFeatureException thrown before the Nimbus object has been constructed or `FxNimbus.initialize` has not been set.
+     * @throws NimbusFeatureException thrown before the Nimbus object has been constructed or `FxNimbus.initialize`
+     * has not been set.
      * This can be resolved by setting `FxNimbus.initialize`, and after that by passing in a `Context` object.
      */
     fun value(): T =

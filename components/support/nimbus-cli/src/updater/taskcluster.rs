@@ -31,20 +31,14 @@ impl Registry for TaskClusterRegistry {
 }
 
 #[allow(dead_code)]
-pub struct ReqwestGunzippingHttpClient;
+pub struct GunzippingHttpClient;
 
-impl HttpClient for ReqwestGunzippingHttpClient {
-    fn get<T: DeserializeOwned>(url: &str, timeout: Duration, headers: HeaderMap) -> Result<T> {
-        let mut req = reqwest::blocking::Client::builder()
-            .timeout(timeout)
-            // We couldn't use the out-the-box HttpClient
-            // because task-cluster uses gzip.
-            .gzip(true)
-            .build()?
-            .get(url);
+impl HttpClient for GunzippingHttpClient {
+    fn get<T: DeserializeOwned>(url: &str, _timeout: Duration, headers: HeaderMap) -> Result<T> {
+        let mut req = viaduct::Request::get(viaduct::parse_url(url)?);
 
         for (key, value) in headers {
-            req = req.header(key, value);
+            req = req.header(key.to_string(), value.to_string())?;
         }
 
         let json = req.send()?.json()?;
@@ -65,7 +59,7 @@ where
 
     #[cfg(not(test))]
     let informer = update_informer::new(TaskClusterRegistry, name, version)
-        .http_client(ReqwestGunzippingHttpClient)
+        .http_client(GunzippingHttpClient)
         .interval(interval);
 
     #[cfg(test)]

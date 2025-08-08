@@ -24,7 +24,17 @@ pub fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
 }
 
 pub fn prompt_password<S: AsRef<str>>(prompt: S) -> Option<String> {
-    rpassword::prompt_password(format!("{}: ", prompt.as_ref())).ok()
+    let result = dialoguer::Password::new()
+        .with_prompt(prompt.as_ref().to_string())
+        .with_confirmation("Confirm password", "Passwords mismatching")
+        .interact();
+    match result {
+        Ok(p) => Some(p),
+        Err(e) => {
+            log::warn!("Error getting password: {e}");
+            None
+        }
+    }
 }
 
 pub fn prompt_char(msg: &str) -> Option<char> {

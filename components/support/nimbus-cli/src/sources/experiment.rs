@@ -215,12 +215,8 @@ impl TryFrom<&ExperimentSource> for Value {
             }
             ExperimentSource::FromApiV6 { slug, endpoint } => {
                 let url = format!("{endpoint}/api/v6/experiments/{slug}/");
-                let req = reqwest::blocking::Client::builder()
-                    .user_agent(USER_AGENT)
-                    .gzip(true)
-                    .build()?
-                    .get(url);
-
+                let req = viaduct::Request::get(viaduct::parse_url(&url)?)
+                    .header("User-Agent", USER_AGENT)?;
                 req.send()?.json()?
             }
             ExperimentSource::FromFeatureFiles {

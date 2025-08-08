@@ -57,6 +57,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_pipeline</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Mozilla Public License 2.0: uniffi_udl</name>
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
@@ -71,6 +75,18 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: anyhow</name>
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama</name>
+    <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_derive</name>
+    <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_parser</name>
+    <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: autocfg</name>
@@ -145,6 +161,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-cli/env_logger/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: equivalent</name>
+    <url>https://github.com/cuviper/equivalent/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: errno</name>
     <url>https://github.com/lambda-fairy/rust-errno/blob/main/LICENSE-APACHE</url>
   </license>
@@ -213,6 +233,10 @@ the details of which are reproduced below.
     <url>https://github.com/hsivonen/idna_adapter/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: indexmap</name>
+    <url>https://github.com/indexmap-rs/indexmap/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: io-lifetimes</name>
     <url>https://github.com/sunfishcode/io-lifetimes/blob/main/LICENSE-APACHE</url>
   </license>
@@ -253,10 +277,6 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: mime</name>
-    <url>https://github.com/hyperium/mime/blob/v0.3.17/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: minimal-lexical</name>
     <url>https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE</url>
   </license>
@@ -267,10 +287,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: once_map</name>
-    <url>https://github.com/a1phyr/once_map/blob/master/LICENCE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
@@ -343,18 +359,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: regex-syntax</name>
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rinja</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rinja_derive</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rinja_parser</name>
-    <url>https://github.com/rinja-rs/rinja/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rkv</name>
@@ -545,6 +549,10 @@ the details of which are reproduced below.
     <url>https://github.com/oli-obk/cargo_metadata/blob/main/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: winnow</name>
+    <url>https://github.com/winnow-rs/winnow/blob/main/LICENSE-MIT</url>
+  </license>
+  <license>
     <name>MIT License: caseless</name>
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
   </license>
@@ -565,8 +573,8 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: mime_guess</name>
-    <url>https://github.com/abonander/mime_guess/blob/master/LICENSE</url>
+    <name>MIT License: rusqlite</name>
+    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: nom</name>
@@ -583,10 +591,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: rmp-serde</name>
     <url>https://github.com/3Hren/msgpack-rust/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: rusqlite</name>
-    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: scroll</name>

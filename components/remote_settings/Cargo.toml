@@ -25,7 +25,7 @@ sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
 url = "2"
 camino = "1.0"
-rusqlite = { version = "0.33.0", features = ["bundled"] }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
 jexl-eval = { version = "0.3.0" }
 regex = "1.9"
 anyhow = "1.0"
@@ -39,8 +39,8 @@ uniffi = { version = "0.29.0", features = ["build"] }
 
 [dev-dependencies]
 expect-test = "1.4"
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-mockall = "0.11"
+viaduct-dev = { path = "../support/viaduct-dev" }
+mockall = "0.12"
 mockito = "0.31"
 # We add the perserve_order feature to guarantee ordering of the keys in our
 # JSON objects as they get serialized/deserialized.

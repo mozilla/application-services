@@ -399,7 +399,7 @@ mod test {
 
     #[test]
     fn test_communications() {
-        viaduct_reqwest::use_reqwest_backend();
+        viaduct_dev::use_dev_backend();
         // mockito forces task serialization, so for now, we test everything in one go.
         let config = PushConfiguration {
             http_protocol: Protocol::Http,

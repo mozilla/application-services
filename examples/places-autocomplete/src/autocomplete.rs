@@ -13,6 +13,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use termion::screen::IntoAlternateScreen;
 use url::Url;
 
 #[derive(Default, Clone, Debug)]
@@ -465,7 +466,7 @@ mod autocomplete {
 
         let mut stdin = termion::async_stdin();
         let stdout = std::io::stdout().into_raw_mode()?;
-        let mut stdout = termion::screen::AlternateScreen::from(stdout);
+        let mut stdout = stdout.into_alternate_screen()?;
         write!(
             stdout,
             "{}{}Autocomplete demo (press escape to exit){}> ",
