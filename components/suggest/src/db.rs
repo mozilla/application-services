@@ -294,8 +294,7 @@ impl<'a> SuggestDao<'a> {
                   s.url,
                   s.provider,
                   s.score,
-                  fk.full_keyword,
-                  ssc.category
+                  fk.full_keyword
                 FROM
                   suggestions s
                 JOIN
@@ -304,9 +303,6 @@ impl<'a> SuggestDao<'a> {
                 LEFT JOIN
                   full_keywords fk
                   ON k.full_keyword_id = fk.id
-                LEFT JOIN
-                  suggestion_serp_categories ssc
-                  ON s.id = ssc.suggestion_id
                 WHERE
                   s.provider = :provider
                   AND k.keyword = :keyword
@@ -329,7 +325,6 @@ impl<'a> SuggestDao<'a> {
                 let raw_url: String = row.get("url")?;
                 let score: f64 = row.get("score")?;
                 let full_keyword_from_db: Option<String> = row.get("full_keyword")?;
-                let category: Option<i32> = row.get("category")?;
 
                 self.conn.query_row_and_then(
                     r#"
@@ -356,11 +351,13 @@ impl<'a> SuggestDao<'a> {
                         let raw_click_url = row.get::<_, String>("click_url")?;
                         let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
 
+                        let categories = self.fetch_categories_for_suggestion(suggestion_id)?;
+
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
-                            categories: category.into_iter().collect(),
+                            categories,
                             title,
                             url: cooked_url,
                             raw_url,
@@ -395,16 +392,12 @@ impl<'a> SuggestDao<'a> {
                   s.title,
                   s.url,
                   s.provider,
-                  s.score,
-                  ssc.category
+                  s.score
                 FROM
                   suggestions s
                 JOIN
                   amp_fts fts
                   ON fts.rowid = s.id
-                LEFT JOIN
-                  suggestion_serp_categories ssc
-                  ON s.id = ssc.suggestion_id
                 WHERE
                   s.provider = :provider
                   AND amp_fts match '{fts_column}: {match_arg}'
@@ -421,7 +414,6 @@ impl<'a> SuggestDao<'a> {
                 let title: String = row.get("title")?;
                 let raw_url: String = row.get("url")?;
                 let score: f64 = row.get("score")?;
-                let category: i32 = row.get("category")?;
 
                 self.conn.query_row_and_then(
                     r#"
@@ -454,11 +446,13 @@ impl<'a> SuggestDao<'a> {
                             &title,
                         )?;
 
+                        let categories = self.fetch_categories_for_suggestion(suggestion_id)?;
+
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
-                            categories: vec![category],
+                            categories,
                             title,
                             url: cooked_url,
                             raw_url,
@@ -519,6 +513,26 @@ impl<'a> SuggestDao<'a> {
             prefix,
             stemming: fts_query.match_required_stemming(&fts_content),
         })
+    }
+
+    fn fetch_categories_for_suggestion(&self, suggestion_id: i64) -> Result<Vec<i32>> {
+        let mut category_stmt = self.conn.prepare(
+            r#" 
+            SELECT category FROM serp_categories WHERE suggestion_id = :suggestion_id
+            "#,
+        )?;
+
+        let category_rows = category_stmt.query_map(
+            named_params! {
+                ":suggestion_id": suggestion_id
+            },
+            |row| {
+                let category: Option<i32> = row.get(0)?;
+                Ok(category)
+            },
+        )?;
+
+        Ok(category_rows.filter_map(|res| res.ok().flatten()).collect())
     }
 
     /// Fetches Suggestions of type Wikipedia provider that match the given query
@@ -1022,8 +1036,7 @@ impl<'a> SuggestDao<'a> {
             }
 
             if let Some(categories) = &suggestion.serp_categories {
-                // for AMP we only want one category
-                if let Some(category) = categories.first() {
+                for category in categories {
                     category_insert.execute(suggestion_id, *category)?;
                 }
             }
@@ -1283,6 +1296,11 @@ impl<'a> SuggestDao<'a> {
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM geonames_metrics WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "DELETE FROM serp_categories WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
 
@@ -1745,7 +1763,7 @@ pub(crate) struct CategoryInsertStatement<'conn>(rusqlite::Statement<'conn>);
 
 impl<'conn> CategoryInsertStatement<'conn> {
     pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
-        Self::with_details(conn, "suggestion_serp_categories", None)
+        Self::with_details(conn, "serp_categories", None)
     }
 
     pub(crate) fn with_details(
