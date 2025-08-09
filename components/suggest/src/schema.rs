@@ -85,7 +85,7 @@ CREATE TABLE prefix_keywords(
 
 CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
 
-CREATE TABLE suggestion_serp_categories(
+CREATE TABLE serp_categories(
     suggestion_id INTEGER NOT NULL,
     category INTEGER NOT NULL,
     PRIMARY KEY (suggestion_id, category)
@@ -816,7 +816,7 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 clear_database(tx)?;
                 tx.execute_batch(
                     r#"
-                    CREATE TABLE suggestion_serp_categories(
+                    CREATE TABLE serp_categories(
                         suggestion_id INTEGER NOT NULL,
                         category INTEGER NOT NULL,
                         PRIMARY KEY (suggestion_id, category)
@@ -856,6 +856,7 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
         "ingested_records",
         "keywords_i18n",
         "keywords_metrics",
+        "serp_categories",
     ];
     for t in conditional_tables {
         let table_exists = db.exists("SELECT 1 FROM sqlite_master WHERE name = ?", [t])?;
