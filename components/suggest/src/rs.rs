@@ -370,6 +370,7 @@ pub(crate) struct DownloadedAmpSuggestion {
     #[serde(rename = "id")]
     pub block_id: i32,
     pub iab_category: String,
+    pub serp_categories: Option<Vec<i32>>,
     pub click_url: String,
     pub impression_url: String,
     #[serde(rename = "icon")]
