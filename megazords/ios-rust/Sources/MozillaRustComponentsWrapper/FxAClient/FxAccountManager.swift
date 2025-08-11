@@ -46,12 +46,14 @@ open class FxAccountManager {
         config: FxAConfig,
         deviceConfig: DeviceConfig,
         applicationScopes: [String] = [OAuthScope.profile],
-        keychainAccessGroup: String? = nil
+        keychainAccessGroup: String? = nil,
+        useRustKeychainForFxA: Bool = false
     ) {
         self.config = config
         self.deviceConfig = deviceConfig
         self.applicationScopes = applicationScopes
-        accountStorage = KeyChainAccountStorage(keychainAccessGroup: keychainAccessGroup)
+        accountStorage = KeyChainAccountStorage(keychainAccessGroup: keychainAccessGroup,
+                                                useRustKeychainForFxA: useRustKeychainForFxA)
         setupInternalListeners()
     }
 
