@@ -24,7 +24,6 @@ static SINKS_BY_TARGET: LazyLock<RwLock<HashMap<String, LogEntry>>> =
 
 static MIN_LEVEL_SINK: RwLock<Option<LogEntry>> = RwLock::new(None);
 
-#[uniffi::export]
 pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn EventSink>) {
     SINKS_BY_TARGET.write().insert(
         target.to_string(),
@@ -41,7 +40,6 @@ pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn Even
 /// If so, sinks registered with `register_event_sink` will be skiped.
 ///
 /// There can only be 1 min-level sink registered at once.
-#[uniffi::export]
 pub fn register_min_level_event_sink(level: crate::Level, sink: Arc<dyn EventSink>) {
     *MIN_LEVEL_SINK.write() = Some(LogEntry {
         level: level.into(),
@@ -58,6 +56,18 @@ pub fn unregister_event_sink(target: &str) {
 #[uniffi::export]
 pub fn unregister_min_level_event_sink() {
     *MIN_LEVEL_SINK.write() = None;
+}
+
+// UniFFI versions of the registration functions.  This input a Box to be compatible with callback
+// interfaces
+#[uniffi::export(name = "register_event_sink")]
+pub fn register_event_sink_box(target: &str, level: crate::Level, sink: Box<dyn EventSink>) {
+    register_event_sink(target, level, sink.into())
+}
+
+#[uniffi::export(name = "register_min_level_event_sink")]
+pub fn register_min_level_event_sink_box(level: crate::Level, sink: Box<dyn EventSink>) {
+    register_min_level_event_sink(level, sink.into())
 }
 
 pub fn simple_event_layer<S>() -> impl Layer<S>

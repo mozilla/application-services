@@ -154,7 +154,7 @@ pub struct TracingEvent {
     pub fields: serde_json::Value,
 }
 
-#[uniffi::export(with_foreign)]
+#[uniffi::export(callback_interface)]
 pub trait EventSink: Send + Sync {
     fn on_event(&self, event: Event);
 }
