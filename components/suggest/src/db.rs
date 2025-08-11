@@ -522,17 +522,21 @@ impl<'a> SuggestDao<'a> {
             "#,
         )?;
 
-        let category_rows = category_stmt.query_map(
-            named_params! {
-                ":suggestion_id": suggestion_id
-            },
-            |row| {
-                let category: Option<i32> = row.get(0)?;
-                Ok(category)
-            },
-        )?;
+        let categories: Option<Vec<i32>> = category_stmt
+            .query_map(
+                named_params! {
+                    ":suggestion_id": suggestion_id
+                },
+                |row| {
+                    let category: Option<i32> = row.get(0)?;
+                    Ok(category)
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .into_iter()
+            .collect();
 
-        Ok(category_rows.filter_map(|res| res.ok().flatten()).collect())
+        Ok(categories.unwrap_or_default())
     }
 
     /// Fetches Suggestions of type Wikipedia provider that match the given query
