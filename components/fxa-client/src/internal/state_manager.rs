@@ -184,6 +184,11 @@ impl StateManager {
         self.flow_store.clear();
     }
 
+    /// Clear any in-progress oauth flows
+    pub fn clear_oauth_flows(&mut self) {
+        self.flow_store.clear();
+    }
+
     /// Called when the account is disconnected.  This clears most of the auth state, but keeps
     /// some information in order to eventually reconnect to the same user account later.
     pub fn disconnect(&mut self) {
