@@ -3,6 +3,7 @@ resolver = "2"
 
 # Note: Any additions here should be repeated in default-members below.
 members = [
+    "components/ads-client",
     "components/autofill",
     "components/context_id",
     "components/crashtest",

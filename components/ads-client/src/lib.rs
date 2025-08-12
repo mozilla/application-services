@@ -23,7 +23,7 @@ mod mars;
 mod models;
 mod test_utils;
 
-uniffi::setup_scaffolding!("MAC");
+uniffi::setup_scaffolding!("adsclient");
 
 /// Top-level API for the mac component
 #[derive(uniffi::Object)]
