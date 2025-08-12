@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 42;
+pub const VERSION: u32 = 43;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -84,6 +84,12 @@ CREATE TABLE prefix_keywords(
 ) WITHOUT ROWID;
 
 CREATE UNIQUE INDEX keywords_suggestion_id_rank ON keywords(suggestion_id, rank);
+
+CREATE TABLE serp_categories(
+    suggestion_id INTEGER NOT NULL,
+    category INTEGER NOT NULL,
+    PRIMARY KEY (suggestion_id, category)
+) WITHOUT ROWID;
 
 CREATE TABLE suggestions(
     id INTEGER PRIMARY KEY,
@@ -806,6 +812,19 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                 )?;
                 Ok(())
             }
+            42 => {
+                clear_database(tx)?;
+                tx.execute_batch(
+                    r#"
+                    CREATE TABLE serp_categories(
+                        suggestion_id INTEGER NOT NULL,
+                        category INTEGER NOT NULL,
+                        PRIMARY KEY (suggestion_id, category)
+                    ) WITHOUT ROWID;
+                    "#,
+                )?;
+                Ok(())
+            }
 
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
@@ -837,6 +856,7 @@ pub fn clear_database(db: &Connection) -> rusqlite::Result<()> {
         "ingested_records",
         "keywords_i18n",
         "keywords_metrics",
+        "serp_categories",
     ];
     for t in conditional_tables {
         let table_exists = db.exists("SELECT 1 FROM sqlite_master WHERE name = ?", [t])?;

@@ -351,10 +351,13 @@ impl<'a> SuggestDao<'a> {
                         let raw_click_url = row.get::<_, String>("click_url")?;
                         let cooked_click_url = cook_raw_suggestion_url(&raw_click_url);
 
+                        let categories = self.fetch_categories_for_suggestion(suggestion_id)?;
+
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
+                            categories,
                             title,
                             url: cooked_url,
                             raw_url,
@@ -443,10 +446,13 @@ impl<'a> SuggestDao<'a> {
                             &title,
                         )?;
 
+                        let categories = self.fetch_categories_for_suggestion(suggestion_id)?;
+
                         Ok(Suggestion::Amp {
                             block_id: row.get("block_id")?,
                             advertiser: row.get("advertiser")?,
                             iab_category: row.get("iab_category")?,
+                            categories,
                             title,
                             url: cooked_url,
                             raw_url,
@@ -507,6 +513,30 @@ impl<'a> SuggestDao<'a> {
             prefix,
             stemming: fts_query.match_required_stemming(&fts_content),
         })
+    }
+
+    fn fetch_categories_for_suggestion(&self, suggestion_id: i64) -> Result<Vec<i32>> {
+        let mut category_stmt = self.conn.prepare(
+            r#" 
+            SELECT category FROM serp_categories WHERE suggestion_id = :suggestion_id
+            "#,
+        )?;
+
+        let categories: Option<Vec<i32>> = category_stmt
+            .query_map(
+                named_params! {
+                    ":suggestion_id": suggestion_id
+                },
+                |row| {
+                    let category: Option<i32> = row.get(0)?;
+                    Ok(category)
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .into_iter()
+            .collect();
+
+        Ok(categories.unwrap_or_default())
     }
 
     /// Fetches Suggestions of type Wikipedia provider that match the given query
@@ -976,6 +1006,7 @@ impl<'a> SuggestDao<'a> {
         let mut amp_insert = AmpInsertStatement::new(self.conn)?;
         let mut keyword_insert = KeywordInsertStatement::new(self.conn)?;
         let mut fts_insert = AmpFtsInsertStatement::new(self.conn)?;
+        let mut category_insert = CategoryInsertStatement::new(self.conn)?;
         for suggestion in suggestions {
             self.scope.err_if_interrupted()?;
             let suggestion_id = suggestion_insert.execute(
@@ -1006,6 +1037,12 @@ impl<'a> SuggestDao<'a> {
                     full_keyword_id,
                     keyword.rank,
                 )?;
+            }
+
+            if let Some(categories) = &suggestion.serp_categories {
+                for category in categories {
+                    category_insert.execute(suggestion_id, *category)?;
+                }
             }
         }
         Ok(())
@@ -1263,6 +1300,11 @@ impl<'a> SuggestDao<'a> {
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM geonames_metrics WHERE record_id = :record_id",
+            named_params! { ":record_id": record_id.as_str() },
+        )?;
+        self.scope.err_if_interrupted()?;
+        self.conn.execute_cached(
+            "DELETE FROM serp_categories WHERE suggestion_id IN (SELECT id from suggestions WHERE record_id = :record_id)",
             named_params! { ":record_id": record_id.as_str() },
         )?;
 
@@ -1717,6 +1759,39 @@ impl<'conn> KeywordInsertStatement<'conn> {
         self.0
             .execute((suggestion_id, keyword, full_keyword_id, rank))
             .with_context("keyword insert")?;
+        Ok(())
+    }
+}
+
+pub(crate) struct CategoryInsertStatement<'conn>(rusqlite::Statement<'conn>);
+
+impl<'conn> CategoryInsertStatement<'conn> {
+    pub(crate) fn new(conn: &'conn Connection) -> Result<Self> {
+        Self::with_details(conn, "serp_categories", None)
+    }
+
+    pub(crate) fn with_details(
+        conn: &'conn Connection,
+        table: &str,
+        conflict_resolution: Option<InsertConflictResolution>,
+    ) -> Result<Self> {
+        Ok(Self(conn.prepare(&format!(
+            r#"
+            INSERT OR REPLACE {} INTO {}(
+                suggestion_id,
+                category
+            )
+            VALUES(?, ?)
+            "#,
+            conflict_resolution.as_ref().map(|r| r.as_str()).unwrap_or_default(),
+            table,
+        ))?))
+    }
+
+    pub(crate) fn execute(&mut self, suggestion_id: i64, category: i32) -> Result<()> {
+        self.0
+            .execute((suggestion_id, category))
+            .with_context("category insert")?;
         Ok(())
     }
 }
