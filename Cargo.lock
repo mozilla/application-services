@@ -18,6 +18,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
+name = "ads-client"
+version = "0.1.0"
+dependencies = [
+ "error-support",
+ "mockall",
+ "mockito",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uniffi",
+ "url",
+ "uuid",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2634,7 +2652,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "thiserror 1.0.31",
+ "thiserror 1.0.69",
  "uniffi",
  "url",
  "uuid",
