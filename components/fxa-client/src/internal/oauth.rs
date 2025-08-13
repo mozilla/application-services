@@ -326,6 +326,11 @@ impl FirefoxAccount {
         self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow)
     }
 
+    /// Cancel any in-progress oauth flows
+    pub fn cancel_existing_oauth_flows(&mut self) {
+        self.state.clear_oauth_flows();
+    }
+
     pub(crate) fn handle_oauth_response(
         &mut self,
         resp: OAuthTokenResponse,

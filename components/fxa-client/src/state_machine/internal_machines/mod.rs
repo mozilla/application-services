@@ -125,6 +125,7 @@ impl State {
                 Event::EnsureDeviceCapabilitiesSuccess
             }
             State::BeginOAuthFlow { scopes, entrypoint } => {
+                account.cancel_existing_oauth_flows();
                 let scopes: Vec<&str> = scopes.iter().map(String::as_str).collect();
                 let oauth_url = account.begin_oauth_flow(&scopes, entrypoint)?;
                 Event::BeginOAuthFlowSuccess { oauth_url }
@@ -134,6 +135,7 @@ impl State {
                 scopes,
                 entrypoint,
             } => {
+                account.cancel_existing_oauth_flows();
                 let scopes: Vec<&str> = scopes.iter().map(String::as_str).collect();
                 let oauth_url = account.begin_pairing_flow(pairing_url, &scopes, entrypoint)?;
                 Event::BeginPairingFlowSuccess { oauth_url }

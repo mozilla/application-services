@@ -256,6 +256,10 @@ pub enum FxaEvent {
     ///
     /// If successful, the state machine will transition the [FxaState::Authenticating].  The next
     /// step is to navigate the user to the `oauth_url` and let them sign and authorize the client.
+    ///
+    /// This event is valid for the `Disconnected`, `AuthIssues`, and `Authenticating` states.  If
+    /// the state machine is in the `Authenticating` state, then this will forget the current OAuth
+    /// flow and start a new one.
     BeginOAuthFlow {
         scopes: Vec<String>,
         entrypoint: String,
@@ -264,6 +268,10 @@ pub enum FxaEvent {
     ///
     /// If successful, the state machine will transition the [FxaState::Authenticating].  The next
     /// step is to navigate the user to the `oauth_url` and let them sign and authorize the client.
+    ///
+    /// This event is valid for the `Disconnected`, `AuthIssues`, and `Authenticating` states.  If
+    /// the state machine is in the `Authenticating` state, then this will forget the current OAuth
+    /// flow and start a new one.
     BeginPairingFlow {
         pairing_url: String,
         scopes: Vec<String>,
@@ -274,11 +282,15 @@ pub enum FxaEvent {
     /// Send this event after the user has navigated through the OAuth flow and has reached the
     /// redirect URI.  Extract `code` and `state` from the query parameters or web channel.  If
     /// successful the state machine will transition to [FxaState::Connected].
+    ///
+    /// This event is valid for the `Authenticating` state.
     CompleteOAuthFlow { code: String, state: String },
     /// Cancel an OAuth flow.
     ///
     /// Use this to cancel an in-progress OAuth, returning to [FxaState::Disconnected] so the
     /// process can begin again.
+    ///
+    /// This event is valid for the `Authenticating` state.
     CancelOAuthFlow,
     /// Check the authorization status for a connected account.
     ///
@@ -286,16 +298,22 @@ pub enum FxaEvent {
     /// double check for authentication issues with the account.  If it detects them, the state
     /// machine will transition to [FxaState::AuthIssues].  From there you can start an OAuth flow
     /// again to re-connect the user.
+    ///
+    /// This event is valid for the `Connected` state.
     CheckAuthorizationStatus,
     /// Disconnect the user
     ///
     /// Send this when the user is asking to be logged out.  The state machine will transition to
     /// [FxaState::Disconnected].
+    ///
+    /// This event is valid for the `Connected` state.
     Disconnect,
     /// Force a call to [FirefoxAccount::get_profile]
     ///
     /// This is used for testing the auth/network retry code, since it hits the network and
     /// requires and auth token.
+    ///
+    /// This event is valid for the `Connected` state.
     CallGetProfile,
 }
 
