@@ -26,7 +26,7 @@ viaduct = { path = "../viaduct" }
 url = "2"
 camino = "1.0"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-jexl-eval = { version = "0.4.0" }
+jexl-eval = { version = "0.3.0" }
 regex = "1.9"
 anyhow = "1.0"
 firefox-versioning = { path = "../support/firefox-versioning" }
