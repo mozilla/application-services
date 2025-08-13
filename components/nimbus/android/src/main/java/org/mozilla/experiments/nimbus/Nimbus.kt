@@ -17,9 +17,6 @@ import androidx.annotation.RawRes
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
-import java.io.File
-import java.io.IOException
-import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -48,6 +45,9 @@ import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.RecordedContext
+import java.io.File
+import java.io.IOException
+import kotlin.system.measureTimeMillis
 
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 const val NIMBUS_DATA_DIR: String = "nimbus_data"
@@ -91,7 +91,7 @@ open class Nimbus(
     private val metricsHandler =
             object : MetricsHandler {
                 override fun recordEnrollmentStatuses(
-                        enrollmentStatusExtras: List<EnrollmentStatusExtraDef>
+                        enrollmentStatusExtras: List<EnrollmentStatusExtraDef>,
                 ) {
                     for (extra in enrollmentStatusExtras) {
                         NimbusEvents.enrollmentStatus.record(
@@ -395,14 +395,8 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setRolloutsUserParticipationOnThisThread(active: Boolean) =
-            withCatchAll("setRolloutsUserParticipation") {
-                val enrolmentChanges = nimbusClient.setRolloutsUserParticipation(active)
-                if (enrolmentChanges.isNotEmpty()) {
-                    recordExperimentTelemetryEvents(enrolmentChanges)
-                    postEnrolmentCalculation()
-                }
-            }
+    internal fun setExperimentsLocallyOnThisThread(payload: String) =
+            withCatchAll("setExperimentsLocally") { nimbusClient.setExperimentsLocally(payload) }
 
     override fun optOut(experimentId: String) {
         dbScope.launch { optOutOnThisThread(experimentId) }
@@ -421,6 +415,9 @@ open class Nimbus(
             withCatchAll("optOut") {
                 nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
             }
+
+    override fun resetEnrollmentsDatabase() =
+            dbScope.launch { withCatchAll("resetEnrollments") { nimbusClient.resetEnrollments() } }
 
     override fun resetTelemetryIdentifiers() {
         dbScope.launch {
@@ -491,7 +488,7 @@ open class Nimbus(
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetryEvents(
-            enrollmentChangeEvents: List<EnrollmentChangeEvent>
+            enrollmentChangeEvents: List<EnrollmentChangeEvent>,
     ) {
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
@@ -570,7 +567,7 @@ open class Nimbus(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         context.packageManager.getPackageInfo(
                                 context.packageName,
-                                PackageManager.PackageInfoFlags.of(0)
+                                PackageManager.PackageInfoFlags.of(0),
                         )
                     } else {
                         @Suppress("DEPRECATION")

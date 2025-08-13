@@ -234,12 +234,12 @@ private extension Nimbus {
  */
 extension Nimbus {
     func setExperimentsUserParticipationOnThisThread(_ value: Bool) throws {
-        let changes = try nimbusClient.setExperimentsUserParticipation(userParticipating: value)
+        let changes = try nimbusClient.setExperimentsUserParticipation(optIn: value)
         postEnrollmentCalculation(changes)
     }
 
     func setRolloutsUserParticipationOnThisThread(_ value: Bool) throws {
-        let changes = try nimbusClient.setRolloutsUserParticipation(userParticipating: value)
+        let changes = try nimbusClient.setRolloutsUserParticipation(optIn: value)
         postEnrollmentCalculation(changes)
     }
 

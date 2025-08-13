@@ -18,10 +18,11 @@ class EventStoreTest {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
 
-    private val appInfo = NimbusAppInfo(
-        appName = "NimbusUnitTest",
-        channel = "test",
-    )
+    private val appInfo =
+            NimbusAppInfo(
+                    appName = "NimbusUnitTest",
+                    channel = "test",
+            )
 
     private val nimbus = TestNimbusBuilder(context).build(appInfo)
 
