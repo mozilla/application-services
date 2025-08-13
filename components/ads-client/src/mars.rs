@@ -43,6 +43,7 @@ impl DefaultMARSClient {
         }
     }
 
+    #[cfg(test)]
     pub fn new_with_endpoint(context_id: String, endpoint: String) -> Self {
         Self {
             context_id,

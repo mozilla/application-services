@@ -484,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_placements_with_missing_placement_in_response() {
+    fn test_request_ads_with_missing_callback_in_response() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
             .return_const("mock-context-id".to_string());
