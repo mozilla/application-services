@@ -69,6 +69,7 @@ impl MARSClient for DefaultMARSClient {
     }
 
     /// Updates the client's context_id to the passed value and returns the previous context_id
+    /// TODO: Context_id functions should eventually swap over to use the proper context_id component
     fn cycle_context_id(&mut self) -> String {
         let old_context_id = self.context_id.clone();
         self.context_id = Uuid::new_v4().to_string();
