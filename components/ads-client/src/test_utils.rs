@@ -3,20 +3,16 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#[cfg(test)]
 use std::collections::HashMap;
 
-#[cfg(test)]
 use crate::{
     mars::DefaultMARSClient,
     models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
     IABContent, MozAdsPlacement, MozAdsPlacementConfig,
 };
 
-#[cfg(test)]
 pub const TEST_CONTEXT_ID: &str = "test-context-id";
 
-#[cfg(test)]
 pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
     vec![
         MozAdsPlacementConfig {
@@ -38,7 +34,6 @@ pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
     ]
 }
 
-#[cfg(test)]
 pub fn get_example_happy_ad_response() -> AdResponse {
     AdResponse {
         data: HashMap::from([
@@ -80,7 +75,6 @@ pub fn get_example_happy_ad_response() -> AdResponse {
     }
 }
 
-#[cfg(test)]
 pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
     let mut placements = HashMap::new();
     placements.insert(
@@ -140,7 +134,6 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
     placements
 }
 
-#[cfg(test)]
 pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {
     DefaultMARSClient::new_with_endpoint(TEST_CONTEXT_ID.to_string(), mock_server_url)
 }
