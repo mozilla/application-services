@@ -21,6 +21,7 @@ mod error;
 mod instrument;
 mod mars;
 mod models;
+#[cfg(test)]
 mod test_utils;
 
 uniffi::setup_scaffolding!("adsclient");
