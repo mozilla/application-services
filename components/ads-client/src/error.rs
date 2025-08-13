@@ -134,9 +134,6 @@ pub enum ReportAdError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum HTTPError {
-    #[error("Validation error ({code}): {message}")]
-    Validation { code: u16, message: String },
-
     #[error("Bad request ({code}): {message}")]
     BadRequest { code: u16, message: String },
 
@@ -149,29 +146,26 @@ pub enum HTTPError {
 
 pub fn check_http_status_for_error(response: &Response) -> Result<(), HTTPError> {
     let status = response.status;
-    if status >= 400 {
-        let error_message = response.text();
-        let error = match status {
-            400 => HTTPError::BadRequest {
-                code: status,
-                message: error_message.to_string(),
-            },
-            422 => HTTPError::Validation {
-                code: status,
-                message: error_message.to_string(),
-            },
-            500..=599 => HTTPError::Server {
-                code: status,
-                message: error_message.to_string(),
-            },
-            _ => HTTPError::Unexpected {
-                code: status,
-                message: error_message.to_string(),
-            },
-        };
-        return Err(error);
+
+    if status == 200 {
+        return Ok(());
     }
-    Ok(())
+    let error_message = response.text();
+    let error = match status {
+        400 => HTTPError::BadRequest {
+            code: status,
+            message: error_message.to_string(),
+        },
+        500..=599 => HTTPError::Server {
+            code: status,
+            message: error_message.to_string(),
+        },
+        _ => HTTPError::Unexpected {
+            code: status,
+            message: error_message.to_string(),
+        },
+    };
+    Err(error)
 }
 
 #[cfg(test)]
@@ -204,19 +198,6 @@ mod tests {
             Err(HTTPError::BadRequest { code, ref message }) => {
                 assert_eq!(code, 400);
                 assert_eq!(message, "Bad input");
-            }
-            other => panic!("Unexpected result: {:?}", other),
-        }
-    }
-
-    #[test]
-    fn test_validation_failure_returns_http_error() {
-        let response = mock_response(422, "Invalid data");
-        let result = check_http_status_for_error(&response);
-        match result {
-            Err(HTTPError::Validation { code, ref message }) => {
-                assert_eq!(code, 422);
-                assert_eq!(message, "Invalid data");
             }
             other => panic!("Unexpected result: {:?}", other),
         }
