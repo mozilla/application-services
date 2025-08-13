@@ -44,9 +44,7 @@ impl Default for MozAdsClient {
 impl MozAdsClient {
     #[uniffi::constructor]
     pub fn new() -> Self {
-        Self {
-            inner: Mutex::new(MozAdsClientInner::new()),
-        }
+        Self::default()
     }
 
     #[handle_error(ComponentError)]
