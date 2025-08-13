@@ -56,7 +56,9 @@ pub struct EnrollmentRequest {
     pub client_id: Option<String>,
     pub request_context: Map<String, Value>,
     #[serde(default = "default_true")]
-    pub is_user_participating: bool,
+    pub is_user_participating_in_experiments: bool,
+    #[serde(default = "default_true")]
+    pub is_user_participating_in_rollouts: bool,
     #[serde(default)]
     pub prev_enrollments: Vec<ExperimentEnrollment>,
 }
@@ -66,7 +68,8 @@ impl Default for EnrollmentRequest {
         Self {
             client_id: None,
             request_context: Default::default(),
-            is_user_participating: true,
+            is_user_participating_in_experiments: true,
+            is_user_participating_in_rollouts: true,
             prev_enrollments: Default::default(),
         }
     }
@@ -113,7 +116,8 @@ impl CirrusClient {
         let EnrollmentRequest {
             client_id,
             request_context,
-            is_user_participating,
+            is_user_participating_in_experiments,
+            is_user_participating_in_rollouts,
             prev_enrollments,
         } = match serde_json::from_str(request.as_str()) {
             Ok(v) => v,
@@ -130,7 +134,8 @@ impl CirrusClient {
         Ok(match serde_json::to_string(&self.enroll(
             client_id,
             request_context,
-            is_user_participating,
+            is_user_participating_in_experiments,
+            is_user_participating_in_rollouts,
             &prev_enrollments,
         )?) {
             Ok(v) => v,
@@ -142,7 +147,8 @@ impl CirrusClient {
         &self,
         user_id: String,
         request_context: Map<String, Value>,
-        is_user_participating: bool,
+        is_user_participating_in_experiments: bool,
+        is_user_participating_in_rollouts: bool,
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<EnrollmentResponse> {
         let available_randomization_units =
@@ -164,7 +170,8 @@ impl CirrusClient {
 
         let (enrollments, events) = enrollments_evolver
             .evolve_enrollments::<EnrolledFeatureConfig>(
-                is_user_participating,
+                is_user_participating_in_experiments,
+                is_user_participating_in_rollouts,
                 Default::default(),
                 &state.experiments,
                 prev_enrollments,
