@@ -42,8 +42,8 @@ public class Nimbus: NimbusInterface {
     }
 }
 
-extension Nimbus {
-    fileprivate func catchAll<T>(_ thunk: () throws -> T?) -> T? {
+private extension Nimbus {
+    func catchAll<T>(_ thunk: () throws -> T?) -> T? {
         do {
             return try thunk()
         } catch NimbusError.DatabaseNotReady {
@@ -54,7 +54,7 @@ extension Nimbus {
         }
     }
 
-    fileprivate func catchAll(_ queue: OperationQueue, thunk: @escaping (Operation) throws -> Void)
+    func catchAll(_ queue: OperationQueue, thunk: @escaping (Operation) throws -> Void)
         -> Operation
     {
         let op = BlockOperation()
@@ -91,7 +91,8 @@ extension Nimbus: NimbusEventStore {
 
     public func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws {
         try nimbusClient.recordPastEvent(
-            eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count))
+            eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count)
+        )
     }
 
     public func advanceEventTime(by duration: TimeInterval) throws {
@@ -218,12 +219,12 @@ extension Nimbus: FeaturesInterface {
     }
 }
 
-extension Nimbus {
-    fileprivate func notifyOnExperimentsFetched() {
+private extension Nimbus {
+    func notifyOnExperimentsFetched() {
         NotificationCenter.default.post(name: .nimbusExperimentsFetched, object: nil)
     }
 
-    fileprivate func notifyOnExperimentsApplied(_ experiments: [EnrolledExperiment]) {
+    func notifyOnExperimentsApplied(_ experiments: [EnrolledExperiment]) {
         NotificationCenter.default.post(name: .nimbusExperimentsApplied, object: experiments)
     }
 }
@@ -463,78 +464,78 @@ public class NimbusDisabled: NimbusApi {
     public var rolloutsUserParticipation: Bool = true
 }
 
-extension NimbusDisabled {
-    public func getActiveExperiments() -> [EnrolledExperiment] {
+public extension NimbusDisabled {
+    func getActiveExperiments() -> [EnrolledExperiment] {
         return []
     }
 
-    public func getAvailableExperiments() -> [AvailableExperiment] {
+    func getAvailableExperiments() -> [AvailableExperiment] {
         return []
     }
 
-    public func getExperimentBranch(experimentId _: String) -> String? {
+    func getExperimentBranch(experimentId _: String) -> String? {
         return nil
     }
 
-    public func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
+    func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
         return NilVariables.instance
     }
 
-    public func initialize() {}
+    func initialize() {}
 
-    public func fetchExperiments() {}
+    func fetchExperiments() {}
 
-    public func setFetchEnabled(_: Bool) {}
+    func setFetchEnabled(_: Bool) {}
 
-    public func isFetchEnabled() -> Bool {
+    func isFetchEnabled() -> Bool {
         false
     }
 
-    public func applyPendingExperiments() -> Operation {
+    func applyPendingExperiments() -> Operation {
         BlockOperation()
     }
 
-    public func applyLocalExperiments(fileURL _: URL) -> Operation {
+    func applyLocalExperiments(fileURL _: URL) -> Operation {
         BlockOperation()
     }
 
-    public func setExperimentsLocally(_: URL) {}
+    func setExperimentsLocally(_: URL) {}
 
-    public func setExperimentsLocally(_: String) {}
+    func setExperimentsLocally(_: String) {}
 
-    public func resetEnrollmentsDatabase() -> Operation {
+    func resetEnrollmentsDatabase() -> Operation {
         BlockOperation()
     }
 
-    public func optOut(_: String) {}
+    func optOut(_: String) {}
 
-    public func optIn(_: String, branch _: String) {}
+    func optIn(_: String, branch _: String) {}
 
-    public func resetTelemetryIdentifiers() {}
+    func resetTelemetryIdentifiers() {}
 
-    public func recordExposureEvent(featureId _: String, experimentSlug _: String? = nil) {}
+    func recordExposureEvent(featureId _: String, experimentSlug _: String? = nil) {}
 
-    public func recordMalformedConfiguration(featureId _: String, with _: String) {}
+    func recordMalformedConfiguration(featureId _: String, with _: String) {}
 
-    public func recordEvent(_: Int, _: String) {}
+    func recordEvent(_: Int, _: String) {}
 
-    public func recordEvent(_: String) {}
+    func recordEvent(_: String) {}
 
-    public func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
+    func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
 
-    public func advanceEventTime(by _: TimeInterval) throws {}
+    func advanceEventTime(by _: TimeInterval) throws {}
 
-    public func clearEvents() {}
+    func clearEvents() {}
 
-    public func dumpStateToLog() {}
+    func dumpStateToLog() {}
 
-    public func getExperimentBranches(_: String) -> [Branch]? {
+    func getExperimentBranches(_: String) -> [Branch]? {
         return nil
     }
 
-    public func waitForFetchQueue() {}
+    func waitForFetchQueue() {}
 
-    public func waitForDbQueue() {}
+    func waitForDbQueue() {}
 }
 
 extension NimbusDisabled: NimbusMessagingProtocol {
