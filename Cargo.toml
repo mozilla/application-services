@@ -98,6 +98,7 @@ exclude = [
 # To be clear: passing the `--all` or `--workspace` arg to cargo will make it
 # use the full member set.
 default-members = [
+    "components/ads-client",
     "components/autofill",
     "components/context_id",
     "components/crashtest",
