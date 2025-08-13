@@ -15,7 +15,7 @@ static DEFAULT_TELEMETRY_ENDPOINT: &str = "https://ads.mozilla.org/v1/log";
 static TELEMETRY_ENDPONT: LazyLock<RwLock<String>> =
     LazyLock::new(|| RwLock::new(DEFAULT_TELEMETRY_ENDPOINT.to_string()));
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn set_telemetry_endpoint(endpoint: String) {
     let mut telemetry_endpoint_lock = TELEMETRY_ENDPONT.write();
     *telemetry_endpoint_lock = endpoint;
