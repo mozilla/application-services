@@ -270,7 +270,6 @@ mod tests {
 
         let parsed: AdResponse = from_str(&raw_ad_response).unwrap();
 
-        // Expected struct
         let expected = AdResponse {
             data: HashMap::from([
                 (
