@@ -194,25 +194,17 @@ mod tests {
     fn test_bad_request_returns_http_error() {
         let response = mock_response(400, "Bad input");
         let result = check_http_status_for_error(&response);
-        match result {
-            Err(HTTPError::BadRequest { code, ref message }) => {
-                assert_eq!(code, 400);
-                assert_eq!(message, "Bad input");
-            }
-            other => panic!("Unexpected result: {:?}", other),
-        }
+        assert!(
+            matches!(result, Err(HTTPError::BadRequest { code, message }) if code == 400 && message == "Bad input")
+        );
     }
 
     #[test]
     fn test_server_error_500() {
         let response = mock_response(500, "Something broke");
         let result = check_http_status_for_error(&response);
-        match result {
-            Err(HTTPError::Server { code, ref message }) => {
-                assert_eq!(code, 500);
-                assert_eq!(message, "Something broke");
-            }
-            other => panic!("Unexpected result: {:?}", other),
-        }
+        assert!(
+            matches!(result, Err(HTTPError::Server { code, message }) if code == 500 && message == "Something broke")
+        );
     }
 }
