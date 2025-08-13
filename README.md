@@ -68,6 +68,8 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
     multiple languages, such as Kotlin and Swift.
 
 ### List of components
+
+* [ads-client](/components/ads-client) - for fetching ads via UAPI
 * [autofill](components/autofill) - for storage and syncing of credit card and
   address information
 * [crashtest](components/crashtest) - testing-purposes (crashing the Rust code)
@@ -75,7 +77,6 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
   with FxA, access encryption keys for sync, and more.
 * [logins](components/logins) - for storage and syncing of a user's saved login
   credentials
-* [mac](/components/mac) - for fetching ads via UAPI
 * [nimbus](components/nimbus) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
 * [places](components/places) - for storage and syncing of a user's saved
   browsing history
