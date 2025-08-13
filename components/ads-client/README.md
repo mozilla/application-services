@@ -10,6 +10,8 @@ Like MARS, Ads Client is privacy-first. It does not track user information and i
 
 While we welcome outside feedback and are committed to open source, this library is intended solely for use on Mozilla properties.
 
+This component is currently still under construction.
+
 ## Tests
 
 Tests are run with
