@@ -28,11 +28,12 @@ public class Nimbus: NimbusInterface {
         return queue
     }()
 
-    init(nimbusClient: NimbusClientProtocol,
-         resourceBundles: [Bundle],
-         userDefaults: UserDefaults?,
-         errorReporter: @escaping NimbusErrorReporter)
-    {
+    init(
+        nimbusClient: NimbusClientProtocol,
+        resourceBundles: [Bundle],
+        userDefaults: UserDefaults?,
+        errorReporter: @escaping NimbusErrorReporter
+    ) {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
         self.resourceBundles = resourceBundles
@@ -41,8 +42,8 @@ public class Nimbus: NimbusInterface {
     }
 }
 
-private extension Nimbus {
-    func catchAll<T>(_ thunk: () throws -> T?) -> T? {
+extension Nimbus {
+    fileprivate func catchAll<T>(_ thunk: () throws -> T?) -> T? {
         do {
             return try thunk()
         } catch NimbusError.DatabaseNotReady {
@@ -53,7 +54,9 @@ private extension Nimbus {
         }
     }
 
-    func catchAll(_ queue: OperationQueue, thunk: @escaping (Operation) throws -> Void) -> Operation {
+    fileprivate func catchAll(_ queue: OperationQueue, thunk: @escaping (Operation) throws -> Void)
+        -> Operation
+    {
         let op = BlockOperation()
         op.addExecutionBlock {
             self.catchAll {
@@ -87,7 +90,8 @@ extension Nimbus: NimbusEventStore {
     }
 
     public func recordPastEvent(_ count: Int, _ eventId: String, _ timeAgo: TimeInterval) throws {
-        try nimbusClient.recordPastEvent(eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count))
+        try nimbusClient.recordPastEvent(
+            eventId: eventId, secondsAgo: Int64(timeAgo), count: Int64(count))
     }
 
     public func advanceEventTime(by duration: TimeInterval) throws {
@@ -147,38 +151,44 @@ extension Nimbus: FeaturesInterface {
         for event in events {
             switch event.change {
             case .enrollment:
-                GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
-                    branch: event.branchSlug,
-                    experiment: event.experimentSlug
-                ))
+                GleanMetrics.NimbusEvents.enrollment.record(
+                    GleanMetrics.NimbusEvents.EnrollmentExtra(
+                        branch: event.branchSlug,
+                        experiment: event.experimentSlug
+                    ))
             case .disqualification:
-                GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
-                    branch: event.branchSlug,
-                    experiment: event.experimentSlug
-                ))
+                GleanMetrics.NimbusEvents.disqualification.record(
+                    GleanMetrics.NimbusEvents.DisqualificationExtra(
+                        branch: event.branchSlug,
+                        experiment: event.experimentSlug
+                    ))
             case .unenrollment:
-                GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
-                    branch: event.branchSlug,
-                    experiment: event.experimentSlug
-                ))
+                GleanMetrics.NimbusEvents.unenrollment.record(
+                    GleanMetrics.NimbusEvents.UnenrollmentExtra(
+                        branch: event.branchSlug,
+                        experiment: event.experimentSlug
+                    ))
             case .enrollFailed:
-                GleanMetrics.NimbusEvents.enrollFailed.record(GleanMetrics.NimbusEvents.EnrollFailedExtra(
-                    branch: event.branchSlug,
-                    experiment: event.experimentSlug,
-                    reason: event.reason
-                ))
+                GleanMetrics.NimbusEvents.enrollFailed.record(
+                    GleanMetrics.NimbusEvents.EnrollFailedExtra(
+                        branch: event.branchSlug,
+                        experiment: event.experimentSlug,
+                        reason: event.reason
+                    ))
             case .unenrollFailed:
-                GleanMetrics.NimbusEvents.unenrollFailed.record(GleanMetrics.NimbusEvents.UnenrollFailedExtra(
-                    experiment: event.experimentSlug,
-                    reason: event.reason
-                ))
+                GleanMetrics.NimbusEvents.unenrollFailed.record(
+                    GleanMetrics.NimbusEvents.UnenrollFailedExtra(
+                        experiment: event.experimentSlug,
+                        reason: event.reason
+                    ))
             }
         }
     }
 
     func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         do {
-            guard let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId) else {
+            guard let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId)
+            else {
                 return nil
             }
             return try Dictionary.parse(jsonString: string)
@@ -208,12 +218,12 @@ extension Nimbus: FeaturesInterface {
     }
 }
 
-private extension Nimbus {
-    func notifyOnExperimentsFetched() {
+extension Nimbus {
+    fileprivate func notifyOnExperimentsFetched() {
         NotificationCenter.default.post(name: .nimbusExperimentsFetched, object: nil)
     }
 
-    func notifyOnExperimentsApplied(_ experiments: [EnrolledExperiment]) {
+    fileprivate func notifyOnExperimentsApplied(_ experiments: [EnrolledExperiment]) {
         NotificationCenter.default.post(name: .nimbusExperimentsApplied, object: experiments)
     }
 }
@@ -222,8 +232,13 @@ private extension Nimbus {
  * Methods split out onto a separate internal extension for testing purposes.
  */
 extension Nimbus {
-    func setGlobalUserParticipationOnThisThread(_ value: Bool) throws {
-        let changes = try nimbusClient.setGlobalUserParticipation(optIn: value)
+    func setExperimentsUserParticipationOnThisThread(_ value: Bool) throws {
+        let changes = try nimbusClient.setExperimentsUserParticipation(userParticipating: value)
+        postEnrollmentCalculation(changes)
+    }
+
+    func setRolloutsUserParticipationOnThisThread(_ value: Bool) throws {
+        let changes = try nimbusClient.setRolloutsUserParticipation(userParticipating: value)
         postEnrollmentCalculation(changes)
     }
 
@@ -266,13 +281,24 @@ extension Nimbus {
 }
 
 extension Nimbus: NimbusUserConfiguration {
-    public var globalUserParticipation: Bool {
+    public var experimentsUserParticipation: Bool {
         get {
-            catchAll { try nimbusClient.getGlobalUserParticipation() } ?? false
+            catchAll { try nimbusClient.getExperimentsUserParticipation() } ?? true
         }
         set {
             _ = catchAll(dbQueue) { _ in
-                try self.setGlobalUserParticipationOnThisThread(newValue)
+                try self.setExperimentsUserParticipationOnThisThread(newValue)
+            }
+        }
+    }
+
+    public var rolloutsUserParticipation: Bool {
+        get {
+            catchAll { try nimbusClient.getRolloutsUserParticipation() } ?? true
+        }
+        set {
+            _ = catchAll(dbQueue) { _ in
+                try self.setRolloutsUserParticipationOnThisThread(newValue)
             }
         }
     }
@@ -401,12 +427,16 @@ extension Nimbus: NimbusMessagingProtocol {
         return try createMessageHelper(string: nil)
     }
 
-    public func createMessageHelper(additionalContext: [String: Any]) throws -> NimbusMessagingHelperProtocol {
+    public func createMessageHelper(additionalContext: [String: Any]) throws
+        -> NimbusMessagingHelperProtocol
+    {
         let string = try additionalContext.stringify()
         return try createMessageHelper(string: string)
     }
 
-    public func createMessageHelper<T: Encodable>(additionalContext: T) throws -> NimbusMessagingHelperProtocol {
+    public func createMessageHelper<T: Encodable>(additionalContext: T) throws
+        -> NimbusMessagingHelperProtocol
+    {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
 
@@ -429,81 +459,82 @@ extension Nimbus: NimbusMessagingProtocol {
 public class NimbusDisabled: NimbusApi {
     public static let shared = NimbusDisabled()
 
-    public var globalUserParticipation: Bool = false
+    public var experimentsUserParticipation: Bool = true
+    public var rolloutsUserParticipation: Bool = true
 }
 
-public extension NimbusDisabled {
-    func getActiveExperiments() -> [EnrolledExperiment] {
+extension NimbusDisabled {
+    public func getActiveExperiments() -> [EnrolledExperiment] {
         return []
     }
 
-    func getAvailableExperiments() -> [AvailableExperiment] {
+    public func getAvailableExperiments() -> [AvailableExperiment] {
         return []
     }
 
-    func getExperimentBranch(experimentId _: String) -> String? {
+    public func getExperimentBranch(experimentId _: String) -> String? {
         return nil
     }
 
-    func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
+    public func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
         return NilVariables.instance
     }
 
-    func initialize() {}
+    public func initialize() {}
 
-    func fetchExperiments() {}
+    public func fetchExperiments() {}
 
-    func setFetchEnabled(_: Bool) {}
+    public func setFetchEnabled(_: Bool) {}
 
-    func isFetchEnabled() -> Bool {
+    public func isFetchEnabled() -> Bool {
         false
     }
 
-    func applyPendingExperiments() -> Operation {
+    public func applyPendingExperiments() -> Operation {
         BlockOperation()
     }
 
-    func applyLocalExperiments(fileURL _: URL) -> Operation {
+    public func applyLocalExperiments(fileURL _: URL) -> Operation {
         BlockOperation()
     }
 
-    func setExperimentsLocally(_: URL) {}
+    public func setExperimentsLocally(_: URL) {}
 
-    func setExperimentsLocally(_: String) {}
+    public func setExperimentsLocally(_: String) {}
 
-    func resetEnrollmentsDatabase() -> Operation {
+    public func resetEnrollmentsDatabase() -> Operation {
         BlockOperation()
     }
 
-    func optOut(_: String) {}
+    public func optOut(_: String) {}
 
-    func optIn(_: String, branch _: String) {}
+    public func optIn(_: String, branch _: String) {}
 
-    func resetTelemetryIdentifiers() {}
+    public func resetTelemetryIdentifiers() {}
 
-    func recordExposureEvent(featureId _: String, experimentSlug _: String? = nil) {}
+    public func recordExposureEvent(featureId _: String, experimentSlug _: String? = nil) {}
 
-    func recordMalformedConfiguration(featureId _: String, with _: String) {}
+    public func recordMalformedConfiguration(featureId _: String, with _: String) {}
 
-    func recordEvent(_: Int, _: String) {}
+    public func recordEvent(_: Int, _: String) {}
 
-    func recordEvent(_: String) {}
+    public func recordEvent(_: String) {}
 
-    func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
+    public func recordPastEvent(_: Int, _: String, _: TimeInterval) {}
 
-    func advanceEventTime(by _: TimeInterval) throws {}
+    public func advanceEventTime(by _: TimeInterval) throws {}
 
-    func clearEvents() {}
+    public func clearEvents() {}
 
-    func dumpStateToLog() {}
+    public func dumpStateToLog() {}
 
-    func getExperimentBranches(_: String) -> [Branch]? {
+    public func getExperimentBranches(_: String) -> [Branch]? {
         return nil
     }
 
-    func waitForFetchQueue() {}
+    public func waitForFetchQueue() {}
 
-    func waitForDbQueue() {}
+    public func waitForDbQueue() {}
 }
 
 extension NimbusDisabled: NimbusMessagingProtocol {
@@ -514,11 +545,15 @@ extension NimbusDisabled: NimbusMessagingProtocol {
         )
     }
 
-    public func createMessageHelper(additionalContext _: [String: Any]) throws -> NimbusMessagingHelperProtocol {
+    public func createMessageHelper(additionalContext _: [String: Any]) throws
+        -> NimbusMessagingHelperProtocol
+    {
         try createMessageHelper()
     }
 
-    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws -> NimbusMessagingHelperProtocol {
+    public func createMessageHelper<T: Encodable>(additionalContext _: T) throws
+        -> NimbusMessagingHelperProtocol
+    {
         try createMessageHelper()
     }
 

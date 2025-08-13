@@ -789,13 +789,11 @@ fn test_migrate_db_v2_to_v3_user_opted_out() -> Result<()> {
 
     // Check that separate flags were set correctly for opted-out user
     let reader = db.read()?;
-    assert_eq!(
-        get_experiments_user_participation(&db, &reader)?,
-        false, // Should preserve opt-out choice for experiments
+    assert!(
+        !get_experiments_user_participation(&db, &reader)?, // Should preserve opt-out choice for experiments
     );
-    assert_eq!(
-        get_rollouts_user_participation(&db, &reader)?,
-        false, // Should preserve opt-out choice for rollouts
+    assert!(
+        !get_rollouts_user_participation(&db, &reader)?, // Should preserve opt-out choice for rollouts
     );
 
     // Check old key was removed
@@ -822,13 +820,11 @@ fn test_migrate_db_v2_to_v3_user_opted_in() -> Result<()> {
 
     // Check that separate flags were set correctly for opted-in user
     let reader = db.read()?;
-    assert_eq!(
-        get_experiments_user_participation(&db, &reader)?,
-        true, // Should preserve opt-in choice for experiments
+    assert!(
+        get_experiments_user_participation(&db, &reader)?, // Should preserve opt-in choice for experiments
     );
-    assert_eq!(
-        get_rollouts_user_participation(&db, &reader)?,
-        true, // Should preserve opt-in choice for rollouts
+    assert!(
+        get_rollouts_user_participation(&db, &reader)?, // Should preserve opt-in choice for rollouts
     );
 
     // Check old key was removed

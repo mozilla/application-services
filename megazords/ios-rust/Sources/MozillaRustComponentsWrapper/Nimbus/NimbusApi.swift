@@ -17,7 +17,8 @@ import Glean
 ///
 public protocol NimbusInterface: FeaturesInterface, NimbusStartup,
     NimbusUserConfiguration, NimbusBranchInterface, NimbusMessagingProtocol,
-    NimbusEventStore, NimbusQueues {}
+    NimbusEventStore, NimbusQueues
+{}
 
 public typealias NimbusApi = NimbusInterface
 
@@ -31,7 +32,7 @@ public protocol NimbusBranchInterface {
     func getExperimentBranch(experimentId: String) -> String?
 }
 
-public extension FeaturesInterface {
+extension FeaturesInterface {
     /// Get the variables needed to configure the feature given by `featureId`.
     ///
     /// By default this sends an exposure event.
@@ -40,7 +41,7 @@ public extension FeaturesInterface {
     ///     - featureId The string feature id that identifies to the feature under experiment.
     ///
     /// - Returns a `Variables` object used to configure the feature.
-    func getVariables(featureId: String) -> Variables {
+    public func getVariables(featureId: String) -> Variables {
         return getVariables(featureId: featureId, sendExposureEvent: true)
     }
 }
@@ -108,7 +109,7 @@ public protocol NimbusStartup {
     /// This is performed on a background thread.
     ///
     /// This is only used during QA of the app, and not meant for application developers.
-    /// Application developers should allow users to opt out with `setGlobalUserParticipation`
+    /// Application developers should allow users to opt out with `setExperimentsUserParticipation`
     /// instead.
     ///
     /// - Parameter enabled
@@ -146,9 +147,13 @@ public protocol NimbusUserConfiguration {
     /// Call this when toggling user preferences about sending analytics.
     func resetTelemetryIdentifiers()
 
-    /// Control the opt out for all experiments at once. This is likely a user action.
-    ///
-    var globalUserParticipation: Bool { get set }
+    /// Control the opt out for experiments. This is likely a user action.
+    /// When set to false, the user will be opted out of all experiments but not rollouts.
+    var experimentsUserParticipation: Bool { get set }
+
+    /// Control the opt out for rollouts. This is likely a user action.
+    /// When set to false, the user will be opted out of all rollouts but not experiments.
+    var rolloutsUserParticipation: Bool { get set }
 
     /// Get the list of currently enrolled experiments
     ///
@@ -226,9 +231,9 @@ public protocol NimbusQueues {
 
 /// Notifications emitted by the `NotificationCenter`.
 ///
-public extension Notification.Name {
-    static let nimbusExperimentsFetched = Notification.Name("nimbusExperimentsFetched")
-    static let nimbusExperimentsApplied = Notification.Name("nimbusExperimentsApplied")
+extension Notification.Name {
+    public static let nimbusExperimentsFetched = Notification.Name("nimbusExperimentsFetched")
+    public static let nimbusExperimentsApplied = Notification.Name("nimbusExperimentsApplied")
 }
 
 /// This struct is used during in the `create` method to point `Nimbus` at the given `RemoteSettings` server.
@@ -250,7 +255,9 @@ public let remoteSettingsPreviewCollection = "nimbus-preview"
 /// The specific context is there to capture any context that the SDK doesn't need to be explicitly aware of.
 ///
 public struct NimbusAppSettings {
-    public init(appName: String, channel: String, customTargetingAttributes: [String: Any] = [String: Any]()) {
+    public init(
+        appName: String, channel: String, customTargetingAttributes: [String: Any] = [String: Any]()
+    ) {
         self.appName = appName
         self.channel = channel
         self.customTargetingAttributes = customTargetingAttributes

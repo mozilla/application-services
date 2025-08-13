@@ -538,8 +538,13 @@ impl Database {
             &old_global_participation,
         )?;
 
-        // Remove the old global participation key
-        meta_store.delete(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+        // Remove the old global participation key if it exists
+        if meta_store
+            .get::<bool, _>(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?
+            .is_some()
+        {
+            meta_store.delete(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+        }
 
         info!(
             "Migration v2->v3: experiments_participation={}, rollouts_participation={}",
