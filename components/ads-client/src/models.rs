@@ -317,4 +317,24 @@ mod tests {
 
         assert_eq!(parsed, expected);
     }
+
+    #[test]
+    fn test_empty_ad_response_serialization() {
+        let raw_ad_response = json!({
+            "example_placement_1": [],
+            "example_placement_2": []
+        })
+        .to_string();
+
+        let parsed: AdResponse = from_str(&raw_ad_response).unwrap();
+
+        let expected = AdResponse {
+            data: HashMap::from([
+                ("example_placement_1".to_string(), vec![]),
+                ("example_placement_2".to_string(), vec![]),
+            ]),
+        };
+
+        assert_eq!(parsed, expected);
+    }
 }
