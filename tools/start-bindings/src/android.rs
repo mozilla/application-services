@@ -24,7 +24,9 @@ pub fn generate_android(crate_name: String, description: String) -> Result<()> {
     println!();
     write_file(
         BuildGradle {
-            crate_name: crate_name.clone(),
+            // configureUniFFIBindgen replaces underscores rather than hyphens
+            crate_name: crate_name.replace("-", "_"),
+            kotlin_module_name: crate_name.replace("-", ""),
         }
         .render()?,
         &android_root.join("build.gradle"),
@@ -42,7 +44,7 @@ pub fn generate_android(crate_name: String, description: String) -> Result<()> {
         "kotlin",
         [(
             "package_name",
-            format!("mozilla.appservices.{crate_name}").into(),
+            format!("mozilla.appservices.{}", crate_name.replace("-", "_")).into(),
         )],
     )?;
     add_cargo_toml_dependency(
@@ -115,12 +117,13 @@ fn write_file(contents: impl AsRef<str>, path: &Utf8Path) -> Result<()> {
 
 fn update_megazord_lib_rs(lib_path: &Utf8Path, crate_name: &str) -> Result<()> {
     let content = read_to_string(lib_path)?;
+    let crate_name_rust = crate_name.replace("-", "_");
     let mut lines: Vec<String> = content.split("\n").map(str::to_string).collect();
     let first_use_line = lines
         .iter()
         .position(|line| line.starts_with("pub use"))
         .ok_or_else(|| anyhow!("Couldn't find a `pub use` line in {lib_path}"))?;
-    lines.insert(first_use_line, format!("pub use {crate_name};"));
+    lines.insert(first_use_line, format!("pub use {crate_name_rust};"));
     write_file(lines.join("\n"), lib_path)?;
     Command::new("cargo")
         .args(["fmt", "-pmegazord"])
@@ -179,6 +182,7 @@ fn buildconfig_needs_update(path: &Utf8Path, crate_name: &str) -> Result<bool> {
 #[template(path = "build.gradle", escape = "none")]
 struct BuildGradle {
     crate_name: String,
+    kotlin_module_name: String,
 }
 
 const ANDROID_MANIFEST: &str =

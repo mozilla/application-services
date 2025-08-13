@@ -73,6 +73,16 @@ dependencies {
 }
 ```
 
+### Async dependencies
+
+If your components exports async functions, add the following to your `android/build.gradle` file:
+
+```
+dependencies {
+    implementation libs.kotlin.coroutines
+}
+```
+
 ### Hand-written code
 
 You can include hand-written Kotlin code alongside the automatically
