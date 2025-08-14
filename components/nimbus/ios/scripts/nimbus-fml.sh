@@ -92,21 +92,44 @@ if [ -z "${CONFIGURATION:-}" ] ; then
     CONFIGURATION=Debug
 fi
 
-find_as_version() {
+# Note: This will be deprecated soon in favor of local SPM in firefox-ios!
+# Find the application-services version when using rust-components-swift
+find_as_version_remote() {
     # We can derive the version we need by looking at the project file.
     number_string=$(grep -A 3 $'https://github.com/mozilla/rust-components-swift' "$SOURCE_ROOT/$PROJECT.xcodeproj/project.pbxproj" | grep -E -o "\d+\.\d+\.\d+")
-
     if [ -z "$number_string" ]; then
         # If there is no rust-components then perhaps we're building with a local versions of rust_components, using rust_components_local.sh .
         # We try to resolve that, and find the version from the Package.swift file in that local directory.
         # https://github.com/mozilla-mobile/firefox-ios/issues/12243
         rust_components_path=$(grep -A 3 $'XCRemoteSwiftPackageReference "rust-components-swift"' "$SOURCE_ROOT/$PROJECT.xcodeproj/project.pbxproj" | grep 'repositoryURL = "file://' | grep -o -E '/\w[^"]+')
-        number_string=$(grep 'let version =' "$rust_components_path/Package.swift" | grep -E -o "\d+\.\d+\.\d+")
+        if [ -n "$rust_components_path" ]; then
+            number_string=$(grep 'let version =' "$rust_components_path/Package.swift" | grep -E -o "\d+\.\d+\.\d+")
+        fi
     fi
+    
+    # Return the number_string (could be empty)
+    echo "$number_string"
+}
 
+# Find the version number via the Package.swift of the local swift package in firefox-ios
+find_as_version_local() {
+    # Look for local Package.swift in the firefox-ios repository
+    local package_swift_path="$SOURCE_ROOT/../MozillaRustComponents/Package.swift"
+
+    if [ -f "$package_swift_path" ]; then
+        number_string=$(grep 'let version =' "$package_swift_path" | grep -E -o "\d+\.\d+\.\d+")
+        echo "$number_string"
+    else
+        echo ""
+    fi
+}
+
+process_version_string() {
+    local number_string="$1"
+    
     if [ -z "$number_string" ]; then
-        echo "Error: No https://github.com/mozilla/rust-components-swift package was detected."
-        echo "The package must be added as a project dependency."
+        echo "Error: No application-services version was detected."
+        echo "The package must be added as a project dependency or available locally."
         exit 2
     fi
 
@@ -130,6 +153,21 @@ find_as_version() {
         # rationalize that.
         AS_VERSION=${number_string/\.0\.0/.0}
     fi
+}
+
+find_as_version() {
+    local version_string
+    
+    # Try remote first
+    version_string=$(find_as_version_remote)
+    
+    # If remote didn't work, try local
+    if [ -z "$version_string" ]; then
+        version_string=$(find_as_version_local)
+    fi
+    
+    # Process the version string (handles error cases too)
+    process_version_string "$version_string"
 }
 FRESHEN_FML=
 AS_VERSION=
