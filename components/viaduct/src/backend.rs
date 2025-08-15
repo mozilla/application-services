@@ -7,6 +7,8 @@ use crate::{info, trace};
 use ffi::FfiBackend;
 use once_cell::sync::OnceCell;
 mod ffi;
+#[cfg(feature = "backend-hyper")]
+pub mod hyper;
 
 pub fn note_backend(which: &str) {
     // If trace logs are enabled: log on every request. Otherwise, just log on

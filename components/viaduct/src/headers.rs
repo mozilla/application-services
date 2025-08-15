@@ -28,8 +28,8 @@ mod name;
 /// use the methods on [`Request`] or [`Headers`] to manipulate these.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct Header {
-    pub(crate) name: HeaderName,
-    pub(crate) value: String,
+    pub name: HeaderName,
+    pub value: String,
 }
 
 // Trim `s` without copying if it can be avoided.
@@ -56,7 +56,7 @@ impl Header {
         let name = name.into();
         let value = trim_string(value);
         if !is_valid_header_value(&value) {
-            return Err(crate::Error::RequestHeaderError(name));
+            return Err(crate::Error::RequestHeaderError(name.to_string()));
         }
         Ok(Self { name, value })
     }
@@ -85,7 +85,7 @@ impl Header {
     fn set_value<V: AsRef<str>>(&mut self, s: V) -> Result<(), crate::Error> {
         let value = s.as_ref();
         if !is_valid_header_value(value) {
-            Err(crate::Error::RequestHeaderError(self.name.clone()))
+            Err(crate::Error::RequestHeaderError(self.name.to_string()))
         } else {
             self.value.clear();
             self.value.push_str(s.as_ref().trim());
@@ -343,7 +343,13 @@ impl FromIterator<Header> for Headers {
         v.sort_by(|a, b| a.name.cmp(&b.name));
         v.reverse();
         v.dedup_by(|a, b| a.name == b.name);
-        Headers { headers: v }
+        v.into()
+    }
+}
+
+impl From<Vec<Header>> for Headers {
+    fn from(headers: Vec<Header>) -> Self {
+        Self { headers }
     }
 }
 

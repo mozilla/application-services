@@ -1453,6 +1453,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "examples-viaduct-cli"
+version = "0.1.0"
+dependencies = [
+ "clap 4.5.39",
+ "serde",
+ "url",
+ "viaduct",
+ "viaduct-dev",
+]
+
+[[package]]
 name = "expect-test"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3510,6 +3521,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pollster"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
+
+[[package]]
 name = "portable-atomic"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5409,14 +5426,20 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "error-support",
  "ffi-support",
+ "hyper",
+ "hyper-tls",
  "once_cell",
  "parking_lot",
+ "pollster",
  "prost",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tokio",
+ "uniffi",
  "url",
 ]
 
