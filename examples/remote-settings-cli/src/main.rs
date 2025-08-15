@@ -84,7 +84,7 @@ fn main() -> Result<()> {
         },
     ));
     nss::ensure_initialized();
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
     let service = build_service(&cli)?;
     match cli.command {
         Commands::Sync { collections } => sync(service, collections),

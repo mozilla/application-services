@@ -8,6 +8,19 @@ over the FFI (on android).
 For usage info, you can run `cargo +nightly doc -p viaduct` (the `+nightly` is
 optional, however some intra-doc links require it), it has several examples.
 
+## Transition from the old to new backends
+
+`viaduct` is currently transitioning between the older, protobuf-based code and the newer, UniFFI-based codes.
+The current plan is:
+
+* Move applications over to using the new backend. Components will continue to use the legacy API,
+  which is possible because we have code to implement the old backend with the new backend.
+* Move components over to the new API (the `Client` type).
+* Drop support for the old backend.  This means we can drop the protobuf dependency
+
+Note: to keep things separate, the initialization functions for new backends are always named `init_backend_[name]`
+(the old backends were named `use_[name]_backend`).
+
 ## Android/FFI Backend overview
 
 On Android, the backend works as follows:

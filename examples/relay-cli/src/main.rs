@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_logging(&cli);
 
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
 
     let token = prompt_token()?;
     let client = RelayClient::new("https://relay.firefox.com".to_string(), Some(token));

@@ -22,4 +22,4 @@ viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
 mockito = "0.31"
-viaduct-dev = { path = "../support/viaduct-dev" }
+viaduct = { path = "../viaduct", features = ["backend-dev"] }

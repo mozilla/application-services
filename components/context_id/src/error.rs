@@ -22,7 +22,7 @@ pub enum Error {
     UrlParseError(#[from] url::ParseError),
 
     #[error("Viaduct error: {0}")]
-    ViaductError(#[from] viaduct::Error),
+    ViaductError(#[from] viaduct::ViaductError),
 
     #[error("UniFFI callback error: {0}")]
     UniFFICallbackError(#[from] uniffi::UnexpectedUniFFICallbackError),

@@ -72,7 +72,7 @@ pub enum FetchAdsError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
@@ -87,7 +87,7 @@ pub enum EmitTelemetryError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
@@ -102,7 +102,7 @@ pub enum CallbackRequestError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),

@@ -165,7 +165,7 @@ pub enum Error {
     UTF8DecodeError(#[from] string::FromUtf8Error),
 
     #[error("Network error: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
 
     #[error("Malformed URL error: {0}")]
     MalformedUrl(#[from] url::ParseError),

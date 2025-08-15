@@ -23,7 +23,7 @@ pub(crate) static USER_AGENT: &str =
     concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 fn main() -> Result<()> {
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
     let cmds = get_commands_from_cli(std::env::args_os())?;
     for c in cmds {
         let success = cmd::process_cmd(&c)?;
