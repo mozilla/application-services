@@ -37,7 +37,7 @@ pub enum Error {
     CreateDirError(std::io::Error),
     /// An error has occurred while sending a request.
     #[error("Error sending request: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
     /// An error has occurred while parsing an URL.
     #[error("Error parsing URL: {0}")]
     UrlParsingError(#[from] url::ParseError),
@@ -75,7 +75,7 @@ impl GetErrorHandling for Error {
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
             // Network errors are expected to happen in practice.  Let's log, but not report them.
-            Self::RequestError(viaduct::Error::NetworkError(e)) => {
+            Self::RequestError(viaduct::ViaductError::NetworkError(e)) => {
                 ErrorHandling::convert(RemoteSettingsError::Network {
                     reason: e.to_string(),
                 })

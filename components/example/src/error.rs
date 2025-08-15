@@ -65,7 +65,7 @@ pub enum Error {
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
     #[error("Error sending request: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
     #[error("Invalid URL: {0}")]
     InvalidUrl(#[from] url::ParseError),
     #[error("Error in HTTP response: {0}")]
@@ -89,7 +89,7 @@ impl GetErrorHandling for Error {
     /// logging/reporting should we have
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            Self::RequestError(viaduct::Error::NetworkError(e)) => {
+            Self::RequestError(viaduct::ViaductError::NetworkError(e)) => {
                 // Viaduct errors are converted to the `Network` variant
                 ErrorHandling::convert(ApiError::Network {
                     reason: e.to_string(),

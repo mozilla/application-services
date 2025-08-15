@@ -3,7 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use criterion::{criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, Criterion};
-use std::sync::Once;
 use suggest::benchmarks::{cleanup, geoname, ingest, query, BenchmarkWithInput};
 
 pub fn geoname(c: &mut Criterion) {
@@ -48,8 +47,7 @@ fn run_benchmarks<B: BenchmarkWithInput, M: Measurement>(
 }
 
 fn setup_viaduct() {
-    static INIT: Once = Once::new();
-    INIT.call_once(viaduct_dev::use_dev_backend);
+    let _ = viaduct::init_backend_hyper();
 }
 
 criterion_group!(benches, geoname, ingest, query);
