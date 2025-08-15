@@ -44,7 +44,7 @@ use crate::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
-use remote_settings::RemoteSettingsConfig;
+use remote_settings::RemoteSettingsService;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -105,11 +105,12 @@ impl NimbusClient {
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
-        config: Option<RemoteSettingsConfig>,
         metrics_handler: Box<dyn MetricsHandler>,
         gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
+        collection_name: Option<String>,
+        remote_settings_service: Option<Arc<RemoteSettingsService>>,
     ) -> Result<Self> {
-        let settings_client = Mutex::new(create_client(config)?);
+        let settings_client = Mutex::new(create_client(collection_name, remote_settings_service)?);
 
         let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
