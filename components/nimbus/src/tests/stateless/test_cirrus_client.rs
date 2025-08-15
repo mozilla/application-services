@@ -45,7 +45,7 @@ fn test_can_enroll() -> Result<()> {
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
         .unwrap();
 
-    let result = client.enroll("test".to_string(), Default::default(), true, &[])?;
+    let result = client.enroll("test".to_string(), Default::default(), true, true, &[])?;
 
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
@@ -81,7 +81,13 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
         },
     };
 
-    let result = client.enroll("test".to_string(), Default::default(), true, &[enrollment])?;
+    let result = client.enroll(
+        "test".to_string(),
+        Default::default(),
+        true,
+        true,
+        &[enrollment],
+    )?;
 
     assert_eq!(result.events.len(), 0);
 
@@ -196,7 +202,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     client
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
         .unwrap();
-    client.enroll("test".to_string(), Default::default(), true, &[])?;
+    client.enroll("test".to_string(), Default::default(), true, true, &[])?;
 
     let metric_records: Vec<EnrollmentStatusExtraDef> = metrics_handler.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 1);

@@ -14,8 +14,10 @@ use crate::{
     EnrolledExperiment, EnrollmentStatus, Experiment,
 };
 
-const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
-const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
+use crate::stateful::persistence::{
+    DB_KEY_EXPERIMENTS_USER_PARTICIPATION, DB_KEY_ROLLOUTS_USER_PARTICIPATION,
+    DEFAULT_EXPERIMENTS_USER_PARTICIPATION, DEFAULT_ROLLOUTS_USER_PARTICIPATION,
+};
 
 impl EnrollmentsEvolver<'_> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
@@ -26,15 +28,18 @@ impl EnrollmentsEvolver<'_> {
         writer: &mut Writer,
         next_experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        // Get the state from the db.
-        let is_user_participating = get_global_user_participation(db, writer)?;
+        // Get separate participation states from the db
+        let is_user_participating_in_experiments = get_experiments_user_participation(db, writer)?;
+        let is_user_participating_in_rollouts = get_rollouts_user_participation(db, writer)?;
+
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
         let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
         // Calculate the changes.
         let (next_enrollments, enrollments_change_events) = self.evolve_enrollments(
-            is_user_participating,
+            is_user_participating_in_experiments,
+            is_user_participating_in_rollouts,
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
@@ -171,26 +176,48 @@ pub fn unenroll_for_pref(
     Ok(events)
 }
 
-pub fn get_global_user_participation<'r>(
+pub fn get_experiments_user_participation<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
 ) -> Result<bool> {
     let store = db.get_store(StoreId::Meta);
-    let opted_in = store.get::<bool, _>(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+    let opted_in = store.get::<bool, _>(reader, DB_KEY_EXPERIMENTS_USER_PARTICIPATION)?;
     if let Some(opted_in) = opted_in {
         Ok(opted_in)
     } else {
-        Ok(DEFAULT_GLOBAL_USER_PARTICIPATION)
+        Ok(DEFAULT_EXPERIMENTS_USER_PARTICIPATION)
     }
 }
 
-pub fn set_global_user_participation(
+pub fn get_rollouts_user_participation<'r>(
+    db: &Database,
+    reader: &'r impl Readable<'r>,
+) -> Result<bool> {
+    let store = db.get_store(StoreId::Meta);
+    let opted_in = store.get::<bool, _>(reader, DB_KEY_ROLLOUTS_USER_PARTICIPATION)?;
+    if let Some(opted_in) = opted_in {
+        Ok(opted_in)
+    } else {
+        Ok(DEFAULT_ROLLOUTS_USER_PARTICIPATION)
+    }
+}
+
+pub fn set_experiments_user_participation(
     db: &Database,
     writer: &mut Writer,
     opt_in: bool,
 ) -> Result<()> {
     let store = db.get_store(StoreId::Meta);
-    store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
+    store.put(writer, DB_KEY_EXPERIMENTS_USER_PARTICIPATION, &opt_in)
+}
+
+pub fn set_rollouts_user_participation(
+    db: &Database,
+    writer: &mut Writer,
+    opt_in: bool,
+) -> Result<()> {
+    let store = db.get_store(StoreId::Meta);
+    store.put(writer, DB_KEY_ROLLOUTS_USER_PARTICIPATION, &opt_in)
 }
 
 /// Reset unique identifiers in response to application-level telemetry reset.

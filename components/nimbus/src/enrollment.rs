@@ -583,7 +583,8 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     pub(crate) fn evolve_enrollments<E>(
         &mut self,
-        is_user_participating: bool,
+        is_user_participating_in_experiments: bool,
+        is_user_participating_in_rollouts: bool,
         prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
@@ -604,7 +605,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let next_rollouts = filter_experiments(next_experiments, ExperimentMetadata::is_rollout);
 
         let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
-            is_user_participating,
+            is_user_participating_in_rollouts,
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
@@ -628,7 +629,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             .collect();
 
         let (next_exp_enrollments, exp_events) = self.evolve_enrollment_recipes(
-            is_user_participating,
+            is_user_participating_in_experiments,
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
