@@ -117,7 +117,7 @@ fn main() -> Result<()> {
         },
     ));
     nss::ensure_initialized();
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
     let store = build_store(&cli)?;
     match cli.command {
         Commands::Ingest {

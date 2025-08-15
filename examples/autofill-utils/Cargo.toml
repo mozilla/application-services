@@ -25,4 +25,5 @@ serde_json = "1"
 sql-support = { path = "../../components/support/sql" }
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"] }
 sync15 = { path = "../../components/sync15" }
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
+viaduct = { path = "../../components/viaduct"}
+viaduct-hyper = { path = "../../components/support/viaduct-hyper"}

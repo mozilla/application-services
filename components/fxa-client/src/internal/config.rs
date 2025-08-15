@@ -76,6 +76,22 @@ impl Config {
         result
     }
 
+    #[cfg(test)]
+    pub fn set_test_remove_config(&self) {
+        self.set_remote_config(RemoteConfig {
+            auth_url: "https://accounts.firefox.com/auth/".to_string(),
+            oauth_url: "https://accounts.firefox.com/oauth".to_string(),
+            profile_url: "https://accounts.firefox.com/profile/".to_string(),
+            token_server_endpoint_url: "https://accounts.firefox.com/syncserver/token/".to_string(),
+            authorization_endpoint: "https://accounts.firefox.com/authorization".to_string(),
+            issuer: "https://accounts.firefox.com/".to_string(),
+            jwks_uri: "https://accounts.firefox.com/v1/jwks".to_string(),
+            token_endpoint: "https://accounts.firefox.com/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: "https://accounts.firefox.com/v1/introspect".to_string(),
+            userinfo_endpoint: "https://accounts.firefox.com/profile/v1/profile".to_string(),
+        });
+    }
+
     pub fn content_url(&self) -> Result<Url> {
         Url::parse(&self.content_url).map_err(Into::into)
     }

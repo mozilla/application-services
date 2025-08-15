@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{backend::Backend, settings::GLOBAL_SETTINGS};
-use crate::{error, msg_types, warn, Error};
+use crate::{error, msg_types, warn, ViaductError};
 use ffi_support::{ByteBuffer, FfiStr};
 
 ffi_support::implement_into_ffi_by_protobuf!(msg_types::Request);
@@ -30,19 +30,19 @@ macro_rules! backend_error {
     ($($args:tt)*) => {{
         let msg = format!($($args)*);
         error!("{}", msg);
-        Error::BackendError(msg)
+        ViaductError::BackendError(msg)
     }};
 }
 
 pub struct FfiBackend;
 impl Backend for FfiBackend {
-    fn send(&self, request: crate::Request) -> Result<crate::Response, Error> {
+    fn send(&self, request: crate::Request) -> Result<crate::Response, ViaductError> {
         use ffi_support::IntoFfi;
         use prost::Message;
         super::note_backend("FFI (trusted)");
 
         let method = request.method;
-        let fetch = callback_holder::get_callback().ok_or(Error::BackendNotInitialized)?;
+        let fetch = callback_holder::get_callback().ok_or(ViaductError::BackendNotInitialized)?;
         let proto_req: msg_types::Request = request.into();
         let buf = proto_req.into_ffi_value();
         let response = unsafe { fetch(buf) };
@@ -61,7 +61,7 @@ impl Backend for FfiBackend {
         };
 
         if let Some(exn) = response.exception_message {
-            return Err(Error::NetworkError(format!("Java error: {:?}", exn)));
+            return Err(ViaductError::NetworkError(format!("Java error: {:?}", exn)));
         }
         let status = response
             .status

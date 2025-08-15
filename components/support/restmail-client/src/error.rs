@@ -15,5 +15,5 @@ pub enum RestmailClientError {
     #[error("Error parsing URL: {0}")]
     Disconnect(#[from] url::ParseError),
     #[error("Network error: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
 }

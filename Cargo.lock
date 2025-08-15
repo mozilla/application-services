@@ -730,7 +730,6 @@ dependencies = [
  "url",
  "uuid",
  "viaduct",
- "viaduct-dev",
 ]
 
 [[package]]
@@ -1234,7 +1233,8 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1295,7 +1295,8 @@ dependencies = [
  "tempfile",
  "types",
  "url",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1306,7 +1307,7 @@ dependencies = [
  "push",
  "tempfile",
  "viaduct",
- "viaduct-dev",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1331,7 +1332,8 @@ dependencies = [
  "tempfile",
  "text-table",
  "url",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1350,7 +1352,8 @@ dependencies = [
  "sync15",
  "tabs",
  "url",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1362,7 +1365,8 @@ dependencies = [
  "cli-support",
  "env_logger",
  "example-component",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1377,7 +1381,8 @@ dependencies = [
  "nss",
  "sync15",
  "url",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1389,7 +1394,8 @@ dependencies = [
  "env_logger",
  "log",
  "relay",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1406,7 +1412,8 @@ dependencies = [
  "places",
  "relevancy",
  "sync15",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1428,7 +1435,7 @@ dependencies = [
  "thiserror 2.0.3",
  "url",
  "viaduct",
- "viaduct-dev",
+ "viaduct-hyper",
  "walkdir",
  "zip",
 ]
@@ -1445,7 +1452,19 @@ dependencies = [
  "nss",
  "remote_settings",
  "suggest",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
+]
+
+[[package]]
+name = "examples-viaduct-cli"
+version = "0.1.0"
+dependencies = [
+ "clap 4.5.39",
+ "serde",
+ "url",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -1704,7 +1723,6 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-dev",
 ]
 
 [[package]]
@@ -2670,7 +2688,8 @@ dependencies = [
  "clap 4.5.39",
  "merino",
  "serde_json",
- "viaduct-dev",
+ "viaduct",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -2838,7 +2857,7 @@ dependencies = [
  "unicode-segmentation",
  "update-informer",
  "viaduct",
- "viaduct-dev",
+ "viaduct-hyper",
  "whoami",
 ]
 
@@ -2905,7 +2924,7 @@ dependencies = [
  "uniffi",
  "url",
  "uuid",
- "viaduct-dev",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -3332,6 +3351,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pollster"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
+
+[[package]]
 name = "portable-atomic"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3454,7 +3479,6 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-dev",
 ]
 
 [[package]]
@@ -3644,7 +3668,6 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-dev",
 ]
 
 [[package]]
@@ -3696,7 +3719,6 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-dev",
 ]
 
 [[package]]
@@ -3938,7 +3960,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.3",
  "uniffi",
- "viaduct-dev",
+ "viaduct",
 ]
 
 [[package]]
@@ -4304,7 +4326,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
- "viaduct-dev",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -4374,7 +4396,7 @@ dependencies = [
  "tabs",
  "url",
  "viaduct",
- "viaduct-dev",
+ "viaduct-hyper",
 ]
 
 [[package]]
@@ -5180,27 +5202,32 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "error-support",
  "ffi-support",
+ "hyper",
  "once_cell",
  "parking_lot",
+ "pollster",
  "prost",
  "serde",
  "serde_json",
  "thiserror 2.0.3",
+ "tokio",
+ "uniffi",
  "url",
 ]
 
 [[package]]
-name = "viaduct-dev"
+name = "viaduct-hyper"
 version = "0.2.0"
 dependencies = [
- "clap 4.5.39",
+ "async-trait",
  "error-support",
  "hyper",
  "hyper-tls",
- "once_cell",
  "tokio",
+ "uniffi",
  "url",
  "viaduct",
 ]
