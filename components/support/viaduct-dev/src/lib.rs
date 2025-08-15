@@ -8,7 +8,7 @@ use error_support::warn;
 use errors::{backend_error, MapError};
 use std::sync::Once;
 use url::Url;
-use viaduct::Backend;
+use viaduct::{settings::GLOBAL_SETTINGS, OldBackend as Backend};
 
 pub type Result<T, E = viaduct::Error> = std::result::Result<T, E>;
 
@@ -42,13 +42,20 @@ fn make_request(
     let req = builder
         .body(hyper::Body::from(request.body.unwrap_or_default()))
         .map_to_viaduct_error()?;
-    runtime
-        .block_on(async move {
-            let (parts, body) = client.request(req).await?.into_parts();
-            let body = hyper::body::to_bytes(body).await?;
-            hyper::Result::Ok(hyper::Response::from_parts(parts, body.to_vec()))
-        })
-        .map_to_viaduct_error()
+    let timeout = GLOBAL_SETTINGS.read().read_timeout;
+    runtime.block_on(async move {
+        let response = match timeout {
+            None => client.request(req).await.map_to_viaduct_error()?,
+            Some(t) => match tokio::time::timeout(t, client.request(req)).await {
+                Ok(result) => result.map_to_viaduct_error()?,
+                Err(_) => return backend_error("Request timeout"),
+            },
+        };
+
+        let (parts, body) = response.into_parts();
+        let body = hyper::body::to_bytes(body).await.map_to_viaduct_error()?;
+        Ok(hyper::Response::from_parts(parts, body.to_vec()))
+    })
 }
 
 pub struct DevBackend {

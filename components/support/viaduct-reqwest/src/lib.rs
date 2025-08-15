@@ -5,7 +5,7 @@
 use error_support::{error, warn};
 use once_cell::sync::Lazy;
 use std::{io::Read, sync::Once};
-use viaduct::{settings::GLOBAL_SETTINGS, Backend};
+use viaduct::{settings::GLOBAL_SETTINGS, OldBackend as Backend};
 
 // Note: we don't `use` things from reqwest or the viaduct crate because
 // it would be rather confusing given that we have the same name for
