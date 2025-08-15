@@ -250,6 +250,13 @@ interface NimbusEventStore {
         recordEvent(1, eventId)
 
     /**
+     * Record an event synchronously on the main thread.
+     *
+     * For testing only.
+     */
+    fun recordEventSync(count: Long = 1, eventId: String) = Unit
+
+    /**
      * Records an event as if it were emitted in the past.
      *
      * This method is only likely useful during testing, and so is by design synchronous.

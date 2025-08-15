@@ -6,6 +6,7 @@ package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,7 +45,7 @@ class EventStoreTest {
     @Test
     fun `advancing time into the future`() {
         val helper = createHelper()
-        events.recordEvent(eventId)
+        events.recordEventSync(1, eventId)
 
         assertTrue(helper.evalJexl("'$eventId'|eventLastSeen('Days') == 0"))
 
