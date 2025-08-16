@@ -79,8 +79,7 @@ See the following documents for testing local changes in consumers:
 ## Testing from a pre-release commit
 
 For release builds, we publish the resulting `MozillaRustComponents.xcframework.zip` as a GitHub
-release artifact, and then update https://github.com/mozilla/rust-components-swift to point to
-it via URL and hash.
+release artifact, and then consumers can consume the zip and add it as a dependency via Package.swift. See [firefox-ios](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents) for an example of how they consume our xcframework.
 
 For testing from a PR or unreleased git commit, you can:
 
@@ -88,18 +87,10 @@ For testing from a PR or unreleased git commit, you can:
 and confirm that it completed successfully.
 * In the "artifacts" list, locate `MozillaRustComponents.xcframework.zip` and note its URL.
 * In the "steps" list, find the step named `XCFramework bundle checksum`, and note the checksum in its output.
-* Take a local checkout of https://github.com/mozilla/rust-components-swift,
-and edit its `Swift.package` to use the above URL and checksum for the `MozillaRustComponents` binary target.
-* Commit the result to your local checkout, and make a git tag in `MAJOR.MINOR.PATCH` format.
-* Add your local `rust-components-swift` repo as a Swift Package dependency in a consuming app. If testing in firefox-ios, you can run:
-```bash
-$ cd firefox-ios
-$  ./rust_components_local.sh ../rust-components-swift
-```
-alternatively, you can specify `file:///path/to/rust-components-swift` as the git repo.
-    * (You'll have to remove any existing dependency on https://github.com/mozilla/rust-components-swift first)
+* Update the values in the consuming package in firefox-ios https://github.com/mozilla-mobile/firefox-ios/blob/main/MozillaRustComponents/Package.swift#L4-L6
+* In firefox-ios, reset package cache and build!
 
-Note that your changes *must* be committed. You can import them either as a local git tag or by choosing the branch of `rust-components-swift`.
+> Note: You can also just comment out the url version above and have it point to a local xcframework https://github.com/mozilla-mobile/firefox-ios/blob/dc9248398609a77c89e5215a58c5975eef937ac4/MozillaRustComponents/Package.swift#L44-L47
 
 ## Further Reading
 
