@@ -114,7 +114,10 @@ You will end up with a directory structure something like this:
 
 > *For more information on our how we ship components using the Swift Package Manager, check the [ADR that introduced the Swift Package Manager](../adr/0003-swift-packaging.md)*
 
-Add your component into the iOS ["megazord"](../design/megazords.md) through the local Swift Package Manager (SPM) package `MozillaRustComponentsWrapper`. Note this SPM is for easy of local testing of APIs locally. The official SPM that is consumed by firefox-ios is [rust-components-swift](https://github.com/mozilla/rust-components-swift?tab=readme-ov-file).
+> [!CRITICAL]
+> This section will be soon outdated as all swift wrappers and related tests will be moving to the firefox-ios repository.
+
+Add your component into the iOS ["megazord"](../design/megazords.md) through the local Swift Package Manager (SPM) package `MozillaRustComponentsWrapper`. Note this SPM is for ease of testing APIs locally. The official SPM that is consumed by firefox-ios is a [local package in their repo](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents).
 
 1. Place any hand-written Swift wrapper code for your component in:
    ```
