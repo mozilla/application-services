@@ -68,7 +68,7 @@ We build several artifacts for both nightlies and releases:
 For nightly builds, consumers get the artifacts directly from the taskcluster.
 
   - For, `firefox-android`, the nightlies are handled by [relbot](https://github.com/mozilla-mobile/relbot/)
-  - For, `firefox-ios`, the nightlies are consumed by [rust-components-swift](https://github.com/mozilla/rust-components-swift).  `rust-components-swift` makes a github release, which is picked up by a Github action in [firefox-ios](https://github.com/mozilla-mobile/firefox-ios)
+  - For, `firefox-ios`, the nightlies are consumed by a local swift package in firefox-ios https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents
 
 ## Release promotion
 

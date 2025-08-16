@@ -73,7 +73,7 @@ For iOS consumers the corresponding steps are:
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
     * See [Authentication and secrets below](#authentication-and-secrets)
-6. Consumers add Application services as a dependency from the [Rust Components Swift](https://github.com/mozilla/rust-components-swift/) repo using Apple's Swift Package Manager.
+6. Consumers can add Application services as a dependency in their corresponding swift package. See how [firefox-ios](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents) does it for more information. 
 
 For consuming in mozilla-central, see [how to vendor components into mozilla-central
 ](./howtos/vendoring-into-mozilla-central.md)
