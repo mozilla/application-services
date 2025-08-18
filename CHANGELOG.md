@@ -1,4 +1,8 @@
-# v143.0 (In progress)
+# v144.0 (In progress)
+
+[Full Changelog](In progress)
+
+# v143.0 (_2025-08-18_)
 
 ## 🦊 What's Changed 🦊
 
@@ -25,7 +29,7 @@
 
 - Created a new component, `ads-client`
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v142.0...v143.0)
 
 # v142.0 (_2025-07-21_)
 
