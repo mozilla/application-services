@@ -18,6 +18,10 @@
 - Added `SearchEngineUrl::exclude_partner_code_from_telemetry` ([bug 1980474](https://bugzilla.mozilla.org/show_bug.cgi?id=1980474))
 - Added `SearchEngineUrl::accepted_content_types`
 
+### Suggest
+
+- Added namespacing by `suggestion_type` to dismissals of dynamic suggestions ([bug 1983587](https://bugzilla.mozilla.org/show_bug.cgi?id=1983587))
+
 ### RC Crypto
 - Fix NSS bindings for key management
 
