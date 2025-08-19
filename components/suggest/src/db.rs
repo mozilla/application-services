@@ -517,7 +517,7 @@ impl<'a> SuggestDao<'a> {
 
     fn fetch_categories_for_suggestion(&self, suggestion_id: i64) -> Result<Vec<i32>> {
         let mut category_stmt = self.conn.prepare(
-            r#" 
+            r#"
             SELECT category FROM serp_categories WHERE suggestion_id = :suggestion_id
             "#,
         )?;
@@ -905,7 +905,10 @@ impl<'a> SuggestDao<'a> {
                   s.provider = ?
                   AND k.keyword = ?
                   AND d.suggestion_type IN ({})
-                  AND NOT EXISTS (SELECT 1 FROM dismissed_suggestions WHERE url = s.url)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM dismissed_dynamic_suggestions 
+                    WHERE dismissal_key = s.url AND suggestion_type = d.suggestion_type
+                  )
                 ORDER BY
                   s.score ASC, d.suggestion_type ASC, s.id ASC
                 "#,
@@ -1205,8 +1208,23 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
+    pub fn insert_dynamic_dismissal(&self, suggestion_type: &str, key: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO dismissed_dynamic_suggestions(suggestion_type, dismissal_key)
+             VALUES(:suggestion_type, :dismissal_key)",
+            named_params! {
+                ":suggestion_type": suggestion_type,
+                ":dismissal_key": key,
+            },
+        )?;
+        Ok(())
+    }
+
     pub fn clear_dismissals(&self) -> Result<()> {
-        self.conn.execute("DELETE FROM dismissed_suggestions", ())?;
+        self.conn.execute_batch(
+            "DELETE FROM dismissed_suggestions;
+             DELETE FROM dismissed_dynamic_suggestions;",
+        )?;
         Ok(())
     }
 
@@ -1219,10 +1237,27 @@ impl<'a> SuggestDao<'a> {
         )?)
     }
 
+    pub fn has_dynamic_dismissal(&self, suggestion_type: &str, key: &str) -> Result<bool> {
+        Ok(self.conn.exists(
+            "SELECT 1
+             FROM dismissed_dynamic_suggestions
+             WHERE suggestion_type = :suggestion_type AND dismissal_key = :dismissal_key",
+            named_params! {
+                ":suggestion_type": suggestion_type,
+                ":dismissal_key": key,
+            },
+        )?)
+    }
+
     pub fn any_dismissals(&self) -> Result<bool> {
-        Ok(self
-            .conn
-            .exists("SELECT 1 FROM dismissed_suggestions LIMIT 1", ())?)
+        Ok(self.conn.query_row(
+            "SELECT
+             EXISTS(SELECT 1 FROM dismissed_suggestions)
+               OR
+             EXISTS(SELECT 1 FROM dismissed_dynamic_suggestions)",
+            (),
+            |row| row.get(0),
+        )?)
     }
 
     /// Deletes all suggestions associated with a Remote Settings record from

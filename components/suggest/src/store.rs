@@ -474,7 +474,15 @@ impl<S> SuggestStoreInner<S> {
 
     fn dismiss_by_suggestion(&self, suggestion: &Suggestion) -> Result<()> {
         if let Some(key) = suggestion.dismissal_key() {
-            self.dismiss_by_key(key)?;
+            match suggestion {
+                Suggestion::Dynamic {
+                    suggestion_type, ..
+                } => self
+                    .dbs()?
+                    .writer
+                    .write(|dao| dao.insert_dynamic_dismissal(suggestion_type, key))?,
+                _ => self.dismiss_by_key(key)?,
+            }
         }
         Ok(())
     }
@@ -496,7 +504,15 @@ impl<S> SuggestStoreInner<S> {
 
     fn is_dismissed_by_suggestion(&self, suggestion: &Suggestion) -> Result<bool> {
         if let Some(key) = suggestion.dismissal_key() {
-            self.dbs()?.reader.read(|dao| dao.has_dismissal(key))
+            match suggestion {
+                Suggestion::Dynamic {
+                    suggestion_type, ..
+                } => self
+                    .dbs()?
+                    .reader
+                    .read(|dao| dao.has_dynamic_dismissal(suggestion_type, key)),
+                _ => self.dbs()?.reader.read(|dao| dao.has_dismissal(key)),
+            }
         } else {
             Ok(false)
         }
@@ -3826,40 +3842,58 @@ pub(crate) mod tests {
     fn dynamic_dismissal() -> anyhow::Result<()> {
         before_each();
 
-        let store = TestStore::new(MockRemoteSettingsClient::default().with_record(
-            SuggestionProvider::Dynamic.full_record(
-                "dynamic-0",
-                Some(json!({
-                    "suggestion_type": "aaa",
-                })),
-                Some(MockAttachment::Json(json!([
-                    {
-                        "keywords": ["aaa"],
-                        "dismissal_key": "dk0",
-                    },
-                    {
-                        "keywords": ["aaa"],
-                        "dismissal_key": "dk1",
-                    },
-                    {
-                        "keywords": ["aaa"],
-                    },
-                ]))),
-            ),
-        ));
+        let store = TestStore::new(
+            MockRemoteSettingsClient::default()
+                .with_record(SuggestionProvider::Dynamic.full_record(
+                    "dynamic-0",
+                    Some(json!({
+                        "suggestion_type": "aaa",
+                    })),
+                    Some(MockAttachment::Json(json!([
+                        {
+                            "keywords": ["aaa"],
+                            "dismissal_key": "dk0",
+                        },
+                        {
+                            "keywords": ["aaa"],
+                            "dismissal_key": "dk1",
+                        },
+                        {
+                            "keywords": ["aaa"],
+                        },
+                    ]))),
+                ))
+                .with_record(SuggestionProvider::Dynamic.full_record(
+                    "dynamic-1",
+                    Some(json!({
+                        "suggestion_type": "bbb",
+                    })),
+                    Some(MockAttachment::Json(json!([
+                        {
+                            "keywords": ["bbb"],
+                            "dismissal_key": "dk0",
+                        },
+                    ]))),
+                )),
+        );
+
         store.ingest(SuggestIngestionConstraints {
             providers: Some(vec![SuggestionProvider::Dynamic]),
             provider_constraints: Some(SuggestionProviderConstraints {
-                dynamic_suggestion_types: Some(vec!["aaa".to_string()]),
+                dynamic_suggestion_types: Some(vec!["aaa".to_string(), "bbb".to_string()]),
                 ..SuggestionProviderConstraints::default()
             }),
             ..SuggestIngestionConstraints::all_providers()
         });
 
         // Make sure the suggestions are initially fetchable.
-        let suggestions = store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"]));
+        assert!(!store.inner.any_dismissed_suggestions()?);
+        let suggestions_0: Vec<Suggestion> =
+            store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"]));
+        let suggestions_1: Vec<Suggestion> =
+            store.fetch_suggestions(SuggestionQuery::dynamic("bbb", &["bbb"]));
         assert_eq!(
-            suggestions,
+            suggestions_0,
             vec![
                 Suggestion::Dynamic {
                     suggestion_type: "aaa".to_string(),
@@ -3883,8 +3917,11 @@ pub(crate) mod tests {
         );
 
         // Dismiss the first suggestion.
-        assert_eq!(suggestions[0].dismissal_key(), Some("dk0"));
-        store.inner.dismiss_by_suggestion(&suggestions[0])?;
+        assert_eq!(suggestions_0[0].dismissal_key(), Some("dk0"));
+        store.inner.dismiss_by_suggestion(&suggestions_0[0])?;
+
+        assert!(store.inner.any_dismissed_suggestions()?);
+        assert!(store.inner.is_dismissed_by_suggestion(&suggestions_0[0])?);
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![
@@ -3904,14 +3941,33 @@ pub(crate) mod tests {
         );
 
         // Dismiss the second suggestion.
-        assert_eq!(suggestions[1].dismissal_key(), Some("dk1"));
-        store.inner.dismiss_by_suggestion(&suggestions[1])?;
+        assert_eq!(suggestions_0[1].dismissal_key(), Some("dk1"));
+        store.inner.dismiss_by_suggestion(&suggestions_0[1])?;
+
+        assert!(store.inner.is_dismissed_by_suggestion(&suggestions_0[1])?);
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![Suggestion::Dynamic {
                 suggestion_type: "aaa".to_string(),
                 data: None,
                 dismissal_key: None,
+                score: DEFAULT_SUGGESTION_SCORE,
+            },],
+        );
+
+        // Make sure the bbb suggestion hasn't been dismissed even though it
+        // has the same key as the first aaa suggestion.
+        assert_eq!(
+            suggestions_1[0].dismissal_key(),
+            suggestions_0[0].dismissal_key()
+        );
+        assert!(!store.inner.is_dismissed_by_suggestion(&suggestions_1[0])?);
+        assert_eq!(
+            store.fetch_suggestions(SuggestionQuery::dynamic("bbb", &["bbb"])),
+            vec![Suggestion::Dynamic {
+                suggestion_type: "bbb".to_string(),
+                data: None,
+                dismissal_key: Some("dk0".to_string()),
                 score: DEFAULT_SUGGESTION_SCORE,
             },],
         );
