@@ -26,7 +26,7 @@ serde_derive = "1"
 serde_json = "1"
 thiserror = "1"
 url = "2.5"
-rkv = { version = "0.19", optional = true }
+rkv = { version = "0.20", optional = true }
 jexl-eval = "0.4.0"
 uuid = { version = "1.3", features = ["serde", "v4"]}
 sha2 = "^0.10"

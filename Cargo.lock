@@ -3018,18 +3018,18 @@ dependencies = [
  "clap 4.5.39",
  "email_address",
  "glob",
- "heck 0.3.3",
+ "heck 0.5.0",
  "itertools 0.14.0",
  "jsonschema",
  "lazy_static",
  "regex",
  "serde",
  "serde_json",
- "serde_yaml 0.8.24",
+ "serde_yaml 0.9.21",
  "sha2",
  "tempfile",
  "termcolor",
- "textwrap 0.14.2",
+ "textwrap 0.16.1",
  "thiserror 1.0.69",
  "unicode-segmentation",
  "uniffi",
@@ -4784,22 +4784,13 @@ dependencies = [
 
 [[package]]
 name = "textwrap"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
-dependencies = [
- "smawk",
- "unicode-linebreak",
- "unicode-width 0.1.11",
-]
-
-[[package]]
-name = "textwrap"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23d434d3f8967a09480fb04132ebe0a3e088c173e6d0ee7897abbdf4eab0f8b9"
 dependencies = [
  "smawk",
+ "unicode-linebreak",
+ "unicode-width 0.1.11",
 ]
 
 [[package]]
