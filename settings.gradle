@@ -7,9 +7,12 @@ import org.yaml.snakeyaml.Yaml
 // (They are the same in app-services but different in moz-central)
 def appServicesRootDir = gradle.root.hasProperty("mozconfig") ? new File(ext.topsrcdir, "services/app-services/") : rootDir
 
-includeBuild("$appServicesRootDir/tools/nimbus-gradle-plugin") {
-    dependencySubstitution {
-        substitute module("org.mozilla.appservices:tooling-nimbus-gradle") using(project(':'))
+// It's not clear this is needed at all. It is certain it's not wanted when in mozilla-central.
+if (!gradle.root.hasProperty("mozconfig")) {
+    includeBuild("$appServicesRootDir/tools/nimbus-gradle-plugin") {
+        dependencySubstitution {
+            substitute module("org.mozilla.appservices:tooling-nimbus-gradle") using(project(':'))
+        }
     }
 }
 
@@ -56,7 +59,12 @@ def setupProject(name, projectProps, appServicesRootDir) {
 
     settings.include(":$name")
 
-    project(":$name").projectDir = new File(appServicesRootDir, path)
+    def projectDir = new File(appServicesRootDir, path)
+    // tooling-nimbus-gradle gets special treatment, it doesn't exist in the monorepo
+    if (!projectDir.exists() && name != "tooling-nimbus-gradle") {
+        throw new GradleException("Project directory does not exist: $projectDir (for project $name)")
+    }
+    project(":$name").projectDir = projectDir
 
     // project(...) gives us a skeleton project that we can't set ext.* on
     gradle.beforeProject { project ->
