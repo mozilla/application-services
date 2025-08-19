@@ -905,7 +905,10 @@ impl<'a> SuggestDao<'a> {
                   s.provider = ?
                   AND k.keyword = ?
                   AND d.suggestion_type IN ({})
-                  AND NOT EXISTS (SELECT 1 FROM dismissed_dynamic_suggestions WHERE dismissal_key = s.url AND suggestion_type = d.suggestion_type)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM dismissed_dynamic_suggestions 
+                    WHERE dismissal_key = s.url AND suggestion_type = d.suggestion_type
+                  )
                 ORDER BY
                   s.score ASC, d.suggestion_type ASC, s.id ASC
                 "#,

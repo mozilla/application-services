@@ -3887,6 +3887,7 @@ pub(crate) mod tests {
         });
 
         // Make sure the suggestions are initially fetchable.
+        assert!(!store.inner.any_dismissed_suggestions()?);
         let suggestions_0: Vec<Suggestion> =
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"]));
         let suggestions_1: Vec<Suggestion> =
@@ -3918,6 +3919,9 @@ pub(crate) mod tests {
         // Dismiss the first suggestion.
         assert_eq!(suggestions_0[0].dismissal_key(), Some("dk0"));
         store.inner.dismiss_by_suggestion(&suggestions_0[0])?;
+
+        assert!(store.inner.any_dismissed_suggestions()?);
+        assert!(store.inner.is_dismissed_by_suggestion(&suggestions_0[0])?);
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![
@@ -3939,6 +3943,8 @@ pub(crate) mod tests {
         // Dismiss the second suggestion.
         assert_eq!(suggestions_0[1].dismissal_key(), Some("dk1"));
         store.inner.dismiss_by_suggestion(&suggestions_0[1])?;
+
+        assert!(store.inner.is_dismissed_by_suggestion(&suggestions_0[1])?);
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("aaa", &["aaa"])),
             vec![Suggestion::Dynamic {
@@ -3955,6 +3961,7 @@ pub(crate) mod tests {
             suggestions_1[0].dismissal_key(),
             suggestions_0[0].dismissal_key()
         );
+        assert!(!store.inner.is_dismissed_by_suggestion(&suggestions_1[0])?);
         assert_eq!(
             store.fetch_suggestions(SuggestionQuery::dynamic("bbb", &["bbb"])),
             vec![Suggestion::Dynamic {
