@@ -53,7 +53,11 @@ pub(crate) fn generate_struct(manifest: &FeatureManifest, cmd: &GenerateStructCm
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "swift-tests",
+    not(feature = "all-features-workaround")
+))]
 pub mod test {
     use crate::util::{join, pkg_dir, sdk_dir};
     use anyhow::{bail, Context, Result};
