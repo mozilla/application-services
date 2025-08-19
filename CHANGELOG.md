@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Glean
+- Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
+
 # v143.0 (_2025-08-18_)
 
 ## 🦊 What's Changed 🦊
@@ -46,7 +49,7 @@
 - Updated the Nimbus SDK to support setting Gecko preferences ([#6826](https://github.com/mozilla/application-services/pull/6826)).
 
 ### Nimbus FML && CLI
-- handle http status codes when fetching feature manifests from GitHub. 
+- handle http status codes when fetching feature manifests from GitHub.
 
 ### Search
 
