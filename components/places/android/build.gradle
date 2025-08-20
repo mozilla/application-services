@@ -1,3 +1,23 @@
+buildscript {
+    // in mozilla-central there's no build.gradle suitable for the maven/glean config, so each component gets it.
+    if (gradle.hasProperty("mozconfig")) {
+        repositories {
+            gradle.mozconfig.substs.GRADLE_MAVEN_REPOSITORIES.each { repository ->
+                maven {
+                    url = repository
+                    if (gradle.mozconfig.substs.ALLOW_INSECURE_GRADLE_REPOSITORIES) {
+                        allowInsecureProtocol = true
+                    }
+                }
+            }
+        }
+
+        dependencies {
+            classpath libs.glean.gradle.plugin
+        }
+    }
+}
+
 plugins {
     alias libs.plugins.python.envs.plugin
 }
