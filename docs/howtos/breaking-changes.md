@@ -18,8 +18,8 @@ Do not merge any PRs until all are approved.  Once they are all approved then:
   - Merge the `application-services` PR into `main`
   - Manually trigger a new nightly build using the taskcluster hook:
     https://firefox-ci-tc.services.mozilla.com/hooks/project-releng/cron-task-mozilla-application-services%2Fnightly
-  - Once the nightly task completes, trigger a new rust-components-swift build using the github action:
-    https://github.com/mozilla/rust-components-swift/actions/workflows/update-as-nightly.yml
+  - Once the nightly task completes, trigger a new build in firefox-ios using the github action:
+    https://github.com/mozilla-mobile/firefox-ios/actions/workflows/update-appservices-nightly.yml
   - Update the `firefox-android` and `firefox-ios` PRs to use the newly built nightly:
     * [example of firefox-android changes](https://github.com/mozilla-mobile/firefox-android/pull/4056/files)
     * [example of firefox-ios changes](https://github.com/mozilla-mobile/firefox-ios/pull/16783/files)

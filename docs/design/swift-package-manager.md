@@ -12,7 +12,7 @@ The strategy includes two main parts:
 - The [xcframework](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) that is built from a [megazord](./megazords.md). The xcframework contains the following, built for all our target iOS platforms.
      - The compiled Rust code for all the crates listed in `Cargo.toml` as a static library
     - The C header files and [Swift module maps](https://clang.llvm.org/docs/Modules.html) for the components
-- The [`rust-components-swift`](https://github.com/mozilla/rust-components-swift) repository which has a `Package.swift` that includes the `xcframework` and acts as the swift package the consumers import
+- The firefox-ios repo uses a local [swift package](https://github.com/mozilla-mobile/firefox-ios/blob/main/MozillaRustComponents/Package.swift) and an example of how they consume the xcframework [here](https://github.com/mozilla/application-services/pull/6898).
 
 
 ## The xcframework and `application-services`
@@ -30,7 +30,35 @@ In `application-services`, in the [`megazords/ios-rust`](https://github.com/mozi
 
 > It's a little unusual that we're building the xcframework by hand, rather than defining it as the build output of an Xcode project. It turns out to be simpler for our purposes, but does risk diverging from the expected format if Apple changes the details of xcframeworks in future Xcode releases.
 
+
+## Consuming Application Services in a Swift package (Firefox iOS)
+Firefox iOS consumes the XCFramework via a local swift package: [MozillaRustComponents/Package.swift](https://github.com/mozilla-mobile/firefox-ios/blob/main/MozillaRustComponents/Package.swift).
+
+Core requirements:
+- A `binaryTarget` for `MozillaRustComponents` (URL+checksum for published zips, or a local `path:` for testing).
+- A location for UniFFI-generated Swift bindings in your package targets.
+- A target app that supports swift packages to consume the above binary + files.
+
+Example (URL-based):
+```swift
+.binaryTarget(
+  name: "MozillaRustComponents",
+  url: "<artifact-url>/MozillaRustComponents.xcframework.zip",
+  checksum: "<sha256>"
+)
+
+.target(
+    name: "MozillaAppServices",
+    dependencies: ["MozillaRustComponents"],
+    path: "Sources/MozillaRustComponentsWrapper"
+),
+```
+
 ## The `rust-components-swift` repository
+
+> [!WARNING]  
+> rust-components-swift has been deprecated and is only around until there are no more potential uplifts to already-landed versions of firefox-ios. firefox-ios now consumes application-services via [local swift package](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents)
+
 The repository is a Swift Package for distributing releases of Mozilla's various Rust-based application components. It provides the Swift source code packaged in a format understood by the Swift package manager, and depends on a pre-compiled binary release of the underlying Rust code published from `application-services`
 
 The `rust-components-swift` repo mainly includes the following:
