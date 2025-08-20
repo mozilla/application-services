@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.12.1" type="baseline" client="gradle" dependencies="false" name="AGP (8.12.1)" variant="all" version="8.12.1">
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `x86_64/libjnidispatch.so` (from `net.java.dev.jna:jna:5.14.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/8.14.3/transforms/d4e938486d260a187c76320490a8c1c7/transformed/jna-5.14.0/jni/x86_64/libjnidispatch.so"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `x86_64/libjnidispatch.so` (from `net.java.dev.jna:jna:5.14.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/8.14.3/transforms/d4e938486d260a187c76320490a8c1c7/transformed/jna-5.14.0/jni/x86_64/libjnidispatch.so"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `x86_64/libjnidispatch.so` (from `net.java.dev.jna:jna:5.14.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/8.14.3/transforms/d4e938486d260a187c76320490a8c1c7/transformed/jna-5.14.0/jni/x86_64/libjnidispatch.so"/>
+    </issue>
+
+</issues>
