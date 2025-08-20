@@ -144,10 +144,9 @@ mv Cargo.toml.tmp Cargo.toml
 cargo update -p gkrust-shared
 git commit -a -m "Integrate app-services into the build system"
 
-# XXX - Final vendor for rc_crypto, which doesn't yet `vet` - todo
-# once it vets, we can just do a single vendor with the above one at the end.
-# BUT - now there are more vendoring issues with nimbus-fml - bug 1983669.
-./mach vendor rust --force --ignore-modified
+# apply supply-chain approvals for rc_crypto and nimbus
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
+./mach vendor rust
 git add -f third_party/rust/.
 git commit -a -m "final vendor ignoring vet issues."
 
