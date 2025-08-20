@@ -1055,8 +1055,8 @@ pub mod history_sync {
                 sync_status, sync_change_counter, preview_image_url,
                 unknown_fields
             FROM moz_places
-            WHERE (sync_change_counter > 0 OR sync_status != {}) AND
-                  NOT hidden
+             WHERE hidden = 0
+                AND (sync_change_counter > 0 OR sync_status != {})
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
@@ -1364,8 +1364,8 @@ pub fn get_top_frecent_site_infos(
               AND (SUBSTR(h.url, 1, 6) == 'https:' OR SUBSTR(h.url, 1, 5) == 'http:')
               AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
               AND ((1 << v.visit_type) & :allowed_types) != 0
-              AND h.frecency >= :frecency_threshold AND
-              NOT h.hidden
+              AND h.frecency >= :frecency_threshold
+              AND h.hidden = 0
         )
         ORDER BY h.frecency DESC
         LIMIT :limit",
@@ -1393,8 +1393,8 @@ pub fn get_visit_infos(
          JOIN moz_historyvisits v
            ON h.id = v.place_id
          WHERE v.visit_date BETWEEN :start AND :end
-           AND ((1 << visit_type) & :allowed_types) != 0 AND
-           NOT h.hidden
+           AND ((1 << visit_type) & :allowed_types) != 0
+           AND h.hidden = 0
          ORDER BY v.visit_date",
         rusqlite::named_params! {
             ":start": start,
@@ -1464,8 +1464,8 @@ pub fn get_visit_page(
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
-         WHERE ((1 << v.visit_type) & :allowed_types) != 0 AND
-               NOT h.hidden
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0
+               AND h.hidden = 0
          ORDER BY v.visit_date DESC, v.id
          LIMIT :count
          OFFSET :offset",
@@ -1493,8 +1493,8 @@ pub fn get_visit_page_with_bound(
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
-         WHERE ((1 << v.visit_type) & :allowed_types) != 0 AND
-               NOT h.hidden
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0
+               AND h.hidden = 0
                AND v.visit_date <= :bound
          ORDER BY v.visit_date DESC, v.id
          LIMIT :count
