@@ -89,6 +89,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: async-trait</name>
+    <url>https://github.com/dtolnay/async-trait/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: autocfg</name>
     <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
@@ -317,6 +321,10 @@ the details of which are reproduced below.
     <url>https://github.com/randomites/plain/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: pollster</name>
+    <url>https://github.com/zesterer/pollster/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ppv-lite86</name>
     <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE</url>
   </license>
@@ -538,7 +546,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: bincode</name>
-    <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
+    <url>https://git.sr.ht/~stygianentity/bincode/blob/trunk/LICENSE.md</url>
   </license>
   <license>
     <name>MIT License: bytes</name>
