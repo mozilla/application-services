@@ -906,7 +906,7 @@ impl<'a> SuggestDao<'a> {
                   AND k.keyword = ?
                   AND d.suggestion_type IN ({})
                   AND NOT EXISTS (
-                    SELECT 1 FROM dismissed_dynamic_suggestions 
+                    SELECT 1 FROM dismissed_dynamic_suggestions
                     WHERE dismissal_key = s.url AND suggestion_type = d.suggestion_type
                   )
                 ORDER BY
