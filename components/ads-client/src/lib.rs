@@ -24,7 +24,7 @@ mod models;
 #[cfg(test)]
 mod test_utils;
 
-uniffi::setup_scaffolding!("adsclient");
+uniffi::setup_scaffolding!("ads_client");
 
 /// Top-level API for the mac component
 #[derive(uniffi::Object)]

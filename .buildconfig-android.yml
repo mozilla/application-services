@@ -165,3 +165,11 @@ projects:
     - name: relay
       type: aar
     description: Client for Firefox Relay.
+  ads-client:
+    path: components/ads-client/android
+    artifactId: ads-client
+    publications:
+    - name: ads-client
+      type: aar
+    description: for fetching ads via UAPI
+

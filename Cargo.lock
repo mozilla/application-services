@@ -2671,6 +2671,7 @@ dependencies = [
 name = "megazord"
 version = "0.1.0"
 dependencies = [
+ "ads-client",
  "autofill",
  "crashtest",
  "error-support",
