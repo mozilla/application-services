@@ -128,15 +128,20 @@ impl FirefoxAccount {
     ///   the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     /// * `entrypoint` - The entrypoint to be used for data collection
+    /// *  `service` - Space-separated list of requested services.
     /// * `metrics` - Optional parameters for metrics
     pub fn begin_pairing_flow(
         &mut self,
         pairing_url: &str,
         scopes: &[&str],
         entrypoint: &str,
+        service: &[&str],
     ) -> Result<String> {
         let mut url = self.state.config().pair_supp_url()?;
-        url.query_pairs_mut().append_pair("entrypoint", entrypoint);
+        let service_param = service.join(",");
+        url.query_pairs_mut()
+            .append_pair("entrypoint", entrypoint)
+            .append_pair("service", &service_param);
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             let fxa_server = FxaServer::from(&url);
@@ -153,19 +158,26 @@ impl FirefoxAccount {
     ///
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `entrypoint` - The entrypoint to be used for metrics
+    /// *  `service` - Space-separated list of requested services.
     /// * `metrics` - Optional metrics parameters
-    pub fn begin_oauth_flow(&mut self, scopes: &[&str], entrypoint: &str) -> Result<String> {
+    pub fn begin_oauth_flow(
+        &mut self,
+        scopes: &[&str],
+        entrypoint: &str,
+        service: &[&str],
+    ) -> Result<String> {
         self.state.on_begin_oauth();
         let mut url = if self.state.last_seen_profile().is_some() {
             self.state.config().oauth_force_auth_url()?
         } else {
             self.state.config().authorization_endpoint()?
         };
-
+        let service_param = service.join(",");
         url.query_pairs_mut()
             .append_pair("action", "email")
             .append_pair("response_type", "code")
-            .append_pair("entrypoint", entrypoint);
+            .append_pair("entrypoint", entrypoint)
+            .append_pair("service", &service_param);
 
         if let Some(cached_profile) = self.state.last_seen_profile() {
             url.query_pairs_mut()
@@ -621,7 +633,7 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_oauth_flow(&["profile"], "test_oauth_flow_url")
+            .begin_oauth_flow(&["profile"], "test_oauth_flow_url", &["sync"])
             .unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -629,7 +641,7 @@ mod tests {
         assert_eq!(flow_url.path(), "/authorization");
 
         let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 11);
+        assert_eq!(pairs.count(), 12);
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
@@ -644,6 +656,10 @@ mod tests {
                 Cow::Borrowed("entrypoint"),
                 Cow::Borrowed("test_oauth_flow_url")
             ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("service"), Cow::Borrowed("sync")))
         );
         assert_eq!(
             pairs.next(),
@@ -692,7 +708,7 @@ mod tests {
         let email = "test@example.com";
         fxa.add_cached_profile("123", email);
         let url = fxa
-            .begin_oauth_flow(&["profile"], "test_force_auth_url")
+            .begin_oauth_flow(&["profile"], "test_force_auth_url", &["sync"])
             .unwrap();
         let url = Url::parse(&url).unwrap();
         assert_eq!(url.path(), "/oauth/force_auth");
@@ -716,7 +732,7 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_oauth_flow(SCOPES, "test_webchannel_context_url")
+            .begin_oauth_flow(SCOPES, "test_webchannel_context_url", &["sync"])
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -738,7 +754,12 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_pairing_flow(PAIRING_URL, SCOPES, "test_webchannel_pairing_context_url")
+            .begin_pairing_flow(
+                PAIRING_URL,
+                SCOPES,
+                "test_webchannel_pairing_context_url",
+                &["sync"],
+            )
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -762,7 +783,7 @@ mod tests {
 
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_pairing_flow(PAIRING_URL, SCOPES, "test_pairing_flow_url")
+            .begin_pairing_flow(PAIRING_URL, SCOPES, "test_pairing_flow_url", &["sync"])
             .unwrap();
         let flow_url = Url::parse(&url).unwrap();
         let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
@@ -772,13 +793,17 @@ mod tests {
         assert_eq!(flow_url.fragment(), expected_parsed_url.fragment());
 
         let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 9);
+        assert_eq!(pairs.count(), 10);
         assert_eq!(
             pairs.next(),
             Some((
                 Cow::Borrowed("entrypoint"),
                 Cow::Borrowed("test_pairing_flow_url")
             ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("service"), Cow::Borrowed("sync")))
         );
         assert_eq!(
             pairs.next(),
@@ -832,6 +857,7 @@ mod tests {
             PAIRING_URL,
             &["https://identity.mozilla.com/apps/oldsync"],
             "test_pairiong_flow_origin_mismatch",
+            &["sync"],
         );
 
         assert!(url.is_err());
@@ -1099,7 +1125,7 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_oauth_flow(&[OLD_SYNC, "profile"], "test_entrypoint")
+            .begin_oauth_flow(&[OLD_SYNC, "profile"], "test_entrypoint", &["sync"])
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let state = url.query_pairs().find(|(name, _)| name == "state").unwrap();

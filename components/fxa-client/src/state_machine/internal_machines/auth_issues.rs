@@ -14,9 +14,14 @@ use State::*;
 impl InternalStateMachine for AuthIssuesStateMachine {
     fn initial_state(&self, event: FxaEvent) -> Result<State> {
         match event {
-            FxaEvent::BeginOAuthFlow { scopes, entrypoint } => Ok(BeginOAuthFlow {
+            FxaEvent::BeginOAuthFlow {
+                scopes,
+                entrypoint,
+                service,
+            } => Ok(BeginOAuthFlow {
                 scopes: scopes.clone(),
                 entrypoint: entrypoint.clone(),
+                service: service.clone(),
             }),
             FxaEvent::Disconnect => Ok(Complete(FxaState::Disconnected)),
             e => Err(Error::InvalidStateTransition(format!("AuthIssues -> {e}"))),
@@ -46,6 +51,7 @@ mod test {
             FxaEvent::BeginOAuthFlow {
                 scopes: vec!["profile".to_owned()],
                 entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             },
         );
 
@@ -53,7 +59,8 @@ mod test {
             tester.state,
             BeginOAuthFlow {
                 scopes: vec!["profile".to_owned()],
-                entrypoint: "test-entrypoint".to_owned()
+                entrypoint: "test-entrypoint".to_owned(),
+                service: vec!["sync".to_owned()],
             }
         );
         assert_eq!(tester.peek_next_state(CallError), Cancel);

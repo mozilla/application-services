@@ -5,6 +5,9 @@
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
+### Android
+- Added service parameter to fxa-client flow allowing clients to specify the list of services to request. ([bug 1925091](https://bugzilla.mozilla.org/show_bug.cgi?id=1925091))
+
 # v143.0 (_2025-08-18_)
 
 ## 🦊 What's Changed 🦊

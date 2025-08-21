@@ -76,6 +76,7 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user triggered the signin request.
     ///         For example, the application toolbar, on the onboarding flow.
+    ///   - `service` - list of services to request.
     ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
@@ -84,9 +85,13 @@ impl FirefoxAccount {
         // Allow both &[String] and &[&str] since UniFFI can't represent `&[&str]` yet,
         scopes: &[T],
         entrypoint: &str,
+        service: &[T],
     ) -> ApiResult<String> {
         let scopes = scopes.iter().map(T::as_ref).collect::<Vec<_>>();
-        self.internal.lock().begin_oauth_flow(&scopes, entrypoint)
+        let service = service.iter().map(T::as_ref).collect::<Vec<_>>();
+        self.internal
+            .lock()
+            .begin_oauth_flow(&scopes, entrypoint, &service)
     }
 
     /// Get the URL at which to begin a device-pairing signin flow.
@@ -121,6 +126,7 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user triggered the signin request.
     ///         For example, the application toolbar, on the onboarding flow.
+    ///   - `service` - list of services to request.
     ///   - `metrics` - optionally, additional metrics tracking parameters.
     ///       - These will be included as query parameters in the resulting URL.
     #[handle_error(Error)]
@@ -129,12 +135,14 @@ impl FirefoxAccount {
         pairing_url: &str,
         scopes: &[String],
         entrypoint: &str,
+        service: &[String],
     ) -> ApiResult<String> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
+        let service = service.iter().map(String::as_str).collect::<Vec<_>>();
         self.internal
             .lock()
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint)
+            .begin_pairing_flow(pairing_url, &scopes, entrypoint, &service)
     }
 
     /// Complete an OAuth flow.
@@ -263,6 +271,7 @@ pub enum FxaEvent {
     BeginOAuthFlow {
         scopes: Vec<String>,
         entrypoint: String,
+        service: Vec<String>,
     },
     /// Begin an oauth flow using a URL from a pairing code
     ///
@@ -276,6 +285,7 @@ pub enum FxaEvent {
         pairing_url: String,
         scopes: Vec<String>,
         entrypoint: String,
+        service: Vec<String>,
     },
     /// Complete an OAuth flow.
     ///
