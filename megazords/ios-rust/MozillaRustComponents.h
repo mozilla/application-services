@@ -6,6 +6,7 @@
 // It needs to import all of the individual headers.
 
 #import "RustViaductFFI.h"
+#import "ads_clientFFI.h"
 #import "autofillFFI.h"
 #import "crashtestFFI.h"
 #import "fxa_clientFFI.h"

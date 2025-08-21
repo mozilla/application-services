@@ -10,6 +10,7 @@
 // but here we are.
 // To get the symbols from our static lib we need to refer to a symbol from each crate within it.
 // This is an arbitrary choice - any symbol will do, but we chose these because every uniffi crate has it.
+extern int MOZ_EXPORT ffi_ads_client_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_autofill_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_crashtest_uniffi_contract_version();
 extern int MOZ_EXPORT ffi_fxa_client_uniffi_contract_version();
@@ -37,6 +38,7 @@ extern int MOZ_EXPORT ffi_tabs_uniffi_contract_version();
 extern int MOZ_EXPORT uniffi_search_checksum_constructor_searchengineselector_new();
 
 void _local_megazord_dummy_symbol() {
+    ffi_ads_client_uniffi_contract_version();
     ffi_autofill_uniffi_contract_version();
     ffi_crashtest_uniffi_contract_version();
     ffi_fxa_client_uniffi_contract_version();

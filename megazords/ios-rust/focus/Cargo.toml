@@ -15,3 +15,4 @@ viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }
 nimbus-sdk = { path = "../../../components/nimbus" }
 error-support = { path = "../../../components/support/error" }
 remote_settings = { path = "../../../components/remote_settings" }
+ads-client = { path = "../../../components/ads-client" }
