@@ -2,11 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::{fmt::Display, path::Path};
+use std::fmt::Display;
+use std::io::Write;
+use std::path::Path;
 
 use anyhow::Result;
-use console::Term;
 use serde_json::Value;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use crate::{
     sources::{ExperimentListSource, ExperimentSource},
@@ -138,17 +140,42 @@ impl ExperimentListSource {
         let value: Value = self.try_into()?;
         let array = value_utils::try_extract_data_list(&value)?;
 
-        let term = Term::stdout();
-        let style = term.style().italic().underlined();
-        term.write_line(&format!(
-            "{slug: <66}|{channel: <9}|{bucketing: >7}|{features: <31}|{is_rollout}|{branches: <20}",
-            slug = style.apply_to("Experiment slug"),
-            channel = style.apply_to(" Channel"),
-            bucketing = style.apply_to(" % "),
-            features = style.apply_to(" Features"),
-            is_rollout = style.apply_to("   "),
-            branches = style.apply_to(" Branches"),
-        ))?;
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        let style = {
+            let mut style = ColorSpec::new();
+            style.set_italic(true).set_underline(true);
+            style
+        };
+
+        stdout.set_color(&style)?;
+        write!(&mut stdout, "{: <66}", "Experiment slug")?;
+        stdout.reset()?;
+        write!(&mut stdout, "|")?;
+
+        stdout.set_color(&style)?;
+        write!(&mut stdout, "{: <9}", " Channel")?;
+        stdout.reset()?;
+        write!(&mut stdout, "|")?;
+
+        stdout.set_color(&style)?;
+        write!(&mut stdout, "{: >7}", " % ")?;
+        stdout.reset()?;
+        write!(&mut stdout, "|")?;
+
+        stdout.set_color(&style)?;
+        write!(&mut stdout, "{: <31}", "Features")?;
+        stdout.reset()?;
+        write!(&mut stdout, "|")?;
+
+        stdout.set_color(&style)?;
+        write!(&mut stdout, "   ")?;
+        stdout.reset()?;
+        write!(&mut stdout, "|")?;
+
+        stdout.set_color(&style)?;
+        writeln!(&mut stdout, "{: <20}", " Branches")?;
+        stdout.reset()?;
+
         for exp in array {
             let info = match ExperimentInfo::try_from(&exp) {
                 Ok(e) => e,
@@ -157,15 +184,17 @@ impl ExperimentListSource {
 
             let is_rollout = if info.is_rollout { "R" } else { "" };
 
-            term.write_line(&format!(
+            writeln!(
+                &mut stdout,
                 " {slug: <65}| {channel: <8}| {bucketing: >5} | {features: <30}| {is_rollout: <1} | {branches}",
                 slug = info.slug,
                 channel = info.channel,
                 bucketing = info.bucketing_percent(),
                 features = info.features.join(", "),
                 branches = info.branches.join(", ")
-            ))?;
+            )?;
         }
+
         Ok(true)
     }
 }
@@ -175,6 +204,22 @@ impl ExperimentSource {
     where
         P: AsRef<Path>,
     {
+        fn format_line(
+            stream: &mut StandardStream,
+            title: &str,
+            detail: &str,
+        ) -> std::io::Result<()> {
+            stream.set_color(ColorSpec::new().set_italic(true))?;
+            write!(stream, "{: <11}", title)?;
+            stream.reset()?;
+            write!(stream, " ")?;
+            stream.set_color(ColorSpec::new().set_bold(true).set_fg(Some(Color::Cyan)))?;
+            writeln!(stream, "{}", detail)?;
+            stream.reset()?;
+
+            Ok(())
+        }
+
         let value = self.try_into()?;
         let info: ExperimentInfo = ExperimentInfo::try_from(&value)?;
         if output.is_some() {
@@ -184,16 +229,6 @@ impl ExperimentSource {
         let url = match self {
             Self::FromApiV6 { slug, endpoint } => Some(format!("{endpoint}/nimbus/{slug}/summary")),
             _ => None,
-        };
-        let term = Term::stdout();
-        let t_style = term.style().italic();
-        let d_style = term.style().bold().cyan();
-        let line = |title: &str, detail: &str| {
-            _ = term.write_line(&format!(
-                "{: <11} {}",
-                t_style.apply_to(title),
-                d_style.apply_to(detail)
-            ));
         };
 
         let enrollment = format!(
@@ -218,21 +253,27 @@ impl ExperimentSource {
             format!("Experiment with {b}")
         };
 
-        line("Slug", info.slug);
-        line("Name", info.user_facing_name);
-        line("Description", info.user_facing_description);
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        format_line(&mut stdout, "Slug", info.slug)?;
+        format_line(&mut stdout, "Name", info.user_facing_name)?;
+        format_line(&mut stdout, "Description", info.user_facing_description)?;
         if let Some(url) = url {
-            line("URL", &url);
+            format_line(&mut stdout, "URL", &url)?;
         }
-        line("App", info.app_name);
-        line("Channel", info.channel);
-        line("E/R", &is_rollout);
-        line("Enrollment", &enrollment);
-        line("Observing", &info.duration.to_string());
-        line("Targeting", &format!("\"{}\"", info.targeting));
-        line("Bucketing", &info.bucketing_percent());
-        line("Branches", &info.branches.join(", "));
-        line("Features", &info.features.join(", "));
+        format_line(&mut stdout, "App", info.app_name)?;
+        format_line(&mut stdout, "Channel", info.channel)?;
+        format_line(&mut stdout, "E/R", &is_rollout)?;
+
+        format_line(&mut stdout, "Enrollment", &enrollment)?;
+        format_line(&mut stdout, "Observing", &info.duration.to_string())?;
+        format_line(
+            &mut stdout,
+            "Targeting",
+            &format!(r#""{}""#, info.targeting),
+        )?;
+        format_line(&mut stdout, "Bucketing", &info.bucketing_percent())?;
+        format_line(&mut stdout, "Branches", &info.branches.join(", "))?;
+        format_line(&mut stdout, "Features", &info.features.join(", "))?;
 
         Ok(true)
     }

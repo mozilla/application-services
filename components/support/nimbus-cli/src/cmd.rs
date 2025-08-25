@@ -15,10 +15,12 @@ use crate::{
     AppCommand, AppOpenArgs, ExperimentListSource, ExperimentSource, LaunchableApp, NimbusApp,
 };
 use anyhow::{bail, Result};
-use console::Term;
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use serde_json::{json, Value};
-use std::{path::PathBuf, process::Command};
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::Command;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     let status = match cmd {
@@ -97,26 +99,32 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
     Ok(status)
 }
 
-fn prompt(term: &Term, command: &str) -> Result<()> {
-    let prompt = term.style().cyan();
-    let style = term.style().yellow();
-    term.write_line(&format!(
-        "{} {}",
-        prompt.apply_to("$"),
-        style.apply_to(command)
-    ))?;
+fn prompt(stream: &mut StandardStream, command: &str) -> Result<()> {
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))?;
+    write!(stream, "$ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    writeln!(stream, "{}", command)?;
+    stream.reset()?;
+
     Ok(())
 }
 
-fn output_ok(term: &Term, title: &str) -> Result<()> {
-    let style = term.style().green();
-    term.write_line(&format!("✅ {}", style.apply_to(title)))?;
+fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
+    write!(stream, "✅ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+    writeln!(stream, "{title}")?;
+    stream.reset()?;
+
     Ok(())
 }
 
-fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
-    let style = term.style().red();
-    term.write_line(&format!("❎ {}: {detail}", style.apply_to(title),))?;
+fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+    write!(stream, "❎ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+    write!(stream, "{title}")?;
+    stream.reset()?;
+    writeln!(stream, ": {detail}")?;
+
     Ok(())
 }
 
@@ -211,18 +219,18 @@ impl LaunchableApp {
     }
 
     fn tail_logs(&self) -> Result<bool> {
-        let term = Term::stdout();
-        let _ = term.clear_screen();
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
         Ok(match self {
             Self::Android { .. } => {
                 let mut args = logcat_args();
                 args.append(&mut vec!["-v", "color"]);
-                prompt(&term, &format!("adb {}", args.join(" ")))?;
+                prompt(&mut stdout, &format!("adb {}", args.join(" ")))?;
                 self.exe()?.args(args).spawn()?.wait()?.success()
             }
             Self::Ios { .. } => {
                 prompt(
-                    &term,
+                    &mut stdout,
                     &format!("{} | xargs tail -f", self.ios_log_file_command()),
                 )?;
                 let log = self.ios_log_file()?;
@@ -238,13 +246,14 @@ impl LaunchableApp {
     }
 
     fn capture_logs(&self, file: &PathBuf) -> Result<bool> {
-        let term = Term::stdout();
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+
         Ok(match self {
             Self::Android { .. } => {
                 let mut args = logcat_args();
                 args.append(&mut vec!["-d"]);
                 prompt(
-                    &term,
+                    &mut stdout,
                     &format!(
                         "adb {} > {}",
                         args.join(" "),
@@ -259,7 +268,7 @@ impl LaunchableApp {
             Self::Ios { .. } => {
                 let log = self.ios_log_file()?;
                 prompt(
-                    &term,
+                    &mut stdout,
                     &format!(
                         "{} | xargs -J %log_file% cp %log_file% {}",
                         self.ios_log_file_command(),
@@ -317,7 +326,7 @@ impl LaunchableApp {
         preserve_nimbus_db: &bool,
         open: &AppOpenArgs,
     ) -> Result<bool> {
-        let term = Term::stdout();
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
         let experiment = Value::try_from(experiment)?;
         let slug = experiment.get_str("slug")?.to_string();
@@ -330,7 +339,7 @@ impl LaunchableApp {
             *preserve_bucketing,
         )?];
         prompt(
-            &term,
+            &mut stdout,
             &format!("# Enrolling in the '{0}' branch of '{1}'", branch, &slug),
         )?;
 
@@ -343,7 +352,10 @@ impl LaunchableApp {
                 *preserve_targeting,
                 *preserve_bucketing,
             )?);
-            prompt(&term, &format!("# Enrolling into the '{0}' rollout", &slug))?;
+            prompt(
+                &mut stdout,
+                &format!("# Enrolling into the '{0}' rollout", &slug),
+            )?;
         }
 
         let payload = json! {{ "data": recipes }};
@@ -390,10 +402,10 @@ impl LaunchableApp {
     }
 
     fn ios_reset(&self, data_dir: String, groups_string: String) -> Result<bool> {
-        let term = Term::stdout();
-        prompt(&term, "# Resetting the app")?;
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        prompt(&mut stdout, "# Resetting the app")?;
         if !data_dir.is_empty() {
-            prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
+            prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", data_dir))?;
             let _ = std::fs::remove_dir_all(&data_dir);
             let _ = std::fs::create_dir_all(&data_dir);
         }
@@ -403,7 +415,7 @@ impl LaunchableApp {
             let words = line.splitn(2, '\t').collect::<Vec<_>>();
             if let [_, dir] = words.as_slice() {
                 if !dir.is_empty() {
-                    prompt(&term, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
+                    prompt(&mut stdout, &format!("rm -Rf {}/* 2>/dev/null", dir))?;
                     let _ = std::fs::remove_dir_all(dir);
                     let _ = std::fs::create_dir_all(dir);
                 }
@@ -417,11 +429,11 @@ impl LaunchableApp {
     }
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
-        let term = Term::stdout();
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         if open.pbcopy {
             let len = self.copy_to_clipboard(&app_protocol, open)?;
             prompt(
-                &term,
+                &mut stdout,
                 &format!("# Copied a deeplink URL ({len} characters) in to the clipboard"),
             )?;
         }
@@ -431,11 +443,11 @@ impl LaunchableApp {
             let addr = server::get_address()?;
             match server::post_deeplink(self.platform(), &url, app_protocol.experiments) {
                 Err(_) => output_err(
-                    &term,
+                    &mut stdout,
                     "Cannot post to the server",
                     "Start the server with `nimbus-cli start-server`",
                 )?,
-                _ => output_ok(&term, &format!("Posted to server at http://{addr}"))?,
+                _ => output_ok(&mut stdout, &format!("Posted to server at http://{addr}"))?,
             };
         }
         if let Some(file) = &open.output {
@@ -443,7 +455,7 @@ impl LaunchableApp {
             if let Some(contents) = ex {
                 value_utils::write_to_file_or_print(Some(file), contents)?;
                 output_ok(
-                    &term,
+                    &mut stdout,
                     &format!(
                         "Written to JSON to file {}",
                         file.to_str().unwrap_or_default()
@@ -451,7 +463,7 @@ impl LaunchableApp {
                 )?;
             } else {
                 output_err(
-                    &term,
+                    &mut stdout,
                     "No content",
                     &format!("File {} not written", file.to_str().unwrap_or_default()),
                 )?;
@@ -525,8 +537,8 @@ impl LaunchableApp {
             args.extend_from_slice(ending_args);
 
             let sh = format!(r#"am start {}"#, args.join(" \\\n        "),);
-            let term = Term::stdout();
-            prompt(&term, &format!("adb shell \"{}\"", sh))?;
+            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+            prompt(&mut stdout, &format!("adb shell \"{}\"", sh))?;
             let mut cmd = self.exe()?;
             cmd.arg("shell").arg(&sh);
             Ok(cmd)
@@ -592,8 +604,8 @@ impl LaunchableApp {
             cmd.args(args.clone());
 
             let sh = format!(r#"xcrun simctl {}"#, args.join(" \\\n        "),);
-            let term = Term::stdout();
-            prompt(&term, &sh)?;
+            let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+            prompt(&mut stdout, &sh)?;
             Ok(cmd)
         } else {
             unreachable!()
@@ -611,17 +623,20 @@ impl NimbusApp {
         manifest_source: &ManifestSource,
         experiment: &ExperimentSource,
     ) -> Result<bool> {
-        let term = Term::stdout();
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         let value: Value = experiment.try_into()?;
 
         let manifest = match TryInto::<FeatureManifest>::try_into(manifest_source) {
             Ok(manifest) => {
-                output_ok(&term, &format!("Loaded manifest from {manifest_source}"))?;
+                output_ok(
+                    &mut stdout,
+                    &format!("Loaded manifest from {manifest_source}"),
+                )?;
                 manifest
             }
             Err(err) => {
                 output_err(
-                    &term,
+                    &mut stdout,
                     &format!("Problem with manifest from {manifest_source}"),
                     &err.to_string(),
                 )?;
@@ -639,10 +654,14 @@ impl NimbusApp {
                     .unwrap_or_else(|| panic!("Branch {branch} feature {id} has no value"));
                 let res = manifest.validate_feature_config(id, value.clone());
                 match res {
-                    Ok(_) => output_ok(&term, &format!("{branch: <15} {id}"))?,
+                    Ok(_) => output_ok(&mut stdout, &format!("{branch: <15} {id}"))?,
                     Err(err) => {
                         is_valid = false;
-                        output_err(&term, &format!("{branch: <15} {id}"), &err.to_string())?
+                        output_err(
+                            &mut stdout,
+                            &format!("{branch: <15} {id}"),
+                            &err.to_string(),
+                        )?
                     }
                 }
             }
