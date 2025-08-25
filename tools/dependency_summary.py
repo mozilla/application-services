@@ -210,6 +210,12 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/remram44/adler32-rs/master/LICENSE",
         }
     },
+    "bincode": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://git.sr.ht/~stygianentity/bincode/blob/trunk/LICENSE.md",
+        }
+    },
     # These packages are a part of a workspace, the workspace has the licensing file,
     # but the crates themselves do not; we link to the workspace's LICENSE
     "tracing": {

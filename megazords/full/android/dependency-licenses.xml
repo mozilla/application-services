@@ -538,7 +538,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: bincode</name>
-    <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
+    <url>https://git.sr.ht/~stygianentity/bincode/blob/trunk/LICENSE.md</url>
   </license>
   <license>
     <name>MIT License: bytes</name>
