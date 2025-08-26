@@ -199,10 +199,19 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
     fun resetTelemetryIdentifiers() = Unit
 
     /**
-     * Control the opt out for all experiments at once. This is likely a user action.
-     */
-    var globalUserParticipation: Boolean
-        get() = false
+    * Control the opt out for experiments. This is likely a user action.
+    * When set to false, the user will be opted out of all experiments but not rollouts.
+    */
+    var experimentParticipation: Boolean
+        get() = true
+        set(_) = Unit
+
+    /**
+    * Control the opt out for rollouts. This is likely a user action.
+    * When set to false, the user will be opted out of all rollouts but not experiments.
+    */
+    var rolloutParticipation: Boolean
+        get() = true
         set(_) = Unit
 
     override val events: NimbusEventStore
