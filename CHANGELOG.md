@@ -3,6 +3,10 @@
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
+### OHTTP Client
+- The `as-ohttp-client` component is being reintroduced to allos firefox-ios to
+  optionally submit Glean pings over OHTTP.
+
 [Full Changelog](In progress)
 
 # v143.0 (_2025-08-18_)
