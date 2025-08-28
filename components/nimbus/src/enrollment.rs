@@ -75,6 +75,21 @@ impl Display for NotEnrolledReason {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Participation {
+    pub in_experiments: bool,
+    pub in_rollouts: bool,
+}
+
+impl Default for Participation {
+    fn default() -> Self {
+        Self {
+            in_experiments: true,
+            in_rollouts: true,
+        }
+    }
+}
+
 // These are types we use internally for managing disqualifications.
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -583,7 +598,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     pub(crate) fn evolve_enrollments<E>(
         &mut self,
-        is_user_participating: bool,
+        participation: Participation,
         prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
@@ -604,7 +619,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let next_rollouts = filter_experiments(next_experiments, ExperimentMetadata::is_rollout);
 
         let (next_ro_enrollments, ro_events) = self.evolve_enrollment_recipes(
-            is_user_participating,
+            participation.in_rollouts,
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
@@ -628,7 +643,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             .collect();
 
         let (next_exp_enrollments, exp_events) = self.evolve_enrollment_recipes(
-            is_user_participating,
+            participation.in_experiments,
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
