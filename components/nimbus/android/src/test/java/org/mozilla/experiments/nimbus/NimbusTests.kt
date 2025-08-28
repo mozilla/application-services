@@ -450,8 +450,8 @@ class NimbusTests {
             NimbusEvents.disqualification.testGetValue(),
         )
 
-        // Opt out of all experiments
-        nimbus.setGlobalUserParticipationOnThisThread(false)
+        // Opt out of experiments but keep rollouts
+        nimbus.setExperimentParticipationOnThisThread(false)
 
         // Use the Glean test API to check that the valid event is present
         assertNotNull("Event must have a value", NimbusEvents.disqualification.testGetValue())
