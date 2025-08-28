@@ -39,9 +39,9 @@ tar -xf clang-dist-toolchain.tar.xz
 mv builds/worker/toolchains/clang clang
 rm clang-dist-toolchain.tar.xz
 
-# The rest of this script expects `clang-19`, but the binary in named `clang` in the tarball.
-# Create a symlink to work around this.
-ln -s /builds/worker/clang/bin/clang clang/bin/clang-19
+# The `clang-19` symlink is an absolute path, but our build script puts the `clang` binary in a
+# slightly different place.  Overwrite the symlink to fix this.
+ln -sf /builds/worker/clang/bin/clang-19 /builds/worker/clang/bin/clang
 
 popd
 
