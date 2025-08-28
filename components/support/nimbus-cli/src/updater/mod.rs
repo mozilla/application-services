@@ -4,31 +4,35 @@
 
 mod taskcluster;
 
-use console::Term;
+use std::io::Write;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 pub(crate) fn check_for_update() {
     if std::env::var("NIMBUS_CLI_SUPPRESS_UPDATE_CHECK").is_ok() {
         return;
     }
-    taskcluster::check_taskcluster_for_update(|curr, next| {
-        let term = Term::stderr();
-        let txt_style = term.style().green();
-        let cmd_style = term.style().yellow();
+    if let Some((curr, next)) = taskcluster::check_taskcluster_for_update() {
+        _ = print_update_instructions(&curr, &next);
+    }
+}
 
-        _ = term.write_line(&format!(
-            "{}",
-            txt_style.apply_to(format!("An update is available: {} --> {}", curr, next))
-        ));
+fn print_update_instructions(curr: &str, next: &str) -> std::io::Result<()> {
+    let mut stderr = StandardStream::stderr(ColorChoice::Auto);
 
-        _ = if std::env::consts::OS != "windows" {
-            term.write_line(&format!("{}\n{}",
-                txt_style.apply_to("To update, run this command:"),
-                cmd_style.apply_to("  curl https://raw.githubusercontent.com/mozilla/application-services/main/install-nimbus-cli.sh | bash")
-            ))
+    stderr.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+    writeln!(&mut stderr, "An update is available: {} --> {}", curr, next)?;
+
+    cfg_if::cfg_if! {
+        if #[cfg(windows)] {
+            writeln!(&mut stderr, "To update follow the instructions at https://experimenter.info/nimbus-cli/install")?;
         } else {
-            term.write_line(&format!("{}",
-                txt_style.apply_to("To update follow the instructions at https://experimenter.info/nimbus-cli/install")
-            ))
-        };
-    });
+            writeln!(&mut stderr, "Up update, run this command:")?;
+            stderr.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+            writeln!(&mut stderr, "  curl https://raw.githubusercontent.com/mozilla/application-services/main/install-nimbus-cli.sh | bash")?;
+        }
+    }
+
+    stderr.reset()?;
+
+    Ok(())
 }

@@ -19,8 +19,9 @@ use crate::{
     parser::Parser,
     util::loaders::{FileLoader, FilePath, LoaderConfig},
 };
-use console::Term;
+use std::io::Write;
 use std::path::Path;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Use this when recursively looking for files.
 const MATCHING_FML_EXTENSION: &str = ".fml.yaml";
@@ -147,32 +148,45 @@ pub(crate) fn fetch_file(files: &LoaderConfig, nm: &str) -> Result<()> {
     Ok(())
 }
 
-fn output_ok(term: &Term, title: &str) -> Result<()> {
-    let style = term.style().green();
-    term.write_line(&format!("✅ {}", style.apply_to(title)))?;
+fn output_ok(stream: &mut StandardStream, title: &str) -> Result<()> {
+    write!(stream, "✅ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
+    writeln!(stream, "{title}")?;
+    stream.reset()?;
+
     Ok(())
 }
 
-fn output_note(term: &Term, title: &str) -> Result<()> {
-    let style = term.style().yellow();
-    term.write_line(&format!("ℹ️ {}", style.apply_to(title)))?;
+fn output_note(stream: &mut StandardStream, title: &str) -> Result<()> {
+    write!(stream, "ℹ️ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    writeln!(stream, "{title}")?;
+    stream.reset()?;
+
     Ok(())
 }
 
-fn output_warn(term: &Term, title: &str, detail: &str) -> Result<()> {
-    let style = term.style().yellow();
-    term.write_line(&format!("⚠️ {}: {detail}", style.apply_to(title)))?;
+fn output_warn(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+    write!(stream, "⚠️ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))?;
+    write!(stream, "{title}")?;
+    stream.reset()?;
+    writeln!(stream, ": {detail}")?;
     Ok(())
 }
 
-fn output_err(term: &Term, title: &str, detail: &str) -> Result<()> {
-    let style = term.style().red();
-    term.write_line(&format!("❎ {}: {detail}", style.apply_to(title),))?;
+fn output_err(stream: &mut StandardStream, title: &str, detail: &str) -> Result<()> {
+    writeln!(stream, "❎ ")?;
+    stream.set_color(ColorSpec::new().set_fg(Some(Color::Red)))?;
+    writeln!(stream, "{title}")?;
+    stream.reset()?;
+    writeln!(stream, ": {detail}")?;
+
     Ok(())
 }
 
 pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
-    let term = Term::stdout();
+    let mut stdout = StandardStream::stdout(ColorChoice::Auto);
 
     let files: FileLoader = TryFrom::try_from(&cmd.loader)?;
 
@@ -187,13 +201,13 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     let channels = manifest_front_end.channels();
     if channels.is_empty() {
         output_note(
-            &term,
+            &mut stdout,
             &format!(
                 "Loaded modules:\n- {}\n",
                 iter_includes.collect::<Vec<String>>().join("\n- ")
             ),
         )?;
-        output_ok(&term, &format!(
+        output_ok(&mut stdout, &format!(
             "{}\n{}\n{}",
             "The manifest is valid for including in other files. To be imported, or used as an app manifest, it requires the following:",
             "- A `channels` list",
@@ -205,11 +219,11 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         parser
             .get_intermediate_representation(None)
             .inspect_err(|e| {
-                output_err(&term, "Manifest is invalid", &e.to_string()).unwrap();
+                output_err(&mut stdout, "Manifest is invalid", &e.to_string()).unwrap();
             })?;
 
     output_note(
-        &term,
+        &mut stdout,
         &format!(
             "Loaded modules:\n- {}\n",
             iter_includes
@@ -224,7 +238,7 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         ),
     )?;
 
-    term.write_line("Validating feature metadata:")?;
+    writeln!(stdout, "Validating feature metadata:")?;
     let mut features_with_warnings = 0;
     for (_, f) in intermediate_representation.iter_all_feature_defs() {
         let fm = &f.metadata;
@@ -240,7 +254,7 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
         }
         if !missing.is_empty() {
             output_warn(
-                &term,
+                &mut stdout,
                 &format!("'{}' missing metadata", &f.name),
                 &missing.join(", "),
             )?;
@@ -249,26 +263,35 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     }
 
     if features_with_warnings == 0 {
-        output_ok(&term, "All feature metadata ok\n")?;
+        output_ok(&mut stdout, "All feature metadata ok\n")?;
     } else {
         let features = if features_with_warnings == 1 {
             "feature"
         } else {
             "features"
         };
-        term.write_line("Each feature should have entries for at least:")?;
-        term.write_line("  - meta-bug: a URL where to file bugs")?;
-        term.write_line("  - documentation: a list of one or more URLs documenting the feature")?;
-        term.write_line("      e.g. QA docs, user docs")?;
-        term.write_line("  - contacts: a list of one or more email addresses")?;
-        term.write_line("      (with Mozilla Jira accounts)")?;
-
-        term.write_line(&format!(
+        writeln!(
+            &mut stdout,
+            "Each feature should have entries for at least:"
+        )?;
+        writeln!(&mut stdout, "  - meta-bug: a URL where to file bugs")?;
+        writeln!(
+            &mut stdout,
+            "  - documentation: a list of one or more URLs documenting the feature"
+        )?;
+        writeln!(&mut stdout, "      e.g. QA docs, user docs")?;
+        writeln!(
+            &mut stdout,
+            "  - contacts: a list of one or more email addresses"
+        )?;
+        writeln!(&mut stdout, "      (with Mozilla Jira accounts)")?;
+        writeln!(
+            &mut stdout,
             "Metadata warnings detected in {features_with_warnings} {features}\n"
-        ))?;
+        )?;
     }
 
-    term.write_line("Validating manifest for different channels:")?;
+    writeln!(&mut stdout, "Validating manifest for different channels:")?;
 
     let results = channels
         .iter()
@@ -285,11 +308,15 @@ pub(crate) fn validate(cmd: &ValidateCmd) -> Result<()> {
     for (channel, result) in results {
         match result {
             Ok(_) => {
-                output_ok(&term, &format!("{channel:.<20}valid"))?;
+                output_ok(&mut stdout, &format!("{channel:.<20}valid"))?;
             }
             Err(e) => {
                 error_count += 1;
-                output_err(&term, &format!("{channel:.<20}invalid"), &e.to_string())?;
+                output_err(
+                    &mut stdout,
+                    &format!("{channel:.<20}invalid"),
+                    &e.to_string(),
+                )?;
             }
         };
     }

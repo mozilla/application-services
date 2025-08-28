@@ -49,10 +49,7 @@ impl HttpClient for GunzippingHttpClient {
 
 /// Check the specifically crafted JSON file for this package to see if there has been a change in version.
 /// This is done every hour.
-pub(crate) fn check_taskcluster_for_update<F>(message: F)
-where
-    F: Fn(&str, &str),
-{
+pub(crate) fn check_taskcluster_for_update() -> Option<(String, String)> {
     let name = env!("CARGO_PKG_NAME");
     let version = env!("CARGO_PKG_VERSION");
     let interval = Duration::from_secs(60 * 60);
@@ -67,6 +64,8 @@ where
         update_informer::fake(TaskClusterRegistry, name, version, "1.0.0").interval(interval);
 
     if let Ok(Some(new_version)) = informer.check_version() {
-        message(&format!("v{version}"), &new_version.to_string());
+        Some((format!("v{version}"), new_version.to_string()))
+    } else {
+        None
     }
 }
