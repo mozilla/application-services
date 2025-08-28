@@ -4,6 +4,7 @@ resolver = "2"
 # Note: Any additions here should be repeated in default-members below.
 members = [
     "components/ads-client",
+    "components/as-ohttp-client",
     "components/autofill",
     "components/context_id",
     "components/crashtest",
@@ -99,6 +100,7 @@ exclude = [
 # use the full member set.
 default-members = [
     "components/ads-client",
+    "components/as-ohttp-client",
     "components/autofill",
     "components/context_id",
     "components/crashtest",

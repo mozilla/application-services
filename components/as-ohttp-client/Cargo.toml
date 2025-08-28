@@ -1,0 +1,29 @@
+[package]
+name = "as-ohttp-client"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ted Campbell <tcampbell@mozilla.com>"]
+description = "An Oblivious HTTP client for iOS applications"
+license = "MPL-2.0"
+exclude = ["/ios"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+uniffi = { version = "0.29.0" }
+thiserror = "1.0"
+parking_lot = "0.12"
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+
+[dependencies.bhttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "c6131ace4e4e82a4269afac3cb0524541d2cd315"
+
+[dependencies.ohttp]
+default-features = false
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "c6131ace4e4e82a4269afac3cb0524541d2cd315"
+features = ["client", "server", "app-svc", "external-sqlite"]
+
+[build-dependencies]
+uniffi = { version = "0.29.0", features=["build"]}
