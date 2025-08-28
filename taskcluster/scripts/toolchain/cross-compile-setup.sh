@@ -27,18 +27,21 @@ export TARGET_CFLAGS="-DNDEBUG"
 # cribbed from glean https://github.com/mozilla/glean/blob/b5faa56305a3a500e49fc02509001c95fde32ee6/taskcluster/scripts/cross-compile-setup.sh
 pushd /builds/worker
 curl -sfSL --retry 5 --retry-delay 10 \
-    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.linux64-cctools-port.latest/artifacts/public%2Fbuild%2Fcctools.tar.zst > cctools.tar.zst
+    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.linux64-cctools-port.latest/artifacts/public%2Fbuild%2Fcctools.tar.zst \
+    -o cctools.tar.zst
 unzstd cctools.tar.zst
 tar -xf cctools.tar
 rm cctools.tar.zst
 curl -sfSL --retry 5 --retry-delay 10 \
-    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.clang-dist-toolchain.latest/artifacts/public%2Fbuild%2Fclang-dist-toolchain.tar.xz > clang-dist-toolchain.tar.xz
+    https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.cache.level-3.toolchains.v3.clang-dist-toolchain.latest/artifacts/public%2Fbuild%2Fclang-dist-toolchain.tar.xz \
+    -o clang-dist-toolchain.tar.xz
 tar -xf clang-dist-toolchain.tar.xz
 mv builds/worker/toolchains/clang clang
 rm clang-dist-toolchain.tar.xz
 
-# Fixup symlink
-ln -sf clang-19 clang/bin/clang
+# The `clang-19` symlink is an absolute path, but our build script puts the `clang` binary in a
+# slightly different place.  Overwrite the symlink to fix this.
+ln -sf /builds/worker/clang/bin/clang-19 /builds/worker/clang/bin/clang
 
 popd
 
