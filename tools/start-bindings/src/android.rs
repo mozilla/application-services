@@ -9,8 +9,8 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use askama::Template;
 use camino::Utf8Path;
-use rinja::Template;
 
 use crate::{
     cargo_metadata::CargoMetadataInfo,
