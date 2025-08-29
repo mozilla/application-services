@@ -188,7 +188,7 @@ class NimbusTests: XCTestCase {
             return self.minimalExperimentJSON()
         }
 
-        let finishedNormally = job.joinOrTimeout(timeout: 10.0)
+        let finishedNormally = job.joinOrTimeout(timeout: 4.0)
         XCTAssertTrue(finishedNormally)
 
         let noExperiments = nimbus.getActiveExperiments()
@@ -474,7 +474,7 @@ class NimbusTests: XCTestCase {
 
         // Opt out of all experiments, which should generate a "disqualification" event for the enrolled
         // experiment
-        try nimbus.setExperimentParticipationOnThisThread(false)
+        try nimbus.setGlobalUserParticipationOnThisThread(false)
 
         // Use the Glean test API to check that the valid event is present
         XCTAssertNotNil(GleanMetrics.NimbusEvents.disqualification.testGetValue(), "Event must have a value")

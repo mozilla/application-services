@@ -141,21 +141,11 @@ open class Nimbus(
 
     private val nimbusClient: NimbusClientInterface
 
-    override var experimentParticipation: Boolean
-        get() = nimbusClient.getExperimentParticipation()
+    override var globalUserParticipation: Boolean
+        get() = nimbusClient.getGlobalUserParticipation()
         set(active) {
             dbScope.launch {
-                nimbusClient.setExperimentParticipation(active)
-                applyPendingExperimentsOnThisThread()
-            }
-        }
-
-    override var rolloutParticipation: Boolean
-        get() = nimbusClient.getRolloutParticipation()
-        set(active) {
-            dbScope.launch {
-                nimbusClient.setRolloutParticipation(active)
-                applyPendingExperimentsOnThisThread()
+                setGlobalUserParticipationOnThisThread(active)
             }
         }
 
@@ -410,25 +400,13 @@ open class Nimbus(
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setExperimentParticipationOnThisThread(active: Boolean) =
-        withCatchAll("setExperimentParticipation") {
-            val enrolmentChanges = nimbusClient.setExperimentParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-            }
+    internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll("setGlobalUserParticipation") {
+        val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
+        if (enrolmentChanges.isNotEmpty()) {
+            recordExperimentTelemetryEvents(enrolmentChanges)
+            postEnrolmentCalculation()
         }
-
-    @WorkerThread
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setRolloutParticipationOnThisThread(active: Boolean) =
-        withCatchAll("setRolloutParticipation") {
-            val enrolmentChanges = nimbusClient.setRolloutParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-            }
-        }
+    }
 
     override fun optOut(experimentId: String) {
         dbScope.launch {
