@@ -1,0 +1,1 @@
+searchState.loadedDescShard("merino_cli", 0, "Optional base host (defaults to prod)\nReturns the argument unchanged.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nCalls <code>U::from(self)</code>.\nRequired user agent header\nJSON string of type CuratedRecommendationsRequest\nPath to a JSON file containing the request")

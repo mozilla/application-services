@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command","Language"],"fn":["main","run_uniffi_bindgen"],"struct":["Cli","Megazord","MegazordArg"]};
