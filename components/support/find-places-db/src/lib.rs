@@ -8,7 +8,7 @@
 // If we ever need to split it out again we should contact Thom, who I'm sure
 // would be happy to give us ownership of the crate.
 
-use anyhow::{bail, format_err, Result};
+use anyhow::{format_err, Result};
 use error_support::{debug, info, trace, warn};
 use std::{fs, path::PathBuf, process};
 
@@ -40,23 +40,35 @@ impl PlacesLocation {
 }
 
 pub fn get_all_places_dbs() -> Result<Vec<PlacesLocation>> {
-    let mut path = match dirs::home_dir() {
-        Some(dir) => dir,
-        None => bail!("No home directory found!"),
-    };
-    if cfg!(windows) {
+    let path = if cfg!(windows) {
+        let mut path =
+            dirs::home_dir().ok_or_else(|| anyhow::anyhow!("No home directory found!"))?;
         path.extend(&["AppData", "Roaming", "Mozilla", "Firefox", "Profiles"]);
+        path
     } else {
         let out = String::from_utf8(process::Command::new("uname").args(["-s"]).output()?.stdout)?;
         info!("Uname says: {:?}", out);
         if out.trim() == "Darwin" {
+            let mut path =
+                dirs::home_dir().ok_or_else(|| anyhow::anyhow!("No home directory found!"))?;
             // ~/Library/Application Support/Firefox/Profiles
             path.extend(&["Library", "Application Support", "Firefox", "Profiles"]);
+            path
         } else {
             // I'm not actually sure if this is true for all non-macos unix likes.
-            path.extend(&[".mozilla", "firefox"]);
+            if std::env::var_os("MOZ_LEGACY_HOME").is_some() {
+                let mut path =
+                    dirs::home_dir().ok_or_else(|| anyhow::anyhow!("No home directory found!"))?;
+                path.extend(&[".mozilla", "firefox"]);
+                path
+            } else {
+                let mut path = dirs::config_dir()
+                    .ok_or_else(|| anyhow::anyhow!("No config directory found!"))?;
+                path.extend(&["mozilla", "firefox"]);
+                path
+            }
         }
-    }
+    };
     debug!("Using profile path: {:?}", path);
     let mut res = fs::read_dir(path)?
         .map(|entry_result| {
