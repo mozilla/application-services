@@ -48,9 +48,10 @@ class MessagingHelperTests {
             context = context,
             appInfo = developmentAppInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
         nimbus.initializeOnThisThread()
 
@@ -74,9 +75,10 @@ class MessagingHelperTests {
             context = context,
             appInfo = developmentAppInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
         nimbus.initializeOnThisThread()
 
@@ -110,9 +112,10 @@ class MessagingHelperTests {
             context = context,
             appInfo = developmentAppInfo,
             coenrollingFeatureIds = listOf(),
-            server = null,
             deviceInfo = deviceInfo,
             delegate = nimbusDelegate,
+            collectionName = null,
+            remoteSettingsService = null,
         )
         nimbus.initializeOnThisThread()
 
