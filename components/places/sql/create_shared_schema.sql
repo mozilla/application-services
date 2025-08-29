@@ -44,6 +44,16 @@ CREATE INDEX IF NOT EXISTS lastvisitdateremoteindex ON moz_places(last_visit_dat
 CREATE UNIQUE INDEX IF NOT EXISTS guid_uniqueindex ON moz_places(guid);
 CREATE INDEX IF NOT EXISTS originidindex ON moz_places(origin_id);
 
+-- Some partial indexes to help speed up expensive outgoing calcs
+CREATE INDEX IF NOT EXISTS idx_places_outgoing_by_frecency
+ON moz_places(frecency DESC)
+WHERE hidden = 0 AND (sync_change_counter > 0 OR sync_status != 2); -- 2 is SyncStatus::Normal
+
+CREATE INDEX IF NOT EXISTS idx_places_visible_by_frecency
+ON moz_places(frecency DESC)
+WHERE hidden = 0 AND (last_visit_date_local + last_visit_date_remote) != 0;
+
+
 
 CREATE TABLE IF NOT EXISTS moz_places_tombstones (
     guid TEXT PRIMARY KEY
