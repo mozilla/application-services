@@ -13,9 +13,8 @@ use crate::{
     stateful::{
         behavior::EventStore,
         enrollment::{
-            get_enrollments, get_experiment_participation, get_rollout_participation,
-            opt_in_with_branch, opt_out, reset_telemetry_identifiers, set_experiment_participation,
-            set_rollout_participation,
+            get_enrollments, opt_in_with_branch, opt_out, reset_telemetry_identifiers,
+            set_global_user_participation,
         },
         persistence::{Database, Readable, StoreId},
     },
@@ -187,7 +186,7 @@ fn test_global_opt_out() -> Result<()> {
     let exps = get_test_experiments();
 
     // User has opted out of new experiments.
-    set_experiment_participation(&db, &mut writer, false)?;
+    set_global_user_participation(&db, &mut writer, false)?;
 
     let ids = no_coenrolling_features();
     let mut targeting_helper = th.clone();
@@ -213,7 +212,7 @@ fn test_global_opt_out() -> Result<()> {
     assert_eq!(num_not_enrolled_enrollments, 2);
 
     // User opts in, and updating should enroll us in 2 experiments.
-    set_experiment_participation(&db, &mut writer, true)?;
+    set_global_user_participation(&db, &mut writer, true)?;
 
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
@@ -231,7 +230,7 @@ fn test_global_opt_out() -> Result<()> {
     assert_eq!(num_enrolled_enrollments, 2);
 
     // Opting out and updating should give us two disqualified enrollments
-    set_experiment_participation(&db, &mut writer, false)?;
+    set_global_user_participation(&db, &mut writer, false)?;
 
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
@@ -260,7 +259,7 @@ fn test_global_opt_out() -> Result<()> {
     );
 
     // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
-    set_experiment_participation(&db, &mut writer, true)?;
+    set_global_user_participation(&db, &mut writer, true)?;
 
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
     let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
@@ -384,158 +383,5 @@ fn test_telemetry_reset() -> Result<()> {
         && *branch_slug == mock_exp1_branch
     ));
 
-    Ok(())
-}
-
-#[test]
-fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
-    error_support::init_for_tests();
-    let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
-    let mut writer = db.write()?;
-    let nimbus_id = Uuid::new_v4();
-    let mut th = NimbusTargetingHelper::from(AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        ..Default::default()
-    });
-    let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
-
-    // Create test experiment and rollout
-    let mut experiment = get_test_experiments()[0].clone();
-    experiment.slug = "test-experiment".to_string();
-    experiment.is_rollout = false;
-
-    let mut rollout = get_test_experiments()[0].clone();
-    rollout.slug = "test-rollout".to_string();
-    rollout.is_rollout = true;
-    rollout.bucket_config.namespace = "test-rollout".to_string();
-
-    // User opts out of experiments but stays opted in to rollouts
-    set_experiment_participation(&db, &mut writer, false)?;
-    set_rollout_participation(&db, &mut writer, true)?;
-
-    // Verify flags are set correctly
-    let exp_participation = get_experiment_participation(&db, &writer)?;
-    let rollouts_participation = get_rollout_participation(&db, &writer)?;
-    println!("Experiments participation: {}", exp_participation);
-    println!("Rollouts participation: {}", rollouts_participation);
-
-    let ids = no_coenrolling_features();
-    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let _ = evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout])?;
-
-    let enrollments = get_experiment_enrollments(&db, &writer)?;
-    println!("Total enrollments: {}", enrollments.len());
-    for enrollment in &enrollments {
-        println!(
-            "Enrollment: slug={}, status={:?}",
-            enrollment.slug, enrollment.status
-        );
-    }
-
-    // Should be enrolled in rollout but not experiment
-    let rollout_enrollment = enrollments.iter().find(|e| e.slug == "test-rollout");
-    let experiment_enrollment = enrollments.iter().find(|e| e.slug == "test-experiment");
-
-    assert!(
-        rollout_enrollment.is_some(),
-        "Rollout enrollment should exist"
-    );
-    assert!(matches!(
-        rollout_enrollment.unwrap().status,
-        EnrollmentStatus::Enrolled { .. }
-    ));
-
-    assert!(
-        experiment_enrollment.is_some(),
-        "Experiment enrollment should exist"
-    );
-    assert!(matches!(
-        experiment_enrollment.unwrap().status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
-        }
-    ));
-
-    writer.commit()?;
-    Ok(())
-}
-
-#[test]
-fn test_rollouts_opt_out_with_experiments_opt_in() -> Result<()> {
-    error_support::init_for_tests();
-    let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
-    let mut writer = db.write()?;
-    let nimbus_id = Uuid::new_v4();
-    let mut th = NimbusTargetingHelper::from(AppContext {
-        app_name: "fenix".to_string(),
-        app_id: "org.mozilla.fenix".to_string(),
-        channel: "nightly".to_string(),
-        ..Default::default()
-    });
-    let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
-
-    // Create test experiment and rollout
-    let mut experiment = get_test_experiments()[0].clone();
-    experiment.slug = "test-experiment".to_string();
-    experiment.is_rollout = false;
-
-    let mut rollout = get_test_experiments()[0].clone();
-    rollout.slug = "test-rollout".to_string();
-    rollout.is_rollout = true;
-    rollout.bucket_config.namespace = "test-rollout".to_string();
-
-    // User opts out of rollouts but stays opted in to experiments
-    set_experiment_participation(&db, &mut writer, true)?;
-    set_rollout_participation(&db, &mut writer, false)?;
-
-    // Verify flags are set correctly (using the same writer)
-    let exp_participation = get_experiment_participation(&db, &writer)?;
-    let rollouts_participation = get_rollout_participation(&db, &writer)?;
-    println!("Experiments participation: {}", exp_participation);
-    println!("Rollouts participation: {}", rollouts_participation);
-
-    let ids = no_coenrolling_features();
-    let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let _events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout])?;
-
-    // Use the same helper function as the working test
-    let enrollments = get_experiment_enrollments(&db, &writer)?;
-    println!("Total enrollments: {}", enrollments.len());
-    for enrollment in &enrollments {
-        println!(
-            "Enrollment: slug={}, status={:?}",
-            enrollment.slug, enrollment.status
-        );
-    }
-
-    // Should be enrolled in experiment but not rollout
-    let experiment_enrollment = enrollments.iter().find(|e| e.slug == "test-experiment");
-    let rollout_enrollment = enrollments.iter().find(|e| e.slug == "test-rollout");
-
-    assert!(
-        experiment_enrollment.is_some(),
-        "Experiment enrollment should exist"
-    );
-    assert!(matches!(
-        experiment_enrollment.unwrap().status,
-        EnrollmentStatus::Enrolled { .. }
-    ));
-
-    assert!(
-        rollout_enrollment.is_some(),
-        "Rollout enrollment should exist"
-    );
-    assert!(matches!(
-        rollout_enrollment.unwrap().status,
-        EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::OptOut
-        }
-    ));
-
-    writer.commit()?;
     Ok(())
 }

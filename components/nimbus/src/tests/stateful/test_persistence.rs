@@ -5,7 +5,6 @@
 use crate::{
     enrollment::ExperimentEnrollment,
     error::{debug, Result},
-    stateful::enrollment::{get_experiment_participation, get_rollout_participation},
     stateful::persistence::*,
     Experiment,
 };
@@ -770,91 +769,5 @@ fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
     // us with only one.
     assert_eq!(enrollments.len(), 1);
 
-    Ok(())
-}
-
-#[test]
-fn test_migrate_db_v2_to_v3_user_opted_out() -> Result<()> {
-    error_support::init_for_tests();
-    let tmp_dir = tempfile::tempdir()?;
-
-    // Create a v2 database where user opted out globally
-    create_old_database_v2_with_global_participation(&tmp_dir, false)?;
-
-    // Open with new version - should trigger migration
-    let db = Database::new(&tmp_dir)?;
-
-    // Check the database was upgraded to v3
-    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(3u16));
-
-    // Check that separate flags were set correctly for opted-out user
-    let reader = db.read()?;
-    assert!(
-        !get_experiment_participation(&db, &reader)?, // Should preserve opt-out choice for experiments
-    );
-    assert!(
-        !get_rollout_participation(&db, &reader)?, // Should preserve opt-out choice for rollouts
-    );
-
-    // Check old key was removed
-    assert_eq!(
-        db.get::<bool>(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
-        None
-    );
-
-    Ok(())
-}
-
-#[test]
-fn test_migrate_db_v2_to_v3_user_opted_in() -> Result<()> {
-    error_support::init_for_tests();
-    let tmp_dir = tempfile::tempdir()?;
-
-    // Create a v2 database where user was opted in globally
-    create_old_database_v2_with_global_participation(&tmp_dir, true)?;
-
-    let db = Database::new(&tmp_dir)?;
-
-    // Check the database was upgraded to v3
-    assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(3u16));
-
-    // Check that separate flags were set correctly for opted-in user
-    let reader = db.read()?;
-    assert!(
-        get_experiment_participation(&db, &reader)?, // Should preserve opt-in choice for experiments
-    );
-    assert!(
-        get_rollout_participation(&db, &reader)?, // Should preserve opt-in choice for rollouts
-    );
-
-    // Check old key was removed
-    assert_eq!(
-        db.get::<bool>(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION)?,
-        None
-    );
-
-    Ok(())
-}
-
-// Helper function to create a v2 database with global participation flag
-fn create_old_database_v2_with_global_participation(
-    tmp_dir: &tempfile::TempDir,
-    global_participation: bool,
-) -> Result<()> {
-    let rkv = Database::open_rkv(tmp_dir)?;
-    let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-    let mut writer = rkv.write()?;
-
-    // Set version to 2
-    meta_store.put(&mut writer, DB_KEY_DB_VERSION, &2u16)?;
-
-    // Set global participation flag (the old way)
-    meta_store.put(
-        &mut writer,
-        DB_KEY_GLOBAL_USER_PARTICIPATION,
-        &global_participation,
-    )?;
-
-    writer.commit()?;
     Ok(())
 }

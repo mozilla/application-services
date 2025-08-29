@@ -94,7 +94,6 @@ def req(request_context):
             {
                 "clientId": client_id,
                 "requestContext": request_context,
-                "participation": {"in_experiments": True, "in_rollouts": True},
             }
         )
 
