@@ -17,6 +17,7 @@ def test_enroll_and_get_enrolled_feature_json_control(fml_client, cirrus_client)
         {
             "clientId": "jeddai",
             "requestContext": {"username": "jeddai"},
+            "participation": {"in_experiments": True, "in_rollouts": True},
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))
@@ -50,6 +51,7 @@ def test_enroll_and_get_enrolled_feature_json_treatment(fml_client, cirrus_clien
         {
             "clientId": "test",
             "requestContext": {"username": "test"},
+            "participation": {"in_experiments": True, "in_rollouts": True},
         }
     )
     res = json.loads(cirrus_client.handle_enrollment(req))

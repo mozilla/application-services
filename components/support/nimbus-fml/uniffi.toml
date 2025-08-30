@@ -6,9 +6,9 @@
 # This can be commented out, and the `--library` argument of `bindgen-uniffi` should be used instead.
 # We won't comment this out until cirrus— which a) does not use `--library` b) is not in this repo— uses the pre-built
 # binaries built by `server-megazord-build.py`. Until then, it comments out the line programmatically.
-cdylib_name = "cirrus"
+# cdylib_name = "cirrus"
 
 [bindings.python.custom_types.JsonObject]
-imports = [ "json" ]
+imports = ["json"]
 into_custom = "json.loads({})"
 from_custom = "json.dumps({})"

@@ -908,7 +908,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
 
     client.record_event("app.foregrounded".to_string(), 1)?;
 
-    client.set_global_user_participation(true)?;
+    client.set_experiment_participation(true)?;
 
     // The number of non-zero days in our event store is 2, so the first experiment
     // should be applied, but the second experiment will not be.
