@@ -43,10 +43,11 @@ dependencies {
 
     implementation libs.mozilla.glean
 
-    testImplementation libs.mozilla.glean.forUnitTests
+    testImplementation project(':syncmanager')
+
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.work.testing
-    testImplementation project(':syncmanager')
+    testImplementation libs.mozilla.glean.forUnitTests
 }
 
 ext.configureUniFFIBindgen("places")

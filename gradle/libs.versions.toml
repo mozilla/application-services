@@ -5,15 +5,15 @@
 
 [versions]
 # AGP
-android-plugin = "8.12.0"
+android-gradle-plugin = "8.12.0"
 
 # Google
 protobuf = "4.31.1"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
-kotlin-compiler = "2.2.10"
-kotlin-coroutines = "1.10.2"
+kotlin = "2.2.10"
+coroutines = "1.10.2"
 
 # Mozilla
 android-components = "141.0.1"
@@ -21,8 +21,9 @@ glean = "65.0.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
-androidx-annotation = "1.9.1"
-androidx-core = "1.16.0"
+annotation = "1.9.1"
+core = "1.16.0"
+work = "2.10.3"
 
 # JNA
 jna = "5.14.0" # Don't update until Android 5/6 support is dropped
@@ -36,7 +37,6 @@ androidx-test = "1.7.0"
 androidx-test-espresso = "3.7.0"
 androidx-test-junit = "1.3.0"
 androidx-test-runner = "1.7.0"
-androidx-work = "2.10.3"
 
 # Third Party Testing
 junit4 = "4.13.2"
@@ -50,15 +50,15 @@ python-envs-plugin = "0.0.31"
 
 [libraries]
 # AGP
-tools-android-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "android-plugin" }
+android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "android-gradle-plugin" }
 
 # Google
 protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobuf" }
 protobuf-compiler = { group = "com.google.protobuf", name = "protoc", version.ref = "protobuf" }
 
 # Kotlin
-kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin-compiler" }
-kotlin-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlin-coroutines" }
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 # Mozilla
 mozilla-concept-fetch = { group = "org.mozilla.components", name = "concept-fetch", version.ref = "android-components" }
@@ -68,8 +68,9 @@ mozilla-glean-forUnitTests = { group = "org.mozilla.telemetry", name = "glean-na
 mozilla-rust-android-gradle = { group = "org.mozilla.rust-android-gradle", name = "plugin", version.ref = "rust-android-gradle" }
 
 # AndroidX
-androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidx-annotation" }
-androidx-core = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
+androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core" }
+androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "work" }
 
 # JNA
 jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
@@ -78,14 +79,10 @@ jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 ktlint = { group = "com.pinterest.ktlint", name = "ktlint-cli", version.ref = "ktlint" }
 
 # AndroidX Testing
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidx-test" }
+androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit-ktx", version.ref = "androidx-test-junit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidx-test-runner" }
-androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "androidx-work" }
-
-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
-
 
 # Third Party Testing
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
@@ -93,8 +90,8 @@ junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit5" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 junit-vintage = { group = "org.junit.vintage", name = "junit-vintage-engine" }
-testing-mockito = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
-testing-robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+mockito = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

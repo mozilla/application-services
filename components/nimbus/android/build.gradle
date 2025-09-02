@@ -41,15 +41,15 @@ android {
 dependencies {
     api project(":remotesettings")
 
-    implementation libs.androidx.core
     implementation libs.androidx.annotation
-    implementation libs.kotlin.coroutines
+    implementation libs.androidx.core.ktx
+    implementation libs.kotlinx.coroutines
     implementation libs.mozilla.glean
 
-    testImplementation libs.mozilla.glean.forUnitTests
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.test.junit
     testImplementation libs.androidx.work.testing
+    testImplementation libs.mozilla.glean.forUnitTests
 }
 
 ext.configureUniFFIBindgen("nimbus")
