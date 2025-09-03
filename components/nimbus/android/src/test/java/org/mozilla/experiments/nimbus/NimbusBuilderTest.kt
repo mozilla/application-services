@@ -7,8 +7,8 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Job
-import mozilla.appservices.remotesettings.RemoteSettingsService
 import mozilla.appservices.remotesettings.RemoteSettingsConfig2
+import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -17,7 +17,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.random.Random
-
 
 @RunWith(RobolectricTestRunner::class)
 class NimbusBuilderTest {
@@ -33,7 +32,7 @@ class NimbusBuilderTest {
     fun `test use preview collection`() {
         val n1 = NimbusBuilder(context).apply {
             usePreviewCollection = true
-        }.build(appInfo, RemoteSettingsService(storageDir="dummy", config=RemoteSettingsConfig2())) as DummyNimbus
+        }.build(appInfo, RemoteSettingsService(storageDir = "dummy", config = RemoteSettingsConfig2())) as DummyNimbus
         assertTrue(n1.usePreviewCollection)
 
         val n2 = NimbusBuilder(context).apply {
