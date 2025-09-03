@@ -28,6 +28,7 @@ pub use error::{trace, ApiResult, RemoteSettingsError, Result};
 use client::Client;
 use error::Error;
 use storage::Storage;
+
 uniffi::setup_scaffolding!("remote_settings");
 
 /// Application-level Remote Settings manager.
