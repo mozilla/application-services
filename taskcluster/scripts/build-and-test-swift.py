@@ -12,25 +12,6 @@ from collections import namedtuple
 # Repository root dir
 ROOT_DIR = pathlib.Path(__file__).parent.parent.parent
 
-WRAPPER_DIR = pathlib.Path("megazords/ios-rust/Sources/MozillaRustComponentsWrapper/")
-# List of globs to copy the sources from
-SOURCE_TO_COPY = [
-    WRAPPER_DIR / "ASOhttpClient",
-    WRAPPER_DIR / "Nimbus",
-    WRAPPER_DIR / "FxAClient",
-    WRAPPER_DIR / "Logins",
-    WRAPPER_DIR / "Places",
-    WRAPPER_DIR / "Sync15",
-    WRAPPER_DIR / "SyncManager",
-    WRAPPER_DIR / "Viaduct",
-]
-
-FOCUS_SOURCE_TO_COPY = [
-    WRAPPER_DIR / "Nimbus",
-    WRAPPER_DIR / "Viaduct",
-]
-
-
 def main():
     args = parse_args()
     ensure_dir(args.out_dir)
@@ -177,23 +158,6 @@ def generate_uniffi_bindings_for_target(out_dir, megazord):
     subprocess.check_call(
         ["cargo", "uniffi-bindgen-library-mode", "-l", lib_path, "swift", out_dir]
     )
-
-
-def copy_source_dirs(args):
-    out_dir = args.out_dir / "all"
-    focus_out_dir = args.out_dir / "focus"
-
-    copy_sources(out_dir, SOURCE_TO_COPY)
-    copy_sources(focus_out_dir, FOCUS_SOURCE_TO_COPY)
-
-
-def copy_sources(out_dir, sources):
-    ensure_dir(out_dir)
-    for source in sources:
-        log(f"copying {source}")
-        for path in ROOT_DIR.glob(str(source)):
-            subprocess.check_call(["cp", "-r", path, out_dir])
-
 
 def ensure_dir(path):
     if not path.exists():

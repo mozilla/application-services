@@ -53,8 +53,6 @@ if [[ "$BUILD_SOURCES" == true ]]; then
     "$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --swift-sources "$GENERATED_SWIFT_OUT_DIR"
 fi
 
-# Hack to copy in the RustViaductFFI.h (https://bugzilla.mozilla.org/show_bug.cgi?id=1925601)
-cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$COMMON/Headers"
 echo "original modulemap"
 cat "$COMMON/Modules/module.modulemap"
 TWEAKED_MODULEMAP=$(cat <(head -n1 "$COMMON/Modules/module.modulemap") <(echo "    header \"RustViaductFFI.h\"") <(tail -n +2 "$COMMON/Modules/module.modulemap"))

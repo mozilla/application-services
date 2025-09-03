@@ -114,20 +114,15 @@ You will end up with a directory structure something like this:
 
 > *For more information on our how we ship components using the Swift Package Manager, check the [ADR that introduced the Swift Package Manager](../adr/0003-swift-packaging.md)*
 
-> [!CRITICAL]
-> This section will be soon outdated as all swift wrappers and related tests will be moving to the firefox-ios repository.
-
 Add your component into the iOS ["megazord"](../design/megazords.md) through the local Swift Package Manager (SPM) package `MozillaRustComponentsWrapper`. Note this SPM is for ease of testing APIs locally. The official SPM that is consumed by firefox-ios is a [local package in their repo](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents).
 
-1. Place any hand-written Swift wrapper code for your component in:
-   ```
-   megazords/ios-rust/sources/MozillaRustComponentsWrapper/<your_crate_name>/
-   ```
 
-2. Place your Swift test code in:
+1. Place your Swift test code in:
    ```
    megazords/ios-rust/tests/MozillaRustComponentsWrapper/
    ```
+
+> Note: swift-specific tests are ideally suited in the consuming app as there is better integration coverage and ensures we're accurately testing how it's being consumed
 
 That's it! At this point, if you don't intend on writing tests _(are you sure?)_ you can skip this next section.
 
@@ -150,26 +145,17 @@ To test your component:
 
 The script will:
 1. Build the XCFramework (combines all rust binaries for SPM)
-2. Generate UniFFi bindings (artifacts can be found in `megazords/ios-rust/sources/MozillaRustComponentsWrapper/Generated/`)
+2. Generate UniFFi bindings (generated files will be found in `megazords/ios-rust/sources/MozillaRustComponentsWrapper/Generated/`)
 3. Generate Glean metrics
 4. Run any tests found in the test dir mentioned above
 
-TODO: Update this section??
 
-To ensure distribution of this code, edit `taskcluster/scripts/build-and-test-swift.py`:
+### Distribution of the component
 
-- Add your component's directory path to `SOURCE_TO_COPY`
-- Optionally, add the path to `FOCUS_SOURCE_TO_COPY` if your component targets Firefox Focus.
+The UniFFi files will be generated & packaged via `taskcluster/scripts/build-and-test-swift.py`.
 
+Consumers (eg: Firefox iOS) pull the latest artifacts via a nightly [Gitub action](https://github.com/mozilla-mobile/firefox-ios/actions/workflows/update-appservices-nightly.yml). Once your changes are pulled via a nightly release you'll be able to use your new APIs!
 
+> Note: If you don't want to wait for a nightly, once the CI finishes your build -- you can request the action run in firefox-ios to get it sooner
 
-Make sure that this code gets distributed. Edit `taskcluster/scripts/build-and-test-swift.py` and:
-
-- Add the path to the directory containing any hand-written swift code to `SOURCE_TO_COPY`
-- Optionally also to `FOCUS_SOURCE_TO_COPY` if your component is also targeting Firefox Focus
-
-
-### Distribute your component with `rust-components-swift`
-The Swift source code and generated UniFFI bindings are distributed to consumers (eg: Firefox iOS) through [`rust-components-swift`](https://github.com/mozilla/rust-components-swift).
-
-Your component should now automatically get included in the next `rust-component-swift` nightly release.
+> Note pt2: If you want to locally test against firefox-ios, follow [this guide](https://github.com/mozilla/application-services/blob/main/docs/howtos/locally-published-components-in-firefox-ios.md)

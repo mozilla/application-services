@@ -95,7 +95,7 @@ In Xcode:
 - (If needed) File → Packages → Update to Latest Package Versions
 - Product → Clean Build Folder, then build and run Firefox iOS.
 
-If you still see stale artifacts, delete:
+If you still see stale artifacts (rare), delete:
 
 ```swift
 ~/Library/Caches/org.swift.swiftpm
