@@ -269,8 +269,8 @@ pub fn split_keyword(keyword: &str) -> (&str, &str) {
 /// XXX: Should really be using `icu_collator` for collation!
 pub fn i18n_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     CASE_MAPPER
-        .fold_string(i18n_transform(a))
-        .cmp(&CASE_MAPPER.fold_string(i18n_transform(b)))
+        .fold_string(&i18n_transform(a))
+        .cmp(&CASE_MAPPER.fold_string(&i18n_transform(b)))
 }
 
 /// Performs the following transforms on the given string:
