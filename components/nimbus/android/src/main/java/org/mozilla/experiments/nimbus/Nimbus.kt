@@ -193,7 +193,7 @@ open class Nimbus(
             metricsHandler,
             geckoPrefHandler,
             collectionName,
-            remoteSettingsService
+            remoteSettingsService,
         )
     }
 
