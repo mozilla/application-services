@@ -28,7 +28,6 @@ pub use error::{trace, ApiResult, RemoteSettingsError, Result};
 use client::Client;
 use error::Error;
 use storage::Storage;
-
 uniffi::setup_scaffolding!("remote_settings");
 
 /// Application-level Remote Settings manager.
@@ -83,6 +82,10 @@ impl RemoteSettingsService {
     #[handle_error(Error)]
     pub fn update_config(&self, config: RemoteSettingsConfig2) -> ApiResult<()> {
         self.internal.update_config(config)
+    }
+
+    pub fn client_url(&self) -> String {
+        self.internal.client_url().to_string()
     }
 }
 

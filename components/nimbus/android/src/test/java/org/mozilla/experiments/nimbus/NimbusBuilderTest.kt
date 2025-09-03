@@ -7,6 +7,8 @@ package org.mozilla.experiments.nimbus
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Job
+import mozilla.appservices.remotesettings.RemoteSettingsService
+import mozilla.appservices.remotesettings.RemoteSettingsConfig2
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -15,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import kotlin.random.Random
+
 
 @RunWith(RobolectricTestRunner::class)
 class NimbusBuilderTest {
@@ -29,21 +32,20 @@ class NimbusBuilderTest {
     @Test
     fun `test use preview collection`() {
         val n1 = NimbusBuilder(context).apply {
-            url = "https://example.com"
             usePreviewCollection = true
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, RemoteSettingsService(storageDir="dummy", config=RemoteSettingsConfig2())) as DummyNimbus
         assertTrue(n1.usePreviewCollection)
 
         val n2 = NimbusBuilder(context).apply {
             url = "https://example.com"
             usePreviewCollection = false
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertFalse(n2.usePreviewCollection)
 
         // Without a URL, there is no preview collection
         val n3 = NimbusBuilder(context).apply {
             usePreviewCollection = true
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertFalse(n3.usePreviewCollection)
     }
 
@@ -51,7 +53,7 @@ class NimbusBuilderTest {
     fun `test use bundled experiments on first run only`() {
         val bundledExperiments = Random.nextInt()
 
-        val n0 = NimbusBuilder(context).build(appInfo) as DummyNimbus
+        val n0 = NimbusBuilder(context).build(appInfo, null) as DummyNimbus
         assertNull(n0.initialExperiments)
 
         // Normal operation, first run.
@@ -59,7 +61,7 @@ class NimbusBuilderTest {
             url = "https://example.com"
             isFirstRun = true
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertEquals(bundledExperiments, normalFirstRun.initialExperiments)
 
         // Normal operation, subsequent runs
@@ -67,28 +69,28 @@ class NimbusBuilderTest {
             url = "https://example.com"
             isFirstRun = false
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertNull(normalNonFirstRun.initialExperiments)
 
         // Normal operation, without bundling
         val fetchOnFirstRun = NimbusBuilder(context).apply {
             url = "https://example.com"
             isFirstRun = false
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertNull(fetchOnFirstRun.initialExperiments)
 
         // Local development operation, first run
         val devBuild1 = NimbusBuilder(context).apply {
             isFirstRun = true
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertEquals(bundledExperiments, devBuild1.initialExperiments)
 
         // Local development operation, subsequent
         val devBuild2 = NimbusBuilder(context).apply {
             isFirstRun = false
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertEquals(bundledExperiments, devBuild2.initialExperiments)
     }
 
@@ -100,7 +102,7 @@ class NimbusBuilderTest {
             url = null
             isFirstRun = true
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertEquals(bundledExperiments, devBuild1.initialExperiments)
 
         // Local development operation, subsequent runs, but with isFetchEnabled = false
@@ -110,7 +112,7 @@ class NimbusBuilderTest {
             url = null
             isFirstRun = false
             initialExperiments = bundledExperiments
-        }.build(appInfo) as DummyNimbus
+        }.build(appInfo, null) as DummyNimbus
         assertNull(devBuild2.initialExperiments)
     }
 }
