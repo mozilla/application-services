@@ -1,5 +1,8 @@
 # v144.0 (In progress)
 
+### Suggest
+- Switched from `unicode-normalization` and `unicase` to ICU4X. (And updated the lock file from ICU4X 1.5 to ICU4X 2.0.)
+
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 

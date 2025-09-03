@@ -43,7 +43,7 @@ the details of which are reproduced below.
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [Zlib License: foldhash](#zlib-license-foldhash)
-* [Unicode-3.0 License: icu_collections, icu_locid, icu_locid_transform, icu_locid_transform_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_provider_macros, litemap, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locid-icu_locid_transform-icu_locid_transform_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_provider_macros-litemap-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerovec-zerovec-derive)
+* [Unicode-3.0 License: icu_casemap, icu_casemap_data, icu_collections, icu_locale_core, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_casemap-icu_casemap_data-icu_collections-icu_locale_core-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
 * [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 * [(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident](#(mit-or-apache-20)-and-unicode-30-license-unicode-ident)
@@ -510,6 +510,7 @@ The following text applies to code linked from these dependencies:
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
+[linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
@@ -574,16 +575,13 @@ The following text applies to code linked from these dependencies:
 [toml_parser](https://github.com/toml-rs/toml),
 [toml_writer](https://github.com/toml-rs/toml),
 [typenum](https://github.com/paholg/typenum),
-[unicase](https://github.com/seanmonstar/unicase),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
 [url](https://github.com/servo/rust-url),
-[utf16_iter](https://github.com/hsivonen/utf16_iter),
 [utf8_iter](https://github.com/hsivonen/utf8_iter),
 [uuid](https://github.com/uuid-rs/uuid),
 [vcpkg](https://github.com/mcgoo/vcpkg-rs),
-[version_check](https://github.com/SergioBenitez/version_check),
-[write16](https://github.com/hsivonen/write16)
+[version_check](https://github.com/SergioBenitez/version_check)
 
 ```
                               Apache License
@@ -2092,26 +2090,27 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 -------------
-## Unicode-3.0 License: icu_collections, icu_locid, icu_locid_transform, icu_locid_transform_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_provider_macros, litemap, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerovec, zerovec-derive
+## Unicode-3.0 License: icu_casemap, icu_casemap_data, icu_collections, icu_locale_core, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive
 
 The following text applies to code linked from these dependencies:
+[icu_casemap](https://github.com/unicode-org/icu4x),
+[icu_casemap_data](https://github.com/unicode-org/icu4x),
 [icu_collections](https://github.com/unicode-org/icu4x),
-[icu_locid](https://github.com/unicode-org/icu4x),
-[icu_locid_transform](https://github.com/unicode-org/icu4x),
-[icu_locid_transform_data](https://github.com/unicode-org/icu4x),
+[icu_locale_core](https://github.com/unicode-org/icu4x),
 [icu_normalizer](https://github.com/unicode-org/icu4x),
 [icu_normalizer_data](https://github.com/unicode-org/icu4x),
 [icu_properties](https://github.com/unicode-org/icu4x),
 [icu_properties_data](https://github.com/unicode-org/icu4x),
 [icu_provider](https://github.com/unicode-org/icu4x),
-[icu_provider_macros](https://github.com/unicode-org/icu4x),
 [litemap](https://github.com/unicode-org/icu4x),
+[potential_utf](https://github.com/unicode-org/icu4x),
 [tinystr](https://github.com/unicode-org/icu4x),
 [writeable](https://github.com/unicode-org/icu4x),
 [yoke-derive](https://github.com/unicode-org/icu4x),
 [yoke](https://github.com/unicode-org/icu4x),
 [zerofrom-derive](https://github.com/unicode-org/icu4x),
 [zerofrom](https://github.com/unicode-org/icu4x),
+[zerotrie](https://github.com/unicode-org/icu4x),
 [zerovec-derive](https://github.com/unicode-org/icu4x),
 [zerovec](https://github.com/unicode-org/icu4x)
 
