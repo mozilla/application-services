@@ -16,12 +16,10 @@ def main():
     args = parse_args()
     ensure_dir(args.out_dir)
     ensure_dir(args.xcframework_dir)
-    run_tests(args)
     xcframework_build(args, "MozillaRustComponents.xcframework.zip")
     xcframework_build(args, "FocusRustComponents.xcframework.zip")
     generate_glean_metrics(args)
     generate_uniffi_bindings(args)
-    copy_source_dirs(args)
     log("build complete")
 
 
@@ -32,15 +30,6 @@ def parse_args():
     parser.add_argument("glean_work_dir", type=pathlib.Path)
     parser.add_argument("--force_build", action="store_true")
     return parser.parse_args()
-
-
-def run_tests(args):
-    # FIXME: this is currently failing with `Package.resolved file is corrupted or malformed; fix or
-    # delete the file to continue`
-    # subprocess.check_call([
-    #     "automation/tests.py", "ios-tests"
-    # ])
-    pass
 
 
 XCFrameworkBuildInfo = namedtuple(

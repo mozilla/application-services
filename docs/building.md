@@ -140,9 +140,9 @@ Configure maven to use the native windows maven repository - then, when doing `.
 1. Run `./libs/verify-ios-environment.sh` to check your setup and environment
 variables.
     - Make any corrections recommended by the script and re-run.
-1. Run `./automation/run_ios_tests.sh` to build all the binaries and run tests using the local SPM setup.
+1. Run `./automation/build_ios_artifacts.sh` to build all the binaries, UniFFi bindings, Glean metrics generation
 
-    > Note: This is mainly for testing the rust components, the artifact generated in the above steps should be all you need for building application with application-services
+    > Note: The artifacts generated in the above steps can then be used in any consuming product
 
 
 

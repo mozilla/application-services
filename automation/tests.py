@@ -25,10 +25,9 @@ Other Modes:
     - rust-clippy
     - rust-fmt
     - ktlint
-    - swiftlint
-    - swiftformat
+    - nss-bindings
     - gradle
-    - ios-tests
+    - ios-artifacts
     - python-tests
 """
 
@@ -364,39 +363,13 @@ def run_ktlint():
     run_command([GRADLE, "ktlint", "detekt"])
 
 
-def run_swiftlint():
-    if on_darwin():
-        run_command(["swiftlint", "--strict"])
-    elif not docker_installed():
-        print("WARNING: On non-Darwin hosts, docker is required to run swiftlint")
-        print("WARNING: skipping swiftlint on non-Darwin host")
-    else:
-        cwd = os.getcwd()
-
-        run_command(
-            [
-                "docker",
-                "run",
-                "-it",
-                "--rm",
-                "-v",
-                f"{cwd}:{cwd}",
-                "-w",
-                cwd,
-                "ghcr.io/realm/swiftlint:latest",
-                "swiftlint",
-                "--strict",
-            ]
-        )
-
-
 def run_gradle_tests():
     run_command([GRADLE, "test"])
 
 
-def run_ios_tests():
+def build_ios_artifacts():
     if on_darwin():
-        run_command([AUTOMATION_DIR / "run_ios_tests.sh"])
+        run_command([AUTOMATION_DIR / "build_ios_artifacts.sh"])
     else:
         print("WARNING: skipping iOS tests on non-Darwin host")
 
@@ -428,41 +401,6 @@ def cargo_fmt(package=None, fix_issues=False):
     if not fix_issues:
         cmdline.extend(["--", "--check"])
     run_command(cmdline)
-
-
-def swift_format():
-    swift_format_args = [
-        "megazords",
-        "--exclude",
-        "**/Generated",
-        "--exclude",
-        "megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Nimbus/Utils",
-        "--lint",
-        "--swiftversion",
-        "5",
-    ]
-    if on_darwin():
-        run_command(["swiftformat", *swift_format_args])
-    elif not docker_installed():
-        print("WARNING: On non-Darwin hosts, docker is required to run swiftformat")
-        print("WARNING: skipping swiftformat on non-Darwin host")
-    else:
-        cwd = os.getcwd()
-
-        run_command(
-            [
-                "docker",
-                "run",
-                "-it",
-                "--rm",
-                "-v",
-                f"{cwd}:{cwd}",
-                "-w",
-                cwd,
-                "ghcr.io/nicklockwood/swiftformat:latest",
-                *swift_format_args,
-            ]
-        )
 
 
 def check_for_fmt_changes(branch_changes):
@@ -556,14 +494,13 @@ def calc_steps(args):
         yield Step("cargo fmt", cargo_fmt)
     elif args.mode == "ktlint":
         yield Step("ktlint", run_ktlint)
-    elif args.mode == "swiftlint":
-        yield Step("swiftlint", run_swiftlint)
-    elif args.mode == "swiftformat":
-        yield Step("swiftformat", swift_format)
+    elif args.mode == "nss-bindings":
+        print_rust_environment()
+        yield Step("NSS bindings test", run_nss_bindings_test)
     elif args.mode == "gradle":
         yield Step("gradle tests", run_gradle_tests)
-    elif args.mode == "ios-tests":
-        yield Step("ios tests", run_ios_tests)
+    elif args.mode == "ios-artifacts":
+        yield Step("ios artifacts", build_ios_artifacts)
     elif args.mode == "python-tests":
         yield Step("python tests", run_python_tests)
     else:

@@ -140,7 +140,7 @@ To test your component:
 - Run the script:
 
 ```
-./automation/run_ios_tests.sh
+./automation/build_ios_artifacts.sh
 ```
 
 The script will:
