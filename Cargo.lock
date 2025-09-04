@@ -5128,18 +5128,18 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.31"
+version = "0.1.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0955b8137a1df6f1a2e9a37d8a6656291ff0297c1a97c24e0d8425fe2312f79a"
+checksum = "b9d12581f227e93f094d3af2ae690a574abb8a2b9b7a96e7cfe9647b2b617678"
 dependencies = [
  "once_cell",
 ]
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.18"
+version = "0.3.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+checksum = "2054a14f5307d601f88daf0553e1cbf472acc4f2c51afab632431cdcd72124d5"
 dependencies = [
  "sharded-slab",
  "thread_local",
