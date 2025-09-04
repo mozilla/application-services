@@ -198,7 +198,6 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      */
     fun resetTelemetryIdentifiers() = Unit
 
-    @Deprecated("Use experimentParticipation and rolloutParticipation instead")
     var globalUserParticipation: Boolean
         get() = experimentParticipation && rolloutParticipation
         set(value) {
