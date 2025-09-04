@@ -62,12 +62,10 @@ For details on adding new crates, [checkout the documentation for adding new spm
 For testing changes against our internal test suites:
 
 > If you've made rust changes:
-1. Run `./automation/run_ios_tests.sh`
-   - This will generate the XCFramework, which makes the rust binaries, generates the uniffi and generates glean metrics
-   - It will then run all tests found in `megazords/ios-rust/tests/MozillaRustComponentsTests`
+Run `./automation/build_ios_artifacts.sh`
+   - This will generate the XCFramework, which makes the rust binaries, generates the UniFFi bindings, and generates any Glean metrics
 
-> If you've only made swift changes:
-1. Run `./automation/run_ios_tests.sh --test-only`
+Then you'll follow one of the sections below for testing against an actual consumer
 
 
 ## Testing local changes for consumers
@@ -83,7 +81,7 @@ release artifact, and then consumers can consume the zip and add it as a depende
 
 For testing from a PR or unreleased git commit, you can:
 
-* Find the CircleCI job named `ios-test-and-artifacts` for the commit you want to test, click through to view it on CircleCI,
+* Find the CircleCI job named `ios-artifacts` for the commit you want to test, click through to view it on CircleCI,
 and confirm that it completed successfully.
 * In the "artifacts" list, locate `MozillaRustComponents.xcframework.zip` and note its URL.
 * In the "steps" list, find the step named `XCFramework bundle checksum`, and note the checksum in its output.

@@ -34,15 +34,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_tests(args):
-    # FIXME: this is currently failing with `Package.resolved file is corrupted or malformed; fix or
-    # delete the file to continue`
-    # subprocess.check_call([
-    #     "automation/tests.py", "ios-tests"
-    # ])
-    pass
-
-
 XCFrameworkBuildInfo = namedtuple(
     "XCFrameworkBuildInfo", "filename out_path build_command"
 )

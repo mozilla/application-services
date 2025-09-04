@@ -7,7 +7,7 @@ queue_rules:
       - label=checkin-needed
       - check-success=Decision Task
       - check-success=run-tests
-      - check-success=ios-test-and-artifacts
+      - check-success=ios-artifacts
       - check-success=clippy
       - check-success=check-formatting
       - "#check-success>=5"
