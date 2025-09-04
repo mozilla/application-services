@@ -24,7 +24,9 @@ export MOZ_AVOID_JJ_VCS=1
 
 # existing patches against m-c
 # gradle
-moz-phab patch --apply-to=here --no-branch D245762
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D245762
+# enable `--with-appservices-in-tree` config option by default
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
 #lint
 moz-phab patch --apply-to=here --no-branch D246875
 
@@ -50,6 +52,8 @@ rm -rf docs/shared
 rm DEPENDENCIES.md megazords/full/android/dependency-licenses.xml megazords/full/DEPENDENCIES.md megazords/ios-rust/DEPENDENCIES.md megazords/ios-rust/focus/DEPENDENCIES.md
 # No Taskcluster for now, testing etc should come for free (or need tweaks to add the new components etc?)
 rm -rf taskcluster/app_services_taskgraph taskcluster
+# nimbus-gradle-plugin isn't needed
+rm -rf tools/nimbus-gradle-plugin
 
 cd ..
 
@@ -59,7 +63,8 @@ cp -r tmp-app-services/.buildconfig-android.yml services/app-services
 
 rm -rf tmp-app-services
 
-git add services/app-services
+# explicit "add -f" used to avoid throughout because local .gitignore might exclude stuff, eg, ".*"
+git add -f services/app-services
 git commit -m "Import application-services commit $commit"
 
 # We've committed an app-services unmodified apart from removal of things we don't need.
@@ -82,6 +87,7 @@ mv Cargo.toml.tmp Cargo.toml
 
 ./mach vendor rust
 # This will create a commit with Cargo.lock changing just for these crates, and many `third_party/rust` directories removed.
+git add -f third_party/rust/.
 git commit -a -m "Re-vendor application-services from its new in-tree home"
 
 # apply the final "patch" in the stack, which we do by abusing sed.
@@ -90,17 +96,19 @@ git commit -a -m "Re-vendor application-services from its new in-tree home"
 # [dependencies] is conveniently at the end of these toml files
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }\n' >> services/app-services/megazords/full/Cargo.toml
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }\n' >> services/app-services/tools/embedded-uniffi-bindgen/Cargo.toml
+printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["nimbus-fml"], optional = true }\n' >> services/app-services/components/support/nimbus-fml/Cargo.toml
 # We need to update the crate-type for the megazord
 sed -e 's|crate-type = \["cdylib"\]|crate-type = \["staticlib"\]|' services/app-services/megazords/full/Cargo.toml > services/app-services/megazords/full/Cargo.toml.tmp
 mv services/app-services/megazords/full/Cargo.toml.tmp services/app-services/megazords/full/Cargo.toml
 # [features] is conveniently at the end of this toml
-printf 'megazord = []\nembedded-uniffi-bindgen = []\n' >> build/workspace-hack/Cargo.toml
+printf 'megazord = []\nembedded-uniffi-bindgen = []\nnimbus-fml = []\n' >> build/workspace-hack/Cargo.toml
 # and more hacks - sue me ;) In the short term these are more fragile in theory than practice.
 
-# Add the 2 crates to the workspace which have binary targets
+# Add the crates to the workspace which have binary targets
 sed -e 's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
   "services/app-services/megazords/full",\
-  "services/app-services/tools/embedded-uniffi-bindgen",|' \
+  "services/app-services/tools/embedded-uniffi-bindgen",\
+  "services/app-services/components/support/nimbus-fml",|' \
   Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
@@ -121,6 +129,7 @@ sed -e 's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-
   "services/app-services/components/suggest",\
   "services/app-services/components/support/error",\
   "services/app-services/components/support/guid",\
+  "services/app-services/components/support/nimbus-fml",\
   "services/app-services/components/support/sql",\
   "services/app-services/components/support/tracing",\
   "services/app-services/components/sync15",\
@@ -137,7 +146,9 @@ git commit -a -m "Integrate app-services into the build system"
 
 # XXX - Final vendor for rc_crypto, which doesn't yet `vet` - todo
 # once it vets, we can just do a single vendor with the above one at the end.
+# BUT - now there are more vendoring issues with nimbus-fml - bug 1983669.
 ./mach vendor rust --force --ignore-modified
-git commit -a -m "final vendor of rc_crypto ignoring vet issues."
+git add -f third_party/rust/.
+git commit -a -m "final vendor ignoring vet issues."
 
 echo "Done!"
