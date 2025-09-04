@@ -159,7 +159,6 @@ open class Nimbus(
             }
         }
 
-    @Deprecated("Use experimentParticipation and rolloutParticipation instead")
     override var globalUserParticipation: Boolean
         get() = nimbusClient.getGlobalUserParticipation()
         set(active) {
@@ -440,7 +439,6 @@ open class Nimbus(
             }
         }
 
-    @Deprecated("Use setExperimentParticipationOnThisThread and setRolloutParticipationOnThisThread instead")
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) =

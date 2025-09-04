@@ -259,7 +259,6 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> set_rollout_participation(boolean opt_in);
 
-    /// DEPRECATED: Use set_experiment_participation and set_rollout_participation instead.
     /// Getter and setter for global user participation (applies to both experiments and rollouts).
     /// For simplicity, the getter returns the experiment participation value.
     [Throws=NimbusError]
