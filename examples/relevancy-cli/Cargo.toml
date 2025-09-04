@@ -9,7 +9,7 @@ publish = false
 viaduct-dev = { path = "../../components/support/viaduct-dev" }
 log = "0.4"
 env_logger = { version = "0.10", default-features = false }
-clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive", "help"]}
 cli-support = { path = "../cli-support" }
 interrupt-support = { path = "../../components/support/interrupt" }
 places = { path = "../../components/places" }

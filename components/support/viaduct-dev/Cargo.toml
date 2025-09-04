@@ -18,4 +18,4 @@ once_cell = "1.5"
 url = "2"
 
 [dev-dependencies]
-clap = { version = "4.2", default-features = false, features = ["std", "derive"]}
+clap = { version = "4.2", default-features = false, features = ["std", "derive", "help"]}

@@ -11,7 +11,7 @@ default = ["server"]
 server = ["dep:axum", "dep:tokio", "dep:tower", "dep:tower-http", "dep:tower-livereload", "dep:hyper", "dep:local-ip-address"]
 
 [dependencies]
-clap = {version = "4.2", default-features = false, features = ["std", "derive", "error-context"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive", "error-context", "help"]}
 anyhow = "1.0.44"
 remote_settings = { path = "../../remote_settings" }
 nimbus-fml = { path = "../nimbus-fml", features = ["client-lib"] }

@@ -10,7 +10,7 @@ publish = false
 nss = { path = "../../components/support/rc_crypto/nss" }
 viaduct-dev = { path = "../../components/support/viaduct-dev" }
 log = "0.4"
-clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
+clap = {version = "4.2", default-features = false, features = ["std", "derive", "help"]}
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
