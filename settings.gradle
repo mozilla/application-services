@@ -176,7 +176,7 @@ gradle.projectsLoaded { ->
             calcGroupId(buildconfig), // componentsGroupId
             17, // jvmTargetCompatibility,
             36, // compileSdkVersion,
-            21, // minSdkVersion,
+            26, // minSdkVersion,
             36, // targetSdkVersion,
             "28.2.13676358", // ndkVersion - Keep it in sync in TC Dockerfile.
         )
