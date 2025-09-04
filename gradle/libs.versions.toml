@@ -8,7 +8,7 @@
 android-gradle-plugin = "8.13.0"
 
 # Google
-protobuf = "4.31.1"
+protobuf = "4.32.0"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
