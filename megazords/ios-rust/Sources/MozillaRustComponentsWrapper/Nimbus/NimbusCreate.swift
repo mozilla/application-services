@@ -77,7 +77,7 @@ public extension Nimbus {
     /// - Throws `NimbusError` if anything goes wrong with the Rust FFI or in the `NimbusClient` constructor.
     ///
     static func create(
-        _ server: NimbusServerSettings?,
+        _: NimbusServerSettings?,
         appSettings: NimbusAppSettings,
         coenrollingFeatureIds: [String] = [],
         dbPath: String,
@@ -85,27 +85,24 @@ public extension Nimbus {
         enabled: Bool = true,
         userDefaults: UserDefaults? = nil,
         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter,
-        recordedContext: RecordedContext? = nil
+        recordedContext: RecordedContext? = nil,
+        remoteSettingsService: RemoteSettingsService? = nil,
+        collectionName: String? = nil
     ) throws -> NimbusInterface {
         guard enabled else {
             return NimbusDisabled.shared
         }
 
         let context = Nimbus.buildExperimentContext(appSettings)
-        let remoteSettings = server.map { server -> RemoteSettingsConfig in
-            RemoteSettingsConfig(
-                collectionName: server.collection,
-                server: .custom(url: server.url.absoluteString)
-            )
-        }
         let nimbusClient = try NimbusClient(
             appCtx: context,
             recordedContext: recordedContext,
             coenrollingFeatureIds: coenrollingFeatureIds,
             dbpath: dbPath,
-            remoteSettingsConfig: remoteSettings,
             metricsHandler: GleanMetricsHandler(),
-            geckoPrefHandler: nil
+            geckoPrefHandler: nil,
+            collectionName: collectionName,
+            remoteSettingsService: remoteSettingsService
         )
 
         return Nimbus(
