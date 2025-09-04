@@ -8,9 +8,14 @@ mod database;
 mod matching;
 
 use criterion::{criterion_group, criterion_main};
-use database::{bench_match_url, bench_search_frecent};
+use database::{bench_match_url, bench_outgoing_candidates, bench_search_frecent};
 use matching::bench_match_anywhere;
 
-criterion_group!(bench_db, bench_search_frecent, bench_match_url);
+criterion_group!(
+    bench_db,
+    bench_search_frecent,
+    bench_match_url,
+    bench_outgoing_candidates,
+);
 criterion_group!(bench_mem, bench_match_anywhere);
 criterion_main!(bench_db, bench_mem);

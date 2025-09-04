@@ -1055,8 +1055,8 @@ pub mod history_sync {
                 sync_status, sync_change_counter, preview_image_url,
                 unknown_fields
             FROM moz_places
-            WHERE (sync_change_counter > 0 OR sync_status != {}) AND
-                  NOT hidden
+             WHERE hidden = 0
+                AND (sync_change_counter > 0 OR sync_status != {})
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
