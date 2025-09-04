@@ -22,11 +22,11 @@ rust-android-gradle = "0.9.6"
 
 # AndroidX
 annotation = "1.9.1"
-core = "1.16.0"
+core = "1.17.0"
 work = "2.10.3"
 
 # JNA
-jna = "5.14.0" # Don't update until Android 5/6 support is dropped
+jna = "5.17.0"
 
 # Linting and Static Analysis
 detekt = "1.23.8"

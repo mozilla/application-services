@@ -1,11 +1,18 @@
 # v144.0 (In progress)
 
-### Glean
-- Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
+## ✨ What's New ✨
 
 ### OHTTP Client
-- The `as-ohttp-client` component is being reintroduced to allos firefox-ios to
+- The `as-ohttp-client` component is being reintroduced to allow firefox-ios to
   optionally submit Glean pings over OHTTP.
+
+## 🦊 What's Changed 🦊
+
+### Android
+- Bumped the minimum SDK version to 26 (Android 8). ([#6926](https://github.com/mozilla/application-services/pull/6926)
+
+### Glean
+- Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
 [Full Changelog](In progress)
 
