@@ -510,7 +510,6 @@ The following text applies to code linked from these dependencies:
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
-[linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
