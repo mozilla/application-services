@@ -9,20 +9,38 @@ license = "MPL-2.0"
 [features]
 client-lib = []
 uniffi-bindings = ["client-lib", "dep:uniffi"]
+# XXX - this test code has failed undetected for a very long time and should either be removed or fixed.
+kotlin-tests = []
+swift-tests = []
+# and a work-around so that `--all-features` still arranges to keep our test features disabled.
+all-features-workaround = []
 
 [lib]
 name = "nimbus_fml"
+
+# A bin target needed when used in m-c.
+[[bin]]
+name = "nimbus-fml"
+
+[build-dependencies]
+uniffi = { version = "0.29.0", features = ["build"], optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+# If you enable any of the `*-tests` features you will also need to uncomment this.
+# It is commented to avoid dragging it into m-c, which is a larger than expected yak to shave for something that's not actually used.
+# jsonschema = { version = "0.17", default-features = false, optional = true }
 
 [dependencies]
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 anyhow = "1.0.44"
 serde_json = { version = "1", features = ["preserve_order"] }
-serde_yaml = "0.8.21"
+serde_yaml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.29"
 askama = "0.13"
-textwrap = "0.14.2"
-heck = "0.3.3"
+textwrap = "0.16"
+heck = "0.5"
 unicode-segmentation = "1.8.0"
 url = { version = "2", features = ["serde"] }
 glob = "0.3.0"
@@ -35,10 +53,3 @@ itertools = "0"
 regex = "1.9"
 viaduct = { path = "../../viaduct/" }
 termcolor = "1.4.1"
-
-[build-dependencies]
-uniffi = { version = "0.29.0", features = ["build"], optional = true }
-
-[dev-dependencies]
-tempfile = "3"
-jsonschema = { version = "0.17", default-features = false }

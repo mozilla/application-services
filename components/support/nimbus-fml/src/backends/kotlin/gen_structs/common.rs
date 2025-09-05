@@ -1,17 +1,17 @@
 // /* This Source Code Form is subject to the terms of the Mozilla Public
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use heck::{CamelCase, MixedCase, ShoutySnakeCase};
+use heck::{ToLowerCamelCase, ToShoutySnakeCase, ToUpperCamelCase};
 use std::fmt::Display;
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
 pub fn class_name(nm: &dyn Display) -> String {
-    nm.to_string().to_camel_case()
+    nm.to_string().to_upper_camel_case()
 }
 
 /// Get the idiomatic Kotlin rendering of a variable name.
 pub fn var_name(nm: &dyn Display) -> String {
-    nm.to_string().to_mixed_case()
+    nm.to_string().to_lower_camel_case()
 }
 
 /// Get the idiomatic Kotlin rendering of an individual enum variant.
