@@ -1,14 +1,21 @@
 # v144.0 (In progress)
 
+## ✨ What's New ✨
+
+### OHTTP Client
+- The `as-ohttp-client` component is being reintroduced to allow firefox-ios to
+  optionally submit Glean pings over OHTTP.
+
+## 🦊 What's Changed 🦊
+
 ### Suggest
 - Switched from `unicode-normalization` and `unicase` to ICU4X. (And updated the lock file from ICU4X 1.5 to ICU4X 2.0.)
 
+### Android
+- Bumped the minimum SDK version to 26 (Android 8). ([#6926](https://github.com/mozilla/application-services/pull/6926)
+
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
-
-### OHTTP Client
-- The `as-ohttp-client` component is being reintroduced to allos firefox-ios to
-  optionally submit Glean pings over OHTTP.
 
 [Full Changelog](In progress)
 

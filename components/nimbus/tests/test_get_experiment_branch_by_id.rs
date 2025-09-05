@@ -81,7 +81,7 @@ fn test_enrolled() -> Result<()> {
             experiment_slug
         );
     }
-    client.set_global_user_participation(false)?;
+    client.set_experiment_participation(false)?;
     for experiment_slug in experiment_slugs {
         assert_eq!(
             client.get_experiment_branch(experiment_slug.to_string())?,
