@@ -362,7 +362,11 @@ pub(crate) fn print_info(cmd: &PrintInfoCmd) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    any(feature = "swift-tests", feature = "kotlin-tests"),
+    not(feature = "all-features-workaround")
+))]
 mod test {
     use std::fs;
     use std::path::PathBuf;
@@ -705,7 +709,11 @@ mod test {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "kotlin-tests",
+    not(feature = "all-features-workaround")
+))]
 mod kts_tests {
     use crate::frontend::{AboutBlock, KotlinAboutBlock};
 
@@ -979,7 +987,11 @@ mod kts_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    feature = "swift-tests",
+    not(feature = "all-features-workaround")
+))]
 mod swift_tests {
     use super::{
         test::{generate_and_assert, generate_multiple_and_assert},
