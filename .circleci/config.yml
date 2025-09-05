@@ -141,7 +141,6 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py python-tests
-      - run: automation/tests.py nss-bindings
   restore-sccache-cache:
     steps:
       - restore_cache:

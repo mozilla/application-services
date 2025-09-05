@@ -27,7 +27,6 @@ Other Modes:
     - ktlint
     - swiftlint
     - swiftformat
-    - nss-bindings
     - gradle
     - ios-tests
     - python-tests
@@ -346,17 +345,6 @@ def run_rust_test(package, features):
     )
 
 
-def run_nss_bindings_test():
-    run_command(
-        [
-            "cargo",
-            "run",
-            "-p",
-            "systest",
-        ]
-    )
-
-
 def run_clippy(package, features):
     run_command(
         [
@@ -572,9 +560,6 @@ def calc_steps(args):
         yield Step("swiftlint", run_swiftlint)
     elif args.mode == "swiftformat":
         yield Step("swiftformat", swift_format)
-    elif args.mode == "nss-bindings":
-        print_rust_environment()
-        yield Step("NSS bindings test", run_nss_bindings_test)
     elif args.mode == "gradle":
         yield Step("gradle tests", run_gradle_tests)
     elif args.mode == "ios-tests":
