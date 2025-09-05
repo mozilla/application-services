@@ -89,6 +89,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: async-trait</name>
+    <url>https://github.com/dtolnay/async-trait/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: autocfg</name>
     <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
@@ -315,6 +319,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: plain</name>
     <url>https://github.com/randomites/plain/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: pollster</name>
+    <url>https://github.com/zesterer/pollster/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ppv-lite86</name>

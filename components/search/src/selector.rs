@@ -1964,7 +1964,7 @@ mod tests {
         expect_sync_successful: bool,
     ) -> Arc<SearchEngineSelector> {
         error_support::init_for_tests();
-        viaduct_dev::use_dev_backend();
+        let _ = viaduct::init_backend_hyper();
 
         let config = RemoteSettingsConfig2 {
             server: Some(RemoteSettingsServer::Custom {

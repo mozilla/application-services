@@ -116,7 +116,7 @@ pub enum Error {
 
     #[cfg(feature = "sync-client")]
     #[error("Network error: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
 
     #[cfg(feature = "sync-client")]
     #[error("Unexpected HTTP status: {0}")]
