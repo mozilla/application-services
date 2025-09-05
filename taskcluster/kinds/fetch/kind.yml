@@ -13,13 +13,6 @@ task-defaults:
     docker-image: {in-tree: linux}
 
 tasks:
-    swiftformat:
-        description: swiftformat
-        fetch:
-            type: static-url
-            url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.57.2/swiftformat.zip
-            sha256: 8333fedf95b5c5f04d96614d2049327819e084dcd7a0f9f38dac59aa604a0b74
-            size: 2073326
     nss-artifact:
         description: fetches the built NSS artifacts from NSS CI
         fetch:

@@ -58,5 +58,3 @@ tasks:
       toolchain:
         - rust-osx
         - libs-ios
-      fetch:
-        - swiftformat
