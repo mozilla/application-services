@@ -11,7 +11,7 @@
 # While this script lives in app-services for convenience, it uses git to fetch app-services.
 # This script can be anywhere but it must be run with the correct cwd - see above.
 #
-# If this is successful, it will have created a number of git commits and should be able to build and run Fenix.
+# If this is successful, it will have created a number of git commits and is able to build and run Fenix and Focus.
 set -ex
 
 if [[ ! -d "$(pwd)/toolkit/components" ]]; then
@@ -27,13 +27,13 @@ export MOZ_AVOID_JJ_VCS=1
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D245762
 # enable `--with-appservices-in-tree` config option by default
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
-#lint
+# lint
 moz-phab patch --apply-to=here --no-branch D246875
 
-# the import of app-services via a branch markh is maintaining while we work towards `main`
+# the import of app-services. 'main' works :)
 git clone https://github.com/mozilla/application-services tmp-app-services
 cd tmp-app-services
-git co monorepo
+git co main
 
 # xxx - this show-ref confused me - why doesn't `HEAD` work in place of refs/heads/monorepo??
 commit=$(git show-ref refs/heads/monorepo | awk '{print $1}')
@@ -50,8 +50,8 @@ rm -rf components/external
 rm -rf docs/shared
 # need a story for these generated deps - bug 1963617
 rm DEPENDENCIES.md megazords/full/android/dependency-licenses.xml megazords/full/DEPENDENCIES.md megazords/ios-rust/DEPENDENCIES.md megazords/ios-rust/focus/DEPENDENCIES.md
-# No Taskcluster for now, testing etc should come for free (or need tweaks to add the new components etc?)
-rm -rf taskcluster/app_services_taskgraph taskcluster
+# No Taskcluster for now.
+rm -rf taskcluster
 # nimbus-gradle-plugin isn't needed
 rm -rf tools/nimbus-gradle-plugin
 
@@ -63,7 +63,7 @@ cp -r tmp-app-services/.buildconfig-android.yml services/app-services
 
 rm -rf tmp-app-services
 
-# explicit "add -f" used to avoid throughout because local .gitignore might exclude stuff, eg, ".*"
+# explicit "add -f" used throughout because local .gitignore might exclude stuff, eg, ".*"
 git add -f services/app-services
 git commit -m "Import application-services commit $commit"
 
@@ -85,12 +85,7 @@ sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/
     Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
-./mach vendor rust
-# This will create a commit with Cargo.lock changing just for these crates, and many `third_party/rust` directories removed.
-git add -f third_party/rust/.
-git commit -a -m "Re-vendor application-services from its new in-tree home"
-
-# apply the final "patch" in the stack, which we do by abusing sed.
+# apply the build changes which we do by abusing sed.
 # This is mildly (hah!) fragile.
 
 # [dependencies] is conveniently at the end of these toml files
@@ -144,11 +139,10 @@ mv Cargo.toml.tmp Cargo.toml
 cargo update -p gkrust-shared
 git commit -a -m "Integrate app-services into the build system"
 
-# XXX - Final vendor for rc_crypto, which doesn't yet `vet` - todo
-# once it vets, we can just do a single vendor with the above one at the end.
-# BUT - now there are more vendoring issues with nimbus-fml - bug 1983669.
-./mach vendor rust --force --ignore-modified
+# apply supply-chain approvals for rc_crypto and nimbus etc
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
+./mach vendor rust
 git add -f third_party/rust/.
-git commit -a -m "final vendor ignoring vet issues."
+git commit -a -m "vendor"
 
 echo "Done!"
