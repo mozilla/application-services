@@ -15,8 +15,6 @@ pub enum FMLError {
     YAMLError(#[from] serde_yaml::Error),
     #[error("URL Error: {0}")]
     UrlError(#[from] url::ParseError),
-    #[error("Email Error: {0}")]
-    EmailError(#[from] email_address::Error),
     #[error("Regex Error: {0}")]
     RegexError(#[from] regex::Error),
 

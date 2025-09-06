@@ -4,7 +4,6 @@
 
 use std::collections::BTreeSet;
 
-use email_address::EmailAddress;
 use url::Url;
 
 use crate::{frontend::DocumentationLink, intermediate_representation::FeatureDef, FmlClient};
@@ -15,7 +14,7 @@ pub struct FmlFeatureDescriptor {
     pub(crate) description: String,
     pub(crate) is_coenrolling: bool,
     pub(crate) documentation: Vec<DocumentationLink>,
-    pub(crate) contacts: Vec<EmailAddress>,
+    pub(crate) contacts: Vec<String>,
     pub(crate) meta_bug: Option<Url>,
     pub(crate) events: Vec<Url>,
     pub(crate) configurator: Option<Url>,
