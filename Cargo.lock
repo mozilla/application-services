@@ -27,7 +27,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "uuid",
@@ -120,7 +120,7 @@ dependencies = [
  "ohttp",
  "parking_lot",
  "rusqlite",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
 ]
 
@@ -222,7 +222,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "types",
  "uniffi",
  "url",
@@ -731,7 +731,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "uuid",
@@ -783,7 +783,7 @@ name = "crashtest"
 version = "0.1.0"
 dependencies = [
  "log",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
 ]
 
@@ -1239,7 +1239,7 @@ name = "error-support-tests"
 version = "0.1.0"
 dependencies = [
  "error-support",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "trybuild",
 ]
 
@@ -1275,7 +1275,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sql-support",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -1452,7 +1452,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "url",
  "viaduct",
  "viaduct-dev",
@@ -1536,7 +1536,7 @@ dependencies = [
  "error-support",
  "md-5",
  "regex",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
 ]
 
@@ -1554,7 +1554,7 @@ name = "firefox-versioning"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -1727,7 +1727,7 @@ dependencies = [
  "serde_json",
  "sync-guid",
  "sync15",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -2414,7 +2414,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -2571,7 +2571,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
 ]
@@ -2720,7 +2720,7 @@ dependencies = [
  "error-support",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -2894,7 +2894,7 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.21",
  "termcolor",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tokio",
  "tower",
  "tower-http",
@@ -2935,7 +2935,7 @@ dependencies = [
  "tempfile",
  "termcolor",
  "textwrap 0.16.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "unicode-segmentation",
  "uniffi",
  "url",
@@ -2964,7 +2964,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "unicode-segmentation",
  "uniffi",
  "url",
@@ -3004,7 +3004,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_derive",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -3323,7 +3323,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "types",
  "uniffi",
  "url",
@@ -3513,7 +3513,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "types",
  "uniffi",
  "url",
@@ -3617,7 +3617,7 @@ dependencies = [
  "hawk",
  "hex",
  "nss",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -3704,7 +3704,7 @@ dependencies = [
  "mockito",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -3729,7 +3729,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "sql-support",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
 ]
@@ -3756,7 +3756,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sql-support",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -3806,7 +3806,7 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "url",
  "viaduct",
 ]
@@ -4009,7 +4009,7 @@ dependencies = [
  "remote_settings",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "viaduct-dev",
 ]
@@ -4277,7 +4277,7 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "text-table",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -4371,7 +4371,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "unicase",
  "unicode-normalization",
  "uniffi",
@@ -4468,7 +4468,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "sync-guid",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
  "viaduct",
@@ -4492,7 +4492,7 @@ dependencies = [
  "sql-support",
  "sync15",
  "tabs",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
 ]
@@ -4540,7 +4540,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "types",
  "uniffi",
  "url",
@@ -5285,7 +5285,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "url",
 ]
 
@@ -5535,7 +5535,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "uniffi",
  "url",
 ]

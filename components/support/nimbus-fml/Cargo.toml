@@ -37,7 +37,7 @@ anyhow = "1.0.44"
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0.29"
+thiserror = "2"
 askama = "0.13"
 textwrap = "0.16"
 heck = "0.5"
