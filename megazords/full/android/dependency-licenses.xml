@@ -465,10 +465,6 @@ the details of which are reproduced below.
     <url>https://github.com/paholg/typenum/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: unicase</name>
-    <url>https://github.com/seanmonstar/unicase/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
@@ -479,10 +475,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: url</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: utf16_iter</name>
-    <url>https://github.com/hsivonen/utf16_iter/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: utf8_iter</name>
@@ -519,10 +511,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: windows_x86_64_msvc</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-mit</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: write16</name>
-    <url>https://github.com/hsivonen/write16/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>MIT License: aho-corasick</name>
@@ -657,19 +645,19 @@ the details of which are reproduced below.
     <url>https://github.com/orlp/foldhash/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>Unicode-3.0 License: icu_casemap</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: icu_casemap_data</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Unicode-3.0 License: icu_collections</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Unicode-3.0 License: icu_locid</name>
-    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
-  </license>
-  <license>
-    <name>Unicode-3.0 License: icu_locid_transform</name>
-    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
-  </license>
-  <license>
-    <name>Unicode-3.0 License: icu_locid_transform_data</name>
+    <name>Unicode-3.0 License: icu_locale_core</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
@@ -693,11 +681,11 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Unicode-3.0 License: icu_provider_macros</name>
+    <name>Unicode-3.0 License: litemap</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
-    <name>Unicode-3.0 License: litemap</name>
+    <name>Unicode-3.0 License: potential_utf</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
@@ -722,6 +710,10 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Unicode-3.0 License: zerofrom-derive</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: zerotrie</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
