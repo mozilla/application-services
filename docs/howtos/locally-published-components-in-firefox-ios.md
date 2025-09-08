@@ -1,6 +1,6 @@
 # How to locally test Swift Package Manager components on Firefox iOS
 
-> This guide explains how to build and test **Firefox iOS against a local Application Services** checkout.  
+> This guide explains how to build and test **Firefox iOS against a local Application Services** checkout.
 > For background on our Swift Package approach, see the [ADR](../adr/0003-swift-packaging.md).
 
 ---
