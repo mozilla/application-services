@@ -34,8 +34,8 @@ if [[ ! -f "${DUMP_SYMS_DIR}/dump_syms" ]]; then
 fi
 
 # Keep these 2 in sync.
-TARGET_ARCHS=("x86_64" "x86" "arm64" "arm")
-JNI_LIBS_TARGETS=("x86_64" "x86" "arm64-v8a" "armeabi-v7a")
+TARGET_ARCHS=("x86_64" "arm64" "arm")
+JNI_LIBS_TARGETS=("x86_64" "arm64-v8a" "armeabi-v7a")
 
 rm -rf "${OUTPUT_FOLDER}"
 mkdir -p "${OUTPUT_FOLDER}"

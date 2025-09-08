@@ -32,7 +32,7 @@ task-defaults:
       - [source, taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh]
       - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
       - [source, taskcluster/scripts/toolchain/copy-libs-dir.sh, libs]
-      - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64\n" > local.properties']
+      - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,darwin,linux-x86-64\n" > local.properties']
     gradlew:
       - ':{module_name}:assembleRelease'
       - ':{module_name}:publish'
