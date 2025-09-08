@@ -52,6 +52,28 @@ pub struct OhttpResponse {
     payload: Vec<u8>,
 }
 
+impl OhttpResponse {
+    /// Get the HTTP status code
+    pub fn status_code(&self) -> u16 {
+        self.status_code
+    }
+
+    /// Get the response headers
+    pub fn headers(&self) -> &HashMap<String, String> {
+        &self.headers
+    }
+
+    /// Get the response payload
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    /// Convert into owned components
+    pub fn into_parts(self) -> (u16, HashMap<String, String>, Vec<u8>) {
+        (self.status_code, self.headers, self.payload)
+    }
+}
+
 /// Transform the headers from a BHTTP message into a HashMap for use from Swift
 /// later. If there are duplicate errors, we currently raise an error.
 fn headers_to_map(message: &bhttp::Message) -> Result<HashMap<String, String>, OhttpError> {
@@ -175,7 +197,7 @@ pub struct TestServerRequest {
 impl OhttpTestServer {
     /// Create a simple OHTTP server to decrypt and respond to OHTTP messages in
     /// testing. The key is randomly generated.
-    fn new() -> Self {
+    pub fn new() -> Self {
         ohttp::init();
 
         let key = ohttp::KeyConfig::new(
@@ -199,14 +221,14 @@ impl OhttpTestServer {
     }
 
     /// Return a copy of the key config for clients to use.
-    fn get_config(&self) -> Vec<u8> {
+    pub fn get_config(&self) -> Vec<u8> {
         self.config.clone()
     }
 
     /// Decode an OHTTP request message and return the cleartext contents. This
     /// also updates the internal server state so that a response message can be
     /// generated.
-    fn receive(&self, message: &[u8]) -> Result<TestServerRequest, OhttpError> {
+    pub fn receive(&self, message: &[u8]) -> Result<TestServerRequest, OhttpError> {
         let (encoded, response) = self
             .server
             .lock()
@@ -239,7 +261,7 @@ impl OhttpTestServer {
     }
 
     /// Encode an OHTTP response keyed to the last message received.
-    fn respond(&self, response: OhttpResponse) -> Result<Vec<u8>, OhttpError> {
+    pub fn respond(&self, response: OhttpResponse) -> Result<Vec<u8>, OhttpError> {
         let state = self.state.lock().take().unwrap();
 
         let mut message =
@@ -297,9 +319,9 @@ mod tests {
             .unwrap();
 
         let response = session.decapsulate(&message).unwrap();
-        assert_eq!(response.status_code, 200);
-        assert_eq!(response.headers, header);
-        assert_eq!(response.payload, body);
+        assert_eq!(response.status_code(), 200);
+        assert_eq!(response.headers(), &header);
+        assert_eq!(response.payload(), &body);
     }
 }
 

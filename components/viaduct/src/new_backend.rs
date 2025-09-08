@@ -1,10 +1,9 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
-*
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Right now we're in a transition period where we have 2 backend traits.  The old `Backend`
-// trait is defined in `backend.rs` and the new `Backend` trait is bdefined here
+// trait is defined in `backend.rs` and the new `Backend` trait is defined here
 //
 // The new backend trait has a few of improvements to the old backend trait:
 //   - UniFFI-compatible
@@ -62,5 +61,12 @@ impl old_backend::Backend for Arc<dyn Backend> {
             redirect_limit: if settings.follow_redirects { 10 } else { 0 },
         };
         pollster::block_on(self.send_request(request, client_settings))
+    }
+}
+
+#[async_trait::async_trait]
+impl<T: Backend> Backend for Arc<T> {
+    async fn send_request(&self, request: Request, settings: ClientSettings) -> Result<Response> {
+        self.as_ref().send_request(request, settings).await
     }
 }

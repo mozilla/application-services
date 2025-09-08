@@ -52,6 +52,16 @@ impl Backend for HyperBackend {
         request: Request,
         settings: ClientSettings,
     ) -> Result<Response, ViaductError> {
+        #[cfg(feature = "ohttp")]
+        if let Some(channel) = request.ohttp_channel.clone() {
+            return crate::ohttp::process_ohttp_request(request, &channel, settings).await;
+        }
+
+        #[cfg(not(feature = "ohttp"))]
+        if request.ohttp_channel.is_some() {
+            return Err(ViaductError::OhttpNotSupported);
+        }
+
         let handle = self.runtime.handle().clone();
         let client = self.client.clone();
         match handle
@@ -102,6 +112,8 @@ async fn make_request_inner(
             url: url.clone(),
             headers: request.headers.clone(),
             body: None,
+            // Preserve OHTTP channel for redirects
+            ohttp_channel: request.ohttp_channel.clone(),
         };
         resp = make_single_request(&client, new_request).await?;
     }
