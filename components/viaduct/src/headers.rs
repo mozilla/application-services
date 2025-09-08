@@ -28,8 +28,8 @@ mod name;
 /// use the methods on [`Request`] or [`Headers`] to manipulate these.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct Header {
-    pub(crate) name: HeaderName,
-    pub(crate) value: String,
+    pub name: HeaderName,
+    pub value: String,
 }
 
 // Trim `s` without copying if it can be avoided.
@@ -48,7 +48,7 @@ fn is_valid_header_value(value: &str) -> bool {
 }
 
 impl Header {
-    pub fn new<Name, Value>(name: Name, value: Value) -> Result<Self, crate::Error>
+    pub fn new<Name, Value>(name: Name, value: Value) -> Result<Self, crate::ViaductError>
     where
         Name: Into<HeaderName>,
         Value: AsRef<str> + Into<String>,
@@ -56,7 +56,7 @@ impl Header {
         let name = name.into();
         let value = trim_string(value);
         if !is_valid_header_value(&value) {
-            return Err(crate::Error::RequestHeaderError(name));
+            return Err(crate::ViaductError::RequestHeaderError(name.to_string()));
         }
         Ok(Self { name, value })
     }
@@ -82,10 +82,12 @@ impl Header {
     }
 
     #[inline]
-    fn set_value<V: AsRef<str>>(&mut self, s: V) -> Result<(), crate::Error> {
+    fn set_value<V: AsRef<str>>(&mut self, s: V) -> Result<(), crate::ViaductError> {
         let value = s.as_ref();
         if !is_valid_header_value(value) {
-            Err(crate::Error::RequestHeaderError(self.name.clone()))
+            Err(crate::ViaductError::RequestHeaderError(
+                self.name.to_string(),
+            ))
         } else {
             self.value.clear();
             self.value.push_str(s.as_ref().trim());
@@ -153,7 +155,7 @@ impl Headers {
     /// ## Example
     /// ```
     /// # use viaduct::Headers;
-    /// # fn main() -> Result<(), viaduct::Error> {
+    /// # fn main() -> Result<(), viaduct::ViaductError> {
     /// let mut h = Headers::new();
     /// h.insert("My-Cool-Header", "example")?;
     /// assert_eq!(h.get("My-Cool-Header"), Some("example"));
@@ -168,7 +170,7 @@ impl Headers {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn insert<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::Error>
+    pub fn insert<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::ViaductError>
     where
         N: Into<HeaderName> + PartialEq<HeaderName>,
         V: Into<String> + AsRef<str>,
@@ -184,7 +186,11 @@ impl Headers {
     /// Insert the provided header unless a header is already specified.
     /// Mostly used internally, e.g. to set "Content-Type: application/json"
     /// in `Request::json()` unless it has been set specifically.
-    pub fn insert_if_missing<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::Error>
+    pub fn insert_if_missing<N, V>(
+        &mut self,
+        name: N,
+        value: V,
+    ) -> Result<&mut Self, crate::ViaductError>
     where
         N: Into<HeaderName> + PartialEq<HeaderName>,
         V: Into<String> + AsRef<str>,
@@ -247,7 +253,7 @@ impl Headers {
     /// ## Example
     /// ```
     /// # use viaduct::{Headers, header_names::CONTENT_TYPE};
-    /// # fn main() -> Result<(), viaduct::Error> {
+    /// # fn main() -> Result<(), viaduct::ViaductError> {
     /// let mut h = Headers::new();
     /// h.insert(CONTENT_TYPE, "application/json")?;
     /// assert_eq!(h.get(CONTENT_TYPE), Some("application/json"));
@@ -276,7 +282,7 @@ impl Headers {
     ///
     /// ```
     /// # use viaduct::Headers;
-    /// # fn main() -> Result<(), viaduct::Error> {
+    /// # fn main() -> Result<(), viaduct::ViaductError> {
     /// let mut h = Headers::new();
     /// h.insert("Example", "1234")?.insert("Illegal", "abcd")?;
     /// let v: Option<Result<i64, _>> = h.get_as("Example");
@@ -343,7 +349,13 @@ impl FromIterator<Header> for Headers {
         v.sort_by(|a, b| a.name.cmp(&b.name));
         v.reverse();
         v.dedup_by(|a, b| a.name == b.name);
-        Headers { headers: v }
+        v.into()
+    }
+}
+
+impl From<Vec<Header>> for Headers {
+    fn from(headers: Vec<Header>) -> Self {
+        Self { headers }
     }
 }
 

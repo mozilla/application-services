@@ -74,7 +74,7 @@ pub enum PushError {
 
     /// Was unable to send request to server
     #[error("Unable to send request to server: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
 
     /// Was unable to open the database
     #[error("Error opening database: {0}")]

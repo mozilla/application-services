@@ -5,6 +5,7 @@
 package mozilla.appservices.httpconfig
 
 import com.google.protobuf.ByteString
+import mozilla.appservices.viaduct.initBackend
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
@@ -21,7 +22,7 @@ sealed class ViaductClientError(msg: String) : Exception(msg)
 /**
  * Error indicating that the request method is not supported.
  */
-class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) :
+class UnsupportedRequestMethodError(method: String) :
     ViaductClientError("Unsupported HTTP method: $method")
 
 /**
@@ -47,13 +48,7 @@ object RustHttpConfig {
      */
     @Synchronized
     fun setClient(c: Lazy<Client>) {
-        lock.write {
-            client = c
-            if (imp == null) {
-                imp = CallbackImpl()
-                LibViaduct.INSTANCE.viaduct_initialize(imp!!)
-            }
-        }
+        initBackend(FetchBackend(c))
     }
 
     /** Allows connections to the hard-coded address the Android Emulator uses
@@ -63,9 +58,7 @@ object RustHttpConfig {
      * are sure you are running on an emulator.
      */
     fun allowAndroidEmulatorLoopback() {
-        lock.read {
-            LibViaduct.INSTANCE.viaduct_allow_android_emulator_loopback()
-        }
+        // This is a no-op now that we use the new backend, which doesn't prevent `http` requests.
     }
 
     internal fun convertRequest(request: MsgTypes.Request): Request {
@@ -152,7 +145,7 @@ internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
         MsgTypes.Request.Method.PUT -> Request.Method.PUT
         MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
         MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
-        else -> throw UnsupportedRequestMethodError(m)
+        else -> throw UnsupportedRequestMethodError(m.toString())
     }
 }
 
