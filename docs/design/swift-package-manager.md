@@ -56,7 +56,7 @@ Example (URL-based):
 
 ## The `rust-components-swift` repository
 
-> [!WARNING]  
+> [!WARNING]
 > rust-components-swift has been deprecated and is only around until there are no more potential uplifts to already-landed versions of firefox-ios. firefox-ios now consumes application-services via [local swift package](https://github.com/mozilla-mobile/firefox-ios/tree/main/MozillaRustComponents)
 
 The repository is a Swift Package for distributing releases of Mozilla's various Rust-based application components. It provides the Swift source code packaged in a format understood by the Swift package manager, and depends on a pre-compiled binary release of the underlying Rust code published from `application-services`
