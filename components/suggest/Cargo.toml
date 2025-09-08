@@ -24,7 +24,7 @@ sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
 viaduct-dev = { path = "../support/viaduct-dev", optional=true }
 tempfile = { version = "3.2.0", optional = true }
-thiserror = "1"
+thiserror = "2"
 # This is an old version of `unicase` but it's the one mozilla-central uses.
 unicase = "2.6"
 unicode-normalization = "0.1"

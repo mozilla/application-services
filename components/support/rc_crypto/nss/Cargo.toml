@@ -10,7 +10,7 @@ crate-type = ["lib"]
 
 [dependencies]
 base64 = "0.21"
-thiserror = "1.0"
+thiserror = "2"
 error-support = { path = "../../error" }
 nss_sys = { path = "nss_sys" }
 serde = "1"

@@ -24,7 +24,7 @@ anyhow = "1"
 serde = { version = "1", features=["derive"] }
 serde_derive = "1"
 serde_json = "1"
-thiserror = "1"
+thiserror = "2"
 url = "2.5"
 rkv = { version = "0.20", optional = true }
 jexl-eval = "0.4.0"

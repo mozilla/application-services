@@ -14,7 +14,7 @@ debug-tools = ["dep:text-table", "rusqlite/column_decltype"]
 error-support = { path = "../error" }
 lazy_static = "1.4"
 interrupt-support = { path = "../interrupt" }
-thiserror = "1.0"
+thiserror = "2"
 tempfile = "3.1.0"
 text-table = { path = "../text-table", optional = true }
 parking_lot = ">=0.11,<=0.12"

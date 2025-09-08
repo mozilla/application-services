@@ -12,7 +12,7 @@ default = []
 [dependencies]
 anyhow = "1.0"
 error-support = { path = "../support/error" }
-thiserror = "1.0"
+thiserror = "2"
 ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 lazy_static = "1.4"
