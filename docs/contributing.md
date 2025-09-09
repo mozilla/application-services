@@ -34,7 +34,6 @@ Before submitting a PR:
   - Consult the [testing guide](./howtos/testing-a-rust-component.md) for some tips on writing effective tests.
 - Your code should pass all the automated tests before you submit your PR for review.
   - Before pushing your changes, run `./automation/tests.py changes`. The script will calculate which components were changed and run test suites, linters and formatters against those components. Because the script runs a limited set of tests, the script should execute in a fairly reasonable amount of time.
-    - If you have modified any Swift code, also run `swiftformat --swiftversion 5` on the modified code.
 - Your patch should include a changelog entry in [CHANGELOG.md](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md) or an explanation of why
   it does not need one. Any breaking changes to Swift or Kotlin binding APIs should be noted explicitly.
 - If your patch adds new dependencies, they must follow our [dependency management guidelines](./dependency-management.md).
