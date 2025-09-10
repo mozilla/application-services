@@ -35,7 +35,6 @@ ALL_ANDROID_TARGETS = [
     "armv7-linux-androideabi",
     "aarch64-linux-android",
     "aarch64-apple-darwin",
-    "i686-linux-android",
     "x86_64-linux-android",
     "x86_64-unknown-linux-gnu",
     "x86_64-apple-darwin",

@@ -197,7 +197,6 @@ ext.rustTargets = [
     'arm',
     'arm64',
     'x86_64',
-    'x86',
 ]
 
 // Generate libs for our current platform so we can run unit tests.

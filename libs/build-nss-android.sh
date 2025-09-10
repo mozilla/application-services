@@ -26,9 +26,6 @@ if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   GYP_ARCH="x64"
   NSPR_64="--enable-64bit"
-elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
-then
-  GYP_ARCH="ia32"
 elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]
 then
   GYP_ARCH="arm64"
@@ -103,8 +100,14 @@ cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # HW specific.
 # https://searchfox.org/nss/rev/0d5696b3edce5124353f03159d2aa15549db8306/lib/freebl/freebl.gyp#508-542
-if [[ "${TOOLCHAIN}" == "i686-linux-android" ]] || [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
+# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#315-324
+# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#43-47
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 fi
 if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]] || [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
@@ -115,14 +118,6 @@ if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
 fi
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libgcm-aes-arm32-neon_c_lib.a" "${DIST_DIR}/lib"
-fi
-# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#315-324
-# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#43-47
-if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
 fi
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.a" "${DIST_DIR}/lib"
