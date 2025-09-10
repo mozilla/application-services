@@ -150,11 +150,6 @@ impl NimbusApp {
             .ok_or_else(|| anyhow::anyhow!("Either an --app or a --manifest must be specified"))?;
 
         if version.is_none() {
-            // gecko-dev uses master, not main
-            if (app_name == "fenix" || app_name == "focus_android") && ref_ == "main" {
-                return Ok("master".into());
-            }
-
             return Ok(ref_.to_string());
         }
 
@@ -166,7 +161,7 @@ impl NimbusApp {
                 } else if is_before(version, 126) {
                     pad_major(v)
                 } else {
-                    bail!("gecko-dev does not have tagged versions, use --ref instead")
+                    bail!("mozilla-firefox does not have tagged versions, use --ref instead")
                 }
             }
             "focus_android" => {
@@ -175,7 +170,7 @@ impl NimbusApp {
                 } else if is_before(version, 126) {
                     pad_major(v)
                 } else {
-                    bail!("gecko-dev does not have tagged versions, use --ref instead")
+                    bail!("mozilla-firefox does not have tagged versions, use --ref instead")
                 }
             }
             "firefox_ios" => {
@@ -217,7 +212,7 @@ impl NimbusApp {
                 } else if is_before(version, 126) {
                     "mozilla-mobile/firefox-android"
                 } else {
-                    "mozilla/gecko-dev"
+                    "mozilla-firefox/firefox"
                 }
             }
             "focus_android" => {
@@ -226,7 +221,7 @@ impl NimbusApp {
                 } else if is_before(version, 126) {
                     "mozilla-mobile/firefox-android"
                 } else {
-                    "mozilla/gecko-dev"
+                    "mozilla-firefox/firefox"
                 }
             }
             "firefox_ios" => "mozilla-mobile/firefox-ios",

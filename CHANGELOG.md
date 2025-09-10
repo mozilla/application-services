@@ -16,6 +16,10 @@
 
 [Full Changelog](In progress)
 
+## Nimbus CLI
+- Support for Firefox for Android and Focus via the new
+  [mozilla-firefox](https://github.com/mozilla-firefox/firefox) repository.
+
 # v143.0 (_2025-08-18_)
 
 ## 🦊 What's Changed 🦊
