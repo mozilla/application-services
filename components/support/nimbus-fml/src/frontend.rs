@@ -4,7 +4,6 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use email_address::EmailAddress;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
@@ -246,7 +245,7 @@ pub(crate) struct FeatureMetadata {
     #[serde(default)]
     #[serde(alias = "owners", alias = "owner")]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) contacts: Vec<EmailAddress>,
+    pub(crate) contacts: Vec<String>,
     /// Where should QA file issues for this feature?
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -712,7 +711,7 @@ mod feature_metadata {
             FeatureMetadata {
                 description: "A description".to_string(),
                 meta_bug: Some(Url::from_str("https://example.com/EXP-23")?),
-                contacts: vec![EmailAddress::from_str("jdoe@example.com")?],
+                contacts: vec!["jdoe@example.com".to_string()],
                 documentation: vec![DocumentationLink::new(
                     "User documentation",
                     "https://example.info/my-feature"
@@ -764,25 +763,11 @@ mod feature_metadata {
             fm,
             FeatureMetadata {
                 description: "A description".to_string(),
-                contacts: vec![EmailAddress::from_str("jdoe@example.com")?],
+                contacts: vec!["jdoe@example.com".to_string()],
                 ..Default::default()
             }
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_invalid_email_addresses() -> Result<()> {
-        let fm = serde_json::from_str::<FeatureMetadata>(
-            r#"{
-            "description": "A description",
-            "contacts": [
-                "Not an email address"
-            ],
-        }"#,
-        );
-        assert!(fm.is_err());
         Ok(())
     }
 

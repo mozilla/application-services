@@ -1102,15 +1102,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 
 [[package]]
-name = "email_address"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2153bd83ebc09db15bcbdc3e2194d901804952e3dc96967e1cd3b0c5c32d112"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "embedded-uniffi-bindgen"
 version = "0.1.0"
 dependencies = [
@@ -2858,7 +2849,6 @@ dependencies = [
  "askama",
  "cfg-if",
  "clap 4.5.39",
- "email_address",
  "glob",
  "heck 0.5.0",
  "itertools 0.14.0",
