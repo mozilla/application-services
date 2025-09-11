@@ -4292,7 +4292,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "criterion",
  "error-support",
  "expect-test",
  "extend",
@@ -4315,6 +4314,15 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+]
+
+[[package]]
+name = "suggest-bench"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "suggest",
+ "tempfile",
  "viaduct-hyper",
 ]
 
