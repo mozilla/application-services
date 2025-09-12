@@ -6,8 +6,8 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
-viaduct = { path = "../../components/viaduct"}
+viaduct = { path = "../../components/viaduct" }
+viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 autofill = { path = "../../components/autofill" }
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }

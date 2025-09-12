@@ -537,7 +537,7 @@ impl Client {
 
     fn make_request(&self, request: Request) -> Result<Response> {
         if self.simulate_network_error.swap(false, Ordering::Relaxed) {
-            return Err(Error::RequestError(viaduct::Error::NetworkError(
+            return Err(Error::RequestError(viaduct::ViaductError::NetworkError(
                 "Simulated error".to_owned(),
             )));
         }
@@ -1043,7 +1043,7 @@ mod tests {
 
     #[test]
     fn test_backoff() {
-        viaduct_dev::use_dev_backend();
+        viaduct::init_backend_dev();
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1090,7 +1090,7 @@ mod tests {
 
     #[test]
     fn test_backoff_then_ok() {
-        viaduct_dev::use_dev_backend();
+        viaduct::init_backend_dev();
         let m = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")
@@ -1140,7 +1140,7 @@ mod tests {
 
     #[test]
     fn test_backoff_per_path() {
-        viaduct_dev::use_dev_backend();
+        viaduct::init_backend_dev();
         let m1 = mock("POST", "/v1/account/devices/invoke_command")
             .with_status(429)
             .with_header("Content-Type", "application/json")

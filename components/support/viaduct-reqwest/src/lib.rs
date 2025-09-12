@@ -5,7 +5,7 @@
 use error_support::{error, warn};
 use once_cell::sync::Lazy;
 use std::{io::Read, sync::Once};
-use viaduct::{settings::GLOBAL_SETTINGS, Backend};
+use viaduct::{settings::GLOBAL_SETTINGS, OldBackend as Backend};
 
 // Note: we don't `use` things from reqwest or the viaduct crate because
 // it would be rather confusing given that we have the same name for
@@ -36,7 +36,9 @@ static CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
 });
 
 #[allow(clippy::unnecessary_wraps)] // not worth the time to untangle
-fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request, viaduct::Error> {
+fn into_reqwest(
+    request: viaduct::Request,
+) -> Result<reqwest::blocking::Request, viaduct::ViaductError> {
     let method = match request.method {
         viaduct::Method::Get => reqwest::Method::GET,
         viaduct::Method::Head => reqwest::Method::HEAD,
@@ -63,19 +65,19 @@ fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request,
 
 pub struct ReqwestBackend;
 impl Backend for ReqwestBackend {
-    fn send(&self, request: viaduct::Request) -> Result<viaduct::Response, viaduct::Error> {
+    fn send(&self, request: viaduct::Request) -> Result<viaduct::Response, viaduct::ViaductError> {
         viaduct::note_backend("reqwest (untrusted)");
         let request_method = request.method;
         let req = into_reqwest(request)?;
         let mut resp = CLIENT
             .execute(req)
-            .map_err(|e| viaduct::Error::NetworkError(e.to_string()))?;
+            .map_err(|e| viaduct::ViaductError::NetworkError(e.to_string()))?;
         let status = resp.status().as_u16();
         let url = resp.url().clone();
         let mut body = Vec::with_capacity(resp.content_length().unwrap_or_default() as usize);
         resp.read_to_end(&mut body).map_err(|e| {
             error!("Failed to get body from response: {:?}", e);
-            viaduct::Error::NetworkError(e.to_string())
+            viaduct::ViaductError::NetworkError(e.to_string())
         })?;
         let mut headers = viaduct::Headers::with_capacity(resp.headers().len());
         for (k, v) in resp.headers() {

@@ -35,6 +35,7 @@ protobuf {
 
 dependencies {
     implementation libs.protobuf.javalite
+    implementation libs.kotlinx.coroutines
     if (gradle.hasProperty("mozconfig")) {
         api project(':components:concept-fetch')
     } else {
@@ -42,5 +43,6 @@ dependencies {
     }
 }
 
+ext.configureUniFFIBindgen("viaduct")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

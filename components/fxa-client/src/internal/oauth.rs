@@ -612,14 +612,13 @@ mod tests {
     #[test]
     fn test_oauth_flow_url() {
         nss::ensure_initialized();
-        // FIXME: this test shouldn't make network requests.
-        viaduct_dev::use_dev_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "https://foo.bar",
         );
         let mut fxa = FirefoxAccount::with_config(config);
+        fxa.state.set_test_remote_config();
         let url = fxa
             .begin_oauth_flow(&["profile"], "test_oauth_flow_url")
             .unwrap();
@@ -706,15 +705,14 @@ mod tests {
     #[test]
     fn test_webchannel_context_url() {
         nss::ensure_initialized();
-        // FIXME: this test shouldn't make network requests.
-        viaduct_dev::use_dev_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         let config = Config::new(
-            "https://accounts.firefox.com",
+            "http://accounts.firefox.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
         let mut fxa = FirefoxAccount::with_config(config);
+        fxa.state.set_test_remote_config();
         let url = fxa
             .begin_oauth_flow(SCOPES, "test_webchannel_context_url")
             .unwrap();
@@ -1091,13 +1089,9 @@ mod tests {
     #[test]
     fn test_oauth_request_sent_with_session_when_available() {
         nss::ensure_initialized();
-        viaduct_dev::use_dev_backend();
-        let config = Config::new(
-            "https://accounts.firefox.com",
-            "12345678",
-            "https://foo.bar",
-        );
+        let config = Config::new("http://accounts.firefox.com", "12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
+        fxa.state.set_test_remote_config();
         let url = fxa
             .begin_oauth_flow(&[OLD_SYNC, "profile"], "test_entrypoint")
             .unwrap();

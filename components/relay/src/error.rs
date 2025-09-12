@@ -28,7 +28,7 @@ pub enum Error {
     #[error("JSON parsing error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("HTTP request error: {0}")]
-    Viaduct(#[from] viaduct::Error),
+    Viaduct(#[from] viaduct::ViaductError),
     #[error("URL parsing error: {0}")]
     UrlParse(#[from] url::ParseError),
 }
@@ -38,7 +38,7 @@ impl GetErrorHandling for Error {
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
         match self {
-            Error::Viaduct(viaduct::Error::NetworkError(e)) => {
+            Error::Viaduct(viaduct::ViaductError::NetworkError(e)) => {
                 ErrorHandling::convert(RelayApiError::Network {
                     reason: e.to_string(),
                 })

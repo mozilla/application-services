@@ -275,6 +275,11 @@ impl StateManager {
     pub fn set_session_token(&mut self, token: String) {
         self.persisted_state.session_token = Some(token)
     }
+
+    #[cfg(test)]
+    pub fn set_test_remote_config(&mut self) {
+        self.persisted_state.config.set_test_remove_config();
+    }
 }
 
 #[cfg(test)]

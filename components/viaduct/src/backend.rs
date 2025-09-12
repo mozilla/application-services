@@ -6,6 +6,8 @@ use crate::GLOBAL_SETTINGS;
 use crate::{info, trace};
 use ffi::FfiBackend;
 use once_cell::sync::OnceCell;
+#[cfg(feature = "backend-dev")]
+pub mod dev;
 mod ffi;
 
 pub fn note_backend(which: &str) {
@@ -24,27 +26,27 @@ pub fn note_backend(which: &str) {
 }
 
 pub trait Backend: Send + Sync + 'static {
-    fn send(&self, request: crate::Request) -> Result<crate::Response, crate::Error>;
+    fn send(&self, request: crate::Request) -> Result<crate::Response, crate::ViaductError>;
 }
 
 static BACKEND: OnceCell<&'static dyn Backend> = OnceCell::new();
 
-pub fn set_backend(b: &'static dyn Backend) -> Result<(), crate::Error> {
+pub fn set_backend(b: &'static dyn Backend) -> Result<(), crate::ViaductError> {
     BACKEND
         .set(b)
-        .map_err(|_| crate::error::Error::SetBackendError)
+        .map_err(|_| crate::error::ViaductError::SetBackendError)
 }
 
 pub(crate) fn get_backend() -> &'static dyn Backend {
     *BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend)))
 }
 
-pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
+pub fn send(request: crate::Request) -> Result<crate::Response, crate::ViaductError> {
     validate_request(&request)?;
     get_backend().send(request)
 }
 
-pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {
+pub fn validate_request(request: &crate::Request) -> Result<(), crate::ViaductError> {
     if request.url.scheme() != "https"
         && match request.url.host() {
             Some(url::Host::Domain(d)) => d != "localhost",
@@ -61,7 +63,7 @@ pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {
                 .unwrap_or(true)
         }
     {
-        return Err(crate::Error::NonTlsUrl);
+        return Err(crate::ViaductError::NonTlsUrl);
     }
     Ok(())
 }
