@@ -711,14 +711,15 @@ mod unit_tests {
     }
 
     fn fenix_manifest() -> ManifestSource {
-        fenix_manifest_with_ref("master")
+        fenix_manifest_with_ref("main")
     }
 
     fn fenix_manifest_with_ref(ref_: &str) -> ManifestSource {
         ManifestSource::FromGithub {
-            github_repo: "mozilla/gecko-dev".to_string(),
+            github_repo: "mozilla-firefox/firefox".to_string(),
             ref_: ref_.to_string(),
-            manifest_file: "@mozilla/gecko-dev/mobile/android/fenix/app/nimbus.fml.yaml".into(),
+            manifest_file: "@mozilla-firefox/firefox/mobile/android/fenix/app/nimbus.fml.yaml"
+                .into(),
             channel: "developer".to_string(),
         }
     }
