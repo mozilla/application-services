@@ -1,4 +1,4 @@
-# v144.0 (In progress)
+# v144.0 (_2025-09-15_)
 
 ## ✨ What's New ✨
 
@@ -14,7 +14,7 @@
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v143.0...v144.0)
 
 # v143.0 (_2025-08-18_)
 
