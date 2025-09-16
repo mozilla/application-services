@@ -684,17 +684,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "colored"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
-dependencies = [
- "atty",
- "lazy_static",
- "winapi",
-]
-
-[[package]]
 name = "console"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2504,7 +2493,6 @@ dependencies = [
  "interrupt-support",
  "jwcrypto",
  "lazy_static",
- "more-asserts",
  "nss",
  "parking_lot",
  "rusqlite",
@@ -2758,7 +2746,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "401edc088069634afaa5f4a29617b36dba683c0c16fe4435a86debad23fa2f1a"
 dependencies = [
  "assert-json-diff",
- "colored",
  "httparse",
  "lazy_static",
  "log",
@@ -2768,12 +2755,6 @@ dependencies = [
  "serde_urlencoded",
  "similar",
 ]
-
-[[package]]
-name = "more-asserts"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
 name = "native-tls"
@@ -4036,15 +4017,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_test"
-version = "1.0.138"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "844df772d885b3e52fddb7af284b402628e57a6b2e8eeda89816692c45317db9"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4363,7 +4335,7 @@ dependencies = [
  "rand",
  "rusqlite",
  "serde",
- "serde_test",
+ "serde_json",
 ]
 
 [[package]]
