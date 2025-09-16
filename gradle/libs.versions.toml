@@ -8,22 +8,22 @@
 android-gradle-plugin = "8.13.0"
 
 # Google
-protobuf = "4.32.0"
+protobuf = "4.32.1"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
-kotlin = "2.2.10"
+kotlin = "2.2.20"
 coroutines = "1.10.2"
 
 # Mozilla
-android-components = "142.0.1"
+android-components = "143.0"
 glean = "65.0.2"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
 annotation = "1.9.1"
 core = "1.17.0"
-work = "2.10.3"
+work = "2.10.4"
 
 # JNA
 jna = "5.17.0"
