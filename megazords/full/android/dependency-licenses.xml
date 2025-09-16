@@ -89,6 +89,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: async-trait</name>
+    <url>https://github.com/dtolnay/async-trait/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: autocfg</name>
     <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
@@ -127,6 +131,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: chrono</name>
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: core-foundation</name>
+    <url>https://github.com/servo/core-foundation-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: core-foundation-sys</name>
@@ -185,12 +193,44 @@ the details of which are reproduced below.
     <url>https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: fnv</name>
+    <url>https://github.com/servo/rust-fnv/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: foreign-types</name>
+    <url>https://github.com/sfackler/foreign-types/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: foreign-types-shared</name>
+    <url>https://github.com/sfackler/foreign-types/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: form_urlencoded</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fs-err</name>
     <url>https://github.com/andrewhickman/fs-err/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: futures-channel</name>
+    <url>https://github.com/rust-lang/futures-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: futures-core</name>
+    <url>https://github.com/rust-lang/futures-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: futures-sink</name>
+    <url>https://github.com/rust-lang/futures-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: futures-task</name>
+    <url>https://github.com/rust-lang/futures-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: futures-util</name>
+    <url>https://github.com/rust-lang/futures-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
@@ -215,6 +255,22 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: hex</name>
     <url>https://github.com/KokaKiwi/rust-hex/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: http</name>
+    <url>https://github.com/hyperium/http/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: httparse</name>
+    <url>https://github.com/seanmonstar/httparse/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: httpdate</name>
+    <url>https://github.com/pyfisch/httpdate/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: hyper-tls</name>
+    <url>https://github.com/hyperium/hyper-tls/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: iana-time-zone</name>
@@ -281,12 +337,36 @@ the details of which are reproduced below.
     <url>https://github.com/Alexhuszagh/minimal-lexical/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: native-tls</name>
+    <url>https://github.com/sfackler/rust-native-tls/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: num-traits</name>
     <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: num_cpus</name>
+    <url>https://github.com/seanmonstar/num_cpus/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: openssl</name>
+    <url>https://github.com/sfackler/rust-openssl/blob/refs/heads/master/openssl/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: openssl-macros</name>
+    <url>https://github.com/sfackler/rust-openssl/blob/master/openssl-macros/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: openssl-probe</name>
+    <url>https://github.com/alexcrichton/openssl-probe/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: openssl-src</name>
+    <url>https://github.com/alexcrichton/openssl-src-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
@@ -309,12 +389,20 @@ the details of which are reproduced below.
     <url>https://github.com/taiki-e/pin-project-lite/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: pin-utils</name>
+    <url>https://github.com/rust-lang-nursery/pin-utils/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: pkg-config</name>
     <url>https://github.com/rust-lang/pkg-config-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: plain</name>
     <url>https://github.com/randomites/plain/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: pollster</name>
+    <url>https://github.com/zesterer/pollster/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
@@ -381,6 +469,14 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/scopeguard/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: security-framework</name>
+    <url>https://github.com/kornelski/rust-security-framework/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: security-framework-sys</name>
+    <url>https://github.com/kornelski/rust-security-framework/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: semver</name>
     <url>https://github.com/dtolnay/semver/blob/master/LICENSE-APACHE</url>
   </license>
@@ -419,6 +515,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: smallvec</name>
     <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: socket2</name>
+    <url>https://github.com/rust-lang/socket2/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: stable_deref_trait</name>
@@ -501,6 +601,14 @@ the details of which are reproduced below.
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: winapi</name>
+    <url>https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: winapi-x86_64-pc-windows-gnu</name>
+    <url>https://github.com/retep998/winapi-rs/blob/0.3/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: windows-link</name>
     <url>https://github.com/microsoft/windows-rs/blob/master/license-apache-2.0</url>
   </license>
@@ -569,6 +677,18 @@ the details of which are reproduced below.
     <url>https://github.com/m4b/goblin/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: h2</name>
+    <url>https://github.com/hyperium/h2/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: http-body</name>
+    <url>https://github.com/hyperium/http-body/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: hyper</name>
+    <url>https://github.com/hyperium/hyper/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: libsqlite3-sys</name>
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
@@ -577,8 +697,16 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: mio</name>
+    <url>https://github.com/tokio-rs/mio/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: nom</name>
     <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: openssl-sys</name>
+    <url>https://github.com/sfackler/rust-openssl/blob/master/openssl-sys/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: ordered-float</name>
@@ -593,6 +721,10 @@ the details of which are reproduced below.
     <url>https://github.com/3Hren/msgpack-rust/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: schannel</name>
+    <url>https://github.com/steffengy/schannel-rs/blob/master/LICENSE.md</url>
+  </license>
+  <license>
     <name>MIT License: scroll</name>
     <url>https://github.com/m4b/scroll/blob/master/LICENSE</url>
   </license>
@@ -605,6 +737,10 @@ the details of which are reproduced below.
     <url>https://github.com/hawkw/sharded-slab/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: slab</name>
+    <url>https://github.com/tokio-rs/slab/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: smawk</name>
     <url>https://github.com/mgeisler/smawk/blob/master/LICENSE</url>
   </license>
@@ -615,6 +751,14 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: textwrap</name>
     <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tokio</name>
+    <url>https://github.com/tokio-rs/tokio/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tokio-native-tls</name>
+    <url>https://github.com/tokio-rs/tls/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: tracing</name>
@@ -631,6 +775,22 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: tracing-subscriber</name>
     <url>https://github.com/tokio-rs/tracing/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tokio-util</name>
+    <url>https://github.com/tokio-rs/tokio/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tower-service</name>
+    <url>https://github.com/tower-rs/tower/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: try-lock</name>
+    <url>https://github.com/seanmonstar/try-lock/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: want</name>
+    <url>https://github.com/seanmonstar/want/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: weedle2</name>
@@ -731,6 +891,10 @@ the details of which are reproduced below.
   <license>
     <name>Unicode-3.0 License: zerovec-derive</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>OpenSSL License</name>
+    <url>https://www.openssl.org/source/license.html</url>
   </license>
   <license>
     <name>Optional Notice: SQLite</name>

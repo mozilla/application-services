@@ -212,6 +212,37 @@ impl Config {
         }
     }
 
+    /// Construct a Config object with the `remote_config` field pre-populated with mock data.
+    ///
+    /// This avoids network calls to the `.well-known` endpoints, which are normally used to
+    /// determine things like the profile_url.
+    pub fn new_with_mock_well_known_fxa_client_configuration(
+        content_url: &str,
+        client_id: &str,
+        redirect_uri: &str,
+    ) -> Self {
+        let remote_config = RemoteConfig {
+            // Use fake URLS to avoid any chance of hitting a real server
+            auth_url: "https://mock-fxa.example.com/auth/".to_string(),
+            oauth_url: "https://mock-fxa.example.com/oauth".to_string(),
+            profile_url: "https://mock-fxa.example.com/profile/".to_string(),
+            token_server_endpoint_url: "https://mock-fxa.example.com/syncserver/token/".to_string(),
+            authorization_endpoint: "https://mock-fxa.example.com/authorization".to_string(),
+            issuer: "https://mock-fxa.example.com/".to_string(),
+            jwks_uri: "https://mock-fxa.example.com/v1/jwks".to_string(),
+            token_endpoint: "https://mock-fxa.example.com/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: "https://mock-fxa.example.com/v1/introspect".to_string(),
+            userinfo_endpoint: "https://mock-fxa.example.com/profile/v1/profile".to_string(),
+        };
+        Self {
+            content_url: content_url.to_string(),
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            remote_config: RefCell::new(Some(Arc::new(remote_config))),
+            token_server_url_override: None,
+        }
+    }
+
     /// Override the token server URL that would otherwise be provided by the
     /// FxA .well-known/fxa-client-configuration endpoint.
     /// This is used by self-hosters that still use the product FxA servers

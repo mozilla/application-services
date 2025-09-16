@@ -46,7 +46,7 @@ uniffi = { version = "0.29.0", features = ["build"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
-viaduct-dev = { path = "../support/viaduct-dev" }
+viaduct-hyper = { path = "../support/viaduct-hyper" }
 clap = { version = "4.2", default-features = false, features = ["std", "derive"] }
 tempfile = "3"
 ctor = "0.2.2"

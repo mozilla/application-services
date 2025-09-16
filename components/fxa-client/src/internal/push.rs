@@ -168,7 +168,6 @@ mod tests {
 
     #[test]
     fn test_push_device_disconnected_local() {
-        viaduct_dev::use_dev_backend();
         let mut fxa =
             FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
         let refresh_token_scopes = std::collections::HashSet::new();
