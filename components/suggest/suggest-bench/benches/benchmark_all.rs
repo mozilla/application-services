@@ -3,7 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use criterion::{criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, Criterion};
-use std::sync::Once;
 use suggest::benchmarks::{cleanup, geoname, ingest, query, BenchmarkWithInput};
 
 pub fn geoname(c: &mut Criterion) {
