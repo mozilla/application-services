@@ -25,4 +25,4 @@ uniffi = { version = "0.29.0", features=["build"]}
 backtrace = ["dep:backtrace"]
 tracing-logging = ["dep:tracing", "dep:tracing-support"]
 tracing-reporting = ["dep:tracing", "dep:tracing-support"]
-testing = ["tracing-support/testing"]
+testing = []

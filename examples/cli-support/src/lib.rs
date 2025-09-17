@@ -15,24 +15,16 @@ use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
 pub mod fxa_creds;
 pub mod prompt;
 
-pub use env_logger;
-
-pub fn init_logging_with(s: &str) {
-    let noisy = "tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn";
-    let spec = format!("{},{}", s, noisy);
-    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
+pub fn init_logging() {
+    init_logging_with("info");
 }
 
 pub fn init_trace_logging() {
-    init_logging_with("trace")
+    init_logging_with("trace");
 }
 
-pub fn init_logging() {
-    init_logging_with(if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "info"
-    })
+pub fn init_logging_with(default_env: &str) {
+    tracing_support::init_from_env_with_default(default_env);
 }
 
 pub fn cli_data_dir() -> String {

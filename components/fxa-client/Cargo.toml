@@ -21,7 +21,7 @@ url = "2.2"
 viaduct = { path = "../viaduct" }
 jwcrypto = { path = "../support/jwcrypto" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
-error-support = { path = "../support/error" }
+error-support = { path = "../support/error", features = ["tracing-logging"] }
 thiserror = "2"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }

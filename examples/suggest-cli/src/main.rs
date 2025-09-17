@@ -15,8 +15,8 @@ use suggest::{
 
 static DB_FILENAME: &str = "suggest.db";
 
-const DEFAULT_LOG_FILTER: &str = "suggest::store=info";
-const DEFAULT_LOG_FILTER_VERBOSE: &str = "suggest::store=trace";
+const DEFAULT_LOG_FILTER: &str = "suggest=info";
+const DEFAULT_LOG_FILTER_VERBOSE: &str = "suggest=trace";
 
 #[derive(Debug, Parser)]
 #[command(about, long_about = None)]
@@ -108,14 +108,11 @@ impl From<SuggestionProviderArg> for SuggestionProvider {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    env_logger::init_from_env(env_logger::Env::default().filter_or(
-        "RUST_LOG",
-        if cli.verbose {
-            DEFAULT_LOG_FILTER_VERBOSE
-        } else {
-            DEFAULT_LOG_FILTER
-        },
-    ));
+    cli_support::init_logging_with(if cli.verbose {
+        DEFAULT_LOG_FILTER_VERBOSE
+    } else {
+        DEFAULT_LOG_FILTER
+    });
     nss::ensure_initialized();
     viaduct_hyper::init_backend_hyper()?;
     let store = build_store(&cli)?;

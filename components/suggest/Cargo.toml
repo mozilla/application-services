@@ -19,7 +19,7 @@ remote_settings = { path = "../remote_settings" }
 rusqlite = { version = "0.37.0", features = ["functions", "bundled", "load_extension", "collation"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-error-support = { path = "../support/error" }
+error-support = { path = "../support/error", features = ["tracing-logging"] }
 sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
 tempfile = { version = "3.2.0", optional = true }

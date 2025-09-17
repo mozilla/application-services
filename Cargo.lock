@@ -653,13 +653,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dialoguer",
- "env_logger",
  "fxa-client",
  "log",
  "open",
  "remote_settings",
  "sync15",
  "sync_manager",
+ "tracing-support",
  "url",
 ]
 
@@ -1342,7 +1342,6 @@ dependencies = [
  "anyhow",
  "clap 4.5.39",
  "cli-support",
- "env_logger",
  "example-component",
  "viaduct",
  "viaduct-hyper",
@@ -1370,7 +1369,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 4.5.39",
- "env_logger",
+ "cli-support",
  "log",
  "relay",
  "viaduct",
@@ -1402,7 +1401,6 @@ dependencies = [
  "anyhow",
  "clap 4.5.39",
  "cli-support",
- "env_logger",
  "futures",
  "indicatif",
  "log",
@@ -1426,7 +1424,6 @@ dependencies = [
  "anyhow",
  "clap 4.5.39",
  "cli-support",
- "env_logger",
  "log",
  "nss",
  "remote_settings",
@@ -3627,7 +3624,6 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 name = "relay"
 version = "0.1.0"
 dependencies = [
- "env_logger",
  "error-support",
  "expect-test",
  "log",
