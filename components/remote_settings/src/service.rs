@@ -101,7 +101,7 @@ impl RemoteSettingsService {
             if let Some(client_last_modified) = client.get_last_modified_timestamp()? {
                 if let Some(server_last_modified) = change_map.get(&(collection_name, &bucket_name))
                 {
-                    if client_last_modified != *server_last_modified {
+                    if client_last_modified == *server_last_modified {
                         trace!("skipping up-to-date collection: {collection_name}");
                         continue;
                     }
