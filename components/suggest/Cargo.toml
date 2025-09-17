@@ -22,7 +22,6 @@ serde_json = "1"
 error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 viaduct = { path = "../viaduct" }
-viaduct-hyper = { path = "../support/viaduct-hyper" }
 tempfile = { version = "3.2.0", optional = true }
 thiserror = "2"
 # This is an old version of `unicase` but it's the one mozilla-central uses.
@@ -33,7 +32,6 @@ url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
-criterion = "0.7"
 expect-test = "1.4"
 hex = "0.4"
 itertools = "0.14"
@@ -44,17 +42,4 @@ uniffi = { version = "0.29.0", features = ["build"] }
 
 [features]
 # Required for the benchmarks to work, wasted bytes otherwise.
-benchmark_api = ["tempfile", "viaduct/backend-dev"]
-
-[lib]
-bench = false
-
-[[bench]]
-name = "benchmark_all"
-harness = false
-required-features = ["benchmark_api"]
-
-[[bin]]
-name = "debug_ingestion_sizes"
-required-features = ["benchmark_api"]
-bench = false
+benchmark_api = ["tempfile"]

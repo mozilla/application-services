@@ -23,6 +23,7 @@ members = [
     "components/remote_settings",
     "components/search",
     "components/suggest",
+    "components/suggest/suggest-bench",
     "components/support/error",
     "components/support/error/tests",
     "components/support/find-places-db",

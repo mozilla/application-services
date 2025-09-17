@@ -184,7 +184,6 @@ pub fn all_benchmarks() -> Vec<(&'static str, IngestBenchmark)> {
 }
 
 pub fn print_debug_ingestion_sizes() {
-    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
     let store = SuggestStoreInner::new(
         "file:debug_ingestion_sizes?mode=memory&cache=shared",
         vec![],
