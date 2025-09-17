@@ -24,9 +24,6 @@ pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHe
 pub use new_backend::{init_backend, Backend};
 pub use settings::{allow_android_emulator_loopback, GLOBAL_SETTINGS};
 
-#[cfg(feature = "backend-dev")]
-pub use backend::dev::init_backend_dev;
-
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub(crate) mod msg_types {
     include!("mozilla.appservices.httpconfig.protobuf.rs");

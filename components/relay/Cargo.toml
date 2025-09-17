@@ -16,7 +16,7 @@ uniffi = "0.29.0"
 [dev-dependencies]
 expect-test = "1.4"
 mockito = { version = "0.31", default-features = false}
-viaduct = { path = "../viaduct", features = ["backend-dev"]}
+viaduct-dev = { path = "../support/viaduct-dev"}
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features=["build"]}

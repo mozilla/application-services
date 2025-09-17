@@ -5,8 +5,6 @@
 use crate::{info, settings::validate_request, trace};
 use ffi::FfiBackend;
 use once_cell::sync::OnceCell;
-#[cfg(feature = "backend-dev")]
-pub mod dev;
 mod ffi;
 
 pub fn note_backend(which: &str) {
