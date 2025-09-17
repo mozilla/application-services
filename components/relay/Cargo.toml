@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-error-support = { path = "../support/error" }
+error-support = { path = "../support/error", features = ["tracing-logging"] }
 log = "0.4"
 serde = { version = "1", features=["derive"] }
 serde_json = "1"
@@ -14,9 +14,8 @@ viaduct = { path = "../viaduct" }
 uniffi = "0.29.0"
 
 [dev-dependencies]
-env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 expect-test = "1.4"
-mockito = "0.31"
+mockito = { version = "0.31", default-features = false}
 viaduct = { path = "../viaduct", features = ["backend-dev"]}
 
 [build-dependencies]

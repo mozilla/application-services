@@ -21,7 +21,7 @@ url = "2.2"
 viaduct = { path = "../viaduct" }
 jwcrypto = { path = "../support/jwcrypto" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
-error-support = { path = "../support/error" }
+error-support = { path = "../support/error", features = ["tracing-logging"] }
 thiserror = "2"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
@@ -35,7 +35,7 @@ uniffi = { version = "0.29.0", features = ["build"] }
 [dev-dependencies]
 viaduct = { path = "../viaduct", features=["backend-dev"]}
 mockall = "0.12"
-mockito = "0.31"
+mockito = { version = "0.31", default-features = false}
 
 [features]
 default = []

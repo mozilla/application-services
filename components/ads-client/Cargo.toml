@@ -16,7 +16,7 @@ error-support = { path = "../support/error" }
 thiserror = "2"
 
 [dev-dependencies]
-mockito = "0.31"
+mockito = { version = "0.31", default-features = false}
 mockall = "0.12"
 
 [build-dependencies]

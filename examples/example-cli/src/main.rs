@@ -122,7 +122,7 @@ fn init_logging(cli: &Cli) {
     } else {
         "example_component=info"
     };
-    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", log_filter));
+    cli_support::init_logging_with(log_filter);
 }
 
 fn build_example_component() -> ApiResult<ExampleComponent> {

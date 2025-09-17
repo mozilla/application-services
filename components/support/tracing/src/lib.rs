@@ -4,11 +4,12 @@
 
 mod layer;
 
-#[cfg(feature = "testing")]
-mod testing;
+mod filters;
 
-#[cfg(feature = "testing")]
-pub use testing::{init_for_tests, init_for_tests_with_level};
+pub use filters::{
+    init_for_tests, init_for_tests_with_level, init_from_env, init_from_env_with_default,
+    init_from_env_with_level,
+};
 
 pub use layer::{
     register_event_sink, register_min_level_event_sink, simple_event_layer, unregister_event_sink,
