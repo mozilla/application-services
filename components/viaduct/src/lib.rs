@@ -13,6 +13,8 @@ mod backend;
 mod client;
 pub mod error;
 mod new_backend;
+#[cfg(feature = "ohttp")]
+pub mod ohttp;
 pub mod settings;
 pub use error::*;
 // reexport logging helpers.
@@ -22,6 +24,8 @@ pub use backend::{note_backend, set_backend, Backend as OldBackend};
 pub use client::{Client, ClientSettings};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 pub use new_backend::{init_backend, Backend};
+#[cfg(feature = "ohttp")]
+pub use ohttp::{clear_ohttp_channels, configure_ohttp_channel, list_ohttp_channels, OhttpConfig};
 pub use settings::{allow_android_emulator_loopback, GLOBAL_SETTINGS};
 
 #[cfg(feature = "backend-dev")]
@@ -78,6 +82,7 @@ pub struct Request {
     pub url: Url,
     pub headers: Headers,
     pub body: Option<Vec<u8>>,
+    pub ohttp_channel: Option<String>,
 }
 
 impl Request {
@@ -89,6 +94,7 @@ impl Request {
             url,
             headers: Headers::new(),
             body: None,
+            ohttp_channel: None,
         }
     }
 
@@ -119,6 +125,23 @@ impl Request {
     /// Alias for `Request::new(Method::Delete, url)`, for convenience.
     pub fn delete(url: Url) -> Self {
         Self::new(Method::Delete, url)
+    }
+
+    /// Configure this request to use OHTTP with the specified channel
+    #[cfg(feature = "ohttp")]
+    pub fn ohttp_channel(mut self, channel: &str) -> Result<Self, ViaductError> {
+        if !ohttp::is_ohttp_channel_configured(channel) {
+            return Err(ViaductError::OhttpChannelNotConfigured(channel.to_string()));
+        }
+        self.ohttp_channel = Some(channel.to_string());
+        Ok(self)
+    }
+
+    /// Configure this request to use OHTTP with the specified channel
+    /// This version returns an error when OHTTP is not supported
+    #[cfg(not(feature = "ohttp"))]
+    pub fn ohttp_channel(self, _channel: &str) -> Result<Self, ViaductError> {
+        Err(ViaductError::OhttpNotSupported)
     }
 
     /// Append the provided query parameters to the URL

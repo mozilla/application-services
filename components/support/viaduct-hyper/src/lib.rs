@@ -100,6 +100,7 @@ async fn make_request_inner(
             url: url.clone(),
             headers: request.headers.clone(),
             body: None,
+            ohttp_channel: request.ohttp_channel.clone(),
         };
         resp = make_single_request(&client, new_request).await?;
     }
