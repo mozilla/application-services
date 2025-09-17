@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- use crate::{info, settings::validate_request, trace};
- use ffi::FfiBackend;
- use once_cell::sync::OnceCell;
- #[cfg(feature = "backend-dev")]
- pub mod dev;
- mod ffi;
+use crate::{info, settings::validate_request, trace};
+use ffi::FfiBackend;
+use once_cell::sync::OnceCell;
+#[cfg(feature = "backend-dev")]
+pub mod dev;
+mod ffi;
 
 pub fn note_backend(which: &str) {
     // If trace logs are enabled: log on every request. Otherwise, just log on
