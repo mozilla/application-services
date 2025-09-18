@@ -28,6 +28,7 @@ pub fn init_logging_with(default_env: &str) {
 }
 
 pub fn cli_data_dir() -> String {
+    ensure_cli_data_dir_exists();
     data_path(None).to_string_lossy().to_string()
 }
 
@@ -39,10 +40,12 @@ pub fn ensure_cli_data_dir_exists() {
 }
 
 pub fn cli_data_subdir(relative_path: &str) -> String {
+    ensure_cli_data_dir_exists();
     data_path(Some(relative_path)).to_string_lossy().to_string()
 }
 
 pub fn cli_data_path(filename: &str) -> String {
+    ensure_cli_data_dir_exists();
     data_path(None).join(filename).to_string_lossy().to_string()
 }
 
