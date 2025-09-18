@@ -239,7 +239,7 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<AvailableExperiment> get_available_experiments();
 
-    /// Getter and setter for user's participation in experiments only.
+    /// Getter and setter for user's participation in all experiments.
     /// Possible values are:
     /// * `true`: the user will enroll in experiments as usual.
     /// * `false`: the user will not enroll in new experiments, and opt out of all existing ones.
@@ -276,7 +276,7 @@ interface NimbusClient {
     /// Toggles the enablement of the fetch. If `false`, then calling `fetch_experiments`
     /// returns immediately, having not done any fetching from remote settings.
     /// This is only useful for QA, and should not be used in production: use
-    /// `set_experiment_participation` or `set_rollout_participation` instead.
+    /// `set_global_user_participation` instead.
     [Throws=NimbusError]
     void set_fetch_enabled(boolean flag);
 

@@ -26,9 +26,8 @@ use crate::{
         client::{create_client, SettingsClient},
         dbcache::DatabaseCache,
         enrollment::{
-            get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
-            reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
-            unenroll_for_pref,
+            get_global_user_participation, opt_in_with_branch, opt_out,
+            reset_telemetry_identifiers, set_global_user_participation, unenroll_for_pref,
         },
         gecko_prefs::{
             GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, PrefBranch,
@@ -253,71 +252,28 @@ impl NimbusClient {
             .ok_or(NimbusError::NoSuchExperiment(slug))
     }
 
-    pub fn get_experiment_participation(&self) -> Result<bool> {
-        let db = self.db()?;
-        let reader = db.read()?;
-        get_experiment_participation(db, &reader)
-    }
-
-    pub fn get_rollout_participation(&self) -> Result<bool> {
-        let db = self.db()?;
-        let reader = db.read()?;
-        get_rollout_participation(db, &reader)
-    }
-
-    pub fn set_experiment_participation(
-        &self,
-        user_participating: bool,
-    ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let db = self.db()?;
-        let mut writer = db.write()?;
-        let mut state = self.mutable_state.lock().unwrap();
-        set_experiment_participation(db, &mut writer, user_participating)?;
-
-        let existing_experiments: Vec<Experiment> =
-            db.get_store(StoreId::Experiments).collect_all(&writer)?;
-        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
-        Ok(events)
-    }
-
-    pub fn set_rollout_participation(
-        &self,
-        user_participating: bool,
-    ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let db = self.db()?;
-        let mut writer = db.write()?;
-        let mut state = self.mutable_state.lock().unwrap();
-        set_rollout_participation(db, &mut writer, user_participating)?;
-
-        let existing_experiments: Vec<Experiment> =
-            db.get_store(StoreId::Experiments).collect_all(&writer)?;
-        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
-        Ok(events)
-    }
-
-    // DEPRECATED: Will be removed once Firefox is using the
-    // new get_experiment_participation and get_rollout_participation
     pub fn get_global_user_participation(&self) -> Result<bool> {
-        // For simplicity, just return the experiment participation value
-        self.get_experiment_participation()
+        let db = self.db()?;
+        let reader = db.read()?;
+        get_global_user_participation(db, &reader)
     }
 
-    // DEPRECATED: Will be removed once Firefox is using the
-    // new set_experiment_participation and set_rollout_participation
     pub fn set_global_user_participation(
         &self,
         user_participating: bool,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        // Call both set_experiment_participation and set_rollout_participation with the same value
-        let experiment_events = self.set_experiment_participation(user_participating)?;
-        let rollout_events = self.set_rollout_participation(user_participating)?;
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let mut state = self.mutable_state.lock().unwrap();
+        set_global_user_participation(db, &mut writer, user_participating)?;
 
-        // Combine the events from both calls
-        let mut all_events = experiment_events;
-        all_events.extend(rollout_events);
-        Ok(all_events)
+        let existing_experiments: Vec<Experiment> =
+            db.get_store(StoreId::Experiments).collect_all(&writer)?;
+        // We pass the existing experiments as "updated experiments"
+        // to the evolver.
+        let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
+        self.end_initialize(db, writer, &mut state)?;
+        Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {

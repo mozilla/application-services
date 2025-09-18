@@ -24,17 +24,8 @@ use std::path::Path;
 //
 // ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
 pub(crate) const DB_KEY_DB_VERSION: &str = "db_version";
-pub(crate) const DB_VERSION: u16 = 3;
+pub(crate) const DB_VERSION: u16 = 2;
 const RKV_MAX_DBS: u32 = 6;
-
-pub(crate) const DB_KEY_EXPERIMENT_PARTICIPATION: &str = "user-opt-in-experiments";
-pub(crate) const DB_KEY_ROLLOUT_PARTICIPATION: &str = "user-opt-in-rollouts";
-
-// Legacy key for migration purposes
-pub(crate) const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
-
-pub(crate) const DEFAULT_EXPERIMENT_PARTICIPATION: bool = true;
-pub(crate) const DEFAULT_ROLLOUT_PARTICIPATION: bool = true;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -126,10 +117,8 @@ pub enum StoreId {
     ///     applied to this database.
     ///   * "nimbus-id":    String, the randomly-generated identifier for the
     ///     current client instance.
-    ///   * "user-opt-in-experiments":  bool, whether the user has explicitly opted in or out
+    ///   * "user-opt-in":  bool, whether the user has explicitly opted in or out
     ///     of participating in experiments.
-    ///   * "user-opt-in-rollouts":  bool, whether the user has explicitly opted in or out
-    ///     of participating in rollouts.
     ///   * "installation-date": a UTC DateTime string, defining the date the consuming app was
     ///     installed
     ///   * "update-date": a UTC DateTime string, defining the date the consuming app was
@@ -346,53 +335,50 @@ impl Database {
     fn maybe_upgrade(&self) -> Result<()> {
         debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
-        let current_version = self
-            .meta_store
-            .get::<u16, _>(&writer, DB_KEY_DB_VERSION)?
-            .unwrap_or(0);
-
-        if current_version == DB_VERSION {
-            info!("Already at version {}, no upgrade needed", DB_VERSION);
-            return Ok(());
-        }
-
-        if current_version == 0 || current_version > DB_VERSION {
-            info!(
-                "maybe_upgrade: current_version: {}, DB_VERSION: {}; wiping most stores",
-                current_version, DB_VERSION
-            );
-            self.clear_experiments_and_enrollments(&mut writer)?;
-            self.updates_store.clear(&mut writer)?;
-            self.meta_store
-                .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
-            writer.commit()?;
-            return Ok(());
-        }
-
-        if current_version == 1 {
-            info!("Migrating database from v1 to v2");
-            if let Err(e) = self.migrate_v1_to_v2(&mut writer) {
-                error_support::report_error!(
-                    "nimbus-database-migration",
-                    "Error migrating database v1 to v2: {:?}. Wiping experiments and enrollments",
-                    e
-                );
+        let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
+        match db_version {
+            Some(DB_VERSION) => {
+                // Already at the current version, no migration required.
+                info!("Already at version {}, no upgrade needed", DB_VERSION);
+                return Ok(());
+            }
+            Some(1) => {
+                info!("Migrating database from v1 to v2");
+                match self.migrate_v1_to_v2(&mut writer) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        // The idea here is that it's better to leave an
+                        // individual install with a clean empty database
+                        // than in an unknown inconsistent state, because it
+                        // allows them to start participating in experiments
+                        // again, rather than potentially repeating the upgrade
+                        // over and over at each embedding client restart.
+                        error_support::report_error!(
+                            "nimbus-database-migration",
+                            "Error migrating database v1 to v2: {:?}.  Wiping experiments and enrollments",
+                            e
+                        );
+                        self.clear_experiments_and_enrollments(&mut writer)?;
+                    }
+                };
+            }
+            None => {
+                info!("maybe_upgrade: no version number; wiping most stores");
+                // The "first" version of the database (= no version number) had un-migratable data
+                // for experiments and enrollments, start anew.
+                // XXX: We can most likely remove this behaviour once enough time has passed,
+                // since nimbus wasn't really shipped to production at the time anyway.
                 self.clear_experiments_and_enrollments(&mut writer)?;
             }
-        }
-
-        if current_version == 2 {
-            info!("Migrating database from v2 to v3");
-            if let Err(e) = self.migrate_v2_to_v3(&mut writer) {
+            _ => {
                 error_support::report_error!(
-                    "nimbus-database-migration",
-                    "Error migrating database v2 to v3: {:?}. Wiping experiments and enrollments",
-                    e
+                    "nimbus-unknown-database-version",
+                    "Unknown database version. Wiping all stores."
                 );
                 self.clear_experiments_and_enrollments(&mut writer)?;
+                self.meta_store.clear(&mut writer)?;
             }
         }
-
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
         // as it will be re-filled from the server on the next `fetch_experiments()`.
         // The current contents of the update store may cause experiments to not load, or worse,
@@ -494,50 +480,6 @@ impl Database {
                 .put(writer, &enrollment.slug, &enrollment)?;
         }
         debug!("exiting migrate_v1_to_v2");
-
-        Ok(())
-    }
-
-    /// Migrates a v2 database to v3
-    ///
-    /// Separates global user participation into experiments and rollouts participation.
-    /// For privacy: if user opted out globally, they remain opted out of experiments.
-    fn migrate_v2_to_v3(&self, writer: &mut Writer) -> Result<()> {
-        info!("Upgrading from version 2 to version 3");
-
-        let meta_store = &self.meta_store;
-
-        // Get the old global participation flag
-        let old_global_participation = meta_store
-            .get::<bool, _>(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?
-            .unwrap_or(true); // Default was true
-
-        // Set new separate flags based on privacy requirements:
-        // - If user opted out globally, they stay opted out of experiments
-        // - If user opted out globally, they stay opted out of rollouts (per requirement #3)
-        meta_store.put(
-            writer,
-            DB_KEY_EXPERIMENT_PARTICIPATION,
-            &old_global_participation,
-        )?;
-        meta_store.put(
-            writer,
-            DB_KEY_ROLLOUT_PARTICIPATION,
-            &old_global_participation,
-        )?;
-
-        // Remove the old global participation key if it exists
-        if meta_store
-            .get::<bool, _>(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?
-            .is_some()
-        {
-            meta_store.delete(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
-        }
-
-        info!(
-            "Migration v2->v3: experiments_participation={}, rollouts_participation={}",
-            old_global_participation, old_global_participation
-        );
 
         Ok(())
     }
