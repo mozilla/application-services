@@ -39,7 +39,7 @@ uniffi = { version = "0.29.0", features = ["build"] }
 
 [dev-dependencies]
 expect-test = "1.4"
-viaduct = { path = "../viaduct", features = ["backend-dev"] }
+viaduct-dev = { path = "../support/viaduct-dev" }
 mockall = "0.12"
 mockito = { version = "0.31", default-features = false}
 # We add the perserve_order feature to guarantee ordering of the keys in our

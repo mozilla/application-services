@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_fetch_addresses() {
-        viaduct::init_backend_dev();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json = base_addresses_json(
             r#""used_on": "example.com", "last_used_at": "2021-01-03T00:00:00Z", "#,
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_fetch_addresses_used_on_null() {
-        viaduct::init_backend_dev();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json =
             base_addresses_json(r#""used_on": null,"last_used_at": "2021-01-03T00:00:00Z","#);
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_fetch_addresses_last_used_at_null() {
-        viaduct::init_backend_dev();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json =
             base_addresses_json(r#""used_on": "example.com","last_used_at": null,"#);
@@ -255,7 +255,7 @@ mod tests {
         token: Option<&str>,
         expect_error: bool,
     ) {
-        viaduct::init_backend_dev();
+        viaduct_dev::init_backend_dev();
 
         let mut mock = mock("POST", "/api/v1/terms-accepted-user/").with_status(status_code);
 
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_create_address() {
-        viaduct::init_backend_dev();
+        viaduct_dev::init_backend_dev();
 
         let address_json = r#"
         {

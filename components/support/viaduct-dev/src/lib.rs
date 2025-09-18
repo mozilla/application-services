@@ -2,19 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! Viaduct dev backend
+//!
+//! This implements a backend using `hyper`.
+//! Unlike the `hyper` backend it does not support HTTPS.
+//! This means it's clear to vendor into moz-central and won't bring in unwanted sub-dependencies, like `openssl`.
+//! This is mainly intended for testing, where the HTTP-only restriction is not an issue.
 use std::{sync::Arc, time::Duration};
 
 use error_support::info;
 use tokio::time::timeout;
 use url::Url;
 
-use crate::error::MapBackendError;
-use crate::{
-    init_backend, Backend, ClientSettings, Header, Method, Request, Response, Result, ViaductError,
+use viaduct::{
+    error::MapBackendError, init_backend, Backend, ClientSettings, Header, Method, Request,
+    Response, Result, ViaductError,
 };
 
-type Connector = hyper::client::connect::HttpConnector;
-type Client = hyper::client::Client<Connector, hyper::Body>;
+type Client = hyper::client::Client<hyper::client::connect::HttpConnector, hyper::Body>;
 
 struct HyperBackend {
     runtime: tokio::runtime::Runtime,
@@ -24,7 +29,6 @@ struct HyperBackend {
 /// Initialize the `dev` backend.
 ///
 /// This is intended to be used in tests.  It uses `hyper` without any HTTPS support.
-#[uniffi::export]
 pub fn init_backend_dev() {
     info!("initializing dev backend");
     // Create a multi-threaded runtime, with 1 worker thread.
@@ -45,11 +49,7 @@ pub fn init_backend_dev() {
 
 #[async_trait::async_trait]
 impl Backend for HyperBackend {
-    async fn send_request(
-        &self,
-        request: Request,
-        settings: ClientSettings,
-    ) -> Result<Response, ViaductError> {
+    async fn send_request(&self, request: Request, settings: ClientSettings) -> Result<Response> {
         let handle = self.runtime.handle().clone();
         let client = self.client.clone();
         match handle

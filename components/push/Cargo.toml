@@ -31,5 +31,5 @@ mockito = { version = "0.31", default-features = false }
 hex = "0.4"
 tempfile = "3.1.0"
 mockall = "0.12"
-viaduct = { path = "../viaduct", features = ["backend-dev"]}
+viaduct-dev = { path = "../support/viaduct-dev" }
 nss = { path = "../support/rc_crypto/nss" }

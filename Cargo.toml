@@ -46,6 +46,8 @@ members = [
     "components/support/text-table",
     "components/support/tracing",
     "components/support/types",
+    "components/support/viaduct-dev",
+    "components/support/viaduct-hyper",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync15",

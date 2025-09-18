@@ -32,6 +32,7 @@ dependencies = [
  "url",
  "uuid",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -718,6 +719,7 @@ dependencies = [
  "url",
  "uuid",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -1699,6 +1701,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3446,6 +3449,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3634,6 +3638,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3685,6 +3690,7 @@ dependencies = [
  "uniffi",
  "url",
  "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -3926,7 +3932,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.3",
  "uniffi",
- "viaduct",
+ "viaduct-dev",
 ]
 
 [[package]]
@@ -5170,7 +5176,6 @@ dependencies = [
  "async-trait",
  "error-support",
  "ffi-support",
- "hyper",
  "once_cell",
  "parking_lot",
  "pollster",
@@ -5178,9 +5183,20 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.3",
- "tokio",
  "uniffi",
  "url",
+]
+
+[[package]]
+name = "viaduct-dev"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "error-support",
+ "hyper",
+ "tokio",
+ "url",
+ "viaduct",
 ]
 
 [[package]]
