@@ -10,6 +10,9 @@ pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ApiError {
+    #[error(transparent)]
+    ContextId(#[from] context_id::ApiError),
+
     #[error("Something unexpected occurred.")]
     Other { reason: String },
 }
@@ -53,6 +56,9 @@ pub enum RequestAdsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BuildRequestError {
+    #[error(transparent)]
+    ContextId(#[from] context_id::ApiError),
+
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 

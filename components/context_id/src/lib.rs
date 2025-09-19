@@ -31,7 +31,6 @@ impl ContextIDComponent {
     ///
     /// If no creation timestamp is provided, the current time will be used.
     #[uniffi::constructor]
-
     pub fn new(
         init_context_id: &str,
         creation_timestamp_s: i64,
