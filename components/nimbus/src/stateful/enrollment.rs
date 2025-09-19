@@ -1,6 +1,11 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+use crate::enrollment::Participation;
+use crate::stateful::persistence::{
+    DB_KEY_EXPERIMENT_PARTICIPATION, DB_KEY_ROLLOUT_PARTICIPATION,
+    DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
+};
 use crate::{
     enrollment::{
         map_enrollments, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
@@ -14,9 +19,6 @@ use crate::{
     EnrolledExperiment, EnrollmentStatus, Experiment,
 };
 
-const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
-const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
-
 impl EnrollmentsEvolver<'_> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
     /// enrollments and user participation from the database.
@@ -26,15 +28,22 @@ impl EnrollmentsEvolver<'_> {
         writer: &mut Writer,
         next_experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        // Get the state from the db.
-        let is_user_participating = get_global_user_participation(db, writer)?;
+        // Get separate participation states from the db
+        let is_participating_in_experiments = get_experiment_participation(db, writer)?;
+        let is_participating_in_rollouts = get_rollout_participation(db, writer)?;
+
+        let participation = Participation {
+            in_experiments: is_participating_in_experiments,
+            in_rollouts: is_participating_in_rollouts,
+        };
+
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
         let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
         // Calculate the changes.
         let (next_enrollments, enrollments_change_events) = self.evolve_enrollments(
-            is_user_participating,
+            participation,
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
@@ -171,26 +180,41 @@ pub fn unenroll_for_pref(
     Ok(events)
 }
 
-pub fn get_global_user_participation<'r>(
+pub fn get_experiment_participation<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
 ) -> Result<bool> {
     let store = db.get_store(StoreId::Meta);
-    let opted_in = store.get::<bool, _>(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+    let opted_in = store.get::<bool, _>(reader, DB_KEY_EXPERIMENT_PARTICIPATION)?;
     if let Some(opted_in) = opted_in {
         Ok(opted_in)
     } else {
-        Ok(DEFAULT_GLOBAL_USER_PARTICIPATION)
+        Ok(DEFAULT_EXPERIMENT_PARTICIPATION)
     }
 }
 
-pub fn set_global_user_participation(
+pub fn get_rollout_participation<'r>(db: &Database, reader: &'r impl Readable<'r>) -> Result<bool> {
+    let store = db.get_store(StoreId::Meta);
+    let opted_in = store.get::<bool, _>(reader, DB_KEY_ROLLOUT_PARTICIPATION)?;
+    if let Some(opted_in) = opted_in {
+        Ok(opted_in)
+    } else {
+        Ok(DEFAULT_ROLLOUT_PARTICIPATION)
+    }
+}
+
+pub fn set_experiment_participation(
     db: &Database,
     writer: &mut Writer,
     opt_in: bool,
 ) -> Result<()> {
     let store = db.get_store(StoreId::Meta);
-    store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
+    store.put(writer, DB_KEY_EXPERIMENT_PARTICIPATION, &opt_in)
+}
+
+pub fn set_rollout_participation(db: &Database, writer: &mut Writer, opt_in: bool) -> Result<()> {
+    let store = db.get_store(StoreId::Meta);
+    store.put(writer, DB_KEY_ROLLOUT_PARTICIPATION, &opt_in)
 }
 
 /// Reset unique identifiers in response to application-level telemetry reset.
