@@ -10,8 +10,8 @@ use crate::{
     },
     models::{AdRequest, AdResponse},
 };
-use url::Url;
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use url::Url;
 use viaduct::Request;
 
 const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.mozilla.org/v1";
@@ -38,7 +38,12 @@ pub struct DefaultMARSClient {
 impl DefaultMARSClient {
     pub fn new(context_id: String) -> Self {
         Self {
-            context_id_component: ContextIDComponent::new(&context_id, 0, false, Box::new(DefaultContextIdCallback)),
+            context_id_component: ContextIDComponent::new(
+                &context_id,
+                0,
+                false,
+                Box::new(DefaultContextIdCallback),
+            ),
             endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
         }
     }
@@ -46,7 +51,12 @@ impl DefaultMARSClient {
     #[cfg(test)]
     pub fn new_with_endpoint(context_id: String, endpoint: String) -> Self {
         Self {
-            context_id_component: ContextIDComponent::new(&context_id, 0, false, Box::new(DefaultContextIdCallback)),
+            context_id_component: ContextIDComponent::new(
+                &context_id,
+                0,
+                false,
+                Box::new(DefaultContextIdCallback),
+            ),
             endpoint,
         }
     }
@@ -134,7 +144,10 @@ mod tests {
     #[test]
     fn test_get_context_id() {
         let client = create_test_client(mockito::server_url());
-        assert_eq!(client.get_context_id().unwrap(), TEST_CONTEXT_ID.to_string());
+        assert_eq!(
+            client.get_context_id().unwrap(),
+            TEST_CONTEXT_ID.to_string()
+        );
     }
 
     #[test]
