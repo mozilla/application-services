@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Ads Client
+- The `context_id` is now generated and rotated via the existing eponym component crate.
+
 # v144.0 (_2025-09-15_)
 
 ## ✨ What's New ✨

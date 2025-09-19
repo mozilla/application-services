@@ -11,7 +11,7 @@ use crate::{
     IABContent, MozAdsPlacement, MozAdsPlacementConfig,
 };
 
-pub const TEST_CONTEXT_ID: &str = "test-context-id";
+pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
 pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
     vec![
