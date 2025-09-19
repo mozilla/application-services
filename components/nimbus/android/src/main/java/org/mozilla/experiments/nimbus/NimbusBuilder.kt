@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import androidx.annotation.RawRes
 import kotlinx.coroutines.runBlocking
+import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.RecordedContext
@@ -32,11 +33,6 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * A closure for reporting errors from Rust.
      */
     var errorReporter: ErrorReporter = { _: String, _: Throwable -> }
-
-    /**
-     * A flag to select the main or preview collection of remote settings. Defaults to `false`.
-     */
-    var usePreviewCollection: Boolean = false
 
     /**
      * A flag to indicate if this is being run on the first run of the app. This is used to control
@@ -109,19 +105,7 @@ abstract class AbstractNimbusBuilder<T : NimbusInterface>(val context: Context) 
      * network. This is to allow the networking stack to be initialized after this method is called
      * and the networking stack to be involved in experiments.
      */
-    fun build(appInfo: NimbusAppInfo): T {
-        // Eventually we'll want to use `NimbusDisabled` when we have no NIMBUS_ENDPOINT.
-        // but we keep this here to not mix feature flags and how we configure Nimbus.
-        val serverSettings: NimbusServerSettings? = if (!url.isNullOrBlank()) {
-            if (usePreviewCollection) {
-                NimbusServerSettings(url = Uri.parse(url), collection = "nimbus-preview")
-            } else {
-                NimbusServerSettings(url = Uri.parse(url))
-            }
-        } else {
-            null
-        }
-
+    fun build(appInfo: NimbusAppInfo, serverSettings: NimbusServerSettings?): T {
         // Is the app being built locally, and the nimbus-cli
         // hasn't been used before this run.
         fun NimbusInterface.isLocalBuild() = url.isNullOrBlank() && isFetchEnabled()
