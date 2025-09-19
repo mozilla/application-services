@@ -1,3 +1,16 @@
-# May be built outside of a workspace, leaving extra junk behind.
+# This is all ugly and should be fixed.
+
+# iOS Building & XCFramework artifacts
+MozillaRustComponents.xcframework*
+focus/FocusRustComponents.xcframework*
+include*
+.build*
+sources/MozillaRustComponentsWrapper/generated*
+.swiftpm
+
+# Glean generated artifacts
+.venv
+
+# When built in the monorepo we may get these.
 Cargo.lock
 target
