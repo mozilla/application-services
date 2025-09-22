@@ -3,6 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{NimbusError, Result};
+use icu_segmenter::GraphemeClusterSegmenter;
 use serde_json::{value::Value, Map};
 
 #[allow(dead_code)]
@@ -32,10 +33,9 @@ pub fn fmt_with_value(template: &str, value: &Value) -> Result<String> {
 }
 
 pub fn fmt_with_map(input: &str, context: &Map<String, Value>) -> String {
-    use unicode_segmentation::UnicodeSegmentation;
     let mut output = String::with_capacity(input.len());
 
-    let mut iter = input.grapheme_indices(true);
+    let mut iter = iter_graphemes(input);
     let mut last_index = 0;
 
     // This is exceedingly simple; never refer to this as a parser.
@@ -72,6 +72,25 @@ pub fn fmt_with_map(input: &str, context: &Map<String, Value>) -> String {
     output.push_str(&input[last_index..input.len()]);
 
     output
+}
+
+/// Iterate over graphemes
+///
+/// Each iteration will yield the start index of the grapheme and it's content.
+///
+/// This is intended to be equivalent to `grapheme_indices(true)` from the `unicode_segmentation`
+/// crate.
+fn iter_graphemes(input: &str) -> impl Iterator<Item = (usize, &str)> {
+    let mut last_idx = None;
+    let segmenter = GraphemeClusterSegmenter::new();
+    segmenter
+        .segment_str(input)
+        .filter_map(move |idx| {
+            let next = last_idx.map(|last_idx| (last_idx, idx));
+            last_idx = Some(idx);
+            next
+        })
+        .map(|(last_idx, idx)| (last_idx, &input[last_idx..idx]))
 }
 
 #[cfg(test)]
@@ -116,6 +135,7 @@ mod unit_tests {
     fn test_pathological_cases() {
         let c = json!({
             "empty": "".to_string(),
+            "foo}́": "foo-with-accented-brace",
         });
         let c = c.as_object().unwrap();
 
@@ -126,6 +146,11 @@ mod unit_tests {
         assert_eq!(
             fmt_with_map("aa { unclosed", c),
             "aa { unclosed".to_string()
+        );
+        // }́ shouldn't close the name since we only match on graphemes
+        assert_eq!(
+            fmt_with_map("aa {foo}́}", c),
+            "aa foo-with-accented-brace".to_string()
         );
     }
 }
