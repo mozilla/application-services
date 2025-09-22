@@ -112,7 +112,7 @@ fn main() -> Result<()> {
             gateway_host,
             channel,
         } => {
-            return run_ohttp_example(relay_url, gateway_host, channel);
+            return run_ohttp_example(relay_url, gateway_host, channel, backend_style);
         }
     }
 
@@ -120,10 +120,25 @@ fn main() -> Result<()> {
 }
 
 #[cfg(feature = "ohttp")]
-fn run_ohttp_example(relay_url: String, gateway_host: String, channel: String) -> Result<()> {
+fn run_ohttp_example(
+    relay_url: String,
+    gateway_host: String,
+    channel: String,
+    backend_style: BackendStyle,
+) -> Result<()> {
     // Step 1: Initialize viaduct backend
     println!("Initializing viaduct backend...");
-    viaduct_hyper::init_backend_hyper()?;
+
+    match backend_style {
+        BackendStyle::New => {
+            viaduct_hyper::init_backend_hyper()?;
+        }
+        BackendStyle::Bridged => {
+            println!("OHTTP is not compatible with the bridged backend. Use --backend=new or omit the backend parameter.");
+            return Ok(());
+        }
+    }
+
     println!("Backend initialized successfully");
 
     // Step 2: Configure the OHTTP channel
