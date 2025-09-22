@@ -321,8 +321,9 @@ dependencies = [
 
 [[package]]
 name = "bhttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=c6131ace4e4e82a4269afac3cb0524541d2cd315#c6131ace4e4e82a4269afac3cb0524541d2cd315"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a23039ff1530c05a237757cb6b830f7941b8a12aacc58ae48e888d2c8d69a133"
 dependencies = [
  "thiserror 1.0.69",
 ]
@@ -3022,8 +3023,9 @@ dependencies = [
 
 [[package]]
 name = "ohttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=c6131ace4e4e82a4269afac3cb0524541d2cd315#c6131ace4e4e82a4269afac3cb0524541d2cd315"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7596cbb2bb1326a1a9459d3b82e479dbb4606bb1d2854c6978284c446000b726"
 dependencies = [
  "bindgen",
  "byteorder",
