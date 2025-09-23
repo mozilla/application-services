@@ -130,22 +130,15 @@ pub fn bench_match_url(c: &mut Criterion) {
         match_url(db, "https://hg.mozilla.org/mozilla-central").unwrap()
     });
 }
-
-/*
- * Benchmarking speeding up fetch_outgoing by adding a partial index
-*/
-
 // A helper function that benches can use to validate what queries are doing
-fn explain(name: String, conn: &PlacesDb, sql_template: &str, limit: i64) {
-    // Replace the {LIMIT} placeholder with the actual limit value
-    let sql = sql_template.replace("{LIMIT}", &limit.to_string());
-
-    let mut stmt = conn
-        .prepare(&format!("EXPLAIN QUERY PLAN {}", sql))
-        .unwrap();
+fn explain(name: &str, db: &PlacesDb, sql_tmpl: &str, subs: &[(&str, String)]) {
+    let mut sql = sql_tmpl.to_string();
+    for (k, v) in subs {
+        sql = sql.replace(k, v);
+    }
+    let mut stmt = db.prepare(&format!("EXPLAIN QUERY PLAN {}", sql)).unwrap();
     let rows = stmt
         .query_map([], |r| {
-            // No parameters needed since we already substituted
             Ok((
                 r.get::<_, i64>(0)?,    // id
                 r.get::<_, i64>(1)?,    // parent
@@ -154,13 +147,16 @@ fn explain(name: String, conn: &PlacesDb, sql_template: &str, limit: i64) {
             ))
         })
         .unwrap();
-    println!("--- EXPLAIN QUERY PLAN {} for limit {} ---", name, limit);
+    println!("--- EXPLAIN QUERY PLAN {} ---", name);
     for row in rows {
         let (id, parent, _notused, detail) = row.unwrap();
         println!("  {}-{}: {}", id, parent, detail);
     }
     println!("--- END EXPLAIN ---\n");
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// fetch_outgoing benchmark, speeding up by adding a partial index
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Original (slow) predicate seen in https://bugzilla.mozilla.org/show_bug.cgi?id=1979764
 const OUTGOING_SQL_ORIGINAL: &str = r#"
@@ -192,7 +188,7 @@ const OUTGOING_SQL_INDEX_FRIENDLY: &str = r#"
 /// Flip a subset of rows to be "changed", and mark some as hidden.
 /// This ensures both WHERE branches return work and the partial index has a
 /// selective predicate.
-fn seed_outgoing_flags(db: &PlacesDb) -> places::Result<()> {
+fn seed_db_for_outgoing(db: &PlacesDb) -> places::Result<()> {
     // majority "Normal"
     db.execute(
         "UPDATE moz_places
@@ -256,25 +252,26 @@ fn run_outgoing_query(
 }
 
 pub fn bench_outgoing_candidates(c: &mut Criterion) {
+    const LIMIT: usize = 200;
     // Create two independent DBs so index state changes do not leak between benches.
     let db_no_index = TestDb::new();
-    seed_outgoing_flags(&db_no_index.db).unwrap();
+    seed_db_for_outgoing(&db_no_index.db).unwrap();
     drop_outgoing_partial_index(&db_no_index.db).unwrap();
     explain(
-        "Original query".to_string(),
+        "Original query",
         &db_no_index.db,
         OUTGOING_SQL_ORIGINAL,
-        200,
+        &[("{LIMIT}", LIMIT.to_string())],
     );
 
     let db_with_index = TestDb::new();
-    seed_outgoing_flags(&db_with_index.db).unwrap();
+    seed_db_for_outgoing(&db_with_index.db).unwrap();
     create_outgoing_partial_index(&db_with_index.db).unwrap();
     explain(
-        "Index friendly query".to_string(),
+        "Index friendly query",
         &db_with_index.db,
         OUTGOING_SQL_INDEX_FRIENDLY,
-        200,
+        &[("{LIMIT}", LIMIT.to_string())],
     );
 
     // Bench: no index, original predicate
@@ -311,5 +308,199 @@ pub fn bench_outgoing_candidates(c: &mut Criterion) {
                 b.iter(|| run_outgoing_query(db, /*use_index_friendly_where=*/ false, 200).unwrap())
             },
         );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_top_frecent_site_infos benchmark, optimizing the where part via join/index-friendly
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TOP_FRECENT_ORIGINAL: &str = r#"
+    SELECT h.frecency, h.title, h.url
+    FROM moz_places h
+    WHERE EXISTS (
+        SELECT v.visit_type
+        FROM moz_historyvisits v
+        WHERE h.id = v.place_id
+          AND (SUBSTR(h.url, 1, 6) == 'https:' OR SUBSTR(h.url, 1, 5) == 'http:')
+          AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
+          AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
+          AND h.frecency >= {FRECENCY} AND
+          NOT h.hidden
+    )
+    ORDER BY h.frecency DESC
+    LIMIT {LIMIT}
+"#;
+
+const TOP_FRECENT_INDEX_FRIENDLY: &str = r#"
+    SELECT h.frecency, h.title, h.url
+        FROM moz_places h
+        JOIN moz_origins o ON o.id = h.origin_id
+        WHERE o.prefix IN ('http','https')
+        AND h.hidden = 0
+        AND h.frecency >= {FRECENCY}
+        AND EXISTS (
+            SELECT 1 FROM moz_historyvisits v
+            WHERE v.place_id = h.id
+            AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
+            LIMIT 1
+        )
+        UNION ALL
+        SELECT h.frecency, h.title, h.url
+        FROM moz_places h
+        WHERE h.origin_id IS NULL
+        AND h.hidden = 0
+        AND h.frecency >= {FRECENCY}
+        AND (h.url LIKE 'https:%' OR h.url LIKE 'http:%')
+        AND EXISTS (
+            SELECT 1 FROM moz_historyvisits v
+            WHERE v.place_id = h.id
+            AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
+            LIMIT 1
+        )
+        ORDER BY frecency DESC
+        LIMIT {LIMIT}
+"#;
+
+// Seed database with test data for top frecent benchmarks
+fn seed_db_for_top_frecent(db: &PlacesDb) -> places::Result<()> {
+    // Ensure a mix of visible/hidden and non-zero visit dates.
+    db.execute(
+        r#"
+        UPDATE moz_places
+        SET hidden = CASE WHEN (id % 7) = 0 THEN 1 ELSE 0 END,
+            last_visit_date_local = CASE WHEN (id % 3) = 0 THEN (id * 10) ELSE last_visit_date_local END,
+            last_visit_date_remote = CASE WHEN (id % 5) = 0 THEN (id * 7) ELSE last_visit_date_remote END
+        "#,
+        [],
+    )?;
+
+    // Give many rows http/https prefixes
+    db.execute(
+        r#"
+        UPDATE moz_places
+        SET url = CASE
+            WHEN (id % 2) = 0 AND url NOT LIKE 'http:%' AND url NOT LIKE 'https:%'
+                 THEN 'https://example.com/item/' || id
+            WHEN (id % 2) = 1 AND url NOT LIKE 'http:%' AND url NOT LIKE 'https:%'
+                 THEN 'http://example.org/page/' || id
+            ELSE url
+        END
+        "#,
+        [],
+    )?;
+
+    // Ensure there are http/https origins to join against and wire origin_id.
+    db.execute_batch(
+        r#"
+        INSERT OR IGNORE INTO moz_origins (host, rev_host, frecency, prefix)
+        VALUES ('example.com', 'moc.elpmaxe.', 0, 'https');
+        INSERT OR IGNORE INTO moz_origins (host, rev_host, frecency, prefix)
+        VALUES ('example.org', 'gro.elpmaxe.', 0, 'http');
+        "#,
+    )?;
+    db.execute(
+        r#"
+        UPDATE moz_places
+        SET origin_id = (SELECT id FROM moz_origins WHERE prefix='https' LIMIT 1)
+        WHERE origin_id IS NULL AND (id % 2) = 0
+        "#,
+        [],
+    )?;
+    db.execute(
+        r#"
+        UPDATE moz_places
+        SET origin_id = (SELECT id FROM moz_origins WHERE prefix='http' LIMIT 1)
+        WHERE origin_id IS NULL AND (id % 2) = 1
+        "#,
+        [],
+    )?;
+
+    // Keep frecency non-negative (bench predicate uses >= 0).
+    db.execute(
+        r#"
+        UPDATE moz_places
+        SET frecency = CASE
+            WHEN frecency < 0 THEN ABS(frecency)
+            ELSE frecency
+        END
+        "#,
+        [],
+    )?;
+
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+fn run_top_frecent_query(
+    db: &PlacesDb,
+    use_index_friendly: bool,
+    limit: usize,
+    frecency_threshold: i64,
+    allowed_types_mask: i64,
+) -> places::Result<usize> {
+    let sql_tmpl = if use_index_friendly {
+        TOP_FRECENT_INDEX_FRIENDLY
+    } else {
+        TOP_FRECENT_ORIGINAL
+    };
+    let subs = &[
+        ("{LIMIT}", limit.to_string()),
+        ("{FRECENCY}", frecency_threshold.to_string()),
+        ("{ALLOWED_TYPES}", allowed_types_mask.to_string()),
+    ];
+    let mut sql = sql_tmpl.to_string();
+    for (k, v) in subs {
+        sql = sql.replace(k, v);
+    }
+
+    let mut stmt = db.prepare_maybe_cached(&sql, true)?;
+    let mut rows = stmt.query([])?;
+    let mut count = 0usize;
+    while let Some(_row) = rows.next()? {
+        count += 1;
+    }
+    Ok(count)
+}
+
+pub fn bench_top_frecent(c: &mut Criterion) {
+    const LIMIT: usize = 200;
+    const FRECENCY_THRESHOLD: i64 = 0;
+    // Allow several visit types
+    const ALLOWED_TYPES: i64 = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
+
+    let db_no_index = TestDb::new();
+    seed_db_for_top_frecent(&db_no_index.db).unwrap();
+    explain(
+        "Top-frecent: OPTIMIZED query",
+        &db_no_index.db,
+        TOP_FRECENT_INDEX_FRIENDLY,
+        &[
+            ("{LIMIT}", LIMIT.to_string()),
+            ("{FRECENCY}", FRECENCY_THRESHOLD.to_string()),
+            ("{ALLOWED_TYPES}", ALLOWED_TYPES.to_string()),
+        ],
+    );
+
+    // 1) Original query shape
+    {
+        let tdb = db_no_index.clone();
+        c.bench_function("top_frecent: ORIGINAL WHERE", move |b| {
+            let db = &tdb.db;
+            b.iter(|| {
+                run_top_frecent_query(db, false, LIMIT, FRECENCY_THRESHOLD, ALLOWED_TYPES).unwrap()
+            })
+        });
+    }
+
+    // 2) Optimized query
+    {
+        let tdb = db_no_index.clone();
+        c.bench_function("top_frecent: OPTIMIZED WHERE", move |b| {
+            let db = &tdb.db;
+            b.iter(|| {
+                run_top_frecent_query(db, true, LIMIT, FRECENCY_THRESHOLD, ALLOWED_TYPES).unwrap()
+            })
+        });
     }
 }
