@@ -13,12 +13,33 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::{header_names, Method, Request};
 
+/// Represents a client for the Relay API.
+///
+/// Use this struct to connect and authenticate with a Relay server,
+/// managing authorization to call protected endpoints.
+///
+/// # Authorization
+/// - Clients should use the [fxa_client::FirefoxAccount::getAccessToken()] function
+///   to obtain a relay-scoped access token (scope: `https://identity.mozilla.com/apps/relay`).
+/// - Then, construct the [`RelayClient`] with the access token.
+///   All requests will then be authenticated to the Relay server via `Authorization: Bearer {fxa-access-token}`.
+/// - The Relay server verifies this token with the FxA OAuth `/verify` endpoint.
+/// - Clients are responsible for getting a new access token when needed.
 #[derive(uniffi::Object)]
 pub struct RelayClient {
+    /// Base URL for the Relay server.
     server_url: String,
+    /// Optional authentication token for API requests.
     auth_token: Option<String>,
 }
 
+/// Represents a Relay email address object returned by the Relay API.
+///
+/// Includes metadata and statistics for an alias, such as its status,
+/// usage stats, and identifying information.
+///
+/// See:
+/// https://mozilla.github.io/fx-private-relay/api_docs.html
 #[derive(Debug, Deserialize, uniffi::Record)]
 pub struct RelayAddress {
     pub mask_type: String,
@@ -71,6 +92,14 @@ impl RelayClient {
 
 #[uniffi::export]
 impl RelayClient {
+    /// Creates a new `RelayClient` instance.
+    ///
+    /// # Parameters
+    /// - `server_url`: Base URL for the Relay API.
+    /// - `auth_token`: Optional relay-scoped access token (see struct docs).
+    ///
+    /// # Returns
+    /// A new [`RelayClient`] configured for the specified server and token.
     #[uniffi::constructor]
     #[handle_error(Error)]
     pub fn new(server_url: String, auth_token: Option<String>) -> ApiResult<Self> {
@@ -80,6 +109,13 @@ impl RelayClient {
         })
     }
 
+    /// Retrieves all Relay addresses associated with the current account.
+    ///
+    /// Returns a vector of [`RelayAddress`] objects on success, or an error if the request fails.
+    ///
+    /// ## Known Limitations
+    /// - Will return an error if the Relay user record doesn't exist yet (see [`accept_terms`]).
+    /// - Error variants are subject to server-side changes.
     #[handle_error(Error)]
     pub fn fetch_addresses(&self) -> ApiResult<Vec<RelayAddress>> {
         let url = self.build_url("/api/v1/relayaddresses/")?;
@@ -96,6 +132,11 @@ impl RelayClient {
         Ok(addresses)
     }
 
+    /// Creates a Relay user record in the Relay service database.
+    ///
+    /// This function was originally used to signal acceptance of terms and privacy notices,
+    /// but now primarily serves to provision (create) the Relay user record if one does not exist.
+    /// Returns `Ok(())` on success, or an error if the server call fails.
     #[handle_error(Error)]
     pub fn accept_terms(&self) -> ApiResult<()> {
         let url = self.build_url("/api/v1/terms-accepted-user/")?;
@@ -110,6 +151,19 @@ impl RelayClient {
         Ok(())
     }
 
+    /// Creates a new Relay mask (alias) with the specified metadata.
+    ///
+    /// This is used to generate a new alias for use in an email field.
+    ///
+    /// - `description`: A label shown in the Relay dashboard; defaults to `generated_for`, user-editable later.
+    /// - `generated_for`: The website for which the address is generated.
+    /// - `used_on`: Comma-separated list of all websites where this address is used. Only updated by some clients.
+    ///
+    /// ## Open Questions
+    /// - See the spike doc and project Jira for clarifications on field semantics.
+    /// - Returned error codes are not fully documented.
+    ///
+    /// Returns the newly created [`RelayAddress`] on success, or an error.
     #[handle_error(Error)]
     pub fn create_address(
         &self,
