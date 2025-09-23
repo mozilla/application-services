@@ -11,6 +11,7 @@ use camino::Utf8PathBuf;
 use error_support::trace;
 use parking_lot::Mutex;
 use serde::Deserialize;
+use url::Url;
 use viaduct::Request;
 
 use crate::{
@@ -137,6 +138,12 @@ impl RemoteSettingsService {
         inner.bucket_name = bucket_name;
         inner.app_context = config.app_context;
         Ok(())
+    }
+
+    pub fn client_url(&self) -> Url {
+        let inner = self.inner.lock();
+        let base_url = inner.base_url.clone();
+        base_url.url().clone()
     }
 }
 
