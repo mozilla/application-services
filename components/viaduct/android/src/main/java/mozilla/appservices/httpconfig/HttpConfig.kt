@@ -12,6 +12,8 @@ import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
@@ -30,9 +32,14 @@ class UnsupportedRequestMethodError(method: String) :
  * Singleton allowing management of the HTTP backend
  * used by Rust components.
  */
+@OptIn(ExperimentalAtomicApi::class)
 object RustHttpConfig {
     // Protects imp/client
     private var lock = ReentrantReadWriteLock()
+
+    // Used to only initialize the client once
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1989865.
+    private var backendInitialized = AtomicBoolean(false)
 
     @Volatile
     private var client: Lazy<Client>? = null
@@ -43,7 +50,9 @@ object RustHttpConfig {
      */
     @Synchronized
     fun setClient(c: Lazy<Client>) {
-        initBackend(FetchBackend(c))
+        if (backendInitialized.compareAndSet(false, true)) {
+            initBackend(FetchBackend(c))
+        }
     }
 
     /** Allows connections to the hard-coded address the Android Emulator uses
