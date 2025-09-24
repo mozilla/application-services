@@ -1355,34 +1355,21 @@ pub fn get_top_frecent_site_infos(
     .complement();
 
     let infos = db.query_rows_and_then_cached(
-        "
-        SELECT h.frecency, h.title, h.url
-            FROM moz_places h
-            JOIN moz_origins o ON o.id = h.origin_id
-            WHERE o.prefix IN ('http','https')
-            AND h.hidden = 0
-            AND h.frecency >= :frecency_threshold
-            AND EXISTS (
-                SELECT 1 FROM moz_historyvisits v
-                WHERE v.place_id = h.id
-                AND ((1 << v.visit_type) & :allowed_types) != 0
-                LIMIT 1
-            )
-            UNION ALL
-            SELECT h.frecency, h.title, h.url
-            FROM moz_places h
-            WHERE h.origin_id IS NULL
-            AND h.hidden = 0
-            AND h.frecency >= :frecency_threshold
-            AND (h.url LIKE 'https:%' OR h.url LIKE 'http:%')
-            AND EXISTS (
-                SELECT 1 FROM moz_historyvisits v
-                WHERE v.place_id = h.id
-                AND ((1 << v.visit_type) & :allowed_types) != 0
-                LIMIT 1
-            )
-            ORDER BY frecency DESC
-            LIMIT :limit",
+        "SELECT h.frecency, h.title, h.url
+        FROM moz_places h
+        WHERE h.hidden = 0
+        AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
+        AND (h.url LIKE 'http:%' OR h.url LIKE 'https:%')
+        AND h.frecency >= :frecency_threshold
+        AND EXISTS (
+            SELECT 1
+            FROM moz_historyvisits v
+            WHERE v.place_id = h.id
+            AND ((1 << v.visit_type) & :allowed_types) != 0
+            LIMIT 1
+        )
+        ORDER BY h.frecency DESC, h.id DESC
+        LIMIT :limit",
         rusqlite::named_params! {
             ":limit": num_items,
             ":allowed_types": allowed_types,

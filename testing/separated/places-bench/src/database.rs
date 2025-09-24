@@ -154,9 +154,9 @@ fn explain(name: &str, db: &PlacesDb, sql_tmpl: &str, subs: &[(&str, String)]) {
     }
     println!("--- END EXPLAIN ---\n");
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------
 // fetch_outgoing benchmark, speeding up by adding a partial index
-// ─────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------
 
 // Original (slow) predicate seen in https://bugzilla.mozilla.org/show_bug.cgi?id=1979764
 const OUTGOING_SQL_ORIGINAL: &str = r#"
@@ -311,9 +311,9 @@ pub fn bench_outgoing_candidates(c: &mut Criterion) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------------------
 // get_top_frecent_site_infos benchmark, optimizing the where part via join/index-friendly
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------------------
 
 const TOP_FRECENT_ORIGINAL: &str = r#"
     SELECT h.frecency, h.title, h.url
@@ -334,32 +334,20 @@ const TOP_FRECENT_ORIGINAL: &str = r#"
 
 const TOP_FRECENT_INDEX_FRIENDLY: &str = r#"
     SELECT h.frecency, h.title, h.url
-        FROM moz_places h
-        JOIN moz_origins o ON o.id = h.origin_id
-        WHERE o.prefix IN ('http','https')
-        AND h.hidden = 0
-        AND h.frecency >= {FRECENCY}
-        AND EXISTS (
-            SELECT 1 FROM moz_historyvisits v
-            WHERE v.place_id = h.id
-            AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
-            LIMIT 1
-        )
-        UNION ALL
-        SELECT h.frecency, h.title, h.url
-        FROM moz_places h
-        WHERE h.origin_id IS NULL
-        AND h.hidden = 0
-        AND h.frecency >= {FRECENCY}
-        AND (h.url LIKE 'https:%' OR h.url LIKE 'http:%')
-        AND EXISTS (
-            SELECT 1 FROM moz_historyvisits v
-            WHERE v.place_id = h.id
-            AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
-            LIMIT 1
-        )
-        ORDER BY frecency DESC
-        LIMIT {LIMIT}
+    FROM moz_places h
+    WHERE h.hidden = 0
+      AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
+      AND (h.url LIKE 'http:%' OR h.url LIKE 'https:%')
+      AND h.frecency >= {FRECENCY}
+      AND EXISTS (
+        SELECT 1
+        FROM moz_historyvisits v
+        WHERE v.place_id = h.id
+          AND ((1 << v.visit_type) & {ALLOWED_TYPES}) != 0
+        LIMIT 1
+      )
+    ORDER BY h.frecency DESC, h.id DESC
+    LIMIT {LIMIT}
 "#;
 
 // Seed database with test data for top frecent benchmarks
@@ -432,18 +420,37 @@ fn seed_db_for_top_frecent(db: &PlacesDb) -> places::Result<()> {
     Ok(())
 }
 
+fn create_top_frecent_cover_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS top_frecent_cover_idx
+        ON moz_places(frecency DESC, id DESC)
+        WHERE hidden = 0
+        AND (last_visit_date_local + last_visit_date_remote) != 0
+        AND (url GLOB 'http:*' OR url GLOB 'https:*');
+
+        CREATE INDEX IF NOT EXISTS idx_visits_place_type
+        ON moz_historyvisits(place_id, visit_type);
+        "#,
+    )?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
+fn drop_top_frecent_cover_index(db: &PlacesDb) -> places::Result<()> {
+    db.execute_batch("DROP INDEX IF EXISTS top_frecent_cover_idx;")?;
+    db.execute_batch("DROP INDEX IF EXISTS idx_visits_place_type;")?;
+    db.execute_batch("ANALYZE; PRAGMA optimize;")?;
+    Ok(())
+}
+
 fn run_top_frecent_query(
     db: &PlacesDb,
-    use_index_friendly: bool,
+    sql_tmpl: &str,
     limit: usize,
     frecency_threshold: i64,
     allowed_types_mask: i64,
 ) -> places::Result<usize> {
-    let sql_tmpl = if use_index_friendly {
-        TOP_FRECENT_INDEX_FRIENDLY
-    } else {
-        TOP_FRECENT_ORIGINAL
-    };
     let subs = &[
         ("{LIMIT}", limit.to_string()),
         ("{FRECENCY}", frecency_threshold.to_string()),
@@ -471,9 +478,14 @@ pub fn bench_top_frecent(c: &mut Criterion) {
 
     let db_no_index = TestDb::new();
     seed_db_for_top_frecent(&db_no_index.db).unwrap();
+    drop_top_frecent_cover_index(&db_no_index.db).unwrap();
+
+    let db_with_index = TestDb::new();
+    seed_db_for_top_frecent(&db_with_index.db).unwrap();
+    create_top_frecent_cover_index(&db_with_index.db).unwrap();
     explain(
-        "Top-frecent: OPTIMIZED query",
-        &db_no_index.db,
+        "Index friendly query",
+        &db_with_index.db,
         TOP_FRECENT_INDEX_FRIENDLY,
         &[
             ("{LIMIT}", LIMIT.to_string()),
@@ -488,18 +500,31 @@ pub fn bench_top_frecent(c: &mut Criterion) {
         c.bench_function("top_frecent: ORIGINAL WHERE", move |b| {
             let db = &tdb.db;
             b.iter(|| {
-                run_top_frecent_query(db, false, LIMIT, FRECENCY_THRESHOLD, ALLOWED_TYPES).unwrap()
+                run_top_frecent_query(
+                    db,
+                    TOP_FRECENT_ORIGINAL,
+                    LIMIT,
+                    FRECENCY_THRESHOLD,
+                    ALLOWED_TYPES,
+                )
+                .unwrap()
             })
         });
     }
 
-    // 2) Optimized query
     {
-        let tdb = db_no_index.clone();
-        c.bench_function("top_frecent: OPTIMIZED WHERE", move |b| {
+        let tdb = db_with_index.clone();
+        c.bench_function("top_frecent: optimized_1", move |b| {
             let db = &tdb.db;
             b.iter(|| {
-                run_top_frecent_query(db, true, LIMIT, FRECENCY_THRESHOLD, ALLOWED_TYPES).unwrap()
+                run_top_frecent_query(
+                    db,
+                    TOP_FRECENT_INDEX_FRIENDLY,
+                    LIMIT,
+                    FRECENCY_THRESHOLD,
+                    ALLOWED_TYPES,
+                )
+                .unwrap()
             })
         });
     }
