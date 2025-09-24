@@ -89,6 +89,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: async-lock</name>
+    <url>https://github.com/smol-rs/async-lock/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: async-trait</name>
     <url>https://github.com/dtolnay/async-trait/blob/master/LICENSE-APACHE</url>
   </license>
@@ -103,6 +107,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: basic-toml</name>
     <url>https://github.com/dtolnay/basic-toml/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: bhttp</name>
+    <url>https://github.com/martinthomson/ohttp/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: bitflags</name>
@@ -125,6 +133,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/cc-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: cexpr</name>
+    <url>https://github.com/jethrogb/rust-cexpr/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: cfg-if</name>
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
@@ -133,12 +145,24 @@ the details of which are reproduced below.
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
   </license>
   <license>
+    <name>Apache License 2.0: clang-sys</name>
+    <url>https://github.com/KyleMayes/clang-sys/blob/master/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: concurrent-queue</name>
+    <url>https://github.com/smol-rs/concurrent-queue/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: core-foundation-sys</name>
     <url>https://github.com/servo/core-foundation-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cpufeatures</name>
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crossbeam-utils</name>
+    <url>https://github.com/crossbeam-rs/crossbeam/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: crypto-common</name>
@@ -171,6 +195,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: errno</name>
     <url>https://github.com/lambda-fairy/rust-errno/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: event-listener</name>
+    <url>https://github.com/smol-rs/event-listener/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: event-listener-strategy</name>
+    <url>https://github.com/smol-rs/event-listener-strategy/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fallible-iterator</name>
@@ -289,8 +321,16 @@ the details of which are reproduced below.
     <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: ohttp</name>
+    <url>https://github.com/martinthomson/ohttp/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: parking</name>
+    <url>https://github.com/smol-rs/parking/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: parking_lot</name>
@@ -409,6 +449,10 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/path-to-error/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: serde_spanned</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: sha2</name>
     <url>https://github.com/RustCrypto/hashes/blob/master/sha2/LICENSE-APACHE</url>
   </license>
@@ -467,6 +511,22 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: toml</name>
     <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_datetime</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_parser</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_writer</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: typenum</name>
@@ -649,12 +709,20 @@ the details of which are reproduced below.
     <url>https://github.com/thomcc/rust-base16/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>ISC License: libloading</name>
+    <url>https://github.com/nagisa/rust_libloading/blob//master/LICENSE</url>
+  </license>
+  <license>
     <name>ISC License: ring</name>
     <url>https://github.com/briansmith/ring/blob/master/LICENSE</url>
   </license>
   <license>
     <name>BSD-2-Clause License: arrayref</name>
     <url>https://github.com/droundy/arrayref/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>BSD-3-Clause License: bindgen</name>
+    <url>https://github.com/rust-lang/rust-bindgen/blob/main/LICENSE</url>
   </license>
   <license>
     <name>BSD-3-Clause License: protobuf</name>
