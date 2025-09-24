@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Swift
+- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
+
 # v144.0 (_2025-09-15_)
 
 ## ✨ What's New ✨
