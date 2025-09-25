@@ -5,7 +5,6 @@
 package mozilla.appservices.httpconfig
 
 import com.google.protobuf.ByteString
-import mozilla.appservices.viaduct.allowAndroidEmulatorLoopback as rustAllowAndroidEmulatorLoopback
 import mozilla.appservices.viaduct.initBackend
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
@@ -16,6 +15,7 @@ import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+import mozilla.appservices.viaduct.allowAndroidEmulatorLoopback as rustAllowAndroidEmulatorLoopback
 
 /**
  * All errors emitted by the client will subclass this.
