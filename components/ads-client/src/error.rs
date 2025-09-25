@@ -6,10 +6,10 @@
 use error_support::{error, ErrorHandling, GetErrorHandling};
 use viaduct::Response;
 
-pub type ApiResult<T> = std::result::Result<T, ApiError>;
+pub type AdsClientApiResult<T> = std::result::Result<T, AdsClientApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum ApiError {
+pub enum AdsClientApiError {
     #[error("Something unexpected occurred.")]
     Other { reason: String },
 }
@@ -30,10 +30,10 @@ pub enum ComponentError {
 }
 
 impl GetErrorHandling for ComponentError {
-    type ExternalError = ApiError;
+    type ExternalError = AdsClientApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        ErrorHandling::convert(ApiError::Other {
+        ErrorHandling::convert(AdsClientApiError::Other {
             reason: self.to_string(),
         })
     }

@@ -2558,6 +2558,7 @@ dependencies = [
 name = "megazord"
 version = "0.1.0"
 dependencies = [
+ "ads-client",
  "autofill",
  "crashtest",
  "error-support",
@@ -2584,6 +2585,7 @@ dependencies = [
 name = "megazord_focus"
 version = "0.1.0"
 dependencies = [
+ "ads-client",
  "error-support",
  "nimbus-sdk",
  "remote_settings",
@@ -2596,6 +2598,7 @@ dependencies = [
 name = "megazord_ios"
 version = "0.1.0"
 dependencies = [
+ "ads-client",
  "as-ohttp-client",
  "autofill",
  "context_id",

@@ -6,6 +6,7 @@
 // It needs to import all of the individual headers.
 
 #import "RustViaductFFI.h"
+#import "ads_clientFFI.h"
 #import "nimbusFFI.h"
 #import "errorFFI.h"
 #import "remote_settingsFFI.h"
