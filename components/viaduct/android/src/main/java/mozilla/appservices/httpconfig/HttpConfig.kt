@@ -5,7 +5,7 @@
 package mozilla.appservices.httpconfig
 
 import com.google.protobuf.ByteString
-import mozilla.appservices.viaduct.allowAndroidEmulatorLoopback
+import mozilla.appservices.viaduct.allowAndroidEmulatorLoopback as rustAllowAndroidEmulatorLoopback
 import mozilla.appservices.viaduct.initBackend
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
@@ -62,7 +62,7 @@ object RustHttpConfig {
      * are sure you are running on an emulator.
      */
     fun allowAndroidEmulatorLoopback() {
-        allowAndroidEmulatorLoopback()
+        rustAllowAndroidEmulatorLoopback()
     }
 
     internal fun convertRequest(request: MsgTypes.Request): Request {
