@@ -8,7 +8,7 @@ use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType};
 use crate::intermediate_representation::{Literal, TypeRef};
 use heck::ToSnakeCase;
-use unicode_segmentation::UnicodeSegmentation;
+use icu_segmenter::GraphemeClusterSegmenter;
 
 pub(crate) struct TextCodeType;
 
@@ -117,10 +117,18 @@ fn is_resource_id(string: &str) -> bool {
     // We don't use the regex crate, so we need some code.
     let start = "abcdefghijklmnopqrstuvwxyz_";
     let rest = "abcdefghijklmnopqrstuvwxyz_0123456789";
-    !string.is_empty()
-        && string
-            .grapheme_indices(true)
-            .all(|(i, c)| -> bool { (i > 0 && rest.contains(c)) || start.contains(c) })
+    if string.is_empty() {
+        return false;
+    }
+
+    let segmenter = GraphemeClusterSegmenter::new();
+    let boundaries: Vec<usize> = segmenter.segment_str(string).collect();
+
+    // Convert boundaries to grapheme slices and check
+    boundaries.windows(2).enumerate().all(|(i, w)| {
+        let c = &string[w[0]..w[1]];
+        (i > 0 && rest.contains(c)) || start.contains(c)
+    })
 }
 
 pub(crate) struct ImageCodeType;

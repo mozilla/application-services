@@ -78,15 +78,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
-name = "ansi_term"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "anstyle"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -186,17 +177,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
-]
-
-[[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -597,21 +577,6 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "2.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
-dependencies = [
- "ansi_term",
- "atty",
- "bitflags 1.3.2",
- "strsim 0.8.0",
- "textwrap 0.11.0",
- "unicode-width 0.1.11",
- "vec_map",
-]
-
-[[package]]
-name = "clap"
 version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd60e63e9be68e5fb56422e397cf9baddded06dae1d2e523401542383bc72a9f"
@@ -628,7 +593,7 @@ checksum = "89cc6392a1f72bbeb820d71f32108f61fdaf18bc526e1d23954168a67759ef51"
 dependencies = [
  "anstyle",
  "clap_lex",
- "strsim 0.11.1",
+ "strsim",
 ]
 
 [[package]]
@@ -637,7 +602,7 @@ version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09176aae279615badda0765c0c0b3f6ed53f4709118af73cf4655d85d1530cd7"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn 2.0.89",
@@ -813,7 +778,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.39",
+ "clap",
  "criterion-plot",
  "itertools 0.13.0",
  "num-traits",
@@ -1212,7 +1177,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "autofill",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "error-support",
  "fxa-client",
@@ -1250,7 +1215,7 @@ name = "example-places-autocomplete"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "find-places-db",
  "interrupt-support",
  "log",
@@ -1269,7 +1234,7 @@ name = "example-places-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "error-support",
  "fxa-client",
@@ -1309,7 +1274,7 @@ dependencies = [
  "async-trait",
  "base64 0.21.2",
  "chrono",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "fxa-client",
  "init_rust_components",
@@ -1334,7 +1299,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.2",
  "chrono",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "interrupt-support",
  "log",
@@ -1352,7 +1317,7 @@ name = "examples-example-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "example-component",
  "viaduct",
@@ -1364,7 +1329,7 @@ name = "examples-fxa-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "fxa-client",
  "log",
@@ -1379,7 +1344,7 @@ dependencies = [
 name = "examples-nimbus-experiment"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.39",
+ "clap",
  "error-support",
  "nimbus-sdk",
  "serde_json",
@@ -1392,7 +1357,7 @@ name = "examples-relay-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "log",
  "relay",
@@ -1405,7 +1370,7 @@ name = "examples-relevancy-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "env_logger",
  "interrupt-support",
@@ -1423,7 +1388,7 @@ name = "examples-remote-settings-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "futures",
  "indicatif",
@@ -1446,7 +1411,7 @@ name = "examples-suggest-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "cli-support",
  "log",
  "nss",
@@ -1460,7 +1425,7 @@ dependencies = [
 name = "examples-viaduct-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.5.39",
+ "clap",
  "serde",
  "url",
  "viaduct",
@@ -1524,7 +1489,7 @@ name = "filter_adult"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "clap 4.5.39",
+ "clap",
  "error-support",
  "md-5",
  "regex",
@@ -1862,21 +1827,6 @@ dependencies = [
  "thiserror 1.0.69",
  "url",
 ]
-
-[[package]]
-name = "heck"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -2783,7 +2733,7 @@ name = "merino-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap 4.5.39",
+ "clap",
  "merino",
  "serde_json",
  "viaduct",
@@ -2927,10 +2877,10 @@ dependencies = [
  "axum",
  "cfg-if",
  "chrono",
- "clap 4.5.39",
+ "clap",
  "copypasta",
  "glob",
- "heck 0.4.1",
+ "heck",
  "hyper",
  "local-ip-address",
  "nimbus-fml",
@@ -2967,9 +2917,10 @@ dependencies = [
  "anyhow",
  "askama",
  "cfg-if",
- "clap 4.5.39",
+ "clap",
  "glob",
- "heck 0.5.0",
+ "heck",
+ "icu_segmenter",
  "itertools 0.14.0",
  "lazy_static",
  "regex",
@@ -2979,9 +2930,8 @@ dependencies = [
  "sha2",
  "tempfile",
  "termcolor",
- "textwrap 0.16.1",
+ "textwrap",
  "thiserror 2.0.3",
- "unicode-segmentation",
  "uniffi",
  "url",
  "viaduct",
@@ -2994,7 +2944,7 @@ dependencies = [
  "anyhow",
  "cfg-if",
  "chrono",
- "clap 4.5.39",
+ "clap",
  "ctor",
  "error-support",
  "firefox-versioning",
@@ -3497,30 +3447,6 @@ checksum = "54ff541861505aabf6ea722d2131ee980b8276e10a1297b94e896dd8b621850d"
 dependencies = [
  "predicates-core",
  "termtree",
-]
-
-[[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2",
- "quote",
- "version_check",
 ]
 
 [[package]]
@@ -4326,7 +4252,7 @@ dependencies = [
  "askama",
  "camino",
  "cargo_metadata 0.15.2",
- "clap 4.5.39",
+ "clap",
  "serde_yaml 0.8.24",
  "toml",
  "toml_edit",
@@ -4340,39 +4266,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "strsim"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
-
-[[package]]
-name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "structopt"
-version = "0.3.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c6b5c64445ba8094a6ab0c3cd2ad323e07171012d9c98b0b15651daf1787a10"
-dependencies = [
- "clap 2.34.0",
- "lazy_static",
- "structopt-derive",
-]
-
-[[package]]
-name = "structopt-derive"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
-dependencies = [
- "heck 0.3.3",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "subtle"
@@ -4467,6 +4363,7 @@ dependencies = [
  "anyhow",
  "autofill",
  "base64 0.21.2",
+ "clap",
  "cli-support",
  "env_logger",
  "fxa-client",
@@ -4480,7 +4377,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "structopt",
  "sync-guid",
  "sync15",
  "sync_manager",
@@ -4622,15 +4518,6 @@ name = "text-table"
 version = "0.1.0"
 dependencies = [
  "unicode-width 0.2.0",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width 0.1.11",
 ]
 
 [[package]]
@@ -5046,7 +4933,7 @@ dependencies = [
  "anyhow",
  "camino",
  "cargo_metadata 0.19.2",
- "clap 4.5.39",
+ "clap",
  "uniffi_bindgen",
  "uniffi_build",
  "uniffi_core",
@@ -5061,7 +4948,7 @@ dependencies = [
  "anyhow",
  "camino",
  "cargo_metadata 0.19.2",
- "clap 4.5.39",
+ "clap",
  "uniffi",
  "uniffi_bindgen",
 ]
@@ -5079,12 +4966,12 @@ dependencies = [
  "fs-err",
  "glob",
  "goblin",
- "heck 0.5.0",
+ "heck",
  "indexmap 2.5.0",
  "once_cell",
  "serde",
  "tempfile",
- "textwrap 0.16.1",
+ "textwrap",
  "toml",
  "uniffi_internal_macros",
  "uniffi_meta",
@@ -5164,7 +5051,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b147e133ad7824e32426b90bc41fda584363563f2ba747f590eca1fd6fd14e6"
 dependencies = [
  "anyhow",
- "heck 0.5.0",
+ "heck",
  "indexmap 2.5.0",
  "tempfile",
  "uniffi_internal_macros",
@@ -5177,7 +5064,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caed654fb73da5abbc7a7e9c741532284532ba4762d6fe5071372df22a41730a"
 dependencies = [
  "anyhow",
- "textwrap 0.16.1",
+ "textwrap",
  "uniffi_meta",
  "weedle2",
 ]
@@ -5239,12 +5126,6 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
-name = "vec_map"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "version_check"

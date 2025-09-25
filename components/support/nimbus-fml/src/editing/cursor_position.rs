@@ -4,7 +4,7 @@
 
 use std::ops::Add;
 
-use unicode_segmentation::UnicodeSegmentation;
+use icu_segmenter::GraphemeClusterSegmenter;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CursorPosition {
@@ -56,7 +56,16 @@ impl Add<&str> for CursorPosition {
         }
 
         let last_line_length = match last_line {
-            Some(line) => UnicodeSegmentation::graphemes(line, true).count(),
+            Some(line) => {
+                let segmenter = GraphemeClusterSegmenter::new();
+                let boundary_count = segmenter.segment_str(line).count();
+                // segment_str returns N+1 boundaries for N graphemes, so subtract 1
+                if boundary_count > 0 {
+                    boundary_count - 1
+                } else {
+                    0
+                }
+            }
             None => 0,
         } as u32;
 

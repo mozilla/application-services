@@ -267,11 +267,24 @@ fn line_col_from_lines<'a>(
 ///
 #[cfg(feature = "client-lib")]
 fn find_index(line: &str, pattern: &str, start: usize) -> Option<usize> {
-    use unicode_segmentation::UnicodeSegmentation;
-    let line: Vec<&str> = UnicodeSegmentation::graphemes(line, true).collect();
+    use icu_segmenter::GraphemeClusterSegmenter;
+
+    let segmenter = GraphemeClusterSegmenter::new();
+
+    // Convert line boundaries to grapheme slices
+    let line_boundaries: Vec<usize> = segmenter.segment_str(line).collect();
+    let line: Vec<&str> = line_boundaries
+        .windows(2)
+        .map(|w| &line[w[0]..w[1]])
+        .collect();
     let line_from_start = &line[start..];
 
-    let pattern: Vec<&str> = UnicodeSegmentation::graphemes(pattern, true).collect();
+    // Convert pattern boundaries to grapheme slices
+    let pattern_boundaries: Vec<usize> = segmenter.segment_str(pattern).collect();
+    let pattern: Vec<&str> = pattern_boundaries
+        .windows(2)
+        .map(|w| &pattern[w[0]..w[1]])
+        .collect();
     let pattern = pattern.as_slice();
 
     line_from_start

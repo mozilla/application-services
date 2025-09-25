@@ -41,7 +41,7 @@ thiserror = "2"
 askama = "0.13"
 textwrap = { version = "0.16", default-features = false }
 heck = "0.5"
-unicode-segmentation = "1.8.0"
+icu_segmenter = "2"
 url = { version = "2", features = ["serde"] }
 glob = "0.3.0"
 uniffi = { version = "0.29.0", optional = true }
