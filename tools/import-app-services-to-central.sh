@@ -76,7 +76,10 @@ git add -f services/app-services
 git commit -m "Import application-services commit $commit"
 
 # We've committed an app-services unmodified apart from removal of things we don't need.
-# Update Cargo.toml and re-vendor.
+# apply the final "patch" in the stack, which we do by abusing sed.
+# This is mildly (hah!) fragile.
+
+# Update Cargo.toml.
 sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' \
     -e 's|error-support = { git = .*$|error-support = { path = "services/app-services/components/support/error" }|' \
     -e 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' \
@@ -93,9 +96,6 @@ sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/
     Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
-# apply the final "patch" in the stack, which we do by abusing sed.
-# This is mildly (hah!) fragile.
-
 # [dependencies] is conveniently at the end of these toml files
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }\n' >> services/app-services/megazords/full/Cargo.toml
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["embedded-uniffi-bindgen"], optional = true }\n' >> services/app-services/tools/embedded-uniffi-bindgen/Cargo.toml
@@ -110,6 +110,7 @@ printf 'megazord = []\nembedded-uniffi-bindgen = []\nnimbus-fml = []\n' >> build
 # Add app-services crates to the workspace `members`, unless their dependencies can't be vendored.
 sed -e 's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
   "services/app-services/tools/embedded-uniffi-bindgen",\
+  "services/app-services/tools/uniffi-bindgen-library-mode",\
   "services/app-services/components/ads-client", \
   "services/app-services/components/autofill", \
   "services/app-services/components/context_id", \
