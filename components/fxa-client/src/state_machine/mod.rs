@@ -32,28 +32,34 @@ impl FirefoxAccount {
     /// On success, returns the new state.
     /// On error, the state will remain the same.
     pub fn process_event(&mut self, event: FxaEvent) -> Result<FxaState> {
-        match &self.auth_state {
+        let was_in_auth_issues = matches!(self.auth_state, FxaState::AuthIssues);
+
+        let next_state = match &self.auth_state {
             FxaState::Uninitialized => self.process_event_with_internal_state_machine(
                 internal_machines::UninitializedStateMachine,
                 event,
-            ),
+            )?,
             FxaState::Disconnected => self.process_event_with_internal_state_machine(
                 internal_machines::DisconnectedStateMachine,
                 event,
-            ),
+            )?,
             FxaState::Authenticating { .. } => self.process_event_with_internal_state_machine(
                 internal_machines::AuthenticatingStateMachine,
                 event,
-            ),
+            )?,
             FxaState::Connected => self.process_event_with_internal_state_machine(
                 internal_machines::ConnectedStateMachine,
                 event,
-            ),
+            )?,
             FxaState::AuthIssues => self.process_event_with_internal_state_machine(
                 internal_machines::AuthIssuesStateMachine,
                 event,
-            ),
+            )?,
+        };
+        if !was_in_auth_issues && matches!(next_state, FxaState::AuthIssues) {
+            self.on_auth_issues();
         }
+        Ok(next_state)
     }
 
     fn process_event_with_internal_state_machine<T: InternalStateMachine>(
