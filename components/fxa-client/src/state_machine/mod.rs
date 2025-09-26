@@ -10,7 +10,6 @@ use error_support::breadcrumb;
 
 use crate::{internal::FirefoxAccount, DeviceConfig, Error, FxaEvent, FxaState, Result};
 
-pub mod checker;
 mod display;
 mod internal_machines;
 
