@@ -49,6 +49,12 @@ CREATE INDEX IF NOT EXISTS idx_places_outgoing_by_frecency
 ON moz_places(frecency DESC)
 WHERE hidden = 0 AND (sync_change_counter > 0 OR sync_status != 2); -- 2 is SyncStatus::Normal
 
+-- partial index for get_top_frecent_site_infos
+CREATE INDEX IF NOT EXISTS top_frecent_cover_idx
+ON moz_places(frecency DESC, id DESC)
+WHERE hidden = 0
+  AND (last_visit_date_local + last_visit_date_remote) != 0
+  AND (url GLOB 'http:*' OR url GLOB 'https:*');
 
 CREATE TABLE IF NOT EXISTS moz_places_tombstones (
     guid TEXT PRIMARY KEY
@@ -83,6 +89,9 @@ CREATE INDEX IF NOT EXISTS placedateindex ON moz_historyvisits(place_id, visit_d
 CREATE INDEX IF NOT EXISTS fromindex ON moz_historyvisits(from_visit);
 CREATE INDEX IF NOT EXISTS dateindex ON moz_historyvisits(visit_date);
 CREATE INDEX IF NOT EXISTS islocalindex ON moz_historyvisits(is_local);
+
+-- Speeds up queries frecency queries, specifically get_top_frecent_site_infos
+CREATE INDEX IF NOT EXISTS idx_visits_place_type ON moz_historyvisits(place_id, visit_type);
 
 -- Greatly helps the multi-join query in frecency.
 CREATE INDEX IF NOT EXISTS visits_from_type_idx ON moz_historyvisits(from_visit, visit_type);

@@ -14,7 +14,7 @@ use sql_support::ConnExt;
 
 use super::db::{Pragma, PragmaGuard};
 
-pub const VERSION: u32 = 19;
+pub const VERSION: u32 = 20;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -332,6 +332,14 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
             // Manually call analyze so the planner can start using the indexes immediately
             db.execute("ANALYZE moz_places", [])?;
+        }
+        19 => {
+            // Create the new indexes by just calling the shared schema file
+            // top_frecent_cover_idx, idx_visits_place_type
+            db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
+            // Manually call analyze so the planner can start using the indexes immediately
+            db.execute("ANALYZE moz_places", [])?;
+            db.execute("ANALYZE moz_historyvisits", [])?;
         }
         // Add more migrations here...
 
