@@ -4,9 +4,11 @@
 
 ### Swift
 - Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
+
 ### Ads Client
 - Added the Ads Client component to the Megazord.
 - Updated the ApiError enum to AdsClientApiError to avoid naming collision.
+- The `context_id` is now generated and rotated via the existing eponym component crate.
 
 # v144.0 (_2025-09-15_)
 

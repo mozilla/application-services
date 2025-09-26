@@ -14,6 +14,14 @@ pub enum AdsClientApiError {
     Other { reason: String },
 }
 
+impl From<context_id::ApiError> for AdsClientApiError {
+    fn from(err: context_id::ApiError) -> Self {
+        AdsClientApiError::Other {
+            reason: err.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
     #[error("Error requesting ads: {0}")]
@@ -53,6 +61,9 @@ pub enum RequestAdsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BuildRequestError {
+    #[error(transparent)]
+    ContextId(#[from] context_id::ApiError),
+
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 
