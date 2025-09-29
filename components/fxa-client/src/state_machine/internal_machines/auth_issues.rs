@@ -4,6 +4,7 @@
 
 use super::{invalid_transition, Event, InternalStateMachine, State};
 use crate::{Error, FxaEvent, FxaState, Result};
+use error_support::report_error;
 
 pub struct AuthIssuesStateMachine;
 
@@ -18,13 +19,20 @@ impl InternalStateMachine for AuthIssuesStateMachine {
                 scopes: scopes.clone(),
                 entrypoint: entrypoint.clone(),
             }),
-            FxaEvent::Disconnect => Ok(Complete(FxaState::Disconnected)),
+            FxaEvent::Disconnect => Ok(Disconnect),
             e => Err(Error::InvalidStateTransition(format!("AuthIssues -> {e}"))),
         }
     }
 
     fn next_state(&self, state: State, event: Event) -> Result<State> {
         Ok(match (state, event) {
+            (Disconnect, DisconnectSuccess) => Complete(FxaState::Disconnected),
+            (Disconnect, CallError) => {
+                // disconnect() is currently infallible, but let's handle errors anyway in case we
+                // refactor it in the future.
+                report_error!("fxa-state-machine-error", "saw CallError after Disconnect");
+                Complete(FxaState::Disconnected)
+            }
             (BeginOAuthFlow { .. }, BeginOAuthFlowSuccess { oauth_url }) => {
                 Complete(FxaState::Authenticating { oauth_url })
             }
@@ -70,6 +78,14 @@ mod test {
     #[test]
     fn test_disconnect() {
         let tester = StateMachineTester::new(AuthIssuesStateMachine, FxaEvent::Disconnect);
-        assert_eq!(tester.state, Complete(FxaState::Disconnected));
+        assert_eq!(tester.state, Disconnect);
+        assert_eq!(
+            tester.peek_next_state(CallError),
+            Complete(FxaState::Disconnected)
+        );
+        assert_eq!(
+            tester.peek_next_state(DisconnectSuccess),
+            Complete(FxaState::Disconnected)
+        );
     }
 }
