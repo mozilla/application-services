@@ -1376,6 +1376,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "examples-nimbus-experiment"
+version = "0.0.0"
+dependencies = [
+ "clap 4.5.39",
+ "error-support",
+ "nimbus-sdk",
+ "serde_json",
+ "uuid",
+ "viaduct-hyper",
+]
+
+[[package]]
 name = "examples-relay-cli"
 version = "0.1.0"
 dependencies = [
@@ -3002,7 +3014,6 @@ dependencies = [
  "uniffi",
  "url",
  "uuid",
- "viaduct-hyper",
 ]
 
 [[package]]
