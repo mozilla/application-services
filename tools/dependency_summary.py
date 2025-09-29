@@ -356,6 +356,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         },
     },
+    "libm": {
+        "repository": {
+            "check": "https://github.com/rust-lang/libm",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/rust-lang/libm/blob/master/libm/LICENSE.txt",
+        },
+    },
     "oneshot-uniffi": {
         "repository": {
             "check": "https://github.com/faern/oneshot",
