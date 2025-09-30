@@ -13,17 +13,16 @@ path = "src/dump/lib.rs"
 cli-support = { path = "../cli-support" }
 remote_settings = { features = ["signatures"], path = "../../components/remote_settings" }
 nss = { path = "../../components/support/rc_crypto/nss" }
-viaduct = { path = "../../components/viaduct" }
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
+viaduct = { path = "../../components/viaduct"}
+viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 log = "0.4"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 anyhow = "1.0"
-env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 serde_json = "1"
 futures = "0.3"
 indicatif = "0.17"
 serde = { version = "1", features = ["derive"] }
-thiserror = "1.0.31"
+thiserror = "2"
 url = "2"
 walkdir = "2.4.0"
 zip = "2.1"

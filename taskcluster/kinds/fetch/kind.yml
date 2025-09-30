@@ -13,17 +13,10 @@ task-defaults:
     docker-image: {in-tree: linux}
 
 tasks:
-    swiftformat:
-        description: swiftformat
-        fetch:
-            type: static-url
-            url: https://github.com/nicklockwood/SwiftFormat/releases/download/0.57.2/swiftformat.zip
-            sha256: 8333fedf95b5c5f04d96614d2049327819e084dcd7a0f9f38dac59aa604a0b74
-            size: 2073326
     nss-artifact:
         description: fetches the built NSS artifacts from NSS CI
         fetch:
             type: static-url
-            url: https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/IcjtqN_EQsCqrQM8D7J_Ew/runs/0/artifacts/public/dist.tar.bz2
-            sha256: a87ca634c5a02c0951d45b9f59b9ba33281f656db7f3b366afca374e3cea65a0
-            size: 24439134
+            url: https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/Qj3TUAu0Tc--GLRWpUk4Mw/runs/0/artifacts/public/dist.tar.bz2
+            sha256: 7471fd1e56346ff069a0088328838e77ddcacdede4e6c043d3033aba1fade217
+            size: 24391425

@@ -16,5 +16,5 @@ This directory builds the required libraries for iOS, Android and desktop platfo
 
 ### Supported architectures
 
-* Android: `TARGET_ARCHS=("x86" "x86_64" "arm64" "arm")`
+* Android: `TARGET_ARCHS=("x86_64" "arm64" "arm")`
 * iOS: `TARGET_ARCHS=("x86_64" "arm64")`

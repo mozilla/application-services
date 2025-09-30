@@ -14,7 +14,6 @@ cfg_if::cfg_if! {
     use crate::{editing::{CorrectionCandidate, CursorPosition, CursorSpan}, frontend::DocumentationLink};
     use url::Url;
     use std::str::FromStr;
-    use email_address::EmailAddress;
     use descriptor::FmlFeatureDescriptor;
     use inspector::{FmlEditorError, FmlFeatureExample, FmlFeatureInspector};
     }
@@ -168,13 +167,6 @@ uniffi::custom_type!(JsonObject, String, {
 uniffi::custom_type!(Url, String, {
     remote,
     try_lift: |val| Ok(Self::from_str(&val)?),
-    lower: |obj| obj.as_str().to_string(),
-});
-
-#[cfg(feature = "uniffi-bindings")]
-uniffi::custom_type!(EmailAddress, String, {
-    remote,
-    try_lift: |val| Ok(Self::from_str(val.as_str())?),
     lower: |obj| obj.as_str().to_string(),
 });
 

@@ -1,4 +1,16 @@
-# v144.0 (In progress)
+# v145.0 (In progress)
+
+[Full Changelog](In progress)
+
+### Swift
+- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
+
+### Ads Client
+- Added the Ads Client component to the Megazord.
+- Updated the ApiError enum to AdsClientApiError to avoid naming collision.
+- The `context_id` is now generated and rotated via the existing eponym component crate.
+
+# v144.0 (_2025-09-15_)
 
 ## ✨ What's New ✨
 
@@ -17,7 +29,7 @@
 ### Glean
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v143.0...v144.0)
 
 # v143.0 (_2025-08-18_)
 

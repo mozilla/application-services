@@ -5,8 +5,10 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+pub use ads_client;
 pub use error_support;
 pub use nimbus;
 pub use remote_settings;
 pub use rust_log_forwarder;
+pub use viaduct;
 pub use viaduct_reqwest;

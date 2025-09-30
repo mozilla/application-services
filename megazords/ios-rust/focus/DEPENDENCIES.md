@@ -7,10 +7,11 @@ the details of which are reproduced below.
 * [Mozilla Public License 2.0](#mozilla-public-license-20)
 * [Apache License 2.0](#apache-license-20)
 * [MIT License: SwiftKeychainWrapper](#mit-license-swiftkeychainwrapper)
-* [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
+* [MIT License: aho-corasick, memchr](#mit-license-aho-corasick-memchr)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: cargo_metadata, winnow](#mit-license-cargo_metadata-winnow)
+* [MIT License: core_maths](#mit-license-core_maths)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: goblin](#mit-license-goblin)
 * [MIT License: h2](#mit-license-h2)
@@ -36,7 +37,7 @@ the details of which are reproduced below.
 * [MIT License: weedle2](#mit-license-weedle2)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [Zlib License: foldhash](#zlib-license-foldhash)
-* [Unicode-3.0 License: icu_collections, icu_locale_core, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locale_core-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
+* [Unicode-3.0 License: icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locale-icu_locale_core-icu_locale_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_segmenter-icu_segmenter_data-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
 * [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 * [(MIT OR Apache-2.0) AND Unicode-3.0 License: unicode-ident](#(mit-or-apache-20)-and-unicode-30-license-unicode-ident)
@@ -440,6 +441,7 @@ The following text applies to code linked from these dependencies:
 [askama](https://github.com/askama-rs/askama),
 [askama_derive](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
+[async-trait](https://github.com/dtolnay/async-trait),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
@@ -495,6 +497,8 @@ The following text applies to code linked from these dependencies:
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
+[libm](https://github.com/rust-lang/libm),
+[linux-raw-sys](https://github.com/sunfishcode/linux-raw-sys),
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
@@ -505,12 +509,12 @@ The following text applies to code linked from these dependencies:
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
-[paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-utils](https://github.com/rust-lang-nursery/pin-utils),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [plain](https://github.com/randomites/plain),
+[pollster](https://github.com/zesterer/pollster),
 [proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
@@ -545,7 +549,6 @@ The following text applies to code linked from these dependencies:
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
-[unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
 [url](https://github.com/servo/rust-url),
 [utf8_iter](https://github.com/hsivonen/utf8_iter),
 [uuid](https://github.com/uuid-rs/uuid),
@@ -788,11 +791,10 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: aho-corasick, byteorder, memchr
+## MIT License: aho-corasick, memchr
 
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
-[byteorder](https://github.com/BurntSushi/byteorder),
 [memchr](https://github.com/BurntSushi/memchr)
 
 ```
@@ -915,6 +917,35 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
+```
+-------------
+## MIT License: core_maths
+
+The following text applies to code linked from these dependencies:
+[core_maths](https://github.com/robertbastian/core_maths)
+
+```
+MIT License
+
+Copyright (c) 2024 Robert Bastian
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 -------------
 ## MIT License: generic-array
@@ -1676,16 +1707,20 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 -------------
-## Unicode-3.0 License: icu_collections, icu_locale_core, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive
+## Unicode-3.0 License: icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive
 
 The following text applies to code linked from these dependencies:
 [icu_collections](https://github.com/unicode-org/icu4x),
+[icu_locale](https://github.com/unicode-org/icu4x),
 [icu_locale_core](https://github.com/unicode-org/icu4x),
+[icu_locale_data](https://github.com/unicode-org/icu4x),
 [icu_normalizer](https://github.com/unicode-org/icu4x),
 [icu_normalizer_data](https://github.com/unicode-org/icu4x),
 [icu_properties](https://github.com/unicode-org/icu4x),
 [icu_properties_data](https://github.com/unicode-org/icu4x),
 [icu_provider](https://github.com/unicode-org/icu4x),
+[icu_segmenter](https://github.com/unicode-org/icu4x),
+[icu_segmenter_data](https://github.com/unicode-org/icu4x),
 [litemap](https://github.com/unicode-org/icu4x),
 [potential_utf](https://github.com/unicode-org/icu4x),
 [tinystr](https://github.com/unicode-org/icu4x),

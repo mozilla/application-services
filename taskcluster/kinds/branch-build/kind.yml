@@ -56,8 +56,6 @@ tasks:
       toolchain:
         - rust-osx
         - libs-ios
-      fetch:
-        - swiftformat
     run:
       using: run-commands
       run-task-command: ["/usr/local/bin/python3", "run-task"]

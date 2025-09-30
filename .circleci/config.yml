@@ -141,7 +141,6 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py python-tests
-      - run: automation/tests.py nss-bindings
   restore-sccache-cache:
     steps:
       - restore_cache:
@@ -201,16 +200,9 @@ executors:
   macos:
     macos:
       xcode: "15.1"
-    resource_class: macos.m1.medium.gen1
+    resource_class: m4pro.medium
 
 jobs:
-  Check Swift formatting:
-    executor: macos
-    steps:
-      - full-checkout
-      - run: brew install swiftlint swiftformat
-      - run: ./automation/tests.py swiftlint
-      - run: ./automation/tests.py swiftformat
   Check Rust formatting:
     executor: docker
     resource_class: small
@@ -259,7 +251,7 @@ jobs:
       - run: ./automation/tests.py rust-min-version-tests
       - save-sccache-cache
 
-  iOS test:
+  iOS artifacts:
     executor: macos
     steps:
       - full-checkout
@@ -269,11 +261,8 @@ jobs:
       - setup-ios-environment
       - setup-sccache
       - run:
-          name: Run XCode tests
-          command: ./automation/tests.py ios-tests
-      - store_artifacts:
-          path: raw_xcodetest.log
-          destination: logs/raw_xcodetest.log
+          name: Build Swift artifacts
+          command: ./automation/tests.py ios-artifacts
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
       - store_artifacts:
@@ -292,9 +281,6 @@ jobs:
 
 workflows:
   version: 2
-  swiftlint:
-    jobs:
-      - Check Swift formatting
   check-formatting:
     jobs:
       - Check Rust formatting
@@ -310,6 +296,6 @@ workflows:
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
-  ios-test:
+  ios-artifacts:
     jobs:
-      - iOS test
+      - iOS artifacts

@@ -5,13 +5,17 @@
 package mozilla.appservices.httpconfig
 
 import com.google.protobuf.ByteString
+import mozilla.appservices.viaduct.initBackend
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+import mozilla.appservices.viaduct.allowAndroidEmulatorLoopback as rustAllowAndroidEmulatorLoopback
 
 /**
  * All errors emitted by the client will subclass this.
@@ -21,25 +25,24 @@ sealed class ViaductClientError(msg: String) : Exception(msg)
 /**
  * Error indicating that the request method is not supported.
  */
-class UnsupportedRequestMethodError(method: MsgTypes.Request.Method) :
+class UnsupportedRequestMethodError(method: String) :
     ViaductClientError("Unsupported HTTP method: $method")
 
 /**
  * Singleton allowing management of the HTTP backend
  * used by Rust components.
  */
+@OptIn(ExperimentalAtomicApi::class)
 object RustHttpConfig {
     // Protects imp/client
     private var lock = ReentrantReadWriteLock()
 
+    // Used to only initialize the client once
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1989865.
+    private var backendInitialized = AtomicBoolean(false)
+
     @Volatile
     private var client: Lazy<Client>? = null
-
-    // Important note to future maintainers: if you mess around with
-    // this code, you have to make sure `imp` can't get GCed. Extremely
-    // bad things will happen if it does!
-    @Volatile
-    private var imp: CallbackImpl? = null
 
     /**
      * Set the HTTP client to be used by all Rust code.
@@ -47,12 +50,8 @@ object RustHttpConfig {
      */
     @Synchronized
     fun setClient(c: Lazy<Client>) {
-        lock.write {
-            client = c
-            if (imp == null) {
-                imp = CallbackImpl()
-                LibViaduct.INSTANCE.viaduct_initialize(imp!!)
-            }
+        if (backendInitialized.compareAndSet(false, true)) {
+            initBackend(FetchBackend(c))
         }
     }
 
@@ -63,9 +62,7 @@ object RustHttpConfig {
      * are sure you are running on an emulator.
      */
     fun allowAndroidEmulatorLoopback() {
-        lock.read {
-            LibViaduct.INSTANCE.viaduct_allow_android_emulator_loopback()
-        }
+        rustAllowAndroidEmulatorLoopback()
     }
 
     internal fun convertRequest(request: MsgTypes.Request): Request {
@@ -152,7 +149,7 @@ internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
         MsgTypes.Request.Method.PUT -> Request.Method.PUT
         MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
         MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
-        else -> throw UnsupportedRequestMethodError(m)
+        else -> throw UnsupportedRequestMethodError(m.toString())
     }
 }
 

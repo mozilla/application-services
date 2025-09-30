@@ -10,15 +10,19 @@ use url::Url;
 mod headers;
 
 mod backend;
+mod client;
 pub mod error;
+mod new_backend;
 pub mod settings;
 pub use error::*;
 // reexport logging helpers.
 pub use error_support::{debug, error, info, trace, warn};
 
-pub use backend::{note_backend, set_backend, Backend};
+pub use backend::{note_backend, set_backend, Backend as OldBackend};
+pub use client::{Client, ClientSettings};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
-pub use settings::GLOBAL_SETTINGS;
+pub use new_backend::{init_backend, Backend};
+pub use settings::{allow_android_emulator_loopback, GLOBAL_SETTINGS};
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub(crate) mod msg_types {
@@ -28,7 +32,7 @@ pub(crate) mod msg_types {
 /// HTTP Methods.
 ///
 /// The supported methods are the limited to what's supported by android-components.
-#[derive(Clone, Debug, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Clone, Debug, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, uniffi::Enum)]
 #[repr(u8)]
 pub enum Method {
     Get,
@@ -65,7 +69,7 @@ impl std::fmt::Display for Method {
 }
 
 #[must_use = "`Request`'s \"builder\" functions take by move, not by `&mut self`"]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, uniffi::Record)]
 pub struct Request {
     pub method: Method,
     pub url: Url,
@@ -85,7 +89,7 @@ impl Request {
         }
     }
 
-    pub fn send(self) -> Result<Response, Error> {
+    pub fn send(self) -> Result<Response, ViaductError> {
         crate::backend::send(self)
     }
 
@@ -180,7 +184,7 @@ impl Request {
     /// ```
     /// # use viaduct::{Request, header_names};
     /// # use url::Url;
-    /// # fn main() -> Result<(), viaduct::Error> {
+    /// # fn main() -> Result<(), viaduct::ViaductError> {
     /// # let some_url = url::Url::parse("https://www.example.com").unwrap();
     /// Request::post(some_url)
     ///     .header(header_names::CONTENT_TYPE, "application/json")?
@@ -189,7 +193,7 @@ impl Request {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn header<Name, Val>(mut self, name: Name, val: Val) -> Result<Self, crate::Error>
+    pub fn header<Name, Val>(mut self, name: Name, val: Val) -> Result<Self, crate::ViaductError>
     where
         Name: Into<HeaderName> + PartialEq<HeaderName>,
         Val: Into<String> + AsRef<str>,
@@ -228,7 +232,7 @@ impl Request {
 }
 
 /// A response from the server.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, uniffi::Record)]
 pub struct Response {
     /// The method used to request this response.
     pub request_method: Method,
@@ -370,6 +374,29 @@ pub mod status_codes {
     ];
 }
 
-pub fn parse_url(url: &str) -> Result<Url, Error> {
+pub fn parse_url(url: &str) -> Result<Url, ViaductError> {
     Ok(Url::parse(url)?)
 }
+
+// Rename `Url` to `ViaductUrl` to avoid name conflicts on Swift
+pub type ViaductUrl = Url;
+
+uniffi::custom_type!(ViaductUrl, String, {
+    remote,
+    try_lift: |val| Ok(ViaductUrl::parse(&val)?),
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(Headers, std::collections::HashMap<String, String>, {
+    remote,
+    try_lift: |map| {
+        Ok(map.into_iter()
+            .map(|(name, value)| Header::new(name, value))
+            .collect::<Result<Vec<Header>>>()?
+            .into()
+        )
+    },
+    lower: |headers| headers.into(),
+});
+
+uniffi::setup_scaffolding!("viaduct");

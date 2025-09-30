@@ -9,7 +9,7 @@ pub type Result<T> = anyhow::Result<T>;
 #[derive(Error, Debug)]
 pub enum RemoteSettingsError {
     #[error("Network error: {0}")]
-    Network(#[from] viaduct::Error),
+    Network(#[from] viaduct::ViaductError),
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
     #[error("JSON error: {0}")]

@@ -5,6 +5,7 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+pub use ads_client;
 pub use as_ohttp_client;
 pub use autofill;
 pub use context_id;
@@ -26,4 +27,5 @@ pub use sync15;
 pub use sync_manager;
 pub use tabs;
 pub use tracing_support;
+pub use viaduct;
 pub use viaduct_reqwest;

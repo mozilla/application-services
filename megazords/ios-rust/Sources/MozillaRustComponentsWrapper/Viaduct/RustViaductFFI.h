@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #pragma once
-#include <stdint.h>
 #include <Foundation/NSObjCRuntime.h>
+#include <stdint.h>
 
 void viaduct_use_reqwest_backend();

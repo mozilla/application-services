@@ -8,7 +8,8 @@ publish = false
 [dependencies]
 anyhow = "1.0"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
-env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
 log = "0.4"
+cli-support = { path = "../cli-support" }
 relay = { path = "../../components/relay" }
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
+viaduct = { path = "../../components/viaduct"}
+viaduct-hyper = { path = "../../components/support/viaduct-hyper" }

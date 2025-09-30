@@ -75,16 +75,13 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    env_logger::init_from_env(env_logger::Env::default().filter_or(
-        "RUST_LOG",
-        if cli.verbose {
-            DEFAULT_LOG_FILTER_VERBOSE
-        } else {
-            DEFAULT_LOG_FILTER
-        },
-    ));
+    cli_support::init_logging_with(if cli.verbose {
+        DEFAULT_LOG_FILTER_VERBOSE
+    } else {
+        DEFAULT_LOG_FILTER
+    });
     nss::ensure_initialized();
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
     let service = build_service(&cli)?;
     match cli.command {
         Commands::Sync { collections } => sync(service, collections),

@@ -12,7 +12,7 @@ sync15 = { path = "../sync15", features = ["sync-client"] }
 places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
-thiserror = "1.0"
+thiserror = "2"
 anyhow = "1.0"
 lazy_static = "1.4"
 error-support = { path = "../support/error" }

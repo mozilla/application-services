@@ -41,7 +41,6 @@ Here are the steps that worked for me:
 * Build the JNA native libraries for the target platforms of interest:
     * `ant -Dos.prefix=android-aarch64`
     * `ant -Dos.prefix=android-armv7`
-    * `ant -Dos.prefix=android-x86`
     * `ant -Dos.prefix=android-x86-64`
 
 * Package the newly-built native libraries into a JAR/AAR using `ant dist`.

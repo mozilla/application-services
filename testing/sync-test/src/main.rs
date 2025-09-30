@@ -28,7 +28,7 @@ macro_rules! cleanup_clients {
 }
 
 pub fn init_testing() {
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
     ensure_initialized();
 
     // Enable backtraces.

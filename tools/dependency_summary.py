@@ -35,7 +35,6 @@ ALL_ANDROID_TARGETS = [
     "armv7-linux-androideabi",
     "aarch64-linux-android",
     "aarch64-apple-darwin",
-    "i686-linux-android",
     "x86_64-linux-android",
     "x86_64-unknown-linux-gnu",
     "x86_64-apple-darwin",
@@ -355,6 +354,15 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
+        },
+    },
+    "libm": {
+        "repository": {
+            "check": "https://github.com/rust-lang/libm",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/rust-lang/libm/blob/master/libm/LICENSE.txt",
         },
     },
     "oneshot-uniffi": {

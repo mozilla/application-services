@@ -68,14 +68,14 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     nss::ensure_initialized();
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
     if cli.log {
         if cli.debug {
-            init_logging_with("debug");
+            init_logging_with("fxa_client=debug");
         } else if cli.info {
-            init_logging_with("info");
+            init_logging_with("fxa_client=info");
         } else {
-            init_logging_with("warn");
+            init_logging_with("fxa_client=warn");
         }
     }
 

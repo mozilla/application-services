@@ -147,7 +147,8 @@ mkdir -p "$COMMON/Headers"
 # affect the bindings.
 UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
 
-# First move the non-generated headers (these are all common between both firefox-ios and Focus)
+# Move the non-generated headers (these are all common between both firefox-ios and Focus)
+# This allows the generated swift to find the binaries
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
 cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$COMMON/Headers"
 

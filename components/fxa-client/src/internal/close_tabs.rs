@@ -359,7 +359,7 @@ mod tests {
                 always(),
             )
             .returning(|_, _, _, _, _, _| {
-                Err(Error::RequestError(viaduct::Error::NetworkError(
+                Err(Error::RequestError(viaduct::ViaductError::NetworkError(
                     "Simulated error".to_owned(),
                 )))
             });
@@ -432,7 +432,7 @@ mod tests {
             .returning(move |_, _, _, _, value, _| {
                 let payload: CloseTabsPayload = decrypt_command(value.clone(), &close_tabs_keys)?;
                 if payload.urls.iter().any(|url| url == "https://example.org") {
-                    Err(Error::RequestError(viaduct::Error::NetworkError(
+                    Err(Error::RequestError(viaduct::ViaductError::NetworkError(
                         "Simulated error".to_owned(),
                     )))
                 } else {

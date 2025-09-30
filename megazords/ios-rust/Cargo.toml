@@ -19,10 +19,10 @@ logins = { path = "../../components/logins" }
 autofill = { path = "../../components/autofill" }
 push = { path = "../../components/push" }
 tabs = { path = "../../components/tabs" }
-places = {path = "../../components/places" }
+places = { path = "../../components/places" }
 remote_settings = { path = "../../components/remote_settings" }
 suggest = { path = "../../components/suggest" }
-sync15 = {path = "../../components/sync15"}
+sync15 = { path = "../../components/sync15" }
 error-support = { path = "../../components/support/error" }
 tracing-support = { path = "../../components/support/tracing" }
 sync_manager = { path = "../../components/sync_manager" }
@@ -32,3 +32,4 @@ init_rust_components = { path = "../../components/init_rust_components" }
 merino = { path = "../../components/merino" }
 context_id = { path = "../../components/context_id" }
 relay = { path = "../../components/relay" }
+ads-client = { path = "../../components/ads-client" }

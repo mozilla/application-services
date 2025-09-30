@@ -1055,8 +1055,8 @@ pub mod history_sync {
                 sync_status, sync_change_counter, preview_image_url,
                 unknown_fields
             FROM moz_places
-            WHERE (sync_change_counter > 0 OR sync_status != {}) AND
-                  NOT hidden
+             WHERE hidden = 0
+                AND (sync_change_counter > 0 OR sync_status != {})
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
@@ -1357,17 +1357,18 @@ pub fn get_top_frecent_site_infos(
     let infos = db.query_rows_and_then_cached(
         "SELECT h.frecency, h.title, h.url
         FROM moz_places h
-        WHERE EXISTS (
-            SELECT v.visit_type
+        WHERE h.hidden = 0
+        AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
+        AND (h.url LIKE 'http:%' OR h.url LIKE 'https:%')
+        AND h.frecency >= :frecency_threshold
+        AND EXISTS (
+            SELECT 1
             FROM moz_historyvisits v
-            WHERE h.id = v.place_id
-              AND (SUBSTR(h.url, 1, 6) == 'https:' OR SUBSTR(h.url, 1, 5) == 'http:')
-              AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
-              AND ((1 << v.visit_type) & :allowed_types) != 0
-              AND h.frecency >= :frecency_threshold AND
-              NOT h.hidden
+            WHERE v.place_id = h.id
+            AND ((1 << v.visit_type) & :allowed_types) != 0
+            LIMIT 1
         )
-        ORDER BY h.frecency DESC
+        ORDER BY h.frecency DESC, h.id DESC
         LIMIT :limit",
         rusqlite::named_params! {
             ":limit": num_items,

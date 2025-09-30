@@ -11,18 +11,18 @@ exclude = ["/ios"]
 
 [dependencies]
 uniffi = { version = "0.29.0" }
-thiserror = "1.0"
+thiserror = "2"
 parking_lot = "0.12"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 
 [dependencies.bhttp]
 git = "https://github.com/martinthomson/ohttp.git"
-rev = "c6131ace4e4e82a4269afac3cb0524541d2cd315"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
 
 [dependencies.ohttp]
 default-features = false
 git = "https://github.com/martinthomson/ohttp.git"
-rev = "c6131ace4e4e82a4269afac3cb0524541d2cd315"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
 features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]

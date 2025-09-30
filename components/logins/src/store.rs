@@ -334,7 +334,6 @@ mod test {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
-    use more_asserts::*;
     use nss::ensure_initialized;
     use std::cmp::Reverse;
     use std::time::SystemTime;
@@ -384,9 +383,9 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.time_created, start_us);
-        assert_ge!(a_from_db.time_password_changed, start_us);
-        assert_ge!(a_from_db.time_last_used, start_us);
+        assert!(a_from_db.time_created >= start_us);
+        assert!(a_from_db.time_password_changed >= start_us);
+        assert!(a_from_db.time_last_used >= start_us);
         assert_eq!(a_from_db.times_used, 1);
 
         let b_from_db = store
@@ -395,9 +394,9 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
-        assert_ge!(b_from_db.time_created, start_us);
-        assert_ge!(b_from_db.time_password_changed, start_us);
-        assert_ge!(b_from_db.time_last_used, start_us);
+        assert!(b_from_db.time_created >= start_us);
+        assert!(b_from_db.time_password_changed >= start_us);
+        assert!(b_from_db.time_last_used >= start_us);
         assert_eq!(b_from_db.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
@@ -457,10 +456,10 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&b2, &b_after_update);
-        assert_ge!(b_after_update.time_created, start_us);
-        assert_le!(b_after_update.time_created, now_us);
-        assert_ge!(b_after_update.time_password_changed, now_us);
-        assert_ge!(b_after_update.time_last_used, now_us);
+        assert!(b_after_update.time_created >= start_us);
+        assert!(b_after_update.time_created <= now_us);
+        assert!(b_after_update.time_password_changed >= now_us);
+        assert!(b_after_update.time_last_used >= now_us);
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
     }

@@ -4,12 +4,10 @@ namespace fml {};
 typedef string JsonObject;
 [Custom]
 typedef string Url;
-[Custom]
-typedef string EmailAddress;
 
 [Error]
 enum FMLError {
-    "IOError", "JSONError", "YAMLError", "UrlError", "EmailError", "RegexError", "FetchError",
+    "IOError", "JSONError", "YAMLError", "UrlError", "RegexError", "FetchError",
     "ResponseStatusError", "Utf8DecodingError", "InvalidPath",
     "TemplateProblem", "Fatal", "InternalError", "ValidationError", "TypeParsingError",
     "InvalidChannelError", "FMLModuleError", "CliError", "ClientError", "InvalidFeatureError",
@@ -77,7 +75,8 @@ dictionary FmlFeatureDescriptor {
     /// Documentation for this feature.
     sequence<DocumentationLink> documentation;
     /// Email addresses of engineers and product owners who can answer questions about this feature
-    sequence<EmailAddress> contacts;
+    /// Just a list of email addresses, no validation, no parsing, nothing.
+    sequence<string> contacts;
     /// Where bugs can be filed on this feature
     Url? meta_bug;
     /// The Glean events produced by this feature.

@@ -18,10 +18,7 @@ fi
 "$(pwd)/libs/verify-ios-ci-environment.sh"
 
 echo ""
-echo "Looks good! You can either:"
-echo ""
-echo "- Run the iOS tests via command line:"
-echo "    ./automation/run_ios_tests.sh"
+echo "Looks good!"
 echo ""
 echo " If you want to just generate the rust binaries"
 echo "- Build the XCFramework:"

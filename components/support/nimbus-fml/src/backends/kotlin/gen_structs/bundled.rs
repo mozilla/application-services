@@ -7,7 +7,7 @@ use std::fmt::Display;
 use super::common::{code_type, quoted};
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType};
 use crate::intermediate_representation::{Literal, TypeRef};
-use heck::SnakeCase;
+use heck::ToSnakeCase;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub(crate) struct TextCodeType;
