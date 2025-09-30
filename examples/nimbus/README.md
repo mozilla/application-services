@@ -1,18 +1,12 @@
 # Experiments CLI
 In this directory we have a command line interface that helps us interact with the Nimbus SDK.
 
-
 ## How to use
 In order to use the CLI, you would run it as an example:
 ```bash
-cargo run --example experiment -- -c ./examples/config/config.json show-experiments
+cargo run -p examples-nimbus-experiment -- -c ./config/config.json show-experiments
 ```
 This would display all the valid experiments retrieved from the server
-
-You can check out the details by running
-```bash
-cargo run --example experiment -- -h
-```
 
 You can set a config file using the `-c` option, which can include the following:
 
