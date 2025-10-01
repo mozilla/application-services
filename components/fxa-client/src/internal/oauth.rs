@@ -137,7 +137,7 @@ impl FirefoxAccount {
     ) -> Result<String> {
         let mut url = self.state.config().pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        let pairing_url = Url::parse(pairing_url)?;
+        let pairing_url = util::parse_url(pairing_url, "begin_pairing_flow")?;
         if url.host_str() != pairing_url.host_str() {
             let fxa_server = FxaServer::from(&url);
             let pairing_fxa_server = FxaServer::from(&pairing_url);
