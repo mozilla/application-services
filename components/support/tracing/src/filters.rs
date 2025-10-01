@@ -14,8 +14,6 @@ use tracing_subscriber::{
 /// See `build_targets_from_env` for the exact behavior.  If not so configured, the filter will
 /// default to the `Level::Error` level.
 pub fn init_from_env() {
-    // This is intended to be equivalent to `env_logger::try_init().ok();`
-    // `debug!()` output is seen. We could maybe add logging for `#[tracing::instrument]`?
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(build_targets_from_env(LevelFilter::ERROR, None))
@@ -25,8 +23,6 @@ pub fn init_from_env() {
 /// Like `init_for_tests` but uses the specified `level` if logging is not configured in the environment.
 pub fn init_from_env_with_level(level: crate::Level) {
     let level_filter = LevelFilter::from_level(level.into());
-    // This is intended to be equivalent to `env_logger::try_init().ok();`
-    // `debug!()` output is seen. We could maybe add logging for `#[tracing::instrument]`?
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(build_targets_from_env(level_filter, None))
@@ -35,8 +31,6 @@ pub fn init_from_env_with_level(level: crate::Level) {
 
 /// Like `init_for_tests` but uses a default string if logging is not configured in the environment
 pub fn init_from_env_with_default(default_env: &str) {
-    // This is intended to be equivalent to `env_logger::try_init().ok();`
-    // `debug!()` output is seen. We could maybe add logging for `#[tracing::instrument]`?
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(build_targets_from_env(LevelFilter::OFF, Some(default_env)))
