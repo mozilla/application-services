@@ -28,8 +28,10 @@ the details of which are reproduced below.
 * [MIT License: tracing, tracing-attributes, tracing-core, tracing-subscriber](#mit-license-tracing-tracing-attributes-tracing-core-tracing-subscriber)
 * [MIT License: weedle2](#mit-license-weedle2)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
+* [ISC License: libloading](#isc-license-libloading)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
+* [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
 * [Zlib License: foldhash](#zlib-license-foldhash)
 * [Unicode-3.0 License: icu_collections, icu_locale, icu_locale_core, icu_locale_data, icu_locid, icu_locid_transform, icu_locid_transform_data, icu_normalizer, icu_normalizer_data, icu_properties, icu_properties_data, icu_provider, icu_provider_macros, icu_segmenter, icu_segmenter_data, litemap, potential_utf, tinystr, writeable, yoke, yoke-derive, zerofrom, zerofrom-derive, zerotrie, zerovec, zerovec-derive](#unicode-30-license-icu_collections-icu_locale-icu_locale_core-icu_locale_data-icu_locid-icu_locid_transform-icu_locid_transform_data-icu_normalizer-icu_normalizer_data-icu_properties-icu_properties_data-icu_provider-icu_provider_macros-icu_segmenter-icu_segmenter_data-litemap-potential_utf-tinystr-writeable-yoke-yoke-derive-zerofrom-zerofrom-derive-zerotrie-zerovec-zerovec-derive)
@@ -441,19 +443,25 @@ The following text applies to code linked from these dependencies:
 [askama](https://github.com/askama-rs/askama),
 [askama_derive](https://github.com/askama-rs/askama),
 [askama_parser](https://github.com/askama-rs/askama),
+[async-lock](https://github.com/smol-rs/async-lock),
 [async-trait](https://github.com/dtolnay/async-trait),
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
+[bhttp](https://github.com/martinthomson/ohttp),
 [bitflags](https://github.com/bitflags/bitflags),
 [block-buffer](https://github.com/RustCrypto/utils),
 [camino](https://github.com/camino-rs/camino),
 [cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/rust-lang/cc-rs),
+[cexpr](https://github.com/jethrogb/rust-cexpr),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
+[clang-sys](https://github.com/KyleMayes/clang-sys),
+[concurrent-queue](https://github.com/smol-rs/concurrent-queue),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
+[crossbeam-utils](https://github.com/crossbeam-rs/crossbeam),
 [crypto-common](https://github.com/RustCrypto/traits),
 [digest](https://github.com/RustCrypto/traits),
 [displaydoc](https://github.com/yaahc/displaydoc),
@@ -462,6 +470,8 @@ The following text applies to code linked from these dependencies:
 [env_logger](https://github.com/rust-cli/env_logger),
 [equivalent](https://github.com/cuviper/equivalent),
 [errno](https://github.com/lambda-fairy/rust-errno),
+[event-listener-strategy](https://github.com/smol-rs/event-listener-strategy),
+[event-listener](https://github.com/smol-rs/event-listener),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fastrand](https://github.com/smol-rs/fastrand),
@@ -492,7 +502,9 @@ The following text applies to code linked from these dependencies:
 [log](https://github.com/rust-lang/log),
 [minimal-lexical](https://github.com/Alexhuszagh/minimal-lexical),
 [num-traits](https://github.com/rust-num/num-traits),
+[ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
+[parking](https://github.com/smol-rs/parking),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
 [paste](https://github.com/dtolnay/paste),
@@ -522,6 +534,7 @@ The following text applies to code linked from these dependencies:
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_path_to_error](https://github.com/dtolnay/path-to-error),
+[serde_spanned](https://github.com/toml-rs/toml),
 [sha2](https://github.com/RustCrypto/hashes),
 [shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
@@ -537,6 +550,10 @@ The following text applies to code linked from these dependencies:
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
+[toml](https://github.com/toml-rs/toml),
+[toml_datetime](https://github.com/toml-rs/toml),
+[toml_parser](https://github.com/toml-rs/toml),
+[toml_writer](https://github.com/toml-rs/toml),
 [typenum](https://github.com/paholg/typenum),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
@@ -1594,6 +1611,27 @@ limitations under the License.
 
 ```
 -------------
+## ISC License: libloading
+
+The following text applies to code linked from these dependencies:
+[libloading](https://github.com/nagisa/rust_libloading/)
+
+```
+Copyright © 2015, Simonas Kazlauskas
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without
+fee is hereby granted, provided that the above copyright notice and this permission notice appear
+in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+
+```
+-------------
 ## ISC License: ring
 
 The following text applies to code linked from these dependencies:
@@ -1648,6 +1686,44 @@ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
 DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+```
+-------------
+## BSD-3-Clause License: bindgen
+
+The following text applies to code linked from these dependencies:
+[bindgen](https://github.com/rust-lang/rust-bindgen)
+
+```
+BSD 3-Clause License
+
+Copyright (c) 2013, Jyun-Yan You
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```

@@ -18,8 +18,40 @@ impl Client {
         Self { settings }
     }
 
+    /// Create a client that uses OHTTP with the specified channel for all requests
+    #[cfg(feature = "ohttp")]
+    pub fn with_ohttp_channel(
+        channel: &str,
+        settings: ClientSettings,
+    ) -> Result<Self, crate::ViaductError> {
+        if !crate::ohttp::is_ohttp_channel_configured(channel) {
+            return Err(crate::ViaductError::OhttpChannelNotConfigured(
+                channel.to_string(),
+            ));
+        }
+        let mut client_settings = settings;
+        client_settings.ohttp_channel = Some(channel.to_string());
+        Ok(Self {
+            settings: client_settings,
+        })
+    }
+
     pub async fn send(&self, request: Request) -> Result<Response> {
         validate_request(&request)?;
+
+        // Check if this client should use OHTTP for all requests
+        #[cfg(feature = "ohttp")]
+        if let Some(channel) = &self.settings.ohttp_channel {
+            crate::debug!(
+                "Client configured for OHTTP channel '{}', processing request via OHTTP",
+                channel
+            );
+            return crate::ohttp::process_ohttp_request(request, channel, self.settings.clone())
+                .await;
+        }
+
+        // For non-OHTTP requests, use the normal backend
+        crate::debug!("Processing request via standard backend");
         get_backend()?
             .send_request(request, self.settings.clone())
             .await
@@ -39,6 +71,9 @@ pub struct ClientSettings {
     // Maximum amount of redirects to follow (0 means redirects are not allowed)
     #[uniffi(default = 10)]
     pub redirect_limit: u32,
+    // OHTTP channel to use for all requests (if any)
+    #[cfg(feature = "ohttp")]
+    pub ohttp_channel: Option<String>,
 }
 
 impl Default for ClientSettings {
@@ -49,6 +84,8 @@ impl Default for ClientSettings {
             #[cfg(not(target_os = "ios"))]
             timeout: 10000,
             redirect_limit: 10,
+            #[cfg(feature = "ohttp")]
+            ohttp_channel: None,
         }
     }
 }

@@ -45,16 +45,14 @@ pub fn get_backend() -> Result<&'static Arc<dyn Backend>> {
 impl old_backend::Backend for Arc<dyn Backend> {
     fn send(&self, request: crate::Request) -> Result<crate::Response, crate::ViaductError> {
         let settings = GLOBAL_SETTINGS.read();
-        // Do our best to map the old settings to the new
-        //
-        // In practice this should be okay, since no component ever overwrites the default, so we
-        // we can assume things like the read/connect timeout are always the same.
         let client_settings = ClientSettings {
             timeout: match settings.read_timeout {
                 Some(d) => d.as_millis() as u32,
                 None => 0,
             },
             redirect_limit: if settings.follow_redirects { 10 } else { 0 },
+            #[cfg(feature = "ohttp")]
+            ohttp_channel: None,
         };
         pollster::block_on(self.send_request(request, client_settings))
     }
