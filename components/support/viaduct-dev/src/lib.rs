@@ -49,11 +49,7 @@ pub fn init_backend_dev() {
 
 #[async_trait::async_trait]
 impl Backend for HyperBackend {
-    async fn send_request(
-        &self,
-        request: Request,
-        settings: ClientSettings,
-    ) -> Result<Response, ViaductError> {
+    async fn send_request(&self, request: Request, settings: ClientSettings) -> Result<Response> {
         let handle = self.runtime.handle().clone();
         let client = self.client.clone();
         match handle
