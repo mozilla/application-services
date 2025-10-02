@@ -1183,6 +1183,7 @@ dependencies = [
  "lazy_static",
  "log",
  "parking_lot",
+ "thiserror 2.0.3",
  "tracing",
  "tracing-support",
  "uniffi",
