@@ -250,15 +250,8 @@ pub struct IABContent {
 }
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
-pub struct MozAdsSize {
-    pub width: u16,
-    pub height: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementConfig {
     pub placement_id: String,
-    pub fixed_size: Option<MozAdsSize>,
     pub iab_content: Option<IABContent>,
 }
 
@@ -302,7 +295,6 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
@@ -310,17 +302,12 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_3".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec![],
-                }),
-                fixed_size: Some(MozAdsSize {
-                    width: 200,
-                    height: 200,
                 }),
             },
         ];
@@ -380,7 +367,6 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
@@ -388,17 +374,12 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec![],
-                }),
-                fixed_size: Some(MozAdsSize {
-                    width: 200,
-                    height: 200,
                 }),
             },
         ];
@@ -464,10 +445,6 @@ mod tests {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
             }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
-            }),
         });
 
         let mut api_resp = get_example_happy_ad_response();
@@ -501,10 +478,6 @@ mod tests {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
             }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
-            }),
         });
 
         let placements = inner_component
@@ -532,10 +505,6 @@ mod tests {
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
-            }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
             }),
         });
 
