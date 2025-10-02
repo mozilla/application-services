@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "MozillaRustComponents", targets: ["MozillaRustComponentsWrapper"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/mozilla/glean-swift", from: "65.1.1"),
+        .package(url: "https://github.com/mozilla/glean-swift", from: "65.2.1"),
     ],
     targets: [
         // Binary target XCFramework, contains our rust binaries and headers
