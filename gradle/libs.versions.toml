@@ -26,7 +26,7 @@ core = "1.17.0"
 work = "2.10.4"
 
 # JNA
-jna = "5.17.0"
+jna = "5.18.1"
 
 # Linting and Static Analysis
 detekt = "1.23.8"
