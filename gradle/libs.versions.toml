@@ -17,16 +17,16 @@ coroutines = "1.10.2"
 
 # Mozilla
 android-components = "143.0"
-glean = "65.1.1"
+glean = "65.2.1"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
 annotation = "1.9.1"
 core = "1.17.0"
-work = "2.10.4"
+work = "2.10.5"
 
 # JNA
-jna = "5.17.0"
+jna = "5.18.1"
 
 # Linting and Static Analysis
 detekt = "1.23.8"
@@ -40,8 +40,8 @@ androidx-test-runner = "1.7.0"
 
 # Third Party Testing
 junit4 = "4.13.2"
-junit5 = "5.13.4"
-mockito = "5.19.0"
+junit6 = "6.0.0"
+mockito = "5.20.0"
 robolectric = "4.16"
 
 # Miscellaneous Gradle plugins
@@ -86,7 +86,7 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 
 # Third Party Testing
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
-junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit5" }
+junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit6" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
 junit-vintage = { group = "org.junit.vintage", name = "junit-vintage-engine" }
