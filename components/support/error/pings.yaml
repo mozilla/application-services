@@ -1,0 +1,19 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+
+$schema: moz://mozilla.org/schemas/glean/pings/2-0-0
+
+rust-component-errors:
+  description: >
+    Ping containing details about an error in a Rust component.
+    The Rust code rate limits error pings are limited to 20/component/day.
+  notification_emails:
+    - sync-team@mozilla.com
+    - bdk@mozilla.com
+  include_client_id: true
+  bugs:
+    - https://bugzilla.mozilla.org/show_bug.cgi?id=1991442
+  data_reviews:
+    - https://bugzilla.mozilla.org/show_bug.cgi?id=1992235

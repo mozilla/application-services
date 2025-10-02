@@ -218,12 +218,12 @@ mod tests {
 
         info!(target: "first_target", extra=-1, "event message");
         debug!(target: "first_target", extra=-2, "event message (should be filtered)");
-        debug!(target: "second_target", extra=-3, "event message2");
+        debug!(target: "second_target::submodule", extra=-3, "event message2");
         info!(target: "third_target", extra=-4, "event message (should be filtered)");
-        // This should only go to the level sink, since it's an error
+        // This should go to both the level sink and target sink, since it's an error
         error!(target: "first_target", extra=-5, "event message");
 
-        assert_eq!(sink.events.read().len(), 2);
+        assert_eq!(sink.events.read().len(), 3);
         assert_eq!(level_sink.events.read().len(), 1);
 
         let event = &sink.events.read()[0];
@@ -233,15 +233,21 @@ mod tests {
         assert_eq!(event.fields.get("extra").unwrap().as_i64(), Some(-1));
 
         let event2 = &sink.events.read()[1];
-        assert_eq!(event2.target, "second_target");
+        assert_eq!(event2.target, "second_target::submodule");
         assert_eq!(event2.level, Level::Debug);
         assert_eq!(event2.message, "event message2");
         assert_eq!(event2.fields.get("extra").unwrap().as_i64(), Some(-3));
 
-        let event3 = &level_sink.events.read()[0];
+        let event3 = &sink.events.read()[2];
         assert_eq!(event3.target, "first_target");
         assert_eq!(event3.level, Level::Error);
         assert_eq!(event3.message, "event message");
         assert_eq!(event3.fields.get("extra").unwrap().as_i64(), Some(-5));
+
+        let level_event = &level_sink.events.read()[0];
+        assert_eq!(level_event.target, "first_target");
+        assert_eq!(level_event.level, Level::Error);
+        assert_eq!(level_event.message, "event message");
+        assert_eq!(level_event.fields.get("extra").unwrap().as_i64(), Some(-5));
     }
 }

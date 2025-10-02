@@ -14,6 +14,7 @@ protobuf-plugin = "0.9.5"
 # Kotlin
 kotlin = "2.2.20"
 coroutines = "1.10.2"
+kotlinx-serialization = "1.9.0"
 
 # Mozilla
 android-components = "143.0"
@@ -59,6 +60,7 @@ protobuf-compiler = { group = "com.google.protobuf", name = "protoc", version.re
 # Kotlin
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 # Mozilla
 mozilla-concept-fetch = { group = "org.mozilla.components", name = "concept-fetch", version.ref = "android-components" }
@@ -96,5 +98,6 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 gradle-download-task = { id = "de.undercouch.download", version.ref = "gradle-download-task" }
+kotlinx-serialization = { id = 'org.jetbrains.kotlin.plugin.serialization', version.ref = "kotlinx-serialization" }
 python-envs-plugin = {id = "com.jetbrains.python.envs", version.ref = "python-envs-plugin"}
 protobuf-plugin = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
