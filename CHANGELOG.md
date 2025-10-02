@@ -1,5 +1,10 @@
 # v145.0 (In progress)
 
+## ✨ What's New ✨
+
+### Docs
+- Updated the components strategy doc to better reflect the current state of application services. ([#6991](https://github.com/mozilla/application-services/pull/6991))
+
 [Full Changelog](In progress)
 
 ### Swift
