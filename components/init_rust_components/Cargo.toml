@@ -7,11 +7,8 @@ license = "MPL-2.0"
 exclude = ["/android"]
 
 [features]
-default = []
 keydb = ["nss/keydb"]
-ohttp = ["viaduct/ohttp"]
 
 [dependencies]
 uniffi = { version = "0.29.0" }
 nss = { path = "../support/rc_crypto/nss" }
-viaduct = { path = "../viaduct", optional = true }

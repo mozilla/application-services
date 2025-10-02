@@ -7,13 +7,7 @@ publish = false
 
 [dependencies]
 serde = "1"
-serde_json = "1"
 url = "2"
-viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
+viaduct = { path = "../../components/viaduct" }
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
-cli-support = { path = "../cli-support" }
-
-[features]
-default = ["ohttp"]
-ohttp = ["viaduct/ohttp"]
