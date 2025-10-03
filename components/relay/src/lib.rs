@@ -70,11 +70,6 @@ struct CreateAddressPayload<'a> {
     used_on: &'a str,
 }
 
-#[derive(Deserialize)]
-struct RelayApiErrorMessage {
-    detail: String,
-}
-
 impl RelayClient {
     fn build_url(&self, path: &str) -> Result<Url> {
         Ok(Url::parse(&format!("{}{}", self.server_url, path))?)
@@ -87,6 +82,20 @@ impl RelayClient {
             request = request.header(header_names::AUTHORIZATION, format!("Bearer {}", token))?;
         }
         Ok(request)
+    }
+
+    fn extract_api_error(body: &str) -> Option<String> {
+        // If it looks like an API error, return the JSON as a string
+        serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|json| {
+                if json.get("detail").is_some() {
+                    // Return the original JSON; Error::RelayApi expects a single string to parse
+                    Some(body.to_owned())
+                } else {
+                    None
+                }
+            })
     }
 }
 
@@ -124,8 +133,8 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+        if let Some(api_err) = Self::extract_api_error(&body) {
+            return Err(Error::RelayApi(api_err));
         }
 
         let addresses: Vec<RelayAddress> = response.json()?;
@@ -145,8 +154,8 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+        if let Some(api_err) = Self::extract_api_error(&body) {
+            return Err(Error::RelayApi(api_err));
         }
         Ok(())
     }
@@ -186,8 +195,8 @@ impl RelayClient {
         let response = request.send()?;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+        if let Some(api_err) = Self::extract_api_error(&body) {
+            return Err(Error::RelayApi(api_err));
         }
 
         let address: RelayAddress = response.json()?;
@@ -226,6 +235,83 @@ mod tests {
             ]
             "#
         )
+    }
+
+    #[test]
+    fn test_fetch_addresses_permission_denied_relay_account() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"detail": "Authenticated user does not have a Relay account. Have they accepted the terms?"}"#;
+        let _mock = mock("GET", "/api/v1/relayaddresses/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let result = client.expect("success").fetch_addresses();
+
+        match result {
+            Err(RelayApiError::Api { code, detail }) => {
+                assert_eq!(code, "unknown"); // No error_code present in JSON
+                assert_eq!(
+                    detail,
+                    "Authenticated user does not have a Relay account. Have they accepted the terms?"
+                );
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_accept_terms_parse_error_missing_token() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"detail": "Missing FXA Token after 'Bearer'."}"#;
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), None);
+        let result = client.expect("success").accept_terms();
+
+        match result {
+            Err(RelayApiError::Api { code, detail }) => {
+                assert_eq!(code, "unknown"); // No error_code present in JSON
+                assert_eq!(detail, "Missing FXA Token after 'Bearer'.");
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_create_address_free_tier_limit() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"error_code": "free_tier_limit", "detail": "You’ve used all 5 email masks included with your free account."}"#;
+        let _mock = mock("POST", "/api/v1/relayaddresses/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let result = client
+            .expect("success")
+            .create_address("Label", "example.com", "example.com");
+
+        match result {
+            Err(RelayApiError::Api { code, detail }) => {
+                assert_eq!(code, "free_tier_limit");
+                assert_eq!(
+                    detail,
+                    "You’ve used all 5 email masks included with your free account."
+                );
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
     }
 
     #[test]
