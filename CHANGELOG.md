@@ -15,6 +15,12 @@
 - Updated the ApiError enum to AdsClientApiError to avoid naming collision.
 - The `context_id` is now generated and rotated via the existing eponym component crate.
 
+### Relay
+- **⚠️ Breaking Change:** The error handling for the Relay component has been refactored for stronger forward compatibility and more transparent error reporting in Swift and Kotlin via UniFFI.
+    - API and network errors from the Relay server are now converted to a single `RelayApiError::Api { status, code, detail }` variant, exposing the HTTP status code, a machine-readable error code (if present), and a human-readable detail message.
+    - Downstream client apps can now handle server errors based on both the `status` and `error_code` fields directly, without additional changes to the Rust component - even as server-side error codes evolve.
+    - **Consumers must update their error handling code to match the new `Api { status, code, detail }` shape.**
+
 # v144.0 (_2025-09-15_)
 
 ## ✨ What's New ✨
