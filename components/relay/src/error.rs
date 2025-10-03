@@ -13,8 +13,12 @@ pub enum RelayApiError {
     #[error("Relay network error: {reason}")]
     Network { reason: String },
 
-    #[error("Relay API error [{code}]: {detail}")]
-    Api { code: String, detail: String },
+    #[error("Relay API error (status {status} [{code}]): {detail}")]
+    Api {
+        status: u16,
+        code: String,
+        detail: String,
+    },
 
     #[error("Relay unexpected error: {reason}")]
     Other { reason: String },
@@ -29,8 +33,8 @@ struct ApiErrorJson {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Relay API error: {0}")]
-    RelayApi(String),
+    #[error("Relay API error: {status} {body}")]
+    RelayApi { status: u16, body: String },
 
     #[error("JSON parsing error: {0}")]
     Json(#[from] serde_json::Error),
@@ -51,10 +55,9 @@ impl GetErrorHandling for Error {
                 })
                 .log_warning()
             }
-            Error::RelayApi(detail) => {
-                // Try to parse error_code and detail from the provided string
-                // Accept both {"error_code", "detail"} or {"detail"} JSON.
-                let parsed: Option<ApiErrorJson> = serde_json::from_str(detail).ok();
+            Error::RelayApi { status, body } => {
+                // Accept {"error_code", "detail"} JSON or just "detail"
+                let parsed: Option<ApiErrorJson> = serde_json::from_str(body).ok();
                 let code = parsed
                     .as_ref()
                     .and_then(|j| j.error_code.clone())
@@ -62,9 +65,13 @@ impl GetErrorHandling for Error {
                 let detail = parsed
                     .as_ref()
                     .and_then(|j| j.detail.clone())
-                    .unwrap_or_else(|| detail.clone());
-                ErrorHandling::convert(RelayApiError::Api { code, detail })
-                    .report_error("relay-api-error")
+                    .unwrap_or_else(|| body.clone());
+                ErrorHandling::convert(RelayApiError::Api {
+                    status: *status,
+                    code,
+                    detail,
+                })
+                .report_error("relay-api-error")
             }
             _ => ErrorHandling::convert(RelayApiError::Other {
                 reason: self.to_string(),

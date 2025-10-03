@@ -83,20 +83,6 @@ impl RelayClient {
         }
         Ok(request)
     }
-
-    fn extract_api_error(body: &str) -> Option<String> {
-        // If it looks like an API error, return the JSON as a string
-        serde_json::from_str::<serde_json::Value>(body)
-            .ok()
-            .and_then(|json| {
-                if json.get("detail").is_some() {
-                    // Return the original JSON; Error::RelayApi expects a single string to parse
-                    Some(body.to_owned())
-                } else {
-                    None
-                }
-            })
-    }
 }
 
 #[uniffi::export]
@@ -120,21 +106,28 @@ impl RelayClient {
 
     /// Retrieves all Relay addresses associated with the current account.
     ///
-    /// Returns a vector of [`RelayAddress`] objects on success, or an error if the request fails.
+    /// Returns a vector of [`RelayAddress`] objects on success.
     ///
-    /// ## Known Limitations
-    /// - Will return an error if the Relay user record doesn't exist yet (see [`accept_terms`]).
-    /// - Error variants are subject to server-side changes.
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn fetch_addresses(&self) -> ApiResult<Vec<RelayAddress>> {
         let url = self.build_url("/api/v1/relayaddresses/")?;
         let request = self.prepare_request(Method::Get, url)?;
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Some(api_err) = Self::extract_api_error(&body) {
-            return Err(Error::RelayApi(api_err));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
 
         let addresses: Vec<RelayAddress> = response.json()?;
@@ -145,17 +138,27 @@ impl RelayClient {
     ///
     /// This function was originally used to signal acceptance of terms and privacy notices,
     /// but now primarily serves to provision (create) the Relay user record if one does not exist.
-    /// Returns `Ok(())` on success, or an error if the server call fails.
+    ///
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn accept_terms(&self) -> ApiResult<()> {
         let url = self.build_url("/api/v1/terms-accepted-user/")?;
         let request = self.prepare_request(Method::Post, url)?;
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Some(api_err) = Self::extract_api_error(&body) {
-            return Err(Error::RelayApi(api_err));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
         Ok(())
     }
@@ -168,11 +171,11 @@ impl RelayClient {
     /// - `generated_for`: The website for which the address is generated.
     /// - `used_on`: Comma-separated list of all websites where this address is used. Only updated by some clients.
     ///
-    /// ## Open Questions
-    /// - See the spike doc and project Jira for clarifications on field semantics.
-    /// - Returned error codes are not fully documented.
+    /// ## Errors
     ///
-    /// Returns the newly created [`RelayAddress`] on success, or an error.
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn create_address(
         &self,
@@ -193,10 +196,15 @@ impl RelayClient {
         request = request.json(&payload);
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Some(api_err) = Self::extract_api_error(&body) {
-            return Err(Error::RelayApi(api_err));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
 
         let address: RelayAddress = response.json()?;
@@ -252,7 +260,12 @@ mod tests {
         let result = client.expect("success").fetch_addresses();
 
         match result {
-            Err(RelayApiError::Api { code, detail }) => {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 403);
                 assert_eq!(code, "unknown"); // No error_code present in JSON
                 assert_eq!(
                     detail,
@@ -278,7 +291,12 @@ mod tests {
         let result = client.expect("success").accept_terms();
 
         match result {
-            Err(RelayApiError::Api { code, detail }) => {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 400);
                 assert_eq!(code, "unknown"); // No error_code present in JSON
                 assert_eq!(detail, "Missing FXA Token after 'Bearer'.");
             }
@@ -303,7 +321,12 @@ mod tests {
             .create_address("Label", "example.com", "example.com");
 
         match result {
-            Err(RelayApiError::Api { code, detail }) => {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 403);
                 assert_eq!(code, "free_tier_limit");
                 assert_eq!(
                     detail,
