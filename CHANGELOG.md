@@ -25,6 +25,9 @@
 
 ## 🦊 What's Changed 🦊
 
+### Suggest
+- Switched from `unicode-normalization` and `unicase` to ICU4X. (And updated the lock file from ICU4X 1.5 to ICU4X 2.0.)
+
 ### Android
 - Bumped the minimum SDK version to 26 (Android 8). ([#6926](https://github.com/mozilla/application-services/pull/6926)
 
