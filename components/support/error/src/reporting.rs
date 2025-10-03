@@ -64,6 +64,7 @@ pub fn unset_application_error_reporter() {
 }
 
 pub fn report_error_to_app(type_name: String, message: String) {
+    crate::telemetry::on_error(&type_name, &message);
     APPLICATION_ERROR_REPORTER
         .read()
         .report_error(type_name, message);
@@ -71,6 +72,7 @@ pub fn report_error_to_app(type_name: String, message: String) {
 
 pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32) {
     let message = format!("{} ({})", message, get_breadcrumb_counter_value());
+    crate::telemetry::on_breadcrumb(&message);
     APPLICATION_ERROR_REPORTER
         .read()
         .report_breadcrumb(message, module, line, column);

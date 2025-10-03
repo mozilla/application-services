@@ -31,6 +31,9 @@ pub fn init_for_tests_with_level(level: Level) {
 pub use tracing_support::{init_for_tests, init_for_tests_with_level};
 
 mod macros;
+mod telemetry;
+
+pub use telemetry::{register_error_listener, ErrorListener, ErrorListenerError};
 
 #[cfg(feature = "backtrace")]
 /// Re-export of the `backtrace` crate for use in macros and
@@ -77,10 +80,12 @@ pub use reporting::{
 #[cfg(feature = "tracing-reporting")]
 mod reporting {
     pub fn report_error_to_app(type_name: String, message: String) {
+        crate::telemetry::on_error(&type_name, &message);
         tracing_support::error!(target: "app-services-error-reporter::error", message, type_name);
     }
 
     pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32) {
+        crate::telemetry::on_breadcrumb(&message);
         tracing_support::info!(target: "app-services-error-reporter::breadcrumb", message, module, line, column);
     }
 }
