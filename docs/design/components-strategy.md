@@ -26,9 +26,8 @@ would need to be modified in all implementations and the likelihood of errors wa
 
 
 ### Now: Sync is starting to streamline its components
-Currently, we are in the process of migrating many of the sync implementation to use our Rust Component strategy.
-Fenix primarily uses our Rust Components and iOS has some integrated as well. Additionally, Firefox Desktop also uses
-one Rust component (Web Extension Storage).
+We have updated much of our sync implementation to use our Rust Components strategy on mobile. Additionally, Firefox Desktop also uses
+two Rust components (Tabs and Web Extension Storage).
 
 The Rust components not only unify the different implementations of sync, they also provide a convenient local storage for the apps.
 In other words, the apps can use the components for storage, with or without syncing to the server.
@@ -39,9 +38,9 @@ The following table has the status of each of our sync Rust Components
 
 | Application\Component | Bookmarks | History | Tabs | Passwords | Autofill | Web Extension Storage | FxA Client |
 |-----------------------|-----------|---------|------|-----------|----------|-----------------------|------------|
-| Fenix                 | ✔️         | ✔️       | ✔️    | ✔️         | ✔️        |                       | ✔️          |
-| Firefox iOS           | ✔️         |         | ✔️    | ✔️         |          |                       | ✔️          |
-| Firefox Desktop       |           |         |      |           |          | ✔️                     |            |
+| Fenix                 | ✔️        | ✔️      | ✔️   | ✔️        | ✔️       |                       | ✔️         |
+| Firefox iOS           | ✔️        | ✔️      | ✔️   | ✔️        | ✔️       |                       | ✔️         |
+| Firefox Desktop       |           |         | ✔️   |           |          | ✔️                    |            |
 | Focus                 |           |         |      |           |          |                       |            |
 
 ### Future: Only one implementation for each sync engine
