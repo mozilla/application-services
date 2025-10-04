@@ -6,32 +6,19 @@ use crate::bookmark_sync::BookmarksSyncEngine;
 use crate::db::db::{PlacesDb, SharedPlacesDb};
 use crate::error::*;
 use crate::history_sync::HistorySyncEngine;
-use crate::storage::{
-    self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
-};
 use crate::util::normalize_path;
 use error_support::handle_error;
 use interrupt_support::register_interrupt;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::OpenFlags;
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Weak,
 };
-use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit, SyncResult};
-use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
-use sync15::{telemetry, KeyBundle};
-
-// Not clear if this should be here, but this is the "global sync state"
-// which is persisted to disk and reused for all engines.
-// Note that this is only ever round-tripped, and never changed by, or impacted
-// by a store or collection, so it's safe to storage globally rather than
-// per collection.
-pub const GLOBAL_STATE_META_KEY: &str = "global_sync_state_v2";
+use sync15::engine::{SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -121,11 +108,6 @@ lazy_static! {
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-pub struct SyncState {
-    pub mem_cached_state: Cell<MemoryCachedState>,
-    pub disk_cached_state: Cell<Option<String>>,
-}
-
 /// For uniffi we need to expose our `Arc` returning constructor as a global function :(
 /// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
 /// meaning we are forced into this unfortunate workaround.
@@ -140,7 +122,6 @@ pub fn places_api_new(db_name: impl AsRef<Path>) -> ApiResult<Arc<PlacesApi>> {
 pub struct PlacesApi {
     db_name: PathBuf,
     write_connection: Mutex<Option<PlacesDb>>,
-    sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
     // Used for get_sync_connection()
     // - The inner mutex synchronizes sync operation (for example one of the [SyncEngine] methods).
@@ -188,7 +169,6 @@ impl PlacesApi {
                 let new = PlacesApi {
                     db_name: db_name.clone(),
                     write_connection: Mutex::new(Some(connection)),
-                    sync_state: Mutex::new(None),
                     sync_connection: Mutex::new(Weak::new()),
                     id,
                     coop_tx_lock,
@@ -275,17 +255,6 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
-        get_meta::<String>(conn, GLOBAL_STATE_META_KEY)
-    }
-
-    fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
-        match state {
-            Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
-            None => delete_meta(conn, GLOBAL_STATE_META_KEY),
-        }
-    }
-
     // This allows the embedding app to say "make this instance available to
     // the sync manager". The implementation is more like "offer to sync mgr"
     // (thereby avoiding us needing to link with the sync manager) but
@@ -293,177 +262,6 @@ impl PlacesApi {
     // the name it gets.
     pub fn register_with_sync_manager(self: Arc<Self>) {
         *PLACES_API_FOR_SYNC_MANAGER.lock() = Arc::downgrade(&self);
-    }
-
-    // NOTE: These should be deprecated as soon as possible - that will be once
-    // all consumers have been updated to use the .sync() method below, and/or
-    // we have implemented the sync manager and migrated consumers to that.
-    pub fn sync_history(
-        &self,
-        client_init: &Sync15StorageClientInit,
-        key_bundle: &KeyBundle,
-    ) -> Result<telemetry::SyncTelemetryPing> {
-        self.do_sync_one(
-            "history",
-            move |conn, mem_cached_state, disk_cached_state| {
-                let engine = HistorySyncEngine::new(conn)?;
-                Ok(sync_multiple(
-                    &[&engine],
-                    disk_cached_state,
-                    mem_cached_state,
-                    client_init,
-                    key_bundle,
-                    &interrupt_support::ShutdownInterruptee,
-                    None,
-                ))
-            },
-        )
-    }
-
-    pub fn sync_bookmarks(
-        &self,
-        client_init: &Sync15StorageClientInit,
-        key_bundle: &KeyBundle,
-    ) -> Result<telemetry::SyncTelemetryPing> {
-        self.do_sync_one(
-            "bookmarks",
-            move |conn, mem_cached_state, disk_cached_state| {
-                let engine = BookmarksSyncEngine::new(conn)?;
-                Ok(sync_multiple(
-                    &[&engine],
-                    disk_cached_state,
-                    mem_cached_state,
-                    client_init,
-                    key_bundle,
-                    &interrupt_support::ShutdownInterruptee,
-                    None,
-                ))
-            },
-        )
-    }
-
-    pub fn do_sync_one<F>(
-        &self,
-        name: &'static str,
-        syncer: F,
-    ) -> Result<telemetry::SyncTelemetryPing>
-    where
-        F: FnOnce(
-            Arc<SharedPlacesDb>,
-            &mut MemoryCachedState,
-            &mut Option<String>,
-        ) -> Result<SyncResult>,
-    {
-        let mut guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-        if guard.is_none() {
-            *guard = Some(SyncState {
-                mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
-            });
-        }
-
-        let sync_state = guard.as_ref().unwrap();
-
-        let mut mem_cached_state = sync_state.mem_cached_state.take();
-        let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut result = syncer(conn.clone(), &mut mem_cached_state, &mut disk_cached_state)?;
-        // even on failure we set the persisted state - sync itself takes care
-        // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&conn.lock(), &disk_cached_state)?;
-        sync_state.mem_cached_state.replace(mem_cached_state);
-        sync_state.disk_cached_state.replace(disk_cached_state);
-
-        // for b/w compat reasons, we do some dances with the result.
-        if let Err(e) = result.result {
-            return Err(e.into());
-        }
-        match result.engine_results.remove(name) {
-            None | Some(Ok(())) => Ok(result.telemetry),
-            Some(Err(e)) => Err(e.into()),
-        }
-    }
-
-    // This is the new sync API until the sync manager lands. It's currently
-    // not wired up via the FFI - it's possible we'll do declined engines too
-    // before we do.
-    // Note we've made a policy decision about the return value - even though
-    // it is Result<SyncResult>, we will only return an Err() if there's a
-    // fatal error that prevents us starting a sync, such as failure to open
-    // the DB. Any errors that happen *after* sync must not escape - ie, once
-    // we have a SyncResult, we must return it.
-    pub fn sync(
-        &self,
-        client_init: &Sync15StorageClientInit,
-        key_bundle: &KeyBundle,
-    ) -> Result<SyncResult> {
-        let mut guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-        if guard.is_none() {
-            *guard = Some(SyncState {
-                mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
-            });
-        }
-
-        let sync_state = guard.as_ref().unwrap();
-
-        let bm_engine = BookmarksSyncEngine::new(conn.clone())?;
-        let history_engine = HistorySyncEngine::new(conn.clone())?;
-        let mut mem_cached_state = sync_state.mem_cached_state.take();
-        let mut disk_cached_state = sync_state.disk_cached_state.take();
-
-        // NOTE: After here we must never return Err()!
-        let result = sync_multiple(
-            &[&history_engine, &bm_engine],
-            &mut disk_cached_state,
-            &mut mem_cached_state,
-            client_init,
-            key_bundle,
-            &interrupt_support::ShutdownInterruptee,
-            None,
-        );
-        // even on failure we set the persisted state - sync itself takes care
-        // to ensure this has been None'd out if necessary.
-        if let Err(e) = self.set_disk_persisted_state(&conn.lock(), &disk_cached_state) {
-            error_support::report_error!(
-                "places-sync-persist-failure",
-                "Failed to persist the sync state: {:?}",
-                e
-            );
-        }
-        sync_state.mem_cached_state.replace(mem_cached_state);
-        sync_state.disk_cached_state.replace(disk_cached_state);
-
-        Ok(result)
-    }
-
-    pub fn wipe_bookmarks(&self) -> Result<()> {
-        // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-
-        storage::bookmarks::delete_everything(&conn.lock())?;
-        Ok(())
-    }
-
-    pub fn reset_bookmarks(&self) -> Result<()> {
-        // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-
-        bookmark_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
-        Ok(())
-    }
-
-    #[handle_error(crate::Error)]
-    pub fn reset_history(&self) -> ApiResult<()> {
-        // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock();
-        let conn = self.get_sync_connection()?;
-
-        history_sync::reset(&conn.lock(), &EngineSyncAssociation::Disconnected)?;
-        Ok(())
     }
 }
 

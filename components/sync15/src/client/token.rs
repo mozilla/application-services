@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, debug, trace, warn, Error as ErrorKind, Result};
 use crate::ServerTimestamp;
+use crate::error::{self, Error as ErrorKind, Result, debug, trace, warn};
 use rc_crypto::hawk;
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::time::{Duration, SystemTime};
 use url::Url;
-use viaduct::{header_names, Request};
+use viaduct::{Request, header_names};
 
 const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
 
@@ -328,7 +328,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                     Some(self.fetch_token(Some(existing_context.token.api_endpoint.as_str())))
                 }
             }
-            TokenState::Backoff(ref until, ref existing_endpoint) => {
+            TokenState::Backoff(until, existing_endpoint) => {
                 if let Ok(remaining) = until.duration_since(self.fetcher.now()) {
                     debug!("enforcing existing backoff - {:?} remains", remaining);
                     None
@@ -362,7 +362,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                 // it should be impossible to get here.
                 panic!("Can't be in NoToken state after advancing");
             }
-            TokenState::Token(ref token_context) => {
+            TokenState::Token(token_context) => {
                 // make the call.
                 func(token_context)
             }
@@ -374,7 +374,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                 // this is unrecoverable.
                 Err(ErrorKind::StorageResetError)
             }
-            TokenState::Backoff(ref remaining, _) => Err(ErrorKind::BackoffError(*remaining)),
+            TokenState::Backoff(remaining, _) => Err(ErrorKind::BackoffError(*remaining)),
         }
     }
 

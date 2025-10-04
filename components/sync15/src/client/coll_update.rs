@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    request::{NormalResponseHandler, UploadInfo},
     CollState, Sync15ClientResponse, Sync15StorageClient,
+    request::{NormalResponseHandler, UploadInfo},
 };
 use crate::bso::{IncomingBso, OutgoingBso, OutgoingEncryptedBso};
 use crate::engine::CollectionRequest;

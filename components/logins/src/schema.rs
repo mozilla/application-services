@@ -78,14 +78,8 @@
 //! This table was added (by this rust crate) in version 4, and so is not
 //! present in firefox-ios.
 //!
-//! Currently it is used to store two items:
-//!
-//! 1. The last sync timestamp is stored under [LAST_SYNC_META_KEY], a
+//! Currently it is used to store the last sync timestamp, under [LAST_SYNC_META_KEY], a
 //!    `sync15::ServerTimestamp` stored in integer milliseconds.
-//!
-//! 2. The persisted sync state machine information is stored under
-//!    [GLOBAL_STATE_META_KEY]. This is a `sync15::GlobalState` stored as
-//!    JSON.
 //!
 
 use crate::error::*;
@@ -216,7 +210,6 @@ const CREATE_LOCAL_BREACHES_TABLE_SQL: &str = "
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
-pub(crate) static GLOBAL_STATE_META_KEY: &str = "global_state_v2";
 pub(crate) static GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
 pub(crate) static CHECKPOINT_KEY: &str = "checkpoint";

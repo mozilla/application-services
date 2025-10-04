@@ -4,13 +4,13 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::CollectionKeys;
 use super::request::{InfoCollections, InfoConfiguration};
 use super::storage_client::{SetupStorageClient, Sync15ClientResponse};
-use super::CollectionKeys;
-use crate::bso::OutgoingEncryptedBso;
-use crate::error::{self, debug, info, trace, warn, Error as ErrorKind, ErrorResponse};
-use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::EncryptedPayload;
+use crate::bso::OutgoingEncryptedBso;
+use crate::error::{self, Error as ErrorKind, ErrorResponse, debug, info, trace, warn};
+use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::{Guid, KeyBundle, ServerTimestamp};
 use interrupt_support::Interruptee;
 use serde_derive::*;
@@ -144,7 +144,7 @@ fn compute_engine_states(input: EngineStateInput) -> EngineStateOutput {
 impl PersistedGlobalState {
     fn set_declined(&mut self, new_declined: Vec<String>) {
         match self {
-            Self::V2 { ref mut declined } => *declined = Some(new_declined),
+            Self::V2 { declined } => *declined = Some(new_declined),
         }
     }
     pub(crate) fn get_declined(&self) -> &[String] {
@@ -353,7 +353,9 @@ impl<'a> SetupStateMachine<'a> {
                         if global.storage_version < STORAGE_VERSION {
                             Ok(FreshStartRequired { config })
                         } else {
-                            info!("Have info/collections and meta/global. Computing new engine states");
+                            info!(
+                                "Have info/collections and meta/global. Computing new engine states"
+                            );
                             let initial_global_declined: HashSet<String> =
                                 global.declined.iter().cloned().collect();
                             let result = compute_engine_states(EngineStateInput {
@@ -372,8 +374,7 @@ impl<'a> SetupStateMachine<'a> {
                                 global.declined = result.declined.iter().cloned().collect();
                                 info!(
                                     "Uploading new declined {:?} to meta/global with timestamp {:?}",
-                                    global.declined,
-                                    global_timestamp,
+                                    global.declined, global_timestamp,
                                 );
                                 true
                             } else {
@@ -666,10 +667,12 @@ mod tests {
             global: &MetaGlobalRecord,
         ) -> error::Result<ServerTimestamp> {
             // Ensure that the meta/global record we uploaded is "fixed up"
-            assert!(DEFAULT_ENGINES
-                .iter()
-                .filter(|e| e.0 != "logins")
-                .all(|&(k, _v)| global.engines.contains_key(k)));
+            assert!(
+                DEFAULT_ENGINES
+                    .iter()
+                    .filter(|e| e.0 != "logins")
+                    .all(|&(k, _v)| global.engines.contains_key(k))
+            );
             assert!(!global.engines.contains_key("logins"));
             assert_eq!(global.declined, vec!["logins".to_string()]);
             // return a different timestamp.
