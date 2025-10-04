@@ -12,7 +12,6 @@ pub use error_support::{debug, error, info, trace, warn};
 
 use error_support::{ErrorHandling, GetErrorHandling};
 use jwcrypto::JwCryptoError;
-use sync15::Error as Sync15Error;
 
 // Errors we return via the public interface.
 #[derive(Debug, thiserror::Error)]
@@ -50,9 +49,6 @@ pub enum LoginsApiError {
     #[error("{reason}")]
     Interrupted { reason: String },
 
-    #[error("SyncAuthInvalid error {reason}")]
-    SyncAuthInvalid { reason: String },
-
     #[error("Unexpected Error: {reason}")]
     UnexpectedLoginsApiError { reason: String },
 }
@@ -86,9 +82,6 @@ pub enum Error {
 
     #[error("decryption failed: {0:?}")]
     DecryptionFailed(String),
-
-    #[error("Error synchronizing: {0}")]
-    SyncAdapterError(#[from] sync15::Error),
 
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
@@ -171,24 +164,6 @@ impl GetErrorHandling for Error {
             Self::Interrupted(_) => ErrorHandling::convert(LoginsApiError::Interrupted {
                 reason: self.to_string(),
             }),
-            Self::SyncAdapterError(e) => match e {
-                Sync15Error::TokenserverHttpError(401) | Sync15Error::BadKeyLength(..) => {
-                    ErrorHandling::convert(LoginsApiError::SyncAuthInvalid {
-                        reason: e.to_string(),
-                    })
-                    .log_warning()
-                }
-                Sync15Error::RequestError(_) => {
-                    ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
-                        reason: e.to_string(),
-                    })
-                    .log_warning()
-                }
-                _ => ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {
-                    reason: self.to_string(),
-                })
-                .report_error("logins-sync"),
-            },
             Error::SqlError(rusqlite::Error::SqliteFailure(err, _)) => match err.code {
                 rusqlite::ErrorCode::DatabaseCorrupt => {
                     ErrorHandling::convert(LoginsApiError::UnexpectedLoginsApiError {

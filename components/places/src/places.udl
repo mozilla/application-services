@@ -33,18 +33,6 @@ interface PlacesApi {
 
     [Self=ByArc]
     void register_with_sync_manager();
-
-    [Throws=PlacesApiError]
-    void reset_history();
-
-    [Throws=PlacesApiError]
-    string history_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
-
-    [Throws=PlacesApiError]
-    string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
-
-    [Throws=PlacesApiError]
-    void bookmarks_reset();
 };
 
 interface PlacesConnection {
