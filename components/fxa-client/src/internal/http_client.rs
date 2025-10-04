@@ -26,7 +26,7 @@ use std::{
 };
 use sync15::DeviceType;
 use url::Url;
-use viaduct::{header_names, status_codes, Method, Request, Response};
+use viaduct::{Method, Request, Response, header_names, status_codes};
 
 const HAWK_HKDF_SALT: [u8; 32] = [0b0; 32];
 const HAWK_KEY_LENGTH: usize = 32;
@@ -987,14 +987,20 @@ mod tests {
             code_verifier: "bobo".to_owned(),
             ttl: None,
         };
-        assert_eq!("{\"grant_type\":\"authorization_code\",\"client_id\":\"bar\",\"code\":\"foo\",\"code_verifier\":\"bobo\"}", serde_json::to_string(&using_code).unwrap());
+        assert_eq!(
+            "{\"grant_type\":\"authorization_code\",\"client_id\":\"bar\",\"code\":\"foo\",\"code_verifier\":\"bobo\"}",
+            serde_json::to_string(&using_code).unwrap()
+        );
         let using_code = OAauthTokenRequest::UsingRefreshToken {
             client_id: "bar".to_owned(),
             refresh_token: "foo".to_owned(),
             scope: Some("bobo".to_owned()),
             ttl: Some(123),
         };
-        assert_eq!("{\"grant_type\":\"refresh_token\",\"client_id\":\"bar\",\"refresh_token\":\"foo\",\"scope\":\"bobo\",\"ttl\":123}", serde_json::to_string(&using_code).unwrap());
+        assert_eq!(
+            "{\"grant_type\":\"refresh_token\",\"client_id\":\"bar\",\"refresh_token\":\"foo\",\"scope\":\"bobo\",\"ttl\":123}",
+            serde_json::to_string(&using_code).unwrap()
+        );
     }
 
     #[test]

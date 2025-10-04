@@ -10,7 +10,7 @@ pub use close_tabs::CloseTabsPayload;
 pub use send_tab::SendTabPayload;
 
 pub(crate) use keys::{
-    decrypt_command, encrypt_command, get_public_keys, PrivateCommandKeys, PublicCommandKeys,
+    PrivateCommandKeys, PublicCommandKeys, decrypt_command, encrypt_command, get_public_keys,
 };
 
 use super::device::Device;

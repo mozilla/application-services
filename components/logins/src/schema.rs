@@ -256,8 +256,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::LoginDb;
+    use crate::encryption::test_utils::TEST_ENCDEC;
     use nss::ensure_initialized;
     use rusqlite::Connection;
 

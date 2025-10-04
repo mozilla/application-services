@@ -4,13 +4,17 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::api::matcher::{self, search_frecent, SearchParams};
+use crate::ConnectionType;
+use crate::VisitObservation;
+use crate::VisitType;
+use crate::api::matcher::{self, SearchParams, search_frecent};
 pub use crate::api::places_api::places_api_new;
-pub use crate::error::{warn, Result};
 pub use crate::error::{ApiResult, PlacesApiError};
+pub use crate::error::{Result, warn};
 pub use crate::import::common::HistoryMigrationResult;
 use crate::import::import_ios_history;
 use crate::storage;
+pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::bookmarks;
 pub use crate::storage::bookmarks::BookmarkPosition;
 pub use crate::storage::history_metadata::{
@@ -18,20 +22,16 @@ pub use crate::storage::history_metadata::{
     HistoryMetadataObservation, HistoryMetadataPageMissingBehavior,
     NoteHistoryMetadataObservationOptions,
 };
-pub use crate::storage::RunMaintenanceMetrics;
 use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
-use crate::ConnectionType;
-use crate::VisitObservation;
-use crate::VisitType;
 use crate::{PlacesApi, PlacesDb};
 use error_support::handle_error;
-use interrupt_support::register_interrupt;
 pub use interrupt_support::SqlInterruptHandle;
+use interrupt_support::register_interrupt;
 use parking_lot::Mutex;
 use std::sync::{Arc, Weak};
-use sync15::client::Sync15StorageClientInit;
 pub use sync_guid::Guid;
+use sync15::client::Sync15StorageClientInit;
 pub use types::Timestamp as PlacesTimestamp;
 pub use url::Url;
 

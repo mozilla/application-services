@@ -27,7 +27,7 @@ mod util;
 pub use crate::api::apply_observation;
 #[cfg(test)]
 pub use crate::api::places_api::test;
-pub use crate::api::places_api::{get_registered_sync_engine, ConnectionType, PlacesApi};
+pub use crate::api::places_api::{ConnectionType, PlacesApi, get_registered_sync_engine};
 
 pub use crate::db::PlacesDb;
 pub use crate::error::*;

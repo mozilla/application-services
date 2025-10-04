@@ -13,7 +13,7 @@ use crate::error::warn;
 use std::collections::HashMap;
 use std::time;
 
-use serde::{ser, Serialize, Serializer};
+use serde::{Serialize, Serializer, ser};
 
 // A test helper, used by the many test modules below.
 #[cfg(test)]

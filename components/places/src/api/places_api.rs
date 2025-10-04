@@ -19,12 +19,12 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Weak,
+    atomic::{AtomicUsize, Ordering},
 };
-use sync15::client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit, SyncResult};
+use sync15::client::{MemoryCachedState, Sync15StorageClientInit, SyncResult, sync_multiple};
 use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
-use sync15::{telemetry, KeyBundle};
+use sync15::{KeyBundle, telemetry};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.

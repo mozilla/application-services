@@ -6,18 +6,19 @@
 //! functionality from several modules.
 
 use crate::{
-    api::places_api::{test::new_mem_api, PlacesApi},
-    history_sync::{record::HistoryRecord, HistorySyncEngine},
+    api::places_api::{PlacesApi, test::new_mem_api},
+    history_sync::{HistorySyncEngine, record::HistoryRecord},
     observation::VisitObservation,
     storage::history::apply_observation,
     types::{UnknownFields, VisitType},
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use sync15::{
+    ServerTimestamp,
     bso::{IncomingBso, IncomingKind, OutgoingBso},
     engine::SyncEngine,
-    telemetry, ServerTimestamp,
+    telemetry,
 };
 
 // Macro to quickly make `UnknownFields` values.  It's like `json!`, but avoids the need to append

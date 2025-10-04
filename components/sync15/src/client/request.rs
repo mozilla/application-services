@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::storage_client::Sync15ClientResponse;
-use crate::bso::OutgoingEncryptedBso;
-use crate::error::{self, debug, info, warn, Error as ErrorKind, Result};
 use crate::ServerTimestamp;
+use crate::bso::OutgoingEncryptedBso;
+use crate::error::{self, Error as ErrorKind, Result, debug, info, warn};
 use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;
@@ -486,8 +486,8 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::bso::{IncomingEncryptedBso, OutgoingEncryptedBso, OutgoingEnvelope};
     use crate::EncryptedPayload;
+    use crate::bso::{IncomingEncryptedBso, OutgoingEncryptedBso, OutgoingEnvelope};
     use lazy_static::lazy_static;
     use std::cell::RefCell;
     use std::collections::VecDeque;

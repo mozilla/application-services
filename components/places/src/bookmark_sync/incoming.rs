@@ -9,18 +9,18 @@ use super::record::{
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
 use crate::storage::{
-    bookmarks::maybe_truncate_title,
-    tags::{validate_tag, ValidatedTag},
     URL_LENGTH_MAX,
+    bookmarks::maybe_truncate_title,
+    tags::{ValidatedTag, validate_tag},
 };
 use crate::types::serialize_unknown_fields;
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
 use std::{collections::HashSet, iter};
-use sync15::bso::{IncomingBso, IncomingKind};
-use sync15::ServerTimestamp;
 use sync_guid::Guid as SyncGuid;
+use sync15::ServerTimestamp;
+use sync15::bso::{IncomingBso, IncomingKind};
 use url::Url;
 
 // From Desktop's Ci.nsINavHistoryQueryOptions, but we define it as a str
@@ -617,12 +617,12 @@ fn set_reupload(validity: &mut SyncedBookmarkValidity) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, PlacesApi};
+    use crate::api::places_api::{PlacesApi, test::new_mem_api};
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::storage::bookmarks::BookmarkRootGuid;
     use crate::types::UnknownFields;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     fn apply_incoming(api: &PlacesApi, records_json: Value) {
         let db = api.get_sync_connection().expect("should get a db mutex");

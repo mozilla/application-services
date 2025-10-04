@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, debug, trace, warn, Error as ErrorKind, Result};
 use crate::ServerTimestamp;
+use crate::error::{self, Error as ErrorKind, Result, debug, trace, warn};
 use rc_crypto::hawk;
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::time::{Duration, SystemTime};
 use url::Url;
-use viaduct::{header_names, Request};
+use viaduct::{Request, header_names};
 
 const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
 

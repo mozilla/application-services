@@ -8,10 +8,10 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::util;
 use interrupt_support::SqlInterruptScope;
-use rusqlite::{named_params, Connection};
+use rusqlite::{Connection, named_params};
 use std::time::SystemTime;
-use sync15::ServerTimestamp;
 use sync_guid::Guid;
+use sync15::ServerTimestamp;
 
 #[derive(Default, Debug)]
 pub(super) struct UpdatePlan {
@@ -320,11 +320,11 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+    use crate::db::LoginDb;
     use crate::db::test_utils::{
         check_local_login, check_mirror_login, get_local_guids, get_mirror_guids,
         get_server_modified, insert_encrypted_login, insert_login,
     };
-    use crate::db::LoginDb;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::login::test_utils::enc_login;
 

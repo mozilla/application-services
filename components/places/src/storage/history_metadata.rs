@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::RowId;
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
-use crate::RowId;
 use error_support::{breadcrumb, redact_url};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
@@ -749,7 +749,7 @@ fn insert_metadata_in_tx(
     let place_id = match (key.place_entry, options.if_page_missing) {
         (PlaceEntry::Existing(id), _) => id,
         (PlaceEntry::CreateFor(_, _), HistoryMetadataPageMissingBehavior::IgnoreObservation) => {
-            return Ok(())
+            return Ok(());
         }
         (
             ref entry @ PlaceEntry::CreateFor(_, _),
@@ -784,11 +784,12 @@ fn insert_metadata_in_tx(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VisitTransitionSet;
     use crate::api::places_api::ConnectionType;
     use crate::observation::VisitObservation;
     use crate::storage::bookmarks::{
-        get_raw_bookmark, insert_bookmark, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
-        InsertableItem,
+        BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem, get_raw_bookmark,
+        insert_bookmark,
     };
     use crate::storage::fetch_page_info;
     use crate::storage::history::{
@@ -796,7 +797,6 @@ mod tests {
         get_visit_count, url_to_guid,
     };
     use crate::types::VisitType;
-    use crate::VisitTransitionSet;
     use std::{thread, time};
 
     macro_rules! assert_table_size {
@@ -1184,34 +1184,38 @@ mod tests {
         );
 
         // 48 hrs is clearly a bad view to observe.
-        assert!(apply_metadata_observation(
-            &conn,
-            HistoryMetadataObservation {
-                url: String::from("https://www.mozilla.org"),
-                view_time: Some(1000 * 60 * 60 * 24 * 2),
-                search_term: None,
-                document_type: None,
-                referrer_url: None,
-                title: None
-            },
-            NoteHistoryMetadataObservationOptions::new(),
-        )
-        .is_err());
+        assert!(
+            apply_metadata_observation(
+                &conn,
+                HistoryMetadataObservation {
+                    url: String::from("https://www.mozilla.org"),
+                    view_time: Some(1000 * 60 * 60 * 24 * 2),
+                    search_term: None,
+                    document_type: None,
+                    referrer_url: None,
+                    title: None
+                },
+                NoteHistoryMetadataObservationOptions::new(),
+            )
+            .is_err()
+        );
 
         // 12 hrs is assumed to be "plausible".
-        assert!(apply_metadata_observation(
-            &conn,
-            HistoryMetadataObservation {
-                url: String::from("https://www.mozilla.org"),
-                view_time: Some(1000 * 60 * 60 * 12),
-                search_term: None,
-                document_type: None,
-                referrer_url: None,
-                title: None
-            },
-            NoteHistoryMetadataObservationOptions::new(),
-        )
-        .is_ok());
+        assert!(
+            apply_metadata_observation(
+                &conn,
+                HistoryMetadataObservation {
+                    url: String::from("https://www.mozilla.org"),
+                    view_time: Some(1000 * 60 * 60 * 12),
+                    search_term: None,
+                    document_type: None,
+                    referrer_url: None,
+                    title: None
+                },
+                NoteHistoryMetadataObservationOptions::new(),
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -1869,9 +1873,11 @@ mod tests {
             .expect("should exist");
         assert!(pi.last_visit_id.is_none());
         // and no metadata observations.
-        assert!(get_latest_for_url(&conn, &url)
-            .expect("should work")
-            .is_none());
+        assert!(
+            get_latest_for_url(&conn, &url)
+                .expect("should work")
+                .is_none()
+        );
     }
 
     #[test]
@@ -1903,9 +1909,11 @@ mod tests {
         delete_visits_for(&conn, &place_guid).expect("should work");
         // place no longer exists.
         assert!(fetch_page_info(&conn, &url).expect("should work").is_none());
-        assert!(get_latest_for_url(&conn, &url)
-            .expect("should work")
-            .is_none());
+        assert!(
+            get_latest_for_url(&conn, &url)
+                .expect("should work")
+                .is_none()
+        );
     }
 
     #[test]
@@ -1935,9 +1943,11 @@ mod tests {
         delete_visits_for(&conn, &place_guid).expect("should work");
         // place no longer exists.
         assert!(fetch_page_info(&conn, &url).expect("should work").is_none());
-        assert!(get_latest_for_url(&conn, &url)
-            .expect("should work")
-            .is_none());
+        assert!(
+            get_latest_for_url(&conn, &url)
+                .expect("should work")
+                .is_none()
+        );
     }
 
     #[test]
@@ -2146,14 +2156,15 @@ mod tests {
         );
 
         // double-check that we have the 'firefox' search query entry.
-        assert!(conn
-            .try_query_one::<i64, _>(
+        assert!(
+            conn.try_query_one::<i64, _>(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
                 rusqlite::named_params! { ":term": "firefox" },
                 true
             )
             .expect("select works")
-            .is_some());
+            .is_some()
+        );
 
         // Delete our first page & its visits. Note that /another/ page will remain in place.
         delete_visits_between(

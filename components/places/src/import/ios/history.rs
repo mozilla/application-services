@@ -4,13 +4,13 @@
 
 use std::time::Instant;
 
-use crate::error::{info, Result};
+use crate::PlacesDb;
+use crate::error::{Result, info};
 use crate::history_sync::engine::LAST_SYNC_META_KEY;
 use crate::import::common::{
-    attached_database, define_history_migration_functions, select_count, HistoryMigrationResult,
+    HistoryMigrationResult, attached_database, define_history_migration_functions, select_count,
 };
 use crate::storage::{put_meta, update_all_frecencies_at_once};
-use crate::PlacesDb;
 use types::Timestamp;
 use url::Url;
 
