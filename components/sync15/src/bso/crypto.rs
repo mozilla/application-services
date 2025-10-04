@@ -6,10 +6,10 @@
 //! This module decrypts them into IncomingBso's suitable for use by the
 //! engines.
 use super::{IncomingBso, IncomingEnvelope, OutgoingBso, OutgoingEnvelope};
+use crate::EncryptedPayload;
 use crate::error;
 use crate::key_bundle::KeyBundle;
-use crate::EncryptedPayload;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 // The BSO implementation we use for encrypted payloads.
 // Note that this is almost identical to the IncomingBso implementations, except
