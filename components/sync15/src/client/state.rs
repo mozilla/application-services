@@ -144,7 +144,7 @@ fn compute_engine_states(input: EngineStateInput) -> EngineStateOutput {
 impl PersistedGlobalState {
     fn set_declined(&mut self, new_declined: Vec<String>) {
         match self {
-            Self::V2 { ref mut declined } => *declined = Some(new_declined),
+            Self::V2 { declined } => *declined = Some(new_declined),
         }
     }
     pub(crate) fn get_declined(&self) -> &[String] {

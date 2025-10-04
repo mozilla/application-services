@@ -198,7 +198,7 @@ impl FirefoxAccount {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeviceConfig {
     pub name: String,
-    pub device_type: sync15::DeviceType,
+    pub device_type: DeviceType,
     pub capabilities: Vec<DeviceCapability>,
 }
 
@@ -207,7 +207,7 @@ pub struct DeviceConfig {
 pub struct LocalDevice {
     pub id: String,
     pub display_name: String,
-    pub device_type: sync15::DeviceType,
+    pub device_type: DeviceType,
     pub capabilities: Vec<DeviceCapability>,
     pub push_subscription: Option<DevicePushSubscription>,
     pub push_endpoint_expired: bool,
@@ -222,7 +222,7 @@ pub struct LocalDevice {
 pub struct Device {
     pub id: String,
     pub display_name: String,
-    pub device_type: sync15::DeviceType,
+    pub device_type: DeviceType,
     pub capabilities: Vec<DeviceCapability>,
     pub push_subscription: Option<DevicePushSubscription>,
     pub push_endpoint_expired: bool,

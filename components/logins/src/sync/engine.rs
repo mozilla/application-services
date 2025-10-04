@@ -299,7 +299,7 @@ impl LoginsSyncEngine {
 
     pub fn set_global_state(&self, state: &Option<String>) -> Result<()> {
         let to_write = match state {
-            Some(ref s) => s,
+            Some(s) => s,
             None => "",
         };
         let db = self.store.lock_db()?;

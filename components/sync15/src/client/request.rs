@@ -348,7 +348,7 @@ where
             // First commit in possible batch
             BatchState::NoBatch => Some("true".into()),
             // In a batch and we have a batch id.
-            BatchState::InBatch(ref s) => Some(s.clone()),
+            BatchState::InBatch(s) => Some(s.clone()),
         };
 
         info!(
@@ -427,7 +427,7 @@ where
                 warn!("Server changed its mind about supporting batching mid-batch...");
             }
 
-            BatchState::InBatch(ref cur_id) => {
+            BatchState::InBatch(cur_id) => {
                 if cur_id != &batch_id {
                     return Err(ErrorKind::ServerBatchProblem(
                         "Invalid server response: 202 without a batch ID",

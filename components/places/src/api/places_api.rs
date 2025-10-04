@@ -281,7 +281,7 @@ impl PlacesApi {
 
     fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
-            Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
+            Some(s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(conn, GLOBAL_STATE_META_KEY),
         }
     }

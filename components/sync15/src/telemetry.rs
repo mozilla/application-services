@@ -439,7 +439,7 @@ impl Engine {
     pub fn incoming(&mut self, inc: EngineIncoming) {
         match &mut self.incoming {
             None => self.incoming = Some(inc),
-            Some(ref mut existing) => existing.accum(&inc),
+            Some(existing) => existing.accum(&inc),
         };
     }
 
@@ -830,7 +830,7 @@ impl From<&Error> for SyncFailure {
             #[cfg(feature = "sync-client")]
             Error::BackoffError(_) => SyncFailure::Http { code: 503 },
             #[cfg(feature = "sync-client")]
-            Error::StorageHttpError(ref e) => match e {
+            Error::StorageHttpError(e) => match e {
                 ErrorResponse::NotFound { .. } => SyncFailure::Http { code: 404 },
                 ErrorResponse::Unauthorized { .. } => SyncFailure::Auth { from: "storage" },
                 ErrorResponse::PreconditionFailed { .. } => SyncFailure::Http { code: 412 },
@@ -838,16 +838,16 @@ impl From<&Error> for SyncFailure {
                 ErrorResponse::RequestFailed { status, .. } => SyncFailure::Http { code: *status },
             },
             #[cfg(feature = "crypto")]
-            Error::CryptoError(ref e) => SyncFailure::Unexpected {
+            Error::CryptoError(e) => SyncFailure::Unexpected {
                 error: e.to_string(),
             },
             #[cfg(feature = "sync-client")]
-            Error::RequestError(ref e) => SyncFailure::Unexpected {
+            Error::RequestError(e) => SyncFailure::Unexpected {
                 error: e.to_string(),
             },
             #[cfg(feature = "sync-client")]
-            Error::UnexpectedStatus(ref e) => SyncFailure::Http { code: e.status },
-            Error::Interrupted(ref e) => SyncFailure::Unexpected {
+            Error::UnexpectedStatus(e) => SyncFailure::Http { code: e.status },
+            Error::Interrupted(e) => SyncFailure::Unexpected {
                 error: e.to_string(),
             },
             e => SyncFailure::Other {
