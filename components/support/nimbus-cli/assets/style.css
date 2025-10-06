@@ -13,7 +13,7 @@
 .wrapper button {
   height: 80%;
   width: 80%;
-  font-size: 18rem;
+  font-size: large;
 }
 
 ul#platform-list {
