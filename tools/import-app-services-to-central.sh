@@ -172,11 +172,11 @@ sed -e 's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-
   # These depend on `hyper-tls` and we do not want to bring in the subdependencies, like `openssl`\
   "services/app-services/components/support/viaduct-hyper",\
   "services/app-services/components/support/viaduct-reqwest",\
-  # Excluded because it depends on `hyper` and having it as top-level member would make \
+  # Excluded because it depends on `hyper` and having it as top-level member would make\
   # `cargo vet` require it to be `safe-to-deploy`.  However, since we only use it as a dev-dependency, we want\
   # it to be `safe-to-run`.\
   "services/app-services/components/support/viaduct-dev",\
-  # CLIs that depend on `viaduct-hyper` \
+  # CLIs that depend on `viaduct-hyper`\
   "services/app-services/examples/autofill-utils/",\
   "services/app-services/examples/cli-support/",\
   "services/app-services/examples/example-cli/",\
@@ -225,6 +225,12 @@ sed -e 's|/dom/webgpu/tests/cts/vendor/target/|/dom/webgpu/tests/cts/vendor/targ
 /services/app-services/**/Cargo.lock|' \
   .gitignore > .gitignore.tmp
 mv .gitignore.tmp .gitignore
+# .hgignore needs the same, but with a leading `^` instead of `/`
+sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/target/\
+^services/app-services/**/target/\
+^services/app-services/**/Cargo.lock|' \
+  .hgignore > .hgignore.tmp
+mv .hgignore.tmp .hgignore
 
 git commit -a -m "Integrate app-services into the build system"
 
