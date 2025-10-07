@@ -34,7 +34,9 @@ impl HttpCache {
         let store = HttpCacheStore::new(internal_config, conn);
         Self { store }
     }
+}
 
+impl HttpCache {
     pub fn send(&self, request: Request) -> Result<Response> {
         self.store.cleanup_expired().ok();
         if let Some(resp) = self.store.lookup(&request).ok().flatten() {
