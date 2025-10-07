@@ -440,9 +440,8 @@ lazy_static! {
         "{common_select_sql}
         WHERE updated_at >= :start
         ORDER BY updated_at DESC
-        LIMIT {max_limit}",
-        common_select_sql = COMMON_METADATA_SELECT,
-        max_limit = MAX_QUERY_RESULTS
+        LIMIT :limit",
+        common_select_sql = COMMON_METADATA_SELECT
     );
     static ref QUERY_SQL: String = format!(
         "{common_select_sql}
@@ -477,11 +476,30 @@ pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMet
     )
 }
 
+// Returns all history metadata updated on or after `start`, ordered by most recent first,
+// capped at the default `MAX_QUERY_RESULTS`.
 pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
     db.query_rows_and_then_cached(
         GET_SINCE_SQL.as_str(),
         rusqlite::named_params! {
-            ":start": start
+            ":start": start,
+            ":limit": MAX_QUERY_RESULTS,
+        },
+        HistoryMetadata::from_row,
+    )
+}
+
+// Returns the most recent history metadata entries (newest first),
+// limited by `limit`.
+//
+// Internally this uses [`GET_SINCE_SQL`] with `start = i64::MIN`
+// to include all entries, ordered by descending `updated_at`.
+pub fn get_most_recent(db: &PlacesDb, limit: i32) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_cached(
+        GET_SINCE_SQL.as_str(),
+        rusqlite::named_params! {
+            ":start": i64::MIN,
+            ":limit": limit,
         },
         HistoryMetadata::from_row,
     )
