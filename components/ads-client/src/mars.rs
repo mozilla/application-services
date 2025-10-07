@@ -8,9 +8,11 @@ use crate::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
+    http_cache::HttpCache,
     models::{AdRequest, AdResponse},
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use std::sync::Arc;
 use url::Url;
 use viaduct::Request;
 
@@ -33,10 +35,11 @@ pub trait MARSClient: Sync + Send {
 pub struct DefaultMARSClient {
     context_id_component: ContextIDComponent,
     endpoint: String,
+    http_cache: Arc<HttpCache>,
 }
 
 impl DefaultMARSClient {
-    pub fn new(context_id: String) -> Self {
+    pub fn new(context_id: String, http_cache: Arc<HttpCache>) -> Self {
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -45,11 +48,16 @@ impl DefaultMARSClient {
                 Box::new(DefaultContextIdCallback),
             ),
             endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
+            http_cache,
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_endpoint(context_id: String, endpoint: String) -> Self {
+    pub fn new_with_endpoint(
+        context_id: String,
+        endpoint: String,
+        http_cache: Arc<HttpCache>,
+    ) -> Self {
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -58,6 +66,7 @@ impl DefaultMARSClient {
                 Box::new(DefaultContextIdCallback),
             ),
             endpoint,
+            http_cache,
         }
     }
 
@@ -88,7 +97,7 @@ impl MARSClient for DefaultMARSClient {
         let endpoint = self.get_mars_endpoint();
         let url = Url::parse(&format!("{endpoint}/ads"))?;
         let request = Request::post(url).json(ad_request);
-        let response = request.send()?;
+        let response = self.http_cache.send(request)?;
 
         check_http_status_for_error(&response)?;
 
