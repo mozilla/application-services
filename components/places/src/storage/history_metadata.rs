@@ -1322,6 +1322,7 @@ mod tests {
         assert!(rows.is_empty());
     }
 
+    #[test] 
     fn test_get_most_recent_orders_and_limits() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
