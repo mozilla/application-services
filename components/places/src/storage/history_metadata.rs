@@ -1322,7 +1322,7 @@ mod tests {
         assert!(rows.is_empty());
     }
 
-    #[test] 
+    #[test]
     fn test_get_most_recent_orders_and_limits() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
@@ -1372,7 +1372,7 @@ mod tests {
         assert_eq!(most_recents3[2].url, "https://example.com/1");
     }
 
-    #[test] 
+    #[test]
     fn test_get_most_recent_negative_limit() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
