@@ -440,9 +440,8 @@ lazy_static! {
         "{common_select_sql}
         WHERE updated_at >= :start
         ORDER BY updated_at DESC
-        LIMIT {max_limit}",
-        common_select_sql = COMMON_METADATA_SELECT,
-        max_limit = MAX_QUERY_RESULTS
+        LIMIT :limit",
+        common_select_sql = COMMON_METADATA_SELECT
     );
     static ref QUERY_SQL: String = format!(
         "{common_select_sql}
@@ -477,11 +476,32 @@ pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMet
     )
 }
 
+// Returns all history metadata updated on or after `start`, ordered by most recent first,
+// capped at the default `MAX_QUERY_RESULTS`.
+// TODO(Bug 1993213): Once both iOS and Android consumers use `get_most_recent` instead of `get_since`,
+// we should remove `get_since`.
 pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
     db.query_rows_and_then_cached(
         GET_SINCE_SQL.as_str(),
         rusqlite::named_params! {
-            ":start": start
+            ":start": start,
+            ":limit": MAX_QUERY_RESULTS,
+        },
+        HistoryMetadata::from_row,
+    )
+}
+
+// Returns the most recent history metadata entries (newest first),
+// limited by `limit`.
+//
+// Internally this uses [`GET_SINCE_SQL`] with `start = i64::MIN`
+// to include all entries, ordered by descending `updated_at`.
+pub fn get_most_recent(db: &PlacesDb, limit: i32) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_cached(
+        GET_SINCE_SQL.as_str(),
+        rusqlite::named_params! {
+            ":start": i64::MIN,
+            ":limit": limit,
         },
         HistoryMetadata::from_row,
     )
@@ -798,6 +818,14 @@ mod tests {
     use crate::types::VisitType;
     use crate::VisitTransitionSet;
     use std::{thread, time};
+
+    // NOTE: `updated_at` timestamps have millisecond precision, so multiple observations
+    // written in the same millisecond can in theory share the same value. To avoid flaky
+    // ordering in tests ( since we have `ORDER BY updated_at` in a few queries )
+    // this helper sleeps briefly to avoid having overlapping timestamps.
+    fn bump_clock() {
+        thread::sleep(time::Duration::from_millis(10));
+    }
 
     macro_rules! assert_table_size {
         ($conn:expr, $table:expr, $count:expr) => {
@@ -1234,7 +1262,7 @@ mod tests {
         assert_eq!(0, get_between(&conn, 0, beginning - 1).unwrap().len());
         assert_eq!(1, get_between(&conn, 0, after_meta1).unwrap().len());
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/video/",
@@ -1295,6 +1323,161 @@ mod tests {
         assert_eq!(2, get_since(&conn, beginning).unwrap().len());
         assert_eq!(1, get_since(&conn, after_meta1).unwrap().len());
         assert_eq!(0, get_since(&conn, after_meta2).unwrap().len());
+    }
+
+    #[test]
+    fn test_get_most_recent_empty() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        let rows = get_most_recent(&conn, 5).expect("query ok");
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn test_get_most_recent_orders_and_limits_same_observation() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to 1 should return the most recent entry only.
+        let most_recents1 = get_most_recent(&conn, 1).expect("query ok");
+        assert_eq!(most_recents1.len(), 1);
+        assert_eq!(most_recents1[0].url, "https://example.com/1");
+
+        // Limiting to 3 should also return one entry, since we only have one unique URL.
+        let most_recents2 = get_most_recent(&conn, 3).expect("query ok");
+        assert_eq!(most_recents2.len(), 1);
+        assert_eq!(most_recents2[0].url, "https://example.com/1");
+
+        // Limiting to 10 should also return one entry, since we only have one unique URL.
+        let most_recents3 = get_most_recent(&conn, 10).expect("query ok");
+        assert_eq!(most_recents3.len(), 1);
+        assert_eq!(most_recents3[0].url, "https://example.com/1");
+    }
+
+    #[test]
+    fn test_get_most_recent_orders_and_limits_different_observations() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/2",
+            view_time Some(20),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/3",
+            view_time Some(30),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to 1 should return the most recent entry only.
+        let most_recents1 = get_most_recent(&conn, 1).expect("query ok");
+        assert_eq!(most_recents1.len(), 1);
+        assert_eq!(most_recents1[0].url, "https://example.com/3");
+
+        // Limiting to 2 should return the two most recent entries.
+        let most_recents2 = get_most_recent(&conn, 2).expect("query ok");
+        assert_eq!(most_recents2.len(), 2);
+        assert_eq!(most_recents2[0].url, "https://example.com/3");
+        assert_eq!(most_recents2[1].url, "https://example.com/2");
+
+        // Limiting to 10 should return all three entries, in the correct order.
+        let most_recents3 = get_most_recent(&conn, 10).expect("query ok");
+        assert_eq!(most_recents3.len(), 3);
+        assert_eq!(most_recents3[0].url, "https://example.com/3");
+        assert_eq!(most_recents3[1].url, "https://example.com/2");
+        assert_eq!(most_recents3[2].url, "https://example.com/1");
+    }
+
+    #[test]
+    fn test_get_most_recent_negative_limit() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/2",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "https://example.com/3",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to -1 should return all entries properly ordered.
+        let most_recents = get_most_recent(&conn, -1).expect("query ok");
+        assert_eq!(most_recents.len(), 3);
+        assert_eq!(most_recents[0].url, "https://example.com/3");
+        assert_eq!(most_recents[1].url, "https://example.com/2");
+        assert_eq!(most_recents[2].url, "https://example.com/1");
     }
 
     #[test]
@@ -1624,7 +1807,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
         // same observation a bit later:
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1699,7 +1882,7 @@ mod tests {
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1710,7 +1893,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/3",
@@ -1745,7 +1928,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
         let beginning = Timestamp::now().as_millis() as i64;
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/1",
@@ -1756,7 +1939,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1768,7 +1951,7 @@ mod tests {
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/3",

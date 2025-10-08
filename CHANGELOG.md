@@ -3,7 +3,7 @@
 ## ✨ What's New ✨
 
 ### Swift
-- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
+- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963))
 
 ### Ads Client
 - Added the Ads Client component to the Megazord.
@@ -15,6 +15,10 @@
     - API and network errors from the Relay server are now converted to a single `RelayApiError::Api { status, code, detail }` variant, exposing the HTTP status code, a machine-readable error code (if present), and a human-readable detail message.
     - Downstream client apps can now handle server errors based on both the `status` and `error_code` fields directly, without additional changes to the Rust component - even as server-side error codes evolve.
     - **Consumers must update their error handling code to match the new `Api { status, code, detail }` shape.**
+
+### Places
+- `places::storage::history_metadata::get_most_recent(limit: i32)` was added to get most recent history metadata limited to a number. ([#7002](https://github.com/mozilla/application-services/pull/7002))
+
 
 ## 🦊 What's Changed 🦊
 
