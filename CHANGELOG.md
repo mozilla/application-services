@@ -2,11 +2,6 @@
 
 ## ✨ What's New ✨
 
-### Docs
-- Updated the components strategy doc to better reflect the current state of application services. ([#6991](https://github.com/mozilla/application-services/pull/6991))
-
-[Full Changelog](In progress)
-
 ### Swift
 - Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
 
@@ -20,6 +15,13 @@
     - API and network errors from the Relay server are now converted to a single `RelayApiError::Api { status, code, detail }` variant, exposing the HTTP status code, a machine-readable error code (if present), and a human-readable detail message.
     - Downstream client apps can now handle server errors based on both the `status` and `error_code` fields directly, without additional changes to the Rust component - even as server-side error codes evolve.
     - **Consumers must update their error handling code to match the new `Api { status, code, detail }` shape.**
+
+## 🦊 What's Changed 🦊
+
+### Docs
+- Updated the components strategy doc to better reflect the current state of application services. ([#6991](https://github.com/mozilla/application-services/pull/6991))
+
+[Full Changelog](In progress)
 
 # v144.0 (_2025-09-15_)
 
