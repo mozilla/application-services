@@ -28,6 +28,9 @@ mod models;
 #[cfg(test)]
 mod test_utils;
 
+#[cfg(test)]
+use http_cache::HttpCacheConfig;
+
 uniffi::setup_scaffolding!("ads_client");
 
 /// Top-level API for the mac component
@@ -540,7 +543,12 @@ mod tests {
 
     #[test]
     fn test_cycle_context_id() {
-        let component = MozAdsClient::new(Arc::new(HttpCache::new(None)));
+        let config = HttpCacheConfig {
+            db_path: "test_cycle.db".to_string(),
+            max_size_bytes: None,
+            ttl_seconds: None,
+        };
+        let component = MozAdsClient::new(Arc::new(HttpCache::new(config).unwrap()));
         let old_id = component.cycle_context_id().unwrap();
         let new_id = component.cycle_context_id().unwrap();
         assert_ne!(old_id, new_id);

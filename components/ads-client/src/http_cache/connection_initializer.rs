@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use rusqlite::Connection;
 use sql_support::open_database;
 use std::time::Duration;
@@ -28,7 +32,6 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
                 PRIMARY KEY (request_hash)
             );
             CREATE INDEX IF NOT EXISTS idx_http_cache_cached_at ON http_cache(cached_at);
-            CREATE INDEX IF NOT EXISTS idx_http_cache_size ON http_cache(size);
         ";
         tx.execute_batch(SCHEMA)?;
         Ok(())

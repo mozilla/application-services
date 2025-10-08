@@ -1,30 +1,27 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use crate::http_cache::config::HttpCacheConfigInner;
 use crate::http_cache::row::HttpCacheRow;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
-use viaduct::{Request, Response};
+use viaduct::Request;
 
 pub struct HttpCacheStore {
-    config: HttpCacheConfigInner,
     conn: Mutex<Connection>,
 }
 
 impl HttpCacheStore {
-    pub fn new(config: HttpCacheConfigInner, conn: Connection) -> Self {
+    pub fn new(_config: HttpCacheConfigInner, conn: Connection) -> Self {
         Self {
-            config,
             conn: Mutex::new(conn),
         }
     }
 
-    pub fn cleanup_expired(&self) -> SqliteResult<()> {
-        let cutoff = HttpCacheRow::now_epoch() - self.config.ttl.as_secs() as i64;
+    pub fn clear_all(&self) -> SqliteResult<usize> {
         let conn = self.conn.lock();
-        conn.execute(
-            "DELETE FROM http_cache WHERE cached_at < ?1",
-            params![cutoff],
-        )?;
-        Ok(())
+        conn.execute("DELETE FROM http_cache", [])
     }
 
     pub fn current_total_size(&self) -> SqliteResult<i64> {
@@ -34,35 +31,36 @@ impl HttpCacheStore {
         })
     }
 
-    pub fn lookup(&self, request: &Request) -> SqliteResult<Option<Response>> {
+    pub fn delete_expired_entries(&self, cutoff_timestamp: i64) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM http_cache WHERE cached_at < ?1",
+            params![cutoff_timestamp],
+        )
+    }
+
+    pub fn delete_oldest_entry(&self) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM http_cache WHERE rowid IN (
+                SELECT rowid FROM http_cache ORDER BY cached_at ASC LIMIT 1
+            )",
+            [],
+        )
+    }
+
+    pub fn lookup(&self, request: &Request) -> SqliteResult<Option<HttpCacheRow>> {
         let request_hash = HttpCacheRow::hash_request(request);
         let conn = self.conn.lock();
         conn.query_row(
             "SELECT cache_control, cached_at, etag, request_hash, response_body, response_headers, response_status, size FROM http_cache WHERE request_hash = ?1",
             params![request_hash],
-            |row| {
-                let cached = HttpCacheRow::from_row(row)?;
-                let ttl = cached.cache_control.get_ttl(self.config.ttl);
-                let cutoff = HttpCacheRow::now_epoch() - ttl.as_secs() as i64;
-
-                Ok(if cached.cached_at >= cutoff {
-                    Some(cached.to_response(request))
-                } else {
-                    None
-                })
-            },
+            HttpCacheRow::from_row,
         )
         .optional()
-        .map(|result| result.flatten())
     }
 
-    pub fn store(&self, request: &Request, response: &Response) -> SqliteResult<()> {
-        let cached = HttpCacheRow::from_request_response(request, response);
-
-        if !cached.cache_control.should_cache() {
-            return Ok(());
-        }
-
+    pub fn store(&self, cached: &HttpCacheRow) -> SqliteResult<()> {
         let cache_control_str = serde_json::to_string(&cached.cache_control).ok();
         let conn = self.conn.lock();
         conn.execute(
@@ -89,29 +87,6 @@ impl HttpCacheStore {
         )?;
         Ok(())
     }
-
-    pub fn trim_to_max_size(&self) -> SqliteResult<()> {
-        loop {
-            let total = self.current_total_size()?;
-            if total <= self.config.max_size.as_u64() as i64 {
-                break;
-            }
-
-            let conn = self.conn.lock();
-            let deleted = conn.execute(
-                "DELETE FROM http_cache WHERE rowid IN (
-                    SELECT rowid FROM http_cache ORDER BY cached_at ASC LIMIT 1
-                )",
-                [],
-            )?;
-            drop(conn);
-
-            if deleted == 0 {
-                break;
-            }
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -121,7 +96,7 @@ mod tests {
     use crate::http_cache::connection_initializer::HttpCacheConnectionInitializer;
     use sql_support::open_database;
     use std::time::Duration;
-    use viaduct::{header_names, Headers, Method};
+    use viaduct::{header_names, Headers, Method, Response};
 
     fn create_test_request(url: &str, body: &[u8]) -> Request {
         Request {
@@ -149,11 +124,12 @@ mod tests {
     }
 
     fn create_test_store() -> HttpCacheStore {
-        let config = HttpCacheConfigInner::from(HttpCacheConfig {
-            db_path: None,
+        let config = HttpCacheConfigInner::try_from(HttpCacheConfig {
+            db_path: "test.db".to_string(),
             max_size_bytes: None,
             ttl_seconds: None,
-        });
+        })
+        .expect("valid test config");
         let initializer = HttpCacheConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
@@ -166,21 +142,23 @@ mod tests {
 
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
+        let cached = HttpCacheRow::from_request_response(&request, &response);
 
-        store.store(&request, &response).unwrap();
+        store.store(&cached).unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
-        assert_eq!(retrieved.status, 200);
-        assert_eq!(retrieved.body, b"test response");
+        assert_eq!(retrieved.response_status, 200);
+        assert_eq!(retrieved.response_body, b"test response");
     }
 
     #[test]
     fn test_ttl_expiration() {
-        let config = HttpCacheConfigInner::from(HttpCacheConfig {
-            db_path: None,
+        let config = HttpCacheConfigInner::try_from(HttpCacheConfig {
+            db_path: "test.db".to_string(),
             max_size_bytes: None,
             ttl_seconds: Some(1),
-        });
+        })
+        .expect("valid test config");
         let initializer = HttpCacheConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
@@ -188,25 +166,27 @@ mod tests {
 
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
+        let cached = HttpCacheRow::from_request_response(&request, &response);
 
-        store.store(&request, &response).unwrap();
+        store.store(&cached).unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
-        assert_eq!(retrieved.body, b"test response");
+        assert_eq!(retrieved.response_body, b"test response");
 
         std::thread::sleep(Duration::from_secs(2));
 
         let retrieved_after_expiry = store.lookup(&request).unwrap();
-        assert!(retrieved_after_expiry.is_none());
+        assert!(retrieved_after_expiry.is_some());
     }
 
     #[test]
     fn test_max_size_eviction() {
-        let config = HttpCacheConfigInner::from(HttpCacheConfig {
-            db_path: None,
-            max_size_bytes: Some(1000),
+        let config = HttpCacheConfigInner::try_from(HttpCacheConfig {
+            db_path: "test.db".to_string(),
+            max_size_bytes: Some(1024),
             ttl_seconds: None,
-        });
+        })
+        .expect("valid test config");
         let initializer = HttpCacheConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
@@ -216,12 +196,23 @@ mod tests {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");
             let large_body = vec![0u8; 300];
             let response = create_test_response(200, &large_body);
-            store.store(&request, &response).unwrap();
-            store.trim_to_max_size().unwrap();
+            let cached = HttpCacheRow::from_request_response(&request, &response);
+            store.store(&cached).unwrap();
+
+            loop {
+                let total = store.current_total_size().unwrap();
+                if total <= 1024 {
+                    break;
+                }
+                let deleted = store.delete_oldest_entry().unwrap();
+                if deleted == 0 {
+                    break;
+                }
+            }
         }
 
         let total_size = store.current_total_size().unwrap();
-        assert!(total_size <= 1000);
+        assert!(total_size <= 1024);
 
         let first_request = create_test_request("https://example.com/api/0", b"");
         let first_cached = store.lookup(&first_request).unwrap();
@@ -236,13 +227,13 @@ mod tests {
         let mut response = create_test_response(200, b"test response");
         response
             .headers
-            .insert(header_names::CACHE_CONTROL, "no-store")
+            .insert("cache-control", "no-store")
             .unwrap();
 
-        // Should not cache due to no-store directive
-        store.store(&request, &response).unwrap();
+        let cached = HttpCacheRow::from_request_response(&request, &response);
+        store.store(&cached).unwrap();
         let retrieved = store.lookup(&request).unwrap();
-        assert!(retrieved.is_none());
+        assert!(retrieved.is_some());
     }
 
     #[test]
@@ -253,10 +244,11 @@ mod tests {
         let mut response = create_test_response(200, b"test response");
         response
             .headers
-            .insert(header_names::CACHE_CONTROL, "max-age=1")
+            .insert("cache-control", "max-age=1")
             .unwrap();
 
-        store.store(&request, &response).unwrap();
+        let cached = HttpCacheRow::from_request_response(&request, &response);
+        store.store(&cached).unwrap();
 
         // Should be cached initially
         let retrieved = store.lookup(&request).unwrap();
@@ -265,8 +257,35 @@ mod tests {
         // Wait for expiration
         std::thread::sleep(Duration::from_secs(2));
 
-        // Should be expired now
+        // Should still be in store (expiration logic is in cache layer)
         let retrieved = store.lookup(&request).unwrap();
-        assert!(retrieved.is_none());
+        assert!(retrieved.is_some());
+    }
+
+    #[test]
+    fn test_clear_all() {
+        let store = create_test_store();
+
+        let request1 = create_test_request("https://example.com/api1", b"test body 1");
+        let response1 = create_test_response(200, b"test response 1");
+        let cached1 = HttpCacheRow::from_request_response(&request1, &response1);
+        store.store(&cached1).unwrap();
+
+        let request2 = create_test_request("https://example.com/api2", b"test body 2");
+        let response2 = create_test_response(200, b"test response 2");
+        let cached2 = HttpCacheRow::from_request_response(&request2, &response2);
+        store.store(&cached2).unwrap();
+
+        // Verify both are cached
+        assert!(store.lookup(&request1).unwrap().is_some());
+        assert!(store.lookup(&request2).unwrap().is_some());
+
+        // Clear all entries
+        let deleted_count = store.clear_all().unwrap();
+        assert_eq!(deleted_count, 2);
+
+        // Verify both are cleared
+        assert!(store.lookup(&request1).unwrap().is_none());
+        assert!(store.lookup(&request2).unwrap().is_none());
     }
 }
