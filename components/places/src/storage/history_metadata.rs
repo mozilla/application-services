@@ -1323,7 +1323,57 @@ mod tests {
     }
 
     #[test]
-    fn test_get_most_recent_orders_and_limits() {
+    fn test_get_most_recent_orders_and_limits_same_viewtime() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://example.com/1",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://example.com/2",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://example.com/3",
+            view_time Some(10),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to 1 should return the most recent entry only.
+        let most_recents1 = get_most_recent(&conn, 1).expect("query ok");
+        assert_eq!(most_recents1.len(), 1);
+        assert_eq!(most_recents1[0].url, "https://example.com/3");
+
+        // Limiting to 2 should return the two most recent entries.
+        let most_recents2 = get_most_recent(&conn, 2).expect("query ok");
+        assert_eq!(most_recents2.len(), 2);
+        assert_eq!(most_recents2[0].url, "https://example.com/3");
+        assert_eq!(most_recents2[1].url, "https://example.com/2");
+
+        // Limiting to 10 should return all three entries, in the correct order.
+        let most_recents3 = get_most_recent(&conn, 10).expect("query ok");
+        assert_eq!(most_recents3.len(), 3);
+        assert_eq!(most_recents3[0].url, "https://example.com/3");
+        assert_eq!(most_recents3[1].url, "https://example.com/2");
+        assert_eq!(most_recents3[2].url, "https://example.com/1");
+    }
+
+    #[test]
+    fn test_get_most_recent_orders_and_limits_incrementing_viewtime() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
         note_observation!(&conn,
@@ -1387,7 +1437,7 @@ mod tests {
 
         note_observation!(&conn,
             url "https://example.com/2",
-            view_time Some(20),
+            view_time Some(10),
             search_term None,
             document_type Some(DocumentType::Regular),
             referrer_url None,
@@ -1396,7 +1446,7 @@ mod tests {
 
         note_observation!(&conn,
             url "https://example.com/3",
-            view_time Some(30),
+            view_time Some(10),
             search_term None,
             document_type Some(DocumentType::Regular),
             referrer_url None,
