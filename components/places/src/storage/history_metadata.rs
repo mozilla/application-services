@@ -819,6 +819,14 @@ mod tests {
     use crate::VisitTransitionSet;
     use std::{thread, time};
 
+    // NOTE: `updated_at` timestamps have millisecond precision, so multiple observations
+    // written in the same millisecond can in theory share the same value. To avoid flaky
+    // ordering in tests ( since we have `ORDER BY updated_at` in a few queries )
+    // this helper sleeps briefly to avoid having overlapping timestamps.
+    fn bump_clock() {
+        thread::sleep(time::Duration::from_millis(10));
+    }
+
     macro_rules! assert_table_size {
         ($conn:expr, $table:expr, $count:expr) => {
             assert_eq!(
@@ -1254,7 +1262,7 @@ mod tests {
         assert_eq!(0, get_between(&conn, 0, beginning - 1).unwrap().len());
         assert_eq!(1, get_between(&conn, 0, after_meta1).unwrap().len());
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/video/",
@@ -1337,6 +1345,8 @@ mod tests {
             title None
         );
 
+        bump_clock();
+
         note_observation!(&conn,
             url "https://example.com/1",
             view_time Some(10),
@@ -1345,6 +1355,8 @@ mod tests {
             referrer_url None,
             title None
         );
+
+        bump_clock();
 
         note_observation!(&conn,
             url "https://example.com/1",
@@ -1384,6 +1396,8 @@ mod tests {
             title None
         );
 
+        bump_clock();
+
         note_observation!(&conn,
             url "https://example.com/2",
             view_time Some(20),
@@ -1392,6 +1406,8 @@ mod tests {
             referrer_url None,
             title None
         );
+
+        bump_clock();
 
         note_observation!(&conn,
             url "https://example.com/3",
@@ -1434,6 +1450,8 @@ mod tests {
             title None
         );
 
+        bump_clock();
+
         note_observation!(&conn,
             url "https://example.com/2",
             view_time Some(10),
@@ -1442,6 +1460,8 @@ mod tests {
             referrer_url None,
             title None
         );
+
+        bump_clock();
 
         note_observation!(&conn,
             url "https://example.com/3",
@@ -1787,7 +1807,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
         // same observation a bit later:
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1862,7 +1882,7 @@ mod tests {
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1873,7 +1893,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/3",
@@ -1908,7 +1928,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
         let beginning = Timestamp::now().as_millis() as i64;
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/1",
@@ -1919,7 +1939,7 @@ mod tests {
             title None
         );
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/2",
@@ -1931,7 +1951,7 @@ mod tests {
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
 
-        thread::sleep(time::Duration::from_millis(10));
+        bump_clock();
 
         note_observation!(&conn,
             url "http://mozilla.com/3",
