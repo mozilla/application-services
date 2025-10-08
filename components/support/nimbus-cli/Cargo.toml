@@ -22,7 +22,7 @@ unicode-segmentation = "1.8.0"
 viaduct = { path = "../../viaduct" }
 viaduct-hyper = { path = "../../support/viaduct-hyper" }
 glob = "0.3.1"
-heck = "0.4.1"
+heck = "0.5"
 whoami = "1.4.0"
 update-informer = { version = "1.0.0", default-features = false }
 serde_yaml = "0.9.21"
