@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use suggest::benchmarks::ingest;
+#pragma once
+#include <Foundation/NSObjCRuntime.h>
+#include <stdint.h>
 
-fn main() {
-    ingest::print_debug_ingestion_sizes()
-}
+void viaduct_use_reqwest_backend();

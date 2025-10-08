@@ -6,8 +6,8 @@ edition = "2021"
 license = "MPL-2.0"
 
 [dependencies]
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
-viaduct = { path = "../../components/viaduct"}
+viaduct = { path = "../../components/viaduct" }
+viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 autofill = { path = "../../components/autofill" }
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
@@ -23,7 +23,7 @@ log = "0.4"
 anyhow = "1.0"
 rand = "0.8"
 lazy_static = "1.4"
-structopt = "0.3"
+clap = { version = "4.5.39", default-features = false, features = ["std", "derive"] }
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"

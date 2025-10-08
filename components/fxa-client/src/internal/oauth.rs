@@ -137,7 +137,7 @@ impl FirefoxAccount {
     ) -> Result<String> {
         let mut url = self.state.config().pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        let pairing_url = Url::parse(pairing_url)?;
+        let pairing_url = util::parse_url(pairing_url, "begin_pairing_flow")?;
         if url.host_str() != pairing_url.host_str() {
             let fxa_server = FxaServer::from(&url);
             let pairing_fxa_server = FxaServer::from(&pairing_url);
@@ -612,10 +612,8 @@ mod tests {
     #[test]
     fn test_oauth_flow_url() {
         nss::ensure_initialized();
-        // FIXME: this test shouldn't make network requests.
-        viaduct_dev::use_dev_backend();
-        let config = Config::new(
-            "https://accounts.firefox.com",
+        let config = Config::new_with_mock_well_known_fxa_client_configuration(
+            "https://mock-fxa.example.com",
             "12345678",
             "https://foo.bar",
         );
@@ -625,7 +623,6 @@ mod tests {
             .unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
-        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
         assert_eq!(flow_url.path(), "/authorization");
 
         let mut pairs = flow_url.query_pairs();
@@ -706,11 +703,9 @@ mod tests {
     #[test]
     fn test_webchannel_context_url() {
         nss::ensure_initialized();
-        // FIXME: this test shouldn't make network requests.
-        viaduct_dev::use_dev_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
-        let config = Config::new(
-            "https://accounts.firefox.com",
+        let config = Config::new_with_mock_well_known_fxa_client_configuration(
+            "https://mock-fxa.example.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
@@ -1091,9 +1086,8 @@ mod tests {
     #[test]
     fn test_oauth_request_sent_with_session_when_available() {
         nss::ensure_initialized();
-        viaduct_dev::use_dev_backend();
-        let config = Config::new(
-            "https://accounts.firefox.com",
+        let config = Config::new_with_mock_well_known_fxa_client_configuration(
+            "mock-fxa.example.com",
             "12345678",
             "https://foo.bar",
         );

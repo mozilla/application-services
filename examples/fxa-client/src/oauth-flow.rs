@@ -11,7 +11,7 @@ const REDIRECT_URI: &str = "https://mozilla.github.io/notes/fxa/android-redirect
 const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
 
 fn main() {
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
     let config = FxaConfig::dev(CLIENT_ID, REDIRECT_URI);
     let fxa = FirefoxAccount::new(config);
     let url = fxa

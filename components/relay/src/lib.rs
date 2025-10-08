@@ -13,12 +13,33 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::{header_names, Method, Request};
 
+/// Represents a client for the Relay API.
+///
+/// Use this struct to connect and authenticate with a Relay server,
+/// managing authorization to call protected endpoints.
+///
+/// # Authorization
+/// - Clients should use the [fxa_client::FirefoxAccount::getAccessToken()] function
+///   to obtain a relay-scoped access token (scope: `https://identity.mozilla.com/apps/relay`).
+/// - Then, construct the [`RelayClient`] with the access token.
+///   All requests will then be authenticated to the Relay server via `Authorization: Bearer {fxa-access-token}`.
+/// - The Relay server verifies this token with the FxA OAuth `/verify` endpoint.
+/// - Clients are responsible for getting a new access token when needed.
 #[derive(uniffi::Object)]
 pub struct RelayClient {
+    /// Base URL for the Relay server.
     server_url: String,
+    /// Optional authentication token for API requests.
     auth_token: Option<String>,
 }
 
+/// Represents a Relay email address object returned by the Relay API.
+///
+/// Includes metadata and statistics for an alias, such as its status,
+/// usage stats, and identifying information.
+///
+/// See:
+/// https://mozilla.github.io/fx-private-relay/api_docs.html
 #[derive(Debug, Deserialize, uniffi::Record)]
 pub struct RelayAddress {
     pub mask_type: String,
@@ -49,11 +70,6 @@ struct CreateAddressPayload<'a> {
     used_on: &'a str,
 }
 
-#[derive(Deserialize)]
-struct RelayApiErrorMessage {
-    detail: String,
-}
-
 impl RelayClient {
     fn build_url(&self, path: &str) -> Result<Url> {
         Ok(Url::parse(&format!("{}{}", self.server_url, path))?)
@@ -71,6 +87,14 @@ impl RelayClient {
 
 #[uniffi::export]
 impl RelayClient {
+    /// Creates a new `RelayClient` instance.
+    ///
+    /// # Parameters
+    /// - `server_url`: Base URL for the Relay API.
+    /// - `auth_token`: Optional relay-scoped access token (see struct docs).
+    ///
+    /// # Returns
+    /// A new [`RelayClient`] configured for the specified server and token.
     #[uniffi::constructor]
     #[handle_error(Error)]
     pub fn new(server_url: String, auth_token: Option<String>) -> ApiResult<Self> {
@@ -80,36 +104,78 @@ impl RelayClient {
         })
     }
 
+    /// Retrieves all Relay addresses associated with the current account.
+    ///
+    /// Returns a vector of [`RelayAddress`] objects on success.
+    ///
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn fetch_addresses(&self) -> ApiResult<Vec<RelayAddress>> {
         let url = self.build_url("/api/v1/relayaddresses/")?;
         let request = self.prepare_request(Method::Get, url)?;
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
 
         let addresses: Vec<RelayAddress> = response.json()?;
         Ok(addresses)
     }
 
+    /// Creates a Relay user record in the Relay service database.
+    ///
+    /// This function was originally used to signal acceptance of terms and privacy notices,
+    /// but now primarily serves to provision (create) the Relay user record if one does not exist.
+    ///
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn accept_terms(&self) -> ApiResult<()> {
         let url = self.build_url("/api/v1/terms-accepted-user/")?;
         let request = self.prepare_request(Method::Post, url)?;
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
         Ok(())
     }
 
+    /// Creates a new Relay mask (alias) with the specified metadata.
+    ///
+    /// This is used to generate a new alias for use in an email field.
+    ///
+    /// - `description`: A label shown in the Relay dashboard; defaults to `generated_for`, user-editable later.
+    /// - `generated_for`: The website for which the address is generated.
+    /// - `used_on`: Comma-separated list of all websites where this address is used. Only updated by some clients.
+    ///
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response. Provides the HTTP `status` and response `body`; downstream consumers can inspect these fields. If the response body is JSON with `error_code` or `detail` fields, these are parsed and included for more granular handling; otherwise, the raw response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity, with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
     #[handle_error(Error)]
     pub fn create_address(
         &self,
@@ -130,10 +196,15 @@ impl RelayClient {
         request = request.json(&payload);
 
         let response = request.send()?;
+        let status = response.status;
         let body = response.text();
         log::trace!("response text: {}", body);
-        if let Ok(parsed) = serde_json::from_str::<RelayApiErrorMessage>(&body) {
-            return Err(Error::RelayApi(parsed.detail));
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
         }
 
         let address: RelayAddress = response.json()?;
@@ -175,8 +246,100 @@ mod tests {
     }
 
     #[test]
+    fn test_fetch_addresses_permission_denied_relay_account() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"detail": "Authenticated user does not have a Relay account. Have they accepted the terms?"}"#;
+        let _mock = mock("GET", "/api/v1/relayaddresses/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let result = client.expect("success").fetch_addresses();
+
+        match result {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 403);
+                assert_eq!(code, "unknown"); // No error_code present in JSON
+                assert_eq!(
+                    detail,
+                    "Authenticated user does not have a Relay account. Have they accepted the terms?"
+                );
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_accept_terms_parse_error_missing_token() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"detail": "Missing FXA Token after 'Bearer'."}"#;
+        let _mock = mock("POST", "/api/v1/terms-accepted-user/")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), None);
+        let result = client.expect("success").accept_terms();
+
+        match result {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 400);
+                assert_eq!(code, "unknown"); // No error_code present in JSON
+                assert_eq!(detail, "Missing FXA Token after 'Bearer'.");
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_create_address_free_tier_limit() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"error_code": "free_tier_limit", "detail": "You’ve used all 5 email masks included with your free account."}"#;
+        let _mock = mock("POST", "/api/v1/relayaddresses/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let result = client
+            .expect("success")
+            .create_address("Label", "example.com", "example.com");
+
+        match result {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 403);
+                assert_eq!(code, "free_tier_limit");
+                assert_eq!(
+                    detail,
+                    "You’ve used all 5 email masks included with your free account."
+                );
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
     fn test_fetch_addresses() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json = base_addresses_json(
             r#""used_on": "example.com", "last_used_at": "2021-01-03T00:00:00Z", "#,
@@ -205,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_fetch_addresses_used_on_null() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json =
             base_addresses_json(r#""used_on": null,"last_used_at": "2021-01-03T00:00:00Z","#);
@@ -228,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_fetch_addresses_last_used_at_null() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
 
         let addresses_json =
             base_addresses_json(r#""used_on": "example.com","last_used_at": null,"#);
@@ -255,7 +418,7 @@ mod tests {
         token: Option<&str>,
         expect_error: bool,
     ) {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
 
         let mut mock = mock("POST", "/api/v1/terms-accepted-user/").with_status(status_code);
 
@@ -329,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_create_address() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
 
         let address_json = r#"
         {

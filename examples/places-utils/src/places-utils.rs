@@ -25,7 +25,6 @@ use sync15::engine::{EngineSyncAssociation, SyncEngine, SyncEngineId};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
-use viaduct_dev::use_dev_backend;
 
 use anyhow::Result;
 
@@ -235,7 +234,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
 

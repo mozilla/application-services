@@ -5,7 +5,6 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-#[allow(unused_imports)] // may be unused in some features.
 use nimbus::error::{info, Result};
 
 #[derive(Parser)]
@@ -92,7 +91,6 @@ enum Subcommands {
     },
 }
 
-#[cfg(feature = "stateful")]
 fn main() -> Result<()> {
     const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
     const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
@@ -135,7 +133,7 @@ fn main() -> Result<()> {
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
     error_support::init_for_tests_with_level(error_support::Level::Info);
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper().expect("Error initalizing viaduct");
 
     // Initiate the matches for the command line arguments
     let args = Args::parse();
@@ -359,10 +357,5 @@ fn main() -> Result<()> {
             println!("Results: {:#?}", results);
         }
     };
-    Ok(())
-}
-
-#[cfg(not(feature = "stateful"))]
-fn main() -> Result<()> {
     Ok(())
 }

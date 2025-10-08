@@ -8,7 +8,9 @@ mod database;
 mod matching;
 
 use criterion::{criterion_group, criterion_main};
-use database::{bench_match_url, bench_outgoing_candidates, bench_search_frecent};
+use database::{
+    bench_match_url, bench_outgoing_candidates, bench_search_frecent, bench_top_frecent,
+};
 use matching::bench_match_anywhere;
 
 criterion_group!(
@@ -16,6 +18,7 @@ criterion_group!(
     bench_search_frecent,
     bench_match_url,
     bench_outgoing_candidates,
+    bench_top_frecent
 );
 criterion_group!(bench_mem, bench_match_anywhere);
 criterion_main!(bench_db, bench_mem);

@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use error::ApiResult;
+use error::AdsClientApiResult;
 use error::{
     BuildPlacementsError, BuildRequestError, ComponentError, RecordClickError,
     RecordImpressionError, ReportAdError, RequestAdsError,
@@ -24,7 +24,7 @@ mod models;
 #[cfg(test)]
 mod test_utils;
 
-uniffi::setup_scaffolding!("adsclient");
+uniffi::setup_scaffolding!("ads_client");
 
 /// Top-level API for the mac component
 #[derive(uniffi::Object)]
@@ -51,7 +51,7 @@ impl MozAdsClient {
     pub fn request_ads(
         &self,
         moz_ad_configs: Vec<MozAdsPlacementConfig>,
-    ) -> ApiResult<HashMap<String, MozAdsPlacement>> {
+    ) -> AdsClientApiResult<HashMap<String, MozAdsPlacement>> {
         let inner = self.inner.lock();
         let placements = inner
             .request_ads(&moz_ad_configs)
@@ -60,7 +60,7 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_impression(&self, placement: MozAdsPlacement) -> ApiResult<()> {
+    pub fn record_impression(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .record_impression(&placement)
@@ -69,7 +69,7 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_click(&self, placement: MozAdsPlacement) -> ApiResult<()> {
+    pub fn record_click(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .record_click(&placement)
@@ -78,7 +78,7 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn report_ad(&self, placement: MozAdsPlacement) -> ApiResult<()> {
+    pub fn report_ad(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .report_ad(&placement)
@@ -86,13 +86,13 @@ impl MozAdsClient {
             .emit_telemetry_if_error()
     }
 
-    pub fn cycle_context_id(&self) -> ApiResult<String> {
+    pub fn cycle_context_id(&self) -> AdsClientApiResult<String> {
         let mut inner = self.inner.lock();
-        let previous_context_id = inner.cycle_context_id();
+        let previous_context_id = inner.cycle_context_id()?;
         Ok(previous_context_id)
     }
 
-    pub fn clear_cache(&self) -> ApiResult<()> {
+    pub fn clear_cache(&self) -> AdsClientApiResult<()> {
         let mut inner = self.inner.lock();
         inner.clear_cache();
         Ok(())
@@ -159,7 +159,7 @@ impl MozAdsClientInner {
         Ok(())
     }
 
-    fn cycle_context_id(&mut self) -> String {
+    fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
         self.client.cycle_context_id()
     }
 
@@ -171,7 +171,7 @@ impl MozAdsClientInner {
             return Err(BuildRequestError::EmptyConfig);
         }
 
-        let context_id = self.client.get_context_id().to_string();
+        let context_id = self.client.get_context_id()?;
         let mut request = AdRequest {
             placements: vec![],
             context_id,
@@ -250,15 +250,8 @@ pub struct IABContent {
 }
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
-pub struct MozAdsSize {
-    pub width: u16,
-    pub height: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementConfig {
     pub placement_id: String,
-    pub fixed_size: Option<MozAdsSize>,
     pub iab_content: Option<IABContent>,
 }
 
@@ -288,7 +281,7 @@ mod tests {
     fn test_build_ad_request_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -302,7 +295,6 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
@@ -310,7 +302,6 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_3".to_string(),
@@ -318,16 +309,12 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec![],
                 }),
-                fixed_size: Some(MozAdsSize {
-                    width: 200,
-                    height: 200,
-                }),
             },
         ];
         let request = inner_component
             .build_request_from_placement_configs(&configs)
             .unwrap();
-        let context_id = inner_component.client.get_context_id().to_string();
+        let context_id = inner_component.client.get_context_id().unwrap();
 
         let expected_request = AdRequest {
             context_id,
@@ -366,7 +353,7 @@ mod tests {
     fn test_build_ad_request_fails_on_duplicate_placement_id() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -380,7 +367,6 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
@@ -388,17 +374,12 @@ mod tests {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
-                fixed_size: None,
             },
             MozAdsPlacementConfig {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec![],
-                }),
-                fixed_size: Some(MozAdsSize {
-                    width: 200,
-                    height: 200,
                 }),
             },
         ];
@@ -411,7 +392,7 @@ mod tests {
     fn test_build_ad_request_fails_on_empty_configs() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -428,7 +409,7 @@ mod tests {
     fn test_build_placements_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -449,7 +430,7 @@ mod tests {
     fn test_build_placements_with_empty_placement_in_response() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -463,10 +444,6 @@ mod tests {
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
-            }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
             }),
         });
 
@@ -486,7 +463,7 @@ mod tests {
     fn test_request_ads_with_missing_callback_in_response() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -501,10 +478,6 @@ mod tests {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
             }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
-            }),
         });
 
         let placements = inner_component
@@ -518,7 +491,7 @@ mod tests {
     fn test_build_placements_fails_with_duplicate_placement() {
         let mut mock = MockMARSClient::new();
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
             ads_cache: HashMap::new(),
@@ -532,10 +505,6 @@ mod tests {
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec![],
-            }),
-            fixed_size: Some(MozAdsSize {
-                width: 200,
-                height: 200,
             }),
         });
 
@@ -572,7 +541,7 @@ mod tests {
         mock.expect_fetch_ads()
             .returning(|_req| Ok(get_example_happy_ad_response()));
         mock.expect_get_context_id()
-            .return_const("mock-context-id".to_string());
+            .returning(|| Ok("mock-context-id".to_string()));
 
         mock.expect_get_mars_endpoint()
             .return_const("https://mock.endpoint/ads".to_string());

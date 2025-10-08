@@ -217,6 +217,14 @@ fn get_aes256_key(name: &str) -> Result<SymKey> {
             }
             .map_err(|_| get_last_error())?;
 
+            // This cleanup will not run if a previous operation fails and causes an early return.
+            // Using an RAII-style wrapper would be preferable to ensure the item is always freed,
+            // but given that an earlier failure likely prevents startup, it is acceptable.
+            //
+            // See: https://bugzilla.mozilla.org/show_bug.cgi?id=1992756 for a follow-up
+            // improvement.
+            unsafe { nss_sys::SECITEM_FreeItem(wrapped_key, nss_sys::PR_TRUE) }
+
             map_nss_secstatus(|| unsafe { nss_sys::PK11_ExtractKeyValue(sym_key.as_mut_ptr()) })?;
             Ok(sym_key)
         }

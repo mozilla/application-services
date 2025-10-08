@@ -1278,7 +1278,7 @@ mod test {
 
     #[test]
     fn test_attachment_can_be_downloaded() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let server_info_m = mock("GET", "/v1/")
             .with_body(attachment_metadata(mockito::server_url()))
             .with_status(200)
@@ -1317,7 +1317,7 @@ mod test {
 
     #[test]
     fn test_attachment_errors_if_server_not_configured_for_attachments() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let server_info_m = mock("GET", "/v1/")
             .with_body(NO_ATTACHMENTS_METADATA)
             .with_status(200)
@@ -1353,7 +1353,7 @@ mod test {
 
     #[test]
     fn test_backoff() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1382,7 +1382,7 @@ mod test {
 
     #[test]
     fn test_500_retry_after() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1408,7 +1408,7 @@ mod test {
 
     #[test]
     fn test_options() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1532,7 +1532,7 @@ mod test {
 
     #[test]
     fn test_backoff_recovery() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1575,7 +1575,7 @@ mod test {
 
     #[test]
     fn test_record_fields() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1663,7 +1663,7 @@ mod test {
 
     #[test]
     fn test_missing_etag() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",
@@ -1694,7 +1694,7 @@ mod test {
 
     #[test]
     fn test_invalid_etag() {
-        viaduct_dev::use_dev_backend();
+        viaduct_dev::init_backend_dev();
         let m = mock(
             "GET",
             "/v1/buckets/the-bucket/collections/the-collection/records",

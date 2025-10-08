@@ -1,0 +1,11 @@
+[package]
+name = "examples-nimbus-experiment"
+edition = "2021"
+
+[dependencies]
+nimbus-sdk = { path = "../../components/nimbus/", features = ["stateful"] }
+serde_json = "1"
+uuid = { version = "1.3", features = ["serde", "v4"]}
+error-support = { path = "../../components/support/error", features = ["testing", "tracing-logging"] }
+viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
+clap = { version = "4.2", default-features = false, features = ["std", "derive"] }

@@ -11,7 +11,7 @@ use crate::{
     IABContent, MozAdsPlacement, MozAdsPlacementConfig,
 };
 
-pub const TEST_CONTEXT_ID: &str = "test-context-id";
+pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
 pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
     vec![
@@ -21,7 +21,6 @@ pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec!["entertainment".to_string()],
             }),
-            fixed_size: None,
         },
         MozAdsPlacementConfig {
             placement_id: "example_placement_2".to_string(),
@@ -29,7 +28,6 @@ pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
                 taxonomy: IABContentTaxonomy::IAB3_0,
                 category_ids: vec![],
             }),
-            fixed_size: None,
         },
     ]
 }
@@ -86,7 +84,6 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
-                fixed_size: None,
             },
             content: MozAd {
                 url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
@@ -113,7 +110,6 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
-                fixed_size: None,
             },
             content: MozAd {
                 url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),

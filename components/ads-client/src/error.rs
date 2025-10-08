@@ -6,12 +6,20 @@
 use error_support::{error, ErrorHandling, GetErrorHandling};
 use viaduct::Response;
 
-pub type ApiResult<T> = std::result::Result<T, ApiError>;
+pub type AdsClientApiResult<T> = std::result::Result<T, AdsClientApiError>;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum ApiError {
+pub enum AdsClientApiError {
     #[error("Something unexpected occurred.")]
     Other { reason: String },
+}
+
+impl From<context_id::ApiError> for AdsClientApiError {
+    fn from(err: context_id::ApiError) -> Self {
+        AdsClientApiError::Other {
+            reason: err.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -30,10 +38,10 @@ pub enum ComponentError {
 }
 
 impl GetErrorHandling for ComponentError {
-    type ExternalError = ApiError;
+    type ExternalError = AdsClientApiError;
 
     fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        ErrorHandling::convert(ApiError::Other {
+        ErrorHandling::convert(AdsClientApiError::Other {
             reason: self.to_string(),
         })
     }
@@ -53,6 +61,9 @@ pub enum RequestAdsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BuildRequestError {
+    #[error(transparent)]
+    ContextId(#[from] context_id::ApiError),
+
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 
@@ -72,7 +83,7 @@ pub enum FetchAdsError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
@@ -87,7 +98,7 @@ pub enum EmitTelemetryError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
@@ -102,7 +113,7 @@ pub enum CallbackRequestError {
     UrlParse(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::Error),
+    Request(#[from] viaduct::ViaductError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),

@@ -1,0 +1,19 @@
+[package]
+name = "viaduct-hyper"
+version = "0.2.0"
+authors = ["Sync Team <sync-team@mozilla.com>"]
+edition = "2021"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+async-trait = "0.1"
+error-support = { path = "../error" }
+viaduct = { path = "../../viaduct" }
+hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"] }
+hyper-tls = { version = "0.5", features = ["vendored"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+uniffi = { version = "0.29.0" }
+url = "2"

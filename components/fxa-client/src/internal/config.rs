@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::http_client;
-use crate::{FxaConfig, Result};
+use crate::{internal::util, FxaConfig, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
 use url::Url;
@@ -77,11 +77,11 @@ impl Config {
     }
 
     pub fn content_url(&self) -> Result<Url> {
-        Url::parse(&self.content_url).map_err(Into::into)
+        util::parse_url(&self.content_url, "content_url")
     }
 
     pub fn content_url_path(&self, path: &str) -> Result<Url> {
-        self.content_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.content_url()?, path, "content_url_path")
     }
 
     pub fn client_config_url(&self) -> Result<Url> {
@@ -117,44 +117,57 @@ impl Config {
     }
 
     pub fn auth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.auth_url).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.auth_url, "auth_url")
     }
 
     pub fn auth_url_path(&self, path: &str) -> Result<Url> {
-        self.auth_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.auth_url()?, path, "auth_url_path")
     }
 
     pub fn oauth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.oauth_url).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.oauth_url, "oauth_url")
     }
 
     pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
-        self.oauth_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.oauth_url()?, path, "oauth_url_path")
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
         if let Some(token_server_url_override) = &self.token_server_url_override {
-            return Ok(Url::parse(token_server_url_override)?);
+            return util::parse_url(
+                token_server_url_override,
+                "token_server_endpoint_url (override)",
+            );
         }
-        Ok(Url::parse(
+        util::parse_url(
             &self.remote_config()?.token_server_endpoint_url,
-        )?)
+            "token_server_endpoint_url",
+        )
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.authorization_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.authorization_endpoint,
+            "authorization_endpoint",
+        )
     }
 
     pub fn token_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.token_endpoint, "token_endpoint")
     }
 
     pub fn introspection_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.introspection_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.introspection_endpoint,
+            "introspection_endpoint",
+        )
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.userinfo_endpoint,
+            "userinfo_endpoint",
+        )
     }
 
     fn normalize_token_server_url(token_server_url_override: &str) -> String {
@@ -208,6 +221,37 @@ impl Config {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             remote_config: RefCell::new(None),
+            token_server_url_override: None,
+        }
+    }
+
+    /// Construct a Config object with the `remote_config` field pre-populated with mock data.
+    ///
+    /// This avoids network calls to the `.well-known` endpoints, which are normally used to
+    /// determine things like the profile_url.
+    pub fn new_with_mock_well_known_fxa_client_configuration(
+        content_url: &str,
+        client_id: &str,
+        redirect_uri: &str,
+    ) -> Self {
+        let remote_config = RemoteConfig {
+            // Use fake URLS to avoid any chance of hitting a real server
+            auth_url: "https://mock-fxa.example.com/auth/".to_string(),
+            oauth_url: "https://mock-fxa.example.com/oauth".to_string(),
+            profile_url: "https://mock-fxa.example.com/profile/".to_string(),
+            token_server_endpoint_url: "https://mock-fxa.example.com/syncserver/token/".to_string(),
+            authorization_endpoint: "https://mock-fxa.example.com/authorization".to_string(),
+            issuer: "https://mock-fxa.example.com/".to_string(),
+            jwks_uri: "https://mock-fxa.example.com/v1/jwks".to_string(),
+            token_endpoint: "https://mock-fxa.example.com/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: "https://mock-fxa.example.com/v1/introspect".to_string(),
+            userinfo_endpoint: "https://mock-fxa.example.com/profile/v1/profile".to_string(),
+        };
+        Self {
+            content_url: content_url.to_string(),
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            remote_config: RefCell::new(Some(Arc::new(remote_config))),
             token_server_url_override: None,
         }
     }

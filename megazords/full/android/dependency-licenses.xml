@@ -89,6 +89,10 @@ the details of which are reproduced below.
     <url>https://github.com/askama-rs/askama/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: async-trait</name>
+    <url>https://github.com/dtolnay/async-trait/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: autocfg</name>
     <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
@@ -206,7 +210,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: hashlink</name>
-    <url>https://github.com/kyren/hashlink/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/kyren/hashlink/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: heck</name>
@@ -265,6 +269,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/libc/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: libm</name>
+    <url>https://github.com/rust-lang/libm/blob/master/libm/LICENSE.txt</url>
+  </license>
+  <license>
     <name>Apache License 2.0: linux-raw-sys</name>
     <url>https://github.com/sunfishcode/linux-raw-sys/blob/main/LICENSE-APACHE</url>
   </license>
@@ -315,6 +323,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: plain</name>
     <url>https://github.com/randomites/plain/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: pollster</name>
+    <url>https://github.com/zesterer/pollster/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
@@ -473,10 +485,6 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: unicode-segmentation</name>
-    <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: url</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
@@ -555,6 +563,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: caseless</name>
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: core_maths</name>
+    <url>https://github.com/robertbastian/core_maths/blob/main/LICENSE</url>
   </license>
   <license>
     <name>MIT License: extend</name>
@@ -661,6 +673,18 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Unicode-3.0 License: icu_locale</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: icu_locale_core</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: icu_locale_data</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Unicode-3.0 License: icu_locid</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
@@ -697,7 +721,19 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Unicode-3.0 License: icu_segmenter</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: icu_segmenter_data</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Unicode-3.0 License: litemap</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: potential_utf</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>
@@ -722,6 +758,10 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Unicode-3.0 License: zerofrom-derive</name>
+    <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Unicode-3.0 License: zerotrie</name>
     <url>https://github.com/unicode-org/icu4x/blob/main/LICENSE</url>
   </license>
   <license>

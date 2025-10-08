@@ -4,11 +4,11 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+use clap::Parser;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config, SYNC_SCOPE};
 use nss::ensure_initialized;
 use std::sync::Arc;
 use std::{collections::HashSet, process};
-use structopt::StructOpt;
 
 mod auth;
 mod autofill;
@@ -28,7 +28,7 @@ macro_rules! cleanup_clients {
 }
 
 pub fn init_testing() {
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
     ensure_initialized();
 
     // Enable backtraces.
@@ -101,36 +101,36 @@ pub fn run_test_group(opts: &Opts, group: TestGroup) {
 }
 
 // Note: this uses doc comments to generate the help text.
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(name = "sync-test", about = "Sync integration tests")]
+#[derive(Clone, Debug, Parser)]
+#[command(name = "sync-test", about = "Sync integration tests")]
 pub struct Opts {
-    #[structopt(name = "oauth-retries", long, short = "r", default_value = "0")]
+    #[arg(long = "oauth-retries", short = 'r', default_value = "0")]
     /// Number of times to retry authentication with FxA if automatically
     /// logging in with OAuth fails (Sadly, it seems inherently finnicky).
     pub oauth_retries: u64,
 
-    #[structopt(name = "oauth-retry-delay", long, default_value = "5000")]
+    #[arg(long = "oauth-retry-delay", default_value = "5000")]
     /// Number of milliseconds to wait between retries. Does nothing if
     /// `oauth-retries` is 0.
     pub oauth_delay_time: u64,
 
-    #[structopt(name = "oauth-retry-delay-backoff", long, default_value = "2000")]
+    #[arg(long = "oauth-retry-delay-backoff", default_value = "2000")]
     /// Number of milliseconds to increase `oauth-retry-delay` with after each
     /// failure. Does nothing if `oauth-retries` is 0.
     pub oauth_retry_backoff: u64,
 
-    #[structopt(name = "fxa-stack", short = "s", long, default_value = "stable-dev")]
+    #[arg(long = "fxa-stack", short = 's', default_value = "stable-dev")]
     /// Either 'release', 'stage', 'stable-dev', or a URL.
     pub fxa_stack: FxaConfigUrl,
 
-    #[structopt(name = "credentials", long, default_value = "./credentials.json")]
+    #[arg(long = "credentials", default_value = "./credentials.json")]
     credential_file: String,
 
-    #[structopt(name = "helper-debug", long)]
+    #[arg(long = "helper-debug")]
     /// Run the helper browser as non-headless, and enable extra logging
     pub helper_debug: bool,
 
-    #[structopt(name = "show-groups", long)]
+    #[arg(long = "show-groups")]
     /// Show the test groups and exit.
     pub show_groups: bool,
 
@@ -139,7 +139,7 @@ pub struct Opts {
 }
 
 pub fn main() {
-    let opts = Opts::from_args();
+    let opts = Opts::parse();
     println!("### Running sync integration tests ###");
     init_testing();
     let groups = vec![

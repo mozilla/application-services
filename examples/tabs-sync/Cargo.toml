@@ -23,4 +23,5 @@ url = "2.2"
 interrupt-support = { path = "../../components/support/interrupt" }
 nss = { version = "0.1.0", path = "../../components/support/rc_crypto/nss" }
 sync15 = { path = "../../components/sync15", features = ["sync-engine"] }
-viaduct-dev = { path = "../../components/support/viaduct-dev" }
+viaduct = { path = "../../components/viaduct"}
+viaduct-hyper = { path = "../../components/support/viaduct-hyper"}

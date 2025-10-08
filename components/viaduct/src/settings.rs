@@ -25,6 +25,9 @@ pub struct Settings {
     pub use_caches: bool,
     // For testing purposes, we allow exactly one additional Url which is
     // allowed to not be https.
+    //
+    // Note: this is the only setting the new backend code uses.  Once all applications have moved
+    // away from the legacy backend, we can delete all other fields.
     pub addn_allowed_insecure_url: Option<Url>,
 }
 
@@ -44,3 +47,122 @@ pub static GLOBAL_SETTINGS: Lazy<RwLock<Settings>> = Lazy::new(|| {
         addn_allowed_insecure_url: None,
     })
 });
+
+/// Allow non-HTTPS requests to the emulator loopback URL
+#[uniffi::export]
+pub fn allow_android_emulator_loopback() {
+    let url = url::Url::parse("http://10.0.2.2").unwrap();
+    let mut settings = GLOBAL_SETTINGS.write();
+    settings.addn_allowed_insecure_url = Some(url);
+}
+
+/// Validate a request, respecting the `addn_allowed_insecure_url` setting.
+pub fn validate_request(request: &crate::Request) -> Result<(), crate::ViaductError> {
+    if request.url.scheme() != "https"
+        && match request.url.host() {
+            Some(url::Host::Domain(d)) => d != "localhost",
+            Some(url::Host::Ipv4(addr)) => !addr.is_loopback(),
+            Some(url::Host::Ipv6(addr)) => !addr.is_loopback(),
+            None => true,
+        }
+        && {
+            let settings = GLOBAL_SETTINGS.read();
+            settings
+                .addn_allowed_insecure_url
+                .as_ref()
+                .map(|url| url.host() != request.url.host() || url.scheme() != request.url.scheme())
+                .unwrap_or(true)
+        }
+    {
+        return Err(crate::ViaductError::NonTlsUrl);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_request() {
+        let _https_request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("https://www.example.com").unwrap(),
+        );
+        assert!(validate_request(&_https_request).is_ok());
+
+        let _http_request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://www.example.com").unwrap(),
+        );
+        assert!(validate_request(&_http_request).is_err());
+
+        let _localhost_https_request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("https://127.0.0.1/index.html").unwrap(),
+        );
+        assert!(validate_request(&_localhost_https_request).is_ok());
+
+        let _localhost_https_request_2 = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("https://localhost:4242/").unwrap(),
+        );
+        assert!(validate_request(&_localhost_https_request_2).is_ok());
+
+        let _localhost_http_request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://localhost:4242/").unwrap(),
+        );
+        assert!(validate_request(&_localhost_http_request).is_ok());
+
+        let localhost_request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("localhost:4242/").unwrap(),
+        );
+        assert!(validate_request(&localhost_request).is_err());
+
+        let localhost_request_shorthand_ipv6 =
+            crate::Request::new(crate::Method::Get, url::Url::parse("http://[::1]").unwrap());
+        assert!(validate_request(&localhost_request_shorthand_ipv6).is_ok());
+
+        let localhost_request_ipv6 = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://[0:0:0:0:0:0:0:1]").unwrap(),
+        );
+        assert!(validate_request(&localhost_request_ipv6).is_ok());
+    }
+
+    #[test]
+    fn test_validate_request_addn_allowed_insecure_url() {
+        let request_root = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://anything").unwrap(),
+        );
+        let request = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("http://anything/path").unwrap(),
+        );
+        // This should never be accepted.
+        let request_ftp = crate::Request::new(
+            crate::Method::Get,
+            url::Url::parse("ftp://anything/path").unwrap(),
+        );
+        assert!(validate_request(&request_root).is_err());
+        assert!(validate_request(&request).is_err());
+        {
+            let mut settings = GLOBAL_SETTINGS.write();
+            settings.addn_allowed_insecure_url =
+                Some(url::Url::parse("http://something-else").unwrap());
+        }
+        assert!(validate_request(&request_root).is_err());
+        assert!(validate_request(&request).is_err());
+
+        {
+            let mut settings = GLOBAL_SETTINGS.write();
+            settings.addn_allowed_insecure_url = Some(url::Url::parse("http://anything").unwrap());
+        }
+        assert!(validate_request(&request_root).is_ok());
+        assert!(validate_request(&request).is_ok());
+        assert!(validate_request(&request_ftp).is_err());
+    }
+}

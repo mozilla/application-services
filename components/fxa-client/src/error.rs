@@ -165,10 +165,15 @@ pub enum Error {
     UTF8DecodeError(#[from] string::FromUtf8Error),
 
     #[error("Network error: {0}")]
-    RequestError(#[from] viaduct::Error),
+    RequestError(#[from] viaduct::ViaductError),
 
-    #[error("Malformed URL error: {0}")]
-    MalformedUrl(#[from] url::ParseError),
+    #[error("Malformed URL: {sanitized_url} ({when})")]
+    MalformedUrl {
+        /// URL without any query or fragment parts.
+        /// This is safe to send in an error report because there's no auth information.
+        sanitized_url: String,
+        when: String,
+    },
 
     #[error("Unexpected HTTP status: {0}")]
     UnexpectedStatus(#[from] viaduct::UnexpectedStatus),

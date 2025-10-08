@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_logging(&cli);
 
-    viaduct_dev::use_dev_backend();
+    viaduct_hyper::init_backend_hyper()?;
 
     let token = prompt_token()?;
     let client = RelayClient::new("https://relay.firefox.com".to_string(), Some(token));
@@ -42,7 +42,7 @@ fn init_logging(cli: &Cli) {
     } else {
         "relay=info"
     };
-    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", log_filter));
+    cli_support::init_logging_with(log_filter);
 }
 
 fn prompt_token() -> anyhow::Result<String> {

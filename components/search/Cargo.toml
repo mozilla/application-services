@@ -23,5 +23,5 @@ uniffi = { version = "0.29.0", features = ["build"] }
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
 once_cell = "1.18.0"
-mockito = "0.31"
-viaduct-dev = { path = "../support/viaduct-dev" }
+mockito = { version = "0.31", default-features = false}
+viaduct-dev = { path = "../support/viaduct-dev"}
