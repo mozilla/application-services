@@ -478,6 +478,8 @@ pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMet
 
 // Returns all history metadata updated on or after `start`, ordered by most recent first,
 // capped at the default `MAX_QUERY_RESULTS`.
+// TODO(Bug 1993213): Once both iOS and Android consumers use `get_most_recent` instead of `get_since`,
+// we should remove `get_since`.
 pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
     db.query_rows_and_then_cached(
         GET_SINCE_SQL.as_str(),
