@@ -60,6 +60,9 @@ interface PlacesConnection {
     sequence<HistoryMetadata> get_history_metadata_since(PlacesTimestamp since);
 
     [Throws=PlacesApiError]
+    sequence<HistoryMetadata> get_most_recent_history_metadata(i32 limit);
+
+    [Throws=PlacesApiError]
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
     /// `url` is a `string` and not a `URL` because `accept_result`
