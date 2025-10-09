@@ -115,6 +115,18 @@ impl Headers {
         Default::default()
     }
 
+    /// Create headers from a HashMap of name-value pairs
+    ///
+    /// # Errors
+    /// Returns an error if any header name or value is invalid
+    pub fn try_from_hashmap(map: HashMap<String, String>) -> Result<Self, crate::ViaductError> {
+        let mut headers = Headers::new();
+        for (name, value) in map {
+            headers.insert(name, value)?;
+        }
+        Ok(headers)
+    }
+
     /// Initialize an empty list of headers backed by a vector with the provided
     /// capacity.
     pub fn with_capacity(c: usize) -> Self {
