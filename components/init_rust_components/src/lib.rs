@@ -7,7 +7,8 @@
 use nss::ensure_initialized as ensure_nss_initialized;
 #[cfg(feature = "keydb")]
 use nss::ensure_initialized_with_profile_dir as ensure_nss_initialized_with_profile_dir;
-
+#[cfg(feature = "ohttp")]
+use viaduct::ohttp::configure_default_ohttp_channels;
 uniffi::setup_scaffolding!();
 
 /// Global initialization routines for Rust components. Must be called before any other calls to
@@ -20,6 +21,12 @@ uniffi::setup_scaffolding!();
 #[uniffi::export]
 pub fn initialize() {
     ensure_nss_initialized();
+
+    #[cfg(feature = "ohttp")]
+    {
+        configure_default_ohttp_channels()
+            .expect("We pass down hard coded Strings for the relays, if this fails, we have a typo in the config we pass down.");
+    }
 }
 
 /// Global initialization routines for Rust components, when `logins/keydb` feature is activated. Must be
@@ -34,4 +41,10 @@ pub fn initialize() {
 #[uniffi::export]
 pub fn initialize(profile_path: String) {
     ensure_nss_initialized_with_profile_dir(profile_path);
+
+    #[cfg(feature = "ohttp")]
+    {
+        configure_default_ohttp_channels()
+            .expect("We pass down hard coded Strings for the relays, if this fails, we have a typo in the config we pass down.");
+    }
 }
