@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ohttp_client::OhttpSession;
-use tokio::sync::Mutex;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
+use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{Headers, Method, Request, Response, Result, ViaductError};
