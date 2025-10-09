@@ -266,6 +266,29 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
     }
 
     /**
+     * Get the list of all client applications attached to the user's account.
+     *
+     * This method returns a list of [AttachedClient] structs representing all the applications
+     * connected to the user's account. This includes applications that are registered as a device
+     * as well as server-side services that the user has connected.
+     *
+     * This information is really only useful for targeted messaging or marketing purposes,
+     * e.g. if the application wants to advertize a related product, but first wants to check
+     * whether the user is already using that product.
+     *
+     * # Notes
+     *
+     *    - Attached client metadata is only visible to applications that have been
+     *      granted the `https:///identity.mozilla.com/apps/oldsync` scope.
+
+     */
+    fun getAttachedClients(): List<AttachedClient> {
+        return withMetrics {
+            this.inner.getAttachedClients()
+        }
+    }
+
+    /**
      * Tries to fetch an access token for the given scope.
      *
      * This performs network requests, and should not be used on the main thread.

@@ -19,6 +19,8 @@
 ### Places
 - `places::storage::history_metadata::get_most_recent(limit: i32)` was added to get most recent history metadata limited to a number. ([#7002](https://github.com/mozilla/application-services/pull/7002))
 
+### FxA Client
+- Expose `getAttachedClients` from the uniffi layer in the Android wrapper.
 
 ## 🦊 What's Changed 🦊
 
