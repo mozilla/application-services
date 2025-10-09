@@ -4,7 +4,6 @@
 */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 use error::AdsClientApiResult;
 use error::{
@@ -19,6 +18,8 @@ use models::{AdContentCategory, AdRequest, AdResponse, IABContentTaxonomy, MozAd
 use parking_lot::Mutex;
 use uuid::Uuid;
 
+use crate::error::AdsClientApiError;
+
 mod error;
 mod http_cache;
 mod instrument;
@@ -27,9 +28,6 @@ mod models;
 
 #[cfg(test)]
 mod test_utils;
-
-#[cfg(test)]
-use http_cache::HttpCacheConfig;
 
 uniffi::setup_scaffolding!("ads_client");
 
@@ -42,9 +40,9 @@ pub struct MozAdsClient {
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
-    pub fn new(http_cache: Arc<HttpCache>) -> Self {
+    pub fn new(db_path: String) -> Self {
         Self {
-            inner: Mutex::new(MozAdsClientInner::new(http_cache)),
+            inner: Mutex::new(MozAdsClientInner::new(db_path)),
         }
     }
 
@@ -92,6 +90,13 @@ impl MozAdsClient {
         let previous_context_id = inner.cycle_context_id()?;
         Ok(previous_context_id)
     }
+
+    pub fn clear_cache(&self) -> AdsClientApiResult<()> {
+        let inner = self.inner.lock();
+        inner.clear_cache().map_err(|_| AdsClientApiError::Other {
+            reason: "Failed to clear cache".to_string(),
+        })
+    }
 }
 
 pub struct MozAdsClientInner {
@@ -99,8 +104,9 @@ pub struct MozAdsClientInner {
 }
 
 impl MozAdsClientInner {
-    fn new(http_cache: Arc<HttpCache>) -> Self {
+    fn new(db_path: String) -> Self {
         let context_id = Uuid::new_v4().to_string();
+        let http_cache = HttpCache::builder(db_path).build().ok(); // TODO: handle error with telemetry
         let client = Box::new(DefaultMARSClient::new(context_id, http_cache));
         Self { client }
     }
@@ -229,6 +235,10 @@ impl MozAdsClientInner {
         }
 
         Ok(moz_ad_placements)
+    }
+
+    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+        self.client.clear_cache()
     }
 }
 
@@ -543,12 +553,7 @@ mod tests {
 
     #[test]
     fn test_cycle_context_id() {
-        let config = HttpCacheConfig {
-            db_path: "test_cycle.db".to_string(),
-            max_size_bytes: None,
-            ttl_seconds: None,
-        };
-        let component = MozAdsClient::new(Arc::new(HttpCache::new(config).unwrap()));
+        let component = MozAdsClient::new("test_cycle.db".to_string());
         let old_id = component.cycle_context_id().unwrap();
         let new_id = component.cycle_context_id().unwrap();
         assert_ne!(old_id, new_id);

@@ -21,9 +21,7 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
     fn init(&self, tx: &rusqlite::Transaction<'_>) -> open_database::Result<()> {
         const SCHEMA: &str = "
             CREATE TABLE IF NOT EXISTS http_cache (
-                cache_control TEXT,
                 cached_at INTEGER NOT NULL,
-                etag TEXT,
                 request_hash TEXT NOT NULL,
                 response_body BLOB NOT NULL,
                 response_headers BLOB,
@@ -39,9 +37,15 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
 
     fn upgrade_from(
         &self,
-        _conn: &rusqlite::Transaction<'_>,
-        _version: u32,
+        conn: &rusqlite::Transaction<'_>,
+        version: u32,
     ) -> open_database::Result<()> {
-        Ok(())
+        match version {
+            0 => {
+                // Version 0 means we need to create the initial schema
+                self.init(conn)
+            }
+            _ => Err(open_database::Error::IncompatibleVersion(version)),
+        }
     }
 }

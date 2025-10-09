@@ -2,154 +2,68 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+mod builder;
 mod bytesize;
-mod cache_control_directives;
-mod config;
+mod cache_control;
 mod connection_initializer;
-mod row;
+mod request_hash;
 mod store;
 
 use self::{
-    config::HttpCacheConfigInner, connection_initializer::HttpCacheConnectionInitializer,
-    row::HttpCacheRow, store::HttpCacheStore,
+    builder::HttpCacheBuilder, cache_control::CacheControl, request_hash::RequestHash,
+    store::HttpCacheStore,
 };
 
-pub use config::{HttpCacheConfig, HttpCacheConfigError};
-use sql_support::open_database;
-use std::sync::Arc;
-use viaduct::{Request, Response, Result};
+use viaduct::{Request, Response};
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum HttpCacheError {
-    #[error("Could not open SQLite database: {0}")]
-    OpenDatabase(String),
-
-    #[error("Invalid HTTP cache configuration: {0}")]
-    InvalidConfig(#[from] HttpCacheConfigError),
-}
+use self::bytesize::ByteSize;
+use std::path::Path;
+use std::time::Duration;
 
 #[derive(Debug, thiserror::Error)]
-pub enum CacheOperation {
-    #[error("Failed to cleanup expired entries")]
-    CleanupExpired,
-    #[error("Failed to store response in cache")]
-    Store,
-    #[error("Failed to trim cache to max size")]
-    TrimToMaxSize,
+pub enum Error {
+    #[error("Could not build cache: {0}")]
+    Builder(#[from] builder::Error),
+
+    #[error("SQLite operation failed: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+
+    #[error("Error sending request: {0}")]
+    Viaduct(#[from] viaduct::ViaductError),
 }
 
-pub trait CacheFailureCallback: Send + Sync {
-    fn on_cache_failure(&self, operation: CacheOperation, error: HttpCacheError);
-}
-
-#[derive(uniffi::Object)]
 pub struct HttpCache {
+    max_size: ByteSize,
     store: HttpCacheStore,
-    config: HttpCacheConfigInner,
-    failure_callback: Option<Arc<dyn CacheFailureCallback>>,
+    ttl: Duration,
 }
 
-#[uniffi::export]
+#[warn(clippy::new_ret_no_self)]
 impl HttpCache {
-    #[uniffi::constructor]
-    pub fn new(config: HttpCacheConfig) -> Result<Self, HttpCacheError> {
-        let internal_config = HttpCacheConfigInner::try_from(config)?;
-        let initializer = HttpCacheConnectionInitializer {};
-        let conn = if cfg!(test) {
-            open_database::open_memory_database(&initializer)
-                .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?
-        } else {
-            open_database::open_database(&internal_config.db_path, &initializer)
-                .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?
-        };
-        let store = HttpCacheStore::new(internal_config.clone(), conn);
-        Ok(Self {
-            store,
-            config: internal_config,
-            failure_callback: None,
-        })
+    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
+        HttpCacheBuilder::new(db_path.as_ref(), None, None)
     }
 
-    pub fn clear(&self) -> Result<(), HttpCacheError> {
-        self.store
-            .clear_all()
-            .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?;
+    pub fn clear(&self) -> Result<(), Error> {
+        self.store.clear_all().map_err(Error::from)?;
         Ok(())
     }
-}
 
-impl HttpCache {
-    pub fn send(&self, request: Request) -> Result<Response> {
-        if let Err(e) = self.cleanup_expired() {
-            self.notify_cache_failure(CacheOperation::CleanupExpired, e);
-        }
+    pub fn send(&self, request: Request) -> Result<(Response, Option<RequestHash>), Error> {
+        let cutoff = chrono::Utc::now().timestamp() - self.ttl.as_secs() as i64;
+        self.store.delete_expired_entries(cutoff)?;
 
-        if let Some(cached_row) = self.store.lookup(&request).ok().flatten() {
-            let ttl = cached_row.cache_control.get_ttl(self.config.ttl);
-            let cutoff = HttpCacheRow::now_epoch() - ttl.as_secs() as i64;
-
-            if cached_row.cached_at >= cutoff {
-                return Ok(cached_row.to_response(&request));
-            }
+        if let Some((response, request_hash)) = self.store.lookup(&request)? {
+            return Ok((response, Some(request_hash)));
         }
 
         let response = request.clone().send()?;
-        if response.is_success() {
-            let cached = HttpCacheRow::from_request_response(&request, &response);
-            if cached.cache_control.should_cache() {
-                if let Err(e) = self.store.store(&cached) {
-                    self.notify_cache_failure(
-                        CacheOperation::Store,
-                        HttpCacheError::OpenDatabase(e.to_string()),
-                    );
-                }
-                if let Err(e) = self.trim_to_max_size() {
-                    self.notify_cache_failure(CacheOperation::TrimToMaxSize, e);
-                }
-            }
+        let cache_control = CacheControl::from(&response);
+        if cache_control.should_cache() {
+            self.store.store(&request, &response)?;
+            self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
         }
-        Ok(response)
-    }
-
-    fn notify_cache_failure(&self, operation: CacheOperation, error: HttpCacheError) {
-        if let Some(callback) = &self.failure_callback {
-            callback.on_cache_failure(operation, error);
-        }
-    }
-
-    pub fn set_failure_callback(&mut self, callback: Arc<dyn CacheFailureCallback>) {
-        self.failure_callback = Some(callback);
-    }
-
-    fn cleanup_expired(&self) -> Result<(), HttpCacheError> {
-        let cutoff = HttpCacheRow::now_epoch() - self.config.ttl.as_secs() as i64;
-        self.store
-            .delete_expired_entries(cutoff)
-            .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?;
-        Ok(())
-    }
-
-    fn trim_to_max_size(&self) -> Result<(), HttpCacheError> {
-        loop {
-            let total = self
-                .store
-                .current_total_size()
-                .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?;
-
-            if total <= self.config.max_size.as_u64() as i64 {
-                break;
-            }
-
-            let deleted = self
-                .store
-                .delete_oldest_entry()
-                .map_err(|e| HttpCacheError::OpenDatabase(e.to_string()))?;
-
-            if deleted == 0 {
-                break;
-            }
-        }
-        Ok(())
+        Ok((response, None))
     }
 }
 
@@ -160,32 +74,20 @@ mod tests {
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let config = HttpCacheConfig {
-            db_path: "test_cache.db".to_string(),
-            max_size_bytes: None,
-            ttl_seconds: None,
-        };
-        let cache = HttpCache::new(config);
+        let cache = HttpCache::builder("test_cache.db").build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let custom_config = HttpCacheConfig {
-            db_path: "custom_test.db".to_string(),
-            max_size_bytes: Some(1024),
-            ttl_seconds: Some(60),
-        };
-        let cache_with_config = HttpCache::new(custom_config);
+        let cache_with_config = HttpCache::builder("custom_test.db")
+            .max_size(ByteSize::mib(1))
+            .ttl(Duration::from_secs(60))
+            .build();
         assert!(cache_with_config.is_ok());
     }
 
     #[test]
     fn test_clear_cache() {
-        let config = HttpCacheConfig {
-            db_path: "test_clear.db".to_string(),
-            max_size_bytes: None,
-            ttl_seconds: None,
-        };
-        let cache = HttpCache::new(config).unwrap();
+        let cache = HttpCache::builder("test_clear.db").build().unwrap();
 
         // Create a test request and response
         let request = viaduct::Request {
@@ -204,8 +106,7 @@ mod tests {
         };
 
         // Store something in the cache
-        let cached = HttpCacheRow::from_request_response(&request, &response);
-        cache.store.store(&cached).unwrap();
+        cache.store.store(&request, &response).unwrap();
 
         // Verify it's cached
         let retrieved = cache.store.lookup(&request).unwrap();
@@ -217,37 +118,5 @@ mod tests {
         // Verify it's cleared
         let retrieved_after_clear = cache.store.lookup(&request).unwrap();
         assert!(retrieved_after_clear.is_none());
-    }
-
-    #[test]
-    fn test_cache_failure_callback() {
-        use std::sync::{Arc, Mutex};
-
-        struct TestCallback {
-            failures: Arc<Mutex<Vec<(CacheOperation, HttpCacheError)>>>,
-        }
-
-        impl CacheFailureCallback for TestCallback {
-            fn on_cache_failure(&self, operation: CacheOperation, error: HttpCacheError) {
-                self.failures.lock().unwrap().push((operation, error));
-            }
-        }
-
-        let failures = Arc::new(Mutex::new(Vec::new()));
-        let callback = Arc::new(TestCallback {
-            failures: failures.clone(),
-        });
-
-        let config = HttpCacheConfig {
-            db_path: "test_callback.db".to_string(),
-            max_size_bytes: None,
-            ttl_seconds: None,
-        };
-        let mut cache = HttpCache::new(config).unwrap();
-        cache.set_failure_callback(callback);
-
-        // Test that the callback is set (we can't easily test actual failures in unit tests
-        // without mocking the database, but we can verify the callback mechanism is in place)
-        assert!(cache.failure_callback.is_some());
     }
 }
