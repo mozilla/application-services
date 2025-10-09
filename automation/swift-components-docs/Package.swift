@@ -3,6 +3,10 @@ import PackageDescription
 
 let package = Package(
     name: "RustComponents",
+    platforms: [
+         .macOS(.v10_15),
+         .iOS(.v13)
+     ],
     targets: [
         .target(
             name: "SwiftComponents",
