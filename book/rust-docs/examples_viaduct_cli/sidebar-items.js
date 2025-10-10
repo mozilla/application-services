@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BackendStyle"],"fn":["main","make_post_request","make_request","print_response","set_old_global_timeout"],"struct":["Cli","TestPostData"]};
