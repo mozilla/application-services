@@ -8,6 +8,7 @@ use crate::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
+    http_cache::{self, Error as HttpCacheError, HttpCache},
     models::{AdRequest, AdResponse},
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
@@ -28,15 +29,17 @@ pub trait MARSClient: Sync + Send {
     fn get_context_id(&self) -> context_id::ApiResult<String>;
     fn cycle_context_id(&mut self) -> context_id::ApiResult<String>;
     fn get_mars_endpoint(&self) -> &str;
+    fn clear_cache(&self) -> Result<(), HttpCacheError>;
 }
 
 pub struct DefaultMARSClient {
     context_id_component: ContextIDComponent,
     endpoint: String,
+    http_cache: Option<HttpCache>,
 }
 
 impl DefaultMARSClient {
-    pub fn new(context_id: String) -> Self {
+    pub fn new(context_id: String, http_cache: Option<HttpCache>) -> Self {
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -45,11 +48,16 @@ impl DefaultMARSClient {
                 Box::new(DefaultContextIdCallback),
             ),
             endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
+            http_cache,
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_endpoint(context_id: String, endpoint: String) -> Self {
+    pub fn new_with_endpoint(
+        context_id: String,
+        endpoint: String,
+        http_cache: Option<HttpCache>,
+    ) -> Self {
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -58,6 +66,7 @@ impl DefaultMARSClient {
                 Box::new(DefaultContextIdCallback),
             ),
             endpoint,
+            http_cache,
         }
     }
 
@@ -88,7 +97,17 @@ impl MARSClient for DefaultMARSClient {
         let endpoint = self.get_mars_endpoint();
         let url = Url::parse(&format!("{endpoint}/ads"))?;
         let request = Request::post(url).json(ad_request);
-        let response = request.send()?;
+        let response = if let Some(cache) = &self.http_cache {
+            match cache.send(request.clone()) {
+                Ok((response, _)) => response,
+                Err(_) => {
+                    // TODO: handle error with telemetry
+                    request.send()?
+                }
+            }
+        } else {
+            request.send()?
+        };
 
         check_http_status_for_error(&response)?;
 
@@ -128,6 +147,13 @@ impl MARSClient for DefaultMARSClient {
             }
             .into()),
         }
+    }
+
+    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+        if let Some(cache) = &self.http_cache {
+            cache.clear()?;
+        }
+        Ok(())
     }
 }
 

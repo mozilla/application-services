@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    http_cache::HttpCache,
     mars::DefaultMARSClient,
     models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
     IABContent, MozAdsPlacement, MozAdsPlacementConfig,
@@ -131,5 +132,10 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
 }
 
 pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {
-    DefaultMARSClient::new_with_endpoint(TEST_CONTEXT_ID.to_string(), mock_server_url)
+    let http_cache = HttpCache::builder("test_client.db").build().unwrap();
+    DefaultMARSClient::new_with_endpoint(
+        TEST_CONTEXT_ID.to_string(),
+        mock_server_url,
+        Some(http_cache),
+    )
 }
