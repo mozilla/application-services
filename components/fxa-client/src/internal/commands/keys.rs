@@ -4,12 +4,12 @@
 
 // All commands share the same structs for their crypto-keys.
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use super::super::device::Device;
 use super::super::scopes;
 use crate::{Error, Result, ScopedKey};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 

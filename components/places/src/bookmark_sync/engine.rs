@@ -10,11 +10,11 @@ use super::record::{
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::db::{GlobalChangeCounterTracker, PlacesDb, SharedPlacesDb};
 use crate::error::*;
-use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
+use crate::frecency::{DEFAULT_FRECENCY_SETTINGS, calculate_frecency};
 use crate::storage::{
     bookmarks::{
-        bookmark_sync::{create_synced_bookmark_roots, reset},
         BookmarkRootGuid,
+        bookmark_sync::{create_synced_bookmark_roots, reset},
     },
     delete_pending_temp_tables, get_meta, put_meta,
 };
@@ -31,10 +31,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use sync_guid::Guid as SyncGuid;
 use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
-use sync15::{telemetry, CollectionName, ServerTimestamp};
-use sync_guid::Guid as SyncGuid;
+use sync15::{CollectionName, ServerTimestamp, telemetry};
 use types::Timestamp;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -1868,13 +1868,13 @@ impl fmt::Display for RootsFragment<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, ConnectionType, PlacesApi};
+    use crate::api::places_api::{ConnectionType, PlacesApi, test::new_mem_api};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::db::PlacesDb;
     use crate::storage::{
         bookmarks::{
-            get_raw_bookmark, insert_bookmark, update_bookmark, BookmarkPosition,
-            InsertableBookmark, UpdatableBookmark, USER_CONTENT_ROOTS,
+            BookmarkPosition, InsertableBookmark, USER_CONTENT_ROOTS, UpdatableBookmark,
+            get_raw_bookmark, insert_bookmark, update_bookmark,
         },
         history::frecency_stale_at,
         tags,
@@ -1884,14 +1884,14 @@ mod tests {
     };
     use dogear::{Store as DogearStore, Validity};
     use rusqlite::{Error as RusqlError, ErrorCode};
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::{
         borrow::Cow,
         time::{Duration, SystemTime},
     };
+    use sync_guid::Guid;
     use sync15::bso::{IncomingBso, IncomingKind};
     use sync15::engine::CollSyncIds;
-    use sync_guid::Guid;
     use url::Url;
 
     // A helper type to simplify writing table-driven tests with synced items.

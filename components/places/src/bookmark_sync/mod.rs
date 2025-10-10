@@ -11,8 +11,8 @@ mod tests;
 
 use crate::error::*;
 pub use engine::BookmarksSyncEngine;
-use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
+use rusqlite::types::{ToSql, ToSqlOutput};
 
 /// Synced item kinds. These are stored in `moz_bookmarks_synced.kind` and match
 /// the definitions in `mozISyncedBookmarksMerger`.

@@ -4,7 +4,7 @@
 
 use crate::db::PlacesDb;
 use crate::error::*;
-use rusqlite::{named_params, Connection};
+use rusqlite::{Connection, named_params};
 use serde::Serialize;
 use sql_support::ConnExt;
 use types::Timestamp;
@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
 pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
-    use rusqlite::{functions::Context, types::ValueRef, Result};
+    use rusqlite::{Result, functions::Context, types::ValueRef};
     use types::Timestamp;
     use url::Url;
 

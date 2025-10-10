@@ -11,7 +11,7 @@
 // and avoid using this if you can!
 // (We could possibly put this behind a feature flag?)
 
-use crate::error::{warn, Result};
+use crate::error::{Result, warn};
 use crate::types::BookmarkType;
 //#[cfg(test)]
 use crate::db::PlacesDb;

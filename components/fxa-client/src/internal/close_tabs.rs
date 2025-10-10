@@ -7,15 +7,17 @@ use std::mem;
 use payload_support::Fit;
 
 use super::{
+    FirefoxAccount,
     commands::{
+        IncomingDeviceCommand, PrivateCommandKeys,
         close_tabs::{self, CloseTabsPayload},
-        decrypt_command, encrypt_command, IncomingDeviceCommand, PrivateCommandKeys,
+        decrypt_command, encrypt_command,
     },
     device::COMMAND_MAX_PAYLOAD_SIZE,
     http_client::GetDeviceResponse,
-    scopes, telemetry, FirefoxAccount,
+    scopes, telemetry,
 };
-use crate::{warn, CloseTabsResult, Error, Result};
+use crate::{CloseTabsResult, Error, Result, warn};
 
 impl FirefoxAccount {
     pub fn close_tabs<T>(&mut self, target_device_id: &str, urls: Vec<T>) -> Result<CloseTabsResult>
@@ -119,7 +121,9 @@ impl FirefoxAccount {
                 Ok(IncomingDeviceCommand::TabsClosed { sender, payload })
             }
             Err(e) => {
-                warn!("Could not decrypt Close Remote Tabs payload. Diagnosing then resetting the Close Tabs keys.");
+                warn!(
+                    "Could not decrypt Close Remote Tabs payload. Diagnosing then resetting the Close Tabs keys."
+                );
                 self.clear_close_tabs_keys();
                 self.reregister_current_capabilities()?;
                 Err(e)
@@ -168,11 +172,11 @@ mod tests {
     use serde_json::json;
 
     use crate::{
-        internal::{
-            commands::PublicCommandKeys, config::Config, http_client::MockFxAClient,
-            oauth::RefreshToken, util, CachedResponse, FirefoxAccount,
-        },
         ScopedKey,
+        internal::{
+            CachedResponse, FirefoxAccount, commands::PublicCommandKeys, config::Config,
+            http_client::MockFxAClient, oauth::RefreshToken, util,
+        },
     };
 
     /// An RAII helper that overrides the maximum command payload size

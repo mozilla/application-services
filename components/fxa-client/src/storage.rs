@@ -17,7 +17,7 @@
 //! the modified account state and persist the resulting string in application
 //! settings.
 
-use crate::{internal, ApiResult, Error, FirefoxAccount};
+use crate::{ApiResult, Error, FirefoxAccount, internal};
 use error_support::handle_error;
 use parking_lot::Mutex;
 

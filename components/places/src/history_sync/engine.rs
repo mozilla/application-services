@@ -12,10 +12,10 @@ use sync15::bso::{IncomingBso, OutgoingBso};
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, RequestOrder, SyncEngine,
 };
-use sync15::{telemetry, Guid, ServerTimestamp};
+use sync15::{Guid, ServerTimestamp, telemetry};
 
-use super::plan::{apply_plan, finish_plan, get_planned_outgoing};
 use super::MAX_INCOMING_PLACES;
+use super::plan::{apply_plan, finish_plan, get_planned_outgoing};
 
 pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key

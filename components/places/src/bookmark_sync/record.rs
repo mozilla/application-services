@@ -403,7 +403,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Error};
+    use serde_json::{Error, json};
 
     #[test]
     fn test_invalid_record_type() {

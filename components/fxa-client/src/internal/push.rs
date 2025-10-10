@@ -5,7 +5,7 @@
 use std::convert::TryInto;
 
 use super::FirefoxAccount;
-use crate::{info, AccountEvent, Error, Result};
+use crate::{AccountEvent, Error, Result, info};
 use serde_derive::Deserialize;
 
 impl FirefoxAccount {
@@ -138,11 +138,11 @@ pub struct AccountDestroyedPushPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::internal::CachedResponse;
+    use crate::internal::Config;
     use crate::internal::http_client::IntrospectResponse;
     use crate::internal::http_client::MockFxAClient;
     use crate::internal::oauth::RefreshToken;
-    use crate::internal::CachedResponse;
-    use crate::internal::Config;
     use mockall::predicate::always;
     use mockall::predicate::eq;
     use std::sync::Arc;

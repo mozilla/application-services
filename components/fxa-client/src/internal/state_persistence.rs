@@ -33,10 +33,10 @@ use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
 use super::{
+    CachedResponse, Result,
     config::Config,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
-    CachedResponse, Result,
 };
 use crate::{DeviceCapability, LocalDevice, ScopedKey};
 

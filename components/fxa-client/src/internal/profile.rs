@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use super::http_client::ProfileResponse as Profile;
-use super::{scopes, util, CachedResponse, FirefoxAccount};
+use super::{CachedResponse, FirefoxAccount, scopes, util};
 use crate::{Error, Result};
 
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
@@ -86,9 +86,9 @@ impl FirefoxAccount {
 mod tests {
     use super::*;
     use crate::internal::{
+        Config,
         http_client::*,
         oauth::{AccessTokenInfo, RefreshToken},
-        Config,
     };
     use mockall::predicate::always;
     use mockall::predicate::eq;

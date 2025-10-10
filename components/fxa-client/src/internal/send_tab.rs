@@ -3,14 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
+    FirefoxAccount,
     commands::{
-        decrypt_command, encrypt_command, get_public_keys,
-        send_tab::{self, SendTabPayload},
         IncomingDeviceCommand, PrivateCommandKeys as PrivateSendTabKeys,
-        PublicCommandKeys as PublicSendTabKeys,
+        PublicCommandKeys as PublicSendTabKeys, decrypt_command, encrypt_command, get_public_keys,
+        send_tab::{self, SendTabPayload},
     },
     http_client::GetDeviceResponse,
-    scopes, telemetry, FirefoxAccount,
+    scopes, telemetry,
 };
 use crate::{Error, Result};
 
@@ -85,7 +85,9 @@ impl FirefoxAccount {
                 // It also seems like it might be possible to recover - ie, one
                 // of the reasons is that there are key mismatches. Doesn't that
                 // mean the "other" key might work?
-                crate::warn!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
+                crate::warn!(
+                    "Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys."
+                );
                 match self.diagnose_remote_keys(send_tab_key) {
                     Ok(_) => {
                         error_support::report_error!(

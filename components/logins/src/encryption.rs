@@ -338,7 +338,7 @@ pub fn create_key() -> ApiResult<String> {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Serialize, de::DeserializeOwned};
 
     lazy_static::lazy_static! {
         pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
