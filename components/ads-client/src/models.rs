@@ -88,10 +88,10 @@ pub struct AdCallbacks {
 pub struct MozAd {
     pub alt_text: Option<String>,
     pub block_key: Option<String>,
-    pub callbacks: Option<AdCallbacks>,
+    pub callbacks: AdCallbacks,
     pub format: Option<String>,
-    pub image_url: Option<String>, //TODO: Consider if we want to load the image locally
-    pub url: Option<String>,
+    pub image_url: String, //TODO: Consider if we want to load the image locally
+    pub url: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
@@ -194,14 +194,14 @@ mod tests {
             MozAd {
                 alt_text: Some("An ad for an anvil".into()),
                 block_key: Some("abc123".into()),
-                callbacks: Some(AdCallbacks {
+                callbacks: AdCallbacks {
                     click: Some("https://buyanvilseveryday.test/click".into()),
                     impression: Some("https://buyanvilseveryday.test/impression".into()),
                     report: Some("https://buyanvilseveryday.test/report".into()),
-                }),
+                },
                 format: Some("Leaderboard".into()),
-                image_url: Some("https://buyanvilseveryday.test/img.png".into()),
-                url: Some("https://buyanvilseveryday.test".into()),
+                image_url: "https://buyanvilseveryday.test/img.png".into(),
+                url: "https://buyanvilseveryday.test".into(),
             }
         );
     }
@@ -214,7 +214,9 @@ mod tests {
                 "click": "",
                 "impression": "   ",
                 "report": null
-            }
+            },
+            "image_url": "https://example.test/image.png",
+            "url": "https://example.test/item"
         })
         .to_string();
 
@@ -224,14 +226,14 @@ mod tests {
             MozAd {
                 alt_text: None,
                 block_key: None,
-                callbacks: Some(AdCallbacks {
+                callbacks: AdCallbacks {
                     click: None,
                     impression: None,
                     report: None,
-                }),
+                },
                 format: None,
-                image_url: None,
-                url: None,
+                image_url: "https://example.test/image.png".into(),
+                url: "https://example.test/item".into(),
             }
         );
     }
@@ -275,12 +277,12 @@ mod tests {
                 (
                     "example_placement_1".to_string(),
                     vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
+                        url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+                        image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                         format: Some("billboard".to_string()),
                         block_key: None,
                         alt_text: Some("An ad for a puppy".to_string()),
-                        callbacks: Some(AdCallbacks {
+                        callbacks: AdCallbacks {
                             click: Some(
                                 "https://ads.fakeexample.org/click/example_ad_1".to_string(),
                             ),
@@ -288,18 +290,18 @@ mod tests {
                             report: Some(
                                 "https://ads.fakeexample.org/report/example_ad_1".to_string(),
                             ),
-                        }),
+                        },
                     }],
                 ),
                 (
                     "example_placement_2".to_string(),
                     vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
+                        url: "https://ads.fakeexample.org/example_ad_2".to_string(),
+                        image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                         format: Some("skyscraper".to_string()),
                         block_key: None,
                         alt_text: Some("An ad for a pet duck".to_string()),
-                        callbacks: Some(AdCallbacks {
+                        callbacks: AdCallbacks {
                             click: Some(
                                 "https://ads.fakeexample.org/click/example_ad_2".to_string(),
                             ),
@@ -309,7 +311,7 @@ mod tests {
                             report: Some(
                                 "https://ads.fakeexample.org/report/example_ad_2".to_string(),
                             ),
-                        }),
+                        },
                     }],
                 ),
             ]),
