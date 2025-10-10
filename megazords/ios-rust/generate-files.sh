@@ -38,12 +38,15 @@ COMMON=$2
 # link against the desktop build of NSS.
 CARGO="$HOME/.cargo/bin/cargo"
 
+UNIFFI_BINDGEN_DIR="$THIS_DIR/../../tools/uniffi-bindgen-library-mode"
+UNIFFI_BINDGEN_COMMAND="$CARGO run --manifest-path=$UNIFFI_BINDGEN_DIR/Cargo.toml --"
+
 # Run uniffi-bindgen-library-mode to generate the files.
 #
 # We can't use the `-m` flag because UNIFFI_BINDGEN_LIBRARY is cross-compiled, which our
 # uniffi-bindgen-library-mode tool can't handle yet.
-"$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --headers "$COMMON/Headers"
-"$CARGO" uniffi-bindgen-library-mode -l "$UNIFFI_BINDGEN_LIBRARY" swift --modulemap "$COMMON/Modules" --xcframework --modulemap-filename module.modulemap
+$UNIFFI_BINDGEN_COMMAND -l "$UNIFFI_BINDGEN_LIBRARY" swift --headers "$COMMON/Headers"
+$UNIFFI_BINDGEN_COMMAND -l "$UNIFFI_BINDGEN_LIBRARY" swift --modulemap "$COMMON/Modules" --xcframework --modulemap-filename module.modulemap
 
 ## Tests will need the generated swift files from uniffi
 if [[ "$BUILD_SOURCES" == true ]]; then
