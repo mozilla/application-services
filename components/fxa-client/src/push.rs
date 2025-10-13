@@ -5,7 +5,7 @@
 use error_support::handle_error;
 use serde::{Deserialize, Serialize};
 
-use crate::{internal, ApiResult, CloseTabsResult, Device, Error, FirefoxAccount, LocalDevice};
+use crate::{ApiResult, CloseTabsResult, Device, Error, FirefoxAccount, LocalDevice, internal};
 
 impl FirefoxAccount {
     /// Set or update a push subscription endpoint for this device.

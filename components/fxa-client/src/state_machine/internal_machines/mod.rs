@@ -11,8 +11,8 @@ mod disconnected;
 mod uninitialized;
 
 use crate::{
-    internal::FirefoxAccount, DeviceConfig, Error, FxaError, FxaEvent, FxaRustAuthState, FxaState,
-    Result,
+    DeviceConfig, Error, FxaError, FxaEvent, FxaRustAuthState, FxaState, Result,
+    internal::FirefoxAccount,
 };
 pub use auth_issues::AuthIssuesStateMachine;
 pub use authenticating::AuthenticatingStateMachine;
@@ -167,7 +167,7 @@ impl State {
             state => {
                 return Err(Error::StateMachineLogicError(format!(
                     "process_call: Don't know how to handle {state}"
-                )))
+                )));
             }
         })
     }

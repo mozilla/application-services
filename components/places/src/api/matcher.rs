@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::PlacesDb;
-use crate::error::{warn, Result};
+use crate::error::{Result, warn};
 use crate::ffi::SearchResult as FfiSearchResult;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
 use rusqlite::Row;
@@ -621,11 +621,13 @@ mod tests {
             },
         )
         .expect("Should search by origin");
-        assert!(by_origin
-            .iter()
-            .any(|result| result.search_string == "example.com"
-                && result.title == "example.com/"
-                && result.url.as_str() == "http://example.com/"));
+        assert!(
+            by_origin
+                .iter()
+                .any(|result| result.search_string == "example.com"
+                    && result.title == "example.com/"
+                    && result.url.as_str() == "http://example.com/")
+        );
 
         let by_url_without_path = search_frecent(
             &conn,
@@ -635,10 +637,12 @@ mod tests {
             },
         )
         .expect("Should search by URL without path");
-        assert!(by_url_without_path
-            .iter()
-            .any(|result| result.title == "example.com/"
-                && result.url.as_str() == "http://example.com/"));
+        assert!(
+            by_url_without_path
+                .iter()
+                .any(|result| result.title == "example.com/"
+                    && result.url.as_str() == "http://example.com/")
+        );
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -648,10 +652,12 @@ mod tests {
             },
         )
         .expect("Should search by URL with path");
-        assert!(by_url_with_path
-            .iter()
-            .any(|result| result.title == "example.com/123"
-                && result.url.as_str() == "http://example.com/123"));
+        assert!(
+            by_url_with_path
+                .iter()
+                .any(|result| result.title == "example.com/123"
+                    && result.url.as_str() == "http://example.com/123")
+        );
 
         accept_result(&conn, "ample", &url).expect("Should accept input history match");
 
@@ -663,9 +669,11 @@ mod tests {
             },
         )
         .expect("Should search by adaptive input history");
-        assert!(by_adaptive
-            .iter()
-            .any(|result| result.search_string == "ample" && result.url == url));
+        assert!(
+            by_adaptive
+                .iter()
+                .any(|result| result.search_string == "ample" && result.url == url)
+        );
 
         let with_limit = search_frecent(
             &conn,
@@ -706,11 +714,13 @@ mod tests {
             },
         )
         .expect("Should search by URL without path");
-        assert!(by_url_without_path
-            .iter()
-            // Should we consider un-punycoding the title? (firefox desktop doesn't...)
-            .any(|result| result.title == "xn--exmple-cua.com/"
-                && result.url.as_str() == "http://xn--exmple-cua.com/"));
+        assert!(
+            by_url_without_path
+                .iter()
+                // Should we consider un-punycoding the title? (firefox desktop doesn't...)
+                .any(|result| result.title == "xn--exmple-cua.com/"
+                    && result.url.as_str() == "http://xn--exmple-cua.com/")
+        );
 
         let by_url_with_path = search_frecent(
             &conn,

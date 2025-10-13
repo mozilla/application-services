@@ -2,17 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::SyncStatus;
 use super::merge::{LocalLogin, MirrorLogin, SyncLoginData};
 use super::update_plan::UpdatePlan;
-use super::SyncStatus;
+use crate::LoginDb;
+use crate::LoginStore;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::EncryptedLogin;
 use crate::schema;
 use crate::util;
-use crate::LoginDb;
-use crate::LoginStore;
 use interrupt_support::SqlInterruptScope;
 use rusqlite::named_params;
 use sql_support::ConnExt;
@@ -20,10 +20,10 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
+use sync_guid::Guid;
 use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine};
-use sync15::{telemetry, ServerTimestamp};
-use sync_guid::Guid;
+use sync15::{ServerTimestamp, telemetry};
 
 // The sync engine.
 pub struct LoginsSyncEngine {
@@ -299,7 +299,7 @@ impl LoginsSyncEngine {
 
     pub fn set_global_state(&self, state: &Option<String>) -> Result<()> {
         let to_write = match state {
-            Some(ref s) => s,
+            Some(s) => s,
             None => "",
         };
         let db = self.store.lock_db()?;
@@ -942,10 +942,12 @@ mod tests {
             Some("https://something-else.com".into()),
             None,
         );
-        assert!(engine
-            .find_dupe_login(&to_find)
-            .expect("should work")
-            .is_none());
+        assert!(
+            engine
+                .find_dupe_login(&to_find)
+                .expect("should work")
+                .is_none()
+        );
 
         let to_find = make_enc_login(
             "test1",
@@ -969,10 +971,12 @@ mod tests {
             Some("https://www.example1.com".into()),
             None,
         );
-        assert!(engine
-            .find_dupe_login(&to_find)
-            .expect("should work")
-            .is_none());
+        assert!(
+            engine
+                .find_dupe_login(&to_find)
+                .expect("should work")
+                .is_none()
+        );
 
         // no form origin.
         let to_find = make_enc_login("test1", "test1", None, Some("http://some-realm.com".into()));
@@ -1126,19 +1130,23 @@ mod tests {
         // Reset the engine - this wipes the mirror.
         engine.reset(&EngineSyncAssociation::Disconnected).unwrap();
         // But the local record does still exist.
-        assert!(engine
-            .store
-            .get("dummy_000001")
-            .expect("should work")
-            .is_some());
+        assert!(
+            engine
+                .store
+                .get("dummy_000001")
+                .expect("should work")
+                .is_some()
+        );
 
         // Delete the local record.
         engine.store.delete("dummy_000001").unwrap();
-        assert!(engine
-            .store
-            .get("dummy_000001")
-            .expect("should work")
-            .is_none());
+        assert!(
+            engine
+                .store
+                .get("dummy_000001")
+                .expect("should work")
+                .is_none()
+        );
 
         // double-check our test preconditions - should now have 1 in LoginsL and 0 in LoginsM
         assert_eq!(count(&engine, "LoginsL"), 1);
@@ -1161,11 +1169,13 @@ mod tests {
 
         // Desktop semantics here are that a local tombstone is treated as though it doesn't exist at all.
         // ie, the remote record should be taken whether it is newer or older than the tombstone.
-        assert!(engine
-            .store
-            .get("dummy_000001")
-            .expect("should work")
-            .is_some());
+        assert!(
+            engine
+                .store
+                .get("dummy_000001")
+                .expect("should work")
+                .is_some()
+        );
         // and there should never be an outgoing record.
         // XXX - but there is! But this is exceedingly rare, we
         // should fix it :)

@@ -31,9 +31,8 @@ use crate::util;
 use interrupt_support::{SqlInterruptHandle, SqlInterruptScope};
 use lazy_static::lazy_static;
 use rusqlite::{
-    named_params,
+    Connection, named_params,
     types::{FromSql, ToSql},
-    Connection,
 };
 use sql_support::ConnExt;
 use std::ops::Deref;
@@ -516,7 +515,8 @@ impl LoginDb {
             let has_form_action_origin = entry.form_action_origin.is_some();
             report_error!(
                 "logins-duplicate-in-update",
-                "(mirror: {has_mirror_row}, realm: {has_http_realm}, form_origin: {has_form_action_origin})");
+                "(mirror: {has_mirror_row}, realm: {has_http_realm}, form_origin: {has_form_action_origin})"
+            );
         }
 
         // Note: This fail with NoSuchRecord if the record doesn't exist.
@@ -936,9 +936,9 @@ lazy_static! {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
+    use crate::SecureLoginFields;
     use crate::encryption::test_utils::decrypt_struct;
     use crate::login::test_utils::enc_login;
-    use crate::SecureLoginFields;
     use sync15::ServerTimestamp;
 
     // Insert a login into the local and/or mirror tables.
@@ -1861,8 +1861,8 @@ mod tests {
         fn test_invalid_login() {
             ensure_initialized();
             let db = LoginDb::open_in_memory();
-            assert!(db
-                .find_login_to_update(
+            assert!(
+                db.find_login_to_update(
                     LoginEntry {
                         http_realm: None,
                         form_action_origin: None,
@@ -1870,7 +1870,8 @@ mod tests {
                     },
                     &*TEST_ENCDEC
                 )
-                .is_err());
+                .is_err()
+            );
         }
 
         #[test]

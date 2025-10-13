@@ -14,8 +14,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 ///
 /// Firefox Accounts and the broader Sync universe separates devices into broad categories for
 /// various purposes, such as distinguishing a desktop PC from a mobile phone.
+/// Upon signin, the application should inspect the device it is running on and select an appropriate
+/// [`DeviceType`] to include in its device registration record.
 ///
-/// A special variant in this enum, `DeviceType::Unknown` is used to capture
+/// A special variant in this enum, [`DeviceType::Unknown`] is used to capture
 /// the string values we don't recognise. It also has a custom serde serializer and deserializer
 /// which implements the following semantics:
 /// * deserializing a `DeviceType` which uses a string value we don't recognise or null will return
@@ -32,7 +34,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 ///   upload records with *this* device's type, not the type of other devices, and it's reasonable
 ///   to assume that this module knows about all valid device types for the device type it is
 ///   deployed on.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum DeviceType {
     Desktop,
     Mobile,

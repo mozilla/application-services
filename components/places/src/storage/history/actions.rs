@@ -27,7 +27,7 @@
 //! Right now, only a couple function use this system, but hopefully we can use it more in the
 //! future.
 
-use super::{cleanup_pages, PageToClean};
+use super::{PageToClean, cleanup_pages};
 use crate::error::Result;
 use crate::{PlacesDb, RowId};
 use rusqlite::Row;
@@ -166,7 +166,7 @@ mod tests {
     use crate::storage::bookmarks::*;
     use crate::storage::history::apply_observation;
     use crate::types::VisitType;
-    use crate::{frecency, ConnectionType, SyncStatus};
+    use crate::{ConnectionType, SyncStatus, frecency};
     use rusqlite::params;
     use rusqlite::types::{FromSql, ToSql};
     use std::time::Duration;

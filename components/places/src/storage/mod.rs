@@ -11,14 +11,14 @@ pub mod history_metadata;
 pub mod tags;
 
 use crate::db::PlacesDb;
-use crate::error::{warn, Error, InvalidPlaceInfo, Result};
+use crate::error::{Error, InvalidPlaceInfo, Result, warn};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
-use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
+use crate::frecency::{DEFAULT_FRECENCY_SETTINGS, calculate_frecency};
 use crate::types::{SyncStatus, UnknownFields, VisitType};
 use interrupt_support::SqlInterruptScope;
-use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::{Connection, Row};
 use serde_derive::*;
 use sql_support::{self, ConnExt};
@@ -399,8 +399,8 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::observation::VisitObservation;
     use bookmarks::{
-        delete_bookmark, insert_bookmark, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
-        InsertableItem,
+        BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem, delete_bookmark,
+        insert_bookmark,
     };
     use history::apply_observation;
 
@@ -409,9 +409,11 @@ mod tests {
         let conn = new_mem_connection();
         let value1 = "value 1".to_string();
         let value2 = "value 2".to_string();
-        assert!(get_meta::<String>(&conn, "foo")
-            .expect("should get")
-            .is_none());
+        assert!(
+            get_meta::<String>(&conn, "foo")
+                .expect("should get")
+                .is_none()
+        );
         put_meta(&conn, "foo", &value1).expect("should put");
         assert_eq!(
             get_meta(&conn, "foo").expect("should get new val"),
@@ -420,9 +422,11 @@ mod tests {
         put_meta(&conn, "foo", &value2).expect("should put an existing value");
         assert_eq!(get_meta(&conn, "foo").expect("should get"), Some(value2));
         delete_meta(&conn, "foo").expect("should delete");
-        assert!(get_meta::<String>(&conn, "foo")
-            .expect("should get non-existing")
-            .is_none());
+        assert!(
+            get_meta::<String>(&conn, "foo")
+                .expect("should get non-existing")
+                .is_none()
+        );
         delete_meta(&conn, "foo").expect("delete non-existing should work");
     }
 
@@ -515,14 +519,16 @@ mod tests {
             1
         );
         // visit the bookmark.
-        assert!(apply_observation(
-            &conn,
-            VisitObservation::new(url)
-                .with_at(Timestamp::from(727_747_200_001))
-                .with_visit_type(VisitType::Link)
-        )
-        .unwrap()
-        .is_some());
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(url)
+                    .with_at(Timestamp::from(727_747_200_001))
+                    .with_visit_type(VisitType::Link)
+            )
+            .unwrap()
+            .is_some()
+        );
 
         delete_bookmark(&conn, &bookmark_guid).unwrap();
         assert_eq!(
@@ -530,7 +536,7 @@ mod tests {
                 .unwrap(),
             5
         ); // our 5 roots
-           // the place should have no foreign references, but still exists.
+        // the place should have no foreign references, but still exists.
         assert_eq!(
             conn.conn_ext_query_one::<i64>(
                 "SELECT foreign_count FROM moz_places WHERE url = \"http://example.com/foo\";"
@@ -594,7 +600,7 @@ mod tests {
                 .unwrap(),
             5
         ); // our 5 roots
-           // should be gone from places and origins.
+        // should be gone from places and origins.
         assert_eq!(
             conn.conn_ext_query_one::<i64>("SELECT COUNT(*) FROM moz_places;")
                 .unwrap(),

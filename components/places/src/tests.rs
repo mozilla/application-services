@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::{
     db::PlacesDb,
     storage::bookmarks::get_raw_bookmark,
-    storage::bookmarks::json_tree::{fetch_tree, insert_tree, BookmarkTreeNode, FetchDepth},
+    storage::bookmarks::json_tree::{BookmarkTreeNode, FetchDepth, fetch_tree, insert_tree},
     types::BookmarkType,
 };
 

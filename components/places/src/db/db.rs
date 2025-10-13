@@ -10,16 +10,16 @@ use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use rusqlite::{self, Connection, Transaction};
 use sql_support::{
-    open_database::{self, open_database_with_flags, ConnectionInitializer},
     ConnExt,
+    open_database::{self, ConnectionInitializer, open_database_with_flags},
 };
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::Path;
 
 use std::sync::{
-    atomic::{AtomicI64, Ordering},
     Arc, RwLock,
+    atomic::{AtomicI64, Ordering},
 };
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
@@ -420,7 +420,7 @@ pub(crate) mod sql_fns {
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
     use rusqlite::types::Null;
-    use rusqlite::{functions::Context, types::ValueRef, Error, Result};
+    use rusqlite::{Error, Result, functions::Context, types::ValueRef};
     use std::sync::atomic::Ordering;
     use sync_guid::Guid as SyncGuid;
     use types::Timestamp;

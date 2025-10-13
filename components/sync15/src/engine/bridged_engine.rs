@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::debug;
-use crate::{telemetry, ServerTimestamp};
+use crate::{ServerTimestamp, telemetry};
 use anyhow::Result;
 
-use crate::bso::{IncomingBso, OutgoingBso};
 use crate::Guid;
+use crate::bso::{IncomingBso, OutgoingBso};
 
 use super::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 

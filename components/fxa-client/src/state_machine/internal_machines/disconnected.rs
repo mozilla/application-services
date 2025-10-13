@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{invalid_transition, Event, InternalStateMachine, State};
+use super::{Event, InternalStateMachine, State, invalid_transition};
 use crate::{Error, FxaEvent, FxaState, Result};
 
 pub struct DisconnectedStateMachine;
