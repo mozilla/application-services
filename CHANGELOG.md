@@ -1,5 +1,10 @@
 # v146.0 (In progress)
 
+## ✨ What's New ✨
+
+### Autofill
+- Adds a migration to migrate users to use subregion codes over fully qualified strings. ([bug 1993388](https://bugzilla.mozilla.org/show_bug.cgi?id=1993388))
+
 ## 🦊 What's Changed 🦊
 
 ### Android
