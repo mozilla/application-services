@@ -87,9 +87,9 @@ pub struct AdCallbacks {
 #[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct MozAd {
     pub alt_text: Option<String>,
-    pub block_key: Option<String>,
+    pub block_key: String,
     pub callbacks: AdCallbacks,
-    pub format: Option<String>,
+    pub format: String,
     pub image_url: String, //TODO: Consider if we want to load the image locally
     pub url: String,
 }
@@ -193,13 +193,13 @@ mod tests {
             full,
             MozAd {
                 alt_text: Some("An ad for an anvil".into()),
-                block_key: Some("abc123".into()),
+                block_key: "abc123".into(),
                 callbacks: AdCallbacks {
                     click: Some("https://buyanvilseveryday.test/click".into()),
                     impression: Some("https://buyanvilseveryday.test/impression".into()),
                     report: Some("https://buyanvilseveryday.test/report".into()),
                 },
-                format: Some("Leaderboard".into()),
+                format: "Leaderboard".into(),
                 image_url: "https://buyanvilseveryday.test/img.png".into(),
                 url: "https://buyanvilseveryday.test".into(),
             }
@@ -225,13 +225,13 @@ mod tests {
             partial,
             MozAd {
                 alt_text: None,
-                block_key: None,
+                block_key: "abc123".into(),
                 callbacks: AdCallbacks {
                     click: None,
                     impression: None,
                     report: None,
                 },
-                format: None,
+                format: "Leaderboard".into(),
                 image_url: "https://example.test/image.png".into(),
                 url: "https://example.test/item".into(),
             }
@@ -279,8 +279,8 @@ mod tests {
                     vec![MozAd {
                         url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                         image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
-                        format: Some("billboard".to_string()),
-                        block_key: None,
+                        format: "billboard".to_string(),
+                        block_key: "abc123".into(),
                         alt_text: Some("An ad for a puppy".to_string()),
                         callbacks: AdCallbacks {
                             click: Some(
@@ -298,8 +298,8 @@ mod tests {
                     vec![MozAd {
                         url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                         image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
-                        format: Some("skyscraper".to_string()),
-                        block_key: None,
+                        format: "skyscraper".to_string(),
+                        block_key: "abc123".into(),
                         alt_text: Some("An ad for a pet duck".to_string()),
                         callbacks: AdCallbacks {
                             click: Some(

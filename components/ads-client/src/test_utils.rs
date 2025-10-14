@@ -40,8 +40,8 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                 vec![MozAd {
                     url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
-                    format: Some("billboard".to_string()),
-                    block_key: None,
+                    format: "billboard".to_string(),
+                    block_key: "abc123".into(),
                     alt_text: Some("An ad for a puppy".to_string()),
                     callbacks: AdCallbacks {
                         click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
@@ -57,8 +57,8 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                 vec![MozAd {
                     url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
-                    format: Some("skyscraper".to_string()),
-                    block_key: None,
+                    format: "skyscraper".to_string(),
+                    block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
                     callbacks: AdCallbacks {
                         click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
@@ -88,8 +88,8 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
             content: MozAd {
                 url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
-                format: Some("billboard".to_string()),
-                block_key: None,
+                format: "billboard".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a puppy".to_string()),
                 callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
@@ -114,8 +114,8 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
             content: MozAd {
                 url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
-                format: Some("skyscraper".to_string()),
-                block_key: None,
+                format: "skyscraper".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet duck".to_string()),
                 callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),

@@ -506,8 +506,8 @@ mod tests {
             .push(MozAd {
                 url: "https://ads.fakeexample.org/example_ad_2_2".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_2_2".to_string(),
-                format: Some("skyscraper".to_string()),
-                block_key: None,
+                format: "skyscraper".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet dragon".to_string()),
                 callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_2_2".to_string()),
