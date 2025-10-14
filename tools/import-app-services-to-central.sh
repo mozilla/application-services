@@ -31,11 +31,9 @@ moz-phab patch --apply-to=here --skip-dependencies --no-branch D260480
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D245762
 # enable `--with-appservices-in-tree` config option by default
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
-# vet `ece`
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D265023
-# various hacks needed until we fix other things
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D265174
-#lint
+# vet nimbus, rc_crypto, ece, etc
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
+# lint
 moz-phab patch --apply-to=here --no-branch D246875
 
 # the import of app-services via a branch markh is maintaining while we work towards `main`
@@ -76,7 +74,10 @@ git add -f services/app-services
 git commit -m "Import application-services commit $commit"
 
 # We've committed an app-services unmodified apart from removal of things we don't need.
-# Update Cargo.toml and re-vendor.
+# apply the final "patch" in the stack, which we do by abusing sed.
+# This is mildly (hah!) fragile.
+
+# Update Cargo.toml.
 sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' \
     -e 's|error-support = { git = .*$|error-support = { path = "services/app-services/components/support/error" }|' \
     -e 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' \
@@ -90,11 +91,10 @@ sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/
     -e 's|tracing-support = { git = .*$|tracing-support = { path = "services/app-services/components/support/tracing" }|' \
     -e 's|viaduct = { git = .*$|viaduct = { path = "services/app-services/components/viaduct" }|' \
     -e 's|webext-storage = { git = .*$|webext-storage = { path = "services/app-services/components/webext-storage" }|' \
+    -e 's|logins = { git = .*$|logins = { path = "services/app-services/components/logins" }|' \
+    -e 's|init_rust_components = { git = .*$|init_rust_components = { path = "services/app-services/components/init_rust_components" }|' \
     Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
-
-# apply the final "patch" in the stack, which we do by abusing sed.
-# This is mildly (hah!) fragile.
 
 # [dependencies] is conveniently at the end of these toml files
 printf 'mozilla-central-workspace-hack = { version = "0.1", features = ["megazord"], optional = true }\n' >> services/app-services/megazords/full/Cargo.toml
@@ -110,48 +110,51 @@ printf 'megazord = []\nembedded-uniffi-bindgen = []\nnimbus-fml = []\n' >> build
 # Add app-services crates to the workspace `members`, unless their dependencies can't be vendored.
 sed -e 's|  "security/mls/mls_gk",|  "security/mls/mls_gk",\
   "services/app-services/tools/embedded-uniffi-bindgen",\
-  "services/app-services/components/ads-client", \
-  "services/app-services/components/autofill", \
-  "services/app-services/components/context_id", \
-  "services/app-services/components/crashtest", \
-  "services/app-services/components/example", \
-  "services/app-services/components/filter_adult", \
-  "services/app-services/components/fxa-client", \
-  "services/app-services/components/init_rust_components", \
-  "services/app-services/components/logins", \
-  "services/app-services/components/merino", \
-  "services/app-services/components/places", \
-  "services/app-services/components/push", \
-  "services/app-services/components/relay", \
-  "services/app-services/components/relevancy", \
-  "services/app-services/components/remote_settings", \
-  "services/app-services/components/search", \
-  "services/app-services/components/suggest", \
-  "services/app-services/components/support/error", \
-  "services/app-services/components/support/find-places-db", \
-  "services/app-services/components/support/firefox-versioning", \
-  "services/app-services/components/support/guid", \
-  "services/app-services/components/support/interrupt", \
-  "services/app-services/components/support/jwcrypto", \
-  "services/app-services/components/support/payload", \
-  "services/app-services/components/support/rand_rccrypto", \
-  "services/app-services/components/support/rate-limiter", \
-  "services/app-services/components/support/restmail-client", \
-  "services/app-services/components/support/rc_crypto", \
-  "services/app-services/components/support/rc_crypto/nss", \
-  "services/app-services/components/support/rc_crypto/nss/nss_build_common", \
-  "services/app-services/components/support/rc_crypto/nss/nss_sys", \
-  "services/app-services/components/support/rust-log-forwarder", \
-  "services/app-services/components/support/sql", \
-  "services/app-services/components/support/text-table", \
-  "services/app-services/components/support/tracing", \
-  "services/app-services/components/support/types", \
-  "services/app-services/components/sync_manager", \
-  "services/app-services/components/sync15", \
-  "services/app-services/components/tabs", \
-  "services/app-services/components/viaduct", \
-  "services/app-services/components/webext-storage", \
-  "services/app-services/components/webext-storage/ffi",|' \
+  "services/app-services/tools/uniffi-bindgen-library-mode",\
+  "services/app-services/components/ads-client",\
+  "services/app-services/components/autofill",\
+  "services/app-services/components/context_id",\
+  "services/app-services/components/crashtest",\
+  "services/app-services/components/example",\
+  "services/app-services/components/filter_adult",\
+  "services/app-services/components/fxa-client",\
+  "services/app-services/components/init_rust_components",\
+  "services/app-services/components/logins",\
+  "services/app-services/components/merino",\
+  "services/app-services/components/places",\
+  "services/app-services/components/push",\
+  "services/app-services/components/relay",\
+  "services/app-services/components/relevancy",\
+  "services/app-services/components/remote_settings",\
+  "services/app-services/components/search",\
+  "services/app-services/components/suggest",\
+  "services/app-services/components/support/error",\
+  "services/app-services/components/support/find-places-db",\
+  "services/app-services/components/support/firefox-versioning",\
+  "services/app-services/components/support/guid",\
+  "services/app-services/components/support/interrupt",\
+  "services/app-services/components/support/jwcrypto",\
+  "services/app-services/components/support/payload",\
+  "services/app-services/components/support/nimbus-fml",\
+  "services/app-services/components/support/rand_rccrypto",\
+  "services/app-services/components/support/rate-limiter",\
+  "services/app-services/components/support/restmail-client",\
+  "services/app-services/components/support/rc_crypto",\
+  "services/app-services/components/support/rc_crypto/nss",\
+  "services/app-services/components/support/rc_crypto/nss/nss_build_common",\
+  "services/app-services/components/support/rc_crypto/nss/nss_sys",\
+  "services/app-services/components/support/rust-log-forwarder",\
+  "services/app-services/components/support/sql",\
+  "services/app-services/components/support/text-table",\
+  "services/app-services/components/support/tracing",\
+  "services/app-services/components/support/types",\
+  "services/app-services/components/sync_manager",\
+  "services/app-services/components/sync15",\
+  "services/app-services/components/tabs",\
+  "services/app-services/components/viaduct",\
+  "services/app-services/components/webext-storage",\
+  "services/app-services/components/webext-storage/ffi",\
+  "services/app-services/megazords/full",|'\
   Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
@@ -162,47 +165,47 @@ mv Cargo.toml.tmp Cargo.toml
 # shellcheck disable=SC2016
 sed -e 's|  "intl/l10n/rust/l10nregistry-tests",|  "intl/l10n/rust/l10nregistry-tests",\
 \
-  # Exclude various app-services crates to avoid vendoring in their dependencies \
-  # This disadvantage of this is that building these crates will require a separate `Cargo.lock` file and `target` directory. \
-  # This is not ideal, but we are willing accept the trade-off for now. \
+  # Exclude various app-services crates to avoid vendoring in their dependencies\
+  # This disadvantage of this is that building these crates will require a separate `Cargo.lock` file and `target` directory.\
+  # This is not ideal, but we are willing accept the trade-off for now.\
   #\
-  # These depend on `hyper-tls` and we do not want to bring in the subdependencies, like `openssl` \
-  "services/app-services/components/support/viaduct-hyper", \
-  "services/app-services/components/support/viaduct-reqwest", \
+  # These depend on `hyper-tls` and we do not want to bring in the subdependencies, like `openssl`\
+  "services/app-services/components/support/viaduct-hyper",\
+  "services/app-services/components/support/viaduct-reqwest",\
   # Excluded because it depends on `hyper` and having it as top-level member would make \
-  # `cargo vet` require it to be `safe-to-deploy`.  However, since we only use it as a dev-dependency, we want \
-  # it to be `safe-to-run`. \
-  "services/app-services/components/support/viaduct-dev", \
+  # `cargo vet` require it to be `safe-to-deploy`.  However, since we only use it as a dev-dependency, we want\
+  # it to be `safe-to-run`.\
+  "services/app-services/components/support/viaduct-dev",\
   # CLIs that depend on `viaduct-hyper` \
-  "services/app-services/examples/autofill-utils/", \
-  "services/app-services/examples/cli-support/", \
-  "services/app-services/examples/example-cli/", \
-  "services/app-services/examples/fxa-client/", \
-  "services/app-services/examples/merino-cli/", \
-  "services/app-services/examples/places-autocomplete/", \
-  "services/app-services/examples/places-utils/", \
-  "services/app-services/examples/push-livetest/", \
-  "services/app-services/examples/relay-cli/", \
-  "services/app-services/examples/relevancy-cli/", \
-  "services/app-services/examples/remote-settings-cli/", \
-  "services/app-services/examples/suggest-cli/", \
-  "services/app-services/examples/sync-pass/", \
-  "services/app-services/examples/tabs-sync/", \
-  "services/app-services/examples/viaduct-cli/", \
-  "services/app-services/components/example/cli", \
-  "services/app-services/components/support/nimbus-cli", \
-  "services/app-services/components/support/nimbus-fml", \
-  # Excluded to avoid vendoring in `trybuild` and its subdependencies \
-  "services/app-services/components/support/error/tests", \
-  # Temporarily in excludes until we can land some nimbus fixes: \
-  # * Remove unicode_segmentation dependency \
-  # * Split off the `examples` code into a separate crate \
-  "services/app-services/components/nimbus", \
-  "services/app-services/megazords/full", \
-  # Temporarily in excludes until everyone is on the same `ohttp`/`bhttp` version \
-  "services/app-services/components/as-ohttp-client", \
-  # Excluded because of the `viaduct-reqwest` dependency \
-  "services/app-services/megazords/ios-rust",|' \
+  "services/app-services/examples/autofill-utils/",\
+  "services/app-services/examples/cli-support/",\
+  "services/app-services/examples/example-cli/",\
+  "services/app-services/examples/fxa-client/",\
+  "services/app-services/examples/merino-cli/",\
+  "services/app-services/examples/places-autocomplete/",\
+  "services/app-services/examples/places-utils/",\
+  "services/app-services/examples/push-livetest/",\
+  "services/app-services/examples/relay-cli/",\
+  "services/app-services/examples/relevancy-cli/",\
+  "services/app-services/examples/remote-settings-cli/",\
+  "services/app-services/examples/suggest-cli/",\
+  "services/app-services/examples/sync-pass/",\
+  "services/app-services/examples/tabs-sync/",\
+  "services/app-services/examples/viaduct-cli/",\
+  "services/app-services/components/example/cli",\
+  "services/app-services/components/support/nimbus-cli",\
+  "services/app-services/components/support/nimbus-fml",\
+  # Excluded to avoid vendoring in `trybuild` and its subdependencies\
+  "services/app-services/components/support/error/tests",\
+  # Temporarily in excludes until we can land some nimbus fixes:\
+  # * Remove unicode_segmentation dependency\
+  # * Split off the `examples` code into a separate crate\
+  "services/app-services/components/nimbus",\
+  "services/app-services/megazords/full",\
+  # Temporarily in excludes until everyone is on the same `ohttp`/`bhttp` version\
+  "services/app-services/components/as-ohttp-client",\
+  # Excluded because of the `viaduct-reqwest` dependency\
+  "services/app-services/megazords/ios-rust",|'\
   Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
@@ -225,8 +228,8 @@ mv .gitignore.tmp .gitignore
 
 git commit -a -m "Integrate app-services into the build system"
 
-# Vendor everything in
-./mach vendor rust
+# Vendor everything in - `--force`` while we work though the vetting.
+./mach vendor rust --force
 git add -f third_party/rust/.
 git commit -a -m "final vendor."
 
