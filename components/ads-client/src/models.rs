@@ -210,11 +210,13 @@ mod tests {
     fn test_moz_ad_response_partial() {
         let response_partial = json!({
             "alt_text": null,
+            "block_key": "abc123",
             "callbacks": {
                 "click": "",
                 "impression": "   ",
                 "report": null
             },
+            "format": "Leaderboard",
             "image_url": "https://example.test/image.png",
             "url": "https://example.test/item"
         })
@@ -243,6 +245,7 @@ mod tests {
         let raw_ad_response = json!({
             "example_placement_1": [
                 {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_1",
                     "image_url": "https://ads.fakeexample.org/example_image_1",
                     "format": "billboard",
@@ -256,6 +259,7 @@ mod tests {
             ],
             "example_placement_2": [
                 {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_2",
                     "image_url": "https://ads.fakeexample.org/example_image_2",
                     "format": "skyscraper",
