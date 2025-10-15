@@ -4,6 +4,7 @@
 */
 
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use error::AdsClientApiResult;
 use error::{
@@ -11,16 +12,22 @@ use error::{
     RecordImpressionError, ReportAdError, RequestAdsError,
 };
 use error_support::handle_error;
+use http_cache::HttpCache;
 use instrument::TrackError;
 use mars::{DefaultMARSClient, MARSClient};
 use models::{AdContentCategory, AdRequest, AdResponse, IABContentTaxonomy, MozAd};
 use parking_lot::Mutex;
 use uuid::Uuid;
 
+use crate::error::AdsClientApiError;
+use crate::http_cache::ByteSize;
+
 mod error;
+mod http_cache;
 mod instrument;
 mod mars;
 mod models;
+
 #[cfg(test)]
 mod test_utils;
 
@@ -32,19 +39,13 @@ pub struct MozAdsClient {
     inner: Mutex<MozAdsClientInner>,
 }
 
-impl Default for MozAdsClient {
-    fn default() -> Self {
-        Self {
-            inner: Mutex::new(MozAdsClientInner::new()),
-        }
-    }
-}
-
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(db_path: String) -> Self {
+        Self {
+            inner: Mutex::new(MozAdsClientInner::new(db_path)),
+        }
     }
 
     #[handle_error(ComponentError)]
@@ -93,27 +94,27 @@ impl MozAdsClient {
     }
 
     pub fn clear_cache(&self) -> AdsClientApiResult<()> {
-        let mut inner = self.inner.lock();
-        inner.clear_cache();
-        Ok(())
+        let inner = self.inner.lock();
+        inner.clear_cache().map_err(|_| AdsClientApiError::Other {
+            reason: "Failed to clear cache".to_string(),
+        })
     }
 }
 
 pub struct MozAdsClientInner {
-    ads_cache: HashMap<String, MozAdsPlacement>, //TODO: implement caching
     client: Box<dyn MARSClient>,
 }
 
 impl MozAdsClientInner {
-    fn new() -> Self {
+    fn new(db_path: String) -> Self {
         let context_id = Uuid::new_v4().to_string();
-        let client = Box::new(DefaultMARSClient::new(context_id));
-        let ads_cache = HashMap::new(); //TODO: HashMap is a placeholder.
-        Self { ads_cache, client }
-    }
-
-    fn clear_cache(&mut self) {
-        self.ads_cache.clear();
+        let http_cache = HttpCache::builder(db_path)
+            .max_size(ByteSize::mib(10))
+            .ttl(Duration::from_secs(300))
+            .build()
+            .ok(); // TODO: handle error with telemetry
+        let client = Box::new(DefaultMARSClient::new(context_id, http_cache));
+        Self { client }
     }
 
     fn request_ads(
@@ -229,15 +230,19 @@ impl MozAdsClientInner {
 
         Ok(moz_ad_placements)
     }
+
+    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+        self.client.clear_cache()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct IABContent {
     pub taxonomy: IABContentTaxonomy,
     pub category_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementConfig {
     pub placement_id: String,
     pub iab_content: Option<IABContent>,
@@ -272,7 +277,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -344,7 +348,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -383,7 +386,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -400,7 +402,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -421,7 +422,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -454,7 +454,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -482,7 +481,6 @@ mod tests {
             .returning(|| Ok("mock-context-id".to_string()));
 
         let inner_component = MozAdsClientInner {
-            ads_cache: HashMap::new(),
             client: Box::new(mock),
         };
 
@@ -536,7 +534,6 @@ mod tests {
 
         let component = MozAdsClient {
             inner: Mutex::new(MozAdsClientInner {
-                ads_cache: HashMap::new(),
                 client: Box::new(mock),
             }),
         };
@@ -550,15 +547,9 @@ mod tests {
 
     #[test]
     fn test_cycle_context_id() {
-        let component = MozAdsClient::new();
+        let component = MozAdsClient::new("test_cycle.db".to_string());
         let old_id = component.cycle_context_id().unwrap();
         let new_id = component.cycle_context_id().unwrap();
         assert_ne!(old_id, new_id);
-    }
-
-    #[test]
-    fn test_clear_cache_does_not_panic() {
-        let component = MozAdsClient::new();
-        assert!(component.clear_cache().is_ok());
     }
 }

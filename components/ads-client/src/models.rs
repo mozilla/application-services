@@ -18,14 +18,14 @@ where
     })
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
     pub content: Option<AdContentCategory>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+#[derive(Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
 pub enum IABAdUnitFormat {
     Billboard,
     SmartphoneBanner300,
@@ -44,7 +44,7 @@ pub enum IABAdUnitFormat {
     FeaturePhoneLargeBanner,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+#[derive(Clone, Copy, Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
@@ -62,19 +62,19 @@ pub enum IABContentTaxonomy {
     IAB3_0,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdContentCategory {
     pub taxonomy: IABContentTaxonomy,
     pub categories: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdRequest {
     pub context_id: String,
     pub placements: Vec<AdPlacementRequest>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdCallbacks {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub click: Option<String>,
@@ -84,7 +84,7 @@ pub struct AdCallbacks {
     pub report: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct MozAd {
     pub alt_text: Option<String>,
     pub block_key: String,
@@ -94,7 +94,7 @@ pub struct MozAd {
     pub url: String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdResponse {
     #[serde(flatten)]
     pub data: HashMap<String, Vec<MozAd>>,
