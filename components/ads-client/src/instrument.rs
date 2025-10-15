@@ -25,7 +25,7 @@ fn get_telemetry_endpoint() -> String {
     TELEMETRY_ENDPONT.read().clone()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TelemetryEvent {
     Init,

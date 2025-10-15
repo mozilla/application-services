@@ -391,6 +391,7 @@ pub mod consts {
         (ACCEPT_ENCODING, "accept-encoding"),
         (ACCEPT, "accept"),
         (AUTHORIZATION, "authorization"),
+        (CACHE_CONTROL, "cache-control"),
         (CONTENT_TYPE, "content-type"),
         (ETAG, "etag"),
         (IF_NONE_MATCH, "if-none-match"),

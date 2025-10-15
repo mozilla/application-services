@@ -13,6 +13,7 @@
 - Added the Ads Client component to the Megazord.
 - Updated the ApiError enum to AdsClientApiError to avoid naming collision.
 - The `context_id` is now generated and rotated via the existing eponym component crate.
+- Added request caching mechanism using SQLite with configurable TTL and max size.
 
 ### Relay
 - **⚠️ Breaking Change:** The error handling for the Relay component has been refactored for stronger forward compatibility and more transparent error reporting in Swift and Kotlin via UniFFI.
