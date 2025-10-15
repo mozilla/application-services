@@ -38,35 +38,35 @@ pub fn get_example_happy_ad_response() -> AdResponse {
             (
                 "example_placement_1".to_string(),
                 vec![MozAd {
-                    url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
-                    image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
-                    format: Some("billboard".to_string()),
-                    block_key: None,
+                    url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+                    format: "billboard".to_string(),
+                    block_key: "abc123".into(),
                     alt_text: Some("An ad for a puppy".to_string()),
-                    callbacks: Some(AdCallbacks {
+                    callbacks: AdCallbacks {
                         click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
                         impression: Some(
                             "https://ads.fakeexample.org/impression/example_ad_1".to_string(),
                         ),
                         report: Some("https://ads.fakeexample.org/report/example_ad_1".to_string()),
-                    }),
+                    },
                 }],
             ),
             (
                 "example_placement_2".to_string(),
                 vec![MozAd {
-                    url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
-                    image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
-                    format: Some("skyscraper".to_string()),
-                    block_key: None,
+                    url: "https://ads.fakeexample.org/example_ad_2".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
+                    format: "skyscraper".to_string(),
+                    block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
-                    callbacks: Some(AdCallbacks {
+                    callbacks: AdCallbacks {
                         click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
                         impression: Some(
                             "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
                         ),
                         report: Some("https://ads.fakeexample.org/report/example_ad_2".to_string()),
-                    }),
+                    },
                 }],
             ),
         ]),
@@ -86,18 +86,18 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                 }),
             },
             content: MozAd {
-                url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
-                image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
-                format: Some("billboard".to_string()),
-                block_key: None,
+                url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+                image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+                format: "billboard".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a puppy".to_string()),
-                callbacks: Some(AdCallbacks {
+                callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
                     impression: Some(
                         "https://ads.fakeexample.org/impression/example_ad_1".to_string(),
                     ),
                     report: Some("https://ads.fakeexample.org/report/example_ad_1".to_string()),
-                }),
+                },
             },
         },
     );
@@ -112,18 +112,18 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                 }),
             },
             content: MozAd {
-                url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
-                image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
-                format: Some("skyscraper".to_string()),
-                block_key: None,
+                url: "https://ads.fakeexample.org/example_ad_2".to_string(),
+                image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
+                format: "skyscraper".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet duck".to_string()),
-                callbacks: Some(AdCallbacks {
+                callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
                     impression: Some(
                         "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
                     ),
                     report: Some("https://ads.fakeexample.org/report/example_ad_2".to_string()),
-                }),
+                },
             },
         },
     );

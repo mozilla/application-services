@@ -127,33 +127,21 @@ impl MozAdsClientInner {
     }
 
     fn record_impression(&self, placement: &MozAdsPlacement) -> Result<(), RecordImpressionError> {
-        let impression_callback = placement
-            .content
-            .callbacks
-            .as_ref()
-            .and_then(|callbacks| callbacks.impression.clone());
+        let impression_callback = placement.content.callbacks.impression.clone();
 
         self.client.record_impression(impression_callback)?;
         Ok(())
     }
 
     fn record_click(&self, placement: &MozAdsPlacement) -> Result<(), RecordClickError> {
-        let click_callback = placement
-            .content
-            .callbacks
-            .as_ref()
-            .and_then(|callbacks| callbacks.click.clone());
+        let click_callback = placement.content.callbacks.click.clone();
 
         self.client.record_click(click_callback)?;
         Ok(())
     }
 
     fn report_ad(&self, placement: &MozAdsPlacement) -> Result<(), ReportAdError> {
-        let report_ad_callback = placement
-            .content
-            .callbacks
-            .as_ref()
-            .and_then(|callbacks| callbacks.report.clone());
+        let report_ad_callback = placement.content.callbacks.report.clone();
 
         self.client.report_ad(report_ad_callback)?;
         Ok(())
@@ -516,18 +504,18 @@ mod tests {
             .get_mut("example_placement_2")
             .unwrap()
             .push(MozAd {
-                url: Some("https://ads.fakeexample.org/example_ad_2_2".to_string()),
-                image_url: Some("https://ads.fakeexample.org/example_image_2_2".to_string()),
-                format: Some("skyscraper".to_string()),
-                block_key: None,
+                url: "https://ads.fakeexample.org/example_ad_2_2".to_string(),
+                image_url: "https://ads.fakeexample.org/example_image_2_2".to_string(),
+                format: "skyscraper".to_string(),
+                block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet dragon".to_string()),
-                callbacks: Some(AdCallbacks {
+                callbacks: AdCallbacks {
                     click: Some("https://ads.fakeexample.org/click/example_ad_2_2".to_string()),
                     impression: Some(
                         "https://ads.fakeexample.org/impression/example_ad_2_2".to_string(),
                     ),
                     report: Some("https://ads.fakeexample.org/report/example_ad_2_2".to_string()),
-                }),
+                },
             });
 
         let placements = inner_component.build_placements(&configs, api_resp);

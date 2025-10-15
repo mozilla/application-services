@@ -87,11 +87,11 @@ pub struct AdCallbacks {
 #[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct MozAd {
     pub alt_text: Option<String>,
-    pub block_key: Option<String>,
-    pub callbacks: Option<AdCallbacks>,
-    pub format: Option<String>,
-    pub image_url: Option<String>, //TODO: Consider if we want to load the image locally
-    pub url: Option<String>,
+    pub block_key: String,
+    pub callbacks: AdCallbacks,
+    pub format: String,
+    pub image_url: String, //TODO: Consider if we want to load the image locally
+    pub url: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
@@ -193,15 +193,15 @@ mod tests {
             full,
             MozAd {
                 alt_text: Some("An ad for an anvil".into()),
-                block_key: Some("abc123".into()),
-                callbacks: Some(AdCallbacks {
+                block_key: "abc123".into(),
+                callbacks: AdCallbacks {
                     click: Some("https://buyanvilseveryday.test/click".into()),
                     impression: Some("https://buyanvilseveryday.test/impression".into()),
                     report: Some("https://buyanvilseveryday.test/report".into()),
-                }),
-                format: Some("Leaderboard".into()),
-                image_url: Some("https://buyanvilseveryday.test/img.png".into()),
-                url: Some("https://buyanvilseveryday.test".into()),
+                },
+                format: "Leaderboard".into(),
+                image_url: "https://buyanvilseveryday.test/img.png".into(),
+                url: "https://buyanvilseveryday.test".into(),
             }
         );
     }
@@ -210,11 +210,15 @@ mod tests {
     fn test_moz_ad_response_partial() {
         let response_partial = json!({
             "alt_text": null,
+            "block_key": "abc123",
             "callbacks": {
                 "click": "",
                 "impression": "   ",
                 "report": null
-            }
+            },
+            "format": "Leaderboard",
+            "image_url": "https://example.test/image.png",
+            "url": "https://example.test/item"
         })
         .to_string();
 
@@ -223,15 +227,15 @@ mod tests {
             partial,
             MozAd {
                 alt_text: None,
-                block_key: None,
-                callbacks: Some(AdCallbacks {
+                block_key: "abc123".into(),
+                callbacks: AdCallbacks {
                     click: None,
                     impression: None,
                     report: None,
-                }),
-                format: None,
-                image_url: None,
-                url: None,
+                },
+                format: "Leaderboard".into(),
+                image_url: "https://example.test/image.png".into(),
+                url: "https://example.test/item".into(),
             }
         );
     }
@@ -241,6 +245,7 @@ mod tests {
         let raw_ad_response = json!({
             "example_placement_1": [
                 {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_1",
                     "image_url": "https://ads.fakeexample.org/example_image_1",
                     "format": "billboard",
@@ -254,6 +259,7 @@ mod tests {
             ],
             "example_placement_2": [
                 {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_2",
                     "image_url": "https://ads.fakeexample.org/example_image_2",
                     "format": "skyscraper",
@@ -275,12 +281,12 @@ mod tests {
                 (
                     "example_placement_1".to_string(),
                     vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
-                        format: Some("billboard".to_string()),
-                        block_key: None,
+                        url: "https://ads.fakeexample.org/example_ad_1".to_string(),
+                        image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
+                        format: "billboard".to_string(),
+                        block_key: "abc123".into(),
                         alt_text: Some("An ad for a puppy".to_string()),
-                        callbacks: Some(AdCallbacks {
+                        callbacks: AdCallbacks {
                             click: Some(
                                 "https://ads.fakeexample.org/click/example_ad_1".to_string(),
                             ),
@@ -288,18 +294,18 @@ mod tests {
                             report: Some(
                                 "https://ads.fakeexample.org/report/example_ad_1".to_string(),
                             ),
-                        }),
+                        },
                     }],
                 ),
                 (
                     "example_placement_2".to_string(),
                     vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
-                        format: Some("skyscraper".to_string()),
-                        block_key: None,
+                        url: "https://ads.fakeexample.org/example_ad_2".to_string(),
+                        image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
+                        format: "skyscraper".to_string(),
+                        block_key: "abc123".into(),
                         alt_text: Some("An ad for a pet duck".to_string()),
-                        callbacks: Some(AdCallbacks {
+                        callbacks: AdCallbacks {
                             click: Some(
                                 "https://ads.fakeexample.org/click/example_ad_2".to_string(),
                             ),
@@ -309,7 +315,7 @@ mod tests {
                             report: Some(
                                 "https://ads.fakeexample.org/report/example_ad_2".to_string(),
                             ),
-                        }),
+                        },
                     }],
                 ),
             ]),
