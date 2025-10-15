@@ -25,12 +25,7 @@ impl InternalStateMachine for UninitializedStateMachine {
         Ok(match (state, event) {
             (GetAuthState, GetAuthStateSuccess { auth_state }) => match auth_state {
                 FxaRustAuthState::Disconnected => Complete(FxaState::Disconnected),
-                FxaRustAuthState::AuthIssues => {
-                    // FIXME: We should move to `AuthIssues` here, but we don't in order to
-                    // match the current firefox-android behavior
-                    // See https://bugzilla.mozilla.org/show_bug.cgi?id=1794212
-                    EnsureDeviceCapabilities
-                }
+                FxaRustAuthState::AuthIssues => Complete(FxaState::AuthIssues),
                 FxaRustAuthState::Connected => EnsureDeviceCapabilities,
             },
             (EnsureDeviceCapabilities, EnsureDeviceCapabilitiesSuccess) => {
@@ -81,8 +76,7 @@ mod test {
             tester.peek_next_state(GetAuthStateSuccess {
                 auth_state: FxaRustAuthState::AuthIssues
             }),
-            // FIXME: https://bugzilla.mozilla.org/show_bug.cgi?id=1794212
-            EnsureDeviceCapabilities,
+            Complete(FxaState::AuthIssues)
         );
 
         tester.next_state(GetAuthStateSuccess {
