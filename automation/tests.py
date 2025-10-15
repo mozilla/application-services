@@ -25,7 +25,6 @@ Other Modes:
     - rust-clippy
     - rust-fmt
     - ktlint
-    - nss-bindings
     - gradle
     - ios-artifacts
     - python-tests
@@ -494,9 +493,6 @@ def calc_steps(args):
         yield Step("cargo fmt", cargo_fmt)
     elif args.mode == "ktlint":
         yield Step("ktlint", run_ktlint)
-    elif args.mode == "nss-bindings":
-        print_rust_environment()
-        yield Step("NSS bindings test", run_nss_bindings_test)
     elif args.mode == "gradle":
         yield Step("gradle tests", run_gradle_tests)
     elif args.mode == "ios-artifacts":
