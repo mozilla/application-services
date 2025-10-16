@@ -192,6 +192,13 @@ impl ScopedSECItem {
         }
     }
 
+    #[cfg(feature = "keydb")]
+    pub(crate) fn alloc(size: c_uint) -> Self {
+        Self {
+            wrapped: unsafe { *nss_sys::SECITEM_AllocItem(ptr::null_mut(), ptr::null_mut(), size) },
+        }
+    }
+
     pub(crate) fn as_mut_ref(&mut self) -> &mut nss_sys::SECItem {
         &mut self.wrapped
     }
