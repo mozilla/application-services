@@ -6,6 +6,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use viaduct::Request;
 
+#[derive(Debug)]
 pub struct RequestHash(String);
 
 impl From<&Request> for RequestHash {

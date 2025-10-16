@@ -45,7 +45,7 @@ pub enum Error {
 pub struct HttpCacheBuilder {
     db_path: PathBuf,
     max_size: Option<ByteSize>,
-    ttl: Option<Duration>,
+    default_ttl: Option<Duration>,
 }
 
 impl HttpCacheBuilder {
@@ -53,7 +53,7 @@ impl HttpCacheBuilder {
         Self {
             db_path: db_path.into(),
             max_size: None,
-            ttl: None,
+            default_ttl: None,
         }
     }
 
@@ -62,8 +62,8 @@ impl HttpCacheBuilder {
         self
     }
 
-    pub fn ttl(mut self, ttl: Duration) -> Self {
-        self.ttl = Some(ttl);
+    pub fn default_ttl(mut self, ttl: Duration) -> Self {
+        self.default_ttl = Some(ttl);
         self
     }
 
@@ -82,7 +82,7 @@ impl HttpCacheBuilder {
             }
         }
 
-        if let Some(ttl) = self.ttl {
+        if let Some(ttl) = self.default_ttl {
             if !(MIN_TTL..=MAX_TTL).contains(&ttl) {
                 return Err(Error::InvalidTtl {
                     ttl: ttl.as_secs(),
@@ -107,12 +107,12 @@ impl HttpCacheBuilder {
 
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new(conn);
-        let ttl = self.ttl.unwrap_or(DEFAULT_TTL);
+        let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {
             max_size,
             store,
-            ttl,
+            default_ttl,
         })
     }
 }
@@ -126,7 +126,7 @@ mod tests {
         let builder = HttpCacheBuilder::new("test.db".to_string());
         assert_eq!(builder.db_path, PathBuf::from("test.db"));
         assert_eq!(builder.max_size, None);
-        assert_eq!(builder.ttl, None);
+        assert_eq!(builder.default_ttl, None);
         assert!(builder.build().is_ok());
     }
 
@@ -134,11 +134,11 @@ mod tests {
     fn test_cache_builder_valid_custom() {
         let builder = HttpCacheBuilder::new("custom.db".to_string())
             .max_size(ByteSize::b(1024))
-            .ttl(Duration::from_secs(60));
+            .default_ttl(Duration::from_secs(60));
 
         assert_eq!(builder.db_path, PathBuf::from("custom.db"));
         assert_eq!(builder.max_size, Some(ByteSize::b(1024)));
-        assert_eq!(builder.ttl, Some(Duration::from_secs(60)));
+        assert_eq!(builder.default_ttl, Some(Duration::from_secs(60)));
         assert!(builder.build().is_ok());
     }
 
@@ -192,7 +192,8 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_too_small() {
-        let builder = HttpCacheBuilder::new("test.db".to_string()).ttl(Duration::from_secs(0));
+        let builder =
+            HttpCacheBuilder::new("test.db".to_string()).default_ttl(Duration::from_secs(0));
 
         let result = builder.build();
         assert!(matches!(
@@ -207,8 +208,8 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_too_large() {
-        let builder =
-            HttpCacheBuilder::new("test.db".to_string()).ttl(Duration::from_secs(8 * 24 * 60 * 60));
+        let builder = HttpCacheBuilder::new("test.db".to_string())
+            .default_ttl(Duration::from_secs(8 * 24 * 60 * 60));
 
         let result = builder.build();
         assert!(matches!(
@@ -223,10 +224,10 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_boundaries() {
-        let builder_min = HttpCacheBuilder::new("test.db".to_string()).ttl(MIN_TTL);
+        let builder_min = HttpCacheBuilder::new("test.db".to_string()).default_ttl(MIN_TTL);
         assert!(builder_min.build().is_ok());
 
-        let builder_max = HttpCacheBuilder::new("test.db".to_string()).ttl(MAX_TTL);
+        let builder_max = HttpCacheBuilder::new("test.db".to_string()).default_ttl(MAX_TTL);
         assert!(builder_max.build().is_ok());
     }
 }
