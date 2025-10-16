@@ -3,7 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::*;
+use std::os::raw::c_uint;
 
 extern "C" {
     pub fn SECITEM_FreeItem(zap: *mut SECItem, freeit: PRBool);
+    pub fn SECITEM_AllocItem(
+        arena: *mut PLArenaPool,
+        item: *mut SECItem,
+        len: c_uint,
+    ) -> *mut SECItem;
 }
