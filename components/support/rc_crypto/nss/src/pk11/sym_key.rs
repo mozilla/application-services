@@ -191,8 +191,11 @@ fn get_aes256_key(name: &str) -> Result<SymKey> {
                 return Err(ErrorKind::InvalidKeyLength.into());
             }
             // Allocate an extra 8 bytes for CKM_AES_KEY_WRAP_KWP overhead.
-            let wrapped_key = unsafe {
-                nss_sys::SECITEM_AllocItem(ptr::null_mut(), ptr::null_mut(), wrap_len.len + 8)
+            let mut buf = vec![0; (wrap_len.len + 8).try_into().expect("invalid key length")];
+            let mut wrapped_key = nss_sys::SECItem {
+                type_: nss_sys::SECItemType::siBuffer as u32,
+                data: buf.as_mut_ptr(),
+                len: buf.len() as u32,
             };
             map_nss_secstatus(|| unsafe {
                 nss_sys::PK11_WrapSymKey(
@@ -200,7 +203,7 @@ fn get_aes256_key(name: &str) -> Result<SymKey> {
                     ptr::null_mut(),
                     wrapping_key.as_mut_ptr(),
                     sym_key.as_mut_ptr(),
-                    wrapped_key,
+                    &mut wrapped_key,
                 )
             })
             .map_err(|_| get_last_error())?;
@@ -209,21 +212,13 @@ fn get_aes256_key(name: &str) -> Result<SymKey> {
                     wrapping_key.as_mut_ptr(),
                     nss_sys::CKM_AES_KEY_WRAP_KWP,
                     ptr::null_mut(),
-                    wrapped_key,
+                    &mut wrapped_key,
                     nss_sys::CKM_AES_GCM.into(),
                     (nss_sys::CKA_ENCRYPT | nss_sys::CKA_DECRYPT).into(),
                     wrap_len.len as i32,
                 ))
             }
             .map_err(|_| get_last_error())?;
-
-            // This cleanup will not run if a previous operation fails and causes an early return.
-            // Using an RAII-style wrapper would be preferable to ensure the item is always freed,
-            // but given that an earlier failure likely prevents startup, it is acceptable.
-            //
-            // See: https://bugzilla.mozilla.org/show_bug.cgi?id=1992756 for a follow-up
-            // improvement.
-            unsafe { nss_sys::SECITEM_FreeItem(wrapped_key, nss_sys::PR_TRUE) }
 
             map_nss_secstatus(|| unsafe { nss_sys::PK11_ExtractKeyValue(sym_key.as_mut_ptr()) })?;
             Ok(sym_key)
