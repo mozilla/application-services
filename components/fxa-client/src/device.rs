@@ -106,14 +106,9 @@ impl FirefoxAccount {
     /// connected to the user's account. This includes applications that are registered as a device
     /// as well as server-side services that the user has connected.
     ///
-    /// This information is really only useful for targeted messaging or marketing purposes,
-    /// e.g. if the application wants to advertise a related product, but first wants to check
-    /// whether the user is already using that product.
-    ///
-    /// # Notes
-    ///
-    ///    - Attached client metadata is only visible to applications that have been
-    ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
+    /// It will only return active sessions.
+    /// For example, if a user has disconnected the service from their account,
+    /// it wouldn't appear in this list.
     #[handle_error(Error)]
     pub fn get_attached_clients(&self) -> ApiResult<Vec<AttachedClient>> {
         self.internal
