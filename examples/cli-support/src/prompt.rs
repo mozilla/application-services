@@ -26,7 +26,6 @@ pub fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
 pub fn prompt_password<S: AsRef<str>>(prompt: S) -> Option<String> {
     let result = dialoguer::Password::new()
         .with_prompt(prompt.as_ref().to_string())
-        .with_confirmation("Confirm password", "Passwords mismatching")
         .interact();
     match result {
         Ok(p) => Some(p),
