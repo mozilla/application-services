@@ -147,12 +147,10 @@ mod test {
         let logger = TestLogger::new();
         set_max_level(Level::Debug);
         set_logger(Some(Box::new(logger.clone())));
-        // new tracing subscriber for our test.
-        let sink = Arc::new(ForwarderEventSink {});
-        tracing_support::register_event_sink("rust_log_forwarder", Level::Debug.into(), sink);
 
         tracing_support::info!("Test message");
         tracing_support::warn!("Test message2");
+        tracing_support::trace!("Test message3 (should be filtered out)");
         logger.check_records(vec![
             Record {
                 level: Level::Info,
@@ -167,8 +165,8 @@ mod test {
         ]);
         logger.clear_records();
         set_logger(None);
-        //log::info!("Test message");
-        //log::warn!("Test message2");
+        tracing_support::info!("Test message");
+        tracing_support::warn!("Test message2");
         logger.check_records(vec![]);
     }
 }

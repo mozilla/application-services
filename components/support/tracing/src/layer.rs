@@ -37,7 +37,7 @@ pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn Even
 /// Register an event sink that will receive events based on a minimum level
 ///
 /// If an event's level is at least `level`, then the event will be sent to this sink.
-/// If so, sinks registered with `register_event_sink` will be skiped.
+/// If so, sinks registered with `register_event_sink` will still be processed.
 ///
 /// There can only be 1 min-level sink registered at once.
 pub fn register_min_level_event_sink(level: crate::Level, sink: Arc<dyn EventSink>) {
@@ -96,7 +96,6 @@ where
         if let Some(entry) = &*MIN_LEVEL_SINK.read() {
             if entry.level >= *event.metadata().level() {
                 entry.send_event(event);
-                return;
             }
         }
 

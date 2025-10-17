@@ -71,21 +71,14 @@ pub use redact::*;
 mod reporting;
 #[cfg(not(feature = "tracing-reporting"))]
 pub use reporting::{
-    set_application_error_reporter, unset_application_error_reporter, ApplicationErrorReporter,
+    report_breadcrumb, report_error_to_app, set_application_error_reporter,
+    unset_application_error_reporter, ApplicationErrorReporter,
 };
 
 #[cfg(feature = "tracing-reporting")]
-mod reporting {
-    pub fn report_error_to_app(type_name: String, message: String) {
-        tracing_support::error!(target: "app-services-error-reporter::error", message, type_name);
-    }
-
-    pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32) {
-        tracing_support::info!(target: "app-services-error-reporter::breadcrumb", message, module, line, column);
-    }
-}
-
-pub use reporting::{report_breadcrumb, report_error_to_app};
+mod error_tracing;
+#[cfg(feature = "tracing-reporting")]
+pub use error_tracing::{report_breadcrumb, report_error_to_app};
 
 pub use error_support_macros::handle_error;
 
