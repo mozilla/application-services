@@ -493,12 +493,29 @@ mod keydb_test {
     #[test]
     fn test_nss_key_manager() {
         ensure_initialized_with_profile_dir(profile_path());
+        // `password` is the primary password of the profile fixture
         let mock_primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
         };
         let nss_key_manager = NSSKeyManager {
             primary_password_authenticator: Arc::new(mock_primary_password_authenticator),
         };
-        assert_eq!(nss_key_manager.get_key().unwrap().len(), 63)
+        // key from fixtures/profile/key4.db
+        assert_eq!(
+            nss_key_manager.get_key().unwrap(),
+            [
+                123, 34, 107, 116, 121, 34, 58, 34, 111, 99, 116, 34, 44, 34, 107, 34, 58, 34, 66,
+                74, 104, 84, 108, 103, 51, 118, 56, 49, 65, 66, 51, 118, 87, 50, 71, 122, 54, 104,
+                69, 54, 84, 116, 75, 83, 112, 85, 102, 84, 86, 75, 73, 83, 99, 74, 45, 77, 78, 83,
+                67, 117, 99, 34, 125
+            ]
+            .to_vec()
+        )
+    }
+
+    #[test]
+    fn test_primary_password_authentication() {
+        ensure_initialized_with_profile_dir(profile_path());
+        assert!(authenticate_with_primary_password("password").unwrap());
     }
 }
