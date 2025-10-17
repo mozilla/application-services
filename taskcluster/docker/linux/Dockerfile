@@ -106,6 +106,10 @@ RUN apt-get update -qq \
         python3-venv \
         # Used by gradle and the robolectric toolchain task
         maven \
+        # Required by bindgen (used by ohttp crate for C bindings)
+        libclang-dev \
+        clang \
+        llvm-dev \
     && apt-get clean
 
 RUN pip3 install --upgrade pip

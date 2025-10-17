@@ -12,7 +12,6 @@ VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache
 
 # Add worker user
-
 RUN mkdir -p /builds && \
     useradd -d /builds/worker -s /bin/bash -m worker && \
     chown worker:worker /builds/worker && \
@@ -38,6 +37,18 @@ ENV \
     # https://stackoverflow.com/questions/44331836/apt-get-install-tzdata-noninteractive
     DEBIAN_FRONTEND=noninteractive
 
+# Configure apt to use ports.ubuntu.com for arm64 packages
+RUN echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ focal main restricted universe multiverse" > /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list
+
+RUN dpkg --add-architecture arm64
+
 RUN apt-get update -qq \
     && apt-get install -qy --no-install-recommends \
         python3 \
@@ -59,10 +70,28 @@ RUN apt-get update -qq \
         zip \
         # Required to build nimbus-cli and nimbus-fml
         build-essential \
+        # Required by bindgen (used by ohttp crate for C bindings)
+        libclang-dev \
+        clang \
+        llvm-dev \
+        # NSS build system dependencies
+        gyp ninja-build \
+        # NSS dependency
+        zlib1g-dev \
+        # SQLCipher build system
+        make \
+        # SQLCipher dependency
+        tclsh \
+        # libs/ source patching
+        patch \
+        # Required by NSS build system until bug 1766767 is fixed
+        python-is-python3 \
+        # Cross toolchains and headers
         gcc-aarch64-linux-gnu \
         libc6-dev-arm64-cross \
         binutils-aarch64-linux-gnu \
-        # Required to build nimbus-experimenter megazord
+        # aarch64 zlib for -lz during link
+        libz-dev:arm64 \
     && apt-get clean
 
 RUN pip3 install --upgrade pip

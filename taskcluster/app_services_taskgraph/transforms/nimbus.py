@@ -38,7 +38,6 @@ def setup_build_tasks(config, tasks):
 
 def setup_linux_build_task(task, target, binary):
     docker_image = "linux"
-
     if target in ("aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"):
         docker_image = "linux2004"
 
@@ -60,6 +59,7 @@ def setup_linux_build_task(task, target, binary):
         "pre-commands": [
             ["git", "submodule", "update", "--init"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["bash", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],  # ensure libs/desktop/linux-x86-64/nss
         ],
         "commands": [
             ["taskcluster/scripts/nimbus-build.py", "build/", binary, target],
@@ -69,39 +69,43 @@ def setup_linux_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust",
+            "desktop-linux-libs",  # prebuilt linux libs (headers+libs)
         ]
     }
 
 
 def setup_mac_build_task(task, target, binary):
-    task["description"] = f"Build {binary} ({target})"
-    task["worker-type"] = "b-osx"
+    task["worker-type"] = "desktop-macos"
     task["worker"] = {
         "max-run-time": 1800,
+        "env": {
+            "CARGO_INCREMENTAL": "0",
+        },
         "artifacts": [
             {
                 "name": f"public/build/{binary}-{target}.zip",
-                "path": f"checkouts/vcs/build/{binary}-{target}.zip",
+                "path": f"build/{binary}-{target}.zip",
                 "type": "file",
             }
         ],
-    }
-    task["run"] = {
-        "using": "run-commands",
-        "run-task-command": ["/usr/local/bin/python3", "run-task"],
         "pre-commands": [
             ["source", "taskcluster/scripts/setup-mac-worker.sh"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["bash", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],
         ],
         "commands": [
+            # Use nimbus-build-osx.sh, which sets up macOS SDK and calls nimbus-build.py
             ["taskcluster/scripts/nimbus-build-osx.sh", "build/", binary, target]
         ],
     }
     task["fetches"] = {
         "toolchain": [
             "rust-osx",
+            "desktop-macos-libs",
         ]
     }
+
+    return task
 
 
 # Transform for the nimbus-assemble task

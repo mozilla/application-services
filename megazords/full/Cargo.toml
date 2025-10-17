@@ -33,3 +33,6 @@ init_rust_components = { path = "../../components/init_rust_components" }
 merino = { path = "../../components/merino" }
 relay = { path = "../../components/relay" }
 ads-client = { path = "../../components/ads-client" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+viaduct = { path = "../../components/viaduct", default-features = false, features = ["ohttp"] }

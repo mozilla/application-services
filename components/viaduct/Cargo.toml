@@ -25,9 +25,32 @@ uniffi = { version = "0.29.0" }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"], optional = true }
 bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
-ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
 
 [features]
 default = ["ohttp"]
 backend-dev = ["dep:tokio", "dep:hyper"]
 ohttp = ["dep:bhttp", "dep:ohttp"]
+
+# Android: use pure Rust HPKE backend (no NSS, no pthread issues)
+[target.'cfg(target_os = "android")'.dependencies.ohttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+default-features = false
+features = ["client", "server", "external-sqlite", "rust-hpke"]  # NO app-svc
+optional = true
+
+# Desktop (macOS/Linux): use NSS backend with app-svc feature
+[target.'cfg(all(not(target_os = "android"), not(target_os = "windows")))'.dependencies.ohttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+default-features = false
+features = ["client", "server", "app-svc", "external-sqlite"]  # app-svc implies nss
+optional = true
+
+# Windows: use pure Rust HPKE backend (no NSS)
+[target.'cfg(target_os = "windows")'.dependencies.ohttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+default-features = false
+features = ["client", "server", "external-sqlite", "rust-hpke"]  # NO app-svc
+optional = true
