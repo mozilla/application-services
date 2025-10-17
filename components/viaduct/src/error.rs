@@ -31,6 +31,21 @@ pub enum ViaductError {
 
     #[error("[no-sentry] Validation error: URL does not use TLS protocol.")]
     NonTlsUrl,
+
+    #[error("OHTTP channel '{0}' is not configured")]
+    OhttpChannelNotConfigured(String),
+
+    #[error("Failed to fetch OHTTP config: {0}")]
+    OhttpConfigFetchFailed(String),
+
+    #[error("OHTTP request error: {0}")]
+    OhttpRequestError(String),
+
+    #[error("OHTTP response error: {0}")]
+    OhttpResponseError(String),
+
+    #[error("OHTTP support is not enabled in this build")]
+    OhttpNotSupported,
 }
 
 impl ViaductError {
