@@ -60,6 +60,7 @@ def setup_linux_build_task(task, target, binary):
         "pre-commands": [
             ["git", "submodule", "update", "--init"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["source", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],
         ],
         "commands": [
             ["taskcluster/scripts/nimbus-build.py", "build/", binary, target],
@@ -93,6 +94,7 @@ def setup_mac_build_task(task, target, binary):
         "pre-commands": [
             ["source", "taskcluster/scripts/setup-mac-worker.sh"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["source", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],
         ],
         "commands": [
             ["taskcluster/scripts/nimbus-build-osx.sh", "build/", binary, target]
@@ -101,7 +103,7 @@ def setup_mac_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust-osx",
-            "desktop-linux-libs",
+            "desktop-macos-libs",
         ]
     }
 
