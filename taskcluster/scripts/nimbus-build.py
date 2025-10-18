@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import argparse
 import os
 import pathlib
 import subprocess
-import sys
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from build_utils import needs_nss_setup, setup_nss_environment
-
 
 def main():
-    args = parse_args()
-    binary = args.binary
+    parser = argparse.ArgumentParser()
+    parser.add_argument("out_dir")
+    parser.add_argument("binary")
+    parser.add_argument("target")
+    args = parser.parse_args()
     target = args.target
+    binary = args.binary
     os.makedirs(args.out_dir, exist_ok=True)
     filename = f"{binary}.exe" if "-windows-" in target else binary
 
@@ -29,9 +25,25 @@ def main():
 
     env = os.environ.copy()
 
-    # Setup NSS environment if needed for this target
-    if needs_nss_setup(target):
-        setup_nss_environment(env, target, src_root)
+    # Setup NSS environment for x86_64 desktop builds
+    if target in ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"]:
+        env["NSS_DIR"] = str(src_root / "libs" / "desktop" / "linux-x86-64" / "nss")
+        env["NSS_STATIC"] = "1"
+        env["MOZ_AUTOMATION"] = "1"
+        env["LIBCLANG_PATH"] = "/usr/lib/x86_64-linux-gnu"
+        print(f"Using NSS from: {env['NSS_DIR']}")
+    elif target == "x86_64-apple-darwin":
+        env["NSS_DIR"] = str(src_root / "libs" / "desktop" / "darwin" / "nss")
+        env["NSS_STATIC"] = "1"
+        env["MOZ_AUTOMATION"] = "1"
+        env["LIBCLANG_PATH"] = "/Library/Developer/CommandLineTools/usr/lib"
+        print(f"Using NSS from: {env['NSS_DIR']}")
+    elif target == "aarch64-apple-darwin":
+        env["NSS_DIR"] = str(src_root / "libs" / "desktop" / "darwin" / "nss")
+        env["NSS_STATIC"] = "1"
+        env["MOZ_AUTOMATION"] = "1"
+        env["LIBCLANG_PATH"] = "/Library/Developer/CommandLineTools/usr/lib"
+        print(f"Using NSS from: {env['NSS_DIR']}")
 
     if target == "aarch64-unknown-linux-gnu":
         env["RUSTFLAGS"] = "-C linker=aarch64-linux-gnu-gcc"
@@ -54,21 +66,16 @@ def main():
     )
     subprocess.check_call(
         [
-            "zip",
-            "-r",
-            f"../build/{binary}-{target}.zip",
-            pathlib.Path(target).joinpath("release", filename),
-        ],
-        cwd="target",
+            "python3",
+            "tools/nimbus-build-post.py",
+            "--target",
+            target,
+            "--filename",
+            filename,
+            "--out-dir",
+            args.out_dir,
+        ]
     )
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(prog="nimbus-build.py")
-    parser.add_argument("out_dir", type=pathlib.Path)
-    parser.add_argument("binary")
-    parser.add_argument("target")
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
