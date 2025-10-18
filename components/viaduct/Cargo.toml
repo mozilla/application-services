@@ -25,13 +25,38 @@ uniffi = { version = "0.29.0" }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"], optional = true }
 
-# For desktop x86_64 Linux and macOS - use NSS
-[target.'cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64", not(target_os = "ios")))'.dependencies]
+# For desktop x86_64 Linux - use NSS
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
 ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
 
-# For everything else (Android, iOS, Windows, aarch64, etc.) - use rust-hpke
-[target.'cfg(not(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64", not(target_os = "ios"))))'.dependencies]
+# For desktop x86_64 macOS - use NSS
+[target.'cfg(all(target_os = "macos", target_arch = "x86_64"))'.dependencies]
+bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
+ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
+
+# For macOS aarch64 (M1/M2 Macs) - use NSS
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
+ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
+
+# For iOS (all architectures) - use rust-hpke
+[target.'cfg(target_os = "ios")'.dependencies]
+bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
+ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "rust-hpke"], default-features = false, optional = true }
+
+# For Android (all architectures) - use rust-hpke
+[target.'cfg(target_os = "android")'.dependencies]
+bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
+ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "rust-hpke"], default-features = false, optional = true }
+
+# For Windows - use rust-hpke
+[target.'cfg(target_os = "windows")'.dependencies]
+bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
+ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "rust-hpke"], default-features = false, optional = true }
+
+# For Linux aarch64 - use rust-hpke (avoid cross-compile issues)
+[target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
 bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
 ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "rust-hpke"], default-features = false, optional = true }
 
