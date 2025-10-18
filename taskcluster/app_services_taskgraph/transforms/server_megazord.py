@@ -58,6 +58,7 @@ def setup_linux_build_task(task, target, binary):
         "pre-commands": [
             ["git", "submodule", "update", "--init"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["source", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],
         ],
         "commands": [
             ["taskcluster/scripts/server-megazord-build.py", binary, target, "build/"],
@@ -67,6 +68,7 @@ def setup_linux_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust",
+            "desktop-linux-libs",
         ]
     }
 
@@ -90,6 +92,7 @@ def setup_mac_build_task(task, target, binary):
         "pre-commands": [
             ["source", "taskcluster/scripts/setup-mac-worker.sh"],
             ["source", "taskcluster/scripts/toolchain/setup-fetched-rust-toolchain.sh"],
+            ["source", "taskcluster/scripts/toolchain/copy-libs-dir.sh", "libs"],
         ],
         "commands": [
             ["taskcluster/scripts/server-megazord-build.py", binary, target, "build/"]
@@ -98,6 +101,7 @@ def setup_mac_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust-osx",
+            "desktop-macos-libs",
         ]
     }
 

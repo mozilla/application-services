@@ -7,8 +7,10 @@ import argparse
 import os
 import pathlib
 import subprocess
+import sys
 
-# Repository root dir
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from build_utils import needs_nss_setup, setup_nss_environment
 
 
 def main():
@@ -18,10 +20,20 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     filename = f"{binary}.exe" if "-windows-" in target else binary
 
-    env = os.environ
+    # Get the repository root
+    src_root = pathlib.Path(
+        subprocess.check_output(["git", "rev-parse", "--show-toplevel"])
+        .decode("utf8")
+        .strip()
+    ).resolve()
+
+    env = os.environ.copy()
+
+    # Setup NSS environment if needed for this target
+    if needs_nss_setup(target):
+        setup_nss_environment(env, target, src_root)
 
     if target == "aarch64-unknown-linux-gnu":
-        env = os.environ.copy()
         env["RUSTFLAGS"] = "-C linker=aarch64-linux-gnu-gcc"
 
     subprocess.check_call(
