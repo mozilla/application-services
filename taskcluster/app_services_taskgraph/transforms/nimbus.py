@@ -69,6 +69,7 @@ def setup_linux_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust",
+            "desktop-linux-libs",
         ]
     }
 
@@ -100,6 +101,7 @@ def setup_mac_build_task(task, target, binary):
     task["fetches"] = {
         "toolchain": [
             "rust-osx",
+            "desktop-linux-libs",
         ]
     }
 
