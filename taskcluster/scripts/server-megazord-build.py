@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,22 +17,43 @@ SRC_ROOT = pathlib.Path(
     .decode("utf8")
     .strip()
 ).resolve()
+PATH_NOT_SPECIFIED = pathlib.Path("/not specified").resolve()
+PWD = pathlib.Path().resolve()
+DEBUG = False
+TARGET_DETECTOR_SCRIPT = SRC_ROOT / "taskcluster" / "scripts" / "detect-target.sh"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build a megazord library")
-    parser.add_argument("megazord")
-    parser.add_argument("target")
-    parser.add_argument("dist_dir")
-    args = parser.parse_args()
-
+    args = parse_args()
     megazord = args.megazord
     target = args.target
-    dist_dir = args.dist_dir
+    out_dir = PWD / args.out_dir
 
-    filename = _build_shared_library(megazord, target, dist_dir)
-    checksum_filename = _create_checksum_file(filename)
-    _create_zip(megazord, target, dist_dir, filename, checksum_filename)
+    _dir = SRC_ROOT / "megazords" / megazord
+    if not _dir.is_dir():
+        raise NotADirectoryError(f"Megazord {megazord} does not exist to build")
+
+    if DEBUG:
+        temp_dir = None
+        dist_dir = PWD / "dist"
+        os.makedirs(dist_dir, exist_ok=True)
+    else:
+        temp_dir = tempfile.TemporaryDirectory()
+        dist_dir = pathlib.Path(temp_dir.name)
+
+    try:
+        filename = _build_shared_library(megazord, target, dist_dir)
+        if _target_matches_host(target):
+            _run_python_tests(megazord, dist_dir)
+
+        _prepare_artifact(megazord, target, filename, dist_dir)
+
+        if str(out_dir) != str(PATH_NOT_SPECIFIED):
+            os.makedirs(out_dir, exist_ok=True)
+            _create_artifact(megazord, target, dist_dir, out_dir)
+    finally:
+        if not DEBUG:
+            temp_dir.cleanup()
 
 
 def _build_shared_library(megazord, target, dist_dir):
@@ -64,16 +85,25 @@ def _build_shared_library(megazord, target, dist_dir):
         filename = f"lib{binary}.so"
     elif "-darwin" in target:
         filename = f"lib{binary}.dylib"
-    else:
+    elif "-win" in target:
         filename = f"{binary}.dll"
+    else:
+        raise NotImplementedError("Only targets for linux, darwin or windows available")
 
     if "-musl" in target:
-        if "x86_64" in target:
-            env["TARGET_CC"] = "x86_64-linux-musl-gcc"
-        elif "aarch64" in target:
-            env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"] = (
-                "aarch64-linux-musl-gcc"
-            )
+        env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C target-feature=-crt-static"
+        if _host_os() == "unknown-linux":
+            env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C link-arg=-lgcc"
+        elif _host_os() == "apple-darwin":
+            if "x86_64" in target:
+                env["CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"] = (
+                    "x86_64-linux-musl-gcc"
+                )
+                env["TARGET_CC"] = "x86_64-linux-musl-gcc"
+            elif "aarch64" in target:
+                env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"] = (
+                    "aarch64-linux-musl-gcc"
+                )
 
     if target == "x86_64-pc-windows-gnu":
         env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " -C panic=abort"
@@ -95,102 +125,163 @@ def _build_shared_library(megazord, target, dist_dir):
     )
 
     # This is only temporary, until cirrus uses pre-built binaries.
-    if target == "x86_64-unknown-linux-gnu" and megazord == "cirrus":
-        _copy_cirrus_cli_to(dist_dir)
+    _patch_uniffi_tomls()
 
-    shutil.copy(f"target/{target}/release/{filename}", dist_dir)
+    library_path = SRC_ROOT / "target" / target / "release" / filename
+
+    # Generate the Python FFI. We do this with `uniffi-bindgen-library-mode` so we don't have to specify the UDL or the uniffi.toml file.
+    # Use the `-l` flag rather than `-m` since we want to specify a particular target.
+    subprocess.check_call(
+        [
+            "cargo",
+            "uniffi-bindgen-library-mode",
+            "-l",
+            library_path.as_posix(),
+            "python",
+            dist_dir,
+        ],
+        env=env,
+        cwd=SRC_ROOT,
+    )
+
+    # Move the .so file to the dist_directory
+    shutil.move(
+        SRC_ROOT / "target" / target / "release" / filename, dist_dir / filename
+    )
+
     return filename
 
 
-def _copy_cirrus_cli_to(output_dir):
-    # This exists because cirrus currently has a Python client that invokes
-    # the CLI. Once this is fully deprecated, we can remove this.
-    source = SRC_ROOT / "components" / "support" / "cirrus" / "cirrus-cli.py"
-    dest = pathlib.Path(output_dir) / "cirrus-cli.py"
-    print(f"Copying {source} -> {dest}")
-    shutil.copy(source, dest)
+def _patch_uniffi_tomls():
+    _replace_text(
+        SRC_ROOT / "components" / "support" / "nimbus-fml" / "uniffi.toml",
+        "\ncdylib_name",
+        "\n# cdylib_name",
+    )
+    _replace_text(
+        SRC_ROOT / "components" / "nimbus" / "uniffi.toml",
+        "\ncdylib_name",
+        "\n# cdylib_name",
+    )
 
 
-def _create_checksum_file(filename):
-    checksum_filename = f"{filename}.sha256"
-    with open(checksum_filename, "w") as f:
-        f.write(
-            subprocess.check_output(["shasum", "-a", "256", filename])
-            .decode("utf8")
-            .split()[0]
-        )
-    return checksum_filename
+def _replace_text(filename, search, replace):
+    with open(filename) as file:
+        data = file.read()
+    data = data.replace(search, replace)
+    with open(filename, "w") as file:
+        file.write(data)
 
 
-def _create_zip(megazord, target, dist_dir, filename, checksum_filename):
-    """Create the final zip file
+def _run_python_tests(megazord, dist_dir):
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", None)
+    dist_path = [str(dist_dir)] + _python_sources(megazord)
+    if existing is None:
+        env["PYTHONPATH"] = ":".join(dist_path)
+    else:
+        env["PYTHONPATH"] = ":".join(existing.split(":") + dist_path)
 
-    The zip file includes the megazord library and also the native libraries
-    that it depends on.  The goal is that consumers should be able to unpack
-    the zip file and have everything they need.
-
-    We currently only support this for linux.
-    """
-    zip_filename = f"{megazord}-{target}.zip"
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = pathlib.Path(tmpdir)
-        # Copy in megazord library and checksum
-        shutil.copy(filename, tmpdir)
-        shutil.copy(checksum_filename, tmpdir)
-        if target == "x86_64-unknown-linux-gnu":
-            # For Linux, also copy native dependencies.
-            if megazord == "cirrus":
-                # Cirrus also needs the CLI
-                shutil.copy(f"{dist_dir}/cirrus-cli.py", tmpdir)
-            lib_dir = tmpdir / "native-libs"
-            lib_dir.mkdir()
-            for lib_filename in _get_native_lib_filenames(filename):
-                shutil.copy(lib_filename, lib_dir)
-        # Create the zip file
-        zip_path = pathlib.Path(dist_dir) / zip_filename
+    test_dirs = _python_tests(megazord)
+    for d in test_dirs:
         subprocess.check_call(
-            ["zip", "-r", zip_path, "."],
-            cwd=tmpdir,
+            [
+                "pytest",
+                "-s",
+                d,
+            ],
+            env=env,
+            cwd=SRC_ROOT,
         )
 
 
-def _get_native_lib_filenames(megazord_filename):
-    """Get native library filenames that the megazord library depends on
+def _target_matches_host(target):
+    return _host_os() in target and _host_machine() in target
 
-    This function parses the `ldd` output to find the native dependencies.
-    The ldd output looks like::
 
-        linux-vdso.so.1 (0x00007ffd91fff000)
-        libsqlite3.so.0 => /lib/x86_64-linux-gnu/libsqlite3.so.0 (0x00007fe734881000)
-        libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007fe7347d4000)
-        ...
+def _host_machine():
+    import platform
 
-    We only care about the paths after `=>`, so we:
-      - Filter out lines that don't have `=>`
-      - Take the first item after `=>`
-      - Ignore any paths under /lib or /lib64
+    m = platform.machine().lower()
+    if m in ("i386", "amd64", "x86_64"):
+        return "x86_64"
+    elif m in ("arm64", "aarch64"):
+        return "aarch64"
+    else:
+        return m
 
-    We don't want to include /lib or /lib64 since that's where the standard
-    system libs live.  We do want to copy in any other paths, since those
-    would be the libs that we fetch as part of the task.
-    """
-    output = subprocess.check_output(["ldd", megazord_filename]).decode("utf8")
-    result = []
-    for line in output.split("\n"):
-        parts = line.split()
-        try:
-            index = parts.index("=>")
-        except ValueError:
-            # No `=>` in this line, skip it
-            continue
-        try:
-            path = pathlib.Path(parts[index + 1])
-        except IndexError:
-            # No item after `=>`, skip this line
-            continue
-        if path.parts[1] not in ("lib", "lib64"):
-            result.append(path)
-    return result
+
+def _host_os():
+    import platform
+
+    s = platform.system().lower()
+    if "windows" in s:
+        return "windows"
+    elif "linux" in s:
+        return "unknown-linux"
+    elif "darwin" in s:
+        return "apple-darwin"
+    else:
+        return s
+
+
+def _python_sources(megazord):
+    return _dirs(f"{SRC_ROOT}/megazords/{megazord}", ["python/lib", "python/src"])
+
+
+def _python_tests(megazord):
+    return _dirs(
+        f"{SRC_ROOT}/megazords/{megazord}", ["tests/python-tests", "python/test"]
+    )
+
+
+def _dirs(prefix, list):
+    return [f"{prefix}/{f}" for f in list if os.path.isdir(f"{prefix}/{f}")]
+
+
+def _prepare_artifact(megazord, target, filename, dist_dir):
+    for f in _python_sources(megazord):
+        shutil.copytree(f, dist_dir)
+
+    # Move the binary into a target specific directory.
+    # This is so shared libraries for the same OS, but different architectures
+    # don't overwrite one another.
+    target_dir = dist_dir / target
+    os.makedirs(target_dir, exist_ok=True)
+    shutil.move(dist_dir / filename, target_dir / filename)
+
+    scripts_dir = dist_dir / "scripts"
+    os.makedirs(scripts_dir, exist_ok=True)
+    shutil.copy(TARGET_DETECTOR_SCRIPT, scripts_dir)
+
+
+def _create_artifact(megazord, target, dist_dir, out_dir):
+    archive = out_dir / f"{megazord}-{target}.zip"
+    subprocess.check_call(
+        [
+            "zip",
+            archive,
+            "-r",
+            ".",
+            "-x",
+            "*/__pycache__/*",
+            "__pycache__/*",
+        ],
+        cwd=dist_dir,
+    )
+
+    print(f"Archive complete: {archive}")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog="server-megazord-build.py")
+    parser.add_argument("megazord")
+    parser.add_argument("target")
+    parser.add_argument(
+        "out_dir", nargs="?", type=pathlib.Path, default=PATH_NOT_SPECIFIED
+    )
+
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
