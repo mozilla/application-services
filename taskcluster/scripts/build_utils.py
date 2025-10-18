@@ -89,22 +89,13 @@ def needs_nss_setup(target):
     """
     Returns True if the target needs NSS setup.
 
-    Windows and Android use rust-hpke (pure Rust), so they don't need NSS.
-    Desktop platforms (macOS, Linux) use NSS via the app-svc feature.
-
-    Args:
-        target: Rust target triple
-
-    Returns:
-        bool: True if NSS is needed for this target
+    Only x86_64 desktop Linux/macOS use NSS. Everything else uses rust-hpke.
     """
-    # Windows uses rust-hpke
-    if "windows" in target:
-        return False
+    # Only x86_64 desktop platforms use NSS
+    if target in ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"]:
+        return True
+    if target in ["x86_64-apple-darwin"]:
+        return True
 
-    # Android uses rust-hpke
-    if "android" in target:
-        return False
-
-    # Desktop platforms use NSS
-    return True
+    # Everything else (aarch64-linux, iOS, Android, Windows, etc.) uses rust-hpke
+    return False
