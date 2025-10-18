@@ -73,16 +73,51 @@ def setup_nss_environment(env, target, src_root):
             raise RuntimeError("NSS build completed but NSS_DIR not found")
         print(f"Built NSS: {nss_dir}")
 
-    # Set environment variables for app-svc feature
-    env["NSS_DIR"] = str(nss_dir)
-    env["NSS_STATIC"] = "1"
-    env["MOZ_AUTOMATION"] = "1"
+         # Set environment variables for app-svc feature
+        env["NSS_DIR"] = str(nss_dir)
+        env["NSS_STATIC"] = "1"
+        env["MOZ_AUTOMATION"] = "1"
 
-    # Set LIBCLANG_PATH for bindgen
-    if "LIBCLANG_PATH" not in env:
-        env["LIBCLANG_PATH"] = "/usr/lib/x86_64-linux-gnu"
+        # Set LIBCLANG_PATH for bindgen (used by ohttp build.rs)
+        # Try multiple common paths where libclang might be installed
+        if "LIBCLANG_PATH" not in env:
+            import platform
+            system = platform.system()
 
-    return nss_dir
+            if system == "Darwin":
+                # macOS paths - check Xcode and Homebrew locations
+                libclang_candidates = [
+                    "/Library/Developer/CommandLineTools/usr/lib",
+                    "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib",
+                    "/usr/local/opt/llvm/lib",
+                    "/opt/homebrew/opt/llvm/lib",
+                ]
+                pattern = "libclang.dylib"
+            else:
+                # Linux paths
+                libclang_candidates = [
+                    "/usr/lib/llvm-14/lib",
+                    "/usr/lib/llvm-15/lib",
+                    "/usr/lib/llvm-16/lib",
+                    "/usr/lib/x86_64-linux-gnu",
+                    "/usr/lib",
+                ]
+                pattern = "libclang.so*"
+
+            for candidate_path in libclang_candidates:
+                if os.path.exists(candidate_path):
+                    # Check if libclang actually exists in this directory
+                    path_obj = Path(candidate_path)
+                    if list(path_obj.glob(pattern)):
+                        env["LIBCLANG_PATH"] = candidate_path
+                        print(f"Set LIBCLANG_PATH={candidate_path}")
+                        break
+
+            if "LIBCLANG_PATH" not in env:
+                print("Warning: Could not find libclang, bindgen may fail")
+                print(f"Checked paths: {libclang_candidates}")
+
+        return nss_dir
 
 
 def needs_nss_setup(target):
