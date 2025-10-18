@@ -78,6 +78,10 @@ def setup_nss_environment(env, target, src_root):
     env["NSS_STATIC"] = "1"
     env["MOZ_AUTOMATION"] = "1"
 
+    # Set LIBCLANG_PATH for bindgen
+    if "LIBCLANG_PATH" not in env:
+        env["LIBCLANG_PATH"] = "/usr/lib/x86_64-linux-gnu"
+
     return nss_dir
 
 
