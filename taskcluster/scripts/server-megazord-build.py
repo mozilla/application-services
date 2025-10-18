@@ -9,7 +9,11 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from build_utils import needs_nss_setup, setup_nss_environment
 
 # Repository root dir
 SRC_ROOT = pathlib.Path(
@@ -58,6 +62,11 @@ def main():
 
 def _build_shared_library(megazord, target, dist_dir):
     env = os.environ.copy()
+
+    # Setup NSS environment if needed for this target
+    if needs_nss_setup(target):
+        setup_nss_environment(env, target, SRC_ROOT)
+
     binary = megazord.replace("-", "_")
 
     if "-linux" in target:
