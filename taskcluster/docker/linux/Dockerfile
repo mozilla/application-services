@@ -70,7 +70,8 @@ RUN apt-get update -qq \
         tclsh \
         # Required by bindgen (used by ohttp crate for C bindings)
         libclang-dev \
-        ##########################
+        clang-14 \
+    ##########################
         # CI-specific dependencies
         ##########################
         git \
