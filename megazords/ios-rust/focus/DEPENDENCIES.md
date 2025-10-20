@@ -7,7 +7,7 @@ the details of which are reproduced below.
 * [Mozilla Public License 2.0](#mozilla-public-license-20)
 * [Apache License 2.0](#apache-license-20)
 * [MIT License: SwiftKeychainWrapper](#mit-license-swiftkeychainwrapper)
-* [MIT License: aho-corasick, memchr](#mit-license-aho-corasick-memchr)
+* [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: cargo_metadata, winnow](#mit-license-cargo_metadata-winnow)
@@ -445,6 +445,7 @@ The following text applies to code linked from these dependencies:
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [basic-toml](https://github.com/dtolnay/basic-toml),
+[bhttp](https://github.com/martinthomson/ohttp),
 [bitflags](https://github.com/bitflags/bitflags),
 [block-buffer](https://github.com/RustCrypto/utils),
 [camino](https://github.com/camino-rs/camino),
@@ -505,6 +506,7 @@ The following text applies to code linked from these dependencies:
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
+[ohttp](https://github.com/martinthomson/ohttp),
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
@@ -792,10 +794,11 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: aho-corasick, memchr
+## MIT License: aho-corasick, byteorder, memchr
 
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
+[byteorder](https://github.com/BurntSushi/byteorder),
 [memchr](https://github.com/BurntSushi/memchr)
 
 ```
