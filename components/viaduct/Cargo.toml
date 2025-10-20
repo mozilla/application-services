@@ -28,6 +28,6 @@ bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845c
 ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
 
 [features]
-default = ["ohttp"]
+default = []
 backend-dev = ["dep:tokio", "dep:hyper"]
 ohttp = ["dep:bhttp", "dep:ohttp"]

@@ -9,7 +9,7 @@ exclude = ["/android"]
 [features]
 default = []
 keydb = ["nss/keydb"]
-ohttp = ["viaduct/ohttp"]
+ohttp = ["dep:viaduct", "viaduct/ohttp"]
 
 [dependencies]
 uniffi = { version = "0.29.0" }

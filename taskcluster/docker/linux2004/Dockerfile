@@ -59,6 +59,8 @@ RUN apt-get update -qq \
         zip \
         # Required to build nimbus-cli and nimbus-fml
         build-essential \
+        # Required by bindgen (used by NSS/ohttp for C bindings)
+        libclang-dev \
         gcc-aarch64-linux-gnu \
         libc6-dev-arm64-cross \
         binutils-aarch64-linux-gnu \
