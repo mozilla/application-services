@@ -10,7 +10,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
-viaduct = { path = "../../components/viaduct" }
+viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
@@ -28,7 +28,7 @@ tracing-support = { path = "../../components/support/tracing" }
 sync_manager = { path = "../../components/sync_manager" }
 as-ohttp-client = { path = "../../components/as-ohttp-client" }
 search = { path = "../../components/search" }
-init_rust_components = { path = "../../components/init_rust_components" }
+init_rust_components = { path = "../../components/init_rust_components", features = ["ohttp"] }
 merino = { path = "../../components/merino" }
 context_id = { path = "../../components/context_id" }
 relay = { path = "../../components/relay" }
