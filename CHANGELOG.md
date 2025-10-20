@@ -10,6 +10,9 @@
 ### Android
 - Upgraded NDK from r28c to r29. ([#7014](https://github.com/mozilla/application-services/pull/7014))
 
+### Glean
+- Updated to v66.0.0 ([#7025](https://github.com/mozilla/application-services/issues/7025))
+
 [Full Changelog](In progress)
 
 # v145.0 (_2025-10-13_)
