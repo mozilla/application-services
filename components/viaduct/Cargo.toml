@@ -25,7 +25,20 @@ uniffi = { version = "0.29.0" }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"], optional = true }
 bhttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", optional = true }
-ohttp = { git = "https://github.com/martinthomson/ohttp.git", rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies.ohttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+default-features = false
+features = ["client", "server", "external-sqlite", "rust-hpke"]
+optional = true
+
+[target.'cfg(not(target_os = "android"))'.dependencies.ohttp]
+git = "https://github.com/martinthomson/ohttp.git"
+rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+default-features = false
+features = ["client", "server", "app-svc", "external-sqlite"]
+optional = true
 
 [features]
 default = []
