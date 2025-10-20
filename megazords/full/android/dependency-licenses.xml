@@ -105,10 +105,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/basic-toml/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: bhttp</name>
-    <url>https://github.com/martinthomson/ohttp/blob/main/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: bitflags</name>
     <url>https://github.com/bitflags/bitflags/blob/main/LICENSE-APACHE</url>
   </license>
@@ -129,20 +125,12 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/cc-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: cexpr</name>
-    <url>https://github.com/jethrogb/rust-cexpr/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: cfg-if</name>
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: chrono</name>
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: clang-sys</name>
-    <url>https://github.com/KyleMayes/clang-sys/blob/master/LICENSE.txt</url>
   </license>
   <license>
     <name>Apache License 2.0: core-foundation-sys</name>
@@ -303,10 +291,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: num-traits</name>
     <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: ohttp</name>
-    <url>https://github.com/martinthomson/ohttp/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: once_cell</name>
@@ -669,20 +653,12 @@ the details of which are reproduced below.
     <url>https://github.com/thomcc/rust-base16/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>ISC License: libloading</name>
-    <url>https://github.com/nagisa/rust_libloading/blob//master/LICENSE</url>
-  </license>
-  <license>
     <name>ISC License: ring</name>
     <url>https://github.com/briansmith/ring/blob/master/LICENSE</url>
   </license>
   <license>
     <name>BSD-2-Clause License: arrayref</name>
     <url>https://github.com/droundy/arrayref/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>BSD-3-Clause License: bindgen</name>
-    <url>https://github.com/rust-lang/rust-bindgen/blob/main/LICENSE</url>
   </license>
   <license>
     <name>BSD-3-Clause License: protobuf</name>
