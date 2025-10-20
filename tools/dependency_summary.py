@@ -203,6 +203,24 @@ PACKAGES_WITH_EXTRA_DEPENDENCIES = {
 # Any such changes will prevent us from regenerating the dependency summary, triggering a CI failure
 # and causing a human to investigate and resolve the change.
 PACKAGE_METADATA_FIXUPS = {
+    "ctr": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        },
+    },
+    "zeroize_derive": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/RustCrypto/utils/master/zeroize/LICENSE-APACHE",
+        },
+    },
+    "crypto-mac": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        },
+    },
     "adler32": {
         "license_file": {
             "check": None,

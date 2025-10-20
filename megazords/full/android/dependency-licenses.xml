@@ -65,6 +65,18 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Apache License 2.0: aead</name>
+    <url>https://github.com/RustCrypto/traits/blob/master/aead/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: aes</name>
+    <url>https://github.com/RustCrypto/block-ciphers/blob/master/aes/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: aes-gcm</name>
+    <url>https://github.com/RustCrypto/AEADs/blob/master/aes-gcm/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: android-tzdata</name>
     <url>https://github.com/RumovZ/android-tzdata/blob/main/LICENSE-APACHE</url>
   </license>
@@ -137,8 +149,20 @@ the details of which are reproduced below.
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: chacha20</name>
+    <url>https://github.com/RustCrypto/stream-ciphers/blob/master/chacha20/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: chacha20poly1305</name>
+    <url>https://github.com/RustCrypto/AEADs/blob/master/chacha20poly1305/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: chrono</name>
     <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: cipher</name>
+    <url>https://github.com/RustCrypto/traits/blob/master/cipher/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: clang-sys</name>
@@ -155,6 +179,18 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: crypto-common</name>
     <url>https://github.com/RustCrypto/traits/blob/master/crypto-common/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crypto-mac</name>
+    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: ctr</name>
+    <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: curve25519-dalek-derive</name>
+    <url>https://github.com/dalek-cryptography/curve25519-dalek/blob/main/curve25519-dalek-derive/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: digest</name>
@@ -213,6 +249,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: ghash</name>
+    <url>https://github.com/RustCrypto/universal-hashes/blob/master/ghash/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: glob</name>
     <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
   </license>
@@ -233,6 +273,18 @@ the details of which are reproduced below.
     <url>https://github.com/KokaKiwi/rust-hex/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: hkdf</name>
+    <url>https://github.com/RustCrypto/KDFs/blob//master/hkdf/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: hmac</name>
+    <url>https://github.com/RustCrypto/MACs/blob/master/hmac/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: hpke</name>
+    <url>https://github.com/rozbb/rust-hpke/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: iana-time-zone</name>
     <url>https://github.com/strawlab/iana-time-zone/blob/main/LICENSE-APACHE</url>
   </license>
@@ -251,6 +303,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: indexmap</name>
     <url>https://github.com/indexmap-rs/indexmap/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: inout</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/inout/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: io-lifetimes</name>
@@ -313,6 +369,10 @@ the details of which are reproduced below.
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: opaque-debug</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: parking_lot</name>
     <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
@@ -343,6 +403,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: pollster</name>
     <url>https://github.com/zesterer/pollster/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: poly1305</name>
+    <url>https://github.com/RustCrypto/universal-hashes/blob/master/poly1305/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: polyval</name>
+    <url>https://github.com/RustCrypto/universal-hashes/blob/master/polyval/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
@@ -395,6 +463,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: rustc-hash</name>
     <url>https://github.com/rust-lang/rustc-hash/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rustc_version</name>
+    <url>https://github.com/djc/rustc-version-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rustix</name>
@@ -501,6 +573,10 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: universal-hash</name>
+    <url>https://github.com/RustCrypto/traits/blob/master/universal-hash/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: url</name>
     <url>https://github.com/servo/rust-url/blob/main/LICENSE-APACHE</url>
   </license>
@@ -547,6 +623,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: write16</name>
     <url>https://github.com/hsivonen/write16/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: zeroize</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/zeroize/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: zeroize_derive</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/zeroize/LICENSE-APACHE</url>
   </license>
   <license>
     <name>MIT License: aho-corasick</name>
@@ -685,8 +769,20 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/rust-bindgen/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>BSD-3-Clause License: curve25519-dalek</name>
+    <url>https://github.com/dalek-cryptography/curve25519-dalek/blob/main/curve25519-dalek/LICENSE</url>
+  </license>
+  <license>
     <name>BSD-3-Clause License: protobuf</name>
     <url>https://github.com/protocolbuffers/protobuf/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>BSD-3-Clause License: subtle</name>
+    <url>https://github.com/dalek-cryptography/subtle/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>BSD-3-Clause License: x25519-dalek</name>
+    <url>https://github.com/dalek-cryptography/curve25519-dalek/blob/main/x25519-dalek/LICENSE</url>
   </license>
   <license>
     <name>Zlib License: foldhash</name>

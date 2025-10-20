@@ -256,8 +256,23 @@ subprojects {
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
-    spec.environment("NSS_STATIC", "1")
-    spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    // Detect cross-compilation
+    def hostPlatform = DefaultPlatform.RESOURCE_PREFIX
+    def isDarwinTarget = toolchain.folder.contains("darwin")
+    def isLinuxTarget = toolchain.folder.contains("linux")
+    def isLinuxHost = hostPlatform.startsWith("linux")
+    def isDarwinHost = hostPlatform.startsWith("darwin")
+    def isCrossCompiling = (isDarwinTarget && isLinuxHost) || (isLinuxTarget && isDarwinHost)
+
+    if (isCrossCompiling) {
+        println "Cross-compiling for ${toolchain.folder} on ${hostPlatform}: using rust-hpke for ohttp"
+        // Set custom cfg flag via RUSTFLAGS so it's available during dependency resolution
+        def existingRustFlags = spec.environment.get("RUSTFLAGS") ?: ""
+        spec.environment("RUSTFLAGS", existingRustFlags + " --cfg cross_compiling")
+    } else {
+        spec.environment("NSS_STATIC", "1")
+        spec.environment("NSS_DIR", new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    }
 }
 
 detekt {

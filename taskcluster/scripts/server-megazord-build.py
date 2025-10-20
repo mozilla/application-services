@@ -89,6 +89,12 @@ def _build_shared_library(megazord, target, dist_dir):
     elif target == "aarch64-unknown-linux-gnu":
         env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER"] = "aarch64-linux-gnu-gcc"
 
+    # Detect cross-compilation and use cargo --config to override ohttp to use rust-hpke
+    cargo_extra_args = []
+    if _is_cross_compiling(target):
+        # Set custom cfg flag via RUSTFLAGS
+        env["RUSTFLAGS"] = env.get("RUSTFLAGS", "") + " --cfg cross_compiling"
+
     subprocess.check_call(
         [
             "cargo",
@@ -98,7 +104,8 @@ def _build_shared_library(megazord, target, dist_dir):
             "--release",
             "--target",
             target,
-        ],
+        ]
+        + cargo_extra_args,
         env=env,
         cwd=SRC_ROOT,
     )
@@ -129,6 +136,25 @@ def _build_shared_library(megazord, target, dist_dir):
     )
 
     return filename
+
+
+def _dirs(prefix, list):
+    return [f"{prefix}/{f}" for f in list if os.path.isdir(f"{prefix}/{f}")]
+
+
+def _is_cross_compiling(target):
+    """Check if we're cross-compiling (target OS != host OS)"""
+    host_os = _host_os()
+
+    # Cross-compiling if target OS doesn't match host OS
+    if "-darwin" in target and host_os != "apple-darwin":
+        return True
+    if "-linux" in target and host_os != "unknown-linux":
+        return True
+    if "-windows" in target and host_os != "windows":
+        return True
+
+    return False
 
 
 def _patch_uniffi_tomls():
