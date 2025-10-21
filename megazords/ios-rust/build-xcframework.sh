@@ -32,7 +32,17 @@ if [[ -n $IS_FOCUS ]]; then
 else
   WORKING_DIR=$THIS_DIR
 fi
-REPO_ROOT="$( dirname "$( dirname "$THIS_DIR" )" )"
+if [[ "$THIS_DIR" == *"services/app-services"* ]]; then
+  IS_MONOREPO=true
+else
+  IS_MONOREPO=false
+fi
+
+if [[ "$IS_MONOREPO" == "true" ]]; then
+  REPO_ROOT="$( dirname "$( dirname "$( dirname "$( dirname "$THIS_DIR" )" )" )" )"
+else
+  REPO_ROOT="$( dirname "$( dirname "$THIS_DIR" )" )"
+fi
 
 MANIFEST_PATH="$WORKING_DIR/Cargo.toml"
 
@@ -61,7 +71,11 @@ LIB_NAME="lib${CRATE_NAME}.a"
 # link against the desktop build of NSS.
 
 CARGO="$HOME/.cargo/bin/cargo"
-LIBS_DIR="$REPO_ROOT/libs"
+if [[ "$IS_MONOREPO" == "true" ]]; then
+LIBS_ROOT_DIR=$REPO_ROOT/services/app-services
+else
+LIBS_ROOT_DIR=$REPO_ROOT
+fi
 
 DEFAULT_RUSTFLAGS=""
 BUILD_ARGS=(build --manifest-path "$MANIFEST_PATH" --lib)
@@ -81,11 +95,11 @@ cargo_build () {
   TARGET=$1
   case $TARGET in
     x86_64*)
-      LIBS_DIR="$REPO_ROOT/libs/ios/x86_64";;
+      LIBS_DIR="$LIBS_ROOT_DIR/libs/ios/x86_64";;
     aarch64-apple-ios-sim)
-      LIBS_DIR="$REPO_ROOT/libs/ios/arm64-sim";;
+      LIBS_DIR="$LIBS_ROOT_DIR/libs/ios/arm64-sim";;
     aarch64-apple-ios)
-      LIBS_DIR="$REPO_ROOT/libs/ios/arm64";;
+      LIBS_DIR="$LIBS_ROOT_DIR/libs/ios/arm64";;
     *)
       echo "Unexpected target architecture: $TARGET" && exit 1;;
   esac
@@ -125,7 +139,13 @@ CFLAGS_aarch64_apple_ios_sim="--target aarch64-apple-ios-sim" \
 ##
 ####
 
-TARGET_DIR="$REPO_ROOT/target"
+# running cargo build directly in the ios-rust directory.
+if [[ "$IS_MONOREPO" == "true" ]]; then
+  TARGET_DIR="$WORKING_DIR/target"
+else
+  TARGET_DIR="$REPO_ROOT/target"
+fi
+
 XCFRAMEWORK_ROOT="$WORKING_DIR/$FRAMEWORK_FILENAME.xcframework"
 
 # Start from a clean slate.
@@ -139,7 +159,7 @@ COMMON="$XCFRAMEWORK_ROOT/common/$FRAMEWORK_NAME.framework"
 
 mkdir -p "$COMMON/Modules"
 
-cp "$WORKING_DIR/DEPENDENCIES.md" "$COMMON/DEPENDENCIES.md"
+cp "$WORKING_DIR/DEPENDENCIES.md" "$COMMON/DEPENDENCIES.md" || echo "Can't copy $WORKING_DIR/DEPENDENCIES.md"
 
 mkdir -p "$COMMON/Headers"
 
@@ -147,8 +167,7 @@ mkdir -p "$COMMON/Headers"
 # affect the bindings.
 UNIFFI_BINDGEN_LIBRARY="$TARGET_DIR/aarch64-apple-ios/$BUILD_PROFILE/$LIB_NAME"
 
-# Move the non-generated headers (these are all common between both firefox-ios and Focus)
-# This allows the generated swift to find the binaries
+# First move the non-generated headers (these are all common between both firefox-ios and Focus)
 cp "$WORKING_DIR/$FRAMEWORK_NAME.h" "$COMMON/Headers"
 cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$COMMON/Headers"
 
@@ -186,7 +205,7 @@ lipo -create \
 # Set up the metadata for the XCFramework as a whole.
 
 cp "$WORKING_DIR/Info.plist" "$XCFRAMEWORK_ROOT/Info.plist"
-cp "$WORKING_DIR/DEPENDENCIES.md" "$XCFRAMEWORK_ROOT/DEPENDENCIES.md"
+cp "$WORKING_DIR/DEPENDENCIES.md" "$XCFRAMEWORK_ROOT/DEPENDENCIES.md" || echo "Can't copy $WORKING_DIR/DEPENDENCIES.md"
 
 rm -rf "$XCFRAMEWORK_ROOT/common"
 
