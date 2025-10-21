@@ -9,10 +9,7 @@ mod connection_initializer;
 mod request_hash;
 mod store;
 
-use self::{
-    builder::HttpCacheBuilder, cache_control::CacheControl, request_hash::RequestHash,
-    store::HttpCacheStore,
-};
+use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCacheStore};
 
 use viaduct::{Request, Response};
 
@@ -20,8 +17,11 @@ pub use self::bytesize::ByteSize;
 use std::path::Path;
 use std::time::Duration;
 
+pub const DEFAULT_TTL_SECONDS: u64 = 300;
+pub const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
+
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum CacheError {
     #[error("Could not build cache: {0}")]
     Builder(#[from] builder::Error),
 
@@ -30,6 +30,20 @@ pub enum Error {
 
     #[error("Error sending request: {0}")]
     Viaduct(#[from] viaduct::ViaductError),
+}
+
+pub enum CacheOutcome {
+    Hit,
+    Skipped,
+    MissStoredSuccess,
+    MissStoreFailed(CacheError),
+    MissNotCacheable,
+    FatalError,
+}
+
+pub struct SendOutcome {
+    pub response: Response,
+    pub cache_outcome: CacheOutcome,
 }
 
 pub struct HttpCache {
@@ -43,26 +57,66 @@ impl HttpCache {
         HttpCacheBuilder::new(db_path.as_ref())
     }
 
-    pub fn clear(&self) -> Result<(), Error> {
-        self.store.clear_all().map_err(Error::from)?;
+    pub fn clear(&self) -> Result<(), CacheError> {
+        self.store.clear_all().map_err(CacheError::from)?;
         Ok(())
     }
 
-    pub fn send(&self, request: Request) -> Result<(Response, Option<RequestHash>), Error> {
-        let cutoff = chrono::Utc::now().timestamp() - self.ttl.as_secs() as i64;
-        self.store.delete_expired_entries(cutoff)?;
+    pub fn send_with_refresh(&self, request: Request) -> Result<SendOutcome, CacheError> {
+        self.cleanup_expired()?;
 
-        if let Some((response, request_hash)) = self.store.lookup(&request)? {
-            return Ok((response, Some(request_hash)));
+        let response = request.clone().send()?;
+        let cache_outcome = if CacheControl::from(&response).should_cache() {
+            match self.cache_object(&request, &response) {
+                Ok(()) => CacheOutcome::MissStoredSuccess,
+                Err(e) => CacheOutcome::MissStoreFailed(e),
+            }
+        } else {
+            CacheOutcome::MissNotCacheable
+        };
+
+        Ok(SendOutcome {
+            response,
+            cache_outcome,
+        })
+    }
+
+    pub fn send(&self, request: Request) -> Result<SendOutcome, CacheError> {
+        self.cleanup_expired()?;
+
+        if let Some((resp, _)) = self.store.lookup(&request)? {
+            return Ok(SendOutcome {
+                response: resp,
+                cache_outcome: CacheOutcome::Hit,
+            });
         }
 
         let response = request.clone().send()?;
-        let cache_control = CacheControl::from(&response);
-        if cache_control.should_cache() {
-            self.store.store(&request, &response)?;
-            self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
-        }
-        Ok((response, None))
+        let cache_outcome = if CacheControl::from(&response).should_cache() {
+            match self.cache_object(&request, &response) {
+                Ok(()) => CacheOutcome::MissStoredSuccess,
+                Err(e) => CacheOutcome::MissStoreFailed(e),
+            }
+        } else {
+            CacheOutcome::MissNotCacheable
+        };
+
+        Ok(SendOutcome {
+            response,
+            cache_outcome,
+        })
+    }
+
+    fn cleanup_expired(&self) -> Result<(), CacheError> {
+        let cutoff = chrono::Utc::now().timestamp() - self.ttl.as_secs() as i64;
+        self.store.delete_expired_entries(cutoff)?;
+        Ok(())
+    }
+
+    fn cache_object(&self, request: &Request, response: &Response) -> Result<(), CacheError> {
+        self.store.store(&request, &response)?;
+        self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
+        Ok(())
     }
 }
 

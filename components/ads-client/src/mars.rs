@@ -8,18 +8,24 @@ use crate::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
-    http_cache::{self, Error as HttpCacheError, HttpCache},
+    http_cache::{self, CacheError, CacheOutcome, HttpCache, SendOutcome},
     models::{AdRequest, AdResponse},
+    CachePolicy, Environment,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use url::Url;
-use viaduct::Request;
+use viaduct::{Request, ViaductError};
 
-const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.mozilla.org/v1";
+const MARS_API_ENDPOINT_PROD: &str = "https://ads.mozilla.org/v1";
+const MARS_API_ENDPOINT_STAGING: &str = "https://ads.allizom.org/v1";
 
 #[cfg_attr(test, mockall::automock)]
 pub trait MARSClient: Sync + Send {
-    fn fetch_ads(&self, request: &AdRequest) -> Result<AdResponse, FetchAdsError>;
+    fn fetch_ads(
+        &self,
+        request: &AdRequest,
+        cache_policy: &CachePolicy,
+    ) -> Result<AdResponse, FetchAdsError>;
     fn record_impression(
         &self,
         url_callback_string: Option<String>,
@@ -29,7 +35,7 @@ pub trait MARSClient: Sync + Send {
     fn get_context_id(&self) -> context_id::ApiResult<String>;
     fn cycle_context_id(&mut self) -> context_id::ApiResult<String>;
     fn get_mars_endpoint(&self) -> &str;
-    fn clear_cache(&self) -> Result<(), HttpCacheError>;
+    fn clear_cache(&self) -> Result<(), CacheError>;
 }
 
 pub struct DefaultMARSClient {
@@ -39,7 +45,17 @@ pub struct DefaultMARSClient {
 }
 
 impl DefaultMARSClient {
-    pub fn new(context_id: String, http_cache: Option<HttpCache>) -> Self {
+    pub fn new(
+        context_id: String,
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+    ) -> Self {
+        let endpoint = match environment {
+            Environment::Prod => MARS_API_ENDPOINT_PROD.to_string(),
+            #[cfg(feature = "dev")]
+            Environment::Staging => MARS_API_ENDPOINT_STAGING.to_string(),
+        };
+
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -47,7 +63,7 @@ impl DefaultMARSClient {
                 false,
                 Box::new(DefaultContextIdCallback),
             ),
-            endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
+            endpoint,
             http_cache,
         }
     }
@@ -93,26 +109,72 @@ impl MARSClient for DefaultMARSClient {
         &self.endpoint
     }
 
-    fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse, FetchAdsError> {
-        let endpoint = self.get_mars_endpoint();
-        let url = Url::parse(&format!("{endpoint}/ads"))?;
+    fn fetch_ads(
+        &self,
+        ad_request: &AdRequest,
+        cache_policy: &CachePolicy,
+    ) -> Result<AdResponse, FetchAdsError> {
+        let base = Url::parse(self.get_mars_endpoint())?;
+        let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
-        let response = if let Some(cache) = &self.http_cache {
-            match cache.send(request.clone()) {
-                Ok((response, _)) => response,
-                Err(_) => {
-                    // TODO: handle error with telemetry
-                    request.send()?
+
+        // Decide how to send based on cache policy + cache availability.
+        let outcome = match (cache_policy, self.http_cache.as_ref()) {
+            // Default policy behavior: try cache, else network (and try to store).
+            (CachePolicy::Default, Some(cache)) => {
+                match cache.send(request.clone()) {
+                    Ok(o) => o,
+                    Err(CacheError::Viaduct(e)) => return Err(e.into()),
+                    Err(_e) => {
+                        // Cache send failed unrecoverably before the network call was made.
+                        let resp = request.send()?;
+                        SendOutcome {
+                            response: resp,
+                            cache_outcome: CacheOutcome::FatalError,
+                        }
+                    }
                 }
             }
-        } else {
-            request.send()?
+
+            // Refresh policy: always go to network, then try to upsert into cache.
+            (CachePolicy::Refresh, Some(cache)) => {
+                match cache.send_with_refresh(request.clone()) {
+                    Ok(o) => o,
+                    Err(CacheError::Viaduct(e)) => return Err(e.into()),
+                    Err(_e) => {
+                        // Cache refresh failed unrecoverablely before the network call was made.
+                        let resp = request.send()?;
+                        SendOutcome {
+                            response: resp,
+                            cache_outcome: CacheOutcome::FatalError,
+                        }
+                    }
+                }
+            }
+
+            // No cache available or bypass requested: just network.
+            (CachePolicy::Default, None)
+            | (CachePolicy::Refresh, None)
+            | (CachePolicy::Bypass, _) => {
+                let resp = request.send()?;
+                SendOutcome {
+                    response: resp,
+                    cache_outcome: CacheOutcome::Skipped,
+                }
+            }
         };
 
-        check_http_status_for_error(&response)?;
+        // TODO: observe cache outcome for metrics/logging.
+        match &outcome.cache_outcome {
+            CacheOutcome::Hit => {}
+            CacheOutcome::MissStoredSuccess => {}
+            CacheOutcome::Skipped => {}
+            CacheOutcome::MissStoreFailed(_err) => {}
+            _ => {}
+        }
 
-        let response_json: AdResponse = response.json()?;
-
+        check_http_status_for_error(&outcome.response)?;
+        let response_json: AdResponse = outcome.response.json()?;
         Ok(response_json)
     }
 
@@ -149,7 +211,7 @@ impl MARSClient for DefaultMARSClient {
         }
     }
 
-    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+    fn clear_cache(&self) -> Result<(), CacheError> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }

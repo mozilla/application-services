@@ -4,16 +4,20 @@ version = "0.1.0"
 edition = "2021"
 license = "MPL-2.0"
 
+[features]
+dev = []
+default = []
+
 [dependencies]
 chrono = "0.4"
 context_id = { path = "../context_id" }
 error-support = { path = "../support/error" }
 parking_lot = "0.12"
 rusqlite = { version = "0.37.0", features = [
-    "functions",
-    "bundled",
-    "serde_json",
-    "unlock_notify",
+  "functions",
+  "bundled",
+  "serde_json",
+  "unlock_notify",
 ] }
 serde = "1"
 serde_json = "1"

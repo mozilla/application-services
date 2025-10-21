@@ -3,7 +3,7 @@
 
 ## Overview
 This document lists the Rust types and functions exposed via UniFFI by the `ads_client` component.
-It only includes items that are part of the UniFFI surface.
+It only includes items that are part of the UniFFI surface. This document is aimed at users of the ads-client who want to know what is available to them.
 
 ---
 
@@ -151,7 +151,7 @@ pub struct AdContentCategory {
 
 ## `IABContentTaxonomy`
 
-The [IAB Content Taxonomy](https://www.iab.com/guidelines/content-taxonomy/) version to be used in the request. e.g `IAB-1.0`
+The [IAB Content Taxonomy](https://www.iab.com/guidelines/content-taxonomy/) version to be used in the request. e.g `IAB-1.0` 
 
 ```rust
 pub enum IABContentTaxonomy {
@@ -162,13 +162,44 @@ pub enum IABContentTaxonomy {
   IAB3_0,
 }
 ```
+> Note: The generated native bindings for the values may look different depending on the language (snake-case, camel case, etc.) as a result of UniFFI's formatting.
 
 ---
 
-## Cache Behavior
+## Internal Cache Behavior
 
 ### Cache Overview
 
+Internal to the Ads-Client component is a lightweight, SQLite-backed HTTP cache that sits in front of `viaduct::Request::send()`. This cache is used for two primary purposes: preventing duplicate network requests from being made over some interval, and "pre-fetching" of ads that can be stored and used without needing to wait for a network request to finish.
+
+> **Note**: The cache is managed automatically "under-the-hood" by the `ads-client` component with no additional input needed form the client when making an ad request. All the caching logic is handled during the call to `request_ads(...)`.
+
 ### Configuring The Cache
 
+Currently, the only external configuration we expose for the cache is when constructing `MozAdsClient`:
+
+```rust
+impl MozAdsClient {
+  pub fn new(db_path: String) -> Self
+}
+```
+
+Where `db_path` represents the location of the SQLite file. This must be a file that the client has permission to write to.
+
 ### Cache Invalidation
+
+**TTL-based expiry (automatic):**
+
+At the start of each send, the cache computes a cutoff from chrono::Utc::now() - ttl and deletes rows older than that. This is a coarse, global freshness window that bounds how long entries can live.
+
+**Size-based trimming (automatic):**
+After storing a cacheable miss, the cache enforces max_size by deleting the oldest rows until the total stored size is ≤ the maximum allowed size of the cache. Due to the small size of items in the cache and the relatively short TTL, this behavior should be rare.
+
+**Manual clearing (explicit):**
+The cache can be manually cleared by the client using the exposed `client.clear_cache()` method. This clears *all* objects in the cache.
+
+---
+
+### Example Usage
+
+Under construction

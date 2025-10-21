@@ -20,7 +20,7 @@ use parking_lot::Mutex;
 use uuid::Uuid;
 
 use crate::error::AdsClientApiError;
-use crate::http_cache::ByteSize;
+use crate::http_cache::{ByteSize, CacheError, DEFAULT_MAX_CACHE_SIZE_MIB, DEFAULT_TTL_SECONDS};
 
 mod error;
 mod http_cache;
@@ -39,12 +39,54 @@ pub struct MozAdsClient {
     inner: Mutex<MozAdsClientInner>,
 }
 
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Environment {
+    #[default]
+    Prod,
+    #[cfg(feature = "dev")]
+    Staging,
+}
+
+#[derive(uniffi::Record)]
+pub struct MozAdsClientConfig {
+    pub environment: Environment,
+    pub cache_config: Option<MozAdsCacheConfig>,
+}
+
+#[derive(uniffi::Record)]
+pub struct MozAdsCacheConfig {
+    pub db_path: String,
+    pub default_cache_ttl_seconds: Option<u64>,
+    pub max_size_mib: Option<u64>,
+}
+
+#[derive(uniffi::Record)]
+pub struct MozAdsRequestOptions {
+    pub cache_policy: Option<CachePolicy>,
+}
+
+impl Default for MozAdsRequestOptions {
+    fn default() -> Self {
+        Self {
+            cache_policy: Some(CachePolicy::default()),
+        }
+    }
+}
+
+#[derive(uniffi::Enum, Clone, Copy, Debug, Default)]
+pub enum CachePolicy {
+    #[default]
+    Default,
+    Bypass,
+    Refresh,
+}
+
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
-    pub fn new(db_path: String) -> Self {
+    pub fn new(client_config: Option<MozAdsClientConfig>) -> Self {
         Self {
-            inner: Mutex::new(MozAdsClientInner::new(db_path)),
+            inner: Mutex::new(MozAdsClientInner::new(client_config)),
         }
     }
 
@@ -52,10 +94,12 @@ impl MozAdsClient {
     pub fn request_ads(
         &self,
         moz_ad_configs: Vec<MozAdsPlacementConfig>,
+        options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsPlacement>> {
         let inner = self.inner.lock();
+
         let placements = inner
-            .request_ads(&moz_ad_configs)
+            .request_ads(&moz_ad_configs, options)
             .map_err(ComponentError::RequestAds)?;
         Ok(placements)
     }
@@ -106,23 +150,48 @@ pub struct MozAdsClientInner {
 }
 
 impl MozAdsClientInner {
-    fn new(db_path: String) -> Self {
+    fn new(client_config: Option<MozAdsClientConfig>) -> Self {
         let context_id = Uuid::new_v4().to_string();
-        let http_cache = HttpCache::builder(db_path)
-            .max_size(ByteSize::mib(10))
-            .ttl(Duration::from_secs(300))
-            .build()
-            .ok(); // TODO: handle error with telemetry
-        let client = Box::new(DefaultMARSClient::new(context_id, http_cache));
+
+        let cfg = client_config.unwrap_or(MozAdsClientConfig {
+            environment: Environment::default(),
+            cache_config: None,
+        });
+
+        // Configure the cache if a CacheConfig is provided
+        if let Some(cache_cfg) = cfg.cache_config {
+            let default_cache_ttl = cache_cfg
+                .default_cache_ttl_seconds
+                .unwrap_or(DEFAULT_TTL_SECONDS);
+            let max_cache_size_mib = cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB);
+
+            let http_cache = HttpCache::builder(cache_cfg.db_path)
+                .max_size(ByteSize::mib(max_cache_size_mib))
+                .ttl(Duration::from_secs(default_cache_ttl))
+                .build()
+                .ok(); // TODO: handle error with telemetry
+
+            let client = Box::new(DefaultMARSClient::new(
+                context_id,
+                cfg.environment,
+                http_cache,
+            ));
+            return Self { client };
+        }
+
+        let client = Box::new(DefaultMARSClient::new(context_id, cfg.environment, None));
         Self { client }
     }
 
     fn request_ads(
         &self,
         moz_ad_configs: &Vec<MozAdsPlacementConfig>,
+        options: Option<MozAdsRequestOptions>,
     ) -> Result<HashMap<String, MozAdsPlacement>, RequestAdsError> {
         let ad_request = self.build_request_from_placement_configs(moz_ad_configs)?;
-        let response = self.client.fetch_ads(&ad_request)?;
+        let opts = options.unwrap_or_default();
+        let cache_policy = opts.cache_policy.unwrap_or_default();
+        let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
         let placements = self.build_placements(moz_ad_configs, response)?;
         Ok(placements)
     }
@@ -231,7 +300,7 @@ impl MozAdsClientInner {
         Ok(moz_ad_placements)
     }
 
-    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+    fn clear_cache(&self) -> Result<(), CacheError> {
         self.client.clear_cache()
     }
 }
