@@ -306,7 +306,7 @@ dependencies = [
 [[package]]
 name = "bhttp"
 version = "0.7.0"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=a0f2a3197af9bfea99137654ec67b62684ba4556#a0f2a3197af9bfea99137654ec67b62684ba4556"
+source = "git+https://github.com/gruberb/ohttp.git?rev=a0f2a3197af9bfea99137654ec67b62684ba4556#a0f2a3197af9bfea99137654ec67b62684ba4556"
 dependencies = [
  "thiserror 2.0.3",
 ]
@@ -329,7 +329,7 @@ dependencies = [
  "bitflags 2.8.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.3",
  "proc-macro2",
  "quote",
  "regex",
@@ -3098,7 +3098,7 @@ dependencies = [
 [[package]]
 name = "ohttp"
 version = "0.7.0"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=a0f2a3197af9bfea99137654ec67b62684ba4556#a0f2a3197af9bfea99137654ec67b62684ba4556"
+source = "git+https://github.com/gruberb/ohttp.git?rev=a0f2a3197af9bfea99137654ec67b62684ba4556#a0f2a3197af9bfea99137654ec67b62684ba4556"
 dependencies = [
  "bindgen",
  "byteorder",
