@@ -17,12 +17,12 @@ rusqlite = { version = "0.37.0", features = ["bundled"] }
 
 [dependencies.bhttp]
 git = "https://github.com/gruberb/ohttp.git"
-rev = "a0f2a3197af9bfea99137654ec67b62684ba4556"
+rev = "d4b387830e239c012463756c769b9d67a3d10dfe"
 
 [dependencies.ohttp]
 default-features = false
 git = "https://github.com/gruberb/ohttp.git"
-rev = "a0f2a3197af9bfea99137654ec67b62684ba4556"
+rev = "d4b387830e239c012463756c769b9d67a3d10dfe"
 features = ["client", "server", "app-svc", "external-sqlite"]
 
 [build-dependencies]
