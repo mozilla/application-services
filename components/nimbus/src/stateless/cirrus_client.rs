@@ -5,7 +5,7 @@
 use crate::{
     enrollment::{
         map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
-        EnrollmentsEvolver, ExperimentEnrollment, Participation,
+        EnrollmentsEvolver, ExperimentEnrollment,
     },
     error::CirrusClientError,
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
@@ -43,7 +43,6 @@ impl fmt::Display for EnrollmentResponse {
 /// Definitions for the fields are as follows:
 /// - `client_id`: This field is the client's id as defined by the calling application. Though this is an Option type, if it is missing the method will throw a NimbusError.
 /// - `context`: The application context for the request. This value will be converted into TargetingAttributes.
-/// - `is_user_participating`: Whether or not the user is participating in experimentation. Defaults to `true`
 /// - `next_experiments`: The list of experiments for which enrollment should be evaluated.
 /// - `prev_enrollments`: The client's current list of enrollments.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -51,7 +50,6 @@ impl fmt::Display for EnrollmentResponse {
 pub struct EnrollmentRequest {
     pub client_id: Option<String>,
     pub request_context: Map<String, Value>,
-    pub participation: Participation,
     #[serde(default)]
     pub prev_enrollments: Vec<ExperimentEnrollment>,
 }
@@ -97,7 +95,6 @@ impl CirrusClient {
         let EnrollmentRequest {
             client_id,
             request_context,
-            participation,
             prev_enrollments,
         } = match serde_json::from_str(request.as_str()) {
             Ok(v) => v,
@@ -114,7 +111,6 @@ impl CirrusClient {
         Ok(match serde_json::to_string(&self.enroll(
             client_id,
             request_context,
-            participation,
             &prev_enrollments,
         )?) {
             Ok(v) => v,
@@ -126,7 +122,6 @@ impl CirrusClient {
         &self,
         user_id: String,
         request_context: Map<String, Value>,
-        participation: Participation,
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<EnrollmentResponse> {
         let available_randomization_units =
@@ -148,7 +143,7 @@ impl CirrusClient {
 
         let (enrollments, events) = enrollments_evolver
             .evolve_enrollments::<EnrolledFeatureConfig>(
-                participation,
+                Default::default(),
                 Default::default(),
                 &state.experiments,
                 prev_enrollments,

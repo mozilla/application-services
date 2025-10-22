@@ -5,7 +5,7 @@
 use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
     enrollment::{
-        EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason, Participation,
+        EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason,
     },
     tests::{
         helpers::TestMetrics,
@@ -50,7 +50,6 @@ fn test_can_enroll() -> Result<()> {
     let result = client.enroll(
         "test".to_string(),
         Default::default(),
-        Participation::default(),
         &[],
     )?;
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
@@ -90,7 +89,6 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
     let result = client.enroll(
         "test".to_string(),
         Default::default(),
-        Participation::default(),
         &[enrollment],
     )?;
 
@@ -118,10 +116,6 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
                 Value::String("en-US".to_string()),
             )]))
             .unwrap(),
-        ),
-        (
-            "participation".to_string(),
-            to_value(Participation::default()).unwrap(),
         ),
         (
             "nextExperiments".to_string(),
@@ -214,7 +208,6 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     client.enroll(
         "test".to_string(),
         Default::default(),
-        Participation::default(),
         &[],
     )?;
 
