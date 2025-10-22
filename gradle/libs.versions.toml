@@ -8,7 +8,7 @@
 android-gradle-plugin = "8.13.0"
 
 # Google
-protobuf = "4.32.1"
+protobuf = "4.33.0"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
@@ -17,14 +17,14 @@ coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
 
 # Mozilla
-android-components = "143.0"
+android-components = "144.0.1"
 glean = "66.0.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
 annotation = "1.9.1"
 core = "1.17.0"
-work = "2.10.5"
+work = "2.11.0"
 
 # JNA
 jna = "5.18.1"
