@@ -9,21 +9,21 @@ use crate::{
     http_cache::HttpCache,
     mars::DefaultMARSClient,
     models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
-    IABContent, MozAdsPlacement, MozAdsPlacementConfig,
+    IABContent, MozAdsPlacement, MozAdsPlacementRequest,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
-pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementConfig> {
+pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementRequest> {
     vec![
-        MozAdsPlacementConfig {
+        MozAdsPlacementRequest {
             placement_id: "example_placement_1".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
                 category_ids: vec!["entertainment".to_string()],
             }),
         },
-        MozAdsPlacementConfig {
+        MozAdsPlacementRequest {
             placement_id: "example_placement_2".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB3_0,
@@ -79,7 +79,7 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
     placements.insert(
         "example_placement_1".to_string(),
         MozAdsPlacement {
-            placement_config: MozAdsPlacementConfig {
+            placement_config: MozAdsPlacementRequest {
                 placement_id: "example_placement_1".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
@@ -105,7 +105,7 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
     placements.insert(
         "example_placement_2".to_string(),
         MozAdsPlacement {
-            placement_config: MozAdsPlacementConfig {
+            placement_config: MozAdsPlacementRequest {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB3_0,

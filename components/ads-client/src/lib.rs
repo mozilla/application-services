@@ -87,7 +87,7 @@ impl MozAdsClient {
     #[handle_error(ComponentError)]
     pub fn request_ads(
         &self,
-        moz_ad_configs: Vec<MozAdsPlacementConfig>,
+        moz_ad_configs: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, MozAdsPlacement>> {
         let inner = self.inner.lock();
@@ -152,7 +152,8 @@ impl MozAdsClientInner {
             cache_config: None,
         });
 
-        // Configure the cache if a CacheConfig is provided
+        // Configure the cache if a path is provided.
+        // Defaults for ttl and cache size are also set if unspecified.
         if let Some(cache_cfg) = cfg.cache_config {
             let default_cache_ttl = cache_cfg
                 .default_cache_ttl_seconds
@@ -179,7 +180,7 @@ impl MozAdsClientInner {
 
     fn request_ads(
         &self,
-        moz_ad_configs: &Vec<MozAdsPlacementConfig>,
+        moz_ad_configs: &Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
     ) -> Result<HashMap<String, MozAdsPlacement>, RequestAdsError> {
         let ad_request = self.build_request_from_placement_configs(moz_ad_configs)?;
@@ -217,7 +218,7 @@ impl MozAdsClientInner {
 
     fn build_request_from_placement_configs(
         &self,
-        moz_ad_configs: &Vec<MozAdsPlacementConfig>,
+        moz_ad_configs: &Vec<MozAdsPlacementRequest>,
     ) -> Result<AdRequest, BuildRequestError> {
         if moz_ad_configs.is_empty() {
             return Err(BuildRequestError::EmptyConfig);
@@ -258,7 +259,7 @@ impl MozAdsClientInner {
 
     fn build_placements(
         &self,
-        placement_configs: &Vec<MozAdsPlacementConfig>,
+        placement_configs: &Vec<MozAdsPlacementRequest>,
         mut mars_response: AdResponse,
     ) -> Result<HashMap<String, MozAdsPlacement>, BuildPlacementsError> {
         let mut moz_ad_placements: HashMap<String, MozAdsPlacement> = HashMap::new();
@@ -306,14 +307,14 @@ pub struct IABContent {
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacementConfig {
+pub struct MozAdsPlacementRequest {
     pub placement_id: String,
     pub iab_content: Option<IABContent>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacement {
-    pub placement_config: MozAdsPlacementConfig,
+    pub placement_config: MozAdsPlacementRequest,
     pub content: MozAd,
 }
 
@@ -343,22 +344,22 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementConfig> = vec![
-            MozAdsPlacementConfig {
+        let configs: Vec<MozAdsPlacementRequest> = vec![
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_1".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
             },
-            MozAdsPlacementConfig {
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
             },
-            MozAdsPlacementConfig {
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_3".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
@@ -414,22 +415,22 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementConfig> = vec![
-            MozAdsPlacementConfig {
+        let configs: Vec<MozAdsPlacementRequest> = vec![
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_1".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
                     category_ids: vec!["entertainment".to_string()],
                 }),
             },
-            MozAdsPlacementConfig {
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB3_0,
                     category_ids: vec![],
                 }),
             },
-            MozAdsPlacementConfig {
+            MozAdsPlacementRequest {
                 placement_id: "example_placement_2".to_string(),
                 iab_content: Some(IABContent {
                     taxonomy: IABContentTaxonomy::IAB2_1,
@@ -452,7 +453,7 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementConfig> = vec![];
+        let configs: Vec<MozAdsPlacementRequest> = vec![];
         let request = inner_component.build_request_from_placement_configs(&configs);
 
         assert!(request.is_err());
@@ -490,7 +491,7 @@ mod tests {
 
         let mut configs = get_example_happy_placement_config();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementConfig {
+        configs.push(MozAdsPlacementRequest {
             placement_id: "example_placement_3".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
@@ -522,7 +523,7 @@ mod tests {
 
         let mut configs = get_example_happy_placement_config();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementConfig {
+        configs.push(MozAdsPlacementRequest {
             placement_id: "example_placement_3".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
@@ -549,7 +550,7 @@ mod tests {
 
         let mut configs = get_example_happy_placement_config();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementConfig {
+        configs.push(MozAdsPlacementRequest {
             placement_id: "example_placement_2".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
