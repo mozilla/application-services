@@ -13,6 +13,12 @@
 ### Glean
 - Updated to v66.0.0 ([#7025](https://github.com/mozilla/application-services/issues/7025))
 
+### Nimbus
+- The `participation` field is no longer required in the Cirrus
+  `EnrollmentRequest` type. Instead, when users opt-out, the client application
+  should no longer send enrollment requests to Cirrus.
+  ([#7030](https://github.com/mozilla/application-services/pull/7030))
+
 [Full Changelog](In progress)
 
 # v145.0 (_2025-10-13_)
