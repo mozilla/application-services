@@ -20,7 +20,9 @@ use parking_lot::Mutex;
 use uuid::Uuid;
 
 use crate::error::AdsClientApiError;
-use crate::http_cache::{ByteSize, CacheError, DEFAULT_MAX_CACHE_SIZE_MIB, DEFAULT_TTL_SECONDS};
+use crate::http_cache::{
+    ByteSize, CacheError, CachePolicy, DEFAULT_MAX_CACHE_SIZE_MIB, DEFAULT_TTL_SECONDS,
+};
 
 mod error;
 mod http_cache;
@@ -71,14 +73,6 @@ impl Default for MozAdsRequestOptions {
             cache_policy: Some(CachePolicy::default()),
         }
     }
-}
-
-#[derive(uniffi::Enum, Clone, Copy, Debug, Default)]
-pub enum CachePolicy {
-    #[default]
-    Default,
-    Bypass,
-    Refresh,
 }
 
 #[uniffi::export]
@@ -594,7 +588,7 @@ mod tests {
     fn test_request_ads_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_fetch_ads()
-            .returning(|_req| Ok(get_example_happy_ad_response()));
+            .returning(|_req, _| Ok(get_example_happy_ad_response()));
         mock.expect_get_context_id()
             .returning(|| Ok("mock-context-id".to_string()));
 
@@ -609,14 +603,14 @@ mod tests {
 
         let configs = get_example_happy_placement_config();
 
-        let result = component.request_ads(configs);
+        let result = component.request_ads(configs, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_cycle_context_id() {
-        let component = MozAdsClient::new("test_cycle.db".to_string());
+        let component = MozAdsClient::new(None);
         let old_id = component.cycle_context_id().unwrap();
         let new_id = component.cycle_context_id().unwrap();
         assert_ne!(old_id, new_id);

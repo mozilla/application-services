@@ -8,13 +8,13 @@ use crate::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
-    http_cache::{self, CacheError, CacheOutcome, HttpCache, SendOutcome},
+    http_cache::{CacheError, CacheOutcome, HttpCache},
     models::{AdRequest, AdResponse},
     CachePolicy, Environment,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use url::Url;
-use viaduct::{Request, ViaductError};
+use viaduct::Request;
 
 const MARS_API_ENDPOINT_PROD: &str = "https://ads.mozilla.org/v1";
 const MARS_API_ENDPOINT_STAGING: &str = "https://ads.allizom.org/v1";
@@ -118,64 +118,28 @@ impl MARSClient for DefaultMARSClient {
         let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
 
-        // Decide how to send based on cache policy + cache availability.
-        let outcome = match (cache_policy, self.http_cache.as_ref()) {
-            // Default policy behavior: try cache, else network (and try to store).
-            (CachePolicy::Default, Some(cache)) => {
-                match cache.send(request.clone()) {
-                    Ok(o) => o,
-                    Err(CacheError::Viaduct(e)) => return Err(e.into()),
-                    Err(_e) => {
-                        // Cache send failed unrecoverably before the network call was made.
-                        let resp = request.send()?;
-                        SendOutcome {
-                            response: resp,
-                            cache_outcome: CacheOutcome::FatalError,
-                        }
-                    }
-                }
-            }
+        if let Some(cache) = self.http_cache.as_ref() {
+            let outcome = cache.send_with_policy(request, cache_policy)?;
 
-            // Refresh policy: always go to network, then try to upsert into cache.
-            (CachePolicy::Refresh, Some(cache)) => {
-                match cache.send_with_refresh(request.clone()) {
-                    Ok(o) => o,
-                    Err(CacheError::Viaduct(e)) => return Err(e.into()),
-                    Err(_e) => {
-                        // Cache refresh failed unrecoverablely before the network call was made.
-                        let resp = request.send()?;
-                        SendOutcome {
-                            response: resp,
-                            cache_outcome: CacheOutcome::FatalError,
-                        }
-                    }
-                }
+            // TODO: observe cache outcome for metrics/logging.
+            match &outcome.cache_outcome {
+                CacheOutcome::Hit => {}
+                CacheOutcome::LookupFailed(_err) => {}
+                CacheOutcome::NoCache => {}
+                CacheOutcome::MissNotCacheable => {}
+                CacheOutcome::MissStored => {}
+                CacheOutcome::StoreFailed(_err) => {}
+                CacheOutcome::CleanupFailed(_err) => {}
             }
-
-            // No cache available or bypass requested: just network.
-            (CachePolicy::Default, None)
-            | (CachePolicy::Refresh, None)
-            | (CachePolicy::Bypass, _) => {
-                let resp = request.send()?;
-                SendOutcome {
-                    response: resp,
-                    cache_outcome: CacheOutcome::Skipped,
-                }
-            }
-        };
-
-        // TODO: observe cache outcome for metrics/logging.
-        match &outcome.cache_outcome {
-            CacheOutcome::Hit => {}
-            CacheOutcome::MissStoredSuccess => {}
-            CacheOutcome::Skipped => {}
-            CacheOutcome::MissStoreFailed(_err) => {}
-            _ => {}
+            check_http_status_for_error(&outcome.response)?;
+            let response_json: AdResponse = outcome.response.json()?;
+            Ok(response_json)
+        } else {
+            let response = request.send()?;
+            check_http_status_for_error(&response)?;
+            let response_json: AdResponse = response.json()?;
+            Ok(response_json)
         }
-
-        check_http_status_for_error(&outcome.response)?;
-        let response_json: AdResponse = outcome.response.json()?;
-        Ok(response_json)
     }
 
     fn record_impression(
@@ -333,7 +297,7 @@ mod tests {
             ],
         };
 
-        let result = client.fetch_ads(&ad_request);
+        let result = client.fetch_ads(&ad_request, &CachePolicy::Default);
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
     }

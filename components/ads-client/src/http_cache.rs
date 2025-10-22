@@ -20,6 +20,16 @@ use std::time::Duration;
 pub const DEFAULT_TTL_SECONDS: u64 = 300;
 pub const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
+pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
+
+#[derive(uniffi::Enum, Clone, Copy, Debug, Default)]
+pub enum CachePolicy {
+    #[default]
+    Default,
+    Bypass,
+    Refresh,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
     #[error("Could not build cache: {0}")]
@@ -27,18 +37,16 @@ pub enum CacheError {
 
     #[error("SQLite operation failed: {0}")]
     Sqlite(#[from] rusqlite::Error),
-
-    #[error("Error sending request: {0}")]
-    Viaduct(#[from] viaduct::ViaductError),
 }
 
 pub enum CacheOutcome {
     Hit,
-    Skipped,
-    MissStoredSuccess,
-    MissStoreFailed(CacheError),
-    MissNotCacheable,
-    FatalError,
+    LookupFailed(rusqlite::Error), // cache miss path due to lookup error
+    NoCache,                       // send policy requested a cache bypass
+    MissNotCacheable,              // policy says "don't store"
+    MissStored,                    // stored successfully
+    StoreFailed(CacheError),       // insert/upsert failed
+    CleanupFailed(CacheError),     // cleaning expired objects failed
 }
 
 pub struct SendOutcome {
@@ -62,14 +70,18 @@ impl HttpCache {
         Ok(())
     }
 
-    pub fn send_with_refresh(&self, request: Request) -> Result<SendOutcome, CacheError> {
-        self.cleanup_expired()?;
-
+    fn send_live_then_cache(&self, request: Request) -> HttpCacheSendResult<SendOutcome> {
         let response = request.clone().send()?;
+        if let Err(e) = self.cleanup_expired() {
+            return Ok(SendOutcome {
+                response,
+                cache_outcome: CacheOutcome::CleanupFailed(e),
+            });
+        }
         let cache_outcome = if CacheControl::from(&response).should_cache() {
             match self.cache_object(&request, &response) {
-                Ok(()) => CacheOutcome::MissStoredSuccess,
-                Err(e) => CacheOutcome::MissStoreFailed(e),
+                Ok(()) => CacheOutcome::MissStored,
+                Err(e) => CacheOutcome::StoreFailed(e),
             }
         } else {
             CacheOutcome::MissNotCacheable
@@ -81,30 +93,39 @@ impl HttpCache {
         })
     }
 
-    pub fn send(&self, request: Request) -> Result<SendOutcome, CacheError> {
-        self.cleanup_expired()?;
-
-        if let Some((resp, _)) = self.store.lookup(&request)? {
-            return Ok(SendOutcome {
+    pub fn send(&self, request: Request) -> HttpCacheSendResult<SendOutcome> {
+        match self.store.lookup(&request) {
+            Ok(Some((resp, _))) => Ok(SendOutcome {
                 response: resp,
                 cache_outcome: CacheOutcome::Hit,
-            });
-        }
-
-        let response = request.clone().send()?;
-        let cache_outcome = if CacheControl::from(&response).should_cache() {
-            match self.cache_object(&request, &response) {
-                Ok(()) => CacheOutcome::MissStoredSuccess,
-                Err(e) => CacheOutcome::MissStoreFailed(e),
+            }),
+            Ok(None) => self.send_live_then_cache(request),
+            Err(e) => {
+                let response = request.clone().send()?;
+                Ok(SendOutcome {
+                    response,
+                    cache_outcome: CacheOutcome::LookupFailed(e),
+                })
             }
-        } else {
-            CacheOutcome::MissNotCacheable
-        };
+        }
+    }
 
-        Ok(SendOutcome {
-            response,
-            cache_outcome,
-        })
+    pub fn send_with_policy(
+        &self,
+        request: Request,
+        policy: &CachePolicy,
+    ) -> HttpCacheSendResult<SendOutcome> {
+        match policy {
+            CachePolicy::Default => self.send(request),
+            CachePolicy::Refresh => self.send_live_then_cache(request),
+            CachePolicy::Bypass => {
+                let response = request.clone().send()?;
+                Ok(SendOutcome {
+                    response,
+                    cache_outcome: CacheOutcome::NoCache,
+                })
+            }
+        }
     }
 
     fn cleanup_expired(&self) -> Result<(), CacheError> {
@@ -114,7 +135,7 @@ impl HttpCache {
     }
 
     fn cache_object(&self, request: &Request, response: &Response) -> Result<(), CacheError> {
-        self.store.store(&request, &response)?;
+        self.store.store(request, response)?;
         self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
         Ok(())
     }
