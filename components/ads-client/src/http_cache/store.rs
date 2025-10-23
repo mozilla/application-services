@@ -9,14 +9,28 @@ use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use viaduct::{Header, Request, Response};
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultKind {
+    None,
+    Lookup,
+    Store,
+    Trim,
+    Cleanup,
+}
+
 pub struct HttpCacheStore {
     conn: Mutex<Connection>,
+    #[cfg(test)]
+    fault: parking_lot::Mutex<FaultKind>,
 }
 
 impl HttpCacheStore {
     pub fn new(conn: Connection) -> Self {
         Self {
             conn: Mutex::new(conn),
+            #[cfg(test)]
+            fault: parking_lot::Mutex::new(FaultKind::None),
         }
     }
 
@@ -33,6 +47,10 @@ impl HttpCacheStore {
     }
 
     pub fn delete_expired_entries(&self, cutoff_timestamp: i64) -> SqliteResult<usize> {
+        #[cfg(test)]
+        if *self.fault.lock() == FaultKind::Cleanup {
+            return Err(Self::forced_fault_error("forced cleanup failure"));
+        }
         let conn = self.conn.lock();
         conn.execute(
             "DELETE FROM http_cache WHERE cached_at < ?1",
@@ -41,6 +59,10 @@ impl HttpCacheStore {
     }
 
     pub fn lookup(&self, request: &Request) -> SqliteResult<Option<(Response, RequestHash)>> {
+        #[cfg(test)]
+        if *self.fault.lock() == FaultKind::Lookup {
+            return Err(Self::forced_fault_error("forced lookup failure"));
+        }
         let request_hash = RequestHash::from(request);
         let conn = self.conn.lock();
         conn.query_row(
@@ -73,6 +95,10 @@ impl HttpCacheStore {
     }
 
     pub fn store(&self, request: &Request, response: &Response) -> SqliteResult<RequestHash> {
+        #[cfg(test)]
+        if *self.fault.lock() == FaultKind::Store {
+            return Err(Self::forced_fault_error("forced store failure"));
+        }
         let request_hash = RequestHash::from(request);
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
@@ -101,6 +127,10 @@ impl HttpCacheStore {
     }
 
     pub fn trim_to_max_size(&self, max_size: i64) -> SqliteResult<()> {
+        #[cfg(test)]
+        if *self.fault.lock() == FaultKind::Trim {
+            return Err(Self::forced_fault_error("forced trim failure"));
+        }
         loop {
             let total = self.current_total_size()?;
             if total <= max_size {
@@ -115,6 +145,23 @@ impl HttpCacheStore {
             )?;
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn set_fault(&self, kind: FaultKind) {
+        *self.fault.lock() = kind;
+    }
+
+    #[cfg(test)]
+    fn forced_fault_error(msg: &str) -> rusqlite::Error {
+        // Make a deterministic rusqlite error
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error {
+                code: rusqlite::ErrorCode::InternalMalfunction,
+                extended_code: 0,
+            },
+            Some(msg.to_string()),
+        )
     }
 }
 
@@ -155,6 +202,71 @@ mod tests {
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
         HttpCacheStore::new(conn)
+    }
+
+    #[test]
+    fn test_lookup_fault_injection() {
+        let store = create_test_store();
+        store.set_fault(FaultKind::Lookup);
+
+        let req = create_test_request("https://example.com/api", b"body");
+        let err = store.lookup(&req).unwrap_err();
+
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+                assert!(msg.contains("forced lookup failure"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_store_fault_injection() {
+        let store = create_test_store();
+        store.set_fault(FaultKind::Store);
+
+        let req = create_test_request("https://example.com/api", b"body");
+        let resp = create_test_response(200, b"resp");
+
+        let err = store.store(&req, &resp).unwrap_err();
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+                assert!(msg.contains("forced store failure"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_trim_fault_injection() {
+        let store = create_test_store();
+        store.set_fault(FaultKind::Trim);
+
+        let req = create_test_request("https://example.com/api", b"");
+        let resp = create_test_response(200, b"resp");
+        store.store(&req, &resp).unwrap();
+
+        let err = store.trim_to_max_size(1).unwrap_err();
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+                assert!(msg.contains("forced trim failure"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_cleanup_fault_injection() {
+        let store = create_test_store();
+        store.set_fault(FaultKind::Cleanup);
+
+        let err = store.delete_expired_entries(0).unwrap_err();
+        match err {
+            rusqlite::Error::SqliteFailure(_, Some(msg)) => {
+                assert!(msg.contains("forced cleanup failure"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]

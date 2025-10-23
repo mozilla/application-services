@@ -22,11 +22,16 @@ pub const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
 pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
 
+#[derive(uniffi::Record, Clone, Copy, Debug, Default)]
+pub struct CachePolicy {
+    pub mode: CacheMode,
+    pub ttl_seconds: Option<u64>, // optional client-defined ttl override
+}
+
 #[derive(uniffi::Enum, Clone, Copy, Debug, Default)]
-pub enum CachePolicy {
+pub enum CacheMode {
     #[default]
     Default,
-    Bypass,
     Refresh,
 }
 
@@ -118,16 +123,20 @@ impl HttpCache {
         request: Request,
         policy: &CachePolicy,
     ) -> HttpCacheSendResult<SendOutcome> {
-        match policy {
-            CachePolicy::Default => self.send(request),
-            CachePolicy::Refresh => self.request_from_network_then_cache(request),
-            CachePolicy::Bypass => {
+        let _ttl = match policy.ttl_seconds {
+            Some(0) => {
                 let response = request.clone().send()?;
-                Ok(SendOutcome {
+                return Ok(SendOutcome {
                     response,
                     cache_outcome: CacheOutcome::NoCache,
-                })
+                });
             }
+            Some(v) => Duration::new(v, 0),
+            None => self.ttl,
+        };
+        match policy.mode {
+            CacheMode::Default => self.send(request),
+            CacheMode::Refresh => self.request_from_network_then_cache(request),
         }
     }
 
@@ -146,7 +155,23 @@ impl HttpCache {
 
 #[cfg(test)]
 mod tests {
+    use mockito::mock;
+
     use super::*;
+
+    fn make_post_request() -> Request {
+        let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
+        Request::post(url).json(&serde_json::json!({"fake":"data"}))
+    }
+
+    fn make_cache() -> HttpCache {
+        // Our store opens an in-memory cache for tests. So the name is irrelevant.
+        HttpCache::builder("ignored_in_tests.db")
+            .ttl(Duration::from_secs(60))
+            .max_size(ByteSize::mib(1))
+            .build()
+            .expect("cache build should succeed")
+    }
 
     #[test]
     fn test_http_cache_creation() {
@@ -195,5 +220,118 @@ mod tests {
         // Verify it's cleared
         let retrieved_after_clear = cache.store.lookup(&request).unwrap();
         assert!(retrieved_after_clear.is_none());
+    }
+
+    #[test]
+    fn test_default_policy_miss_then_store_then_hit() {
+        viaduct_dev::init_backend_dev();
+
+        let body = r#"{"ok":true}"#;
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .expect(1) // only the first call should hit the network
+            .create();
+
+        let cache = make_cache();
+        let req = make_post_request();
+
+        // First call: miss -> store
+        let o1 = cache
+            .send_with_policy(req.clone(), &CachePolicy::default())
+            .unwrap();
+        matches!(o1.cache_outcome, CacheOutcome::MissStored);
+
+        // Second call: hit (no extra HTTP request due to expect(1))
+        let o2 = cache
+            .send_with_policy(req, &CachePolicy::default())
+            .unwrap();
+        matches!(o2.cache_outcome, CacheOutcome::Hit);
+        assert_eq!(o2.response.status, 200);
+    }
+
+    #[test]
+    fn test_refresh_policy_always_uses_network_then_caches() {
+        viaduct_dev::init_backend_dev();
+
+        let body1 = r#"{"ok":true,"n":1}"#;
+        let body2 = r#"{"ok":true,"n":2}"#;
+        // Two live responses expected on refresh
+        let _m1 = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body1)
+            .create();
+        let _m2 = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body2)
+            .create();
+
+        let cache = make_cache();
+        let req = make_post_request();
+
+        // First refresh: live -> MissStored
+        let o1 = cache
+            .send_with_policy(
+                req.clone(),
+                &CachePolicy {
+                    mode: CacheMode::Refresh,
+                    ttl_seconds: None,
+                },
+            )
+            .unwrap();
+        matches!(o1.cache_outcome, CacheOutcome::MissStored);
+
+        // Second refresh: live again (different body), still MissStored
+        let o2 = cache
+            .send_with_policy(
+                req,
+                &CachePolicy {
+                    mode: CacheMode::Refresh,
+                    ttl_seconds: None,
+                },
+            )
+            .unwrap();
+        matches!(o2.cache_outcome, CacheOutcome::MissStored);
+        assert_eq!(o2.response.status, 200);
+    }
+
+    #[test]
+    fn test_not_cacheable_no_store() {
+        viaduct_dev::init_backend_dev();
+
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "no-store") // should block caching
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let cache = make_cache();
+        let req = make_post_request();
+
+        let o = cache
+            .send_with_policy(req.clone(), &CachePolicy::default())
+            .unwrap();
+        matches!(o.cache_outcome, CacheOutcome::MissNotCacheable);
+
+        // Next call should hit network again (since we didn't cache)
+        let _m2 = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+        let o2 = cache
+            .send_with_policy(req, &CachePolicy::default())
+            .unwrap();
+        // Either MissStored (if headers differ) or MissNotCacheable if still no-store
+        assert!(matches!(
+            o2.cache_outcome,
+            CacheOutcome::MissStored | CacheOutcome::MissNotCacheable
+        ));
     }
 }

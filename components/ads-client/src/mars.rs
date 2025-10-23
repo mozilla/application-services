@@ -188,8 +188,12 @@ impl MARSClient for DefaultMARSClient {
 mod tests {
 
     use super::*;
-    use crate::test_utils::{
-        create_test_client, get_example_happy_ad_response, make_happy_ad_request, TEST_CONTEXT_ID,
+    use crate::{
+        http_cache::CacheMode,
+        test_utils::{
+            create_test_client, get_example_happy_ad_response, make_happy_ad_request,
+            TEST_CONTEXT_ID,
+        },
     };
     use mockito::mock;
 
@@ -283,7 +287,7 @@ mod tests {
 
         let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads(&ad_request, &CachePolicy::Default);
+        let result = client.fetch_ads(&ad_request, &CachePolicy::default());
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
     }
@@ -305,42 +309,14 @@ mod tests {
         // First call should be a miss then warm the cache
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .fetch_ads(&ad_request, &CachePolicy::default())
                 .unwrap(),
             expected
         );
         // Second call should be a hit
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::Default)
-                .unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn test_fetch_ads_cache_policy_respects_bypass() {
-        viaduct_dev::init_backend_dev();
-        let expected = get_example_happy_ad_response();
-        let _m = mock("POST", "/ads")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(serde_json::to_string(&expected).unwrap())
-            .expect(2) // only first request goes to network
-            .create();
-
-        let client = create_test_client(mockito::server_url());
-        let ad_request = make_happy_ad_request();
-
-        // Bypass should result in no-cache
-        assert_eq!(
-            client.fetch_ads(&ad_request, &CachePolicy::Bypass).unwrap(),
-            expected
-        );
-        // Second call should be a miss
-        assert_eq!(
-            client
-                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .fetch_ads(&ad_request, &CachePolicy::default())
                 .unwrap(),
             expected
         );
@@ -363,14 +339,20 @@ mod tests {
         // First call should warm the cache
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .fetch_ads(&ad_request, &CachePolicy::default())
                 .unwrap(),
             expected
         );
         // Second call should be a network call
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::Refresh)
+                .fetch_ads(
+                    &ad_request,
+                    &CachePolicy {
+                        mode: CacheMode::Refresh,
+                        ttl_seconds: None
+                    }
+                )
                 .unwrap(),
             expected
         );

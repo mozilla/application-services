@@ -35,7 +35,7 @@ pub fn make_happy_placement_requests() -> Vec<MozAdsPlacementRequest> {
 
 pub fn make_happy_ad_request() -> AdRequest {
     AdRequest {
-        context_id: "abcd-efgh".to_string(),
+        context_id: TEST_CONTEXT_ID.to_string(),
         placements: vec![
             AdPlacementRequest {
                 placement: "example_placement_1".to_string(),
