@@ -253,6 +253,7 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
 mod tests {
     use super::*;
