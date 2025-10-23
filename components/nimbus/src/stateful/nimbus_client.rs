@@ -297,29 +297,6 @@ impl NimbusClient {
         Ok(events)
     }
 
-    // DEPRECATED: Will be removed once Firefox is using the
-    // new get_experiment_participation and get_rollout_participation
-    pub fn get_global_user_participation(&self) -> Result<bool> {
-        // For simplicity, just return the experiment participation value
-        self.get_experiment_participation()
-    }
-
-    // DEPRECATED: Will be removed once Firefox is using the
-    // new set_experiment_participation and set_rollout_participation
-    pub fn set_global_user_participation(
-        &self,
-        user_participating: bool,
-    ) -> Result<Vec<EnrollmentChangeEvent>> {
-        // Call both set_experiment_participation and set_rollout_participation with the same value
-        let experiment_events = self.set_experiment_participation(user_participating)?;
-        let rollout_events = self.set_rollout_participation(user_participating)?;
-
-        // Combine the events from both calls
-        let mut all_events = experiment_events;
-        all_events.extend(rollout_events);
-        Ok(all_events)
-    }
-
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
         self.database_cache.get_active_experiments()
     }

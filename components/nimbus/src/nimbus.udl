@@ -259,14 +259,6 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> set_rollout_participation(boolean opt_in);
 
-    /// Getter and setter for global user participation (applies to both experiments and rollouts).
-    /// For simplicity, the getter returns the experiment participation value.
-    [Throws=NimbusError]
-    boolean get_global_user_participation();
-
-    [Throws=NimbusError]
-    sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
-
     /// Fetches the list of experiments from the server. This does not affect the list
     /// of active experiments or experiment enrolment.
     /// Fetched experiments are not applied until `apply_pending_updates()` is called.
