@@ -574,7 +574,8 @@ mod keydb_test {
     }
 
     fn profile_path() -> PathBuf {
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../support/rc_crypto/nss/fixtures/profile")
     }
 
     #[test]
