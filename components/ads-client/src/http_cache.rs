@@ -70,7 +70,10 @@ impl HttpCache {
         Ok(())
     }
 
-    fn send_live_then_cache(&self, request: Request) -> HttpCacheSendResult<SendOutcome> {
+    fn request_from_network_then_cache(
+        &self,
+        request: Request,
+    ) -> HttpCacheSendResult<SendOutcome> {
         let response = request.clone().send()?;
         if let Err(e) = self.cleanup_expired() {
             return Ok(SendOutcome {
@@ -99,7 +102,7 @@ impl HttpCache {
                 response: resp,
                 cache_outcome: CacheOutcome::Hit,
             }),
-            Ok(None) => self.send_live_then_cache(request),
+            Ok(None) => self.request_from_network_then_cache(request),
             Err(e) => {
                 let response = request.clone().send()?;
                 Ok(SendOutcome {
@@ -117,7 +120,7 @@ impl HttpCache {
     ) -> HttpCacheSendResult<SendOutcome> {
         match policy {
             CachePolicy::Default => self.send(request),
-            CachePolicy::Refresh => self.send_live_then_cache(request),
+            CachePolicy::Refresh => self.request_from_network_then_cache(request),
             CachePolicy::Bypass => {
                 let response = request.clone().send()?;
                 Ok(SendOutcome {

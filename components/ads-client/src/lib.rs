@@ -327,8 +327,8 @@ mod tests {
         mars::MockMARSClient,
         models::{AdCallbacks, AdContentCategory, AdPlacementRequest},
         test_utils::{
-            get_example_happy_ad_response, get_example_happy_placement_config,
-            get_example_happy_placements,
+            get_example_happy_ad_response, get_example_happy_placements,
+            make_happy_placement_requests,
         },
     };
 
@@ -344,7 +344,7 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementRequest> = vec![
+        let pl_request: Vec<MozAdsPlacementRequest> = vec![
             MozAdsPlacementRequest {
                 placement_id: "example_placement_1".to_string(),
                 iab_content: Some(IABContent {
@@ -368,7 +368,7 @@ mod tests {
             },
         ];
         let request = inner_component
-            .build_request_from_placement_configs(&configs)
+            .build_request_from_placement_configs(&pl_request)
             .unwrap();
         let context_id = inner_component.client.get_context_id().unwrap();
 
@@ -415,7 +415,7 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementRequest> = vec![
+        let pl_request: Vec<MozAdsPlacementRequest> = vec![
             MozAdsPlacementRequest {
                 placement_id: "example_placement_1".to_string(),
                 iab_content: Some(IABContent {
@@ -438,7 +438,7 @@ mod tests {
                 }),
             },
         ];
-        let request = inner_component.build_request_from_placement_configs(&configs);
+        let request = inner_component.build_request_from_placement_configs(&pl_request);
 
         assert!(request.is_err());
     }
@@ -453,8 +453,8 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let configs: Vec<MozAdsPlacementRequest> = vec![];
-        let request = inner_component.build_request_from_placement_configs(&configs);
+        let pl_request: Vec<MozAdsPlacementRequest> = vec![];
+        let request = inner_component.build_request_from_placement_configs(&pl_request);
 
         assert!(request.is_err());
     }
@@ -471,7 +471,7 @@ mod tests {
 
         let placements = inner_component
             .build_placements(
-                &get_example_happy_placement_config(),
+                &make_happy_placement_requests(),
                 get_example_happy_ad_response(),
             )
             .unwrap();
@@ -489,9 +489,9 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let mut configs = get_example_happy_placement_config();
+        let mut pl_request = make_happy_placement_requests();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementRequest {
+        pl_request.push(MozAdsPlacementRequest {
             placement_id: "example_placement_3".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
@@ -505,7 +505,7 @@ mod tests {
             .insert("example_placement_3".to_string(), vec![]);
 
         let placements = inner_component
-            .build_placements(&configs, api_resp)
+            .build_placements(&pl_request, api_resp)
             .unwrap();
 
         assert_eq!(placements, get_example_happy_placements());
@@ -521,9 +521,9 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let mut configs = get_example_happy_placement_config();
+        let mut pl_request = make_happy_placement_requests();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementRequest {
+        pl_request.push(MozAdsPlacementRequest {
             placement_id: "example_placement_3".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
@@ -532,7 +532,7 @@ mod tests {
         });
 
         let placements = inner_component
-            .build_placements(&configs, get_example_happy_ad_response())
+            .build_placements(&pl_request, get_example_happy_ad_response())
             .unwrap();
 
         assert_eq!(placements, get_example_happy_placements());
@@ -548,9 +548,9 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let mut configs = get_example_happy_placement_config();
+        let mut pl_request = make_happy_placement_requests();
         // Adding an extra placement config
-        configs.push(MozAdsPlacementRequest {
+        pl_request.push(MozAdsPlacementRequest {
             placement_id: "example_placement_2".to_string(),
             iab_content: Some(IABContent {
                 taxonomy: IABContentTaxonomy::IAB2_1,
@@ -580,7 +580,7 @@ mod tests {
                 },
             });
 
-        let placements = inner_component.build_placements(&configs, api_resp);
+        let placements = inner_component.build_placements(&pl_request, api_resp);
 
         assert!(placements.is_err());
     }
@@ -602,9 +602,9 @@ mod tests {
             }),
         };
 
-        let configs = get_example_happy_placement_config();
+        let pl_request = make_happy_placement_requests();
 
-        let result = component.request_ads(configs, None);
+        let result = component.request_ads(pl_request, None);
 
         assert!(result.is_ok());
     }

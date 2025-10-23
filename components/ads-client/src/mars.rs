@@ -17,6 +17,7 @@ use url::Url;
 use viaduct::Request;
 
 const MARS_API_ENDPOINT_PROD: &str = "https://ads.mozilla.org/v1";
+#[cfg(feature = "dev")]
 const MARS_API_ENDPOINT_STAGING: &str = "https://ads.allizom.org/v1";
 
 #[cfg_attr(test, mockall::automock)]
@@ -187,9 +188,8 @@ impl MARSClient for DefaultMARSClient {
 mod tests {
 
     use super::*;
-    use crate::{
-        models::AdPlacementRequest,
-        test_utils::{create_test_client, get_example_happy_ad_response, TEST_CONTEXT_ID},
+    use crate::test_utils::{
+        create_test_client, get_example_happy_ad_response, make_happy_ad_request, TEST_CONTEXT_ID,
     };
     use mockito::mock;
 
@@ -281,24 +281,98 @@ mod tests {
 
         let client = create_test_client(mockito::server_url());
 
-        let ad_request = AdRequest {
-            context_id: client.get_context_id().unwrap().to_string(),
-            placements: vec![
-                AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
-                    content: None,
-                },
-                AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    count: 1,
-                    content: None,
-                },
-            ],
-        };
+        let ad_request = make_happy_ad_request();
 
         let result = client.fetch_ads(&ad_request, &CachePolicy::Default);
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
+    }
+
+    #[test]
+    fn test_fetch_ads_cache_hit_skips_network() {
+        viaduct_dev::init_backend_dev();
+        let expected = get_example_happy_ad_response();
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected).unwrap())
+            .expect(1) // only first request goes to network
+            .create();
+
+        let client = create_test_client(mockito::server_url());
+        let ad_request = make_happy_ad_request();
+
+        // First call should be a miss then warm the cache
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .unwrap(),
+            expected
+        );
+        // Second call should be a hit
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_fetch_ads_cache_policy_respects_bypass() {
+        viaduct_dev::init_backend_dev();
+        let expected = get_example_happy_ad_response();
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected).unwrap())
+            .expect(2) // only first request goes to network
+            .create();
+
+        let client = create_test_client(mockito::server_url());
+        let ad_request = make_happy_ad_request();
+
+        // Bypass should result in no-cache
+        assert_eq!(
+            client.fetch_ads(&ad_request, &CachePolicy::Bypass).unwrap(),
+            expected
+        );
+        // Second call should be a miss
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_fetch_ads_cache_policy_respects_refresh() {
+        viaduct_dev::init_backend_dev();
+        let expected = get_example_happy_ad_response();
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected).unwrap())
+            .expect(2) // only first request goes to network
+            .create();
+
+        let client = create_test_client(mockito::server_url());
+        let ad_request = make_happy_ad_request();
+
+        // First call should warm the cache
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &CachePolicy::Default)
+                .unwrap(),
+            expected
+        );
+        // Second call should be a network call
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &CachePolicy::Refresh)
+                .unwrap(),
+            expected
+        );
     }
 }

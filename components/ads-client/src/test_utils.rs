@@ -8,13 +8,13 @@ use std::collections::HashMap;
 use crate::{
     http_cache::HttpCache,
     mars::DefaultMARSClient,
-    models::{AdCallbacks, AdResponse, IABContentTaxonomy, MozAd},
+    models::{AdCallbacks, AdPlacementRequest, AdRequest, AdResponse, IABContentTaxonomy, MozAd},
     IABContent, MozAdsPlacement, MozAdsPlacementRequest,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
-pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementRequest> {
+pub fn make_happy_placement_requests() -> Vec<MozAdsPlacementRequest> {
     vec![
         MozAdsPlacementRequest {
             placement_id: "example_placement_1".to_string(),
@@ -31,6 +31,24 @@ pub fn get_example_happy_placement_config() -> Vec<MozAdsPlacementRequest> {
             }),
         },
     ]
+}
+
+pub fn make_happy_ad_request() -> AdRequest {
+    AdRequest {
+        context_id: "abcd-efgh".to_string(),
+        placements: vec![
+            AdPlacementRequest {
+                placement: "example_placement_1".to_string(),
+                count: 1,
+                content: None,
+            },
+            AdPlacementRequest {
+                placement: "example_placement_2".to_string(),
+                count: 1,
+                content: None,
+            },
+        ],
+    }
 }
 
 pub fn get_example_happy_ad_response() -> AdResponse {
