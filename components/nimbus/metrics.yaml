@@ -248,14 +248,16 @@ nimbus_events:
         description: If the enrollment hit a feature conflict, the slug of the conflicting experiment/rollout
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3827
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1996105
     data_reviews:
       - https://github.com/mozilla/application-services/pull/5857#issuecomment-1749722071
     data_sensitivity:
       - technical
     notification_emails:
-      - chumphreys@mozilla.com
+      - beth@mozilla.com
       - project-nimbus@mozilla.com
     expires: never
+    disabled: true
   is_ready:
     type: event
     description: >
