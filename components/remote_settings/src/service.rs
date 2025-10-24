@@ -123,7 +123,7 @@ impl RemoteSettingsService {
         let base_url = config
             .server
             .unwrap_or(RemoteSettingsServer::Prod)
-            .get_base_url()?;
+            .get_base_url_with_prod_fallback();
         let bucket_name = config.bucket_name.unwrap_or_else(|| String::from("main"));
         let mut inner = self.inner.lock();
         for client in inner.active_clients() {
@@ -204,4 +204,53 @@ struct ChangesCollection {
     collection: String,
     bucket: String,
     last_modified: u64,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn create_service_with_invalid_url() {
+        let service = RemoteSettingsService::new(
+            "/test-storage-dir".to_string(),
+            RemoteSettingsConfig2 {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: "".to_string(),
+                }),
+                bucket_name: None,
+                app_context: None,
+            },
+        );
+        assert_eq!(
+            service.inner.lock().base_url.url(),
+            &RemoteSettingsServer::Prod.url().unwrap(),
+        );
+    }
+
+    #[test]
+    fn update_config_with_invalid_url() {
+        let service = RemoteSettingsService::new(
+            "/test-storage-dir".to_string(),
+            RemoteSettingsConfig2 {
+                server: Some(RemoteSettingsServer::Stage),
+                bucket_name: None,
+                app_context: None,
+            },
+        );
+        service
+            .update_config(RemoteSettingsConfig2 {
+                server: Some(RemoteSettingsServer::Custom {
+                    url: "".to_string(),
+                }),
+                bucket_name: None,
+                app_context: None,
+            })
+            .unwrap();
+
+        assert_eq!(
+            service.inner.lock().base_url.url(),
+            &RemoteSettingsServer::Prod.url().unwrap(),
+        );
+    }
 }
