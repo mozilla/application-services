@@ -84,7 +84,7 @@ by the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
   WebPush
 * [remote-settings](components/remote-settings) - for integrating with [Remote Settings](https://remote-settings.readthedocs.io/)
 * [support](components/support) - low-level utility libraries
-  * [support/rc_crypto](components/rc_crypto) - handles cryptographic needs backed by Mozilla's
+  * [support/rc_crypto](components/support/rc_crypto) - handles cryptographic needs backed by Mozilla's
     [NSS](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS) library
   * [support/sql](components/support/sql) - utilities for storing data locally
     with SQL
