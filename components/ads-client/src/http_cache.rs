@@ -191,6 +191,15 @@ mod tests {
             .expect("cache build should succeed")
     }
 
+    fn make_cache_with_ttl(secs: u64) -> HttpCache {
+        // In tests our store uses an in-memory DB; filename is irrelevant.
+        HttpCache::builder("ignored_in_tests.db")
+            .default_ttl(Duration::from_secs(secs))
+            .max_size(ByteSize::mib(4))
+            .build()
+            .expect("cache build should succeed")
+    }
+
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
@@ -354,5 +363,97 @@ mod tests {
             o2.cache_outcome,
             CacheOutcome::MissStored | CacheOutcome::MissNotCacheable
         ));
+    }
+
+    #[test]
+    fn ttl_resolution_min_of_server_request_default() {
+        viaduct_dev::init_backend_dev();
+
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_header("cache-control", "max-age=1") // Set max age to 1 second
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let cache = make_cache_with_ttl(300);
+        let req = make_post_request();
+        let policy = RequestCachePolicy {
+            mode: CacheMode::Default,
+            ttl_seconds: Some(20), // 20 second ttl specified vs the cache's default of 300s
+        };
+
+        // Store ttl should resolve to 1s as specified by response headers
+        let out = cache.send_with_policy(&req, &policy).unwrap();
+        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+
+        // After ~>1s, cleanup should remove it
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        cache.cleanup_expired().unwrap();
+        assert!(cache.store.lookup(&req).unwrap().is_none());
+    }
+
+    #[test]
+    fn ttl_resolution_request_overrides_default_when_smaller() {
+        viaduct_dev::init_backend_dev();
+
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let cache = make_cache_with_ttl(60);
+        let req = make_post_request();
+        let policy = RequestCachePolicy {
+            mode: CacheMode::Default,
+            ttl_seconds: Some(2),
+        };
+
+        // Store with effective TTL = 2s
+        let out = cache.send_with_policy(&req, &policy).unwrap();
+        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+
+        // Not expired yet at ~1s
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        cache.cleanup_expired().unwrap();
+        assert!(cache.store.lookup(&req).unwrap().is_some());
+
+        // Expired after ~2s
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        cache.cleanup_expired().unwrap();
+        assert!(cache.store.lookup(&req).unwrap().is_none());
+    }
+
+    #[test]
+    fn ttl_resolution_uses_default_when_no_server_and_no_request_override() {
+        viaduct_dev::init_backend_dev();
+
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json") // No response policy ttl
+            .with_body(r#"{"ok":true}"#)
+            .expect(1)
+            .create();
+
+        let cache = make_cache_with_ttl(2);
+        let req = make_post_request();
+        let policy = RequestCachePolicy::default(); // No request polity ttl
+
+        // Store with effective TTL = 1s from client
+        let out = cache.send_with_policy(&req, &policy).unwrap();
+        assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
+
+        // Not expired at ~1s
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        cache.cleanup_expired().unwrap();
+        assert!(cache.store.lookup(&req).unwrap().is_some());
+
+        // Expired after ~3s
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        cache.cleanup_expired().unwrap();
+        assert!(cache.store.lookup(&req).unwrap().is_none());
     }
 }
