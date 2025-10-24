@@ -27,7 +27,7 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
                 response_body BLOB NOT NULL,
                 response_headers BLOB,
                 response_status INTEGER NOT NULL,
-                size INTEGER NOT NULL,
+                size_bytes INTEGER NOT NULL,
                 ttl_seconds INTEGER NOT NULL,
                 PRIMARY KEY (request_hash)
             );

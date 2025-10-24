@@ -34,18 +34,23 @@ impl HttpCacheStore {
         }
     }
 
+    /// Removes all entries from cache.
     pub fn clear_all(&self) -> SqliteResult<usize> {
         let conn = self.conn.lock();
         conn.execute("DELETE FROM http_cache", [])
     }
 
-    pub fn current_total_size(&self) -> SqliteResult<i64> {
+    /// Returns total size of the cache in bytes.
+    pub fn current_total_size_bytes(&self) -> SqliteResult<i64> {
         let conn = self.conn.lock();
-        conn.query_row("SELECT COALESCE(SUM(size),0) FROM http_cache", [], |row| {
-            row.get(0)
-        })
+        conn.query_row(
+            "SELECT COALESCE(SUM(size_bytes),0) FROM http_cache",
+            [],
+            |row| row.get(0),
+        )
     }
 
+    /// Removes all entries from the store who's expiry_at is before the current time.
     pub fn delete_expired_entries(&self) -> SqliteResult<usize> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
@@ -58,6 +63,7 @@ impl HttpCacheStore {
         )
     }
 
+    /// Lookup is agnostic to expiration. If it exists in the store, it will return the result.
     pub fn lookup(&self, request: &Request) -> SqliteResult<Option<(Response, RequestHash)>> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Lookup {
@@ -94,6 +100,9 @@ impl HttpCacheStore {
         .optional()
     }
 
+    /// Upsert an object into the store with an expiry_at defined by the given ttl_seconds.
+    /// Calling this method will always store an object regardless of headers or policy.
+    /// Logic to determine the correct ttl or cache/no-cache should happen before calling this.
     pub fn store_with_ttl(
         &self,
         request: &Request,
@@ -107,13 +116,22 @@ impl HttpCacheStore {
         let request_hash = RequestHash::from(request);
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
-        let size = (response_headers.len() + response.body.len()) as i64;
+        let size_bytes = (response_headers.len() + response.body.len()) as i64;
         let now = chrono::Utc::now().timestamp();
         let expiry_at = now + ttl_seconds as i64;
 
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO http_cache (cached_at, expiry_at, request_hash, response_body, response_headers, response_status, size, ttl_seconds)
+            "INSERT INTO http_cache (
+                cached_at,
+                expiry_at,
+                request_hash,
+                response_body,
+                response_headers,
+                response_status,
+                size_bytes,
+                ttl_seconds
+            )
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             ON CONFLICT(request_hash) DO UPDATE SET
                 cached_at=excluded.cached_at,
@@ -121,7 +139,7 @@ impl HttpCacheStore {
                 response_body=excluded.response_body,
                 response_headers=excluded.response_headers,
                 response_status=excluded.response_status,
-                size=excluded.size,
+                size_bytes=excluded.size_bytes,
                 ttl_seconds=excluded.ttl_seconds",
             params![
                 now,
@@ -130,21 +148,22 @@ impl HttpCacheStore {
                 response.body,
                 response_headers,
                 response.status,
-                size,
+                size_bytes,
                 ttl_seconds as i64,
             ],
         )?;
         Ok(request_hash)
     }
 
-    pub fn trim_to_max_size(&self, max_size: i64) -> SqliteResult<()> {
+    /// Trim cache to
+    pub fn trim_to_max_size(&self, max_size_bytes: i64) -> SqliteResult<()> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Trim {
             return Err(Self::forced_fault_error("forced trim failure"));
         }
         loop {
-            let total = self.current_total_size()?;
-            if total <= max_size {
+            let total = self.current_total_size_bytes()?;
+            if total <= max_size_bytes {
                 break;
             }
             let conn = self.conn.lock();
@@ -165,7 +184,6 @@ impl HttpCacheStore {
 
     #[cfg(test)]
     fn forced_fault_error(msg: &str) -> rusqlite::Error {
-        // Make a deterministic rusqlite error
         rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error {
                 code: rusqlite::ErrorCode::InternalMalfunction,
@@ -183,6 +201,26 @@ mod tests {
     use sql_support::open_database;
     use std::time::Duration;
     use viaduct::{header_names, Headers, Method, Response};
+
+    fn fetch_timestamps(store: &HttpCacheStore, req: &Request) -> (i64, i64, i64) {
+        let hash = RequestHash::from(req).to_string();
+        let conn = store.conn.lock();
+        conn.query_row(
+            "SELECT
+                    cached_at,
+                    expiry_at,
+                    COALESCE(ttl_seconds, -1)
+            FROM http_cache WHERE request_hash = ?1",
+            rusqlite::params![hash],
+            |row| {
+                let cached_at: i64 = row.get(0)?;
+                let expiry_at: i64 = row.get(1)?;
+                let ttl: i64 = row.get(2)?;
+                Ok((cached_at, expiry_at, ttl))
+            },
+        )
+        .expect("row should exist")
+    }
 
     fn create_test_request(url: &str, body: &[u8]) -> Request {
         Request {
@@ -281,6 +319,107 @@ mod tests {
     }
 
     #[test]
+    fn test_store_with_ttl_sets_fields_consistently() {
+        let store = create_test_store();
+        let req = create_test_request("https://example.com/a", b"");
+        let resp = create_test_response(200, b"X");
+
+        let ttl = 5_u64;
+        store.store_with_ttl(&req, &resp, ttl).unwrap();
+
+        let (cached_at, expiry_at, ttl_seconds) = fetch_timestamps(&store, &req);
+        assert_eq!(ttl_seconds, ttl as i64);
+        // expiry_at should be cached_at + ttl (allow 1s skew)
+        let diff = expiry_at - cached_at;
+        assert!(
+            (diff == ttl as i64) || (diff == ttl as i64 - 1) || (diff == ttl as i64 + 1),
+            "unexpected expiry diff: got {diff}, want ~{ttl}"
+        );
+    }
+
+    #[test]
+    fn test_upsert_refreshes_ttl_and_expiry() {
+        let store = create_test_store();
+        let req = create_test_request("https://example.com/b", b"");
+        let resp = create_test_response(200, b"Y");
+
+        store.store_with_ttl(&req, &resp, 300).unwrap();
+        let (c1, e1, t1) = fetch_timestamps(&store, &req);
+        assert_eq!(t1, 300);
+
+        // Change TTL to 1s and upsert; wait a tick so cached_at likely changes
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        store.store_with_ttl(&req, &resp, 1).unwrap();
+        let (c2, e2, t2) = fetch_timestamps(&store, &req);
+        assert_eq!(t2, 1);
+        // cached_at should be >= previous cached_at; expiry should move accordingly
+        assert!(c2 >= c1);
+        assert!(e2 <= e1, "expiry should move earlier when TTL shrinks");
+    }
+
+    #[test]
+    fn test_delete_expired_removes_only_expired() {
+        let store = create_test_store();
+        let req_exp = create_test_request("https://example.com/expired", b"");
+        let req_fresh = create_test_request("https://example.com/fresh", b"");
+        let resp = create_test_response(200, b"Z");
+
+        // expired after ~1s, fresh after ~10s
+        store.store_with_ttl(&req_exp, &resp, 1).unwrap();
+        store.store_with_ttl(&req_fresh, &resp, 10).unwrap();
+
+        // Both present now
+        assert!(store.lookup(&req_exp).unwrap().is_some());
+        assert!(store.lookup(&req_fresh).unwrap().is_some());
+
+        // Let first one expire; then cleanup
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let removed = store.delete_expired_entries().unwrap();
+        assert!(
+            removed >= 1,
+            "expected at least one expired row to be deleted"
+        );
+
+        // Expired is gone, fresh remains
+        assert!(store.lookup(&req_exp).unwrap().is_none());
+        assert!(store.lookup(&req_fresh).unwrap().is_some());
+    }
+
+    #[test]
+    fn test_lookup_is_expired_agnostic() {
+        let store = create_test_store();
+        let req = create_test_request("https://example.com/stale", b"");
+        let resp = create_test_response(200, b"W");
+
+        store.store_with_ttl(&req, &resp, 1).unwrap();
+        // Check that lookup still returns (store is policy-agnostic).
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        assert!(store.lookup(&req).unwrap().is_some());
+
+        // Test cleanup still removes it
+        store.delete_expired_entries().unwrap();
+        assert!(store.lookup(&req).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_zero_ttl_expires_immediately_after_tick() {
+        // Because cleanup uses `expiry_at < now`, a row with expiry_at == now
+        // won’t be removed until the clock advances at least one second.
+        let store = create_test_store();
+        let req = create_test_request("https://example.com/zero", b"");
+        let resp = create_test_response(200, b"0");
+
+        store.store_with_ttl(&req, &resp, 0).unwrap();
+        assert!(store.lookup(&req).unwrap().is_some());
+
+        // Advance a second so now > expiry_at
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let removed = store.delete_expired_entries().unwrap();
+        assert!(removed >= 1);
+        assert!(store.lookup(&req).unwrap().is_none());
+    }
+
+    #[test]
     fn test_store_and_retrieve() {
         let store = create_test_store();
 
@@ -332,7 +471,7 @@ mod tests {
         // Trim to max size of 1024 bytes
         store.trim_to_max_size(1024).unwrap();
 
-        let total_size = store.current_total_size().unwrap();
+        let total_size = store.current_total_size_bytes().unwrap();
         assert!(total_size <= 1024);
 
         let first_request = create_test_request("https://example.com/api/0", b"");
@@ -352,31 +491,6 @@ mod tests {
             .unwrap();
 
         store.store_with_ttl(&request, &response, 300).unwrap();
-        let retrieved = store.lookup(&request).unwrap();
-        assert!(retrieved.is_some());
-    }
-
-    #[test]
-    fn test_max_age_directive() {
-        let store = create_test_store();
-        let request = create_test_request("https://example.com/api", b"test body");
-
-        let mut response = create_test_response(200, b"test response");
-        response
-            .headers
-            .insert("cache-control", "max-age=1")
-            .unwrap();
-
-        store.store_with_ttl(&request, &response, 300).unwrap();
-
-        // Should be cached initially
-        let retrieved = store.lookup(&request).unwrap();
-        assert!(retrieved.is_some());
-
-        // Wait for expiration
-        std::thread::sleep(Duration::from_secs(2));
-
-        // Should still be in store (expiration logic is in cache layer)
         let retrieved = store.lookup(&request).unwrap();
         assert!(retrieved.is_some());
     }
