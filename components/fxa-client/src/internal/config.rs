@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::http_client;
-use crate::{internal::util, FxaConfig, Result};
+use crate::{FxaConfig, Result, internal::util};
 use serde_derive::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
 use url::Url;

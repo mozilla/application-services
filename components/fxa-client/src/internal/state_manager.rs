@@ -5,13 +5,13 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
+    DeviceCapability, FxaRustAuthState, LocalDevice, Result, ScopedKey,
     internal::{
+        CachedResponse, Config, OAuthFlow, PersistedState,
         oauth::{AccessTokenInfo, RefreshToken},
         profile::Profile,
         state_persistence::state_to_json,
-        CachedResponse, Config, OAuthFlow, PersistedState,
     },
-    DeviceCapability, FxaRustAuthState, LocalDevice, Result, ScopedKey,
 };
 
 /// Stores and manages the current state of the FxA client

@@ -8,7 +8,7 @@
 
 use error_support::breadcrumb;
 
-use crate::{internal::FirefoxAccount, DeviceConfig, Error, FxaEvent, FxaState, Result};
+use crate::{DeviceConfig, Error, FxaEvent, FxaState, Result, internal::FirefoxAccount};
 
 mod display;
 mod internal_machines;

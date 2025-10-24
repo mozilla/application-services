@@ -14,10 +14,10 @@ use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::{self, Connection, Row};
 #[cfg(test)]
 use serde_json::{self, json};
-use sql_support::{self, repeat_sql_vars, ConnExt};
+use sql_support::{self, ConnExt, repeat_sql_vars};
 use std::cmp::{max, min};
-use sync15::engine::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
+use sync15::engine::EngineSyncAssociation;
 use types::Timestamp;
 use url::Url;
 

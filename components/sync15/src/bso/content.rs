@@ -10,8 +10,8 @@
 //! * Turn arbitrary <T> objects with an `id` field into an OutgoingBso.
 
 use super::{IncomingBso, IncomingContent, IncomingKind, OutgoingBso, OutgoingEnvelope};
-use crate::error::{trace, warn};
 use crate::Guid;
+use crate::error::{trace, warn};
 use error_support::report_error;
 use serde::Serialize;
 
@@ -143,8 +143,7 @@ where
                 if content_id != id {
                     trace!(
                         "malformed incoming record: envelope id: {} payload id: {}",
-                        content_id,
-                        id
+                        content_id, id
                     );
                     report_error!(
                         "incoming-invalid-mismatched-ids",

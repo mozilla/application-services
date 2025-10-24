@@ -357,7 +357,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{db::PlacesInitializer, PlacesDb};
+    use crate::db::{PlacesDb, db::PlacesInitializer};
     use crate::error::Result;
     use sql_support::open_database::test_utils::MigratedDatabaseFile;
     use std::collections::BTreeSet;

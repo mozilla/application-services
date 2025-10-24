@@ -44,7 +44,7 @@ impl ServiceStatus {
             }
             // BackoffError is also from the tokenserver.
             Error::BackoffError(_) => ServiceStatus::ServiceError,
-            Error::StorageHttpError(ref e) => match e {
+            Error::StorageHttpError(e) => match e {
                 ErrorResponse::Unauthorized { .. } => ServiceStatus::AuthenticationError,
                 _ => ServiceStatus::ServiceError,
             },

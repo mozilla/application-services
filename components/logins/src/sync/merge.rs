@@ -10,9 +10,9 @@ use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::Row;
 use std::time::SystemTime;
-use sync15::bso::{IncomingBso, IncomingKind};
-use sync15::ServerTimestamp;
 use sync_guid::Guid;
+use sync15::ServerTimestamp;
+use sync15::bso::{IncomingBso, IncomingKind};
 
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {

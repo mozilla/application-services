@@ -6,7 +6,7 @@
 
 use self::{
     config::Config,
-    oauth::{AuthCircuitBreaker, OAuthFlow, OAUTH_WEBCHANNEL_REDIRECT},
+    oauth::{AuthCircuitBreaker, OAUTH_WEBCHANNEL_REDIRECT, OAuthFlow},
     state_manager::StateManager,
     state_persistence::PersistedState,
     telemetry::FxaTelemetry,

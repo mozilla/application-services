@@ -1064,8 +1064,7 @@ mod tests {
             TestCase {
                 login: login_without_form_submit_or_http_realm,
                 should_err: true,
-                expected_err:
-                    "Invalid login: Neither `formActionOrigin` or `httpRealm` are present",
+                expected_err: "Invalid login: Neither `formActionOrigin` or `httpRealm` are present",
             },
             TestCase {
                 login: login_with_null_http_realm,
@@ -1090,14 +1089,12 @@ mod tests {
             TestCase {
                 login: login_with_newline_realm,
                 should_err: true,
-                expected_err:
-                    "Invalid login: Login has illegal field: `http_realm` contains newline",
+                expected_err: "Invalid login: Login has illegal field: `http_realm` contains newline",
             },
             TestCase {
                 login: login_with_newline_username_field,
                 should_err: true,
-                expected_err:
-                    "Invalid login: Login has illegal field: `username_field` contains newline",
+                expected_err: "Invalid login: Login has illegal field: `username_field` contains newline",
             },
             TestCase {
                 login: login_with_newline_password,
@@ -1107,8 +1104,7 @@ mod tests {
             TestCase {
                 login: login_with_period_username_field,
                 should_err: true,
-                expected_err:
-                    "Invalid login: Login has illegal field: `username_field` is a period",
+                expected_err: "Invalid login: Login has illegal field: `username_field` is a period",
             },
             TestCase {
                 login: login_with_period_form_action_origin,

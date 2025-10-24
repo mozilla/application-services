@@ -4,9 +4,9 @@
 
 mod actions;
 
-use super::{fetch_page_info, new_page_info, PageInfo, RowId};
+use super::{PageInfo, RowId, fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
-use crate::error::{debug, trace, warn, Result};
+use crate::error::{Result, debug, trace, warn};
 use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound, TopFrecentSiteInfo};
 use crate::frecency;
 use crate::hash;
@@ -18,18 +18,18 @@ use crate::storage::{
     delete_meta, delete_pending_temp_tables, get_meta, history_metadata, put_meta,
 };
 use crate::types::{
-    serialize_unknown_fields, SyncStatus, UnknownFields, VisitTransitionSet, VisitType,
+    SyncStatus, UnknownFields, VisitTransitionSet, VisitType, serialize_unknown_fields,
 };
 use actions::*;
-use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
+use rusqlite::types::ToSql;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
 use std::time::Duration;
+use sync_guid::Guid as SyncGuid;
 use sync15::bso::OutgoingBso;
 use sync15::engine::EngineSyncAssociation;
-use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
@@ -774,8 +774,8 @@ pub mod history_sync {
     use sync15::bso::OutgoingEnvelope;
 
     use super::*;
-    use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use crate::history_sync::HISTORY_TTL;
+    use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use std::collections::HashSet;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1546,7 +1546,7 @@ mod tests {
     use super::history_sync::*;
     use super::*;
     use crate::history_sync::record::HistoryRecordVisit;
-    use crate::storage::bookmarks::{insert_bookmark, InsertableItem};
+    use crate::storage::bookmarks::{InsertableItem, insert_bookmark};
     use crate::types::VisitTransitionSet;
     use crate::{api::places_api::ConnectionType, storage::bookmarks::BookmarkRootGuid};
     use std::time::{Duration, SystemTime};
@@ -1987,9 +1987,11 @@ mod tests {
         assert_eq!(pi.page.visit_count_local, 1);
 
         // should have removed all the visits to /2
-        assert!(fetch_page_info(&conn, &url2)
-            .expect("should work")
-            .is_none());
+        assert!(
+            fetch_page_info(&conn, &url2)
+                .expect("should work")
+                .is_none()
+        );
 
         // Should still have the 1 visit to /3
         let pi3 = fetch_page_info(&conn, &url3)
@@ -1998,9 +2000,11 @@ mod tests {
         assert_eq!(pi3.page.visit_count_local, 1);
 
         // should have removed all the visits to /4
-        assert!(fetch_page_info(&conn, &url4)
-            .expect("should work")
-            .is_none());
+        assert!(
+            fetch_page_info(&conn, &url4)
+                .expect("should work")
+                .is_none()
+        );
         // should be a tombstone for url4 and no others.
         assert_eq!(get_tombstone_count(&conn), 1);
         // XXX - test frecency?
@@ -2966,14 +2970,16 @@ mod tests {
 
         let url1 = Url::parse("https://www.example.com/").unwrap();
         // Can observe preview url without an associated visit.
-        assert!(apply_observation(
-            &conn,
-            VisitObservation::new(url1.clone()).with_preview_image_url(Some(
-                Url::parse("https://www.example.com/image.png").unwrap()
-            ))
-        )
-        .unwrap()
-        .is_none());
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(url1.clone()).with_preview_image_url(Some(
+                    Url::parse("https://www.example.com/image.png").unwrap()
+                ))
+            )
+            .unwrap()
+            .is_none()
+        );
 
         // We don't get a visit id back above, so just assume an id of the corresponding moz_places entry.
         let mut db_preview_url = conn

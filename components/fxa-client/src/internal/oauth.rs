@@ -5,15 +5,16 @@
 pub mod attached_clients;
 use super::scopes;
 use super::{
+    FirefoxAccount,
     http_client::{
         AuthorizationRequestParameters, IntrospectResponse as IntrospectInfo, OAuthTokenResponse,
     },
     scoped_keys::ScopedKeysFlow,
-    util, FirefoxAccount,
+    util,
 };
 use crate::auth::UserData;
-use crate::{warn, AuthorizationParameters, Error, FxaServer, Result, ScopedKey};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use crate::{AuthorizationParameters, Error, FxaServer, Result, ScopedKey, warn};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rate_limiter::RateLimiter;
 use rc_crypto::digest;
@@ -350,7 +351,11 @@ impl FirefoxAccount {
                         "fxaclient-scoped-key",
                         "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
                         resp.scope,
-                        scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
+                        scoped_keys
+                            .keys()
+                            .map(|s| s.as_ref())
+                            .collect::<Vec<&str>>()
+                            .join(", ")
                     );
                 }
                 scoped_keys
@@ -591,7 +596,7 @@ impl From<IntrospectInfo> for crate::AuthorizationInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{http_client::*, Config};
+    use super::super::{Config, http_client::*};
     use super::*;
     use mockall::predicate::always;
     use mockall::predicate::eq;
@@ -965,7 +970,9 @@ mod tests {
             assert_eq!(code, 400);
             assert_eq!(errno, 163); // Requested scopes not allowed
         } else {
-            panic!("Should return an error from the server specifying that the requested scopes are not allowed");
+            panic!(
+                "Should return an error from the server specifying that the requested scopes are not allowed"
+            );
         }
     }
 

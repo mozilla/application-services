@@ -9,18 +9,18 @@ use super::record::{
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
 use crate::storage::{
-    bookmarks::maybe_truncate_title,
-    tags::{validate_tag, ValidatedTag},
     URL_LENGTH_MAX,
+    bookmarks::maybe_truncate_title,
+    tags::{ValidatedTag, validate_tag},
 };
 use crate::types::serialize_unknown_fields;
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
 use std::{collections::HashSet, iter};
-use sync15::bso::{IncomingBso, IncomingKind};
-use sync15::ServerTimestamp;
 use sync_guid::Guid as SyncGuid;
+use sync15::ServerTimestamp;
+use sync15::bso::{IncomingBso, IncomingKind};
 use url::Url;
 
 // From Desktop's Ci.nsINavHistoryQueryOptions, but we define it as a str
@@ -493,7 +493,7 @@ fn fixup_bookmark_json(json: &mut JsonValue) -> SyncedBookmarkValidity {
     let mut validity = SyncedBookmarkValidity::Valid;
     // the json value should always be on object, if not don't try to do any fixups.  The result will
     // be that into_content_with_fixup() returns an IncomingContent with IncomingKind::Malformed.
-    if let JsonValue::Object(ref mut obj) = json {
+    if let JsonValue::Object(obj) = json {
         obj.entry("parentid")
             .and_modify(|v| fixup_optional_str(v, &mut validity));
         obj.entry("title")
@@ -567,7 +567,7 @@ fn fixup_optional_keyword(val: &mut JsonValue, validity: &mut SyncedBookmarkVali
 
 fn fixup_optional_tags(val: &mut JsonValue, validity: &mut SyncedBookmarkValidity) {
     match val {
-        JsonValue::Array(ref tags) => {
+        JsonValue::Array(tags) => {
             let mut valid_tags = HashSet::with_capacity(tags.len());
             for v in tags {
                 if let JsonValue::String(tag) = v {
@@ -617,12 +617,12 @@ fn set_reupload(validity: &mut SyncedBookmarkValidity) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, PlacesApi};
+    use crate::api::places_api::{PlacesApi, test::new_mem_api};
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::storage::bookmarks::BookmarkRootGuid;
     use crate::types::UnknownFields;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     fn apply_incoming(api: &PlacesApi, records_json: Value) {
         let db = api.get_sync_connection().expect("should get a db mutex");

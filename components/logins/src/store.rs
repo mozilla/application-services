@@ -1,19 +1,19 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use crate::LoginsSyncEngine;
 use crate::db::{LoginDb, LoginsDeletionMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{BulkResultEntry, EncryptedLogin, Login, LoginEntry, LoginEntryWithMeta};
 use crate::schema;
-use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use sql_support::run_maintenance;
 use std::path::Path;
 use std::sync::{Arc, Weak};
 use sync15::{
-    engine::{EngineSyncAssociation, SyncEngine, SyncEngineId},
     ServerTimestamp,
+    engine::{EngineSyncAssociation, SyncEngine, SyncEngineId},
 };
 
 #[derive(uniffi::Enum)]
@@ -65,7 +65,9 @@ fn map_bulk_result_entry(
         Ok(enc_login) => match enc_login.decrypt(encdec) {
             Ok(login) => BulkResultEntry::Success { login },
             Err(error) => {
-                warn!("Login could not be decrypted. This indicates a fundamental problem with the encryption key.");
+                warn!(
+                    "Login could not be decrypted. This indicates a fundamental problem with the encryption key."
+                );
                 BulkResultEntry::Error {
                     message: error.to_string(),
                 }
@@ -409,10 +411,12 @@ mod test {
         assert_eq!(list, expect);
 
         store.delete(&a_id).expect("Successful delete");
-        assert!(store
-            .get(&a_id)
-            .expect("get after delete should still work")
-            .is_none());
+        assert!(
+            store
+                .get(&a_id)
+                .expect("get after delete should still work")
+                .is_none()
+        );
 
         let list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 1);

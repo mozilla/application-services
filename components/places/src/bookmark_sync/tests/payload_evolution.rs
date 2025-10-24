@@ -5,17 +5,18 @@
 //! Tests for sync payload evolution.  If we see new fields on incoming sync records, we should
 //! make sure to roundtrip them when we sync them back.
 
-use crate::api::places_api::test::new_mem_api;
-use crate::bookmark_sync::record::BookmarkItemRecord;
-use crate::bookmark_sync::BookmarksSyncEngine;
-use crate::storage::bookmarks::{update_bookmark_from_info, BookmarkUpdateInfo};
 use crate::PlacesApi;
-use serde_json::{json, Value};
+use crate::api::places_api::test::new_mem_api;
+use crate::bookmark_sync::BookmarksSyncEngine;
+use crate::bookmark_sync::record::BookmarkItemRecord;
+use crate::storage::bookmarks::{BookmarkUpdateInfo, update_bookmark_from_info};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use sync15::{
+    ServerTimestamp,
     bso::{IncomingBso, IncomingKind, OutgoingBso},
     engine::SyncEngine,
-    telemetry, ServerTimestamp,
+    telemetry,
 };
 
 #[test]

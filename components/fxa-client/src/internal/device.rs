@@ -9,13 +9,14 @@ use std::{
 
 pub use super::http_client::{GetDeviceResponse as Device, PushSubscription};
 use super::{
+    CachedResponse, FirefoxAccount,
     commands::{self, IncomingDeviceCommand, PrivateCommandKeys, PublicCommandKeys},
     http_client::{
         DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand, UpdateDeviceResponse,
     },
-    scopes, telemetry, util, CachedResponse, FirefoxAccount,
+    scopes, telemetry, util,
 };
-use crate::{info, warn, DeviceCapability, Error, LocalDevice, Result};
+use crate::{DeviceCapability, Error, LocalDevice, Result, info, warn};
 use sync15::DeviceType;
 
 // An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
@@ -434,10 +435,10 @@ impl TryFrom<Device> for crate::Device {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ScopedKey;
+    use crate::internal::Config;
     use crate::internal::http_client::*;
     use crate::internal::oauth::RefreshToken;
-    use crate::internal::Config;
-    use crate::ScopedKey;
     use mockall::predicate::always;
     use mockall::predicate::eq;
     use nss::ensure_initialized;

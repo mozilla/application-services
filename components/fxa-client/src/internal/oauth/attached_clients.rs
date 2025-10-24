@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use super::super::http_client::GetAttachedClientResponse as AttachedClient;
-use super::super::{util, CachedResponse, FirefoxAccount};
+use super::super::{CachedResponse, FirefoxAccount, util};
 use crate::{Error, Result};
 
 // An attached clients response is considered fresh for `ATTACHED_CLIENTS_FRESHNESS_THRESHOLD` ms.

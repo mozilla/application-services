@@ -10,7 +10,7 @@
 //! Also, they must not use the string "auth" since Sentry will filter that out.
 //! Use "ath" instead.
 
-use super::{internal_machines, FxaEvent, FxaState};
+use super::{FxaEvent, FxaState, internal_machines};
 use std::fmt;
 
 impl fmt::Display for FxaState {

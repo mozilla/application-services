@@ -10,17 +10,17 @@ use crate::error::*;
 use crate::storage::{
     delete_pending_temp_tables,
     history::history_sync::{
-        apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
-        fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage,
+        FetchedVisit, FetchedVisitPage, apply_synced_deletion, apply_synced_reconciliation,
+        apply_synced_visits, fetch_outgoing, fetch_visits, finish_outgoing,
     },
 };
 use crate::types::{UnknownFields, VisitType};
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
+use sync_guid::Guid as SyncGuid;
 use sync15::bso::{IncomingBso, IncomingKind, OutgoingBso};
 use sync15::telemetry;
-use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
@@ -291,7 +291,7 @@ pub fn finish_plan(db: &PlacesDb) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::matcher::{search_frecent, SearchParams};
+    use crate::api::matcher::{SearchParams, search_frecent};
     use crate::api::places_api::ConnectionType;
     use crate::db::PlacesDb;
     use crate::history_sync::ServerVisitTimestamp;
