@@ -198,13 +198,6 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      */
     fun resetTelemetryIdentifiers() = Unit
 
-    var globalUserParticipation: Boolean
-        get() = experimentParticipation && rolloutParticipation
-        set(value) {
-            experimentParticipation = value
-            rolloutParticipation = value
-        }
-
     /**
     * Control the opt out for experiments. This is likely a user action.
     * When set to false, the user will be opted out of all experiments but not rollouts.
