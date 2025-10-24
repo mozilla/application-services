@@ -166,7 +166,7 @@ impl MozAdsClientInner {
 
             let http_cache = HttpCache::builder(cache_cfg.db_path)
                 .max_size(ByteSize::mib(max_cache_size_mib))
-                .ttl(Duration::from_secs(default_cache_ttl))
+                .default_ttl(Duration::from_secs(default_cache_ttl))
                 .build()
                 .ok(); // TODO: handle error with telemetry
 

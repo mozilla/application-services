@@ -63,7 +63,7 @@ pub struct SendOutcome {
 pub struct HttpCache {
     max_size: ByteSize,
     store: HttpCacheStore,
-    ttl: Duration,
+    default_ttl: Duration,
 }
 
 impl HttpCache {
@@ -79,7 +79,7 @@ impl HttpCache {
     fn request_from_network_then_cache(
         &self,
         request: &Request,
-        policy_ttl: &Duration,
+        request_policy_ttl: &Duration,
     ) -> HttpCacheSendResult<SendOutcome> {
         let response = request.clone().send()?;
         if let Err(e) = self.cleanup_expired() {
@@ -92,20 +92,23 @@ impl HttpCache {
         let cache_outcome = if cache_control.should_cache() {
             let response_ttl = match cache_control.max_age {
                 Some(s) => Duration::new(s, 0),
-                None => self.ttl,
+                None => self.default_ttl,
             };
 
-            // We respect the smallest ttl between the policy, client, and response.
-            let final_ttl = cmp::min(cmp::min(*policy_ttl, self.ttl), response_ttl).as_secs();
+            // We respect the smallest ttl between the policy, default client value, or header
+            let final_ttl = cmp::min(
+                cmp::min(*request_policy_ttl, self.default_ttl),
+                response_ttl,
+            );
 
-            if final_ttl == 0 {
+            if final_ttl.as_secs() == 0 {
                 return Ok(SendOutcome {
                     response,
                     cache_outcome: CacheOutcome::NoCache,
                 });
             }
 
-            match self.cache_object(request, &response, final_ttl) {
+            match self.cache_object(request, &response, &final_ttl) {
                 Ok(()) => CacheOutcome::MissStored,
                 Err(e) => CacheOutcome::StoreFailed(e),
             }
@@ -122,21 +125,21 @@ impl HttpCache {
     pub fn send_with_policy(
         &self,
         request: &Request,
-        policy: &RequestCachePolicy,
+        request_policy: &RequestCachePolicy,
     ) -> HttpCacheSendResult<SendOutcome> {
-        let policy_ttl = match policy.ttl_seconds {
+        let request_policy_ttl = match request_policy.ttl_seconds {
             Some(s) => Duration::new(s, 0),
-            None => self.ttl,
+            None => self.default_ttl,
         };
 
-        match policy.mode {
+        match request_policy.mode {
             // Default behavior is we check the cache before trying a network call
             CacheMode::Default => match self.store.lookup(request) {
                 Ok(Some((resp, _))) => Ok(SendOutcome {
                     response: resp,
                     cache_outcome: CacheOutcome::Hit,
                 }),
-                Ok(None) => self.request_from_network_then_cache(request, &policy_ttl),
+                Ok(None) => self.request_from_network_then_cache(request, &request_policy_ttl),
                 Err(e) => {
                     let response = request.clone().send()?;
                     Ok(SendOutcome {
@@ -145,7 +148,9 @@ impl HttpCache {
                     })
                 }
             },
-            CacheMode::Refresh => self.request_from_network_then_cache(request, &policy_ttl),
+            CacheMode::Refresh => {
+                self.request_from_network_then_cache(request, &request_policy_ttl)
+            }
         }
     }
 
@@ -158,9 +163,9 @@ impl HttpCache {
         &self,
         request: &Request,
         response: &Response,
-        ttl_seconds: u64,
+        ttl: &Duration,
     ) -> Result<(), CacheError> {
-        self.store.store_with_ttl(request, response, ttl_seconds)?;
+        self.store.store_with_ttl(request, response, ttl)?;
         self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
         Ok(())
     }
@@ -180,7 +185,7 @@ mod tests {
     fn make_cache() -> HttpCache {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
         HttpCache::builder("ignored_in_tests.db")
-            .ttl(Duration::from_secs(60))
+            .default_ttl(Duration::from_secs(60))
             .max_size(ByteSize::mib(1))
             .build()
             .expect("cache build should succeed")
@@ -195,7 +200,7 @@ mod tests {
         // Test with custom config
         let cache_with_config = HttpCache::builder("custom_test.db")
             .max_size(ByteSize::mib(1))
-            .ttl(Duration::from_secs(60))
+            .default_ttl(Duration::from_secs(60))
             .build();
         assert!(cache_with_config.is_ok());
     }
@@ -223,7 +228,7 @@ mod tests {
         // Store something in the cache
         cache
             .store
-            .store_with_ttl(&request, &response, 300)
+            .store_with_ttl(&request, &response, &Duration::new(300, 0))
             .unwrap();
 
         // Verify it's cached

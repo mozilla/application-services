@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use crate::http_cache::request_hash::RequestHash;
 use parking_lot::Mutex;
@@ -107,7 +107,7 @@ impl HttpCacheStore {
         &self,
         request: &Request,
         response: &Response,
-        ttl_seconds: u64,
+        ttl: &Duration,
     ) -> SqliteResult<RequestHash> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
@@ -118,6 +118,7 @@ impl HttpCacheStore {
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
         let size_bytes = (response_headers.len() + response.body.len()) as i64;
         let now = chrono::Utc::now().timestamp();
+        let ttl_seconds = ttl.as_secs();
         let expiry_at = now + ttl_seconds as i64;
 
         let conn = self.conn.lock();
@@ -277,7 +278,9 @@ mod tests {
         let req = create_test_request("https://example.com/api", b"body");
         let resp = create_test_response(200, b"resp");
 
-        let err = store.store_with_ttl(&req, &resp, 300).unwrap_err();
+        let err = store
+            .store_with_ttl(&req, &resp, &Duration::new(300, 0))
+            .unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced store failure"));
@@ -293,7 +296,9 @@ mod tests {
 
         let req = create_test_request("https://example.com/api", b"");
         let resp = create_test_response(200, b"resp");
-        store.store_with_ttl(&req, &resp, 300).unwrap();
+        store
+            .store_with_ttl(&req, &resp, &Duration::new(300, 0))
+            .unwrap();
 
         let err = store.trim_to_max_size(1).unwrap_err();
         match err {
@@ -324,16 +329,19 @@ mod tests {
         let req = create_test_request("https://example.com/a", b"");
         let resp = create_test_response(200, b"X");
 
-        let ttl = 5_u64;
-        store.store_with_ttl(&req, &resp, ttl).unwrap();
+        let ttl = Duration::new(5, 0);
+        store.store_with_ttl(&req, &resp, &ttl).unwrap();
 
         let (cached_at, expiry_at, ttl_seconds) = fetch_timestamps(&store, &req);
-        assert_eq!(ttl_seconds, ttl as i64);
+        assert_eq!(ttl_seconds, ttl.as_secs() as i64);
         // expiry_at should be cached_at + ttl (allow 1s skew)
         let diff = expiry_at - cached_at;
+        let ttl_seconds = ttl.as_secs();
         assert!(
-            (diff == ttl as i64) || (diff == ttl as i64 - 1) || (diff == ttl as i64 + 1),
-            "unexpected expiry diff: got {diff}, want ~{ttl}"
+            (diff == ttl_seconds as i64)
+                || (diff == ttl_seconds as i64 - 1)
+                || (diff == ttl_seconds as i64 + 1),
+            "unexpected expiry diff: got {diff}, want ~{ttl_seconds}"
         );
     }
 
@@ -343,13 +351,17 @@ mod tests {
         let req = create_test_request("https://example.com/b", b"");
         let resp = create_test_response(200, b"Y");
 
-        store.store_with_ttl(&req, &resp, 300).unwrap();
+        store
+            .store_with_ttl(&req, &resp, &Duration::new(300, 0))
+            .unwrap();
         let (c1, e1, t1) = fetch_timestamps(&store, &req);
         assert_eq!(t1, 300);
 
         // Change TTL to 1s and upsert; wait a tick so cached_at likely changes
         std::thread::sleep(std::time::Duration::from_millis(50));
-        store.store_with_ttl(&req, &resp, 1).unwrap();
+        store
+            .store_with_ttl(&req, &resp, &Duration::new(1, 0))
+            .unwrap();
         let (c2, e2, t2) = fetch_timestamps(&store, &req);
         assert_eq!(t2, 1);
         // cached_at should be >= previous cached_at; expiry should move accordingly
@@ -365,8 +377,12 @@ mod tests {
         let resp = create_test_response(200, b"Z");
 
         // expired after ~1s, fresh after ~10s
-        store.store_with_ttl(&req_exp, &resp, 1).unwrap();
-        store.store_with_ttl(&req_fresh, &resp, 10).unwrap();
+        store
+            .store_with_ttl(&req_exp, &resp, &Duration::new(1, 0))
+            .unwrap();
+        store
+            .store_with_ttl(&req_fresh, &resp, &Duration::new(10, 0))
+            .unwrap();
 
         // Both present now
         assert!(store.lookup(&req_exp).unwrap().is_some());
@@ -391,7 +407,9 @@ mod tests {
         let req = create_test_request("https://example.com/stale", b"");
         let resp = create_test_response(200, b"W");
 
-        store.store_with_ttl(&req, &resp, 1).unwrap();
+        store
+            .store_with_ttl(&req, &resp, &Duration::new(1, 0))
+            .unwrap();
         // Check that lookup still returns (store is policy-agnostic).
         std::thread::sleep(std::time::Duration::from_secs(2));
         assert!(store.lookup(&req).unwrap().is_some());
@@ -409,7 +427,9 @@ mod tests {
         let req = create_test_request("https://example.com/zero", b"");
         let resp = create_test_response(200, b"0");
 
-        store.store_with_ttl(&req, &resp, 0).unwrap();
+        store
+            .store_with_ttl(&req, &resp, &Duration::new(0, 0))
+            .unwrap();
         assert!(store.lookup(&req).unwrap().is_some());
 
         // Advance a second so now > expiry_at
@@ -426,7 +446,9 @@ mod tests {
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
 
-        store.store_with_ttl(&request, &response, 300).unwrap();
+        store
+            .store_with_ttl(&request, &response, &Duration::new(300, 0))
+            .unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
         assert_eq!(retrieved.0.status, 200);
@@ -443,7 +465,9 @@ mod tests {
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
 
-        store.store_with_ttl(&request, &response, 300).unwrap();
+        store
+            .store_with_ttl(&request, &response, &Duration::new(300, 0))
+            .unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
         assert_eq!(retrieved.0.body, b"test response");
@@ -465,7 +489,9 @@ mod tests {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");
             let large_body = vec![0u8; 300];
             let response = create_test_response(200, &large_body);
-            store.store_with_ttl(&request, &response, 300).unwrap();
+            store
+                .store_with_ttl(&request, &response, &Duration::new(300, 0))
+                .unwrap();
         }
 
         // Trim to max size of 1024 bytes
@@ -490,7 +516,9 @@ mod tests {
             .insert("cache-control", "no-store")
             .unwrap();
 
-        store.store_with_ttl(&request, &response, 300).unwrap();
+        store
+            .store_with_ttl(&request, &response, &Duration::new(300, 0))
+            .unwrap();
         let retrieved = store.lookup(&request).unwrap();
         assert!(retrieved.is_some());
     }
@@ -501,11 +529,15 @@ mod tests {
 
         let request1 = create_test_request("https://example.com/api1", b"test body 1");
         let response1 = create_test_response(200, b"test response 1");
-        store.store_with_ttl(&request1, &response1, 300).unwrap();
+        store
+            .store_with_ttl(&request1, &response1, &Duration::new(300, 0))
+            .unwrap();
 
         let request2 = create_test_request("https://example.com/api2", b"test body 2");
         let response2 = create_test_response(200, b"test response 2");
-        store.store_with_ttl(&request2, &response2, 300).unwrap();
+        store
+            .store_with_ttl(&request2, &response2, &Duration::new(300, 0))
+            .unwrap();
 
         // Verify both are cached
         assert!(store.lookup(&request1).unwrap().is_some());
