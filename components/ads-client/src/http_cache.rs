@@ -14,6 +14,7 @@ use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCa
 use viaduct::{Request, Response};
 
 pub use self::bytesize::ByteSize;
+use std::cmp;
 use std::path::Path;
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ pub const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
 
 #[derive(uniffi::Record, Clone, Copy, Debug, Default)]
-pub struct CachePolicy {
+pub struct RequestCachePolicy {
     pub mode: CacheMode,
     pub ttl_seconds: Option<u64>, // optional client-defined ttl override
 }
@@ -77,7 +78,8 @@ impl HttpCache {
 
     fn request_from_network_then_cache(
         &self,
-        request: Request,
+        request: &Request,
+        policy_ttl: &Duration,
     ) -> HttpCacheSendResult<SendOutcome> {
         let response = request.clone().send()?;
         if let Err(e) = self.cleanup_expired() {
@@ -86,8 +88,24 @@ impl HttpCache {
                 cache_outcome: CacheOutcome::CleanupFailed(e),
             });
         }
-        let cache_outcome = if CacheControl::from(&response).should_cache() {
-            match self.cache_object(&request, &response) {
+        let cache_control = CacheControl::from(&response);
+        let cache_outcome = if cache_control.should_cache() {
+            let response_ttl = match cache_control.max_age {
+                Some(s) => Duration::new(s, 0),
+                None => self.ttl,
+            };
+
+            // We respect the smallest ttl between the policy, client, and response.
+            let final_ttl = cmp::min(cmp::min(*policy_ttl, self.ttl), response_ttl).as_secs();
+
+            if final_ttl == 0 {
+                return Ok(SendOutcome {
+                    response,
+                    cache_outcome: CacheOutcome::NoCache,
+                });
+            }
+
+            match self.cache_object(request, &response, final_ttl) {
                 Ok(()) => CacheOutcome::MissStored,
                 Err(e) => CacheOutcome::StoreFailed(e),
             }
@@ -101,53 +119,48 @@ impl HttpCache {
         })
     }
 
-    pub fn send(&self, request: Request) -> HttpCacheSendResult<SendOutcome> {
-        match self.store.lookup(&request) {
-            Ok(Some((resp, _))) => Ok(SendOutcome {
-                response: resp,
-                cache_outcome: CacheOutcome::Hit,
-            }),
-            Ok(None) => self.request_from_network_then_cache(request),
-            Err(e) => {
-                let response = request.clone().send()?;
-                Ok(SendOutcome {
-                    response,
-                    cache_outcome: CacheOutcome::LookupFailed(e),
-                })
-            }
-        }
-    }
-
     pub fn send_with_policy(
         &self,
-        request: Request,
-        policy: &CachePolicy,
+        request: &Request,
+        policy: &RequestCachePolicy,
     ) -> HttpCacheSendResult<SendOutcome> {
-        let _ttl = match policy.ttl_seconds {
-            Some(0) => {
-                let response = request.clone().send()?;
-                return Ok(SendOutcome {
-                    response,
-                    cache_outcome: CacheOutcome::NoCache,
-                });
-            }
-            Some(v) => Duration::new(v, 0),
+        let policy_ttl = match policy.ttl_seconds {
+            Some(s) => Duration::new(s, 0),
             None => self.ttl,
         };
+
         match policy.mode {
-            CacheMode::Default => self.send(request),
-            CacheMode::Refresh => self.request_from_network_then_cache(request),
+            // Default behavior is we check the cache before trying a network call
+            CacheMode::Default => match self.store.lookup(request) {
+                Ok(Some((resp, _))) => Ok(SendOutcome {
+                    response: resp,
+                    cache_outcome: CacheOutcome::Hit,
+                }),
+                Ok(None) => self.request_from_network_then_cache(request, &policy_ttl),
+                Err(e) => {
+                    let response = request.clone().send()?;
+                    Ok(SendOutcome {
+                        response,
+                        cache_outcome: CacheOutcome::LookupFailed(e),
+                    })
+                }
+            },
+            CacheMode::Refresh => self.request_from_network_then_cache(request, &policy_ttl),
         }
     }
 
     fn cleanup_expired(&self) -> Result<(), CacheError> {
-        let cutoff = chrono::Utc::now().timestamp() - self.ttl.as_secs() as i64;
-        self.store.delete_expired_entries(cutoff)?;
+        self.store.delete_expired_entries()?;
         Ok(())
     }
 
-    fn cache_object(&self, request: &Request, response: &Response) -> Result<(), CacheError> {
-        self.store.store(request, response)?;
+    fn cache_object(
+        &self,
+        request: &Request,
+        response: &Response,
+        ttl_seconds: u64,
+    ) -> Result<(), CacheError> {
+        self.store.store_with_ttl(request, response, ttl_seconds)?;
         self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
         Ok(())
     }
@@ -208,7 +221,10 @@ mod tests {
         };
 
         // Store something in the cache
-        cache.store.store(&request, &response).unwrap();
+        cache
+            .store
+            .store_with_ttl(&request, &response, 300)
+            .unwrap();
 
         // Verify it's cached
         let retrieved = cache.store.lookup(&request).unwrap();
@@ -239,13 +255,13 @@ mod tests {
 
         // First call: miss -> store
         let o1 = cache
-            .send_with_policy(req.clone(), &CachePolicy::default())
+            .send_with_policy(&req.clone(), &RequestCachePolicy::default())
             .unwrap();
         matches!(o1.cache_outcome, CacheOutcome::MissStored);
 
         // Second call: hit (no extra HTTP request due to expect(1))
         let o2 = cache
-            .send_with_policy(req, &CachePolicy::default())
+            .send_with_policy(&req, &RequestCachePolicy::default())
             .unwrap();
         matches!(o2.cache_outcome, CacheOutcome::Hit);
         assert_eq!(o2.response.status, 200);
@@ -275,8 +291,8 @@ mod tests {
         // First refresh: live -> MissStored
         let o1 = cache
             .send_with_policy(
-                req.clone(),
-                &CachePolicy {
+                &req.clone(),
+                &RequestCachePolicy {
                     mode: CacheMode::Refresh,
                     ttl_seconds: None,
                 },
@@ -287,8 +303,8 @@ mod tests {
         // Second refresh: live again (different body), still MissStored
         let o2 = cache
             .send_with_policy(
-                req,
-                &CachePolicy {
+                &req,
+                &RequestCachePolicy {
                     mode: CacheMode::Refresh,
                     ttl_seconds: None,
                 },
@@ -314,7 +330,7 @@ mod tests {
         let req = make_post_request();
 
         let o = cache
-            .send_with_policy(req.clone(), &CachePolicy::default())
+            .send_with_policy(&req.clone(), &RequestCachePolicy::default())
             .unwrap();
         matches!(o.cache_outcome, CacheOutcome::MissNotCacheable);
 
@@ -326,7 +342,7 @@ mod tests {
             .expect(1)
             .create();
         let o2 = cache
-            .send_with_policy(req, &CachePolicy::default())
+            .send_with_policy(&req, &RequestCachePolicy::default())
             .unwrap();
         // Either MissStored (if headers differ) or MissNotCacheable if still no-store
         assert!(matches!(

@@ -21,7 +21,8 @@ use uuid::Uuid;
 
 use crate::error::AdsClientApiError;
 use crate::http_cache::{
-    ByteSize, CacheError, CacheMode, CachePolicy, DEFAULT_MAX_CACHE_SIZE_MIB, DEFAULT_TTL_SECONDS,
+    ByteSize, CacheError, CacheMode, RequestCachePolicy, DEFAULT_MAX_CACHE_SIZE_MIB,
+    DEFAULT_TTL_SECONDS,
 };
 
 mod error;
@@ -64,13 +65,13 @@ pub struct MozAdsCacheConfig {
 
 #[derive(uniffi::Record)]
 pub struct MozAdsRequestOptions {
-    pub cache_policy: Option<CachePolicy>,
+    pub cache_policy: Option<RequestCachePolicy>,
 }
 
 impl Default for MozAdsRequestOptions {
     fn default() -> Self {
         Self {
-            cache_policy: Some(CachePolicy {
+            cache_policy: Some(RequestCachePolicy {
                 mode: CacheMode::Default,
                 ttl_seconds: None,
             }),

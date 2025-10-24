@@ -22,14 +22,17 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
         const SCHEMA: &str = "
             CREATE TABLE IF NOT EXISTS http_cache (
                 cached_at INTEGER NOT NULL,
+                expiry_at INTEGER NOT NULL,
                 request_hash TEXT NOT NULL,
                 response_body BLOB NOT NULL,
                 response_headers BLOB,
                 response_status INTEGER NOT NULL,
                 size INTEGER NOT NULL,
+                ttl_seconds INTEGER NOT NULL,
                 PRIMARY KEY (request_hash)
             );
-            CREATE INDEX IF NOT EXISTS idx_http_cache_cached_at ON http_cache(cached_at);
+            CREATE INDEX IF NOT EXISTS idx_http_cache_at ON http_cache(cached_at);
+            CREATE INDEX IF NOT EXISTS idx_http_cache_expiry_at ON http_cache(expiry_at);
         ";
         tx.execute_batch(SCHEMA)?;
         Ok(())

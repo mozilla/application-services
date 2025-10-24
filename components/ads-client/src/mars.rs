@@ -10,7 +10,7 @@ use crate::{
     },
     http_cache::{CacheError, CacheOutcome, HttpCache},
     models::{AdRequest, AdResponse},
-    CachePolicy, Environment,
+    Environment, RequestCachePolicy,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use url::Url;
@@ -25,7 +25,7 @@ pub trait MARSClient: Sync + Send {
     fn fetch_ads(
         &self,
         request: &AdRequest,
-        cache_policy: &CachePolicy,
+        cache_policy: &RequestCachePolicy,
     ) -> Result<AdResponse, FetchAdsError>;
     fn record_impression(
         &self,
@@ -113,14 +113,14 @@ impl MARSClient for DefaultMARSClient {
     fn fetch_ads(
         &self,
         ad_request: &AdRequest,
-        cache_policy: &CachePolicy,
+        cache_policy: &RequestCachePolicy,
     ) -> Result<AdResponse, FetchAdsError> {
         let base = Url::parse(self.get_mars_endpoint())?;
         let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
 
         if let Some(cache) = self.http_cache.as_ref() {
-            let outcome = cache.send_with_policy(request, cache_policy)?;
+            let outcome = cache.send_with_policy(&request, cache_policy)?;
 
             // TODO: observe cache outcome for metrics/logging.
             match &outcome.cache_outcome {
@@ -287,7 +287,7 @@ mod tests {
 
         let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads(&ad_request, &CachePolicy::default());
+        let result = client.fetch_ads(&ad_request, &RequestCachePolicy::default());
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
     }
@@ -309,14 +309,14 @@ mod tests {
         // First call should be a miss then warm the cache
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::default())
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
                 .unwrap(),
             expected
         );
         // Second call should be a hit
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::default())
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
                 .unwrap(),
             expected
         );
@@ -339,7 +339,7 @@ mod tests {
         // First call should warm the cache
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &CachePolicy::default())
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
                 .unwrap(),
             expected
         );
@@ -348,7 +348,7 @@ mod tests {
             client
                 .fetch_ads(
                     &ad_request,
-                    &CachePolicy {
+                    &RequestCachePolicy {
                         mode: CacheMode::Refresh,
                         ttl_seconds: None
                     }

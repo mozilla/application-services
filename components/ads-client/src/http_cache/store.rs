@@ -46,15 +46,15 @@ impl HttpCacheStore {
         })
     }
 
-    pub fn delete_expired_entries(&self, cutoff_timestamp: i64) -> SqliteResult<usize> {
+    pub fn delete_expired_entries(&self) -> SqliteResult<usize> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Cleanup {
             return Err(Self::forced_fault_error("forced cleanup failure"));
         }
         let conn = self.conn.lock();
         conn.execute(
-            "DELETE FROM http_cache WHERE cached_at < ?1",
-            params![cutoff_timestamp],
+            "DELETE FROM http_cache WHERE expiry_at < ?1",
+            params![chrono::Utc::now().timestamp()],
         )
     }
 
@@ -94,7 +94,12 @@ impl HttpCacheStore {
         .optional()
     }
 
-    pub fn store(&self, request: &Request, response: &Response) -> SqliteResult<RequestHash> {
+    pub fn store_with_ttl(
+        &self,
+        request: &Request,
+        response: &Response,
+        ttl_seconds: u64,
+    ) -> SqliteResult<RequestHash> {
         #[cfg(test)]
         if *self.fault.lock() == FaultKind::Store {
             return Err(Self::forced_fault_error("forced store failure"));
@@ -103,24 +108,30 @@ impl HttpCacheStore {
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
         let size = (response_headers.len() + response.body.len()) as i64;
+        let now = chrono::Utc::now().timestamp();
+        let expiry_at = now + ttl_seconds as i64;
 
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO http_cache (cached_at, request_hash, response_body, response_headers, response_status, size)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO http_cache (cached_at, expiry_at, request_hash, response_body, response_headers, response_status, size, ttl_seconds)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             ON CONFLICT(request_hash) DO UPDATE SET
                 cached_at=excluded.cached_at,
+                expiry_at=excluded.expiry_at,
                 response_body=excluded.response_body,
                 response_headers=excluded.response_headers,
                 response_status=excluded.response_status,
-                size=excluded.size",
+                size=excluded.size,
+                ttl_seconds=excluded.ttl_seconds",
             params![
-                chrono::Utc::now().timestamp(),
+                now,
+                expiry_at,
                 request_hash.to_string(),
                 response.body,
                 response_headers,
                 response.status,
-                size
+                size,
+                ttl_seconds as i64,
             ],
         )?;
         Ok(request_hash)
@@ -228,7 +239,7 @@ mod tests {
         let req = create_test_request("https://example.com/api", b"body");
         let resp = create_test_response(200, b"resp");
 
-        let err = store.store(&req, &resp).unwrap_err();
+        let err = store.store_with_ttl(&req, &resp, 300).unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced store failure"));
@@ -244,7 +255,7 @@ mod tests {
 
         let req = create_test_request("https://example.com/api", b"");
         let resp = create_test_response(200, b"resp");
-        store.store(&req, &resp).unwrap();
+        store.store_with_ttl(&req, &resp, 300).unwrap();
 
         let err = store.trim_to_max_size(1).unwrap_err();
         match err {
@@ -260,7 +271,7 @@ mod tests {
         let store = create_test_store();
         store.set_fault(FaultKind::Cleanup);
 
-        let err = store.delete_expired_entries(0).unwrap_err();
+        let err = store.delete_expired_entries().unwrap_err();
         match err {
             rusqlite::Error::SqliteFailure(_, Some(msg)) => {
                 assert!(msg.contains("forced cleanup failure"));
@@ -276,7 +287,7 @@ mod tests {
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
 
-        store.store(&request, &response).unwrap();
+        store.store_with_ttl(&request, &response, 300).unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
         assert_eq!(retrieved.0.status, 200);
@@ -293,7 +304,7 @@ mod tests {
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
 
-        store.store(&request, &response).unwrap();
+        store.store_with_ttl(&request, &response, 300).unwrap();
 
         let retrieved = store.lookup(&request).unwrap().unwrap();
         assert_eq!(retrieved.0.body, b"test response");
@@ -315,7 +326,7 @@ mod tests {
             let request = create_test_request(&format!("https://example.com/api/{}", i), b"");
             let large_body = vec![0u8; 300];
             let response = create_test_response(200, &large_body);
-            store.store(&request, &response).unwrap();
+            store.store_with_ttl(&request, &response, 300).unwrap();
         }
 
         // Trim to max size of 1024 bytes
@@ -340,7 +351,7 @@ mod tests {
             .insert("cache-control", "no-store")
             .unwrap();
 
-        store.store(&request, &response).unwrap();
+        store.store_with_ttl(&request, &response, 300).unwrap();
         let retrieved = store.lookup(&request).unwrap();
         assert!(retrieved.is_some());
     }
@@ -356,7 +367,7 @@ mod tests {
             .insert("cache-control", "max-age=1")
             .unwrap();
 
-        store.store(&request, &response).unwrap();
+        store.store_with_ttl(&request, &response, 300).unwrap();
 
         // Should be cached initially
         let retrieved = store.lookup(&request).unwrap();
@@ -376,11 +387,11 @@ mod tests {
 
         let request1 = create_test_request("https://example.com/api1", b"test body 1");
         let response1 = create_test_response(200, b"test response 1");
-        store.store(&request1, &response1).unwrap();
+        store.store_with_ttl(&request1, &response1, 300).unwrap();
 
         let request2 = create_test_request("https://example.com/api2", b"test body 2");
         let response2 = create_test_response(200, b"test response 2");
-        store.store(&request2, &response2).unwrap();
+        store.store_with_ttl(&request2, &response2, 300).unwrap();
 
         // Verify both are cached
         assert!(store.lookup(&request1).unwrap().is_some());
