@@ -73,7 +73,7 @@ fn find_workspace_crates() -> Result<HashMap<String, Utf8PathBuf>> {
         }
 
         let toml = CargoToml::from_path(&toml_path)?;
-        let new_paths = find_other_cargo_toml_paths(&crate_dir, &toml)?;
+        let new_paths = find_other_cargo_toml_paths(&crate_dir, &toml);
         toml_paths_to_process.extend(new_paths);
 
         // Add both the package name and library name to the map
@@ -113,12 +113,15 @@ fn find_workspace_toml() -> Result<CargoTomlFile> {
 }
 
 /// Process Cargo.toml data and return all crate paths referenced in it
-fn find_other_cargo_toml_paths(crate_dir: &Utf8Path, toml: &CargoToml) -> Result<Vec<Utf8PathBuf>> {
+fn find_other_cargo_toml_paths(crate_dir: &Utf8Path, toml: &CargoToml) -> Vec<Utf8PathBuf> {
     toml.dependencies
         .iter()
         .flat_map(|d| d.values())
         .filter_map(|dep| match dep {
-            CargoDependency::Detailed { path: Some(path) } => Some(join(crate_dir, path)),
+            // for servo in particular, Cargo.toml specifies relative paths which do not exist, presumably gated by features.
+            // eg, `servo/components/style_traits/Cargo.toml` references `../atoms`.
+            // So these are just ignored rather than treated as an error.
+            CargoDependency::Detailed { path: Some(path) } => join(crate_dir, path).ok(),
             _ => None,
         })
         .collect()

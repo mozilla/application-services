@@ -445,8 +445,7 @@ def calc_steps(args):
     if args.mode == "changes":
         # changes mode is complicated enough that it's split off into its own
         # function
-        for step in calc_steps_change_mode(args):
-            yield step
+        yield from calc_steps_change_mode(args)
     elif args.mode == "rust-tests":
         print_rust_environment()
         yield Step("cargo clean", cargo_clean)

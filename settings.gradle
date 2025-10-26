@@ -61,8 +61,13 @@ def setupProject(name, projectProps, appServicesRootDir) {
 
     def projectDir = new File(appServicesRootDir, path)
     // tooling-nimbus-gradle gets special treatment, it doesn't exist in the monorepo
-    if (!projectDir.exists() && name != "tooling-nimbus-gradle") {
-        throw new GradleException("Project directory does not exist: $projectDir (for project $name)")
+    // (and should be removed entirely!)
+    if (!projectDir.exists()) {
+        if (name != "tooling-nimbus-gradle") {
+            throw new GradleException("Project directory does not exist: $projectDir (for project $name)")
+        }
+        // gradle 9 gets upset if the dir doesn't exist, even if it's not actually used, like this isn't.
+        projectDir = appServicesRootDir
     }
     project(":$name").projectDir = projectDir
 
