@@ -227,8 +227,8 @@ sed -e 's|/dom/webgpu/tests/cts/vendor/target/|/dom/webgpu/tests/cts/vendor/targ
 mv .gitignore.tmp .gitignore
 # .hgignore needs the same, but with a leading `^` instead of `/`
 sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/target/\
-^services/app-services/**/target/\
-^services/app-services/**/Cargo.lock|' \
+^services/app-services/.*/target/\
+^services/app-services/.*/Cargo.lock|' \
   .hgignore > .hgignore.tmp
 mv .hgignore.tmp .hgignore
 
