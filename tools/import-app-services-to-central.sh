@@ -27,10 +27,13 @@ export MOZ_AVOID_JJ_VCS=1
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D260481
 # Bug 1981871 - Make `./mach rusttests` run some tests via cargo directly,
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D260480
-# gradle
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D245762
 # enable `--with-appservices-in-tree` config option by default
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
+# entire toolchain stack
+moz-phab patch --apply-to=here D266035
+# unstub toolchain - depends on above but not stacked.
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D274371
+
 # vet nimbus, rc_crypto, ece, etc
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
 # lint
@@ -227,8 +230,8 @@ sed -e 's|/dom/webgpu/tests/cts/vendor/target/|/dom/webgpu/tests/cts/vendor/targ
 mv .gitignore.tmp .gitignore
 # .hgignore needs the same, but with a leading `^` instead of `/`
 sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/target/\
-^services/app-services/**/target/\
-^services/app-services/**/Cargo.lock|' \
+^services/app-services/.*/target/\
+^services/app-services/.*/Cargo.lock|' \
   .hgignore > .hgignore.tmp
 mv .hgignore.tmp .hgignore
 
