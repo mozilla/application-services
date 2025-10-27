@@ -183,9 +183,4 @@ extern "C" {
         faulty3DES: PRBool,
         wincx: *mut c_void,
     ) -> *mut PK11SymKey;
-    pub fn SECITEM_AllocItem(
-        arena: *mut PLArenaPool,
-        item: *mut SECItem,
-        len: c_uint,
-    ) -> *mut SECItem;
 }
