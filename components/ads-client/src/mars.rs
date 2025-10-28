@@ -8,18 +8,39 @@ use crate::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
-    http_cache::{self, Error as HttpCacheError, HttpCache},
+    http_cache::{CacheOutcome, HttpCache, HttpCacheError},
     models::{AdRequest, AdResponse},
+    Environment, RequestCachePolicy,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use once_cell::sync::Lazy;
 use url::Url;
 use viaduct::Request;
 
-const DEFAULT_MARS_API_ENDPOINT: &str = "https://ads.mozilla.org/v1";
+static MARS_API_ENDPOINT_PROD: Lazy<Url> =
+    Lazy::new(|| Url::parse("https://ads.mozilla.org/v1").expect("hardcoded URL must be valid"));
+
+#[cfg(feature = "dev")]
+static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
+    Lazy::new(|| Url::parse("https://ads.allizom.org/v1").expect("hardcoded URL must be valid"));
+
+impl Environment {
+    pub fn into_mars_url(self) -> &'static Url {
+        match self {
+            Environment::Prod => &MARS_API_ENDPOINT_PROD,
+            #[cfg(feature = "dev")]
+            Environment::Staging => &MARS_API_ENDPOINT_STAGING,
+        }
+    }
+}
 
 #[cfg_attr(test, mockall::automock)]
 pub trait MARSClient: Sync + Send {
-    fn fetch_ads(&self, request: &AdRequest) -> Result<AdResponse, FetchAdsError>;
+    fn fetch_ads(
+        &self,
+        request: &AdRequest,
+        cache_policy: &RequestCachePolicy,
+    ) -> Result<AdResponse, FetchAdsError>;
     fn record_impression(
         &self,
         url_callback_string: Option<String>,
@@ -28,18 +49,24 @@ pub trait MARSClient: Sync + Send {
     fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError>;
     fn get_context_id(&self) -> context_id::ApiResult<String>;
     fn cycle_context_id(&mut self) -> context_id::ApiResult<String>;
-    fn get_mars_endpoint(&self) -> &str;
+    fn get_mars_endpoint(&self) -> &Url;
     fn clear_cache(&self) -> Result<(), HttpCacheError>;
 }
 
 pub struct DefaultMARSClient {
     context_id_component: ContextIDComponent,
-    endpoint: String,
+    endpoint: Url,
     http_cache: Option<HttpCache>,
 }
 
 impl DefaultMARSClient {
-    pub fn new(context_id: String, http_cache: Option<HttpCache>) -> Self {
+    pub fn new(
+        context_id: String,
+        environment: Environment,
+        http_cache: Option<HttpCache>,
+    ) -> Self {
+        let endpoint = environment.into_mars_url().clone();
+
         Self {
             context_id_component: ContextIDComponent::new(
                 &context_id,
@@ -47,7 +74,7 @@ impl DefaultMARSClient {
                 false,
                 Box::new(DefaultContextIdCallback),
             ),
-            endpoint: DEFAULT_MARS_API_ENDPOINT.to_string(),
+            endpoint,
             http_cache,
         }
     }
@@ -65,7 +92,7 @@ impl DefaultMARSClient {
                 false,
                 Box::new(DefaultContextIdCallback),
             ),
-            endpoint,
+            endpoint: Url::parse(endpoint.as_str()).unwrap(),
             http_cache,
         }
     }
@@ -89,31 +116,41 @@ impl MARSClient for DefaultMARSClient {
         self.context_id_component.request(0)
     }
 
-    fn get_mars_endpoint(&self) -> &str {
+    fn get_mars_endpoint(&self) -> &Url {
         &self.endpoint
     }
 
-    fn fetch_ads(&self, ad_request: &AdRequest) -> Result<AdResponse, FetchAdsError> {
-        let endpoint = self.get_mars_endpoint();
-        let url = Url::parse(&format!("{endpoint}/ads"))?;
+    fn fetch_ads(
+        &self,
+        ad_request: &AdRequest,
+        cache_policy: &RequestCachePolicy,
+    ) -> Result<AdResponse, FetchAdsError> {
+        let base = self.get_mars_endpoint();
+        let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
-        let response = if let Some(cache) = &self.http_cache {
-            match cache.send(request.clone()) {
-                Ok((response, _)) => response,
-                Err(_) => {
-                    // TODO: handle error with telemetry
-                    request.send()?
-                }
+
+        if let Some(cache) = self.http_cache.as_ref() {
+            let outcome = cache.send_with_policy(&request, cache_policy)?;
+
+            // TODO: observe cache outcome for metrics/logging.
+            match &outcome.cache_outcome {
+                CacheOutcome::Hit => {}
+                CacheOutcome::LookupFailed(_err) => {}
+                CacheOutcome::NoCache => {}
+                CacheOutcome::MissNotCacheable => {}
+                CacheOutcome::MissStored => {}
+                CacheOutcome::StoreFailed(_err) => {}
+                CacheOutcome::CleanupFailed(_err) => {}
             }
+            check_http_status_for_error(&outcome.response)?;
+            let response_json: AdResponse = outcome.response.json()?;
+            Ok(response_json)
         } else {
-            request.send()?
-        };
-
-        check_http_status_for_error(&response)?;
-
-        let response_json: AdResponse = response.json()?;
-
-        Ok(response_json)
+            let response = request.send()?;
+            check_http_status_for_error(&response)?;
+            let response_json: AdResponse = response.json()?;
+            Ok(response_json)
+        }
     }
 
     fn record_impression(
@@ -149,7 +186,7 @@ impl MARSClient for DefaultMARSClient {
         }
     }
 
-    fn clear_cache(&self) -> Result<(), http_cache::Error> {
+    fn clear_cache(&self) -> Result<(), HttpCacheError> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }
@@ -162,10 +199,14 @@ mod tests {
 
     use super::*;
     use crate::{
-        models::AdPlacementRequest,
-        test_utils::{create_test_client, get_example_happy_ad_response, TEST_CONTEXT_ID},
+        http_cache::CacheMode,
+        test_utils::{
+            create_test_client, get_example_happy_ad_response, make_happy_ad_request,
+            TEST_CONTEXT_ID,
+        },
     };
     use mockito::mock;
+    use url::Host;
 
     #[test]
     fn test_get_context_id() {
@@ -255,24 +296,113 @@ mod tests {
 
         let client = create_test_client(mockito::server_url());
 
-        let ad_request = AdRequest {
-            context_id: client.get_context_id().unwrap().to_string(),
-            placements: vec![
-                AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    count: 1,
-                    content: None,
-                },
-                AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    count: 1,
-                    content: None,
-                },
-            ],
-        };
+        let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads(&ad_request);
+        let result = client.fetch_ads(&ad_request, &RequestCachePolicy::default());
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
+    }
+
+    #[test]
+    fn test_fetch_ads_cache_hit_skips_network() {
+        viaduct_dev::init_backend_dev();
+        let expected = get_example_happy_ad_response();
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected).unwrap())
+            .expect(1) // only first request goes to network
+            .create();
+
+        let client = create_test_client(mockito::server_url());
+        let ad_request = make_happy_ad_request();
+
+        // First call should be a miss then warm the cache
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
+                .unwrap(),
+            expected
+        );
+        // Second call should be a hit
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_fetch_ads_cache_policy_respects_refresh() {
+        viaduct_dev::init_backend_dev();
+        let expected = get_example_happy_ad_response();
+        let _m = mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected).unwrap())
+            .expect(2) // only first request goes to network
+            .create();
+
+        let client = create_test_client(mockito::server_url());
+        let ad_request = make_happy_ad_request();
+
+        // First call should warm the cache
+        assert_eq!(
+            client
+                .fetch_ads(&ad_request, &RequestCachePolicy::default())
+                .unwrap(),
+            expected
+        );
+        // Second call should be a network call
+        assert_eq!(
+            client
+                .fetch_ads(
+                    &ad_request,
+                    &RequestCachePolicy {
+                        mode: CacheMode::NetworkFirst,
+                        ttl_seconds: None
+                    }
+                )
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn prod_endpoint_parses_and_is_expected() {
+        let url = Environment::Prod.into_mars_url();
+
+        assert_eq!(url.as_str(), "https://ads.mozilla.org/v1");
+
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.host(), Some(Host::Domain("ads.mozilla.org")));
+        assert_eq!(url.path(), "/v1");
+
+        let url2 = Environment::Prod.into_mars_url();
+        assert!(std::ptr::eq(url, url2));
+    }
+
+    #[cfg(feature = "dev")]
+    #[test]
+    fn staging_endpoint_parses_and_is_expected() {
+        let url = Environment::Staging.into_mars_url();
+
+        assert_eq!(url.as_str(), "https://ads.allizom.org/v1");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.domain(), Some("ads.allizom.org"));
+        assert_eq!(url.path(), "/v1");
+
+        let url2 = Environment::Staging.into_mars_url();
+        assert!(std::ptr::eq(url, url2));
+    }
+
+    #[test]
+    fn default_client_uses_prod_url() {
+        let client = DefaultMARSClient::new("ctx".into(), Environment::Prod, None);
+        assert_eq!(
+            client.get_mars_endpoint().as_str(),
+            "https://ads.mozilla.org/v1"
+        );
     }
 }
