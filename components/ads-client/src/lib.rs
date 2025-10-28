@@ -17,9 +17,10 @@ use instrument::TrackError;
 use mars::{DefaultMARSClient, MARSClient};
 use models::{AdContentCategory, AdRequest, AdResponse, IABContentTaxonomy, MozAd};
 use parking_lot::Mutex;
+use url::Url as AdsClientUrl;
 use uuid::Uuid;
 
-use crate::error::AdsClientApiError;
+use crate::error::{AdsClientApiError, CallbackRequestError};
 use crate::http_cache::{ByteSize, CacheMode, HttpCacheError, RequestCachePolicy};
 
 mod error;
@@ -32,6 +33,12 @@ mod models;
 mod test_utils;
 
 uniffi::setup_scaffolding!("ads_client");
+
+uniffi::custom_type!(AdsClientUrl, String, {
+    remote,
+    try_lift: |val| Ok(AdsClientUrl::parse(&val)?),
+    lower: |obj| obj.as_str().to_string(),
+});
 
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
@@ -200,23 +207,28 @@ impl MozAdsClientInner {
     }
 
     fn record_impression(&self, placement: &MozAdsPlacement) -> Result<(), RecordImpressionError> {
-        let impression_callback = placement.content.callbacks.impression.clone();
-
-        self.client.record_impression(impression_callback)?;
-        Ok(())
+        self.client
+            .record_impression(placement.content.callbacks.impression.clone())
     }
 
     fn record_click(&self, placement: &MozAdsPlacement) -> Result<(), RecordClickError> {
-        let click_callback = placement.content.callbacks.click.clone();
-
-        self.client.record_click(click_callback)?;
-        Ok(())
+        self.client
+            .record_click(placement.content.callbacks.click.clone())
     }
 
     fn report_ad(&self, placement: &MozAdsPlacement) -> Result<(), ReportAdError> {
         let report_ad_callback = placement.content.callbacks.report.clone();
 
-        self.client.report_ad(report_ad_callback)?;
+        match report_ad_callback {
+            Some(callback) => self.client.report_ad(callback)?,
+            None => {
+                return Err(ReportAdError::CallbackRequest(
+                    CallbackRequestError::MissingCallback {
+                        message: "Report callback url empty.".to_string(),
+                    },
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -582,11 +594,16 @@ mod tests {
                 block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet dragon".to_string()),
                 callbacks: AdCallbacks {
-                    click: Some("https://ads.fakeexample.org/click/example_ad_2_2".to_string()),
-                    impression: Some(
-                        "https://ads.fakeexample.org/impression/example_ad_2_2".to_string(),
+                    click: AdsClientUrl::parse("https://ads.fakeexample.org/click/example_ad_2_2")
+                        .unwrap(),
+                    impression: AdsClientUrl::parse(
+                        "https://ads.fakeexample.org/impression/example_ad_2_2",
+                    )
+                    .unwrap(),
+                    report: Some(
+                        AdsClientUrl::parse("https://ads.fakeexample.org/report/example_ad_2_2")
+                            .unwrap(),
                     ),
-                    report: Some("https://ads.fakeexample.org/report/example_ad_2_2".to_string()),
                 },
             });
 
