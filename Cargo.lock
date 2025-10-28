@@ -112,8 +112,8 @@ checksum = "a4c527152e37cf757a3f78aae5a06fbeefdb07ccc535c980a3208ee3060dd544"
 name = "as-ohttp-client"
 version = "0.1.0"
 dependencies = [
- "bhttp",
- "ohttp",
+ "bhttp 0.7.0 (git+https://github.com/gruberb/ohttp.git?rev=fc74f7cfc7bb9b01245ded592ee57dd414d28a6f)",
+ "ohttp 0.7.0 (git+https://github.com/gruberb/ohttp.git?rev=fc74f7cfc7bb9b01245ded592ee57dd414d28a6f)",
  "parking_lot",
  "rusqlite",
  "thiserror 2.0.3",
@@ -306,10 +306,18 @@ dependencies = [
 
 [[package]]
 name = "bhttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=bf6a983845cc0b540effb3a615e92d914dfcfd0b#bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+version = "0.7.0"
+source = "git+https://github.com/bendk/ohttp.git?rev=23e8cba111ad5a1ca482ed224bb592a0cb8bd418#23e8cba111ad5a1ca482ed224bb592a0cb8bd418"
 dependencies = [
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
+]
+
+[[package]]
+name = "bhttp"
+version = "0.7.0"
+source = "git+https://github.com/gruberb/ohttp.git?rev=fc74f7cfc7bb9b01245ded592ee57dd414d28a6f#fc74f7cfc7bb9b01245ded592ee57dd414d28a6f"
+dependencies = [
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -3098,8 +3106,8 @@ dependencies = [
 
 [[package]]
 name = "ohttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=bf6a983845cc0b540effb3a615e92d914dfcfd0b#bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+version = "0.7.0"
+source = "git+https://github.com/bendk/ohttp.git?rev=23e8cba111ad5a1ca482ed224bb592a0cb8bd418#23e8cba111ad5a1ca482ed224bb592a0cb8bd418"
 dependencies = [
  "bindgen",
  "byteorder",
@@ -3107,7 +3115,22 @@ dependencies = [
  "log",
  "serde",
  "serde_derive",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
+ "toml",
+]
+
+[[package]]
+name = "ohttp"
+version = "0.7.0"
+source = "git+https://github.com/gruberb/ohttp.git?rev=fc74f7cfc7bb9b01245ded592ee57dd414d28a6f#fc74f7cfc7bb9b01245ded592ee57dd414d28a6f"
+dependencies = [
+ "bindgen",
+ "byteorder",
+ "hex",
+ "log",
+ "serde",
+ "serde_derive",
+ "thiserror 2.0.3",
  "toml",
 ]
 
@@ -5145,11 +5168,11 @@ name = "viaduct"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "bhttp",
+ "bhttp 0.7.0 (git+https://github.com/bendk/ohttp.git?rev=23e8cba111ad5a1ca482ed224bb592a0cb8bd418)",
  "error-support",
  "ffi-support",
  "hyper",
- "ohttp",
+ "ohttp 0.7.0 (git+https://github.com/bendk/ohttp.git?rev=23e8cba111ad5a1ca482ed224bb592a0cb8bd418)",
  "once_cell",
  "parking_lot",
  "pollster",
