@@ -240,7 +240,32 @@ mod tests {
     #[test]
     fn test_ad_response_serialization() {
         let raw_ad_response = json!({
-            "example_placement_1": [
+            "missing_click_url": [
+                {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_1",
+                    "image_url": "https://ads.fakeexample.org/example_image_1",
+                    "format": "billboard",
+                    "alt_text": "An ad for a puppy",
+                    "callbacks": {
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_1",
+                    }
+                }
+            ],
+            "incorrect_click_url": [
+                {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_1",
+                    "image_url": "https://ads.fakeexample.org/example_image_1",
+                    "format": "billboard",
+                    "alt_text": "An ad for a puppy",
+                    "callbacks": {
+                        "click": "incorrect-click-url",
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_1",
+                    }
+                }
+            ],
+            "missing_impression_url": [
                 {
                     "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_1",
@@ -249,12 +274,10 @@ mod tests {
                     "alt_text": "An ad for a puppy",
                     "callbacks": {
                         "click": "https://ads.fakeexample.org/click/example_ad_1",
-                        // impression is intentionally missing
-                        "report": "https://ads.fakeexample.org/report/example_ad_1"
                     }
                 }
             ],
-            "example_placement_2": [
+            "incorrect_impression_url": [
                 {
                     "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_2",
@@ -263,8 +286,21 @@ mod tests {
                     "alt_text": "An ad for a pet duck",
                     "callbacks": {
                         "click": "https://ads.fakeexample.org/click/example_ad_2",
-                        "impression": "https://ads.fakeexample.org/impression/example_ad_2",
-                        "report": "https://ads.fakeexample.org/report/example_ad_2"
+                        "impression": "incorrect-impression-url",
+                    }
+                }
+            ],
+            "valid_ad": [
+                {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_3",
+                    "image_url": "https://ads.fakeexample.org/example_image_3",
+                    "format": "skyscraper",
+                    "alt_text": "An ad for a pet duck",
+                    "callbacks": {
+                        "click": "https://ads.fakeexample.org/click/example_ad_3",
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_3",
+                        "report": "https://ads.fakeexample.org/report/example_ad_3"
                     }
                 }
             ]
@@ -275,22 +311,22 @@ mod tests {
 
         let expected = AdResponse {
             data: HashMap::from([(
-                "example_placement_2".to_string(),
+                "valid_ad".to_string(),
                 vec![MozAd {
-                    url: "https://ads.fakeexample.org/example_ad_2".to_string(),
-                    image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
+                    url: "https://ads.fakeexample.org/example_ad_3".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_image_3".to_string(),
                     format: "skyscraper".to_string(),
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
                     callbacks: AdCallbacks {
-                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_2")
+                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_3")
                             .unwrap(),
                         impression: Url::parse(
-                            "https://ads.fakeexample.org/impression/example_ad_2",
+                            "https://ads.fakeexample.org/impression/example_ad_3",
                         )
                         .unwrap(),
                         report: Some(
-                            Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
+                            Url::parse("https://ads.fakeexample.org/report/example_ad_3").unwrap(),
                         ),
                     },
                 }],
