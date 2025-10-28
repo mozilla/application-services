@@ -5,6 +5,8 @@
 
 use std::collections::HashMap;
 
+use url::Url;
+
 use crate::{
     http_cache::HttpCache,
     mars::DefaultMARSClient,
@@ -63,11 +65,15 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a puppy".to_string()),
                     callbacks: AdCallbacks {
-                        click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
-                        impression: Some(
-                            "https://ads.fakeexample.org/impression/example_ad_1".to_string(),
+                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_1")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_ad_1",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
                         ),
-                        report: Some("https://ads.fakeexample.org/report/example_ad_1".to_string()),
                     },
                 }],
             ),
@@ -80,11 +86,15 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
                     callbacks: AdCallbacks {
-                        click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
-                        impression: Some(
-                            "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
+                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_2")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_ad_2",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
                         ),
-                        report: Some("https://ads.fakeexample.org/report/example_ad_2".to_string()),
                     },
                 }],
             ),
@@ -111,11 +121,12 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                 block_key: "abc123".into(),
                 alt_text: Some("An ad for a puppy".to_string()),
                 callbacks: AdCallbacks {
-                    click: Some("https://ads.fakeexample.org/click/example_ad_1".to_string()),
-                    impression: Some(
-                        "https://ads.fakeexample.org/impression/example_ad_1".to_string(),
+                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_1").unwrap(),
+                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_1")
+                        .unwrap(),
+                    report: Some(
+                        Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
                     ),
-                    report: Some("https://ads.fakeexample.org/report/example_ad_1".to_string()),
                 },
             },
         },
@@ -137,11 +148,12 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                 block_key: "abc123".into(),
                 alt_text: Some("An ad for a pet duck".to_string()),
                 callbacks: AdCallbacks {
-                    click: Some("https://ads.fakeexample.org/click/example_ad_2".to_string()),
-                    impression: Some(
-                        "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
+                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_2").unwrap(),
+                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_2")
+                        .unwrap(),
+                    report: Some(
+                        Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
                     ),
-                    report: Some("https://ads.fakeexample.org/report/example_ad_2".to_string()),
                 },
             },
         },

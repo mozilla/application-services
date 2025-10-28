@@ -41,12 +41,9 @@ pub trait MARSClient: Sync + Send {
         request: &AdRequest,
         cache_policy: &RequestCachePolicy,
     ) -> Result<AdResponse, FetchAdsError>;
-    fn record_impression(
-        &self,
-        url_callback_string: Option<String>,
-    ) -> Result<(), RecordImpressionError>;
-    fn record_click(&self, url_callback_string: Option<String>) -> Result<(), RecordClickError>;
-    fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError>;
+    fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError>;
+    fn record_click(&self, callback: Url) -> Result<(), RecordClickError>;
+    fn report_ad(&self, callback: Url) -> Result<(), ReportAdError>;
     fn get_context_id(&self) -> context_id::ApiResult<String>;
     fn cycle_context_id(&mut self) -> context_id::ApiResult<String>;
     fn get_mars_endpoint(&self) -> &Url;
@@ -97,9 +94,8 @@ impl DefaultMARSClient {
         }
     }
 
-    fn make_callback_request(&self, url_callback_string: &str) -> Result<(), CallbackRequestError> {
-        let url = Url::parse(url_callback_string)?;
-        let request = Request::get(url);
+    fn make_callback_request(&self, callback: Url) -> Result<(), CallbackRequestError> {
+        let request = Request::get(callback);
         let response = request.send()?;
         check_http_status_for_error(&response).map_err(Into::into)
     }
@@ -153,37 +149,16 @@ impl MARSClient for DefaultMARSClient {
         }
     }
 
-    fn record_impression(
-        &self,
-        url_callback_string: Option<String>,
-    ) -> Result<(), RecordImpressionError> {
-        match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
-            None => Err(CallbackRequestError::MissingCallback {
-                message: "Impression callback url empty.".to_string(),
-            }
-            .into()),
-        }
+    fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
+        Ok(self.make_callback_request(callback)?)
     }
 
-    fn record_click(&self, url_callback_string: Option<String>) -> Result<(), RecordClickError> {
-        match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
-            None => Err(CallbackRequestError::MissingCallback {
-                message: "Click callback url empty.".to_string(),
-            }
-            .into()),
-        }
+    fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
+        Ok(self.make_callback_request(callback)?)
     }
 
-    fn report_ad(&self, url_callback_string: Option<String>) -> Result<(), ReportAdError> {
-        match url_callback_string {
-            Some(callback) => self.make_callback_request(&callback).map_err(Into::into),
-            None => Err(CallbackRequestError::MissingCallback {
-                message: "Report callback url empty.".to_string(),
-            }
-            .into()),
-        }
+    fn report_ad(&self, callback: Url) -> Result<(), ReportAdError> {
+        Ok(self.make_callback_request(callback)?)
     }
 
     fn clear_cache(&self) -> Result<(), HttpCacheError> {
@@ -226,35 +201,18 @@ mod tests {
     }
 
     #[test]
-    fn test_record_impression_with_empty_callback_should_fail() {
-        let client = create_test_client(mockito::server_url());
-        let result = client.record_impression(None);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_record_click_with_empty_callback_should_fail() {
-        let client = create_test_client(mockito::server_url());
-        let result = client.record_click(None);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_record_report_with_empty_callback_should_fail() {
-        let client = create_test_client(mockito::server_url());
-        let result = client.report_ad(None);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_record_impression_with_valid_url_should_succeed() {
         viaduct_dev::init_backend_dev();
         let _m = mock("GET", "/impression_callback_url")
             .with_status(200)
             .create();
         let client = create_test_client(mockito::server_url());
-        let url = format!("{}/impression_callback_url", &mockito::server_url());
-        let result = client.record_impression(Some(url));
+        let url = Url::parse(&format!(
+            "{}/impression_callback_url",
+            &mockito::server_url()
+        ))
+        .unwrap();
+        let result = client.record_impression(url);
         assert!(result.is_ok());
     }
 
@@ -264,8 +222,8 @@ mod tests {
         let _m = mock("GET", "/click_callback_url").with_status(200).create();
 
         let client = create_test_client(mockito::server_url());
-        let url = format!("{}/click_callback_url", &mockito::server_url());
-        let result = client.record_click(Some(url));
+        let url = Url::parse(&format!("{}/click_callback_url", &mockito::server_url())).unwrap();
+        let result = client.record_click(url);
         assert!(result.is_ok());
     }
 
@@ -277,8 +235,12 @@ mod tests {
             .create();
 
         let client = create_test_client(mockito::server_url());
-        let url = format!("{}/report_ad_callback_url", &mockito::server_url());
-        let result = client.report_ad(Some(url));
+        let url = Url::parse(&format!(
+            "{}/report_ad_callback_url",
+            &mockito::server_url()
+        ))
+        .unwrap();
+        let result = client.report_ad(url);
         assert!(result.is_ok());
     }
 

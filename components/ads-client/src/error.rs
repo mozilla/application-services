@@ -109,20 +109,17 @@ pub enum EmitTelemetryError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CallbackRequestError {
-    #[error("URL parse error: {0}")]
-    UrlParse(#[from] url::ParseError),
-
-    #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::ViaductError),
+    #[error("Could not fetch ads, MARS responded with: {0}")]
+    HTTPError(#[from] HTTPError),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("Could not fetch ads, MARS responded with: {0}")]
-    HTTPError(#[from] HTTPError),
-
     #[error("Callback URL missing: {message}")]
     MissingCallback { message: String },
+
+    #[error("Error sending request: {0}")]
+    Request(#[from] viaduct::ViaductError),
 }
 
 #[derive(Debug, thiserror::Error)]
