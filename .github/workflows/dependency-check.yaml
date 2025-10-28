@@ -59,7 +59,7 @@ jobs:
           rustup toolchain install nightly
       - name: Run Cargo Audit
         run: |
-            cargo install cargo-audit
+            cargo install cargo-audit --locked
             # Explanation for ignored issues:
             #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
             #                       version of `yaml-rust`, which will be released in `v3` and additionally,
