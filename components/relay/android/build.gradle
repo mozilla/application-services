@@ -5,6 +5,10 @@ android {
     namespace 'org.mozilla.appservices.relay'
 }
 
+dependencies {
+    api project(":remotesettings")
+}
+
 ext.configureUniFFIBindgen("relay")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
