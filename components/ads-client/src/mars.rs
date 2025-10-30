@@ -18,11 +18,11 @@ use url::Url;
 use viaduct::Request;
 
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
-    Lazy::new(|| Url::parse("https://ads.mozilla.org/v1").expect("hardcoded URL must be valid"));
+    Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
 
 #[cfg(feature = "dev")]
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
-    Lazy::new(|| Url::parse("https://ads.allizom.org/v1").expect("hardcoded URL must be valid"));
+    Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
 
 impl Environment {
     pub fn into_mars_url(self) -> &'static Url {
@@ -295,11 +295,11 @@ mod tests {
     fn prod_endpoint_parses_and_is_expected() {
         let url = Environment::Prod.into_mars_url();
 
-        assert_eq!(url.as_str(), "https://ads.mozilla.org/v1");
+        assert_eq!(url.as_str(), "https://ads.mozilla.org/v1/");
 
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.host(), Some(Host::Domain("ads.mozilla.org")));
-        assert_eq!(url.path(), "/v1");
+        assert_eq!(url.path(), "/v1/");
 
         let url2 = Environment::Prod.into_mars_url();
         assert!(std::ptr::eq(url, url2));
@@ -310,10 +310,10 @@ mod tests {
     fn staging_endpoint_parses_and_is_expected() {
         let url = Environment::Staging.into_mars_url();
 
-        assert_eq!(url.as_str(), "https://ads.allizom.org/v1");
+        assert_eq!(url.as_str(), "https://ads.allizom.org/v1/");
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.domain(), Some("ads.allizom.org"));
-        assert_eq!(url.path(), "/v1");
+        assert_eq!(url.path(), "/v1/");
 
         let url2 = Environment::Staging.into_mars_url();
         assert!(std::ptr::eq(url, url2));
@@ -324,7 +324,7 @@ mod tests {
         let client = DefaultMARSClient::new("ctx".into(), Environment::Prod, None);
         assert_eq!(
             client.get_mars_endpoint().as_str(),
-            "https://ads.mozilla.org/v1"
+            "https://ads.mozilla.org/v1/"
         );
     }
 }
