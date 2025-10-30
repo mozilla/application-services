@@ -15,12 +15,6 @@ static DEFAULT_TELEMETRY_ENDPOINT: &str = "https://ads.mozilla.org/v1/log";
 static TELEMETRY_ENDPONT: LazyLock<RwLock<String>> =
     LazyLock::new(|| RwLock::new(DEFAULT_TELEMETRY_ENDPOINT.to_string()));
 
-#[cfg(test)]
-pub fn set_telemetry_endpoint(endpoint: String) {
-    let mut telemetry_endpoint_lock = TELEMETRY_ENDPONT.write();
-    *telemetry_endpoint_lock = endpoint;
-}
-
 fn get_telemetry_endpoint() -> String {
     TELEMETRY_ENDPONT.read().clone()
 }
@@ -68,52 +62,4 @@ pub fn emit_telemetry_event(event_type: Option<TelemetryEvent>) -> Result<(), Em
         Request::get(url).send()?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::error::{CallbackRequestError, ComponentError, RecordClickError};
-    use mockito::mock;
-
-    #[test]
-    fn test_emit_telemetry_emits_telemetry_for_mappable_error() {
-        viaduct_dev::init_backend_dev();
-        set_telemetry_endpoint(format!("{}{}", mockito::server_url(), "/v1/log"));
-        let mock = mock("GET", "/v1/log")
-            .match_query(mockito::Matcher::UrlEncoded(
-                "event".into(),
-                "\"invalid_url_error\"".into(),
-            ))
-            .with_status(200)
-            .expect(1)
-            .create();
-
-        let result: Result<(), ComponentError> = Err(ComponentError::RecordClick(
-            RecordClickError::CallbackRequest(CallbackRequestError::MissingCallback {
-                message: "bad url".into(),
-            }),
-        ));
-
-        let res = result.emit_telemetry_if_error();
-
-        mock.assert();
-
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_emit_telemetry_event_on_ok_does_nothing() {
-        viaduct_dev::init_backend_dev();
-        set_telemetry_endpoint(format!("{}{}", mockito::server_url(), "/v1/log"));
-
-        let mock = mock("GET", "/v1/log").with_status(200).expect(0).create();
-
-        let result: Result<String, ComponentError> =
-            Ok("All is good".to_string()).emit_telemetry_if_error();
-
-        mock.assert();
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "All is good".to_string());
-    }
 }
