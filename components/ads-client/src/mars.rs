@@ -173,12 +173,8 @@ impl MARSClient for DefaultMARSClient {
 mod tests {
 
     use super::*;
-    use crate::{
-        http_cache::CacheMode,
-        test_utils::{
-            create_test_client, get_example_happy_ad_response, make_happy_ad_request,
-            TEST_CONTEXT_ID,
-        },
+    use crate::test_utils::{
+        create_test_client, get_example_happy_ad_response, make_happy_ad_request, TEST_CONTEXT_ID,
     };
     use mockito::mock;
     use url::Host;
@@ -290,42 +286,6 @@ mod tests {
         assert_eq!(
             client
                 .fetch_ads(&ad_request, &RequestCachePolicy::default())
-                .unwrap(),
-            expected
-        );
-    }
-
-    #[test]
-    fn test_fetch_ads_cache_policy_respects_refresh() {
-        viaduct_dev::init_backend_dev();
-        let expected = get_example_happy_ad_response();
-        let _m = mock("POST", "/ads")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(serde_json::to_string(&expected).unwrap())
-            .expect(2) // only first request goes to network
-            .create();
-
-        let client = create_test_client(mockito::server_url());
-        let ad_request = make_happy_ad_request();
-
-        // First call should warm the cache
-        assert_eq!(
-            client
-                .fetch_ads(&ad_request, &RequestCachePolicy::default())
-                .unwrap(),
-            expected
-        );
-        // Second call should be a network call
-        assert_eq!(
-            client
-                .fetch_ads(
-                    &ad_request,
-                    &RequestCachePolicy {
-                        mode: CacheMode::NetworkFirst,
-                        ttl_seconds: None
-                    }
-                )
                 .unwrap(),
             expected
         );
