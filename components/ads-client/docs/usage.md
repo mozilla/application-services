@@ -1,7 +1,7 @@
-
 # Mozilla Ads Client (MAC) — UniFFI API Reference
 
 ## Overview
+
 This document lists the Rust types and functions exposed via UniFFI by the `ads_client` component.
 It only includes items that are part of the UniFFI surface. This document is aimed at users of the ads-client who want to know what is available to them.
 
@@ -30,20 +30,22 @@ If a cache configuration is provided, the client will initialize an on-disk HTTP
 
 #### Methods
 
-| Method | Return Type | Description |
-|--------|-------------|-------------|
-| `request_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)` | `AdsClientApiResult<HashMap<String, MozAdsPlacement>>` | Requests ads for the given placement configurations. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`. |
-| `record_impression(&self, placement: MozAdsPlacement)` | `AdsClientApiResult<()>` | Records an impression for the given placement (fires the ad’s impression callback). |
-| `record_click(&self, placement: MozAdsPlacement)` | `AdsClientApiResult<()>` | Records a click for the given placement (fires the ad’s click callback). |
-| `report_ad(&self, placement: MozAdsPlacement)` | `AdsClientApiResult<()>` | Reports the given placement (fires the ad’s report callback). |
-| `cycle_context_id(&self)` | `AdsClientApiResult<String>` | Rotates the client’s context ID and returns the **previous** ID. |
-| `clear_cache(&self)` | `AdsClientApiResult<()>` | Clears the client’s HTTP cache. Returns an error if clearing fails. |
+| Method                                                                                                                      | Return Type                                       | Description                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clear_cache(&self)`                                                                                                        | `AdsClientApiResult<()>`                          | Clears the client’s HTTP cache. Returns an error if clearing fails.                                                                           |
+| `cycle_context_id(&self)`                                                                                                   | `AdsClientApiResult<String>`                      | Rotates the client’s context ID and returns the **previous** ID.                                                                              |
+| `record_click(&self, placement: MozAd)`                                                                                     | `AdsClientApiResult<()>`                          | Records a click for the given placement (fires the ad’s click callback).                                                                      |
+| `record_impression(&self, placement: MozAd)`                                                                                | `AdsClientApiResult<()>`                          | Records an impression for the given placement (fires the ad’s impression callback).                                                           |
+| `report_ad(&self, placement: MozAd)`                                                                                        | `AdsClientApiResult<()>`                          | Reports the given placement (fires the ad’s report callback).                                                                                 |
+| `request_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)`                   | `AdsClientApiResult<HashMap<String, MozAd>>`      | Requests one ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`.            |
+| `request_multiple_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>, options: Option<MozAdsRequestOptions>)` | `AdsClientApiResult<HashMap<String, Vec<MozAd>>>` | Requests up to `count` ads per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`. |
 
 > **Notes**
+>
 > - We recommend that this client be initialized as a singleton or something similar so that multiple instances of the client do not exist at once.
-> - Responses from `request_ads` will omit placements with no fill. Those keys won’t appear in the returned map.
+> - Responses omit placements with no fill. Empty placements do not appear in the returned maps for either `request_ads` or `request_multiple_ads`.
 > - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientConfig`. Per-request cache settings can be set with `MozAdsRequestOptions`.
-> - If cache_config is None, caching is disabled entirely.
+> - If `cache_config` is `None`, caching is disabled entirely.
 
 ---
 
@@ -58,15 +60,15 @@ pub struct MozAdsClientConfig {
 }
 ```
 
-| Field | Type | Description |
-|------|------|-------------|
-| `enviornment` | `Enviornment` | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. |
-| `cache_config` | `Option<MozAdsCacheConfig>` | Optional configuration for the internal cache. |
-
+| Field          | Type                        | Description                                                                                            |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `environment`  | `Environment`               | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. |
+| `cache_config` | `Option<MozAdsCacheConfig>` | Optional configuration for the internal cache.                                                         |
 
 ---
 
 ## `MozAdsCacheConfig`
+
 Describes the behavior and location of the on-disk HTTP cache.
 
 ```rust
@@ -77,19 +79,16 @@ pub struct MozAdsCacheConfig {
 }
 ```
 
-
 | Field                       | Type          | Description                                                                          |
 | --------------------------- | ------------- | ------------------------------------------------------------------------------------ |
 | `db_path`                   | `String`      | Path to the SQLite database file used for cache storage. Required to enable caching. |
-| `default_cache_ttl_seconds` | `Option<u64>` | Default TTL for cached entries. If omitted, defaults to 300 seconds (5 minutes). |
-| `max_size_mib`              | `Option<u64>` | Maximum cache size. If omitted, defaults to 10 MiB.                              |
-
+| `default_cache_ttl_seconds` | `Option<u64>` | Default TTL for cached entries. If omitted, defaults to 300 seconds (5 minutes).     |
+| `max_size_mib`              | `Option<u64>` | Maximum cache size. If omitted, defaults to 10 MiB.                                  |
 
 **Defaults**
 
 - default_cache_ttl_seconds: 300 seconds (5 min)
 - max_size_mib: 10 MiB
-
 
 ---
 
@@ -104,13 +103,28 @@ pub struct MozAdsPlacementRequest {
 }
 ```
 
-| Field | Type | Description |
-|------|------|-------------|
-| `placement_id` | `String` | Unique identifier for the ad placement. Must be unique within one `request_ads` call. |
-| `iab_content` | `Option<IABContent>` | Optional IAB content classification for targeting. |
+| Field          | Type                 | Description                                                                           |
+| -------------- | -------------------- | ------------------------------------------------------------------------------------- |
+| `placement_id` | `String`             | Unique identifier for the ad placement. Must be unique within one `request_ads` call. |
+| `iab_content`  | `Option<IABContent>` | Optional IAB content classification for targeting.                                    |
 
 **Validation Rules:**
+
 - `placement_id` values must be unique per request.
+
+---
+
+## `MozAdsPlacementRequestWithCount`
+
+Describes a single ad placement and the maximum number of ads to request for that placement. A vector of these is used by the `request_multiple_ads` method on the client.
+
+```rust
+pub struct MozAdsPlacementRequestWithCount {
+  pub count: u32,
+  pub placement_id: String,
+  pub iab_content: Option<IABContent>,
+}
+```
 
 ---
 
@@ -124,11 +138,9 @@ pub struct MozAdsRequestOptions {
 }
 ```
 
-
-| Field          | Type                         | Description                                                        |
-| -------------- | ---------------------------- | ------------------------------------------------------------------ |
+| Field          | Type                         | Description                                                                                    |
+| -------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
 | `cache_policy` | `Option<RequestCachePolicy>` | Per-request caching policy. If `None`, uses the client’s default TTL with a `CacheFirst` mode. |
-
 
 ---
 
@@ -145,9 +157,8 @@ pub struct RequestCachePolicy {
 
 | Field         | Type          | Description                                                                                                                |
 | ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `mode`        | `CacheMode`   | Strategy for combining cache and network. Can be `CacheFirst` or `NetworkFirst`.                                                                      |
+| `mode`        | `CacheMode`   | Strategy for combining cache and network. Can be `CacheFirst` or `NetworkFirst`.                                           |
 | `ttl_seconds` | `Option<u64>` | Optional per-request TTL override in seconds. `None` uses the client default. `Some(0)` disables caching for this request. |
-
 
 ---
 
@@ -162,31 +173,10 @@ pub enum CacheMode {
 }
 ```
 
-
-| Variant        | Behavior                                                                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
+| Variant        | Behavior                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------- |
 | `CacheFirst`   | Check cache first, return cached response if found, otherwise make a network request and store it. |
 | `NetworkFirst` | Always fetch from network, then cache the result.                                                  |
-
-
----
-
-## `MozAdsPlacement`
-
-Represents a served ad placement and its content.
-
-```rust
-pub struct MozAdsPlacement {
-  pub placement_requests: MozAdsPlacementRequest,
-  pub content: MozAd,
-}
-```
-
-| Field | Type | Description |
-|------|------|-------------|
-| `placement_requests` | `MozAdsPlacementRequest` | The configuration used to request this ad. |
-| `content` | `MozAd` | The ad creative and its callbacks. |
-
 
 ---
 
@@ -205,15 +195,14 @@ pub struct MozAd {
 }
 ```
 
-| Field | Type | Description |
-|------|------|-------------|
-| `url` | `String` | Destination URL. |
-| `image_url` | `String` | Creative asset URL. |
-| `format` | `String` | Ad format e.g., `"skyscraper"`. |
-| `block_key` | `String` | The block key generated for the advertiser. |
-| `alt_text` | `Option<String>` | Alt text if available. |
-| `callbacks` | `AdCallbacks` | Lifecycle callback endpoints. |
-
+| Field       | Type             | Description                                 |
+| ----------- | ---------------- | ------------------------------------------- |
+| `url`       | `String`         | Destination URL.                            |
+| `image_url` | `String`         | Creative asset URL.                         |
+| `format`    | `String`         | Ad format e.g., `"skyscraper"`.             |
+| `block_key` | `String`         | The block key generated for the advertiser. |
+| `alt_text`  | `Option<String>` | Alt text if available.                      |
+| `callbacks` | `AdCallbacks`    | Lifecycle callback endpoints.               |
 
 ---
 
@@ -221,18 +210,17 @@ pub struct MozAd {
 
 ```rust
 pub struct AdCallbacks {
-  pub click: Option<String>,
-  pub impression: Option<String>,
+  pub click: String,
+  pub impression: String,
   pub report: Option<String>,
 }
 ```
 
-| Field | Type | Description |
-|------|------|-------------|
-| `click` | `Option<String>` | Click callback URL. |
-| `impression` | `Option<String>` | Impression callback URL. |
-| `report` | `Option<String>` | Report callback URL. |
-
+| Field        | Type             | Description              |
+| ------------ | ---------------- | ------------------------ |
+| `click`      | `String`         | Click callback URL.      |
+| `impression` | `String`         | Impression callback URL. |
+| `report`     | `Option<String>` | Report callback URL.     |
 
 ---
 
@@ -247,16 +235,16 @@ pub struct AdContentCategory {
 }
 ```
 
-| Field | Type | Description |
-|------|------|-------------|
-| `taxonomy` | `IABContentTaxonomy` | IAB taxonomy version. |
-| `category_ids` | `Vec<String>` | One or more IAB category identifiers. |
+| Field          | Type                 | Description                           |
+| -------------- | -------------------- | ------------------------------------- |
+| `taxonomy`     | `IABContentTaxonomy` | IAB taxonomy version.                 |
+| `category_ids` | `Vec<String>`        | One or more IAB category identifiers. |
 
 ---
 
 ## `IABContentTaxonomy`
 
-The [IAB Content Taxonomy](https://www.iab.com/guidelines/content-taxonomy/) version to be used in the request. e.g `IAB-1.0` 
+The [IAB Content Taxonomy](https://www.iab.com/guidelines/content-taxonomy/) version to be used in the request. e.g `IAB-1.0`
 
 ```rust
 pub enum IABContentTaxonomy {
@@ -267,6 +255,7 @@ pub enum IABContentTaxonomy {
   IAB3_0,
 }
 ```
+
 > Note: The generated native bindings for the values may look different depending on the language (snake-case, camel case, etc.) as a result of UniFFI's formatting.
 
 ---
@@ -331,7 +320,6 @@ let options = MozAdsRequestOptions(
 let placements = client.requestAds(configs, options: options)
 ```
 
-
 ### Cache Invalidation
 
 **TTL-based expiry (automatic):**
@@ -342,7 +330,7 @@ At the start of each send, the cache computes a cutoff from chrono::Utc::now() -
 After storing a cacheable miss, the cache enforces max_size by deleting the oldest rows until the total stored size is ≤ the maximum allowed size of the cache. Due to the small size of items in the cache and the relatively short TTL, this behavior should be rare.
 
 **Manual clearing (explicit):**
-The cache can be manually cleared by the client using the exposed `client.clear_cache()` method. This clears *all* objects in the cache.
+The cache can be manually cleared by the client using the exposed `client.clear_cache()` method. This clears _all_ objects in the cache.
 
 ---
 
