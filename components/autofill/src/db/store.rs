@@ -4,7 +4,7 @@
 
 use crate::db::models::address::{Address, UpdatableAddressFields};
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
-use crate::db::{addresses, credit_cards, AutofillDb};
+use crate::db::{addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics, AutofillDb};
 use crate::error::*;
 use error_support::handle_error;
 use rusqlite::{
@@ -163,6 +163,27 @@ impl Store {
     }
 
     #[handle_error(Error)]
+    pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
+        self: Arc<Self>,
+        local_encryption_key: String,
+    ) -> ApiResult<CreditCardsDeletionMetrics> {
+        let db = &self.db.lock().unwrap().writer;
+        let deletion_stats =
+            credit_cards::scrub_undecryptable_credit_card_data_for_remote_replacement(
+                db,
+                local_encryption_key,
+            )?;
+
+        // Here we reset the local sync data so that the credit card engine syncs as if
+        // it were the first sync. This will potentially allow a previous sync of the
+        // record that exists on the sync server to overwrite the local record and restore
+        // the scrubbed credit card number.
+        crate::sync::credit_card::create_engine(self.clone())
+            .reset_local_sync_data_for_verification(db)?;
+        Ok(deletion_stats)
+    }
+
+    #[handle_error(Error)]
     pub fn run_maintenance(&self) -> ApiResult<()> {
         let conn = self.db.lock().unwrap();
         run_maintenance(&conn)?;
@@ -220,6 +241,8 @@ pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
+    use crate::encryption::EncryptorDecryptor;
+    use nss::ensure_initialized;
 
     #[test]
     fn test_autofill_meta() -> Result<()> {
@@ -277,5 +300,30 @@ mod tests {
         // dropping the registered object should drop the registration.
         drop(store);
         assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
+    }
+
+    #[test]
+    fn test_scrub_undecryptable_credit_card_data_for_remote_replacement() {
+        ensure_initialized();
+        let store = Arc::new(Store::new_shared_memory("sync-mgr-test").expect("create store"));
+        let key = EncryptorDecryptor::create_key().expect("create key");
+        let encdec = EncryptorDecryptor::new(&key).expect("create EncryptorDecryptor");
+
+        store
+            .add_credit_card(UpdatableCreditCardFields {
+                cc_name: "john deer".to_string(),
+                cc_number_enc: encdec
+                    .encrypt("567812345678123456781")
+                    .expect("encrypt cc number"),
+                cc_number_last_4: "6781".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+            })
+            .expect("add credit card to database");
+
+        store
+            .scrub_undecryptable_credit_card_data_for_remote_replacement(key)
+            .expect("scrub credit card record");
     }
 }

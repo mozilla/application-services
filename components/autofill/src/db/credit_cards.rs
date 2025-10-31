@@ -12,9 +12,14 @@ use crate::db::{
 };
 use crate::error::*;
 
+use jwcrypto::EncryptorDecryptor;
 use rusqlite::{Connection, Transaction};
 use sync_guid::Guid;
 use types::Timestamp;
+
+pub struct CreditCardsDeletionMetrics {
+    pub total_scrubbed_records: u64,
+}
 
 pub(crate) fn add_credit_card(
     conn: &Connection,
@@ -209,6 +214,47 @@ pub fn scrub_encrypted_credit_card_data(conn: &Connection) -> Result<()> {
     tx.execute("UPDATE credit_cards_data SET cc_number_enc = ''", [])?;
     tx.commit()?;
     Ok(())
+}
+
+pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
+    conn: &Connection,
+    local_encryption_key: String,
+) -> Result<CreditCardsDeletionMetrics> {
+    let tx = conn.unchecked_transaction()?;
+    let mut scrubbed_records = 0;
+    let encdec = EncryptorDecryptor::new(local_encryption_key.as_str()).unwrap();
+
+    let undecryptable_record_ids = get_all_credit_cards(conn)?
+        .into_iter()
+        .filter(|credit_card| encdec.decrypt(&credit_card.cc_number_enc).is_err())
+        .map(|credit_card| credit_card.guid)
+        .collect::<Vec<_>>();
+
+    // Reset the cc_number_enc field as well as the meta fields of the record so if the record was previously synced
+    // it will be overwritten
+    sql_support::each_chunk(&undecryptable_record_ids, |chunk, _| -> Result<()> {
+        let scrubbed = tx.execute(
+            &format!(
+                "UPDATE credit_cards_data
+                SET cc_number_enc = '',
+                    time_created = 0,
+                    time_last_used = 0,
+                    time_last_modified = 0,
+                    times_used = 0,
+                    sync_change_counter = 0
+                WHERE guid IN ({})",
+                sql_support::repeat_sql_values(chunk.len())
+            ),
+            rusqlite::params_from_iter(chunk),
+        )?;
+        scrubbed_records += scrubbed;
+        Ok(())
+    })?;
+
+    tx.commit()?;
+    Ok(CreditCardsDeletionMetrics {
+        total_scrubbed_records: scrubbed_records as u64,
+    })
 }
 
 pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
@@ -619,6 +665,55 @@ pub(crate) mod tests {
             let retrieved_credit_card = get_credit_card(&db, &saved_credit_card.guid)?;
             assert_eq!(retrieved_credit_card.cc_number_enc, "");
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_scrub_undecryptable_credit_card_date_for_remote_replacement() -> Result<()> {
+        ensure_initialized();
+        let db = new_mem_db();
+        let old_key = EncryptorDecryptor::create_key()?;
+        let old_encdec = EncryptorDecryptor::new(&old_key)?;
+        let key = EncryptorDecryptor::create_key()?;
+        let encdec = EncryptorDecryptor::new(&key)?;
+
+        let undecryptable_credit_card = add_credit_card(
+            &db,
+            UpdatableCreditCardFields {
+                cc_name: "jane doe".to_string(),
+                cc_number_enc: old_encdec.encrypt("2345678923456789")?,
+                cc_number_last_4: "6789".to_string(),
+                cc_exp_month: 9,
+                cc_exp_year: 2027,
+                cc_type: "visa".to_string(),
+            },
+        )?;
+
+        let encrypted_cc_number = encdec.encrypt("567812345678123456781")?;
+        let credit_card = add_credit_card(
+            &db,
+            UpdatableCreditCardFields {
+                cc_name: "john deer".to_string(),
+                cc_number_enc: encrypted_cc_number.clone(),
+                cc_number_last_4: "6781".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+            },
+        )?;
+
+        let metrics = scrub_undecryptable_credit_card_data_for_remote_replacement(&db.writer, key)?;
+        assert_eq!(metrics.total_scrubbed_records, 1);
+
+        let credit_cards = get_all_credit_cards(&db)?;
+        assert_eq!(credit_cards.len(), 2);
+
+        let retrieved_credit_card = get_credit_card(&db, &undecryptable_credit_card.guid)?;
+        assert_eq!(retrieved_credit_card.cc_number_enc, "");
+
+        let retrieved_credit_card2 = get_credit_card(&db, &credit_card.guid)?;
+        assert_eq!(retrieved_credit_card2.cc_number_enc, encrypted_cc_number);
 
         Ok(())
     }

@@ -32,6 +32,7 @@ pub struct TestClient {
     pub device: Device,
     // XXX do this more generically...
     pub autofill_store: Arc<AutofillStore>,
+    autofill_db_name: String,
     pub logins_store: Arc<LoginStore>,
     pub encdec: Arc<dyn EncryptorDecryptor>,
     pub tabs_store: Arc<TabsStore>,
@@ -66,10 +67,16 @@ impl TestClient {
             StaticKeyManager::new(key.clone()),
         )));
 
+        // We're passing this db name to the autofill store in order to prevent the two `TestClient` instances
+        // from referencing the same autofill database instance. It's also being set as a property of TestClient
+        // for use in the `fully_reset_local_db` function below.
+        let autofill_db_name = format!("sync-test-{}", device_name);
+
         Ok(Self {
             cli,
             device,
-            autofill_store: Arc::new(AutofillStore::new_shared_memory("sync-test")?),
+            autofill_store: Arc::new(AutofillStore::new_shared_memory(autofill_db_name.as_str())?),
+            autofill_db_name,
             logins_store: Arc::new(LoginStore::new(":memory:", encdec.clone())?),
             encdec,
             tabs_store: Arc::new(TabsStore::new_with_mem_path("sync-test-tabs")),
@@ -162,7 +169,7 @@ impl TestClient {
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
-        self.autofill_store = Arc::new(AutofillStore::new_shared_memory("sync-test")?);
+        self.autofill_store = Arc::new(AutofillStore::new_shared_memory(&self.autofill_db_name)?);
         self.logins_store = Arc::new(LoginStore::new(":memory:", self.encdec.clone())?);
         self.tabs_store = Arc::new(TabsStore::new_with_mem_path("sync-test-tabs"));
         Ok(())

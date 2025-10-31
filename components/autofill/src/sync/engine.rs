@@ -83,6 +83,16 @@ impl<T> ConfigSyncEngine<T> {
         tx.commit()?;
         Ok(())
     }
+
+    // We cannot call `reset_local_sync_data` from  the store's `scrub_undecryptable_credit_card_data_for_remote_replacement`
+    // function, so we've created this function specifically for it's use. It should not be used anywhere else.
+    pub fn reset_local_sync_data_for_verification(&self, conn: &Connection) -> Result<()> {
+        let tx = conn.unchecked_transaction()?;
+        self.storage_impl.reset_storage(&tx)?;
+        self.put_meta(&tx, LAST_SYNC_META_KEY, &0)?;
+        tx.commit()?;
+        Ok(())
+    }
 }
 
 impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
