@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Environment"],"struct":["IABContent","MozAdsCacheConfig","MozAdsClient","MozAdsClientConfig","MozAdsClientInner","MozAdsPlacement","MozAdsPlacementRequest","MozAdsRequestOptions"]};
