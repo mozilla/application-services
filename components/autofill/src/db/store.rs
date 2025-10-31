@@ -4,7 +4,7 @@
 
 use crate::db::models::address::{Address, UpdatableAddressFields};
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
-use crate::db::{addresses, credit_cards, AutofillDb};
+use crate::db::{addresses, credit_cards, credit_cards::CreditCardsDeletionMetrics, AutofillDb};
 use crate::error::*;
 use error_support::handle_error;
 use rusqlite::{
@@ -15,6 +15,7 @@ use sql_support::{self, run_maintenance, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::engine::{SyncEngine, SyncEngineId};
+use sync15::ServerTimestamp;
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -163,6 +164,22 @@ impl Store {
     }
 
     #[handle_error(Error)]
+    pub fn scrub_undecryptable_credit_card_data_for_remote_replacement(
+        self: Arc<Self>,
+        undecryptable_record_ids: Vec<&str>,
+    ) -> ApiResult<CreditCardsDeletionMetrics> {
+        let db = &self.db.lock().unwrap().writer;
+        let deletion_stats =
+            credit_cards::scrub_undecryptable_credit_card_data_for_remote_replacement(
+                db,
+                undecryptable_record_ids,
+            )?;
+        crate::sync::credit_card::create_engine(self.clone())
+            .set_last_sync(db, ServerTimestamp(0))?;
+        Ok(deletion_stats)
+    }
+
+    #[handle_error(Error)]
     pub fn run_maintenance(&self) -> ApiResult<()> {
         let conn = self.db.lock().unwrap();
         run_maintenance(&conn)?;
@@ -220,6 +237,7 @@ pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
+    use nss::ensure_initialized;
 
     #[test]
     fn test_autofill_meta() -> Result<()> {
@@ -277,5 +295,28 @@ mod tests {
         // dropping the registered object should drop the registration.
         drop(store);
         assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
+    }
+
+    #[test]
+    fn test_scrub_undecryptable_credit_card_data_for_remote_replacement() {
+        ensure_initialized();
+        let store = Arc::new(Store::new_shared_memory("sync-mgr-test").expect("create store"));
+
+        let credit_card = store
+            .add_credit_card(UpdatableCreditCardFields {
+                cc_name: "john deer".to_string(),
+                cc_number_enc: "567812345678123456781".to_string(),
+                cc_number_last_4: "6789".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+            })
+            .expect("add credit card to database");
+
+        store
+            .scrub_undecryptable_credit_card_data_for_remote_replacement(vec![credit_card
+                .guid
+                .as_str()])
+            .expect("scrub credit card record");
     }
 }
