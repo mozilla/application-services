@@ -4,6 +4,7 @@
 
 pub use error_support::error;
 use error_support::{ErrorHandling, GetErrorHandling};
+use remote_settings::RemoteSettingsError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type ApiResult<T> = std::result::Result<T, RelayApiError>;
@@ -42,6 +43,12 @@ pub enum Error {
     Viaduct(#[from] viaduct::ViaductError),
     #[error("URL parsing error: {0}")]
     UrlParse(#[from] url::ParseError),
+
+    #[error("Error from Remote Settings: {0}")]
+    RemoteSettings(#[from] RemoteSettingsError),
+
+    #[error("Failed to parse Remote Settings record: {0}")]
+    InvalidRemoteSettingsRecord(String),
 }
 
 impl GetErrorHandling for Error {
@@ -72,6 +79,24 @@ impl GetErrorHandling for Error {
                     detail,
                 })
                 .report_error("relay-api-error")
+            }
+            // Handle Remote Settings errors
+            // Note: these are just logged/reported but not exposed to consumers
+            Error::RemoteSettings(RemoteSettingsError::Network { reason }) => {
+                ErrorHandling::convert(RelayApiError::Other {
+                    reason: format!("Remote Settings network error: {}", reason),
+                })
+                .log_warning()
+            }
+            Error::RemoteSettings(e) => ErrorHandling::convert(RelayApiError::Other {
+                reason: format!("Remote Settings error: {}", e),
+            })
+            .report_error("relay-rs-error"),
+            Error::InvalidRemoteSettingsRecord(msg) => {
+                ErrorHandling::convert(RelayApiError::Other {
+                    reason: format!("Invalid Remote Settings record: {}", msg),
+                })
+                .report_error("relay-invalid-record")
             }
             _ => ErrorHandling::convert(RelayApiError::Other {
                 reason: self.to_string(),
