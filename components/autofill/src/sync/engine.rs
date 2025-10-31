@@ -83,6 +83,12 @@ impl<T> ConfigSyncEngine<T> {
         tx.commit()?;
         Ok(())
     }
+
+    pub fn set_last_sync(&self, conn: &Connection, last_sync: ServerTimestamp) -> Result<()> {
+        let last_sync_millis = last_sync.as_millis();
+        self.put_meta(conn, LAST_SYNC_META_KEY, &last_sync_millis)?;
+        Ok(())
+    }
 }
 
 impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
@@ -437,6 +443,27 @@ mod tests {
             retrieved_coll_sync_id.unwrap_or_default(),
             coll_guid.to_string()
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_last_sync() -> Result<()> {
+        ensure_initialized();
+        let engine = create_engine();
+        let conn = &engine.store.db.lock().unwrap().writer;
+
+        engine.put_meta(conn, LAST_SYNC_META_KEY, &3)?;
+        let sync_time = engine.get_meta::<i64>(conn, LAST_SYNC_META_KEY)?;
+
+        assert!(sync_time.is_some());
+        assert_eq!(sync_time.unwrap(), 3);
+
+        engine.set_last_sync(conn, ServerTimestamp(0))?;
+        let sync_time2 = engine.get_meta::<i64>(conn, LAST_SYNC_META_KEY)?;
+
+        assert!(sync_time2.is_some());
+        assert_eq!(sync_time2.unwrap(), 0);
+
         Ok(())
     }
 }

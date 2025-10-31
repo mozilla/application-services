@@ -13,7 +13,10 @@ use autofill::{
     encryption::{create_autofill_key, encrypt_string},
     error::ApiResult as AutofillResult,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{hash_map::RandomState, HashMap},
+    sync::Arc,
+};
 
 pub fn sync_addresses(client: &mut TestClient) -> Result<()> {
     client.sync(&["addresses".to_string()], HashMap::new())?;
@@ -63,6 +66,17 @@ pub fn sync_credit_cards(client: &mut TestClient, local_enc_key: String) -> Resu
 
     client.sync(&[engine_name.to_string()], local_encryption_keys)?;
     Ok(())
+}
+
+pub fn sync_credit_cards_with_failure(
+    client: &mut TestClient,
+    local_enc_key: String,
+) -> Result<HashMap<String, String, RandomState>> {
+    let engine_name = "creditcards";
+    let mut local_encryption_keys = HashMap::new();
+    local_encryption_keys.insert(engine_name.to_string(), local_enc_key);
+
+    client.sync_with_failure(&[engine_name.to_string()], local_encryption_keys)
 }
 
 pub fn add_credit_card(
@@ -242,6 +256,135 @@ fn test_autofill_addresses_general(c0: &mut TestClient, c1: &mut TestClient) {
     verify_address_removal(&c1.autofill_store);
 }
 
+fn test_undecryptable_record_prevents_syncing(c0: &mut TestClient, c1: &mut TestClient) {
+    log::info!("Add a credit card to client0");
+    let old_key = create_autofill_key().expect("encryption key created");
+
+    // Add a credit card
+    let credit_card0 = add_credit_card(
+        &c0.autofill_store,
+        UpdatableCreditCardFields {
+            cc_name: "john deer".to_string(),
+            cc_number_enc: encrypt_string(old_key.clone(), "88888888888888".to_string())
+                .expect("encrypted cc number for credit_card0"),
+            cc_number_last_4: "8888".to_string(),
+            cc_exp_month: 10,
+            cc_exp_year: 2025,
+            cc_type: "mastercard".to_string(),
+        },
+    )
+    .expect("add credit_card0");
+
+    log::info!("Verifying credit_card0 on c0");
+
+    // Check that the corrupted credit card exists on first device
+    verify_credit_card(&c0.autofill_store, &credit_card0);
+
+    log::info!("Syncing client0 with corrupted record");
+
+    // In order to simulate syncing a corrupted credit card created with a key we no longer have, we are syncing
+    // with a newly created key.
+    let new_key = create_autofill_key().expect("second encryption key created");
+
+    let failures = sync_credit_cards_with_failure(c0, new_key.clone())
+        .expect("sync to complete with failures");
+    let credit_card_failures = failures.get("creditcards");
+    assert!(credit_card_failures.is_some());
+    assert!(credit_card_failures.unwrap().contains("Crypto Error"));
+
+    // clear records
+    delete_credit_card(&c0.autofill_store, credit_card0)
+        .expect("credit_card0 to be deleted from c0");
+    verify_credit_card_removal(&c0.autofill_store);
+    verify_credit_card_removal(&c1.autofill_store);
+}
+
+fn test_scrub_undecryptable_records_for_remote_replacement(
+    c0: &mut TestClient,
+    c1: &mut TestClient,
+) {
+    log::info!("Add a credit card to client0");
+    let key = create_autofill_key().expect("encryption key created");
+
+    // Add a credit card
+    let credit_card0 = add_credit_card(
+        &c0.autofill_store,
+        UpdatableCreditCardFields {
+            cc_name: "john deer".to_string(),
+            cc_number_enc: encrypt_string(key.clone(), "88888888888888".to_string())
+                .expect("encrypted cc number for credit_card0"),
+            cc_number_last_4: "8888".to_string(),
+            cc_exp_month: 10,
+            cc_exp_year: 2025,
+            cc_type: "mastercard".to_string(),
+        },
+    )
+    .expect("add credit_card0");
+
+    let cc0id = credit_card0.clone().guid;
+
+    log::info!("Verifying credit_card0 on c0");
+    verify_credit_card(&c0.autofill_store, &credit_card0);
+
+    // Sync the first device where the credit card was added
+    log::info!("Syncing client0 -- inital sync");
+    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+
+    // Sync the second device
+    log::info!("Syncing client1 -- inital sync");
+    sync_credit_cards(c1, key.clone()).expect("c1 sync to work");
+
+    // Verify that the credit card exists on both devices
+    verify_credit_card(&c0.autofill_store, &credit_card0);
+    verify_credit_card(&c1.autofill_store, &credit_card0);
+
+    log::info!("Scrub and verify credit card");
+
+    c0.autofill_store
+        .clone()
+        .scrub_undecryptable_credit_card_data_for_remote_replacement(vec![cc0id.as_str()])
+        .expect("stored credit card to be scrubbed");
+
+    // Verify that the credit card has been scrubbed
+    let scrubbed_credit_card = c0
+        .autofill_store
+        .clone()
+        .get_credit_card(cc0id.clone())
+        .expect("stored credit card to be retrieved");
+    assert_eq!(scrubbed_credit_card.cc_number_enc, "");
+
+    // Sync the first device after scrubbing
+    log::info!("Syncing client0 -- after scrubbing");
+    sync_credit_cards(c0, key.clone()).expect("c0 sync to work");
+
+    // Sync the second device after scrubbing
+    log::info!("Syncing client1 -- after scrubbing");
+    sync_credit_cards(c1, key.clone()).expect("c1 sync to work");
+
+    let c0_scrubbed_record = c0
+        .autofill_store
+        .clone()
+        .get_credit_card(cc0id.clone())
+        .expect("stored credit card to be retrieved");
+    assert_ne!(c0_scrubbed_record.cc_number_enc, "");
+
+    let c1_scrubbed_record = c1
+        .autofill_store
+        .clone()
+        .get_credit_card(cc0id)
+        .expect("stored credit card to be retrieved");
+    assert_ne!(c1_scrubbed_record.cc_number_enc, "");
+
+    // clear records
+    delete_credit_card(&c0.autofill_store, credit_card0.clone())
+        .expect("credit_card0 to be deleted from c0");
+    delete_credit_card(&c0.autofill_store, credit_card0)
+        .expect("credit_card1 to be deleted from c0");
+
+    verify_credit_card_removal(&c0.autofill_store);
+    verify_credit_card_removal(&c1.autofill_store);
+}
+
 pub fn get_test_group() -> TestGroup {
     TestGroup::new(
         "autofill",
@@ -257,6 +400,14 @@ pub fn get_test_group() -> TestGroup {
             (
                 "test_autofill_credit_cards_with_scrubbed_cards",
                 test_autofill_credit_cards_with_scrubbed_cards,
+            ),
+            (
+                "test_undecryptable_record_prevents_syncing",
+                test_undecryptable_record_prevents_syncing,
+            ),
+            (
+                "test_scrub_undecryptable_records_for_remote_replacement",
+                test_scrub_undecryptable_records_for_remote_replacement,
             ),
         ],
     )
