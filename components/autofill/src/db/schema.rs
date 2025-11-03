@@ -76,7 +76,7 @@ pub struct AutofillConnectionInitializer;
 
 impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
-    const END_VERSION: u32 = 3;
+    const END_VERSION: u32 = 4;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> Result<()> {
         define_functions(conn)?;
@@ -106,6 +106,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
             0 => upgrade_from_v0(db),
             1 => upgrade_from_v1(db),
             2 => upgrade_from_v2(db),
+            3 => upgrade_from_v3(db),
             _ => Err(Error::IncompatibleVersion(version)),
         }
     }
@@ -231,6 +232,12 @@ fn upgrade_from_v2(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+fn upgrade_from_v3(db: &Connection) -> Result<()> {
+    let migration_string: &str = include_str!("../../sql/migrations/v4_migration.sql");
+    db.execute_batch(migration_string)?;
+    Ok(())
+}
+
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
@@ -250,6 +257,7 @@ mod tests {
     const CREATE_V0_DB: &str = include_str!("../../sql/tests/create_v0_db.sql");
     const CREATE_V1_DB: &str = include_str!("../../sql/tests/create_v1_db.sql");
     const CREATE_V2_DB: &str = include_str!("../../sql/tests/create_v2_db.sql");
+    const CREATE_V3_DB: &str = include_str!("../../sql/tests/create_v3_db.sql");
 
     #[test]
     fn test_create_schema_twice() {
@@ -371,5 +379,33 @@ mod tests {
 
         // Record B has no given_name, additional_name or family_name, so name should also be empty.
         assert_eq!(address.name, "");
+    }
+
+    #[test]
+    fn test_upgrade_version_3() {
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V3_DB);
+        let db = db_file.open();
+
+        // Assert that the existing addresses have the fully qualified address_level1 name.
+        let mut address = get_address(&db, &Guid::new("A")).unwrap();
+        assert_eq!(address.guid, "A");
+        assert_eq!(address.name, "Jane John Doe");
+        assert_eq!(address.address_level1, "Massachusetts");
+
+        address = get_address(&db, &Guid::new("B")).unwrap();
+        assert_eq!(address.guid, "B");
+        assert_eq!(address.address_level1, "Ontario");
+
+        db_file.upgrade_to(4);
+
+        // Assert that the addresses have been migrated to use the subregion keys.
+        address = get_address(&db, &Guid::new("A")).unwrap();
+        assert_eq!(address.guid, "A");
+        assert_eq!(address.name, "Jane John Doe");
+        assert_eq!(address.address_level1, "MA");
+
+        address = get_address(&db, &Guid::new("B")).unwrap();
+        assert_eq!(address.guid, "B");
+        assert_eq!(address.address_level1, "ON");
     }
 }

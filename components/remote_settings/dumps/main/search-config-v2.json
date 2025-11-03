@@ -2568,8 +2568,8 @@
                 "value": "firefox"
               },
               {
-                "experimentConfig": "search_rich_suggestions",
-                "name": "channel"
+                "name": "channel",
+                "value": "fen"
               }
             ],
             "searchTermParamName": "q"
@@ -2588,14 +2588,36 @@
               }
             ],
             "searchTermParamName": "q"
+          },
+          "visualSearch": {
+            "acceptedContentTypes": [
+              "image/jpeg",
+              "image/gif",
+              "image/png",
+              "image/avif",
+              "image/webp"
+            ],
+            "base": "https://lens.google.com/upload",
+            "displayNameMap": {
+              "default": "Google Lens"
+            },
+            "excludePartnerCodeFromTelemetry": true,
+            "isNewUntil": "2025-12-01",
+            "params": [
+              {
+                "name": "ep",
+                "value": "fcm"
+              }
+            ],
+            "searchTermParamName": "url"
           }
         }
       },
       "id": "7ace4aa1-e762-4f4b-87b9-b23b3c3a930b",
       "identifier": "google",
-      "last_modified": 1753192235006,
+      "last_modified": 1761573989454,
       "recordType": "engine",
-      "schema": 1753191541223,
+      "schema": 1761358547622,
       "variants": [
         {
           "environment": {
@@ -3430,37 +3452,37 @@
           "suggestions": {
             "base": "https://suggest.perplexity.ai/suggest",
             "searchTermParamName": "q"
-          },
-          "trending": {
-            "base": "https://www.perplexity.ai/rest/autosuggest/list-trending-suggest"
           }
         }
       },
       "id": "bb836721-7be9-4de6-ac18-520189a69076",
       "identifier": "perplexity",
-      "last_modified": 1749848937099,
+      "last_modified": 1760466845276,
       "recordType": "engine",
-      "schema": 1749743664865,
+      "schema": 1760449157753,
       "variants": [
         {
           "environment": {
-            "experiment": "perplexity"
+            "allRegionsAndLocales": true,
+            "applications": [
+              "firefox"
+            ]
           },
+          "isNewUntil": "2025-10-21",
           "subVariants": [
             {
               "environment": {
-                "locales": [
-                  "de"
-                ],
-                "regions": [
-                  "de",
-                  "us",
-                  "gb"
-                ]
+                "minVersion": "143.0a1"
               },
               "urls": {
                 "trending": {
-                  "base": "https://www.perplexity.ai/rest/autosuggest/list-trending-suggest?lang=de-DE"
+                  "base": "https://www.perplexity.ai/rest/autosuggest/list-trending-suggest",
+                  "params": [
+                    {
+                      "name": "lang",
+                      "value": "{acceptLanguages}"
+                    }
+                  ]
                 }
               }
             }
@@ -8400,5 +8422,5 @@
       "schema": 1707824831520
     }
   ],
-  "timestamp": 1753710379308
+  "timestamp": 1761573989454
 }

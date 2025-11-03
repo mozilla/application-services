@@ -546,3 +546,53 @@ fn test_send() {
     fn ensure_send<T: Send>() {}
     ensure_send::<LoginStore>();
 }
+
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod keydb_test {
+    use super::*;
+    use crate::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
+    use async_trait::async_trait;
+    use nss::ensure_initialized_with_profile_dir;
+    use std::path::PathBuf;
+
+    struct MockPrimaryPasswordAuthenticator {
+        password: String,
+    }
+
+    #[async_trait]
+    impl PrimaryPasswordAuthenticator for MockPrimaryPasswordAuthenticator {
+        async fn get_primary_password(&self) -> ApiResult<String> {
+            Ok(self.password.clone())
+        }
+        async fn on_authentication_success(&self) -> ApiResult<()> {
+            Ok(())
+        }
+        async fn on_authentication_failure(&self) -> ApiResult<()> {
+            Ok(())
+        }
+    }
+
+    fn profile_path() -> PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+    }
+
+    #[test]
+    fn decrypting_logins_with_primary_password() {
+        ensure_initialized_with_profile_dir(profile_path());
+        // `password` is the primary password of the profile fixture
+        let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
+            password: "password".to_string(),
+        };
+        let key_manager = NSSKeyManager::new(Arc::new(primary_password_authenticator));
+        let encdec = ManagedEncryptorDecryptor::new(Arc::new(key_manager));
+        let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
+            .expect("store from fixtures");
+        let list = store.list().expect("Grabbing list to work");
+        assert_eq!(list.len(), 1);
+
+        assert_eq!(list[0].origin, "https://www.example.com");
+        assert_eq!(list[0].username, "test");
+        assert_eq!(list[0].password, "test");
+    }
+}

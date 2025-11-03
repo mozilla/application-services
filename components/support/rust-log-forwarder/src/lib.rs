@@ -8,38 +8,6 @@ static MAX_LEVEL: OnceLock<Level> = OnceLock::new();
 static FOREIGN_LOGGER: OnceLock<Box<dyn AppServicesLogger>> = OnceLock::new();
 static GLOBAL_SUBSCRIBER: Once = Once::new();
 
-// The "targets" (in practice, crate names) which are hooked up to the `tracing` crate for logging.
-// We should improve this, or better still, just kill this crate entirely and move to using
-// tracing-support directly, like we (plan to) do on Desktop.
-//
-// Note also that it is a natural consequence of using `tracing` that each target must be explicitly listened for
-// *somewhere*, otherwise logs from that target will not be seen. For now, that list of targets is here, but
-// when we move to tracing-support it's likely this list will be pushed down into the clients (so that each
-// target can optionally be handled differently from the others).
-static TRACING_TARGETS: &[&str] = &[
-    "autofill",
-    "error_support",
-    "fxa-client",
-    "init_rust_components",
-    "interrupt_support",
-    "logins",
-    "merino",
-    "nimbus",
-    "places",
-    "push",
-    "rate-limiter",
-    "rc_crypto",
-    "relevancy",
-    "remote_settings",
-    "search",
-    "sql_support",
-    "suggest",
-    "sync_manager",
-    "sync15",
-    "tabs",
-    "viaduct",
-];
-
 #[derive(uniffi::Record, Debug, PartialEq, Eq)]
 pub struct Record {
     pub level: Level,
@@ -90,7 +58,8 @@ pub trait AppServicesLogger: Sync + Send {
 
 /// Set the logger to forward to.
 ///
-/// Pass in None to disable logging.
+/// Once a logger is passed in, it cannot be changed.
+/// However, you can pass in `None` to disable logging.
 #[uniffi::export]
 pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
     GLOBAL_SUBSCRIBER.call_once(|| {
@@ -102,13 +71,13 @@ pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
 
     let level = MAX_LEVEL.get_or_init(|| Level::Debug);
     let sink = Arc::new(ForwarderEventSink {});
-    // Set up a tracing subscriber for crates which use tracing and forward to the foreign log forwarder.
-    for target in TRACING_TARGETS {
-        tracing_support::register_event_sink(target, (*level).into(), sink.clone())
-    }
-    // if called before we just ignore the error for now, and also ignored if they supply None.
     if let Some(logger) = logger {
+        // Set up a tracing subscriber for crates which use tracing and forward to the foreign log forwarder.
+        tracing_support::register_min_level_event_sink((*level).into(), sink.clone());
+        // Set the `FOREIGN_LOGGER` global.  If this was called before we just ignore the error.
         FOREIGN_LOGGER.set(logger).ok();
+    } else {
+        tracing_support::unregister_min_level_event_sink();
     }
 }
 
@@ -178,12 +147,10 @@ mod test {
         let logger = TestLogger::new();
         set_max_level(Level::Debug);
         set_logger(Some(Box::new(logger.clone())));
-        // new tracing subscriber for our test.
-        let sink = Arc::new(ForwarderEventSink {});
-        tracing_support::register_event_sink("rust_log_forwarder", Level::Debug.into(), sink);
 
         tracing_support::info!("Test message");
         tracing_support::warn!("Test message2");
+        tracing_support::trace!("Test message3 (should be filtered out)");
         logger.check_records(vec![
             Record {
                 level: Level::Info,
@@ -198,8 +165,8 @@ mod test {
         ]);
         logger.clear_records();
         set_logger(None);
-        //log::info!("Test message");
-        //log::warn!("Test message2");
+        tracing_support::info!("Test message");
+        tracing_support::warn!("Test message2");
         logger.check_records(vec![]);
     }
 }

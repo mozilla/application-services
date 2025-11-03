@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::http_client;
-use crate::{FxaConfig, Result};
+use crate::{internal::util, FxaConfig, Result};
 use serde_derive::{Deserialize, Serialize};
 use std::{cell::RefCell, sync::Arc};
 use url::Url;
@@ -77,11 +77,11 @@ impl Config {
     }
 
     pub fn content_url(&self) -> Result<Url> {
-        Url::parse(&self.content_url).map_err(Into::into)
+        util::parse_url(&self.content_url, "content_url")
     }
 
     pub fn content_url_path(&self, path: &str) -> Result<Url> {
-        self.content_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.content_url()?, path, "content_url_path")
     }
 
     pub fn client_config_url(&self) -> Result<Url> {
@@ -117,44 +117,57 @@ impl Config {
     }
 
     pub fn auth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.auth_url).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.auth_url, "auth_url")
     }
 
     pub fn auth_url_path(&self, path: &str) -> Result<Url> {
-        self.auth_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.auth_url()?, path, "auth_url_path")
     }
 
     pub fn oauth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.oauth_url).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.oauth_url, "oauth_url")
     }
 
     pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
-        self.oauth_url()?.join(path).map_err(Into::into)
+        util::join_url(&self.oauth_url()?, path, "oauth_url_path")
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
         if let Some(token_server_url_override) = &self.token_server_url_override {
-            return Ok(Url::parse(token_server_url_override)?);
+            return util::parse_url(
+                token_server_url_override,
+                "token_server_endpoint_url (override)",
+            );
         }
-        Ok(Url::parse(
+        util::parse_url(
             &self.remote_config()?.token_server_endpoint_url,
-        )?)
+            "token_server_endpoint_url",
+        )
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.authorization_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.authorization_endpoint,
+            "authorization_endpoint",
+        )
     }
 
     pub fn token_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
+        util::parse_url(&self.remote_config()?.token_endpoint, "token_endpoint")
     }
 
     pub fn introspection_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.introspection_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.introspection_endpoint,
+            "introspection_endpoint",
+        )
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
+        util::parse_url(
+            &self.remote_config()?.userinfo_endpoint,
+            "userinfo_endpoint",
+        )
     }
 
     fn normalize_token_server_url(token_server_url_override: &str) -> String {

@@ -1,0 +1,59 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+
+rust_component_errors:
+  error_type:
+    type: string
+    description: >
+      Component supplied error type name.  Used to aggregate error pings.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1991442
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1992235
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+    expires: never
+    send_in_pings:
+      - rust-component-errors
+  details:
+    type: string
+    description: >
+      Components supplied error details.
+      Components are responsible for avoiding personal identifying information in this field,
+      use the `error_support::redact` crate to help with this.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1991442
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1992235
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+    expires: never
+    send_in_pings:
+      - rust-component-errors
+  breadcrumbs:
+    type: string_list
+    description: >
+      Most recent 20 breadcrubs recorded by any component.
+      Like `description`, components are responsible for avoiding PII in this data.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1991442
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1992235
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+      - bdk@mozilla.com
+    expires: never
+    send_in_pings:
+      - rust-component-errors

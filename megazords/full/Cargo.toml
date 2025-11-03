@@ -19,11 +19,12 @@ places = { path = "../../components/places" }
 push = { path = "../../components/push" }
 remote_settings = { path = "../../components/remote_settings" }
 rust-log-forwarder = { path = "../../components/support/rust-log-forwarder" }
+# disable ohttp for now until a fix is in for Android; add "features = ["ohttp"]" for enabling ohttp for viaduct
 viaduct = { path = "../../components/viaduct" }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
-error-support = { path = "../../components/support/error" }
+error-support = { path = "../../components/support/error", features = ["tracing-reporting"] }
 suggest = { path = "../../components/suggest" }
 search = { path = "../../components/search" }
 tracing-support = { path = "../../components/support/tracing" }

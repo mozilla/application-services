@@ -11,5 +11,6 @@ clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
 log = "0.4"
 cli-support = { path = "../cli-support" }
 relay = { path = "../../components/relay" }
+remote_settings = { path = "../../components/remote_settings" }
 viaduct = { path = "../../components/viaduct"}
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }

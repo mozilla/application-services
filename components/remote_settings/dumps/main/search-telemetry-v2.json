@@ -93,19 +93,72 @@
       "followOnParamNames": [],
       "id": "19c434a3-d173-4871-9743-290ac92a3f6b",
       "isSPA": true,
-      "last_modified": 1741781945960,
+      "last_modified": 1757010621729,
       "organicCodes": [],
+      "pageTypeParam": {
+        "enableSPAHandling": true,
+        "keys": [
+          "t"
+        ],
+        "pageTypes": [
+          {
+            "enabled": true,
+            "isDefault": true,
+            "name": "web",
+            "target": "default_tab",
+            "values": [
+              "web"
+            ]
+          },
+          {
+            "enabled": false,
+            "name": "images",
+            "values": [
+              "images"
+            ]
+          },
+          {
+            "enabled": false,
+            "name": "videos",
+            "values": [
+              "videos"
+            ]
+          },
+          {
+            "enabled": false,
+            "name": "news",
+            "values": [
+              "news"
+            ]
+          },
+          {
+            "enabled": true,
+            "name": "shopping",
+            "target": "shopping_tab",
+            "values": [
+              "shopping"
+            ]
+          }
+        ]
+      },
       "queryParamName": "q",
       "queryParamNames": [
         "q"
       ],
-      "schema": 1741189704472,
+      "schema": 1756952145762,
       "searchPageMatches": [
         "https://www.qwant.com/*"
       ],
       "searchPageRegexp": "^https://www\\.qwant\\.com/",
+      "shoppingTab": {
+        "inspectRegexpInSERP": true,
+        "regexp": "t=shopping",
+        "selector": "[data-testid='shoppingNavItem']"
+      },
       "subframes": [],
       "taggedCodes": [
+        "ff_android",
+        "ff_ios",
         "brz-moz",
         "firefoxqwant"
       ],
@@ -346,7 +399,7 @@
       "ignoreLinkRegexps": [
         "^https?://consent\\.google\\.(?:.+)/d\\?continue\\="
       ],
-      "last_modified": 1753192248302,
+      "last_modified": 1754960964129,
       "nonAdsLinkQueryParamNames": [
         "url"
       ],
@@ -356,9 +409,13 @@
       "organicCodes": [],
       "queryParamName": "q",
       "queryParamNames": [
-        "q"
+        "q",
+        "lns_mode"
       ],
-      "schema": 1753150537617,
+      "schema": 1754878540963,
+      "searchMode": {
+        "lns_mode": "image_search"
+      },
       "searchPageMatches": [
         "https://{host}/search*"
       ],
@@ -405,6 +462,7 @@
         "firefox-b-pn-wt",
         "firefox-b-pn-wt-us",
         "firefox-b-vv",
+        "lens-firefox-fcm",
         "ubuntu",
         "ubuntu-sn"
       ],
@@ -918,5 +976,5 @@
       "telemetryId": "bing"
     }
   ],
-  "timestamp": 1753289524079
+  "timestamp": 1757010621729
 }

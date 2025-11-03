@@ -5,6 +5,10 @@ android {
     namespace 'org.mozilla.appservices.ads_client'
 }
 
+dependencies {
+    api project(":httpconfig")
+}
+
 ext.configureUniFFIBindgen("ads_client")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

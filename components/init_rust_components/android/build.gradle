@@ -9,6 +9,10 @@ android {
     }
 }
 
+dependencies {
+    implementation project(':errorsupport')
+}
+
 ext.configureUniFFIBindgen("init_rust_components")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

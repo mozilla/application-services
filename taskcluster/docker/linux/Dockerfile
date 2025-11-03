@@ -22,7 +22,7 @@ WORKDIR /builds/worker/
 ENV ANDROID_BUILD_TOOLS "36.0.0"
 ENV ANDROID_TOOLS_VERSION "13114758"
 ENV ANDROID_PLATFORM_VERSION "36"
-ENV ANDROID_NDK_VERSION "28.2.13676358"
+ENV ANDROID_NDK_VERSION "29.0.14206865"
 
 # Set up the language variables to avoid problems (we run locale-gen later).
 ENV LANG en_US.UTF-8
@@ -68,6 +68,8 @@ RUN apt-get update -qq \
         make \
         # SQLCipher dependency.
         tclsh \
+        # Required by bindgen (used by ohttp crate for C bindings)
+        libclang-dev \
         ##########################
         # CI-specific dependencies
         ##########################

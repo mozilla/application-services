@@ -52,3 +52,52 @@ impl Xorable for [u8] {
         }
     }
 }
+
+pub fn parse_url(url: &str, when: impl Into<String>) -> Result<url::Url> {
+    url::Url::parse(url).map_err(|_| Error::MalformedUrl {
+        sanitized_url: sanitized_url(url),
+        when: when.into(),
+    })
+}
+
+pub fn join_url(url: &url::Url, path: &str, when: impl Into<String>) -> Result<url::Url> {
+    url.join(path).map_err(|_| Error::MalformedUrl {
+        sanitized_url: sanitized_url(url.as_str()),
+        when: when.into(),
+    })
+}
+
+fn sanitized_url(url: &str) -> String {
+    // Remove everything after the `?` char, this is the URL params where all the auth data
+    // goes.
+    match url.split_once(['?', '#']) {
+        Some((before_qmark, _)) => before_qmark,
+        None => url,
+    }
+    .to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_sanitized_url() {
+        assert_eq!(
+            sanitized_url("https://mozilla.com/foo/bar"),
+            "https://mozilla.com/foo/bar"
+        );
+        assert_eq!(
+            sanitized_url("https://mozilla.com/foo/bar?password=1234"),
+            "https://mozilla.com/foo/bar"
+        );
+        assert_eq!(
+            sanitized_url("https://mozilla.com/foo/bar?password=1234#key=4321"),
+            "https://mozilla.com/foo/bar"
+        );
+        assert_eq!(
+            sanitized_url("https://mozilla.com/foo/bar#key=4321"),
+            "https://mozilla.com/foo/bar"
+        );
+    }
+}

@@ -6,26 +6,18 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
+use url::Url;
 
-fn empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    Ok(match opt {
-        Some(s) if s.trim().is_empty() => None,
-        other => other,
-    })
-}
+use crate::instrument::{emit_telemetry_event, TelemetryEvent};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
     pub content: Option<AdContentCategory>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+#[derive(Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
 pub enum IABAdUnitFormat {
     Billboard,
     SmartphoneBanner300,
@@ -44,7 +36,7 @@ pub enum IABAdUnitFormat {
     FeaturePhoneLargeBanner,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+#[derive(Clone, Copy, Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
@@ -62,42 +54,68 @@ pub enum IABContentTaxonomy {
     IAB3_0,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdContentCategory {
     pub taxonomy: IABContentTaxonomy,
     pub categories: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdRequest {
     pub context_id: String,
     pub placements: Vec<AdPlacementRequest>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdCallbacks {
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub click: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub impression: Option<String>,
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub report: Option<String>,
+    pub click: Url,
+    pub impression: Url,
+    pub report: Option<Url>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct MozAd {
     pub alt_text: Option<String>,
-    pub block_key: Option<String>,
-    pub callbacks: Option<AdCallbacks>,
-    pub format: Option<String>,
-    pub image_url: Option<String>, //TODO: Consider if we want to load the image locally
-    pub url: Option<String>,
+    pub block_key: String,
+    pub callbacks: AdCallbacks,
+    pub format: String,
+    pub image_url: String, //TODO: Consider if we want to load the image locally
+    pub url: String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdResponse {
-    #[serde(flatten)]
+    #[serde(deserialize_with = "deserialize_ad_response", flatten)]
     pub data: HashMap<String, Vec<MozAd>>,
+}
+
+fn deserialize_ad_response<'de, D>(deserializer: D) -> Result<HashMap<String, Vec<MozAd>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = HashMap::<String, serde_json::Value>::deserialize(deserializer)?;
+    let mut result = HashMap::new();
+
+    for (key, value) in raw {
+        if let serde_json::Value::Array(arr) = value {
+            let ads: Vec<MozAd> = arr
+                .into_iter()
+                .filter_map(|item| match serde_json::from_value::<MozAd>(item) {
+                    Ok(ad) => Some(ad),
+                    Err(_) => {
+                        // TODO: improve the telemetry event (should we include the invalid URL?)
+                        let _ = emit_telemetry_event(Some(TelemetryEvent::InvalidUrlError));
+                        None
+                    }
+                })
+                .collect();
+            if !ads.is_empty() {
+                result.insert(key, ads);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -152,27 +170,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ad_callbacks_empty_and_missing_to_none() {
-        // empty strings, whitespace, or missing fields should become None.
-        let j = json!({
-            "click": "",
-            "impression": "   ",
-            // "report" omitted
-        })
-        .to_string();
-
-        let got: AdCallbacks = from_str(&j).unwrap();
-        assert_eq!(
-            got,
-            AdCallbacks {
-                click: None,
-                impression: None,
-                report: None
-            }
-        );
-    }
-
-    #[test]
     fn test_moz_ad_full() {
         let response_full = json!({
             "alt_text": "An ad for an anvil",
@@ -193,15 +190,15 @@ mod tests {
             full,
             MozAd {
                 alt_text: Some("An ad for an anvil".into()),
-                block_key: Some("abc123".into()),
-                callbacks: Some(AdCallbacks {
-                    click: Some("https://buyanvilseveryday.test/click".into()),
-                    impression: Some("https://buyanvilseveryday.test/impression".into()),
-                    report: Some("https://buyanvilseveryday.test/report".into()),
-                }),
-                format: Some("Leaderboard".into()),
-                image_url: Some("https://buyanvilseveryday.test/img.png".into()),
-                url: Some("https://buyanvilseveryday.test".into()),
+                block_key: "abc123".into(),
+                callbacks: AdCallbacks {
+                    click: Url::parse("https://buyanvilseveryday.test/click").unwrap(),
+                    impression: Url::parse("https://buyanvilseveryday.test/impression").unwrap(),
+                    report: Some(Url::parse("https://buyanvilseveryday.test/report").unwrap()),
+                },
+                format: "Leaderboard".into(),
+                image_url: "https://buyanvilseveryday.test/img.png".into(),
+                url: "https://buyanvilseveryday.test".into(),
             }
         );
     }
@@ -210,11 +207,15 @@ mod tests {
     fn test_moz_ad_response_partial() {
         let response_partial = json!({
             "alt_text": null,
+            "block_key": "abc123",
             "callbacks": {
-                "click": "",
-                "impression": "   ",
+                "click": "https://example.test/click",
+                "impression": "https://example.test/impression",
                 "report": null
-            }
+            },
+            "format": "Leaderboard",
+            "image_url": "https://example.test/image.png",
+            "url": "https://example.test/item"
         })
         .to_string();
 
@@ -223,15 +224,15 @@ mod tests {
             partial,
             MozAd {
                 alt_text: None,
-                block_key: None,
-                callbacks: Some(AdCallbacks {
-                    click: None,
-                    impression: None,
+                block_key: "abc123".into(),
+                callbacks: AdCallbacks {
+                    click: Url::parse("https://example.test/click").unwrap(),
+                    impression: Url::parse("https://example.test/impression").unwrap(),
                     report: None,
-                }),
-                format: None,
-                image_url: None,
-                url: None,
+                },
+                format: "Leaderboard".into(),
+                image_url: "https://example.test/image.png".into(),
+                url: "https://example.test/item".into(),
             }
         );
     }
@@ -239,29 +240,67 @@ mod tests {
     #[test]
     fn test_ad_response_serialization() {
         let raw_ad_response = json!({
-            "example_placement_1": [
+            "missing_click_url": [
                 {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_1",
+                    "image_url": "https://ads.fakeexample.org/example_image_1",
+                    "format": "billboard",
+                    "alt_text": "An ad for a puppy",
+                    "callbacks": {
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_1",
+                    }
+                }
+            ],
+            "incorrect_click_url": [
+                {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_1",
+                    "image_url": "https://ads.fakeexample.org/example_image_1",
+                    "format": "billboard",
+                    "alt_text": "An ad for a puppy",
+                    "callbacks": {
+                        "click": "incorrect-click-url",
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_1",
+                    }
+                }
+            ],
+            "missing_impression_url": [
+                {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_1",
                     "image_url": "https://ads.fakeexample.org/example_image_1",
                     "format": "billboard",
                     "alt_text": "An ad for a puppy",
                     "callbacks": {
                         "click": "https://ads.fakeexample.org/click/example_ad_1",
-                        // impression is intentionally missing
-                        "report": "https://ads.fakeexample.org/report/example_ad_1"
                     }
                 }
             ],
-            "example_placement_2": [
+            "incorrect_impression_url": [
                 {
+                    "block_key": "abc123",
                     "url": "https://ads.fakeexample.org/example_ad_2",
                     "image_url": "https://ads.fakeexample.org/example_image_2",
                     "format": "skyscraper",
                     "alt_text": "An ad for a pet duck",
                     "callbacks": {
                         "click": "https://ads.fakeexample.org/click/example_ad_2",
-                        "impression": "https://ads.fakeexample.org/impression/example_ad_2",
-                        "report": "https://ads.fakeexample.org/report/example_ad_2"
+                        "impression": "incorrect-impression-url",
+                    }
+                }
+            ],
+            "valid_ad": [
+                {
+                    "block_key": "abc123",
+                    "url": "https://ads.fakeexample.org/example_ad_3",
+                    "image_url": "https://ads.fakeexample.org/example_image_3",
+                    "format": "skyscraper",
+                    "alt_text": "An ad for a pet duck",
+                    "callbacks": {
+                        "click": "https://ads.fakeexample.org/click/example_ad_3",
+                        "impression": "https://ads.fakeexample.org/impression/example_ad_3",
+                        "report": "https://ads.fakeexample.org/report/example_ad_3"
                     }
                 }
             ]
@@ -271,48 +310,27 @@ mod tests {
         let parsed: AdResponse = from_str(&raw_ad_response).unwrap();
 
         let expected = AdResponse {
-            data: HashMap::from([
-                (
-                    "example_placement_1".to_string(),
-                    vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_1".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_1".to_string()),
-                        format: Some("billboard".to_string()),
-                        block_key: None,
-                        alt_text: Some("An ad for a puppy".to_string()),
-                        callbacks: Some(AdCallbacks {
-                            click: Some(
-                                "https://ads.fakeexample.org/click/example_ad_1".to_string(),
-                            ),
-                            impression: None, // Missing impression callback URL
-                            report: Some(
-                                "https://ads.fakeexample.org/report/example_ad_1".to_string(),
-                            ),
-                        }),
-                    }],
-                ),
-                (
-                    "example_placement_2".to_string(),
-                    vec![MozAd {
-                        url: Some("https://ads.fakeexample.org/example_ad_2".to_string()),
-                        image_url: Some("https://ads.fakeexample.org/example_image_2".to_string()),
-                        format: Some("skyscraper".to_string()),
-                        block_key: None,
-                        alt_text: Some("An ad for a pet duck".to_string()),
-                        callbacks: Some(AdCallbacks {
-                            click: Some(
-                                "https://ads.fakeexample.org/click/example_ad_2".to_string(),
-                            ),
-                            impression: Some(
-                                "https://ads.fakeexample.org/impression/example_ad_2".to_string(),
-                            ),
-                            report: Some(
-                                "https://ads.fakeexample.org/report/example_ad_2".to_string(),
-                            ),
-                        }),
-                    }],
-                ),
-            ]),
+            data: HashMap::from([(
+                "valid_ad".to_string(),
+                vec![MozAd {
+                    url: "https://ads.fakeexample.org/example_ad_3".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_image_3".to_string(),
+                    format: "skyscraper".to_string(),
+                    block_key: "abc123".into(),
+                    alt_text: Some("An ad for a pet duck".to_string()),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_3")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_ad_3",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_ad_3").unwrap(),
+                        ),
+                    },
+                }],
+            )]),
         };
 
         assert_eq!(parsed, expected);
@@ -329,10 +347,7 @@ mod tests {
         let parsed: AdResponse = from_str(&raw_ad_response).unwrap();
 
         let expected = AdResponse {
-            data: HashMap::from([
-                ("example_placement_1".to_string(), vec![]),
-                ("example_placement_2".to_string(), vec![]),
-            ]),
+            data: HashMap::from([]),
         };
 
         assert_eq!(parsed, expected);

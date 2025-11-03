@@ -133,11 +133,15 @@ impl FirefoxAccount {
     /// a computer).
     pub fn get_pairing_authority_url(&self) -> Result<String> {
         // Special case for the production server, we use the shorter firefox.com/pair URL.
-        if self.state.config().content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
+        let content_url_release = Url::parse(config::CONTENT_URL_RELEASE)
+            .expect("hardcoded CONTENT_URL_RELEASE failed to parse");
+        if self.state.config().content_url()? == content_url_release {
             return Ok("https://firefox.com/pair".to_owned());
         }
         // Similarly special case for the China server.
-        if self.state.config().content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
+        let content_url_china = Url::parse(config::CONTENT_URL_CHINA)
+            .expect("hardcoded CONTENT_URL_CHINA failed to parse");
+        if self.state.config().content_url()? == content_url_china {
             return Ok("https://firefox.com.cn/pair".to_owned());
         }
         Ok(self.state.config().pair_url()?.into())

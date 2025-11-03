@@ -13,6 +13,10 @@ mod backend;
 mod client;
 pub mod error;
 mod new_backend;
+#[cfg(feature = "ohttp")]
+pub mod ohttp;
+#[cfg(feature = "ohttp")]
+mod ohttp_client;
 pub mod settings;
 pub use error::*;
 // reexport logging helpers.
@@ -22,6 +26,8 @@ pub use backend::{note_backend, set_backend, Backend as OldBackend};
 pub use client::{Client, ClientSettings};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 pub use new_backend::{init_backend, Backend};
+#[cfg(feature = "ohttp")]
+pub use ohttp::{clear_ohttp_channels, configure_ohttp_channel, list_ohttp_channels, OhttpConfig};
 pub use settings::{allow_android_emulator_loopback, GLOBAL_SETTINGS};
 
 #[allow(clippy::derive_partial_eq_without_eq)]

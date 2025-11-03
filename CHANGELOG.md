@@ -1,14 +1,62 @@
-# v145.0 (In progress)
+# v146.0 (In progress)
+
+## ✨ What's New ✨
+
+### Autofill
+- Adds a migration to migrate users to use subregion codes over fully qualified strings. ([bug 1993388](https://bugzilla.mozilla.org/show_bug.cgi?id=1993388))
+
+### Relay
+- Added Remote Settings integration to determine site eligibility for displaying Relay UI. The new `RelayRemoteSettingsClient` fetches allowlist/denylist data, and `should_show_relay()` provides subdomain-aware domain matching to decide when to show Relay email mask suggestions. ([#7039](https://github.com/mozilla/application-services/pull/7039))
+
+## 🦊 What's Changed 🦊
+
+### Android
+- Upgraded NDK from r28c to r29. ([#7014](https://github.com/mozilla/application-services/pull/7014))
+
+### Glean
+- Updated to v66.0.0 ([#7025](https://github.com/mozilla/application-services/issues/7025))
+
+### Nimbus
+- The `participation` field is no longer required in the Cirrus
+  `EnrollmentRequest` type. Instead, when users opt-out, the client application
+  should no longer send enrollment requests to Cirrus.
+  ([#7030](https://github.com/mozilla/application-services/pull/7030))
 
 [Full Changelog](In progress)
 
+# v145.0 (_2025-10-13_)
+
+## ✨ What's New ✨
+
 ### Swift
-- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963)
+- Added `@unchecked Sendable` to classes that conform to `FeatureManifestInterface`. ([#6963](https://github.com/mozilla/application-services/pull/6963))
 
 ### Ads Client
 - Added the Ads Client component to the Megazord.
 - Updated the ApiError enum to AdsClientApiError to avoid naming collision.
 - The `context_id` is now generated and rotated via the existing eponym component crate.
+- Added request caching mechanism using SQLite with configurable TTL and max size.
+- Added configuration options for the cache.
+- Deserialize callbacks with `url::Url`
+
+### Relay
+- **⚠️ Breaking Change:** The error handling for the Relay component has been refactored for stronger forward compatibility and more transparent error reporting in Swift and Kotlin via UniFFI.
+    - API and network errors from the Relay server are now converted to a single `RelayApiError::Api { status, code, detail }` variant, exposing the HTTP status code, a machine-readable error code (if present), and a human-readable detail message.
+    - Downstream client apps can now handle server errors based on both the `status` and `error_code` fields directly, without additional changes to the Rust component - even as server-side error codes evolve.
+    - **Consumers must update their error handling code to match the new `Api { status, code, detail }` shape.**
+
+### Places
+- `places::storage::history_metadata::get_most_recent(limit: i32)` was added to get most recent history metadata limited to a number. ([#7002](https://github.com/mozilla/application-services/pull/7002))
+
+### FxA Client
+- Expose `getAttachedClients` from the uniffi layer in the Android wrapper.
+
+## 🦊 What's Changed 🦊
+
+### Docs
+- Updated the components strategy doc to better reflect the current state of application services. ([#6991](https://github.com/mozilla/application-services/pull/6991))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v144.0...v145.0)
 
 # v144.0 (_2025-09-15_)
 
@@ -30,6 +78,10 @@
 - Updated to v65.0.0 ([#6901](https://github.com/mozilla/application-services/pull/6901))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v143.0...v144.0)
+
+## Nimbus CLI
+- Support for Firefox for Android and Focus via the new
+  [mozilla-firefox](https://github.com/mozilla-firefox/firefox) repository.
 
 # v143.0 (_2025-08-18_)
 

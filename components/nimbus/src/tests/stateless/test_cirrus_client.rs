@@ -4,9 +4,7 @@
 
 use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
-    enrollment::{
-        EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason, Participation,
-    },
+    enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason},
     tests::{
         helpers::TestMetrics,
         stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches,
@@ -47,12 +45,7 @@ fn test_can_enroll() -> Result<()> {
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
         .unwrap();
 
-    let result = client.enroll(
-        "test".to_string(),
-        Default::default(),
-        Participation::default(),
-        &[],
-    )?;
+    let result = client.enroll("test".to_string(), Default::default(), &[])?;
     assert_eq!(result.enrolled_feature_config_map.len(), 1);
     assert_eq!(
         result
@@ -87,12 +80,7 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
         },
     };
 
-    let result = client.enroll(
-        "test".to_string(),
-        Default::default(),
-        Participation::default(),
-        &[enrollment],
-    )?;
+    let result = client.enroll("test".to_string(), Default::default(), &[enrollment])?;
 
     assert_eq!(result.events.len(), 0);
 
@@ -118,10 +106,6 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
                 Value::String("en-US".to_string()),
             )]))
             .unwrap(),
-        ),
-        (
-            "participation".to_string(),
-            to_value(Participation::default()).unwrap(),
         ),
         (
             "nextExperiments".to_string(),
@@ -211,12 +195,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     client
         .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
         .unwrap();
-    client.enroll(
-        "test".to_string(),
-        Default::default(),
-        Participation::default(),
-        &[],
-    )?;
+    client.enroll("test".to_string(), Default::default(), &[])?;
 
     let metric_records: Vec<EnrollmentStatusExtraDef> = metrics_handler.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 1);

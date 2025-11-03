@@ -19,3 +19,7 @@ Tests are run with
 ```shell
 cargo test -p ads-client
 ```
+
+## Usage
+
+Please refer to `./docs/usage.md` for information on using the component.

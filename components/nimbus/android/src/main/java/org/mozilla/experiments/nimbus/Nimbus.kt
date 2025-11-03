@@ -159,15 +159,6 @@ open class Nimbus(
             }
         }
 
-    override var globalUserParticipation: Boolean
-        get() = nimbusClient.getGlobalUserParticipation()
-        set(active) {
-            dbScope.launch {
-                setExperimentParticipationOnThisThread(active)
-                setRolloutParticipationOnThisThread(active)
-            }
-        }
-
     init {
         NullVariables.instance.setContext(context)
 
@@ -433,17 +424,6 @@ open class Nimbus(
     internal fun setRolloutParticipationOnThisThread(active: Boolean) =
         withCatchAll("setRolloutParticipation") {
             val enrolmentChanges = nimbusClient.setRolloutParticipation(active)
-            if (enrolmentChanges.isNotEmpty()) {
-                recordExperimentTelemetryEvents(enrolmentChanges)
-                postEnrolmentCalculation()
-            }
-        }
-
-    @WorkerThread
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun setGlobalUserParticipationOnThisThread(active: Boolean) =
-        withCatchAll("setGlobalUserParticipation") {
-            val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
             if (enrolmentChanges.isNotEmpty()) {
                 recordExperimentTelemetryEvents(enrolmentChanges)
                 postEnrolmentCalculation()
