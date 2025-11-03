@@ -125,6 +125,15 @@ impl NimbusClient {
             prefs = Some(Arc::new(GeckoPrefStore::new(Arc::new(handler))));
         }
 
+        info!(
+            "Initialized NimbusClient with: app_context = {:?}; recorded_context = {:?}",
+            app_context,
+            recorded_context
+                .as_ref()
+                .map(|rc| serde_json::Value::Object(rc.to_json()))
+                .unwrap_or(serde_json::Value::Null)
+        );
+
         Ok(Self {
             settings_client,
             mutable_state,
