@@ -6,7 +6,7 @@
 use crate::{
     enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
     evaluate_enrollment,
-    evaluator::{choose_branch, is_experiment_available, targeting},
+    evaluator::{choose_branch, is_experiment_available, targeting, ExperimentAvailable},
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
     Result, TargetingAttributes,
 };
@@ -411,26 +411,50 @@ fn test_is_experiment_available() {
     .into();
     // If is_release is true, we should match on the exact combination of
     // app_name, channel and app_id.
-    assert!(!is_experiment_available(&th, &experiment, true));
+    assert_eq!(
+        is_experiment_available(&th, &experiment, true),
+        ExperimentAvailable::Unavailable {
+            reason: NotEnrolledReason::DifferentChannel
+        }
+    );
 
     // If is_release is false, we only match on app_name.
     // As a nightly build, we want to be able to test production experiments
-    assert!(is_experiment_available(&th, &experiment, false));
+    assert_eq!(
+        is_experiment_available(&th, &experiment, false),
+        ExperimentAvailable::Available
+    );
 
     let experiment = Experiment {
         channel: Some("nightly".to_string()),
         ..experiment
     };
     // channels now match, so should be available for enrollment (true) and testing (false)
-    assert!(is_experiment_available(&th, &experiment, true));
-    assert!(is_experiment_available(&th, &experiment, false));
+    assert_eq!(
+        is_experiment_available(&th, &experiment, true),
+        ExperimentAvailable::Available
+    );
+    assert_eq!(
+        is_experiment_available(&th, &experiment, false),
+        ExperimentAvailable::Available
+    );
 
     let experiment = Experiment {
         app_name: Some("a_different_app".to_string()),
         ..experiment
     };
-    assert!(!is_experiment_available(&th, &experiment, false));
-    assert!(!is_experiment_available(&th, &experiment, false));
+    assert_eq!(
+        is_experiment_available(&th, &experiment, true),
+        ExperimentAvailable::Unavailable {
+            reason: NotEnrolledReason::DifferentAppName
+        }
+    );
+    assert_eq!(
+        is_experiment_available(&th, &experiment, false),
+        ExperimentAvailable::Unavailable {
+            reason: NotEnrolledReason::DifferentAppName
+        }
+    );
 }
 
 #[test]
@@ -635,31 +659,30 @@ fn test_not_targeted_for_enrollment() {
         &ctx.clone().into(),
     )
     .unwrap();
-    assert!(matches!(
+    assert_eq!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
+            reason: NotEnrolledReason::DifferentAppName
         }
-    ));
+    );
 
     // Change the app_name back and change the channel to test when it doesn't match:
     ctx.app_name = "NimbusTest".to_string();
     ctx.channel = "Wrong".to_string();
 
-    // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same
-    // `NotTargeted` reason
+    // Now we won't be enrolled in the experiment because we don't have the right channel
     let enrollment = evaluate_enrollment(
         &AvailableRandomizationUnits::with_nimbus_id(&id),
         &experiment,
         &ctx.into(),
     )
     .unwrap();
-    assert!(matches!(
+    assert_eq!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
-            reason: NotEnrolledReason::NotTargeted
+            reason: NotEnrolledReason::DifferentChannel
         }
-    ));
+    );
 }
 
 #[test]

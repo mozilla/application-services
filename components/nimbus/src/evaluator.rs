@@ -72,12 +72,10 @@ pub fn evaluate_enrollment(
     exp: &Experiment,
     th: &NimbusTargetingHelper,
 ) -> Result<ExperimentEnrollment> {
-    if !is_experiment_available(th, exp, true) {
+    if let ExperimentAvailable::Unavailable { reason } = is_experiment_available(th, exp, true) {
         return Ok(ExperimentEnrollment {
             slug: exp.slug.clone(),
-            status: EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted,
-            },
+            status: EnrollmentStatus::NotEnrolled { reason },
         });
     }
 
@@ -129,6 +127,17 @@ pub fn evaluate_enrollment(
     })
 }
 
+/// Whether or not an experiment is available.
+#[derive(Debug, Eq, PartialEq)]
+pub enum ExperimentAvailable {
+    /// The experiment is available (i.e., it is for this application and channel).
+    Available,
+
+    /// The experiment is not available (i.e., it is either not for this
+    /// application or not for this channel).
+    Unavailable { reason: NotEnrolledReason },
+}
+
 /// Check if an experiment is available for this app defined by this `AppContext`.
 ///
 /// # Arguments:
@@ -144,20 +153,22 @@ pub fn is_experiment_available(
     th: &NimbusTargetingHelper,
     exp: &Experiment,
     is_release: bool,
-) -> bool {
+) -> ExperimentAvailable {
     // Verify the app_name matches the application being targeted
     // by the experiment.
     match (&exp.app_name, th.context.get("app_name".to_string())) {
         (Some(exp), Some(Value::String(mine))) => {
             if !exp.eq(mine) {
-                return false;
+                return ExperimentAvailable::Unavailable {
+                    reason: NotEnrolledReason::DifferentAppName,
+                };
             }
         }
         (_, _) => debug!("Experiment missing app_name, skipping it as a targeting parameter"),
     }
 
     if !is_release {
-        return true;
+        return ExperimentAvailable::Available;
     }
 
     // Verify the channel matches the application being targeted
@@ -166,12 +177,15 @@ pub fn is_experiment_available(
     match (&exp.channel, th.context.get("channel".to_string())) {
         (Some(exp), Some(Value::String(mine))) => {
             if !exp.to_lowercase().eq(&mine.to_lowercase()) {
-                return false;
+                return ExperimentAvailable::Unavailable {
+                    reason: NotEnrolledReason::DifferentChannel,
+                };
             }
         }
         (_, _) => debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
-    true
+
+    ExperimentAvailable::Available
 }
 
 /// Chooses a branch randomly from a set of branches

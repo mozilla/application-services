@@ -48,27 +48,33 @@ impl Display for EnrolledReason {
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
-    /// The user opted-out of experiments before we ever got enrolled to this one.
-    OptOut,
-    /// The evaluator bucketing did not choose us.
-    NotSelected,
-    /// We are not being targeted for this experiment.
-    NotTargeted,
+    /// The experiment targets a different application.
+    DifferentAppName,
+    /// The experiment targets a different channel.
+    DifferentChannel,
     /// The experiment enrollment is paused.
     EnrollmentsPaused,
     /// The experiment used a feature that was already under experiment.
     FeatureConflict,
+    /// The evaluator bucketing did not choose us.
+    NotSelected,
+    /// We are not being targeted for this experiment.
+    NotTargeted,
+    /// The user opted-out of experiments before we ever got enrolled to this one.
+    OptOut,
 }
 
 impl Display for NotEnrolledReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(
             match self {
-                NotEnrolledReason::OptOut => "OptOut",
-                NotEnrolledReason::NotSelected => "NotSelected",
-                NotEnrolledReason::NotTargeted => "NotTargeted",
+                NotEnrolledReason::DifferentAppName => "DifferentAppName",
+                NotEnrolledReason::DifferentChannel => "DifferentChannel",
                 NotEnrolledReason::EnrollmentsPaused => "EnrollmentsPaused",
                 NotEnrolledReason::FeatureConflict => "FeatureConflict",
+                NotEnrolledReason::NotSelected => "NotSelected",
+                NotEnrolledReason::NotTargeted => "NotTargeted",
+                NotEnrolledReason::OptOut => "OptOut",
             },
             f,
         )
@@ -273,6 +279,12 @@ impl ExperimentEnrollment {
                             updated_enrollment
                         }
                         EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::DifferentAppName,
+                        }
+                        | EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::DifferentChannel,
+                        }
+                        | EnrollmentStatus::NotEnrolled {
                             reason: NotEnrolledReason::NotTargeted,
                         } => {
                             debug!("Existing experiment enrollment '{}' is now disqualified (targeting change)", &self.slug);
