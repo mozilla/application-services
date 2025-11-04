@@ -111,14 +111,14 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn request_multiple_ads(
+    pub fn request_ads_multiset(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAd>>> {
         let inner = self.inner.lock();
         let placements = inner
-            .request_multiple_ads(&moz_ad_requests, options)
+            .request_ads_multiset(&moz_ad_requests, options)
             .map_err(ComponentError::RequestAds)?;
         Ok(placements)
     }
@@ -221,7 +221,7 @@ impl MozAdsClientInner {
         Ok(placements)
     }
 
-    fn request_multiple_ads(
+    fn request_ads_multiset(
         &self,
         moz_ad_requests: &[MozAdsPlacementRequestWithCount],
         options: Option<MozAdsRequestOptions>,
@@ -733,7 +733,7 @@ mod tests {
     }
 
     #[test]
-    fn test_request_multiple_ads_happy() {
+    fn test_request_ads_multiset_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_fetch_ads()
             .returning(|_req, _| Ok(get_example_happy_ad_response()));
@@ -768,7 +768,7 @@ mod tests {
             },
         ];
 
-        let result = component.request_multiple_ads(ad_placement_requests, None);
+        let result = component.request_ads_multiset(ad_placement_requests, None);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), get_example_happy_placements());

@@ -38,12 +38,12 @@ If a cache configuration is provided, the client will initialize an on-disk HTTP
 | `record_impression(&self, placement: MozAd)`                                                                                | `AdsClientApiResult<()>`                          | Records an impression for the given placement (fires the ad’s impression callback).                                                           |
 | `report_ad(&self, placement: MozAd)`                                                                                        | `AdsClientApiResult<()>`                          | Reports the given placement (fires the ad’s report callback).                                                                                 |
 | `request_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)`                   | `AdsClientApiResult<HashMap<String, MozAd>>`      | Requests one ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`.            |
-| `request_multiple_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>, options: Option<MozAdsRequestOptions>)` | `AdsClientApiResult<HashMap<String, Vec<MozAd>>>` | Requests up to `count` ads per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`. |
+| `request_ads_multiset(&self, moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>, options: Option<MozAdsRequestOptions>)` | `AdsClientApiResult<HashMap<String, Vec<MozAd>>>` | Requests up to `count` ads per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`. |
 
 > **Notes**
 >
 > - We recommend that this client be initialized as a singleton or something similar so that multiple instances of the client do not exist at once.
-> - Responses omit placements with no fill. Empty placements do not appear in the returned maps for either `request_ads` or `request_multiple_ads`.
+> - Responses omit placements with no fill. Empty placements do not appear in the returned maps for either `request_ads` or `request_ads_multiset`.
 > - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientConfig`. Per-request cache settings can be set with `MozAdsRequestOptions`.
 > - If `cache_config` is `None`, caching is disabled entirely.
 
@@ -116,7 +116,7 @@ pub struct MozAdsPlacementRequest {
 
 ## `MozAdsPlacementRequestWithCount`
 
-Describes a single ad placement and the maximum number of ads to request for that placement. A vector of these is used by the `request_multiple_ads` method on the client.
+Describes a single ad placement and the maximum number of ads to request for that placement. A vector of these is used by the `request_ads_multiset` method on the client.
 
 ```rust
 pub struct MozAdsPlacementRequestWithCount {
