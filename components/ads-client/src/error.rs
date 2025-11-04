@@ -49,21 +49,21 @@ impl GetErrorHandling for ComponentError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequestAdsError {
+    #[error("Error building placements from ad response: {0}")]
+    BuildPlacements(#[from] BuildPlacementsError),
+
     #[error("Error building ad requests from configs: {0}")]
     BuildRequest(#[from] BuildRequestError),
 
+    #[error(transparent)]
+    ContextId(#[from] context_id::ApiError),
+
     #[error("Error requesting ads from MARS: {0}")]
     FetchAds(#[from] FetchAdsError),
-
-    #[error("Error building placements from ad response: {0}")]
-    BuildPlacements(#[from] BuildPlacementsError),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum BuildRequestError {
-    #[error(transparent)]
-    ContextId(#[from] context_id::ApiError),
-
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 

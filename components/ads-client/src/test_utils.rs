@@ -8,9 +8,10 @@ use std::collections::HashMap;
 use url::Url;
 
 use crate::{
+    client::ad_request::{AdPlacementRequest, AdRequest, IABContentTaxonomy},
+    client::ad_response::{AdCallbacks, AdResponse, MozAd},
     http_cache::HttpCache,
     mars::DefaultMARSClient,
-    models::{AdCallbacks, AdPlacementRequest, AdRequest, AdResponse, IABContentTaxonomy, MozAd},
     IABContent, MozAdsPlacementRequest,
 };
 

@@ -4,12 +4,12 @@
 */
 
 use crate::{
+    client::{ad_request::AdRequest, ad_response::AdResponse},
     error::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
     http_cache::{CacheOutcome, HttpCache, HttpCacheError},
-    models::{AdRequest, AdResponse},
     Environment, RequestCachePolicy,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
