@@ -13,7 +13,7 @@ use crate::{
     error::{info, warn, BehaviorError},
     evaluator::{
         get_calculated_attributes, is_experiment_available, CalculatedAttributes,
-        TargetingAttributes,
+        ExperimentAvailable, TargetingAttributes,
     },
     json::{JsonObject, PrefValue},
     metrics::{
@@ -322,7 +322,9 @@ impl NimbusClient {
         Ok(self
             .get_all_experiments()?
             .into_iter()
-            .filter(|exp| is_experiment_available(&th, exp, false))
+            .filter(|exp| {
+                is_experiment_available(&th, exp, false) == ExperimentAvailable::Available
+            })
             .map(|exp| exp.into())
             .collect())
     }
@@ -952,22 +954,20 @@ impl NimbusClient {
             self.event_store.clone(),
             self.gecko_prefs.clone(),
         );
-        let experiments = self
-            .database_cache
-            .get_experiments()?
+        let experiments = self.database_cache.get_experiments()?;
+        let experiments = experiments
             .iter()
-            .filter_map(
-                |exp| match is_experiment_available(&targeting_helper, exp, true) {
-                    true => Some(exp.slug.clone()),
-                    false => None,
-                },
-            )
-            .collect::<HashSet<String>>();
+            .filter(|exp| {
+                is_experiment_available(&targeting_helper, exp, true)
+                    == ExperimentAvailable::Available
+            })
+            .map(|exp| &*exp.slug)
+            .collect::<HashSet<&str>>();
         self.metrics_handler.record_enrollment_statuses(
             self.database_cache
                 .get_enrollments()?
                 .into_iter()
-                .filter_map(|e| match experiments.contains(&e.slug) {
+                .filter_map(|e| match experiments.contains(&*e.slug) {
                     true => Some(e.into()),
                     false => None,
                 })
