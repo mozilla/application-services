@@ -4,165 +4,157 @@
 
 //! Viaduct dev backend
 //!
-//! This implements a backend using `hyper`.
-//! Unlike the `hyper` backend it does not support HTTPS.
-//! This means it's clear to vendor into moz-central and won't bring in unwanted sub-dependencies, like `openssl`.
-//! This is mainly intended for testing, where the HTTP-only restriction is not an issue.
-use std::{sync::Arc, time::Duration};
+//! This implements a viaduct backend using `minreq`, with no feature flags enabled.
+//! This lets us have an HTTP client without any sub-dependencies that we don't want to vendor into moz-central, like `openssl`.
+//! It's mainly intended for testing, where the HTTP-only restriction is not an issue.
+//! `minreq` has a sync API, we implement an async version using a separate thread and a `mpsc` channel.
+use std::sync::{mpsc, Arc};
 
-use error_support::info;
-use tokio::time::timeout;
+use error_support::{error, info};
 use url::Url;
 
 use viaduct::{
-    error::MapBackendError, init_backend, Backend, ClientSettings, Header, Method, Request,
+    error::MapBackendError, init_backend, Backend, ClientSettings, Headers, Method, Request,
     Response, Result, ViaductError,
 };
 
-type Client = hyper::client::Client<hyper::client::connect::HttpConnector, hyper::Body>;
+struct DevBackend {
+    /// Channel used to communicate with the thread for this backend.
+    channel: mpsc::Sender<Event>,
+}
 
-struct HyperBackend {
-    runtime: tokio::runtime::Runtime,
-    client: Client,
+/// Event sent to the mpsc channel
+enum Event {
+    /// Send a request using `minreq`, then return the response using a oneshot channel.
+    SendRequest {
+        request: Request,
+        settings: ClientSettings,
+        channel: oneshot::Sender<Response>,
+    },
+    Quit,
+}
+
+/// Worker thread that we manage to send requests.
+///
+/// This processes events from the mpsc channel
+fn worker_thread(channel: mpsc::Receiver<Event>) {
+    loop {
+        match channel.recv() {
+            Err(e) => {
+                error!("Error reading from channel: {e}");
+                return;
+            }
+            Ok(Event::SendRequest {
+                request,
+                settings,
+                channel,
+            }) => {
+                if let Err(e) = send_request(request, settings, channel) {
+                    error!("Error sending request: {e}");
+                }
+            }
+            Ok(Event::Quit) => {
+                info!("Saw Quit event, exiting");
+                break;
+            }
+        }
+    }
+}
+
+/// Handle `Event::SendRequest`
+fn send_request(
+    request: Request,
+    settings: ClientSettings,
+    channel: oneshot::Sender<Response>,
+) -> Result<()> {
+    let method = match request.method {
+        Method::Get => minreq::Method::Get,
+        Method::Head => minreq::Method::Head,
+        Method::Post => minreq::Method::Post,
+        Method::Put => minreq::Method::Put,
+        Method::Delete => minreq::Method::Delete,
+        Method::Connect => minreq::Method::Connect,
+        Method::Options => minreq::Method::Options,
+        Method::Trace => minreq::Method::Trace,
+        Method::Patch => minreq::Method::Patch,
+    };
+    let req = minreq::Request::new(method, request.url.to_string())
+        .with_headers(
+            request
+                .headers
+                .iter()
+                .map(|h| (h.name().as_str(), h.value())),
+        )
+        // Convert timeout from ms to seconds, rounding up.
+        .with_timeout(settings.timeout.div_ceil(1000) as u64)
+        .with_body(request.body.unwrap_or_default());
+    let mut resp = req.send().map_backend_error()?;
+    channel
+        .send(Response {
+            request_method: request.method,
+            url: Url::parse(&resp.url)?,
+            // Use `take` to take all headers, but not partially deconstruct the `Response`.
+            // This lets us use `into_bytes()` below.
+            headers: Headers::try_from_hashmap(std::mem::take(&mut resp.headers))?,
+            status: resp.status_code as u16,
+            body: resp.into_bytes(),
+        })
+        .map_backend_error()?;
+    Ok(())
 }
 
 /// Initialize the `dev` backend.
 ///
-/// This is intended to be used in tests.  It uses `hyper` without any HTTPS support.
+/// This is intended to be used in tests.
 pub fn init_backend_dev() {
     info!("initializing dev backend");
-    // Create a multi-threaded runtime, with 1 worker thread.
-    //
-    // This creates and manages a single worker thread.
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()
-        .unwrap();
-    let client = hyper::Client::new();
-    let backend = Arc::new(HyperBackend { runtime, client });
-    // This is only used in the testing situations, so we can ignore any errors.  Errors happen
-    // when multiple places try to initialize the backend, which is expected.  The first one will
-    // take effect and all others can be safely ignored.
+    let backend = Arc::new(DevBackend::new());
+    // Register our backend with viaduct.  This is only used in the testing situations, so we can
+    // ignore any `BackendAlreadyInitialized` errors. The first call will take effect and all
+    // others can be safely ignored.
     let _ = init_backend(backend);
 }
 
+impl DevBackend {
+    fn new() -> Self {
+        // Create a MPSC channel, this is how we will send requests asynchronously to the worker
+        // thread.
+        let (tx, rx) = mpsc::channel();
+        // Spawn a worker thread to process events in our channel.
+        // When `Self` is dropped, we'll send the `Quit` event to stop the thread.
+        std::thread::spawn(move || {
+            worker_thread(rx);
+        });
+        Self { channel: tx }
+    }
+}
+
+impl Drop for DevBackend {
+    fn drop(&mut self) {
+        if let Err(e) = self.channel.send(Event::Quit) {
+            error!("Error sending quit event: {e}");
+        }
+    }
+}
+
 #[async_trait::async_trait]
-impl Backend for HyperBackend {
+impl Backend for DevBackend {
     async fn send_request(
         &self,
         request: Request,
         settings: ClientSettings,
     ) -> Result<Response, ViaductError> {
-        let handle = self.runtime.handle().clone();
-        let client = self.client.clone();
-        match handle
-            .spawn(async move {
-                let req_timeout = settings.timeout;
-                let req = make_request_inner(client, request, settings);
-                if req_timeout == 0 {
-                    req.await
-                } else {
-                    let duration = Duration::from_millis(req_timeout.into());
-                    timeout(duration, req)
-                        .await
-                        .unwrap_or_else(|_| Err(ViaductError::new_backend_error("Request timeout")))
-                }
+        // Create a oneshot channel.  This is how the worker thread will send the response back
+        let (oneshot_tx, oneshot_rx) = oneshot::channel();
+        // Send the request to the worker thread.
+        self.channel
+            .send(Event::SendRequest {
+                request,
+                settings,
+                channel: oneshot_tx,
             })
-            .await
-        {
-            Ok(result) => result,
-            Err(e) => Err(ViaductError::new_backend_error(format!(
-                "error spawning tokio task: {e}"
-            ))),
-        }
+            .map_backend_error()?;
+        // Await the response from the worker thread.
+        oneshot_rx.await.map_backend_error()
     }
-}
-
-/// Inner portion of `make_request()`
-///
-/// This expects to be run in a `tokio::spawn` closure
-async fn make_request_inner(
-    client: Client,
-    request: Request,
-    settings: ClientSettings,
-) -> Result<Response> {
-    let mut url = request.url.clone();
-    let mut resp = make_single_request(&client, request.clone()).await?;
-    let mut redirect_count = 0;
-    while resp.status().is_redirection() {
-        redirect_count += 1;
-        if settings.redirect_limit != 0 && redirect_count > settings.redirect_limit {
-            return Err(ViaductError::new_backend_error("Too many redirections"));
-        }
-        let Some(location) = resp.headers().get("location") else {
-            return Err(ViaductError::new_backend_error("location header missing"));
-        };
-        url = Url::parse(location.to_str().map_backend_error()?)?;
-        let new_request = Request {
-            method: request.method,
-            url: url.clone(),
-            headers: request.headers.clone(),
-            body: None,
-        };
-        resp = make_single_request(&client, new_request).await?;
-    }
-
-    let status = resp.status().as_u16();
-
-    let mut headers = Vec::new();
-    for (name, value) in resp.headers() {
-        let name = name.as_str().to_string();
-        let value = String::from_utf8_lossy(value.as_bytes()).to_string();
-        headers.push(Header::new(name, value)?);
-    }
-    Ok(Response {
-        request_method: request.method,
-        url,
-        status,
-        headers: headers.into(),
-        body: resp.into_body(),
-    })
-}
-
-async fn make_single_request(
-    client: &Client,
-    request: Request,
-) -> Result<hyper::Response<Vec<u8>>> {
-    let mut builder = hyper::Request::builder()
-        .uri(convert_url(request.url)?)
-        .method(match request.method {
-            Method::Get => hyper::Method::GET,
-            Method::Head => hyper::Method::HEAD,
-            Method::Post => hyper::Method::POST,
-            Method::Put => hyper::Method::PUT,
-            Method::Delete => hyper::Method::DELETE,
-            Method::Connect => hyper::Method::CONNECT,
-            Method::Options => hyper::Method::OPTIONS,
-            Method::Trace => hyper::Method::TRACE,
-            Method::Patch => hyper::Method::PATCH,
-        });
-    for h in request.headers.into_vec() {
-        let name = hyper::http::HeaderName::from_bytes(h.name.as_bytes()).map_backend_error()?;
-        let value = hyper::http::HeaderValue::from_str(&h.value).map_backend_error()?;
-        builder.headers_mut().unwrap().insert(name, value);
-    }
-    let req = builder
-        .body(hyper::Body::from(request.body.unwrap_or_default()))
-        .map_backend_error()?;
-    let (parts, body) = client.request(req).await.map_backend_error()?.into_parts();
-    let body = hyper::body::to_bytes(body).await.map_backend_error()?;
-    Ok(hyper::Response::from_parts(parts, body.to_vec()))
-}
-
-fn convert_url(url: Url) -> Result<hyper::Uri> {
-    hyper::Uri::builder()
-        .scheme(url.scheme())
-        .authority(url.authority())
-        .path_and_query(match url.query() {
-            None => url.path().to_string(),
-            Some(query) => format!("{}?{}", url.path(), query),
-        })
-        .build()
-        .map_backend_error()
 }
