@@ -38,6 +38,7 @@ dependencies = [
  "uuid",
  "viaduct",
  "viaduct-dev",
+ "viaduct-reqwest",
 ]
 
 [[package]]

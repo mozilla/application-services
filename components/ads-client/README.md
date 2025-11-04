@@ -14,11 +14,31 @@ This component is currently still under construction.
 
 ## Tests
 
-Tests are run with
+### Unit Tests
+
+Unit tests are run with
 
 ```shell
 cargo test -p ads-client
 ```
+
+### Integration Tests
+
+Integration tests make real HTTP calls to the Mozilla Ads Routing Service (MARS) and are not run automatically in CI. They are marked with `#[ignore]` and must be run manually.
+
+To run integration tests:
+
+```shell
+cargo test -p ads-client --test integration_test -- --ignored
+```
+
+To run a specific integration test:
+
+```shell
+cargo test -p ads-client --test integration_test -- --ignored test_mock_pocket_billboard_1_placement
+```
+
+**Note:** Integration tests require network access and will make real HTTP requests to the MARS API.
 
 ## Usage
 
