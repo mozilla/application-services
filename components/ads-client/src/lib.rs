@@ -22,6 +22,7 @@ use uuid::Uuid;
 
 use crate::error::{AdsClientApiError, CallbackRequestError};
 use crate::http_cache::{ByteSize, CacheMode, HttpCacheError, RequestCachePolicy};
+use crate::models::AdPlacementRequest;
 
 mod error;
 mod http_cache;
@@ -100,7 +101,7 @@ impl MozAdsClient {
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<HashMap<String, MozAdsPlacement>> {
+    ) -> AdsClientApiResult<HashMap<String, MozAd>> {
         let inner = self.inner.lock();
 
         let placements = inner
@@ -110,7 +111,20 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_impression(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
+    pub fn request_ads_multiset(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
+        options: Option<MozAdsRequestOptions>,
+    ) -> AdsClientApiResult<HashMap<String, Vec<MozAd>>> {
+        let inner = self.inner.lock();
+        let placements = inner
+            .request_ads_multiset(&moz_ad_requests, options)
+            .map_err(ComponentError::RequestAds)?;
+        Ok(placements)
+    }
+
+    #[handle_error(ComponentError)]
+    pub fn record_impression(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .record_impression(&placement)
@@ -119,7 +133,7 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_click(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
+    pub fn record_click(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .record_click(&placement)
@@ -128,7 +142,7 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn report_ad(&self, placement: MozAdsPlacement) -> AdsClientApiResult<()> {
+    pub fn report_ad(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner
             .report_ad(&placement)
@@ -195,29 +209,42 @@ impl MozAdsClientInner {
 
     fn request_ads(
         &self,
-        moz_ad_requests: &Vec<MozAdsPlacementRequest>,
+        moz_ad_requests: &[MozAdsPlacementRequest],
         options: Option<MozAdsRequestOptions>,
-    ) -> Result<HashMap<String, MozAdsPlacement>, RequestAdsError> {
+    ) -> Result<HashMap<String, MozAd>, RequestAdsError> {
         let ad_request = self.build_request_from_requested_placements(moz_ad_requests)?;
         let options = options.unwrap_or_default();
         let cache_policy = options.cache_policy.unwrap_or_default();
         let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
-        let placements = self.build_placements(moz_ad_requests, response)?;
+        let placements = self.build_placements(&ad_request, response)?;
+        let placements = self.pop_placements(placements);
         Ok(placements)
     }
 
-    fn record_impression(&self, placement: &MozAdsPlacement) -> Result<(), RecordImpressionError> {
-        self.client
-            .record_impression(placement.content.callbacks.impression.clone())
+    fn request_ads_multiset(
+        &self,
+        moz_ad_requests: &[MozAdsPlacementRequestWithCount],
+        options: Option<MozAdsRequestOptions>,
+    ) -> Result<HashMap<String, Vec<MozAd>>, RequestAdsError> {
+        let ad_request = self.build_request_from_requested_placements(moz_ad_requests)?;
+        let options = options.unwrap_or_default();
+        let cache_policy = options.cache_policy.unwrap_or_default();
+        let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
+        let placements = self.build_placements(&ad_request, response)?;
+        Ok(placements)
     }
 
-    fn record_click(&self, placement: &MozAdsPlacement) -> Result<(), RecordClickError> {
+    fn record_impression(&self, placement: &MozAd) -> Result<(), RecordImpressionError> {
         self.client
-            .record_click(placement.content.callbacks.click.clone())
+            .record_impression(placement.callbacks.impression.clone())
     }
 
-    fn report_ad(&self, placement: &MozAdsPlacement) -> Result<(), ReportAdError> {
-        let report_ad_callback = placement.content.callbacks.report.clone();
+    fn record_click(&self, placement: &MozAd) -> Result<(), RecordClickError> {
+        self.client.record_click(placement.callbacks.click.clone())
+    }
+
+    fn report_ad(&self, placement: &MozAd) -> Result<(), ReportAdError> {
+        let report_ad_callback = placement.callbacks.report.clone();
 
         match report_ad_callback {
             Some(callback) => self.client.report_ad(callback)?,
@@ -236,11 +263,17 @@ impl MozAdsClientInner {
         self.client.cycle_context_id()
     }
 
-    fn build_request_from_requested_placements(
+    fn build_request_from_requested_placements<A>(
         &self,
-        moz_ad_requests: &Vec<MozAdsPlacementRequest>,
-    ) -> Result<AdRequest, BuildRequestError> {
-        if moz_ad_requests.is_empty() {
+        ad_placement_requests: &[A],
+    ) -> Result<AdRequest, BuildRequestError>
+    where
+        for<'a> &'a A: Into<AdPlacementRequest>,
+    {
+        let ad_placement_requests: Vec<AdPlacementRequest> =
+            ad_placement_requests.iter().map(|r| r.into()).collect();
+
+        if ad_placement_requests.is_empty() {
             return Err(BuildRequestError::EmptyConfig);
         }
 
@@ -250,27 +283,27 @@ impl MozAdsClientInner {
             context_id,
         };
 
-        let mut used_placement_ids: HashSet<&String> = HashSet::new();
+        let mut used_placement_ids: HashSet<String> = HashSet::new();
 
-        for placement_request in moz_ad_requests {
-            if used_placement_ids.contains(&placement_request.placement_id) {
+        for ad_placement_request in ad_placement_requests {
+            if used_placement_ids.contains(&ad_placement_request.placement) {
                 return Err(BuildRequestError::DuplicatePlacementId {
-                    placement_id: placement_request.placement_id.clone(),
+                    placement_id: ad_placement_request.placement.clone(),
                 });
             }
 
             request.placements.push(models::AdPlacementRequest {
-                placement: placement_request.placement_id.clone(),
-                count: 1, // Placement_id should be treated as unique, so count is always 1
-                content: placement_request.iab_content.clone().map(|iab_content| {
-                    AdContentCategory {
-                        categories: iab_content.category_ids,
+                placement: ad_placement_request.placement.clone(),
+                count: ad_placement_request.count,
+                content: ad_placement_request
+                    .content
+                    .map(|iab_content| AdContentCategory {
+                        categories: iab_content.categories,
                         taxonomy: iab_content.taxonomy,
-                    }
-                }),
+                    }),
             });
 
-            used_placement_ids.insert(&placement_request.placement_id);
+            used_placement_ids.insert(ad_placement_request.placement.clone());
         }
 
         Ok(request)
@@ -278,40 +311,40 @@ impl MozAdsClientInner {
 
     fn build_placements(
         &self,
-        placement_requests: &Vec<MozAdsPlacementRequest>,
+        ad_request: &AdRequest,
         mut mars_response: AdResponse,
-    ) -> Result<HashMap<String, MozAdsPlacement>, BuildPlacementsError> {
-        let mut moz_ad_placements: HashMap<String, MozAdsPlacement> = HashMap::new();
+    ) -> Result<HashMap<String, Vec<MozAd>>, BuildPlacementsError> {
+        let mut moz_ad_placements: HashMap<String, Vec<MozAd>> = HashMap::new();
+        let mut seen_placements: HashSet<String> = HashSet::new();
 
-        for placement_request in placement_requests {
-            let placement_content = mars_response.data.get_mut(&placement_request.placement_id);
+        for placement_request in &ad_request.placements {
+            if seen_placements.contains(&placement_request.placement) {
+                return Err(BuildPlacementsError::DuplicatePlacementId {
+                    placement_id: placement_request.placement.clone(),
+                });
+            }
+            seen_placements.insert(placement_request.placement.clone());
 
-            match placement_content {
-                Some(v) => {
-                    let ad_content = v.pop();
-                    match ad_content {
-                        Some(c) => {
-                            let is_updated = moz_ad_placements.insert(
-                                placement_request.placement_id.clone(),
-                                MozAdsPlacement {
-                                    content: c,
-                                    placement_request: placement_request.clone(),
-                                },
-                            );
-                            if let Some(v) = is_updated {
-                                return Err(BuildPlacementsError::DuplicatePlacementId {
-                                    placement_id: v.placement_request.placement_id,
-                                });
-                            }
-                        }
-                        None => continue,
-                    }
+            let placement_content = mars_response.data.remove(&placement_request.placement);
+
+            if let Some(v) = placement_content {
+                if v.is_empty() {
+                    continue;
                 }
-                None => continue,
+                moz_ad_placements.insert(placement_request.placement.clone(), v);
             }
         }
 
         Ok(moz_ad_placements)
+    }
+
+    fn pop_placements(&self, placements: HashMap<String, Vec<MozAd>>) -> HashMap<String, MozAd> {
+        placements
+            .into_iter()
+            .filter_map(|(placement_id, mut vec)| {
+                vec.pop().map(|placement| (placement_id, placement))
+            })
+            .collect()
     }
 
     fn clear_cache(&self) -> Result<(), HttpCacheError> {
@@ -331,10 +364,43 @@ pub struct MozAdsPlacementRequest {
     pub iab_content: Option<IABContent>,
 }
 
-#[derive(Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsPlacement {
-    pub placement_request: MozAdsPlacementRequest,
-    pub content: MozAd,
+impl From<&MozAdsPlacementRequest> for AdPlacementRequest {
+    fn from(request: &MozAdsPlacementRequest) -> Self {
+        AdPlacementRequest {
+            placement: request.placement_id.clone(),
+            count: 1,
+            content: request
+                .iab_content
+                .as_ref()
+                .map(|iab_content| AdContentCategory {
+                    taxonomy: iab_content.taxonomy,
+                    categories: iab_content.category_ids.clone(),
+                }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsPlacementRequestWithCount {
+    pub count: u32,
+    pub placement_id: String,
+    pub iab_content: Option<IABContent>,
+}
+
+impl From<&MozAdsPlacementRequestWithCount> for AdPlacementRequest {
+    fn from(request: &MozAdsPlacementRequestWithCount) -> Self {
+        AdPlacementRequest {
+            placement: request.placement_id.clone(),
+            count: request.count,
+            content: request
+                .iab_content
+                .as_ref()
+                .map(|iab_content| AdContentCategory {
+                    taxonomy: iab_content.taxonomy,
+                    categories: iab_content.category_ids.clone(),
+                }),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -491,11 +557,12 @@ mod tests {
             client: Box::new(mock),
         };
 
+        let ad_request = inner_component
+            .build_request_from_requested_placements(&make_happy_placement_requests())
+            .unwrap();
+
         let placements = inner_component
-            .build_placements(
-                &make_happy_placement_requests(),
-                get_example_happy_ad_response(),
-            )
+            .build_placements(&ad_request, get_example_happy_ad_response())
             .unwrap();
 
         assert_eq!(placements, get_example_happy_placements());
@@ -526,8 +593,12 @@ mod tests {
             .data
             .insert("example_placement_3".to_string(), vec![]);
 
+        let ad_request = inner_component
+            .build_request_from_requested_placements(&ad_placement_requests)
+            .unwrap();
+
         let placements = inner_component
-            .build_placements(&ad_placement_requests, api_resp)
+            .build_placements(&ad_request, api_resp)
             .unwrap();
 
         assert_eq!(placements, get_example_happy_placements());
@@ -553,8 +624,12 @@ mod tests {
             }),
         });
 
+        let ad_request = inner_component
+            .build_request_from_requested_placements(&ad_placement_requests)
+            .unwrap();
+
         let placements = inner_component
-            .build_placements(&ad_placement_requests, get_example_happy_ad_response())
+            .build_placements(&ad_request, get_example_happy_ad_response())
             .unwrap();
 
         assert_eq!(placements, get_example_happy_placements());
@@ -570,19 +645,9 @@ mod tests {
             client: Box::new(mock),
         };
 
-        let mut ad_placement_requests = make_happy_placement_requests();
-        // Adding an extra placement request
-        ad_placement_requests.push(MozAdsPlacementRequest {
-            placement_id: "example_placement_2".to_string(),
-            iab_content: Some(IABContent {
-                taxonomy: IABContentTaxonomy::IAB2_1,
-                category_ids: vec![],
-            }),
-        });
-
         let mut api_resp = get_example_happy_ad_response();
 
-        // Adding an extra placement in response to match extra request
+        // Adding an extra placement in response for the duplicate placement id
         api_resp
             .data
             .get_mut("example_placement_2")
@@ -607,7 +672,38 @@ mod tests {
                 },
             });
 
-        let placements = inner_component.build_placements(&ad_placement_requests, api_resp);
+        // Manually construct an AdRequest with a duplicate placement id to trigger the error
+        let ad_request = AdRequest {
+            context_id: "mock-context-id".to_string(),
+            placements: vec![
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec!["entertainment".to_string()],
+                    }),
+                    count: 1,
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB3_0,
+                        categories: vec![],
+                    }),
+                    count: 1,
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec![],
+                    }),
+                    count: 1,
+                },
+            ],
+        };
+
+        let placements = inner_component.build_placements(&ad_request, api_resp);
 
         assert!(placements.is_err());
     }
@@ -634,6 +730,48 @@ mod tests {
         let result = component.request_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_request_ads_multiset_happy() {
+        let mut mock = MockMARSClient::new();
+        mock.expect_fetch_ads()
+            .returning(|_req, _| Ok(get_example_happy_ad_response()));
+        mock.expect_get_context_id()
+            .returning(|| Ok("mock-context-id".to_string()));
+
+        mock.expect_get_mars_endpoint()
+            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+
+        let component = MozAdsClient {
+            inner: Mutex::new(MozAdsClientInner {
+                client: Box::new(mock),
+            }),
+        };
+
+        let ad_placement_requests: Vec<MozAdsPlacementRequestWithCount> = vec![
+            MozAdsPlacementRequestWithCount {
+                count: 1,
+                placement_id: "example_placement_1".to_string(),
+                iab_content: Some(IABContent {
+                    taxonomy: IABContentTaxonomy::IAB2_1,
+                    category_ids: vec!["entertainment".to_string()],
+                }),
+            },
+            MozAdsPlacementRequestWithCount {
+                count: 1,
+                placement_id: "example_placement_2".to_string(),
+                iab_content: Some(IABContent {
+                    taxonomy: IABContentTaxonomy::IAB3_0,
+                    category_ids: vec![],
+                }),
+            },
+        ];
+
+        let result = component.request_ads_multiset(ad_placement_requests, None);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), get_example_happy_placements());
     }
 
     #[test]
