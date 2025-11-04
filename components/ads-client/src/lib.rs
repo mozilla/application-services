@@ -20,13 +20,13 @@ use crate::client::ad_request::AdContentCategory;
 use crate::client::ad_request::AdPlacementRequest;
 use crate::client::ad_request::IABContentTaxonomy;
 use crate::client::ad_response::MozAd;
+use crate::client::config::MozAdsClientConfig;
 
 mod client;
 mod error;
 mod http_cache;
 mod instrument;
 mod mars;
-mod models;
 
 #[cfg(test)]
 mod test_utils;
@@ -43,43 +43,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
     inner: Mutex<MozAdsClientInner>,
-}
-
-#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Environment {
-    #[default]
-    Prod,
-    #[cfg(feature = "dev")]
-    Staging,
-}
-
-#[derive(uniffi::Record, Default)]
-pub struct MozAdsClientConfig {
-    pub environment: Environment,
-    pub cache_config: Option<MozAdsCacheConfig>,
-}
-
-#[derive(uniffi::Record)]
-pub struct MozAdsCacheConfig {
-    pub db_path: String,
-    pub default_cache_ttl_seconds: Option<u64>,
-    pub max_size_mib: Option<u64>,
-}
-
-#[derive(uniffi::Record)]
-pub struct MozAdsRequestOptions {
-    pub cache_policy: Option<RequestCachePolicy>,
-}
-
-impl Default for MozAdsRequestOptions {
-    fn default() -> Self {
-        Self {
-            cache_policy: Some(RequestCachePolicy {
-                mode: CacheMode::default(),
-                ttl_seconds: None,
-            }),
-        }
-    }
 }
 
 #[uniffi::export]
@@ -99,9 +62,16 @@ impl MozAdsClient {
     ) -> AdsClientApiResult<HashMap<String, MozAd>> {
         let inner = self.inner.lock();
 
+        let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
         let placements = inner
-            .request_ads(&moz_ad_requests, options)
+            .request_ads(requests, options)
             .map_err(ComponentError::RequestAds)?;
+        let placements = placements
+            .into_iter()
+            .filter_map(|(placement_id, mut vec)| {
+                vec.pop().map(|placement| (placement_id, placement))
+            })
+            .collect();
         Ok(placements)
     }
 
@@ -112,8 +82,10 @@ impl MozAdsClient {
         options: Option<MozAdsRequestOptions>,
     ) -> AdsClientApiResult<HashMap<String, Vec<MozAd>>> {
         let inner = self.inner.lock();
+
+        let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
         let placements = inner
-            .request_ads_multiset(&moz_ad_requests, options)
+            .request_ads(requests, options)
             .map_err(ComponentError::RequestAds)?;
         Ok(placements)
     }
@@ -156,6 +128,22 @@ impl MozAdsClient {
         inner.clear_cache().map_err(|_| AdsClientApiError::Other {
             reason: "Failed to clear cache".to_string(),
         })
+    }
+}
+
+#[derive(uniffi::Record)]
+pub struct MozAdsRequestOptions {
+    pub cache_policy: Option<RequestCachePolicy>,
+}
+
+impl Default for MozAdsRequestOptions {
+    fn default() -> Self {
+        Self {
+            cache_policy: Some(RequestCachePolicy {
+                mode: CacheMode::default(),
+                ttl_seconds: None,
+            }),
+        }
     }
 }
 

@@ -4,13 +4,14 @@
 */
 
 use crate::{
+    client::config::Environment,
     client::{ad_request::AdRequest, ad_response::AdResponse},
     error::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
     },
     http_cache::{CacheOutcome, HttpCache, HttpCacheError},
-    Environment, RequestCachePolicy,
+    RequestCachePolicy,
 };
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use once_cell::sync::Lazy;

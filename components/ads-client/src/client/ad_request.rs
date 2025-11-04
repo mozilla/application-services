@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::BuildRequestError;
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct AdRequest {
     pub context_id: String,
     pub placements: Vec<AdPlacementRequest>,
@@ -56,7 +56,7 @@ impl AdRequest {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
@@ -89,6 +89,11 @@ pub enum IABContentTaxonomy {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils::{
+        get_example_happy_ad_response, get_example_happy_placements, make_happy_placement_requests,
+        TEST_CONTEXT_ID,
+    };
+
     use super::*;
     use serde_json::{json, to_value};
 
@@ -136,5 +141,136 @@ mod tests {
 
         let s = to_string(&IABContentTaxonomy::IAB3_0).unwrap();
         assert_eq!(s, "\"IAB-3.0\"");
+    }
+
+    #[test]
+    fn test_build_ad_request_happy() {
+        let request = AdRequest::build(
+            TEST_CONTEXT_ID.to_string(),
+            vec![
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    count: 1,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec!["entertainment".to_string()],
+                    }),
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    count: 2,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec![],
+                    }),
+                },
+            ],
+        )
+        .unwrap();
+
+        let expected_request = AdRequest {
+            context_id: TEST_CONTEXT_ID.to_string(),
+            placements: vec![
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    count: 1,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec!["entertainment".to_string()],
+                    }),
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    count: 2,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec![],
+                    }),
+                },
+            ],
+        };
+
+        assert_eq!(request, expected_request);
+    }
+
+    #[test]
+    fn test_build_ad_request_fails_on_duplicate_placement_id() {
+        let request = AdRequest::build(
+            TEST_CONTEXT_ID.to_string(),
+            vec![
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    count: 1,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec!["entertainment".to_string()],
+                    }),
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    count: 1,
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB3_0,
+                        categories: vec![],
+                    }),
+                },
+            ],
+        );
+        assert!(request.is_err());
+    }
+
+    #[test]
+    fn test_build_ad_request_fails_on_empty_request() {
+        let request = AdRequest::build(TEST_CONTEXT_ID.to_string(), vec![]);
+        assert!(request.is_err());
+    }
+
+    #[test]
+    fn test_build_placements_with_empty_placement_in_response() {
+        let mut ad_placement_requests = make_happy_placement_requests();
+        // Adding an extra placement request
+        ad_placement_requests.push(AdPlacementRequest {
+            placement: "example_placement_3".to_string(),
+            count: 1,
+            content: Some(AdContentCategory {
+                taxonomy: IABContentTaxonomy::IAB2_1,
+                categories: vec![],
+            }),
+        });
+
+        let mut api_resp = get_example_happy_ad_response();
+        api_resp
+            .data
+            .insert("example_placement_3".to_string(), vec![]);
+
+        let ad_request =
+            AdRequest::build(TEST_CONTEXT_ID.to_string(), ad_placement_requests).unwrap();
+
+        let placements = api_resp.build_placements(&ad_request).unwrap();
+
+        assert_eq!(placements, get_example_happy_placements());
+    }
+
+    #[test]
+    fn test_request_ads_with_missing_callback_in_response() {
+        let mut ad_placement_requests = make_happy_placement_requests();
+        // Adding an extra placement request
+        ad_placement_requests.push(AdPlacementRequest {
+            placement: "example_placement_3".to_string(),
+            count: 1,
+            content: Some(AdContentCategory {
+                taxonomy: IABContentTaxonomy::IAB2_1,
+                categories: vec![],
+            }),
+        });
+
+        let ad_request =
+            AdRequest::build(TEST_CONTEXT_ID.to_string(), ad_placement_requests).unwrap();
+
+        let placements = get_example_happy_ad_response()
+            .build_placements(&ad_request)
+            .unwrap();
+
+        assert_eq!(placements, get_example_happy_placements());
     }
 }
