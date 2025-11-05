@@ -5,6 +5,7 @@
 mod builder;
 mod bytesize;
 mod cache_control;
+mod clock;
 mod connection_initializer;
 mod request_hash;
 mod store;
@@ -216,7 +217,7 @@ mod tests {
         HttpCache::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(secs))
             .max_size(ByteSize::mib(4))
-            .build()
+            .build_for_time_dependent_tests()
             .expect("cache build should succeed")
     }
 
@@ -409,7 +410,7 @@ mod tests {
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // After ~>1s, cleanup should remove it
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        cache.store.get_clock().advance(2);
 
         cache.store.delete_expired_entries().unwrap();
 
@@ -439,12 +440,12 @@ mod tests {
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // Not expired yet at ~1s
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        cache.store.get_clock().advance(1);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&req).unwrap().is_some());
 
         // Expired after ~2s
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&req).unwrap().is_none());
     }
@@ -469,12 +470,12 @@ mod tests {
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // Not expired at ~1s
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        cache.store.get_clock().advance(1);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&req).unwrap().is_some());
 
         // Expired after ~3s
-        std::thread::sleep(std::time::Duration::from_secs(3));
+        cache.store.get_clock().advance(3);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&req).unwrap().is_none());
     }

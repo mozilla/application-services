@@ -25,7 +25,7 @@ use crate::http_cache::{ByteSize, CacheMode, HttpCacheError, RequestCachePolicy}
 use crate::models::AdPlacementRequest;
 
 mod error;
-mod http_cache;
+pub mod http_cache;
 mod instrument;
 mod mars;
 mod models;

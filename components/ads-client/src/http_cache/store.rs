@@ -2,9 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use crate::http_cache::{request_hash::RequestHash, ByteSize};
+use crate::http_cache::{
+    clock::{CacheClock, Clock},
+    request_hash::RequestHash,
+    ByteSize,
+};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
 use viaduct::{Header, Request, Response};
@@ -21,6 +25,7 @@ pub enum FaultKind {
 
 pub struct HttpCacheStore {
     conn: Mutex<Connection>,
+    clock: Arc<dyn Clock>,
     #[cfg(test)]
     fault: parking_lot::Mutex<FaultKind>,
 }
@@ -29,9 +34,27 @@ impl HttpCacheStore {
     pub fn new(conn: Connection) -> Self {
         Self {
             conn: Mutex::new(conn),
+            clock: Arc::new(CacheClock),
             #[cfg(test)]
             fault: parking_lot::Mutex::new(FaultKind::None),
         }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_test_clock(conn: Connection) -> Self {
+        use crate::http_cache::clock::TestClock;
+
+        Self {
+            conn: Mutex::new(conn),
+            clock: Arc::new(TestClock::new(chrono::Utc::now().timestamp())),
+            #[cfg(test)]
+            fault: parking_lot::Mutex::new(FaultKind::None),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn get_clock(&self) -> &(dyn Clock) {
+        &*self.clock
     }
 
     /// Removes all entries from cache.
@@ -60,7 +83,7 @@ impl HttpCacheStore {
         let conn = self.conn.lock();
         conn.execute(
             "DELETE FROM http_cache WHERE expires_at < ?1",
-            params![chrono::Utc::now().timestamp()],
+            params![self.clock.now_epoch_seconds()],
         )
     }
 
@@ -118,7 +141,7 @@ impl HttpCacheStore {
         let headers_map: HashMap<String, String> = response.headers.clone().into();
         let response_headers = serde_json::to_vec(&headers_map).unwrap_or_default();
         let size_bytes = (response_headers.len() + response.body.len()) as i64;
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.now_epoch_seconds();
         let ttl_seconds = ttl.as_secs();
         let expires_at = now + ttl_seconds as i64;
 
@@ -252,7 +275,7 @@ mod tests {
         let initializer = HttpCacheConnectionInitializer {};
         let conn = open_database::open_memory_database(&initializer)
             .expect("failed to open memory cache db");
-        HttpCacheStore::new(conn)
+        HttpCacheStore::new_with_test_clock(conn)
     }
 
     #[test]
@@ -358,16 +381,16 @@ mod tests {
         let (c1, e1, t1) = fetch_timestamps(&store, &req);
         assert_eq!(t1, 300);
 
-        // Change TTL to 1s and upsert; wait a tick so cached_at likely changes
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        store.get_clock().advance(3);
+
         store
             .store_with_ttl(&req, &resp, &Duration::new(1, 0))
             .unwrap();
         let (c2, e2, t2) = fetch_timestamps(&store, &req);
         assert_eq!(t2, 1);
         // cached_at should be >= previous cached_at; expires_at should move accordingly
-        assert!(c2 >= c1);
-        assert!(e2 <= e1, "expires_at should move earlier when TTL shrinks");
+        assert!(c2 > c1);
+        assert!(e2 < e1, "expires_at should move earlier when TTL shrinks");
     }
 
     #[test]
@@ -390,7 +413,7 @@ mod tests {
         assert!(store.lookup(&req_fresh).unwrap().is_some());
 
         // Let first one expire; then cleanup
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        store.clock.advance(2);
         let removed = store.delete_expired_entries().unwrap();
         assert!(
             removed >= 1,
@@ -412,7 +435,7 @@ mod tests {
             .store_with_ttl(&req, &resp, &Duration::new(1, 0))
             .unwrap();
         // Check that lookup still returns (store is policy-agnostic).
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        store.clock.advance(2);
         assert!(store.lookup(&req).unwrap().is_some());
 
         // Test cleanup still removes it
@@ -434,7 +457,7 @@ mod tests {
         assert!(store.lookup(&req).unwrap().is_some());
 
         // Advance a second so now > expires_at
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        store.clock.advance(2);
         let removed = store.delete_expired_entries().unwrap();
         assert!(removed >= 1);
         assert!(store.lookup(&req).unwrap().is_none());
@@ -458,10 +481,7 @@ mod tests {
 
     #[test]
     fn test_ttl_expiration() {
-        let initializer = HttpCacheConnectionInitializer {};
-        let conn = open_database::open_memory_database(&initializer)
-            .expect("failed to open memory cache db");
-        let store = HttpCacheStore::new(conn);
+        let store = create_test_store();
 
         let request = create_test_request("https://example.com/api", b"test body");
         let response = create_test_response(200, b"test response");
@@ -473,7 +493,7 @@ mod tests {
         let retrieved = store.lookup(&request).unwrap().unwrap();
         assert_eq!(retrieved.0.body, b"test response");
 
-        std::thread::sleep(Duration::from_secs(2));
+        store.clock.advance(2);
 
         let retrieved_after_expiry = store.lookup(&request).unwrap();
         assert!(retrieved_after_expiry.is_some());
