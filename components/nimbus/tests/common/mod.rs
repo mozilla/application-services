@@ -79,7 +79,7 @@ fn new_test_client_internal(
         bucket_name: None,
         app_context: Some(rs_ctx),
     };
-    let remote_settings_service = RemoteSettingsService::new("".to_string(), config);
+    let remote_settings_service = RemoteSettingsService::new("/tmp".to_string(), config);
 
     NimbusClient::new(
         ctx,
@@ -88,8 +88,8 @@ fn new_test_client_internal(
         tmp_dir.path(),
         Box::new(NoopMetricsHandler),
         None,
-        Some("collection_name".to_string()),
         Some(Arc::new(remote_settings_service)),
+        Some("collection_name".to_string()),
     )
 }
 

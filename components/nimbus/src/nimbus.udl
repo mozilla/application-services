@@ -189,8 +189,8 @@ interface NimbusClient {
         string dbpath,
         MetricsHandler metrics_handler,
         GeckoPrefHandler? gecko_pref_handler,
-        string? collection_name,
-        RemoteSettingsService? remote_settings_service
+        RemoteSettingsService? remote_settings_service,
+        string? collection_name
     );
 
     /// Initializes the database and caches enough information so that the
