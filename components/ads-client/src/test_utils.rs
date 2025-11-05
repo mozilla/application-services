@@ -11,7 +11,7 @@ use crate::{
     http_cache::HttpCache,
     mars::DefaultMARSClient,
     models::{AdCallbacks, AdPlacementRequest, AdRequest, AdResponse, IABContentTaxonomy, MozAd},
-    IABContent, MozAdsPlacement, MozAdsPlacementRequest,
+    IABContent, MozAdsPlacementRequest,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
@@ -102,19 +102,11 @@ pub fn get_example_happy_ad_response() -> AdResponse {
     }
 }
 
-pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
-    let mut placements = HashMap::new();
-    placements.insert(
-        "example_placement_1".to_string(),
-        MozAdsPlacement {
-            placement_request: MozAdsPlacementRequest {
-                placement_id: "example_placement_1".to_string(),
-                iab_content: Some(IABContent {
-                    taxonomy: IABContentTaxonomy::IAB2_1,
-                    category_ids: vec!["entertainment".to_string()],
-                }),
-            },
-            content: MozAd {
+pub fn get_example_happy_placements() -> HashMap<String, Vec<MozAd>> {
+    HashMap::from([
+        (
+            "example_placement_1".to_string(),
+            vec![MozAd {
                 url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                 format: "billboard".to_string(),
@@ -128,20 +120,11 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                         Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
                     ),
                 },
-            },
-        },
-    );
-    placements.insert(
-        "example_placement_2".to_string(),
-        MozAdsPlacement {
-            placement_request: MozAdsPlacementRequest {
-                placement_id: "example_placement_2".to_string(),
-                iab_content: Some(IABContent {
-                    taxonomy: IABContentTaxonomy::IAB3_0,
-                    category_ids: vec![],
-                }),
-            },
-            content: MozAd {
+            }],
+        ),
+        (
+            "example_placement_2".to_string(),
+            vec![MozAd {
                 url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                 format: "skyscraper".to_string(),
@@ -155,10 +138,9 @@ pub fn get_example_happy_placements() -> HashMap<String, MozAdsPlacement> {
                         Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
                     ),
                 },
-            },
-        },
-    );
-    placements
+            }],
+        ),
+    ])
 }
 
 pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {

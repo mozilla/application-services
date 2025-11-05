@@ -764,6 +764,7 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             &mut events,
         )?
         .unwrap();
+
     if let EnrollmentStatus::Disqualified {
         reason: DisqualifiedReason::NotTargeted,
         branch,

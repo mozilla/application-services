@@ -38,6 +38,7 @@
 - Added request caching mechanism using SQLite with configurable TTL and max size.
 - Added configuration options for the cache.
 - Deserialize callbacks with `url::Url`
+- Support for multiple ads request (with count)
 
 ### Relay
 - **⚠️ Breaking Change:** The error handling for the Relay component has been refactored for stronger forward compatibility and more transparent error reporting in Swift and Kotlin via UniFFI.
