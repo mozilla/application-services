@@ -109,10 +109,10 @@ impl NimbusClient {
         db_path: P,
         metrics_handler: Box<dyn MetricsHandler>,
         gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
-        collection_name: Option<String>,
         remote_settings_service: Option<Arc<RemoteSettingsService>>,
+        collection_name: Option<String>,
     ) -> Result<Self> {
-        let settings_client = Mutex::new(create_client(collection_name, remote_settings_service)?);
+        let settings_client = Mutex::new(create_client(remote_settings_service, collection_name)?);
 
         let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {

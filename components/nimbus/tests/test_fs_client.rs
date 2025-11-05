@@ -44,8 +44,8 @@ fn test_simple() -> Result<()> {
         tmp_dir.path(),
         Box::new(NoopMetricsHandler),
         None,
-        Some("collection_name".to_string()),
         Some(Arc::new(remote_settings_service)),
+        Some("collection_name".to_string()),
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

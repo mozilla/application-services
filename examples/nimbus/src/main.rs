@@ -199,8 +199,8 @@ fn main() -> Result<()> {
         db_path,
         Box::new(NoopMetricsHandler),
         None,
-        Some(collection_name.to_string()),
         Some(Arc::new(remote_settings_services)),
+        Some(collection_name.to_string()),
     )?;
     info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
