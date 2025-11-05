@@ -3,11 +3,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use icu_casemap::CaseMapperBorrowed;
+use icu_normalizer::DecomposingNormalizerBorrowed;
+use icu_properties::props::GeneralCategory;
+use icu_properties::props::GeneralCategoryGroup;
+use icu_properties::CodePointMapDataBorrowed;
 use std::borrow::Cow;
-use unicase::UniCase;
-use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 use crate::Result;
+
+static NFKD: DecomposingNormalizerBorrowed = DecomposingNormalizerBorrowed::new_nfkd();
+static GENERAL_CATEGORY: CodePointMapDataBorrowed<'static, GeneralCategory> =
+    icu_properties::CodePointMapData::<GeneralCategory>::new();
+static CASE_MAPPER: CaseMapperBorrowed = CaseMapperBorrowed::new();
+
+fn is_combining_mark(c: char) -> bool {
+    GeneralCategoryGroup::Mark.contains(GENERAL_CATEGORY.get(c))
+}
 
 /// Given a list of keywords for a suggestion, returns a phrase that best
 /// completes the user's query. This function uses two heuristics to pick the
@@ -253,8 +265,12 @@ pub fn split_keyword(keyword: &str) -> (&str, &str) {
 /// Compares two strings ignoring case, Unicode combining marks, and some
 /// punctuation. Intended to be used as a Sqlite collating sequence for
 /// comparing natural language strings like keywords and geoname names.
+///
+/// XXX: Should really be using `icu_collator` for collation!
 pub fn i18n_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    UniCase::new(i18n_transform(a)).cmp(&UniCase::new(i18n_transform(b)))
+    CASE_MAPPER
+        .fold_string(&i18n_transform(a))
+        .cmp(&CASE_MAPPER.fold_string(&i18n_transform(b)))
 }
 
 /// Performs the following transforms on the given string:
@@ -288,14 +304,17 @@ pub fn i18n_transform(s: &str) -> Cow<'_, str> {
         };
     }
 
-    let borrowable = !s
-        .nfkd()
+    let borrowable = !NFKD
+        .normalize_iter(s.chars())
         .any(|c| is_combining_mark(c) || matches!(c, pattern_all!()));
 
     if borrowable {
+        // XXX: This borrows the non-NFKD form, which sure looks like a bug,
+        // since NFKD can introduce changes that aren't caught by the check
+        // inside `any()` above.
         Cow::from(s)
     } else {
-        s.nfkd()
+        NFKD.normalize_iter(s.chars())
             .filter_map(|c| {
                 if is_combining_mark(c) {
                     // Remove Unicode combining marks:
