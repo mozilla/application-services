@@ -42,7 +42,6 @@ pub fn prepare_for_upload(record: &mut TabsRecord) {
                     sanitized_history.push(url);
                 }
             }
-
             tab.url_history = sanitized_history;
             // Potentially truncate the title to some limit
             tab.title = slice_up_to(tab.title, MAX_TITLE_CHAR_LENGTH);
@@ -51,7 +50,14 @@ pub fn prepare_for_upload(record: &mut TabsRecord) {
         .collect::<Vec<_>>();
     // Sort the tabs so when we trim tabs it's the oldest tabs
     sanitized_tabs.sort_by(|a, b| b.last_used.cmp(&a.last_used));
-    trim_tabs_length(&mut sanitized_tabs, MAX_PAYLOAD_SIZE);
+    // deduct tab group and window info from the total.
+    let used = payload_support::compute_serialized_size(&record.windows)
+        .unwrap_or_default()
+        .saturating_add(
+            payload_support::compute_serialized_size(&record.tab_groups).unwrap_or_default(),
+        );
+    let size = MAX_PAYLOAD_SIZE.saturating_sub(used);
+    trim_tabs_length(&mut sanitized_tabs, size);
     record.tabs = sanitized_tabs;
     info!("prepare_for_upload found {} tabs", record.tabs.len());
 }
@@ -123,6 +129,7 @@ mod tests {
                 url_history: vec!["https://foo.bar".to_owned()],
                 ..Default::default()
             }],
+            ..Default::default()
         };
         prepare_for_upload(&mut record);
 
@@ -160,6 +167,7 @@ mod tests {
                     ..Default::default()
                 },
             ],
+            ..Default::default()
         };
         prepare_for_upload(&mut record);
         // check we truncated correctly.
@@ -202,7 +210,7 @@ mod tests {
         let mut record = TabsRecord {
             id: "me".to_string(),
             client_name: "name".to_string(),
-            tabs: Vec::new(),
+            ..Default::default()
         };
 
         // Given the example, we know that we can fit 440 tabs of this size.
@@ -260,6 +268,7 @@ mod tests {
                     ..Default::default()
                 },
             ],
+            ..Default::default()
         };
 
         prepare_for_upload(&mut record);

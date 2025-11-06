@@ -65,6 +65,8 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
             device_type: c0.device.device_type,
             remote_tabs: vec![t0],
             last_modified: 0,
+            tab_groups: HashMap::new(),
+            windows: HashMap::new(),
         },
     );
 
@@ -94,6 +96,8 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
             device_type: c1.device.device_type,
             remote_tabs: vec![t1, t2],
             last_modified: 0,
+            tab_groups: HashMap::new(),
+            windows: HashMap::new(),
         },
     );
 }

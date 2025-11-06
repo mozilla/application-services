@@ -37,6 +37,15 @@ pub struct RemoteTabRecord {
     pub last_used: i64, // In ms.
     #[uniffi(default = false)]
     pub inactive: bool,
+    #[uniffi(default = false)]
+    pub pinned: bool,
+    /// The index within the window_id.
+    #[uniffi(default = 0)]
+    pub index: u32,
+    #[uniffi(default = "")]
+    pub window_id: String,
+    #[uniffi(default = "")]
+    pub tab_group_id: String,
 }
 pub type RemoteTab = RemoteTabRecord;
 
@@ -49,6 +58,54 @@ pub struct ClientRemoteTabs {
     /// Number of ms since the unix epoch (as reported by the server's clock)
     pub last_modified: i64,
     pub remote_tabs: Vec<RemoteTab>,
+    pub tab_groups: HashMap<String, TabGroup>,
+    pub windows: HashMap<String, Window>,
+}
+
+#[derive(uniffi::Enum, Clone, Debug, Default)]
+#[repr(u8)]
+pub enum WindowType {
+    #[default]
+    Normal = 0,
+}
+
+impl From<u8> for WindowType {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => WindowType::Normal,
+            _ => {
+                warn!("Unknown window type {}, defaulting to Normal", value);
+                WindowType::Normal
+            }
+        }
+    }
+}
+
+#[derive(uniffi::Record, Debug, Clone)]
+#[cfg_attr(test, derive(Default))]
+pub struct Window {
+    pub id: String,
+    pub last_used: Timestamp,
+    pub index: u32,
+    pub window_type: WindowType,
+}
+
+/// A tab-group, representing a session store `TabGroupStateData`.
+#[derive(uniffi::Record, Debug, Clone)]
+#[cfg_attr(test, derive(Default))]
+pub struct TabGroup {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub collapsed: bool,
+}
+
+// This is what we expect clients to supply as their own tabs.
+#[derive(uniffi::Record, Debug, Clone, Default)]
+pub struct LocalTabsInfo {
+    pub tabs: Vec<RemoteTab>,
+    pub tab_groups: HashMap<String, TabGroup>,
+    pub windows: HashMap<String, Window>,
 }
 
 pub(crate) enum DbConnection {
@@ -70,7 +127,7 @@ pub(crate) enum DbConnection {
 // (Note however we don't attempt to remove the database when no remote tabs exist, so having
 // no remote tabs in an existing DB is also a normal situation)
 pub struct TabsStorage {
-    pub(crate) local_tabs: RefCell<Option<Vec<RemoteTab>>>,
+    pub(crate) local_tabs: RefCell<Option<LocalTabsInfo>>,
     db_path: PathBuf,
     db_connection: DbConnection,
 }
@@ -159,8 +216,8 @@ impl TabsStorage {
         }
     }
 
-    pub fn update_local_state(&mut self, local_state: Vec<RemoteTab>) {
-        let num_tabs = local_state.len();
+    pub fn update_local_state(&mut self, local_state: LocalTabsInfo) {
+        let num_tabs = local_state.tabs.len();
         self.local_tabs.borrow_mut().replace(local_state);
         info!("update_local_state has {num_tabs} tab entries");
     }
@@ -761,14 +818,7 @@ mod tests {
                 guid: "device-1".to_string(),
                 record: TabsRecord {
                     id: "device-1".to_string(),
-                    client_name: "Device #1".to_string(),
-                    tabs: vec![TabsRecordTab {
-                        title: "the title".to_string(),
-                        url_history: vec!["https://mozilla.org/".to_string()],
-                        icon: Some("https://mozilla.org/icon".to_string()),
-                        last_used: 1643764207000,
-                        ..Default::default()
-                    }],
+                    ..Default::default()
                 },
                 last_modified: 1643764207000,
             },
@@ -777,13 +827,7 @@ mod tests {
                 record: TabsRecord {
                     id: "device-outdated".to_string(),
                     client_name: "Device outdated".to_string(),
-                    tabs: vec![TabsRecordTab {
-                        title: "the title".to_string(),
-                        url_history: vec!["https://mozilla.org/".to_string()],
-                        icon: Some("https://mozilla.org/icon".to_string()),
-                        last_used: 1643764207000,
-                        ..Default::default()
-                    }],
+                    ..Default::default()
                 },
                 last_modified: 1443764207000, // old
             },
@@ -918,6 +962,7 @@ mod tests {
                         last_used: 1711929600015, // 4/1/2024
                         ..Default::default()
                     }],
+                    ..Default::default()
                 },
                 last_modified: 1711929600015, // 4/1/2024
             },
@@ -952,6 +997,7 @@ mod tests {
                             ..Default::default()
                         },
                     ],
+                    ..Default::default()
                 },
                 last_modified: 1711929600015, // 4/1/2024
             },
@@ -1100,11 +1146,11 @@ mod tests {
         let new_records = vec![(
             TabsRecord {
                 id: "device-not-synced".to_string(),
-                client_name: "".to_string(),
                 tabs: vec![TabsRecordTab {
                     url_history: vec!["https://example2.com".to_string()],
                     ..Default::default()
                 }],
+                ..Default::default()
             },
             ServerTimestamp::from_millis(now.as_millis_i64()),
         )];
@@ -1175,7 +1221,6 @@ mod tests {
         let new_records = vec![(
             TabsRecord {
                 id: "device-recent".to_string(),
-                client_name: "".to_string(),
                 tabs: vec![
                     TabsRecordTab {
                         url_history: vec!["https://example99.com".to_string()],
@@ -1186,6 +1231,7 @@ mod tests {
                         ..Default::default()
                     },
                 ],
+                ..Default::default()
             },
             ServerTimestamp::default(),
         )];
@@ -1331,11 +1377,11 @@ mod tests {
         let new_records = vec![(
             TabsRecord {
                 id: "device-1".to_string(),
-                client_name: "".to_string(),
                 tabs: vec![TabsRecordTab {
                     url_history: vec!["https://example1.com".to_string()],
                     ..Default::default()
                 }],
+                ..Default::default()
             },
             ServerTimestamp::default(),
         )];
