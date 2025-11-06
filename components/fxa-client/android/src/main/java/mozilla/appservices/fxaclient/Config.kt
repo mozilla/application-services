@@ -7,10 +7,9 @@ package mozilla.appservices.fxaclient
 fun FxaServer.isCustom() = this is FxaServer.Custom
 
 fun FxaServer.contentUrl() = when (this) {
-    is FxaServer.Release -> "https://accounts.firefox.com"
+    is FxaServer.Release, FxaServer.China -> "https://accounts.firefox.com"
     is FxaServer.Stable -> "https://stable.dev.lcip.org"
     is FxaServer.Stage -> "https://accounts.stage.mozaws.net"
-    is FxaServer.China -> "https://accounts.firefox.com.cn"
     is FxaServer.LocalDev -> "http://127.0.0.1:3030"
     is FxaServer.Custom -> this.url
 }
