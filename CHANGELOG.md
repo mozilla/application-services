@@ -2,6 +2,17 @@
 
 [Full Changelog](In progress)
 
+### `rc_crypto`
+- Thread-safety improvements for PKCS-token-dependent methods by introducing a
+  global mutex. Refactored key unpacking logic and removed redundant code;
+  includes some breaking API changes, but since the keydb feature is not yet in
+  use, these do not affect existing consumers.
+  - `get_aes256_key` now returns a `Result<Option<Key>>` to distinguish missing
+    keys from errors
+  - `get_or_create_aes256_key` only creates a key when none exists.
+  - When the keydb feature is enabled, `ensure_nss_initialized` is disabled in
+    favor of `ensure_nss_initialized_with_profile_dir`.
+
 # v146.0 (_2025-11-10_)
 
 ## ✨ What's New ✨

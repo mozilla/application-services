@@ -239,21 +239,15 @@ pub(crate) unsafe fn sec_item_as_slice(sec_item: &mut SECItem) -> Result<&mut [u
     Ok(buf)
 }
 
+#[cfg(not(feature = "keydb"))]
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use std::thread;
 
     #[test]
     fn test_assert_initialized() {
         ensure_nss_initialized();
-        assert_nss_initialized();
-    }
-
-    #[cfg(feature = "keydb")]
-    #[test]
-    fn test_assert_initialized_with_profile_dir() {
-        ensure_nss_initialized_with_profile_dir("./");
         assert_nss_initialized();
     }
 
@@ -267,12 +261,28 @@ mod test {
             handle.join().unwrap();
         }
     }
+}
 
-    #[cfg(feature = "keydb")]
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod tests_keydb {
+    use super::*;
+    use std::thread;
+
+    fn profile_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+    }
+
+    #[test]
+    fn test_assert_initialized_with_profile_dir() {
+        ensure_nss_initialized_with_profile_dir(profile_path());
+        assert_nss_initialized();
+    }
+
     #[test]
     fn test_ensure_initialized_with_profile_dir_multithread() {
         let threads: Vec<_> = (0..2)
-            .map(|_| thread::spawn(move || ensure_nss_initialized_with_profile_dir("./")))
+            .map(|_| thread::spawn(move || ensure_nss_initialized_with_profile_dir(profile_path())))
             .collect();
 
         for handle in threads {
