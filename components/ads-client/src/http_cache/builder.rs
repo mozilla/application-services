@@ -7,6 +7,7 @@ use crate::http_cache::HttpCache;
 use super::bytesize::ByteSize;
 use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
+use rusqlite::Connection;
 use sql_support::open_database;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -57,6 +58,15 @@ impl HttpCacheBuilder {
         }
     }
 
+    #[cfg(test)]
+    pub fn new_for_tests(db_path: impl Into<PathBuf>) -> Self {
+        Self {
+            db_path: db_path.into(),
+            max_size: None,
+            default_ttl: None,
+        }
+    }
+
     pub fn max_size(mut self, max_size: ByteSize) -> Self {
         self.max_size = Some(max_size);
         self
@@ -95,18 +105,38 @@ impl HttpCacheBuilder {
         Ok(())
     }
 
-    pub fn build(self) -> Result<HttpCache, Error> {
-        self.validate()?;
-
+    fn open_connection(&self) -> Result<Connection, Error> {
         let initializer = HttpCacheConnectionInitializer {};
         let conn = if cfg!(test) {
             open_database::open_memory_database(&initializer)?
         } else {
             open_database::open_database(&self.db_path, &initializer)?
         };
+        Ok(conn)
+    }
 
+    pub fn build(&self) -> Result<HttpCache, Error> {
+        self.validate()?;
+
+        let conn = self.open_connection()?;
         let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
         let store = HttpCacheStore::new(conn);
+        let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
+
+        Ok(HttpCache {
+            max_size,
+            store,
+            default_ttl,
+        })
+    }
+
+    #[cfg(test)]
+    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, Error> {
+        self.validate()?;
+
+        let conn = self.open_connection()?;
+        let max_size = self.max_size.unwrap_or(DEFAULT_MAX_SIZE);
+        let store = HttpCacheStore::new_with_test_clock(conn);
         let default_ttl = self.default_ttl.unwrap_or(DEFAULT_TTL);
 
         Ok(HttpCache {

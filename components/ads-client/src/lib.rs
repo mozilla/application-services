@@ -24,7 +24,7 @@ use crate::client::config::MozAdsClientConfig;
 
 mod client;
 mod error;
-mod http_cache;
+pub mod http_cache;
 mod instrument;
 mod mars;
 
