@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use url::Url;
 
+use tracing::error;
+
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdResponse {
     #[serde(deserialize_with = "AdResponse::deserialize_ad_response", flatten)]
@@ -33,12 +35,7 @@ impl AdResponse {
                     if let Ok(ad) = serde_json::from_value::<MozAd>(item) {
                         ads.push(ad);
                     } else {
-                        #[cfg(not(test))]
-                        {
-                            use crate::instrument::{emit_telemetry_event, TelemetryEvent};
-                            // TODO: improve the telemetry event (should we include the invalid URL?)
-                            let _ = emit_telemetry_event(Some(TelemetryEvent::InvalidUrlError));
-                        }
+                        error!(target: "ads_client::telemetry", "InvalidUrlError");
                     }
                 }
                 if !ads.is_empty() {

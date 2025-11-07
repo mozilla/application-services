@@ -33,6 +33,8 @@ dependencies = [
  "serde_json",
  "sql-support",
  "thiserror 2.0.3",
+ "tracing",
+ "tracing-subscriber",
  "uniffi",
  "url",
  "uuid",
@@ -3800,6 +3802,7 @@ dependencies = [
 name = "rust-log-forwarder"
 version = "0.1.0"
 dependencies = [
+ "ads-client",
  "error-support",
  "tracing",
  "tracing-subscriber",

@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use error_support::{error, ErrorHandling, GetErrorHandling};
+use error_support::{ErrorHandling, GetErrorHandling};
 use viaduct::Response;
 
 pub type AdsClientApiResult<T> = std::result::Result<T, AdsClientApiError>;
@@ -79,21 +79,6 @@ pub enum BuildPlacementsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum FetchAdsError {
-    #[error("URL parse error: {0}")]
-    UrlParse(#[from] url::ParseError),
-
-    #[error("Error sending request: {0}")]
-    Request(#[from] viaduct::ViaductError),
-
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    #[error("Could not fetch ads, MARS responded with: {0}")]
-    HTTPError(#[from] HTTPError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum EmitTelemetryError {
     #[error("URL parse error: {0}")]
     UrlParse(#[from] url::ParseError),
 
