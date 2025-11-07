@@ -8,28 +8,32 @@ use std::collections::HashMap;
 use url::Url;
 
 use crate::{
+    client::{
+        ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
+        ad_response::{AdCallbacks, AdResponse, MozAd},
+    },
     http_cache::HttpCache,
     mars::DefaultMARSClient,
-    models::{AdCallbacks, AdPlacementRequest, AdRequest, AdResponse, IABContentTaxonomy, MozAd},
-    IABContent, MozAdsPlacementRequest,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
-pub fn make_happy_placement_requests() -> Vec<MozAdsPlacementRequest> {
+pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
     vec![
-        MozAdsPlacementRequest {
-            placement_id: "example_placement_1".to_string(),
-            iab_content: Some(IABContent {
+        AdPlacementRequest {
+            placement: "example_placement_1".to_string(),
+            count: 1,
+            content: Some(AdContentCategory {
                 taxonomy: IABContentTaxonomy::IAB2_1,
-                category_ids: vec!["entertainment".to_string()],
+                categories: vec!["entertainment".to_string()],
             }),
         },
-        MozAdsPlacementRequest {
-            placement_id: "example_placement_2".to_string(),
-            iab_content: Some(IABContent {
-                taxonomy: IABContentTaxonomy::IAB3_0,
-                category_ids: vec![],
+        AdPlacementRequest {
+            placement: "example_placement_2".to_string(),
+            count: 1,
+            content: Some(AdContentCategory {
+                taxonomy: IABContentTaxonomy::IAB2_1,
+                categories: vec!["entertainment".to_string()],
             }),
         },
     ]

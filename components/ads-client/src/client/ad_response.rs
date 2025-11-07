@@ -3,74 +3,80 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-
-use serde::{Deserialize, Deserializer, Serialize};
+use crate::client::ad_request::AdRequest;
+use crate::error::BuildPlacementsError;
+use serde::Deserializer;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use url::Url;
 
-use crate::instrument::{emit_telemetry_event, TelemetryEvent};
-
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct AdPlacementRequest {
-    pub placement: String,
-    pub count: u32,
-    pub content: Option<AdContentCategory>,
+pub struct AdResponse {
+    #[serde(deserialize_with = "AdResponse::deserialize_ad_response", flatten)]
+    pub data: HashMap<String, Vec<MozAd>>,
 }
 
-#[derive(Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
-pub enum IABAdUnitFormat {
-    Billboard,
-    SmartphoneBanner300,
-    SmartphoneBanner320,
-    Leaderboard,
-    SuperLeaderboardPushdown,
-    Portrait,
-    Skyscraper,
-    MediumRectangle,
-    TwentyBySixty,
-    MobilePhoneInterstitial640,
-    MobilePhoneInterstitial750,
-    MobilePhoneInterstitial1080,
-    FeaturePhoneSmallBanner,
-    FeaturePhoneMediumBanner,
-    FeaturePhoneLargeBanner,
-}
+impl AdResponse {
+    fn deserialize_ad_response<'de, D>(
+        deserializer: D,
+    ) -> Result<HashMap<String, Vec<MozAd>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = HashMap::<String, serde_json::Value>::deserialize(deserializer)?;
+        let mut result = HashMap::new();
 
-#[derive(Clone, Copy, Debug, Deserialize, uniffi::Enum, PartialEq, Serialize)]
-pub enum IABContentTaxonomy {
-    #[serde(rename = "IAB-1.0")]
-    IAB1_0,
+        for (key, value) in raw {
+            if let serde_json::Value::Array(arr) = value {
+                let mut ads: Vec<MozAd> = vec![];
+                for item in arr {
+                    if let Ok(ad) = serde_json::from_value::<MozAd>(item) {
+                        ads.push(ad);
+                    } else {
+                        #[cfg(not(test))]
+                        {
+                            use crate::instrument::{emit_telemetry_event, TelemetryEvent};
+                            // TODO: improve the telemetry event (should we include the invalid URL?)
+                            let _ = emit_telemetry_event(Some(TelemetryEvent::InvalidUrlError));
+                        }
+                    }
+                }
+                if !ads.is_empty() {
+                    result.insert(key, ads);
+                }
+            }
+        }
 
-    #[serde(rename = "IAB-2.0")]
-    IAB2_0,
+        Ok(result)
+    }
 
-    #[serde(rename = "IAB-2.1")]
-    IAB2_1,
+    pub fn build_placements(
+        mut self,
+        ad_request: &AdRequest,
+    ) -> Result<HashMap<String, Vec<MozAd>>, BuildPlacementsError> {
+        let mut moz_ad_placements: HashMap<String, Vec<MozAd>> = HashMap::new();
+        let mut seen_placements: HashSet<String> = HashSet::new();
 
-    #[serde(rename = "IAB-2.2")]
-    IAB2_2,
+        for placement_request in &ad_request.placements {
+            if seen_placements.contains(&placement_request.placement) {
+                return Err(BuildPlacementsError::DuplicatePlacementId {
+                    placement_id: placement_request.placement.clone(),
+                });
+            }
+            seen_placements.insert(placement_request.placement.clone());
 
-    #[serde(rename = "IAB-3.0")]
-    IAB3_0,
-}
+            let placement_content = self.data.remove(&placement_request.placement);
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct AdContentCategory {
-    pub taxonomy: IABContentTaxonomy,
-    pub categories: Vec<String>,
-}
+            if let Some(v) = placement_content {
+                if v.is_empty() {
+                    continue;
+                }
+                moz_ad_placements.insert(placement_request.placement.clone(), v);
+            }
+        }
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct AdRequest {
-    pub context_id: String,
-    pub placements: Vec<AdPlacementRequest>,
-}
-
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct AdCallbacks {
-    pub click: Url,
-    pub impression: Url,
-    pub report: Option<Url>,
+        Ok(moz_ad_placements)
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
@@ -84,90 +90,24 @@ pub struct MozAd {
 }
 
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct AdResponse {
-    #[serde(deserialize_with = "deserialize_ad_response", flatten)]
-    pub data: HashMap<String, Vec<MozAd>>,
-}
-
-fn deserialize_ad_response<'de, D>(deserializer: D) -> Result<HashMap<String, Vec<MozAd>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let raw = HashMap::<String, serde_json::Value>::deserialize(deserializer)?;
-    let mut result = HashMap::new();
-
-    for (key, value) in raw {
-        if let serde_json::Value::Array(arr) = value {
-            let ads: Vec<MozAd> = arr
-                .into_iter()
-                .filter_map(|item| match serde_json::from_value::<MozAd>(item) {
-                    Ok(ad) => Some(ad),
-                    Err(_) => {
-                        // TODO: improve the telemetry event (should we include the invalid URL?)
-                        let _ = emit_telemetry_event(Some(TelemetryEvent::InvalidUrlError));
-                        None
-                    }
-                })
-                .collect();
-            if !ads.is_empty() {
-                result.insert(key, ads);
-            }
-        }
-    }
-
-    Ok(result)
+pub struct AdCallbacks {
+    pub click: Url,
+    pub impression: Url,
+    pub report: Option<Url>,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
+        test_utils::{
+            get_example_happy_ad_response, get_example_happy_placements,
+            make_happy_placement_requests, TEST_CONTEXT_ID,
+        },
+    };
+
     use super::*;
-    use serde_json::{from_str, json, to_value};
-
-    #[test]
-    fn test_ad_placement_request_with_content_serialize() {
-        let request = AdPlacementRequest {
-            placement: "example_placement".into(),
-            count: 1,
-            content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
-                categories: vec!["Technology".into(), "Programming".into()],
-            }),
-        };
-
-        let serialized = to_value(&request).unwrap();
-
-        let expected_json = json!({
-            "placement": "example_placement",
-            "count": 1,
-            "content": {
-                "taxonomy": "IAB-2.1",
-                "categories": ["Technology", "Programming"]
-            }
-        });
-
-        assert_eq!(serialized, expected_json);
-    }
-
-    #[test]
-    fn test_iab_content_taxonomy_serialize() {
-        use serde_json::to_string;
-
-        // We expect that enums map to strings like "IAB-2.2"
-        let s = to_string(&IABContentTaxonomy::IAB1_0).unwrap();
-        assert_eq!(s, "\"IAB-1.0\"");
-
-        let s = to_string(&IABContentTaxonomy::IAB2_0).unwrap();
-        assert_eq!(s, "\"IAB-2.0\"");
-
-        let s = to_string(&IABContentTaxonomy::IAB2_1).unwrap();
-        assert_eq!(s, "\"IAB-2.1\"");
-
-        let s = to_string(&IABContentTaxonomy::IAB2_2).unwrap();
-        assert_eq!(s, "\"IAB-2.2\"");
-
-        let s = to_string(&IABContentTaxonomy::IAB3_0).unwrap();
-        assert_eq!(s, "\"IAB-3.0\"");
-    }
+    use serde_json::{from_str, json};
 
     #[test]
     fn test_moz_ad_full() {
@@ -351,5 +291,78 @@ mod tests {
         };
 
         assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_build_placements_happy() {
+        let ad_request =
+            AdRequest::build(TEST_CONTEXT_ID.to_string(), make_happy_placement_requests()).unwrap();
+
+        let placements = get_example_happy_ad_response()
+            .build_placements(&ad_request)
+            .unwrap();
+
+        assert_eq!(placements, get_example_happy_placements());
+    }
+
+    #[test]
+    fn test_build_placements_fails_with_duplicate_placement() {
+        let mut api_resp = get_example_happy_ad_response();
+
+        // Adding an extra placement in response for the duplicate placement id
+        api_resp
+            .data
+            .get_mut("example_placement_2")
+            .unwrap()
+            .push(MozAd {
+                url: "https://ads.fakeexample.org/example_ad_2_2".to_string(),
+                image_url: "https://ads.fakeexample.org/example_image_2_2".to_string(),
+                format: "skyscraper".to_string(),
+                block_key: "abc123".into(),
+                alt_text: Some("An ad for a pet dragon".to_string()),
+                callbacks: AdCallbacks {
+                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_2_2").unwrap(),
+                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_2_2")
+                        .unwrap(),
+                    report: Some(
+                        Url::parse("https://ads.fakeexample.org/report/example_ad_2_2").unwrap(),
+                    ),
+                },
+            });
+
+        // Manually construct an AdRequest with a duplicate placement id to trigger the error
+        let ad_request = AdRequest {
+            context_id: "mock-context-id".to_string(),
+            placements: vec![
+                AdPlacementRequest {
+                    placement: "example_placement_1".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec!["entertainment".to_string()],
+                    }),
+                    count: 1,
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB3_0,
+                        categories: vec![],
+                    }),
+                    count: 1,
+                },
+                AdPlacementRequest {
+                    placement: "example_placement_2".to_string(),
+                    content: Some(AdContentCategory {
+                        taxonomy: IABContentTaxonomy::IAB2_1,
+                        categories: vec![],
+                    }),
+                    count: 1,
+                },
+            ],
+        };
+
+        let placements = api_resp.build_placements(&ad_request);
+
+        assert!(placements.is_err());
     }
 }
