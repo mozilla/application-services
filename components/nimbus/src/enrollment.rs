@@ -171,6 +171,7 @@ impl ExperimentEnrollment {
         } else {
             let enrollment =
                 evaluate_enrollment(available_randomization_units, experiment, targeting_helper)?;
+            debug!("Evaluating targeting string: {:?}", experiment.targeting);
             debug!(
                 "Experiment '{}' is new - enrollment status is {:?}",
                 &enrollment.slug, &enrollment
