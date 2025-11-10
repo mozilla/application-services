@@ -3,24 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use error_support::{error, ErrorHandling, GetErrorHandling};
+use error_support::error;
 use viaduct::Response;
-
-pub type AdsClientApiResult<T> = std::result::Result<T, AdsClientApiError>;
-
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum AdsClientApiError {
-    #[error("Something unexpected occurred.")]
-    Other { reason: String },
-}
-
-impl From<context_id::ApiError> for AdsClientApiError {
-    fn from(err: context_id::ApiError) -> Self {
-        AdsClientApiError::Other {
-            reason: err.to_string(),
-        }
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
@@ -35,16 +19,6 @@ pub enum ComponentError {
 
     #[error("Error reporting an ad: {0}")]
     ReportAd(#[from] ReportAdError),
-}
-
-impl GetErrorHandling for ComponentError {
-    type ExternalError = AdsClientApiError;
-
-    fn get_error_handling(&self) -> ErrorHandling<Self::ExternalError> {
-        ErrorHandling::convert(AdsClientApiError::Other {
-            reason: self.to_string(),
-        })
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

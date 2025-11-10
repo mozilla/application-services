@@ -21,13 +21,13 @@ use std::time::Duration;
 
 pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
 
-#[derive(Clone, Copy, Debug, Default, uniffi::Record)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RequestCachePolicy {
     pub mode: CacheMode,
     pub ttl_seconds: Option<u64>, // optional client-defined ttl override
 }
 
-#[derive(Clone, Copy, Debug, Default, uniffi::Enum)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum CacheMode {
     #[default]
     CacheFirst,

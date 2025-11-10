@@ -6,13 +6,12 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::config::MozAdsClientConfig;
+use crate::client::ad_response::Ad;
+use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
-use crate::http_cache::HttpCache;
+use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::{DefaultMARSClient, MARSClient};
-use crate::MozAdsRequestOptions;
 use ad_request::{AdPlacementRequest, AdRequest};
-use ad_response::MozAd;
 use uuid::Uuid;
 
 use crate::error::CallbackRequestError;
@@ -25,12 +24,12 @@ pub mod config;
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
-pub struct MozAdsClientInner {
+pub struct AdsClient {
     client: Box<dyn MARSClient>,
 }
 
-impl MozAdsClientInner {
-    pub fn new(client_config: Option<MozAdsClientConfig>) -> Self {
+impl AdsClient {
+    pub fn new(client_config: Option<AdsClientConfig>) -> Self {
         let context_id = Uuid::new_v4().to_string();
 
         let client_config = client_config.unwrap_or_default();
@@ -71,26 +70,25 @@ impl MozAdsClientInner {
     pub fn request_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
-        options: Option<MozAdsRequestOptions>,
-    ) -> Result<HashMap<String, Vec<MozAd>>, RequestAdsError> {
+        options: Option<RequestCachePolicy>,
+    ) -> Result<HashMap<String, Vec<Ad>>, RequestAdsError> {
         let ad_request = AdRequest::build(self.client.get_context_id()?, ad_placement_requests)?;
-        let options = options.unwrap_or_default();
-        let cache_policy = options.cache_policy.unwrap_or_default();
+        let cache_policy = options.unwrap_or_default();
         let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
         let placements = response.build_placements(&ad_request)?;
         Ok(placements)
     }
 
-    pub fn record_impression(&self, placement: &MozAd) -> Result<(), RecordImpressionError> {
+    pub fn record_impression(&self, placement: &Ad) -> Result<(), RecordImpressionError> {
         self.client
             .record_impression(placement.callbacks.impression.clone())
     }
 
-    pub fn record_click(&self, placement: &MozAd) -> Result<(), RecordClickError> {
+    pub fn record_click(&self, placement: &Ad) -> Result<(), RecordClickError> {
         self.client.record_click(placement.callbacks.click.clone())
     }
 
-    pub fn report_ad(&self, placement: &MozAd) -> Result<(), ReportAdError> {
+    pub fn report_ad(&self, placement: &Ad) -> Result<(), ReportAdError> {
         let report_ad_callback = placement.callbacks.report.clone();
 
         match report_ad_callback {
@@ -141,7 +139,7 @@ mod tests {
         mock.expect_get_mars_endpoint()
             .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
 
-        let component = MozAdsClientInner {
+        let component = AdsClient {
             client: Box::new(mock),
         };
 
@@ -163,7 +161,7 @@ mod tests {
         mock.expect_get_mars_endpoint()
             .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
 
-        let component = MozAdsClientInner {
+        let component = AdsClient {
             client: Box::new(mock),
         };
 
