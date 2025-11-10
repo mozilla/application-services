@@ -10,14 +10,12 @@ mod connection_initializer;
 mod request_hash;
 mod store;
 
-use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCacheStore};
+use std::{cmp, path::Path, time::Duration};
 
 use viaduct::{Request, Response};
 
 pub use self::bytesize::ByteSize;
-use std::cmp;
-use std::path::Path;
-use std::time::Duration;
+use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCacheStore};
 
 pub type HttpCacheSendResult<T> = std::result::Result<T, viaduct::ViaductError>;
 

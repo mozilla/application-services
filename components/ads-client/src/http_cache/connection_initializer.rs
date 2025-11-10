@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::time::Duration;
+
 use rusqlite::Connection;
 use sql_support::open_database;
-use std::time::Duration;
 
 pub struct HttpCacheConnectionInitializer {}
 

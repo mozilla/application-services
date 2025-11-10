@@ -3,12 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::client::ad_request::AdRequest;
-use crate::error::BuildPlacementsError;
-use serde::Deserializer;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
+
+use crate::{client::ad_request::AdRequest, error::BuildPlacementsError};
 
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct AdResponse {
@@ -98,6 +98,9 @@ pub struct AdCallbacks {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::{from_str, json};
+
+    use super::*;
     use crate::{
         client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
         test_utils::{
@@ -105,9 +108,6 @@ mod tests {
             make_happy_placement_requests, TEST_CONTEXT_ID,
         },
     };
-
-    use super::*;
-    use serde_json::{from_str, json};
 
     #[test]
     fn test_moz_ad_full() {

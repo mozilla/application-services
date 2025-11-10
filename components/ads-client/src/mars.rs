@@ -3,9 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use once_cell::sync::Lazy;
+use url::Url;
+use viaduct::Request;
+
 use crate::{
-    client::config::Environment,
-    client::{ad_request::AdRequest, ad_response::AdResponse},
+    client::{ad_request::AdRequest, ad_response::AdResponse, config::Environment},
     error::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
         RecordImpressionError, ReportAdError,
@@ -13,10 +17,6 @@ use crate::{
     http_cache::{CacheOutcome, HttpCache, HttpCacheError},
     RequestCachePolicy,
 };
-use context_id::{ContextIDComponent, DefaultContextIdCallback};
-use once_cell::sync::Lazy;
-use url::Url;
-use viaduct::Request;
 
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
@@ -173,12 +173,13 @@ impl MARSClient for DefaultMARSClient {
 #[cfg(test)]
 mod tests {
 
+    use mockito::mock;
+    use url::Host;
+
     use super::*;
     use crate::test_utils::{
         create_test_client, get_example_happy_ad_response, make_happy_ad_request, TEST_CONTEXT_ID,
     };
-    use mockito::mock;
-    use url::Host;
 
     #[test]
     fn test_get_context_id() {

@@ -2,15 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::http_cache::HttpCache;
+use std::{path::PathBuf, time::Duration};
 
-use super::bytesize::ByteSize;
-use super::connection_initializer::HttpCacheConnectionInitializer;
-use super::store::HttpCacheStore;
 use rusqlite::Connection;
 use sql_support::open_database;
-use std::path::PathBuf;
-use std::time::Duration;
+
+use super::{
+    bytesize::ByteSize, connection_initializer::HttpCacheConnectionInitializer,
+    store::HttpCacheStore,
+};
+use crate::http_cache::HttpCache;
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const DEFAULT_TTL: Duration = Duration::from_secs(300);

@@ -5,22 +5,19 @@
 
 use std::collections::HashMap;
 
-use error::AdsClientApiResult;
-use error::ComponentError;
+use client::MozAdsClientInner;
+use error::{AdsClientApiError, AdsClientApiResult, ComponentError};
 use error_support::handle_error;
+use http_cache::{CacheMode, RequestCachePolicy};
+use instrument::TrackError;
 use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
-use client::MozAdsClientInner;
-use error::AdsClientApiError;
-use http_cache::{CacheMode, RequestCachePolicy};
-use instrument::TrackError;
-
-use crate::client::ad_request::AdContentCategory;
-use crate::client::ad_request::AdPlacementRequest;
-use crate::client::ad_request::IABContentTaxonomy;
-use crate::client::ad_response::MozAd;
-use crate::client::config::MozAdsClientConfig;
+use crate::client::{
+    ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
+    ad_response::MozAd,
+    config::MozAdsClientConfig,
+};
 
 mod client;
 mod error;

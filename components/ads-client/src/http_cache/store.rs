@@ -4,14 +4,15 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use parking_lot::Mutex;
+use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
+use viaduct::{Header, Request, Response};
+
 use crate::http_cache::{
     clock::{CacheClock, Clock},
     request_hash::RequestHash,
     ByteSize,
 };
-use parking_lot::Mutex;
-use rusqlite::{params, Connection, OptionalExtension, Result as SqliteResult};
-use viaduct::{Header, Request, Response};
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -221,11 +222,13 @@ impl HttpCacheStore {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use sql_support::open_database;
+    use viaduct::{header_names, Headers, Method, Response};
+
     use super::*;
     use crate::http_cache::connection_initializer::HttpCacheConnectionInitializer;
-    use sql_support::open_database;
-    use std::time::Duration;
-    use viaduct::{header_names, Headers, Method, Response};
 
     fn fetch_timestamps(store: &HttpCacheStore, req: &Request) -> (i64, i64, i64) {
         let hash = RequestHash::from(req).to_string();

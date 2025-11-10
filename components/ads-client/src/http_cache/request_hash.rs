@@ -2,8 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
+
 use viaduct::Request;
 
 #[derive(Debug)]
@@ -35,8 +38,9 @@ impl std::fmt::Display for RequestHash {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use viaduct::{Headers, Method, Request};
+
+    use super::*;
 
     fn create_test_request(url: &str, body: &[u8]) -> Request {
         Request {

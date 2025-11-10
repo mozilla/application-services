@@ -53,8 +53,9 @@ impl CacheControl {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use viaduct::{Headers, Method};
+
+    use super::*;
 
     fn from_header(header: Option<&str>) -> CacheControl {
         let mut headers = Headers::new();

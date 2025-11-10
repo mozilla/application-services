@@ -178,8 +178,9 @@ pub fn check_http_status_for_error(response: &Response) -> Result<(), HTTPError>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use url::Url;
+
+    use super::*;
 
     fn mock_response(status: u16, body: &str) -> Response {
         Response {

@@ -5,11 +5,12 @@
 
 use std::sync::LazyLock;
 
-use crate::error::{ComponentError, EmitTelemetryError};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use url::Url;
 use viaduct::Request;
+
+use crate::error::{ComponentError, EmitTelemetryError};
 
 static DEFAULT_TELEMETRY_ENDPOINT: &str = "https://ads.mozilla.org/v1/log";
 static TELEMETRY_ENDPONT: LazyLock<RwLock<String>> =

@@ -3,20 +3,22 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
-use crate::client::config::MozAdsClientConfig;
-use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
-use crate::http_cache::HttpCache;
-use crate::mars::{DefaultMARSClient, MARSClient};
-use crate::MozAdsRequestOptions;
 use ad_request::{AdPlacementRequest, AdRequest};
 use ad_response::MozAd;
 use uuid::Uuid;
 
-use crate::error::CallbackRequestError;
-use crate::http_cache::{ByteSize, HttpCacheError};
+use crate::{
+    client::config::MozAdsClientConfig,
+    error::{
+        CallbackRequestError, RecordClickError, RecordImpressionError, ReportAdError,
+        RequestAdsError,
+    },
+    http_cache::{ByteSize, HttpCache, HttpCacheError},
+    mars::{DefaultMARSClient, MARSClient},
+    MozAdsRequestOptions,
+};
 
 pub mod ad_request;
 pub mod ad_response;
@@ -119,6 +121,7 @@ impl MozAdsClientInner {
 mod tests {
     use url::Url;
 
+    use super::*;
     use crate::{
         client::ad_request::{AdContentCategory, IABContentTaxonomy},
         mars::MockMARSClient,
@@ -127,8 +130,6 @@ mod tests {
             make_happy_placement_requests,
         },
     };
-
-    use super::*;
 
     #[test]
     fn test_request_ads_happy() {

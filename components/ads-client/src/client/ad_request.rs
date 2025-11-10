@@ -89,13 +89,13 @@ pub enum IABContentTaxonomy {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::{json, to_value};
+
+    use super::*;
     use crate::test_utils::{
         get_example_happy_ad_response, get_example_happy_placements, make_happy_placement_requests,
         TEST_CONTEXT_ID,
     };
-
-    use super::*;
-    use serde_json::{json, to_value};
 
     #[test]
     fn test_ad_placement_request_with_content_serialize() {
