@@ -1,4 +1,4 @@
-# v146.0 (In progress)
+# v146.0 (_2025-11-10_)
 
 ## ✨ What's New ✨
 
@@ -22,7 +22,7 @@
   should no longer send enrollment requests to Cirrus.
   ([#7030](https://github.com/mozilla/application-services/pull/7030))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v145.0...v146.0)
 
 # v145.0 (_2025-10-13_)
 
