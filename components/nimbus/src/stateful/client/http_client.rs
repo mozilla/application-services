@@ -37,7 +37,7 @@ impl SettingsClient for Arc<RemoteSettingsClient> {
             .collect();
         let wrapped_data = json!({ "data": data_vec });
         let resp = serde_json::to_string(&wrapped_data).map_err(|e| {
-            NimbusError::JSONError("resp = serde_json::to_string".to_owned(), e.to_string())
+            NimbusError::JSONError("SettingsClient::fetch_experiments resp = serde_json::to_string".to_owned(), e.to_string())
         })?;
         parse_experiments(&resp)
     }
