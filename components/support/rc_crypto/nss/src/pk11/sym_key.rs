@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[cfg(feature = "keydb")]
+use crate::pk11::types::Slot;
+#[cfg(feature = "keydb")]
 use crate::util::get_last_error;
 use crate::{
     error::*,
@@ -11,11 +13,17 @@ use crate::{
 };
 #[cfg(feature = "keydb")]
 use std::ffi::{c_char, CString};
+#[cfg(feature = "keydb")]
+use std::sync::{Mutex, OnceLock};
 use std::{
     mem,
     os::raw::{c_uchar, c_uint, c_ulong},
     ptr,
 };
+
+// Serialize global state dependent function calls
+#[cfg(feature = "keydb")]
+static GLOBAL_TOKEN_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 pub fn hkdf_expand(
     digest_alg: &HashAlgorithm,
@@ -99,6 +107,10 @@ pub(crate) fn import_sym_key(
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn authentication_with_primary_password_is_needed() -> Result<bool> {
+    // PK11_IsLoggedIn depends on the token state
+    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap();
+
     let slot = slot::get_internal_key_slot()?;
 
     unsafe {
@@ -113,6 +125,10 @@ pub fn authentication_with_primary_password_is_needed() -> Result<bool> {
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn authenticate_with_primary_password(primary_password: &str) -> Result<bool> {
+    // this needs serializing because PK11_CheckUserPassword first loggs the user out
+    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap();
+
     let slot = slot::get_internal_key_slot()?;
 
     let password_cstr = CString::new(primary_password).map_err(|_| ErrorKind::NulError)?;
@@ -129,9 +145,9 @@ pub fn authenticate_with_primary_password(primary_password: &str) -> Result<bool
 /// Only available with the `keydb` feature.
 #[cfg(feature = "keydb")]
 pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
-    let sym_key = match get_aes256_key(name) {
-        Ok(sym_key) => sym_key,
-        Err(_) => create_aes256_key(name)?,
+    let sym_key = match get_aes256_key(name)? {
+        Some(sym_key) => sym_key,
+        None => create_aes256_key(name)?,
     };
     let mut key_data = unsafe { *nss_sys::PK11_GetKeyData(sym_key.as_mut_ptr()) };
     if key_data.len != nss_sys::AES_256_KEY_LENGTH {
@@ -144,87 +160,93 @@ pub fn get_or_create_aes256_key(name: &str) -> Result<Vec<u8>> {
 }
 
 #[cfg(feature = "keydb")]
-fn get_aes256_key(name: &str) -> Result<SymKey> {
+pub fn get_aes256_key(name: &str) -> Result<Option<SymKey>> {
+    // PK11_ListFixedKeysInSlot depends on the token to be unlocked
+    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap();
+
     let slot = slot::get_internal_key_slot()?;
-    let name = CString::new(name).map_err(|_| ErrorKind::NulError)?;
+    let c_name = CString::new(name).map_err(|_| ErrorKind::NulError)?;
     let sym_key = unsafe {
+        // PK11_ListFixedKeysInSlot returns either a key or null.
         SymKey::from_ptr(nss_sys::PK11_ListFixedKeysInSlot(
             slot.as_mut_ptr(),
-            name.as_ptr() as *mut c_char,
+            c_name.as_ptr() as *mut c_char,
             ptr::null_mut(),
         ))
     };
     match sym_key {
-        Ok(sym_key) => {
-            // See
-            // https://searchfox.org/mozilla-central/source/security/manager/ssl/NSSKeyStore.cpp#163-201
-            // Unfortunately we can't use PK11_ExtractKeyValue(symKey.get()) here because softoken
-            // marks all token objects of type CKO_SECRET_KEY as sensitive. So we have to wrap and
-            // unwrap symKey to obtain a non-sensitive copy of symKey as a session object.
-            let wrapping_key = unsafe {
-                SymKey::from_ptr(nss_sys::PK11_KeyGen(
-                    slot.as_mut_ptr(),
-                    nss_sys::CKM_AES_KEY_GEN,
-                    ptr::null_mut(),
-                    16,
-                    ptr::null_mut(),
-                ))
-                .map_err(|_| get_last_error())?
-            };
-            let mut wrap_len = nss_sys::SECItem {
-                type_: nss_sys::SECItemType::siBuffer as u32,
-                data: ptr::null_mut(),
-                len: 0,
-            };
-            map_nss_secstatus(|| unsafe {
-                nss_sys::PK11_WrapSymKey(
-                    nss_sys::CKM_AES_KEY_WRAP_KWP,
-                    ptr::null_mut(),
-                    wrapping_key.as_mut_ptr(),
-                    sym_key.as_mut_ptr(),
-                    &mut wrap_len,
-                )
-            })
-            .map_err(|_| get_last_error())?;
-            // PK11_UnwrapSymKey takes an int keySize
-            if wrap_len.len > u32::MAX - 8 {
-                return Err(ErrorKind::InvalidKeyLength.into());
-            }
-            // Allocate an extra 8 bytes for CKM_AES_KEY_WRAP_KWP overhead.
-            let mut buf = vec![0; (wrap_len.len + 8).try_into().expect("invalid key length")];
-            let mut wrapped_key = nss_sys::SECItem {
-                type_: nss_sys::SECItemType::siBuffer as u32,
-                data: buf.as_mut_ptr(),
-                len: buf.len() as u32,
-            };
-            map_nss_secstatus(|| unsafe {
-                nss_sys::PK11_WrapSymKey(
-                    nss_sys::CKM_AES_KEY_WRAP_KWP,
-                    ptr::null_mut(),
-                    wrapping_key.as_mut_ptr(),
-                    sym_key.as_mut_ptr(),
-                    &mut wrapped_key,
-                )
-            })
-            .map_err(|_| get_last_error())?;
-            let sym_key = unsafe {
-                SymKey::from_ptr(nss_sys::PK11_UnwrapSymKey(
-                    wrapping_key.as_mut_ptr(),
-                    nss_sys::CKM_AES_KEY_WRAP_KWP,
-                    ptr::null_mut(),
-                    &mut wrapped_key,
-                    nss_sys::CKM_AES_GCM.into(),
-                    (nss_sys::CKA_ENCRYPT | nss_sys::CKA_DECRYPT).into(),
-                    wrap_len.len as i32,
-                ))
-            }
-            .map_err(|_| get_last_error())?;
-
-            map_nss_secstatus(|| unsafe { nss_sys::PK11_ExtractKeyValue(sym_key.as_mut_ptr()) })?;
-            Ok(sym_key)
-        }
-        Err(e) => Err(e),
+        Ok(sym_key) => match extract_aes256_key_value(slot, sym_key) {
+            Ok(key) => Ok(Some(key)),
+            Err(e) => Err(e),
+        },
+        Err(_) => Ok(None),
     }
+}
+
+#[cfg(feature = "keydb")]
+// See
+// https://searchfox.org/mozilla-central/source/security/manager/ssl/NSSKeyStore.cpp#163-201
+//
+// Unfortunately we can't use PK11_ExtractKeyValue(symKey.get()) here because softoken
+// marks all token objects of type CKO_SECRET_KEY as sensitive. So we have to wrap and
+// unwrap symKey to obtain a non-sensitive copy of symKey as a session object.
+fn extract_aes256_key_value(slot: Slot, sym_key: SymKey) -> Result<SymKey> {
+    let wrapping_key = unsafe {
+        SymKey::from_ptr(nss_sys::PK11_KeyGen(
+            slot.as_mut_ptr(),
+            nss_sys::CKM_AES_KEY_GEN,
+            ptr::null_mut(),
+            16,
+            ptr::null_mut(),
+        ))
+        .map_err(|_| get_last_error())?
+    };
+
+    // Allocate an extra 8 bytes for CKM_AES_KEY_WRAP_KWP overhead.
+    let mut buf = vec![
+        0;
+        (nss_sys::AES_256_KEY_LENGTH + 8)
+            .try_into()
+            .expect("invalid key length")
+    ];
+    let mut wrapped_key = nss_sys::SECItem {
+        type_: nss_sys::SECItemType::siBuffer as u32,
+        data: buf.as_mut_ptr(),
+        len: buf.len() as u32,
+    };
+
+    // This operation can fail if the sym_key is corrupt.
+    // If thats the case, the underlying NSC_WrapKey would return a
+    // CKR_KEY_TYPE_INCONSISTENT error, which won't get propagated to us here,
+    // though.
+    map_nss_secstatus(|| unsafe {
+        nss_sys::PK11_WrapSymKey(
+            nss_sys::CKM_AES_KEY_WRAP_KWP,
+            ptr::null_mut(),
+            wrapping_key.as_mut_ptr(),
+            sym_key.as_mut_ptr(),
+            &mut wrapped_key,
+        )
+    })
+    .map_err(|_| get_last_error())?;
+
+    let sym_key = unsafe {
+        SymKey::from_ptr(nss_sys::PK11_UnwrapSymKey(
+            wrapping_key.as_mut_ptr(),
+            nss_sys::CKM_AES_KEY_WRAP_KWP,
+            ptr::null_mut(),
+            &mut wrapped_key,
+            nss_sys::CKM_AES_GCM.into(),
+            (nss_sys::CKA_ENCRYPT | nss_sys::CKA_DECRYPT).into(),
+            nss_sys::AES_256_KEY_LENGTH as i32,
+        ))
+    }
+    .map_err(|_| get_last_error())?;
+
+    map_nss_secstatus(|| unsafe { nss_sys::PK11_ExtractKeyValue(sym_key.as_mut_ptr()) })?;
+
+    Ok(sym_key)
 }
 
 #[cfg(feature = "keydb")]
@@ -259,6 +281,11 @@ fn import_and_persist_sym_key(
     operation: nss_sys::CK_ATTRIBUTE_TYPE,
     buf: &[u8],
 ) -> Result<SymKey> {
+    // PK11_ImportSymKeyWithFlags depends on the token to be unlocked in order
+    // to encrypt the key
+    let lock = GLOBAL_TOKEN_LOCK.get_or_init(|| Mutex::new(()));
+    let _guard = lock.lock().unwrap();
+
     let mut item = nss_sys::SECItem {
         type_: nss_sys::SECItemType::siBuffer as u32,
         data: buf.as_ptr() as *mut c_uchar,
@@ -276,5 +303,54 @@ fn import_and_persist_sym_key(
             nss_sys::PR_TRUE,
             ptr::null_mut(),
         ))
+    }
+}
+
+#[cfg(feature = "keydb")]
+#[cfg(test)]
+mod keydb_test {
+    use super::*;
+    use crate::ensure_initialized_with_profile_dir;
+    use std::path::PathBuf;
+    use std::thread;
+
+    fn profile_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+    }
+
+    #[test]
+    fn test_get_aes256_key_not_found() {
+        ensure_initialized_with_profile_dir(profile_path());
+        authenticate_with_primary_password("password").unwrap();
+        let result = get_aes256_key("unknown-key").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_aes256_key() {
+        ensure_initialized_with_profile_dir(profile_path());
+        authenticate_with_primary_password("password").unwrap();
+        let result = get_aes256_key("as-logins-key").unwrap();
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_get_aes256_key_parallel() {
+        ensure_initialized_with_profile_dir(profile_path());
+
+        let threads: Vec<_> = (0..100)
+            .map(|_| {
+                thread::spawn(move || {
+                    let authenticated = authenticate_with_primary_password("password").unwrap();
+                    assert!(authenticated);
+                    let result = get_aes256_key("as-logins-key").unwrap();
+                    assert!(result.is_some());
+                })
+            })
+            .collect();
+
+        for handle in threads {
+            handle.join().unwrap();
+        }
     }
 }

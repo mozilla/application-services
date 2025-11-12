@@ -330,7 +330,7 @@ impl LoginStore {
 
 #[cfg(not(feature = "keydb"))]
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCDEC;
     use crate::util;
@@ -549,7 +549,7 @@ fn test_send() {
 
 #[cfg(feature = "keydb")]
 #[cfg(test)]
-mod keydb_test {
+mod tests_keydb {
     use super::*;
     use crate::{ManagedEncryptorDecryptor, NSSKeyManager, PrimaryPasswordAuthenticator};
     use async_trait::async_trait;
@@ -574,12 +574,14 @@ mod keydb_test {
     }
 
     fn profile_path() -> PathBuf {
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/profile")
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../support/rc_crypto/nss/fixtures/profile")
     }
 
     #[test]
     fn decrypting_logins_with_primary_password() {
         ensure_initialized_with_profile_dir(profile_path());
+
         // `password` is the primary password of the profile fixture
         let primary_password_authenticator = MockPrimaryPasswordAuthenticator {
             password: "password".to_string(),
@@ -589,6 +591,7 @@ mod keydb_test {
         let store = LoginStore::new(profile_path().join("logins.db"), Arc::new(encdec))
             .expect("store from fixtures");
         let list = store.list().expect("Grabbing list to work");
+
         assert_eq!(list.len(), 1);
 
         assert_eq!(list[0].origin, "https://www.example.com");
