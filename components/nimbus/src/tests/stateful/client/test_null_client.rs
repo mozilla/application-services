@@ -26,7 +26,6 @@ fn test_null_client() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

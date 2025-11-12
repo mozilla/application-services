@@ -5,25 +5,17 @@
 #[cfg(test)]
 use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
 use crate::{
-    defaults::Defaults,
-    enrollment::{
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result, defaults::Defaults, enrollment::{
         EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
         ExperimentEnrollment,
-    },
-    error::{info, warn, BehaviorError},
-    evaluator::{
-        get_calculated_attributes, is_experiment_available, CalculatedAttributes,
-        ExperimentAvailable, TargetingAttributes,
-    },
-    json::{JsonObject, PrefValue},
-    metrics::{
+    }, error::{BehaviorError, info, warn}, evaluator::{
+        CalculatedAttributes, ExperimentAvailable, TargetingAttributes, get_calculated_attributes, is_experiment_available
+    }, json::{JsonObject, PrefValue}, metrics::{
         EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
         MetricsHandler,
-    },
-    schema::parse_experiments,
-    stateful::{
+    }, schema::parse_experiments, stateful::{
         behavior::EventStore,
-        client::{create_client, SettingsClient},
+        client::{RemoteSettingsInfo, SettingsClient, create_client},
         dbcache::DatabaseCache,
         enrollment::{
             get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
@@ -36,12 +28,9 @@ use crate::{
         },
         matcher::AppContext,
         persistence::{Database, StoreId, Writer},
-        targeting::{validate_event_queries, RecordedContext},
+        targeting::{RecordedContext, validate_event_queries},
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
-    },
-    strings::fmt_with_map,
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
-    ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
+    }, strings::fmt_with_map
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
@@ -109,10 +98,9 @@ impl NimbusClient {
         db_path: P,
         metrics_handler: Box<dyn MetricsHandler>,
         gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
-        remote_settings_service: Option<Arc<RemoteSettingsService>>,
-        collection_name: Option<String>,
+        remote_settings_info: Option<RemoteSettingsInfo>,
     ) -> Result<Self> {
-        let settings_client = Mutex::new(create_client(remote_settings_service, collection_name)?);
+        let settings_client = Mutex::new(create_client(remote_settings_info)?);
 
         let targeting_attributes: TargetingAttributes = app_context.clone().into();
         let mutable_state = Mutex::new(InternalMutableState {
