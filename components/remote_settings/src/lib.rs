@@ -84,6 +84,10 @@ impl RemoteSettingsService {
     pub fn update_config(&self, config: RemoteSettingsConfig2) -> ApiResult<()> {
         self.internal.update_config(config)
     }
+
+    pub fn client_url(&self) -> String {
+        self.internal.client_url().to_string()
+    }
 }
 
 /// Client for a single Remote Settings collection

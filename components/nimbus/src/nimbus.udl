@@ -1,8 +1,11 @@
 [External="remote_settings"]
-typedef record RemoteSettingsConfig;
+typedef interface RemoteSettingsService;
 
 [External="remote_settings"]
 typedef enum RemoteSettingsServer;
+
+[External="remote_settings"]
+typedef record RemoteSettingsRecord;
 
 dictionary CalculatedAttributes {
     i32? days_since_install;
@@ -184,9 +187,10 @@ interface NimbusClient {
         RecordedContext? recorded_context,
         sequence<string> coenrolling_feature_ids,
         string dbpath,
-        RemoteSettingsConfig? remote_settings_config,
         MetricsHandler metrics_handler,
-        GeckoPrefHandler? gecko_pref_handler
+        GeckoPrefHandler? gecko_pref_handler,
+        RemoteSettingsService? remote_settings_service,
+        string? collection_name
     );
 
     /// Initializes the database and caches enough information so that the

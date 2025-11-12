@@ -24,8 +24,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import mozilla.appservices.remotesettings.RemoteSettingsConfig
-import mozilla.appservices.remotesettings.RemoteSettingsServer
+import mozilla.appservices.remotesettings.RemoteSettingsService
 import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
@@ -58,8 +57,8 @@ const val NIMBUS_DATA_DIR: String = "nimbus_data"
  * Client app developers should set up their own Nimbus infrastructure, to avoid different
  * organizations running conflicting experiments or hitting servers with extra network traffic.
  */
-data class NimbusServerSettings(
-    val url: Uri,
+class NimbusServerSettings(
+    val remoteSettingsService: RemoteSettingsService?,
     val collection: String = EXPERIMENT_COLLECTION_NAME,
 )
 
@@ -174,22 +173,18 @@ open class Nimbus(
         // Build Nimbus AppContext object to pass into initialize
         val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
-        // Initialize Nimbus
-        val remoteSettingsConfig = server?.let {
-            RemoteSettingsConfig(
-                server = RemoteSettingsServer.Custom(it.url.toString()),
-                collectionName = it.collection,
-            )
-        }
+        val remoteSettingsService = server?.remoteSettingsService
+        val collectionName = server?.collection
 
         nimbusClient = NimbusClient(
             experimentContext,
             recordedContext,
             coenrollingFeatureIds,
             dataDir.path,
-            remoteSettingsConfig,
             metricsHandler,
             geckoPrefHandler,
+            remoteSettingsService,
+            collectionName,
         )
     }
 
