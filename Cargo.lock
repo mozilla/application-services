@@ -1352,6 +1352,7 @@ dependencies = [
  "clap",
  "error-support",
  "nimbus-sdk",
+ "remote_settings",
  "serde_json",
  "uuid",
  "viaduct-hyper",

@@ -9,3 +9,5 @@ uuid = { version = "1.3", features = ["serde", "v4"]}
 error-support = { path = "../../components/support/error", features = ["testing", "tracing-logging"] }
 viaduct-hyper = { path = "../../components/support/viaduct-hyper" }
 clap = { version = "4.2", default-features = false, features = ["std", "derive"] }
+remote_settings = { path = "../../components/remote_settings" }
+
