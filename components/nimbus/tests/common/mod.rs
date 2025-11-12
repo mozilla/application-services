@@ -79,7 +79,8 @@ fn new_test_client_internal(
         bucket_name: None,
         app_context: Some(rs_ctx),
     };
-    let remote_settings_service = RemoteSettingsService::new("/tmp".to_string(), config);
+    let storage_dir = tmp_dir.path().join("/remote-settings").to_string_lossy().to_string();
+    let remote_settings_service = RemoteSettingsService::new(storage_dir, config);
 
     NimbusClient::new(
         ctx,
