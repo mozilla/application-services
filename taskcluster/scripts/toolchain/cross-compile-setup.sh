@@ -14,6 +14,8 @@ export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_LD_LIBR
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C linker=/builds/worker/clang/bin/clang-19 -C link-arg=-fuse-ld=/builds/worker/cctools/bin/x86_64-apple-darwin-ld -C link-arg=-B -C link-arg=/builds/worker/cctools/bin -C link-arg=-target -C link-arg=x86_64-apple-darwin -C link-arg=-isysroot -C link-arg=/tmp/MacOSX11.0.sdk -C link-arg=-Wl,-syslibroot,/tmp/MacOSX11.0.sdk -C link-arg=-Wl,-dead_strip"
 # For ring's use of `cc`.
 export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /builds/worker/cctools/bin -target x86_64-apple-darwin -isysroot /tmp/MacOSX11.0.sdk -Wl,-syslibroot,/tmp/MacOSX11.0.sdk -Wl,-dead_strip"
+# Pass bindgen a `--sysroot` argument so that it can find the include files when cross-compiling.
+export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_BINDGEN_EXTRA_CLANG_ARGS="--sysroot /tmp/MacOSX11.0.sdk"
 
 # x86_64 Windows
 # The wrong linker gets used otherwise: https://github.com/rust-lang/rust/issues/33465.
