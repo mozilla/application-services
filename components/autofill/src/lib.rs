@@ -15,6 +15,7 @@ pub mod sync;
 pub use crate::db::store::get_registered_sync_engine;
 
 // Expose stuff needed by the uniffi generated code.
+use crate::db::credit_cards::CreditCardsDeletionMetrics;
 use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
 use crate::db::store::Store;
