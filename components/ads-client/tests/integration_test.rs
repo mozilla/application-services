@@ -24,7 +24,7 @@ fn test_mock_pocket_billboard_1_placement() {
         iab_content: None,
     };
 
-    let result = client.request_ads(vec![placement_request], None);
+    let result = client.request_image_ads(vec![placement_request], None);
     println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
@@ -36,40 +36,61 @@ fn test_mock_pocket_billboard_1_placement() {
         "Response should contain placement_id 'mock_pocket_billboard_1'"
     );
 
-    let placement = placements
+    placements
         .get("mock_pocket_billboard_1")
         .expect("Placement should exist");
+}
 
-    assert!(!placement.url.is_empty(), "Ad URL should not be empty");
+#[test]
+#[ignore]
+fn test_newtab_spocs_placement() {
+    viaduct_reqwest::use_reqwest_backend();
+
+    let client = MozAdsClient::new(None);
+
+    let count = 3;
+    let placement_request = MozAdsPlacementRequestWithCount {
+        placement_id: "newtab_spocs".to_string(),
+        count,
+        iab_content: None,
+    };
+
+    let result = client.request_spoc_ads(vec![placement_request], None);
+    println!("result: {:?}", result);
+
+    assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
+
+    let placements = result.unwrap();
+
     assert!(
-        !placement.image_url.is_empty(),
-        "Ad image URL should not be empty"
+        placements.contains_key("newtab_spocs"),
+        "Response should contain placement_id 'newtab_spocs'"
     );
-    assert!(
-        !placement.format.is_empty(),
-        "Ad format should not be empty"
-    );
-    assert!(
-        !placement.block_key.is_empty(),
-        "Ad block_key should not be empty"
+
+    let spocs = placements
+        .get("newtab_spocs")
+        .expect("Placement should exist");
+
+    assert_eq!(
+        spocs.len(),
+        count as usize,
+        "Number of spocs should equal count parameter"
     );
 }
 
 #[test]
 #[ignore]
-fn test_request_ads_multiset_count() {
+fn test_newtab_tile_1_placement() {
     viaduct_reqwest::use_reqwest_backend();
 
     let client = MozAdsClient::new(None);
 
-    let requested_count = 3;
-    let placement_request = MozAdsPlacementRequestWithCount {
-        placement_id: "mock_pocket_billboard_1".to_string(),
-        count: requested_count,
+    let placement_request = MozAdsPlacementRequest {
+        placement_id: "newtab_tile_1".to_string(),
         iab_content: None,
     };
 
-    let result = client.request_ads_multiset(vec![placement_request], None);
+    let result = client.request_ua_tile_ads(vec![placement_request], None);
     println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
@@ -77,49 +98,13 @@ fn test_request_ads_multiset_count() {
     let placements = result.unwrap();
 
     assert!(
-        placements.contains_key("mock_pocket_billboard_1"),
-        "Response should contain placement_id 'mock_pocket_billboard_1'"
+        placements.contains_key("newtab_tile_1"),
+        "Response should contain placement_id 'newtab_tile_1'"
     );
 
-    let ads = placements
-        .get("mock_pocket_billboard_1")
+    placements
+        .get("newtab_tile_1")
         .expect("Placement should exist");
-
-    assert_eq!(
-        ads.len(),
-        requested_count as usize,
-        "Should have {} ads, but got {}",
-        requested_count,
-        ads.len()
-    );
-
-    for (index, ad) in ads.iter().enumerate() {
-        assert!(!ad.url.is_empty(), "Ad {} URL should not be empty", index);
-        assert!(
-            !ad.image_url.is_empty(),
-            "Ad {} image URL should not be empty",
-            index
-        );
-        assert!(
-            !ad.format.is_empty(),
-            "Ad {} format should not be empty",
-            index
-        );
-        assert!(
-            !ad.block_key.is_empty(),
-            "Ad {} block_key should not be empty",
-            index
-        );
-    }
-
-    // Verify callbacks work as intended
-    client
-        .record_impression(ads[0].callbacks.impression.to_string())
-        .unwrap();
-
-    client
-        .record_click(ads[0].callbacks.click.to_string())
-        .unwrap();
 }
 
 #[test]

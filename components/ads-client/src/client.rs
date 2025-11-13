@@ -3,10 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::Ad;
+use crate::client::ad_response::AdResponse;
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
@@ -71,12 +70,11 @@ impl AdsClient {
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<RequestCachePolicy>,
-    ) -> Result<HashMap<String, Vec<Ad>>, RequestAdsError> {
+    ) -> Result<AdResponse, RequestAdsError> {
         let ad_request = AdRequest::build(self.client.get_context_id()?, ad_placement_requests)?;
         let cache_policy = options.unwrap_or_default();
         let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
-        let placements = response.build_placements(&ad_request)?;
-        Ok(placements)
+        Ok(response)
     }
 
     pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
@@ -106,12 +104,8 @@ mod tests {
     use url::Url;
 
     use crate::{
-        client::ad_request::{AdContentCategory, IABContentTaxonomy},
         mars::MockMARSClient,
-        test_utils::{
-            get_example_happy_ad_response, get_example_happy_placements,
-            make_happy_placement_requests,
-        },
+        test_utils::{get_example_happy_ad_response, make_happy_placement_requests},
     };
 
     use super::*;
@@ -136,45 +130,5 @@ mod tests {
         let result = component.request_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_request_ads_multiset_happy() {
-        let mut mock = MockMARSClient::new();
-        mock.expect_fetch_ads()
-            .returning(|_req, _| Ok(get_example_happy_ad_response()));
-        mock.expect_get_context_id()
-            .returning(|| Ok("mock-context-id".to_string()));
-
-        mock.expect_get_mars_endpoint()
-            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
-
-        let component = AdsClient {
-            client: Box::new(mock),
-        };
-
-        let ad_placement_requests: Vec<AdPlacementRequest> = vec![
-            AdPlacementRequest {
-                placement: "example_placement_1".to_string(),
-                count: 1,
-                content: Some(AdContentCategory {
-                    taxonomy: IABContentTaxonomy::IAB2_1,
-                    categories: vec!["entertainment".to_string()],
-                }),
-            },
-            AdPlacementRequest {
-                placement: "example_placement_2".to_string(),
-                count: 2,
-                content: Some(AdContentCategory {
-                    taxonomy: IABContentTaxonomy::IAB3_0,
-                    categories: vec![],
-                }),
-            },
-        ];
-
-        let result = component.request_ads(ad_placement_requests, None);
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), get_example_happy_placements());
     }
 }

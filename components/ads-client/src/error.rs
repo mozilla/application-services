@@ -23,9 +23,6 @@ pub enum ComponentError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequestAdsError {
-    #[error("Error building placements from ad response: {0}")]
-    BuildPlacements(#[from] BuildPlacementsError),
-
     #[error("Error building ad requests from configs: {0}")]
     BuildRequest(#[from] BuildRequestError),
 
@@ -34,6 +31,13 @@ pub enum RequestAdsError {
 
     #[error("Error requesting ads from MARS: {0}")]
     FetchAds(#[from] FetchAdsError),
+
+    #[error("Unexpected ad type found in placement '{placement_id}'. Expected {expected_type}, but found {found_type}")]
+    UnexpectedAdType {
+        placement_id: String,
+        expected_type: String,
+        found_type: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -41,12 +45,6 @@ pub enum BuildRequestError {
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 
-    #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
-    DuplicatePlacementId { placement_id: String },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BuildPlacementsError {
     #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
     DuplicatePlacementId { placement_id: String },
 }

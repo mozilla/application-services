@@ -17,6 +17,9 @@
 
 ## ✨ What's New ✨
 
+### Ads Client
+- Add support for three ad types: Image, Spoc (Sponsored Content), and UA Tile
+
 ### Autofill
 - Adds a migration to migrate users to use subregion codes over fully qualified strings. ([bug 1993388](https://bugzilla.mozilla.org/show_bug.cgi?id=1993388))
 - Added credit card verification logic ([#7047](https://github.com/mozilla/application-services/pull/7047)).
