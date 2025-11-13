@@ -137,10 +137,9 @@ pub enum FxaServer {
 impl FxaServer {
     fn content_url(&self) -> &str {
         match self {
-            Self::Release => "https://accounts.firefox.com",
+            Self::Release | Self::China => "https://accounts.firefox.com",
             Self::Stable => "https://stable.dev.lcip.org",
             Self::Stage => "https://accounts.stage.mozaws.net",
-            Self::China => "https://accounts.firefox.com.cn",
             Self::LocalDev => "http://127.0.0.1:3030",
             Self::Custom { url } => url,
         }
@@ -158,8 +157,15 @@ impl From<&Url> for FxaServer {
             Self::Stable
         } else if origin == Url::parse(Self::Stage.content_url()).unwrap().origin() {
             Self::Stage
-        } else if origin == Url::parse(Self::China.content_url()).unwrap().origin() {
-            Self::China
+        } else if origin
+            == Url::parse("https://accounts.firefox.com.cn")
+                .unwrap()
+                .origin()
+        {
+            // FxaServer::China is now the same as FxaServer::Release, but we may still end up being passed the old .cn domain.
+            // This is a little odd as we will not correctly round-trip in this scenario, but it seems better than the
+            // .cn domain being treated as `Self::Custom`.
+            Self::Release
         } else if origin == Url::parse(Self::LocalDev.content_url()).unwrap().origin() {
             Self::LocalDev
         } else {
@@ -216,15 +222,6 @@ impl FxaConfig {
         }
     }
 
-    pub fn china(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
-        Self {
-            server: FxaServer::China,
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
-            token_server_url_override: None,
-        }
-    }
-
     pub fn dev(client_id: impl ToString, redirect_uri: impl ToString) -> Self {
         Self {
             server: FxaServer::LocalDev,
@@ -247,7 +244,7 @@ mod tests {
             ("https://accounts.firefox.com", FxaServer::Release),
             ("https://stable.dev.lcip.org", FxaServer::Stable),
             ("https://accounts.stage.mozaws.net", FxaServer::Stage),
-            ("https://accounts.firefox.com.cn", FxaServer::China),
+            ("https://accounts.firefox.com.cn", FxaServer::Release),
             ("http://127.0.0.1:3030", FxaServer::LocalDev),
             (
                 "http://my-fxa-server.com",

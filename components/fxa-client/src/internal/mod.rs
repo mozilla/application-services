@@ -138,12 +138,6 @@ impl FirefoxAccount {
         if self.state.config().content_url()? == content_url_release {
             return Ok("https://firefox.com/pair".to_owned());
         }
-        // Similarly special case for the China server.
-        let content_url_china = Url::parse(config::CONTENT_URL_CHINA)
-            .expect("hardcoded CONTENT_URL_CHINA failed to parse");
-        if self.state.config().content_url()? == content_url_china {
-            return Ok("https://firefox.com.cn/pair".to_owned());
-        }
         Ok(self.state.config().pair_url()?.into())
     }
 
@@ -616,12 +610,5 @@ mod tests {
             fxa.get_pairing_authority_url().unwrap().as_str(),
             "https://firefox.com/pair"
         );
-
-        let config = Config::china("12345678", "https://foo.bar");
-        let fxa = FirefoxAccount::with_config(config);
-        assert_eq!(
-            fxa.get_pairing_authority_url().unwrap().as_str(),
-            "https://firefox.com.cn/pair"
-        )
     }
 }
