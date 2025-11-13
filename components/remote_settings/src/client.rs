@@ -88,11 +88,13 @@ struct RemoteSettingsClientInner<C> {
 impl<C: ApiClient> RemoteSettingsClient<C> {
     // One line per bucket + collection
     packaged_collections! {
+        ("main", "regions"),
         ("main", "search-config-icons"),
         ("main", "search-config-v2"),
         ("main", "search-telemetry-v2"),
         ("main", "summarizer-models-config"),
-        ("main", "regions"),
+        ("main", "translations-models"),
+        ("main", "translations-wasm"),
     }
 
     // You have to specify
@@ -182,6 +184,9 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             "fca3e3ee-56cd-f474-dc31-307fd24a891d",
             "fe75ce3f-1545-400c-b28c-ad771054e69f",
             "fed4f021-ff3e-942a-010e-afa43fda2136",
+        ],
+        ("main", "translations-wasm") => [
+            "4fd32605-9889-4dd9-9fc7-577ad1136746",
         ]
     }
 }
