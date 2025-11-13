@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #![cfg(feature = "rkv-safe-mode")]
 
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
 use rkv::StoreOptions;
 
 // utilities shared between tests
@@ -10,7 +11,7 @@ use rkv::StoreOptions;
 use nimbus::{
     error::{debug, Result},
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    AppContext, NimbusClient, RemoteSettingsConfig, RemoteSettingsServer,
+    AppContext, NimbusClient, RemoteSettingsServer,
 };
 
 pub struct NoopMetricsHandler;
@@ -57,14 +58,6 @@ fn new_test_client_internal(
     dir.push("tests/experiments");
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
 
-    let config = RemoteSettingsConfig {
-        server: Some(RemoteSettingsServer::Custom {
-            url: url.as_str().to_string(),
-        }),
-        server_url: None,
-        bucket_name: None,
-        collection_name: "doesn't matter".to_string(),
-    };
     let ctx = AppContext {
         app_name: "fenix".to_string(),
         app_id: "org.mozilla.fenix".to_string(),
@@ -72,20 +65,42 @@ fn new_test_client_internal(
         locale: Some("en-GB".to_string()),
         ..Default::default()
     };
+
+    let rs_ctx = RemoteSettingsContext {
+        channel: Some("nightly".to_string()),
+        locale: Some("en-GB".to_string()),
+        ..Default::default()
+    };
+
+    let config = RemoteSettingsConfig2 {
+        server: Some(RemoteSettingsServer::Custom {
+            url: url.as_str().to_string(),
+        }),
+        bucket_name: None,
+        app_context: Some(rs_ctx),
+    };
+    let storage_dir = tmp_dir
+        .path()
+        .join("remote-settings")
+        .to_string_lossy()
+        .to_string();
+    let remote_settings_service = RemoteSettingsService::new(storage_dir, config);
+
     NimbusClient::new(
         ctx,
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Some(config),
         Box::new(NoopMetricsHandler),
         None,
+        Some(Arc::new(remote_settings_service)),
+        Some("collection_name".to_string()),
     )
 }
 
 use nimbus::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
 use nimbus::stateful::persistence::{Database, SingleStore};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn create_database<P: AsRef<Path>>(

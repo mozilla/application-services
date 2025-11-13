@@ -5,39 +5,38 @@
 mod fs_client;
 pub(crate) mod http_client;
 pub(crate) mod null_client;
+use std::sync::Arc;
+
 use crate::error::{NimbusError, Result};
 use crate::Experiment;
 use fs_client::FileSystemClient;
 use null_client::NullClient;
-use remote_settings::RemoteSettings;
-use remote_settings::RemoteSettingsConfig;
+use remote_settings::RemoteSettingsService;
+use url::Url;
 
 pub(crate) fn create_client(
-    config: Option<RemoteSettingsConfig>,
+    rs_service: Option<Arc<RemoteSettingsService>>,
+    collection_name: Option<String>,
 ) -> Result<Box<dyn SettingsClient + Send>> {
-    Ok(match config {
-        Some(config) => {
-            assert!(config.server_url.is_none());
-            let Some(remote_settings_server) = config.server.as_ref() else {
-                return Ok(Box::new(RemoteSettings::new(config)?));
-            };
-            let url = remote_settings_server.url()?;
-            if url.scheme() == "file" {
-                // Everything in `config` other than the url/path is ignored for the
-                // file-system - we could insist on a sub-directory, but that doesn't
-                // seem valuable for the use-cases we care about here.
-                let path = match url.to_file_path() {
-                    Ok(path) => path,
-                    _ => return Err(NimbusError::InvalidPath(url.into())),
-                };
-                Box::new(FileSystemClient::new(path)?)
-            } else {
-                Box::new(RemoteSettings::new(config)?)
+    Ok(match (rs_service, collection_name) {
+        (Some(rs_service), Some(collection_name)) => {
+            let url = Url::parse(&rs_service.client_url())?; // let call this the server url
+            match url.scheme() {
+                "file" => {
+                    // Everything in `config` other than the url/path is ignored for the
+                    // file-system - we could insist on a sub-directory, but that doesn't
+                    // seem valuable for the use-cases we care about here.
+                    let path = match url.to_file_path() {
+                        Ok(path) => path,
+                        _ => return Err(NimbusError::InvalidPath(url.into())),
+                    };
+                    Box::new(FileSystemClient::new(path)?)
+                }
+                _ => Box::new(rs_service.make_client(collection_name)),
             }
         }
-        // If no server is provided, then we still want Nimbus to work, but serving
-        // an empty list of experiments.
-        None => Box::new(NullClient::new()),
+        (Some(_), None) => return Err(NimbusError::InternalError("collection name required")),
+        (None, _) => Box::new(NullClient::new()),
     })
 }
 
