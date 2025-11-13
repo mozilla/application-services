@@ -1,21 +1,19 @@
 # Architecture
 
-_Note: Parts of this documentation were AI-generated to assist with clarity and completeness._
-
 ## Type Separation: FFI Types vs Business Logic Types
 
 This component uses a clear separation between **FFI (Foreign Function Interface) types** and **business logic types**. This architectural decision provides several important benefits for maintainability, API stability, and development velocity.
 
 ### Overview
 
-- **FFI Types** (`Moz*` prefix, defined in `src/ffi.rs`): Types exposed through UniFFI to external consumers (e.g., Kotlin, Swift, Python bindings)
+- **FFI Types** (`MozAds*` prefix, defined in `src/ffi.rs`): Types exposed through UniFFI to external consumers (e.g., Kotlin, Swift, Python bindings)
 - **Business Logic Types** (no prefix, defined in `src/client/`): Internal types used for core functionality, serialization, and business logic
 
 ### Key Benefits
 
 #### 1. Clear Public API Identification
 
-All types prefixed with `Moz` (e.g., `MozAdsClient`, `MozAd`, `MozAdsClientConfig`) represent the **public API contract**. This makes it immediately obvious:
+All types prefixed with `MozAds` (e.g., `MozAdsClient`, `MozAd`, `MozAdsClientConfig`) represent the **public API contract**. This makes it immediately obvious:
 
 - What types external consumers depend on
 - What changes require coordination with consumers
@@ -25,7 +23,7 @@ All types prefixed with `Moz` (e.g., `MozAdsClient`, `MozAd`, `MozAdsClientConfi
 
 When modifying types:
 
-- Changes to `Moz*` types in `ffi.rs` = **potential breaking change** for external consumers
+- Changes to `MozAds*` types in `ffi.rs` = **potential breaking change** for external consumers
 - Changes to business logic types in `client/` = **internal refactoring** (non-breaking)
 
 This clear boundary helps developers:
@@ -38,21 +36,9 @@ This clear boundary helps developers:
 
 The separation enables future API versioning strategies:
 
-- Maintain multiple versions of `Moz*` types (e.g., `MozAdV1`, `MozAdV2`)
+- Maintain multiple versions of `MozAds*` types (e.g., `MozAdV1`, `MozAdV2`)
 - Evolve the public API independently from internal implementation
 - Provide migration paths between API versions
-
-#### 4. Freedom to Refactor Internals
-
-Business logic types can be freely modified to:
-
-- Improve performance
-- Refactor data structures
-- Change serialization formats
-- Optimize memory usage
-- Add or remove internal fields
-
-These changes remain invisible to external consumers as long as the `Moz*` types and their conversions remain stable.
 
 ### Implementation Pattern
 
@@ -70,7 +56,7 @@ impl From<Ad> for MozAd { ... }
 impl From<MozAd> for Ad { ... }
 ```
 
-The public API in `lib.rs` uses `Moz*` types at the boundary and converts to/from business logic types internally:
+The public API in `lib.rs` uses `MozAds*` types at the boundary and converts to/from business logic types internally:
 
 ```rust
 pub fn request_ads(
@@ -90,14 +76,14 @@ pub fn request_ads(
 
 ### File Organization
 
-- `src/ffi.rs`: All UniFFI-exposed types (`Moz*`), error types, and conversions
+- `src/ffi.rs`: All UniFFI-exposed types (`MozAds*`), error types, and conversions
 - `src/lib.rs`: Public API entry point, handles FFI ↔ business logic conversions
 - `src/client/`: Business logic types and implementation
 - `src/error.rs`: Internal error types (FFI errors are in `ffi.rs`)
 
 ### Guidelines for Developers
 
-1. **Adding new public API**: Create `Moz*` types in `ffi.rs` with corresponding business logic types
+1. **Adding new public API**: Create `MozAds*` types in `ffi.rs` with corresponding business logic types
 2. **Modifying public API**: Consider breaking change implications and deprecation strategy
 3. **Internal refactoring**: Feel free to modify business logic types, ensuring conversions remain correct
 4. **Removing unused code**: Check both FFI and business logic types for unused conversions

@@ -39,14 +39,14 @@ impl GetErrorHandling for ComponentError {
 
 #[derive(uniffi::Record)]
 pub struct MozAdsRequestOptions {
-    pub cache_policy: Option<MozRequestCachePolicy>,
+    pub cache_policy: Option<MozAdsRequestCachePolicy>,
 }
 
 impl Default for MozAdsRequestOptions {
     fn default() -> Self {
         Self {
-            cache_policy: Some(MozRequestCachePolicy {
-                mode: MozCacheMode::default(),
+            cache_policy: Some(MozAdsRequestCachePolicy {
+                mode: MozAdsCacheMode::default(),
                 ttl_seconds: None,
             }),
         }
@@ -54,26 +54,26 @@ impl Default for MozAdsRequestOptions {
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
-pub struct MozIABContent {
-    pub taxonomy: MozIABContentTaxonomy,
+pub struct MozAdsIABContent {
+    pub taxonomy: MozAdsIABContentTaxonomy,
     pub category_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementRequest {
     pub placement_id: String,
-    pub iab_content: Option<MozIABContent>,
+    pub iab_content: Option<MozAdsIABContent>,
 }
 
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct MozAdsPlacementRequestWithCount {
     pub count: u32,
     pub placement_id: String,
-    pub iab_content: Option<MozIABContent>,
+    pub iab_content: Option<MozAdsIABContent>,
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
-pub struct MozAdCallbacks {
+pub struct MozAdsCallbacks {
     pub click: Url,
     pub impression: Url,
     pub report: Option<Url>,
@@ -81,12 +81,12 @@ pub struct MozAdCallbacks {
 
 #[derive(Default, uniffi::Record)]
 pub struct MozAdsClientConfig {
-    pub environment: MozEnvironment,
+    pub environment: MozAdsEnvironment,
     pub cache_config: Option<MozAdsCacheConfig>,
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
-pub enum MozEnvironment {
+pub enum MozAdsEnvironment {
     #[default]
     Prod,
     #[cfg(feature = "dev")]
@@ -101,13 +101,13 @@ pub struct MozAdsCacheConfig {
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
-pub struct MozAdContentCategory {
-    pub taxonomy: MozIABContentTaxonomy,
+pub struct MozAdsContentCategory {
+    pub taxonomy: MozAdsIABContentTaxonomy,
     pub categories: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, uniffi::Enum, PartialEq)]
-pub enum MozIABContentTaxonomy {
+pub enum MozAdsIABContentTaxonomy {
     IAB1_0,
     IAB2_0,
     IAB2_1,
@@ -116,13 +116,13 @@ pub enum MozIABContentTaxonomy {
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Record)]
-pub struct MozRequestCachePolicy {
-    pub mode: MozCacheMode,
+pub struct MozAdsRequestCachePolicy {
+    pub mode: MozAdsCacheMode,
     pub ttl_seconds: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Enum)]
-pub enum MozCacheMode {
+pub enum MozAdsCacheMode {
     #[default]
     CacheFirst,
     NetworkFirst,
@@ -132,13 +132,13 @@ pub enum MozCacheMode {
 pub struct MozAd {
     pub alt_text: Option<String>,
     pub block_key: String,
-    pub callbacks: MozAdCallbacks,
+    pub callbacks: MozAdsCallbacks,
     pub format: String,
     pub image_url: String,
     pub url: String,
 }
 
-impl From<AdCallbacks> for MozAdCallbacks {
+impl From<AdCallbacks> for MozAdsCallbacks {
     fn from(callbacks: AdCallbacks) -> Self {
         Self {
             click: callbacks.click,
@@ -148,8 +148,8 @@ impl From<AdCallbacks> for MozAdCallbacks {
     }
 }
 
-impl From<MozAdCallbacks> for AdCallbacks {
-    fn from(callbacks: MozAdCallbacks) -> Self {
+impl From<MozAdsCallbacks> for AdCallbacks {
+    fn from(callbacks: MozAdsCallbacks) -> Self {
         Self {
             click: callbacks.click,
             impression: callbacks.impression,
@@ -158,52 +158,52 @@ impl From<MozAdCallbacks> for AdCallbacks {
     }
 }
 
-impl From<Environment> for MozEnvironment {
+impl From<Environment> for MozAdsEnvironment {
     fn from(env: Environment) -> Self {
         match env {
-            Environment::Prod => MozEnvironment::Prod,
+            Environment::Prod => MozAdsEnvironment::Prod,
             #[cfg(feature = "dev")]
-            Environment::Staging => MozEnvironment::Staging,
+            Environment::Staging => MozAdsEnvironment::Staging,
         }
     }
 }
 
-impl From<MozEnvironment> for Environment {
-    fn from(env: MozEnvironment) -> Self {
+impl From<MozAdsEnvironment> for Environment {
+    fn from(env: MozAdsEnvironment) -> Self {
         match env {
-            MozEnvironment::Prod => Environment::Prod,
+            MozAdsEnvironment::Prod => Environment::Prod,
             #[cfg(feature = "dev")]
-            MozEnvironment::Staging => Environment::Staging,
+            MozAdsEnvironment::Staging => Environment::Staging,
         }
     }
 }
 
-impl From<IABContentTaxonomy> for MozIABContentTaxonomy {
+impl From<IABContentTaxonomy> for MozAdsIABContentTaxonomy {
     fn from(taxonomy: IABContentTaxonomy) -> Self {
         match taxonomy {
-            IABContentTaxonomy::IAB1_0 => MozIABContentTaxonomy::IAB1_0,
-            IABContentTaxonomy::IAB2_0 => MozIABContentTaxonomy::IAB2_0,
-            IABContentTaxonomy::IAB2_1 => MozIABContentTaxonomy::IAB2_1,
-            IABContentTaxonomy::IAB2_2 => MozIABContentTaxonomy::IAB2_2,
-            IABContentTaxonomy::IAB3_0 => MozIABContentTaxonomy::IAB3_0,
+            IABContentTaxonomy::IAB1_0 => MozAdsIABContentTaxonomy::IAB1_0,
+            IABContentTaxonomy::IAB2_0 => MozAdsIABContentTaxonomy::IAB2_0,
+            IABContentTaxonomy::IAB2_1 => MozAdsIABContentTaxonomy::IAB2_1,
+            IABContentTaxonomy::IAB2_2 => MozAdsIABContentTaxonomy::IAB2_2,
+            IABContentTaxonomy::IAB3_0 => MozAdsIABContentTaxonomy::IAB3_0,
         }
     }
 }
 
-impl From<MozIABContentTaxonomy> for IABContentTaxonomy {
-    fn from(taxonomy: MozIABContentTaxonomy) -> Self {
+impl From<MozAdsIABContentTaxonomy> for IABContentTaxonomy {
+    fn from(taxonomy: MozAdsIABContentTaxonomy) -> Self {
         match taxonomy {
-            MozIABContentTaxonomy::IAB1_0 => IABContentTaxonomy::IAB1_0,
-            MozIABContentTaxonomy::IAB2_0 => IABContentTaxonomy::IAB2_0,
-            MozIABContentTaxonomy::IAB2_1 => IABContentTaxonomy::IAB2_1,
-            MozIABContentTaxonomy::IAB2_2 => IABContentTaxonomy::IAB2_2,
-            MozIABContentTaxonomy::IAB3_0 => IABContentTaxonomy::IAB3_0,
+            MozAdsIABContentTaxonomy::IAB1_0 => IABContentTaxonomy::IAB1_0,
+            MozAdsIABContentTaxonomy::IAB2_0 => IABContentTaxonomy::IAB2_0,
+            MozAdsIABContentTaxonomy::IAB2_1 => IABContentTaxonomy::IAB2_1,
+            MozAdsIABContentTaxonomy::IAB2_2 => IABContentTaxonomy::IAB2_2,
+            MozAdsIABContentTaxonomy::IAB3_0 => IABContentTaxonomy::IAB3_0,
         }
     }
 }
 
-impl From<MozRequestCachePolicy> for RequestCachePolicy {
-    fn from(policy: MozRequestCachePolicy) -> Self {
+impl From<MozAdsRequestCachePolicy> for RequestCachePolicy {
+    fn from(policy: MozAdsRequestCachePolicy) -> Self {
         Self {
             mode: policy.mode.into(),
             ttl_seconds: policy.ttl_seconds,
@@ -211,20 +211,20 @@ impl From<MozRequestCachePolicy> for RequestCachePolicy {
     }
 }
 
-impl From<CacheMode> for MozCacheMode {
+impl From<CacheMode> for MozAdsCacheMode {
     fn from(mode: CacheMode) -> Self {
         match mode {
-            CacheMode::CacheFirst => MozCacheMode::CacheFirst,
-            CacheMode::NetworkFirst => MozCacheMode::NetworkFirst,
+            CacheMode::CacheFirst => MozAdsCacheMode::CacheFirst,
+            CacheMode::NetworkFirst => MozAdsCacheMode::NetworkFirst,
         }
     }
 }
 
-impl From<MozCacheMode> for CacheMode {
-    fn from(mode: MozCacheMode) -> Self {
+impl From<MozAdsCacheMode> for CacheMode {
+    fn from(mode: MozAdsCacheMode) -> Self {
         match mode {
-            MozCacheMode::CacheFirst => CacheMode::CacheFirst,
-            MozCacheMode::NetworkFirst => CacheMode::NetworkFirst,
+            MozAdsCacheMode::CacheFirst => CacheMode::CacheFirst,
+            MozAdsCacheMode::NetworkFirst => CacheMode::NetworkFirst,
         }
     }
 }
@@ -255,8 +255,8 @@ impl From<MozAd> for Ad {
     }
 }
 
-impl From<&MozIABContent> for AdContentCategory {
-    fn from(content: &MozIABContent) -> Self {
+impl From<&MozAdsIABContent> for AdContentCategory {
+    fn from(content: &MozAdsIABContent) -> Self {
         Self {
             taxonomy: content.taxonomy.into(),
             categories: content.category_ids.clone(),
