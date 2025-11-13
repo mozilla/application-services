@@ -9,12 +9,12 @@ use error::AdsClientApiResult;
 use error::ComponentError;
 use error_support::handle_error;
 use parking_lot::Mutex;
+use tracing::error;
 use url::Url as AdsClientUrl;
 
 use client::MozAdsClientInner;
 use error::AdsClientApiError;
 use http_cache::{CacheMode, RequestCachePolicy};
-use instrument::TrackError;
 
 use crate::client::ad_request::AdContentCategory;
 use crate::client::ad_request::AdPlacementRequest;
@@ -25,7 +25,7 @@ use crate::client::config::MozAdsClientConfig;
 mod client;
 mod error;
 pub mod http_cache;
-mod instrument;
+pub mod instrument;
 mod mars;
 
 #[cfg(test)]
@@ -93,28 +93,37 @@ impl MozAdsClient {
     #[handle_error(ComponentError)]
     pub fn record_impression(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
-        inner
+        let result = inner
             .record_impression(&placement)
-            .map_err(ComponentError::RecordImpression)
-            .emit_telemetry_if_error()
+            .map_err(ComponentError::RecordImpression);
+        if result.is_err() {
+            error!(target: "ads_client::telemetry", "InvalidUrlError");
+        }
+        result
     }
 
     #[handle_error(ComponentError)]
     pub fn record_click(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
-        inner
+        let result = inner
             .record_click(&placement)
-            .map_err(ComponentError::RecordClick)
-            .emit_telemetry_if_error()
+            .map_err(ComponentError::RecordClick);
+        if result.is_err() {
+            error!(target: "ads_client::telemetry", "InvalidUrlError");
+        }
+        result
     }
 
     #[handle_error(ComponentError)]
     pub fn report_ad(&self, placement: MozAd) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
-        inner
+        let result = inner
             .report_ad(&placement)
-            .map_err(ComponentError::ReportAd)
-            .emit_telemetry_if_error()
+            .map_err(ComponentError::ReportAd);
+        if result.is_err() {
+            error!(target: "ads_client::telemetry", "InvalidUrlError");
+        }
+        result
     }
 
     pub fn cycle_context_id(&self) -> AdsClientApiResult<String> {

@@ -66,6 +66,7 @@ pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
         use tracing_subscriber::prelude::*;
         tracing_subscriber::registry()
             .with(tracing_support::simple_event_layer())
+            .with(ads_client::instrument::telemetry_layer())
             .init();
     });
 
