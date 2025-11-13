@@ -89,8 +89,8 @@ pub enum CallbackRequestError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("Callback URL missing: {message}")]
-    MissingCallback { message: String },
+    #[error("Invalid callback URL: {0}")]
+    InvalidUrl(#[from] url::ParseError),
 
     #[error("Error sending request: {0}")]
     Request(#[from] viaduct::ViaductError),
