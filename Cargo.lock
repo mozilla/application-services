@@ -307,10 +307,10 @@ dependencies = [
 
 [[package]]
 name = "bhttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=bf6a983845cc0b540effb3a615e92d914dfcfd0b#bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+version = "0.7.0"
+source = "git+https://github.com/gruberb/ohttp.git?rev=d4b387830e239c012463756c769b9d67a3d10dfe#d4b387830e239c012463756c769b9d67a3d10dfe"
 dependencies = [
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
@@ -331,7 +331,7 @@ dependencies = [
  "bitflags 2.8.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.3",
  "proc-macro2",
  "quote",
  "regex",
@@ -3040,8 +3040,8 @@ dependencies = [
 
 [[package]]
 name = "ohttp"
-version = "0.6.1"
-source = "git+https://github.com/martinthomson/ohttp.git?rev=bf6a983845cc0b540effb3a615e92d914dfcfd0b#bf6a983845cc0b540effb3a615e92d914dfcfd0b"
+version = "0.7.0"
+source = "git+https://github.com/gruberb/ohttp.git?rev=d4b387830e239c012463756c769b9d67a3d10dfe#d4b387830e239c012463756c769b9d67a3d10dfe"
 dependencies = [
  "bindgen",
  "byteorder",
@@ -3049,7 +3049,7 @@ dependencies = [
  "log",
  "serde",
  "serde_derive",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "toml",
 ]
 
