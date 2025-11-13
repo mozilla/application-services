@@ -11,7 +11,6 @@ use parking_lot::Mutex;
 use url::Url as AdsClientUrl;
 
 use client::ad_request::AdPlacementRequest;
-use client::ad_response::Ad;
 use client::AdsClient;
 use http_cache::RequestCachePolicy;
 use instrument::TrackError;
@@ -94,31 +93,37 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_impression(&self, placement: MozAd) -> AdsClientApiResult<()> {
+    pub fn record_impression(&self, impression_url: String) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&impression_url).map_err(|e| {
+            ComponentError::RecordImpression(error::CallbackRequestError::InvalidUrl(e).into())
+        })?;
         let inner = self.inner.lock();
-        let ad: Ad = placement.into();
         inner
-            .record_impression(&ad)
+            .record_impression(url)
             .map_err(ComponentError::RecordImpression)
             .emit_telemetry_if_error()
     }
 
     #[handle_error(ComponentError)]
-    pub fn record_click(&self, placement: MozAd) -> AdsClientApiResult<()> {
+    pub fn record_click(&self, click_url: String) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&click_url).map_err(|e| {
+            ComponentError::RecordClick(error::CallbackRequestError::InvalidUrl(e).into())
+        })?;
         let inner = self.inner.lock();
-        let ad: Ad = placement.into();
         inner
-            .record_click(&ad)
+            .record_click(url)
             .map_err(ComponentError::RecordClick)
             .emit_telemetry_if_error()
     }
 
     #[handle_error(ComponentError)]
-    pub fn report_ad(&self, placement: MozAd) -> AdsClientApiResult<()> {
+    pub fn report_ad(&self, report_url: String) -> AdsClientApiResult<()> {
+        let url = AdsClientUrl::parse(&report_url).map_err(|e| {
+            ComponentError::ReportAd(error::CallbackRequestError::InvalidUrl(e).into())
+        })?;
         let inner = self.inner.lock();
-        let ad: Ad = placement.into();
         inner
-            .report_ad(&ad)
+            .report_ad(url)
             .map_err(ComponentError::ReportAd)
             .emit_telemetry_if_error()
     }

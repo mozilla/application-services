@@ -111,6 +111,15 @@ fn test_request_ads_multiset_count() {
             index
         );
     }
+
+    // Verify callbacks work as intended
+    client
+        .record_impression(ads[0].callbacks.impression.to_string())
+        .unwrap();
+
+    client
+        .record_click(ads[0].callbacks.click.to_string())
+        .unwrap();
 }
 
 #[test]

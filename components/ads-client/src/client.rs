@@ -12,9 +12,9 @@ use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, Reque
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::{DefaultMARSClient, MARSClient};
 use ad_request::{AdPlacementRequest, AdRequest};
+use url::Url;
 use uuid::Uuid;
 
-use crate::error::CallbackRequestError;
 use crate::http_cache::{ByteSize, HttpCacheError};
 
 pub mod ad_request;
@@ -79,28 +79,16 @@ impl AdsClient {
         Ok(placements)
     }
 
-    pub fn record_impression(&self, placement: &Ad) -> Result<(), RecordImpressionError> {
-        self.client
-            .record_impression(placement.callbacks.impression.clone())
+    pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
+        self.client.record_impression(impression_url)
     }
 
-    pub fn record_click(&self, placement: &Ad) -> Result<(), RecordClickError> {
-        self.client.record_click(placement.callbacks.click.clone())
+    pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
+        self.client.record_click(click_url)
     }
 
-    pub fn report_ad(&self, placement: &Ad) -> Result<(), ReportAdError> {
-        let report_ad_callback = placement.callbacks.report.clone();
-
-        match report_ad_callback {
-            Some(callback) => self.client.report_ad(callback)?,
-            None => {
-                return Err(ReportAdError::CallbackRequest(
-                    CallbackRequestError::MissingCallback {
-                        message: "Report callback url empty.".to_string(),
-                    },
-                ));
-            }
-        }
+    pub fn report_ad(&self, report_url: Url) -> Result<(), ReportAdError> {
+        self.client.report_ad(report_url)?;
         Ok(())
     }
 
