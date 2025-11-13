@@ -3,12 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::client::ad_request::AdRequest;
-use crate::error::BuildPlacementsError;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use url::Url;
+
+use crate::error::RequestAdsError;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdResponse {
@@ -49,37 +49,105 @@ impl AdResponse {
         Ok(result)
     }
 
-    pub fn build_placements(
-        mut self,
-        ad_request: &AdRequest,
-    ) -> Result<HashMap<String, Vec<Ad>>, BuildPlacementsError> {
-        let mut ad_placements: HashMap<String, Vec<Ad>> = HashMap::new();
-        let mut seen_placements: HashSet<String> = HashSet::new();
+    pub fn filter<T>(&self) -> Result<HashMap<String, Vec<T>>, RequestAdsError>
+    where
+        T: FromAd,
+    {
+        let mut result = HashMap::new();
+        for (placement_id, ads) in &self.data {
+            let mut found_items = Vec::new();
+            let mut found_other_type = None;
 
-        for placement_request in &ad_request.placements {
-            if seen_placements.contains(&placement_request.placement) {
-                return Err(BuildPlacementsError::DuplicatePlacementId {
-                    placement_id: placement_request.placement.clone(),
+            for ad in ads {
+                if let Some(item) = T::from_ad(ad) {
+                    found_items.push(item);
+                } else {
+                    found_other_type = Some(match ad {
+                        Ad::Image(_) => std::any::type_name::<AdImage>().to_string(),
+                        Ad::Spoc(_) => std::any::type_name::<AdSpoc>().to_string(),
+                        Ad::UATile(_) => std::any::type_name::<AdUATile>().to_string(),
+                    });
+                    break;
+                }
+            }
+
+            if let Some(other_type) = found_other_type {
+                return Err(RequestAdsError::UnexpectedAdType {
+                    placement_id: placement_id.clone(),
+                    expected_type: std::any::type_name::<T>().to_string(),
+                    found_type: other_type,
                 });
             }
-            seen_placements.insert(placement_request.placement.clone());
 
-            let placement_content = self.data.remove(&placement_request.placement);
-
-            if let Some(v) = placement_content {
-                if v.is_empty() {
-                    continue;
-                }
-                ad_placements.insert(placement_request.placement.clone(), v);
+            if !found_items.is_empty() {
+                result.insert(placement_id.clone(), found_items);
             }
         }
+        Ok(result)
+    }
 
-        Ok(ad_placements)
+    pub fn filter_and_take_first<T>(&self) -> Result<HashMap<String, T>, RequestAdsError>
+    where
+        T: FromAd,
+    {
+        let filtered = self.filter::<T>()?;
+        Ok(filtered
+            .into_iter()
+            .filter_map(|(k, mut v)| {
+                if v.is_empty() {
+                    None
+                } else {
+                    Some((k, v.remove(0)))
+                }
+            })
+            .collect())
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Ad {
+pub trait FromAd: Clone {
+    fn from_ad(ad: &Ad) -> Option<Self>;
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum Ad {
+    Spoc(AdSpoc),
+    UATile(AdUATile),
+    // IMPORTANT: Image must be last because it has fewer fields than Spoc/UATile.
+    // With untagged enums, serde tries variants in order, so we need to try the more
+    // specific types first to avoid incorrectly deserializing Spoc/UATile ads as Image.
+    Image(AdImage),
+}
+
+impl FromAd for AdImage {
+    fn from_ad(ad: &Ad) -> Option<Self> {
+        match ad {
+            Ad::Image(img) => Some(img.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl FromAd for AdSpoc {
+    fn from_ad(ad: &Ad) -> Option<Self> {
+        match ad {
+            Ad::Spoc(spoc) => Some(spoc.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl FromAd for AdUATile {
+    fn from_ad(ad: &Ad) -> Option<Self> {
+        match ad {
+            Ad::UATile(tile) => Some(tile.clone()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AdImage {
     pub alt_text: Option<String>,
     pub block_key: String,
     pub callbacks: AdCallbacks,
@@ -88,7 +156,46 @@ pub struct Ad {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AdSpoc {
+    pub block_key: String,
+    pub callbacks: AdCallbacks,
+    pub caps: SpocFrequencyCaps,
+    pub domain: String,
+    pub excerpt: String,
+    pub format: String,
+    pub image_url: String,
+    pub ranking: SpocRanking,
+    pub sponsor: String,
+    pub sponsored_by_override: Option<String>,
+    pub title: String,
+    pub url: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AdUATile {
+    pub block_key: String,
+    pub callbacks: AdCallbacks,
+    pub format: String,
+    pub image_url: String,
+    pub name: String,
+    pub url: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SpocFrequencyCaps {
+    pub cap_key: String,
+    pub day: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SpocRanking {
+    pub priority: u32,
+    pub personalization_models: Option<HashMap<String, u32>>,
+    pub item_score: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdCallbacks {
     pub click: Url,
     pub impression: Url,
@@ -97,13 +204,7 @@ pub struct AdCallbacks {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy},
-        test_utils::{
-            get_example_happy_ad_response, get_example_happy_placements,
-            make_happy_placement_requests, TEST_CONTEXT_ID,
-        },
-    };
+    use crate::test_utils::get_example_happy_ad_response;
 
     use super::*;
     use serde_json::{from_str, json};
@@ -127,7 +228,7 @@ mod tests {
         let full: Ad = from_str(&response_full).unwrap();
         assert_eq!(
             full,
-            Ad {
+            Ad::Image(AdImage {
                 alt_text: Some("An ad for an anvil".into()),
                 block_key: "abc123".into(),
                 callbacks: AdCallbacks {
@@ -138,7 +239,7 @@ mod tests {
                 format: "Leaderboard".into(),
                 image_url: "https://buyanvilseveryday.test/img.png".into(),
                 url: "https://buyanvilseveryday.test".into(),
-            }
+            })
         );
     }
 
@@ -161,7 +262,7 @@ mod tests {
         let partial: Ad = from_str(&response_partial).unwrap();
         assert_eq!(
             partial,
-            Ad {
+            Ad::Image(AdImage {
                 alt_text: None,
                 block_key: "abc123".into(),
                 callbacks: AdCallbacks {
@@ -172,7 +273,7 @@ mod tests {
                 format: "Leaderboard".into(),
                 image_url: "https://example.test/image.png".into(),
                 url: "https://example.test/item".into(),
-            }
+            })
         );
     }
 
@@ -251,7 +352,7 @@ mod tests {
         let expected = AdResponse {
             data: HashMap::from([(
                 "valid_ad".to_string(),
-                vec![Ad {
+                vec![Ad::Image(AdImage {
                     url: "https://ads.fakeexample.org/example_ad_3".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_3".to_string(),
                     format: "skyscraper".to_string(),
@@ -268,7 +369,7 @@ mod tests {
                             Url::parse("https://ads.fakeexample.org/report/example_ad_3").unwrap(),
                         ),
                     },
-                }],
+                })],
             )]),
         };
 
@@ -293,75 +394,164 @@ mod tests {
     }
 
     #[test]
-    fn test_build_placements_happy() {
-        let ad_request =
-            AdRequest::build(TEST_CONTEXT_ID.to_string(), make_happy_placement_requests()).unwrap();
+    fn test_filter_image_ads() {
+        let response = get_example_happy_ad_response();
+        let result = response.filter::<AdImage>();
 
-        let placements = get_example_happy_ad_response()
-            .build_placements(&ad_request)
-            .unwrap();
-
-        assert_eq!(placements, get_example_happy_placements());
+        assert!(result.is_ok());
+        let filtered = result.unwrap();
+        assert_eq!(filtered.len(), 2);
+        assert!(filtered.contains_key("example_placement_1"));
+        assert!(filtered.contains_key("example_placement_2"));
+        assert_eq!(filtered.get("example_placement_1").unwrap().len(), 1);
+        assert_eq!(filtered.get("example_placement_2").unwrap().len(), 1);
     }
 
     #[test]
-    fn test_build_placements_fails_with_duplicate_placement() {
-        let mut api_resp = get_example_happy_ad_response();
-
-        // Adding an extra placement in response for the duplicate placement id
-        api_resp
-            .data
-            .get_mut("example_placement_2")
-            .unwrap()
-            .push(Ad {
-                url: "https://ads.fakeexample.org/example_ad_2_2".to_string(),
-                image_url: "https://ads.fakeexample.org/example_image_2_2".to_string(),
-                format: "skyscraper".to_string(),
-                block_key: "abc123".into(),
-                alt_text: Some("An ad for a pet dragon".to_string()),
-                callbacks: AdCallbacks {
-                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_2_2").unwrap(),
-                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_2_2")
-                        .unwrap(),
-                    report: Some(
-                        Url::parse("https://ads.fakeexample.org/report/example_ad_2_2").unwrap(),
-                    ),
-                },
-            });
-
-        // Manually construct an AdRequest with a duplicate placement id to trigger the error
-        let ad_request = AdRequest {
-            context_id: "mock-context-id".to_string(),
-            placements: vec![
-                AdPlacementRequest {
-                    placement: "example_placement_1".to_string(),
-                    content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
-                        categories: vec!["entertainment".to_string()],
-                    }),
-                    count: 1,
-                },
-                AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB3_0,
-                        categories: vec![],
-                    }),
-                    count: 1,
-                },
-                AdPlacementRequest {
-                    placement: "example_placement_2".to_string(),
-                    content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
-                        categories: vec![],
-                    }),
-                    count: 1,
-                },
-            ],
+    fn test_filter_spoc_ads() {
+        let mut response = AdResponse {
+            data: HashMap::new(),
         };
+        response.data.insert(
+            "placement_1".to_string(),
+            vec![
+                Ad::Spoc(AdSpoc {
+                    block_key: "key1".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click").unwrap(),
+                        impression: Url::parse("https://example.com/impression").unwrap(),
+                        report: None,
+                    },
+                    caps: SpocFrequencyCaps {
+                        cap_key: "cap1".to_string(),
+                        day: 1,
+                    },
+                    domain: "example.com".to_string(),
+                    excerpt: "Test excerpt".to_string(),
+                    format: "spoc".to_string(),
+                    image_url: "https://example.com/image.png".to_string(),
+                    ranking: SpocRanking {
+                        priority: 1,
+                        personalization_models: None,
+                        item_score: 0.5,
+                    },
+                    sponsor: "Sponsor".to_string(),
+                    sponsored_by_override: None,
+                    title: "Test Title".to_string(),
+                    url: "https://example.com".to_string(),
+                }),
+                Ad::Spoc(AdSpoc {
+                    block_key: "key2".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click2").unwrap(),
+                        impression: Url::parse("https://example.com/impression2").unwrap(),
+                        report: None,
+                    },
+                    caps: SpocFrequencyCaps {
+                        cap_key: "cap2".to_string(),
+                        day: 2,
+                    },
+                    domain: "example2.com".to_string(),
+                    excerpt: "Test excerpt 2".to_string(),
+                    format: "spoc".to_string(),
+                    image_url: "https://example.com/image2.png".to_string(),
+                    ranking: SpocRanking {
+                        priority: 2,
+                        personalization_models: None,
+                        item_score: 0.6,
+                    },
+                    sponsor: "Sponsor2".to_string(),
+                    sponsored_by_override: None,
+                    title: "Test Title 2".to_string(),
+                    url: "https://example2.com".to_string(),
+                }),
+            ],
+        );
 
-        let placements = api_resp.build_placements(&ad_request);
+        let result = response.filter::<AdSpoc>();
 
-        assert!(placements.is_err());
+        assert!(result.is_ok());
+        let filtered = result.unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered.contains_key("placement_1"));
+        assert_eq!(filtered.get("placement_1").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_filter_unexpected_type() {
+        let mut response = AdResponse {
+            data: HashMap::new(),
+        };
+        response.data.insert(
+            "placement_1".to_string(),
+            vec![
+                Ad::Image(AdImage {
+                    alt_text: None,
+                    block_key: "key1".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click").unwrap(),
+                        impression: Url::parse("https://example.com/impression").unwrap(),
+                        report: None,
+                    },
+                    format: "image".to_string(),
+                    image_url: "https://example.com/image.png".to_string(),
+                    url: "https://example.com".to_string(),
+                }),
+                Ad::Spoc(AdSpoc {
+                    block_key: "key2".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click2").unwrap(),
+                        impression: Url::parse("https://example.com/impression2").unwrap(),
+                        report: None,
+                    },
+                    caps: SpocFrequencyCaps {
+                        cap_key: "cap2".to_string(),
+                        day: 2,
+                    },
+                    domain: "example2.com".to_string(),
+                    excerpt: "Test excerpt 2".to_string(),
+                    format: "spoc".to_string(),
+                    image_url: "https://example.com/image2.png".to_string(),
+                    ranking: SpocRanking {
+                        priority: 2,
+                        personalization_models: None,
+                        item_score: 0.6,
+                    },
+                    sponsor: "Sponsor2".to_string(),
+                    sponsored_by_override: None,
+                    title: "Test Title 2".to_string(),
+                    url: "https://example2.com".to_string(),
+                }),
+            ],
+        );
+
+        let result = response.filter::<AdImage>();
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            RequestAdsError::UnexpectedAdType {
+                placement_id,
+                expected_type,
+                found_type,
+            } => {
+                assert_eq!(placement_id, "placement_1");
+                assert!(expected_type.contains("AdImage"));
+                assert!(found_type.contains("AdSpoc"));
+            }
+            _ => panic!("Expected UnexpectedAdType error"),
+        }
+    }
+
+    #[test]
+    fn test_filter_and_take_first() {
+        let response = get_example_happy_ad_response();
+        let result = response.filter_and_take_first::<AdImage>();
+
+        assert!(result.is_ok());
+        let filtered = result.unwrap();
+        assert_eq!(filtered.len(), 2);
+        assert!(filtered.contains_key("example_placement_1"));
+        assert!(filtered.contains_key("example_placement_2"));
     }
 }

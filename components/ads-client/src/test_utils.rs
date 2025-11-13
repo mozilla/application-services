@@ -10,7 +10,7 @@ use url::Url;
 use crate::{
     client::{
         ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
-        ad_response::{Ad, AdCallbacks, AdResponse},
+        ad_response::{Ad, AdCallbacks, AdImage, AdResponse},
     },
     http_cache::HttpCache,
     mars::DefaultMARSClient,
@@ -62,7 +62,7 @@ pub fn get_example_happy_ad_response() -> AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![Ad {
+                vec![Ad::Image(AdImage {
                     url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                     format: "billboard".to_string(),
@@ -79,11 +79,11 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                             Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
                         ),
                     },
-                }],
+                })],
             ),
             (
                 "example_placement_2".to_string(),
-                vec![Ad {
+                vec![Ad::Image(AdImage {
                     url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                     format: "skyscraper".to_string(),
@@ -100,51 +100,10 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                             Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
                         ),
                     },
-                }],
+                })],
             ),
         ]),
     }
-}
-
-pub fn get_example_happy_placements() -> HashMap<String, Vec<Ad>> {
-    HashMap::from([
-        (
-            "example_placement_1".to_string(),
-            vec![Ad {
-                url: "https://ads.fakeexample.org/example_ad_1".to_string(),
-                image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
-                format: "billboard".to_string(),
-                block_key: "abc123".into(),
-                alt_text: Some("An ad for a puppy".to_string()),
-                callbacks: AdCallbacks {
-                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_1").unwrap(),
-                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_1")
-                        .unwrap(),
-                    report: Some(
-                        Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
-                    ),
-                },
-            }],
-        ),
-        (
-            "example_placement_2".to_string(),
-            vec![Ad {
-                url: "https://ads.fakeexample.org/example_ad_2".to_string(),
-                image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
-                format: "skyscraper".to_string(),
-                block_key: "abc123".into(),
-                alt_text: Some("An ad for a pet duck".to_string()),
-                callbacks: AdCallbacks {
-                    click: Url::parse("https://ads.fakeexample.org/click/example_ad_2").unwrap(),
-                    impression: Url::parse("https://ads.fakeexample.org/impression/example_ad_2")
-                        .unwrap(),
-                    report: Some(
-                        Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
-                    ),
-                },
-            }],
-        ),
-    ])
 }
 
 pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {

@@ -24,6 +24,8 @@ mod mars;
 
 pub use ffi::*;
 
+use crate::client::ad_response::{AdImage, AdSpoc, AdUATile};
+
 #[cfg(test)]
 mod test_utils;
 
@@ -39,7 +41,6 @@ uniffi::custom_type!(AdsClientUrl, String, {
 pub struct MozAdsClient {
     inner: Mutex<AdsClient>,
 }
-
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
@@ -51,45 +52,60 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn request_ads(
+    pub fn request_image_ads(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<HashMap<String, MozAd>> {
+    ) -> AdsClientApiResult<HashMap<String, MozAdsImage>> {
         let inner = self.inner.lock();
-
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
         let cache_policy: RequestCachePolicy = options.into();
-        let placements = inner
+        let response = inner
             .request_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
-        let placements = placements
-            .into_iter()
-            .filter_map(|(placement_id, mut vec)| {
-                vec.pop().map(|placement| (placement_id, placement.into()))
-            })
-            .collect();
-        Ok(placements)
+        let filtered = response
+            .filter_and_take_first::<AdImage>()
+            .map_err(ComponentError::RequestAds)?;
+        Ok(filtered.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
     #[handle_error(ComponentError)]
-    pub fn request_ads_multiset(
+    pub fn request_spoc_ads(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>,
         options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<HashMap<String, Vec<MozAd>>> {
+    ) -> AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>> {
         let inner = self.inner.lock();
-
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
         let cache_policy: RequestCachePolicy = options.into();
-        let placements = inner
+        let response = inner
             .request_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
-        let placements = placements
+        let filtered = response
+            .filter::<AdSpoc>()
+            .map_err(ComponentError::RequestAds)?;
+        Ok(filtered
             .into_iter()
-            .map(|(k, v)| (k, v.into_iter().map(Into::into).collect()))
-            .collect();
-        Ok(placements)
+            .map(|(k, v)| (k, v.into_iter().map(|spoc| spoc.into()).collect()))
+            .collect())
+    }
+
+    #[handle_error(ComponentError)]
+    pub fn request_ua_tile_ads(
+        &self,
+        moz_ad_requests: Vec<MozAdsPlacementRequest>,
+        options: Option<MozAdsRequestOptions>,
+    ) -> AdsClientApiResult<HashMap<String, MozAdsUATile>> {
+        let inner = self.inner.lock();
+        let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
+        let cache_policy: RequestCachePolicy = options.into();
+        let response = inner
+            .request_ads(requests, Some(cache_policy))
+            .map_err(ComponentError::RequestAds)?;
+        let filtered = response
+            .filter_and_take_first::<AdUATile>()
+            .map_err(ComponentError::RequestAds)?;
+        Ok(filtered.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 
     #[handle_error(ComponentError)]
