@@ -10,7 +10,7 @@ use url::Url;
 use crate::{
     client::{
         ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
-        ad_response::{AdCallbacks, AdResponse, MozAd},
+        ad_response::{Ad, AdCallbacks, AdResponse},
     },
     http_cache::HttpCache,
     mars::DefaultMARSClient,
@@ -62,7 +62,7 @@ pub fn get_example_happy_ad_response() -> AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![MozAd {
+                vec![Ad {
                     url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                     format: "billboard".to_string(),
@@ -83,7 +83,7 @@ pub fn get_example_happy_ad_response() -> AdResponse {
             ),
             (
                 "example_placement_2".to_string(),
-                vec![MozAd {
+                vec![Ad {
                     url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                     format: "skyscraper".to_string(),
@@ -106,11 +106,11 @@ pub fn get_example_happy_ad_response() -> AdResponse {
     }
 }
 
-pub fn get_example_happy_placements() -> HashMap<String, Vec<MozAd>> {
+pub fn get_example_happy_placements() -> HashMap<String, Vec<Ad>> {
     HashMap::from([
         (
             "example_placement_1".to_string(),
-            vec![MozAd {
+            vec![Ad {
                 url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                 format: "billboard".to_string(),
@@ -128,7 +128,7 @@ pub fn get_example_happy_placements() -> HashMap<String, Vec<MozAd>> {
         ),
         (
             "example_placement_2".to_string(),
-            vec![MozAd {
+            vec![Ad {
                 url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                 format: "skyscraper".to_string(),

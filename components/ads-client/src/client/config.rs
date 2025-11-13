@@ -3,13 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#[derive(Default, uniffi::Record)]
-pub struct MozAdsClientConfig {
+#[derive(Default)]
+pub struct AdsClientConfig {
     pub environment: Environment,
-    pub cache_config: Option<MozAdsCacheConfig>,
+    pub cache_config: Option<AdsCacheConfig>,
 }
 
-#[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Environment {
     #[default]
     Prod,
@@ -17,8 +17,8 @@ pub enum Environment {
     Staging,
 }
 
-#[derive(uniffi::Record)]
-pub struct MozAdsCacheConfig {
+#[derive(Clone, Debug)]
+pub struct AdsCacheConfig {
     pub db_path: String,
     pub default_cache_ttl_seconds: Option<u64>,
     pub max_size_mib: Option<u64>,

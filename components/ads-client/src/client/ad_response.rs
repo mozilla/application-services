@@ -10,16 +10,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use url::Url;
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdResponse {
     #[serde(deserialize_with = "AdResponse::deserialize_ad_response", flatten)]
-    pub data: HashMap<String, Vec<MozAd>>,
+    pub data: HashMap<String, Vec<Ad>>,
 }
 
 impl AdResponse {
     fn deserialize_ad_response<'de, D>(
         deserializer: D,
-    ) -> Result<HashMap<String, Vec<MozAd>>, D::Error>
+    ) -> Result<HashMap<String, Vec<Ad>>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -28,15 +28,14 @@ impl AdResponse {
 
         for (key, value) in raw {
             if let serde_json::Value::Array(arr) = value {
-                let mut ads: Vec<MozAd> = vec![];
+                let mut ads: Vec<Ad> = vec![];
                 for item in arr {
-                    if let Ok(ad) = serde_json::from_value::<MozAd>(item) {
+                    if let Ok(ad) = serde_json::from_value::<Ad>(item) {
                         ads.push(ad);
                     } else {
                         #[cfg(not(test))]
                         {
                             use crate::instrument::{emit_telemetry_event, TelemetryEvent};
-                            // TODO: improve the telemetry event (should we include the invalid URL?)
                             let _ = emit_telemetry_event(Some(TelemetryEvent::InvalidUrlError));
                         }
                     }
@@ -53,8 +52,8 @@ impl AdResponse {
     pub fn build_placements(
         mut self,
         ad_request: &AdRequest,
-    ) -> Result<HashMap<String, Vec<MozAd>>, BuildPlacementsError> {
-        let mut moz_ad_placements: HashMap<String, Vec<MozAd>> = HashMap::new();
+    ) -> Result<HashMap<String, Vec<Ad>>, BuildPlacementsError> {
+        let mut ad_placements: HashMap<String, Vec<Ad>> = HashMap::new();
         let mut seen_placements: HashSet<String> = HashSet::new();
 
         for placement_request in &ad_request.placements {
@@ -71,25 +70,25 @@ impl AdResponse {
                 if v.is_empty() {
                     continue;
                 }
-                moz_ad_placements.insert(placement_request.placement.clone(), v);
+                ad_placements.insert(placement_request.placement.clone(), v);
             }
         }
 
-        Ok(moz_ad_placements)
+        Ok(ad_placements)
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
-pub struct MozAd {
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub struct Ad {
     pub alt_text: Option<String>,
     pub block_key: String,
     pub callbacks: AdCallbacks,
     pub format: String,
-    pub image_url: String, //TODO: Consider if we want to load the image locally
+    pub image_url: String,
     pub url: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct AdCallbacks {
     pub click: Url,
     pub impression: Url,
@@ -125,10 +124,10 @@ mod tests {
         })
         .to_string();
 
-        let full: MozAd = from_str(&response_full).unwrap();
+        let full: Ad = from_str(&response_full).unwrap();
         assert_eq!(
             full,
-            MozAd {
+            Ad {
                 alt_text: Some("An ad for an anvil".into()),
                 block_key: "abc123".into(),
                 callbacks: AdCallbacks {
@@ -159,10 +158,10 @@ mod tests {
         })
         .to_string();
 
-        let partial: MozAd = from_str(&response_partial).unwrap();
+        let partial: Ad = from_str(&response_partial).unwrap();
         assert_eq!(
             partial,
-            MozAd {
+            Ad {
                 alt_text: None,
                 block_key: "abc123".into(),
                 callbacks: AdCallbacks {
@@ -252,7 +251,7 @@ mod tests {
         let expected = AdResponse {
             data: HashMap::from([(
                 "valid_ad".to_string(),
-                vec![MozAd {
+                vec![Ad {
                     url: "https://ads.fakeexample.org/example_ad_3".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_3".to_string(),
                     format: "skyscraper".to_string(),
@@ -314,7 +313,7 @@ mod tests {
             .data
             .get_mut("example_placement_2")
             .unwrap()
-            .push(MozAd {
+            .push(Ad {
                 url: "https://ads.fakeexample.org/example_ad_2_2".to_string(),
                 image_url: "https://ads.fakeexample.org/example_image_2_2".to_string(),
                 format: "skyscraper".to_string(),
