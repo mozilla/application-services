@@ -105,16 +105,63 @@ mod tests {
 
     use crate::{
         mars::MockMARSClient,
-        test_utils::{get_example_happy_ad_response, make_happy_placement_requests},
+        test_utils::{
+            get_example_happy_image_response, get_example_happy_spoc_response,
+            get_example_happy_uatile_response, make_happy_placement_requests,
+        },
     };
 
     use super::*;
 
     #[test]
-    fn test_request_ads_happy() {
+    fn test_request_image_ads_happy() {
         let mut mock = MockMARSClient::new();
         mock.expect_fetch_ads()
-            .returning(|_req, _| Ok(get_example_happy_ad_response()));
+            .returning(|_req, _| Ok(get_example_happy_image_response()));
+        mock.expect_get_context_id()
+            .returning(|| Ok("mock-context-id".to_string()));
+
+        mock.expect_get_mars_endpoint()
+            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+
+        let component = AdsClient {
+            client: Box::new(mock),
+        };
+
+        let ad_placement_requests = make_happy_placement_requests();
+
+        let result = component.request_ads(ad_placement_requests, None);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_request_spocs_happy() {
+        let mut mock = MockMARSClient::new();
+        mock.expect_fetch_ads()
+            .returning(|_req, _| Ok(get_example_happy_spoc_response()));
+        mock.expect_get_context_id()
+            .returning(|| Ok("mock-context-id".to_string()));
+
+        mock.expect_get_mars_endpoint()
+            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+
+        let component = AdsClient {
+            client: Box::new(mock),
+        };
+
+        let ad_placement_requests = make_happy_placement_requests();
+
+        let result = component.request_ads(ad_placement_requests, None);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_request_uatiles_happy() {
+        let mut mock = MockMARSClient::new();
+        mock.expect_fetch_ads()
+            .returning(|_req, _| Ok(get_example_happy_uatile_response()));
         mock.expect_get_context_id()
             .returning(|| Ok("mock-context-id".to_string()));
 

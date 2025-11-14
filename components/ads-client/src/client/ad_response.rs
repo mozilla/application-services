@@ -204,7 +204,7 @@ pub struct AdCallbacks {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::get_example_happy_ad_response;
+    use crate::test_utils::get_example_happy_image_response;
 
     use super::*;
     use serde_json::{from_str, json};
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_filter_image_ads() {
-        let response = get_example_happy_ad_response();
+        let response = get_example_happy_image_response();
         let result = response.filter::<AdImage>();
 
         assert!(result.is_ok());
@@ -545,7 +545,7 @@ mod tests {
 
     #[test]
     fn test_filter_and_take_first() {
-        let response = get_example_happy_ad_response();
+        let response = get_example_happy_image_response();
         let result = response.filter_and_take_first::<AdImage>();
 
         assert!(result.is_ok());
