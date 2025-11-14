@@ -3,14 +3,17 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::AdResponse;
+use crate::client::ad_response::{AdImage, AdResponse, AdSpoc, AdUATile};
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
-use crate::mars::{DefaultMARSClient, MARSClient};
+use crate::mars::MARSClient;
 use ad_request::{AdPlacementRequest, AdRequest};
+use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use serde::de::DeserializeOwned;
 use url::Url;
 use uuid::Uuid;
 
@@ -24,7 +27,8 @@ const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
 pub struct AdsClient {
-    client: Box<dyn MARSClient>,
+    client: MARSClient,
+    context_id_component: ContextIDComponent,
 }
 
 impl AdsClient {
@@ -32,6 +36,9 @@ impl AdsClient {
         let context_id = Uuid::new_v4().to_string();
 
         let client_config = client_config.unwrap_or_default();
+
+        let context_id_component =
+            ContextIDComponent::new(&context_id, 0, false, Box::new(DefaultContextIdCallback));
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
@@ -50,31 +57,60 @@ impl AdsClient {
                 .build()
                 .ok(); // TODO: handle error with telemetry
 
-            let client = Box::new(DefaultMARSClient::new(
-                context_id,
-                client_config.environment,
-                http_cache,
-            ));
-            return Self { client };
+            let client = MARSClient::new(client_config.environment, http_cache);
+            return Self {
+                context_id_component,
+                client,
+            };
         }
 
-        let client = Box::new(DefaultMARSClient::new(
-            context_id,
-            client_config.environment,
-            None,
-        ));
-        Self { client }
+        let client = MARSClient::new(client_config.environment, None);
+        Self {
+            context_id_component,
+            client,
+        }
     }
 
-    pub fn request_ads(
+    fn request_ads<T>(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<RequestCachePolicy>,
-    ) -> Result<AdResponse, RequestAdsError> {
-        let ad_request = AdRequest::build(self.client.get_context_id()?, ad_placement_requests)?;
+    ) -> Result<AdResponse<T>, RequestAdsError>
+    where
+        T: DeserializeOwned,
+    {
+        let context_id = self.get_context_id()?;
+        let ad_request = AdRequest::build(context_id, ad_placement_requests)?;
         let cache_policy = options.unwrap_or_default();
         let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
         Ok(response)
+    }
+
+    pub fn request_image_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<RequestCachePolicy>,
+    ) -> Result<HashMap<String, AdImage>, RequestAdsError> {
+        let response = self.request_ads::<AdImage>(ad_placement_requests, options)?;
+        Ok(response.take_first())
+    }
+
+    pub fn request_spoc_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<RequestCachePolicy>,
+    ) -> Result<HashMap<String, Vec<AdSpoc>>, RequestAdsError> {
+        let response = self.request_ads::<AdSpoc>(ad_placement_requests, options)?;
+        Ok(response.data)
+    }
+
+    pub fn request_ua_tile_ads(
+        &self,
+        ad_placement_requests: Vec<AdPlacementRequest>,
+        options: Option<RequestCachePolicy>,
+    ) -> Result<HashMap<String, AdUATile>, RequestAdsError> {
+        let response = self.request_ads::<AdUATile>(ad_placement_requests, options)?;
+        Ok(response.take_first())
     }
 
     pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
@@ -90,8 +126,14 @@ impl AdsClient {
         Ok(())
     }
 
+    pub fn get_context_id(&self) -> context_id::ApiResult<String> {
+        self.context_id_component.request(0)
+    }
+
     pub fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
-        self.client.cycle_context_id()
+        let old_context_id = self.get_context_id()?;
+        self.context_id_component.force_rotation()?;
+        Ok(old_context_id)
     }
 
     pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
@@ -101,80 +143,124 @@ impl AdsClient {
 
 #[cfg(test)]
 mod tests {
-    use url::Url;
-
-    use crate::{
-        mars::MockMARSClient,
-        test_utils::{
-            get_example_happy_image_response, get_example_happy_spoc_response,
-            get_example_happy_uatile_response, make_happy_placement_requests,
-        },
+    use crate::client::ad_response::{AdImage, AdSpoc, AdUATile};
+    use crate::test_utils::{
+        get_example_happy_image_response, get_example_happy_spoc_response,
+        get_example_happy_uatile_response, make_happy_placement_requests,
     };
 
     use super::*;
 
     #[test]
+    fn test_get_context_id() {
+        let client = AdsClient::new(None);
+        let context_id = client.get_context_id().unwrap();
+        assert!(!context_id.is_empty());
+    }
+
+    #[test]
+    fn test_cycle_context_id() {
+        viaduct_dev::init_backend_dev();
+        let mut client = AdsClient::new(None);
+        let old_id = client.get_context_id().unwrap();
+        let previous_id = client.cycle_context_id().unwrap();
+        assert_eq!(previous_id, old_id);
+        let new_id = client.get_context_id().unwrap();
+        assert_ne!(new_id, old_id);
+    }
+
+    #[test]
     fn test_request_image_ads_happy() {
-        let mut mock = MockMARSClient::new();
-        mock.expect_fetch_ads()
-            .returning(|_req, _| Ok(get_example_happy_image_response()));
-        mock.expect_get_context_id()
-            .returning(|| Ok("mock-context-id".to_string()));
+        use crate::test_utils::create_test_client;
+        use context_id::{ContextIDComponent, DefaultContextIdCallback};
+        viaduct_dev::init_backend_dev();
 
-        mock.expect_get_mars_endpoint()
-            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+        let expected_response = get_example_happy_image_response();
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response).unwrap())
+            .create();
 
+        let mars_client = create_test_client(mockito::server_url());
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
         let component = AdsClient {
-            client: Box::new(mock),
+            context_id_component,
+            client: mars_client,
         };
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads(ad_placement_requests, None);
+        let result = component.request_ads::<AdImage>(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_request_spocs_happy() {
-        let mut mock = MockMARSClient::new();
-        mock.expect_fetch_ads()
-            .returning(|_req, _| Ok(get_example_happy_spoc_response()));
-        mock.expect_get_context_id()
-            .returning(|| Ok("mock-context-id".to_string()));
+        use crate::test_utils::create_test_client;
+        use context_id::{ContextIDComponent, DefaultContextIdCallback};
+        viaduct_dev::init_backend_dev();
 
-        mock.expect_get_mars_endpoint()
-            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+        let expected_response = get_example_happy_spoc_response();
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response).unwrap())
+            .create();
 
+        let mars_client = create_test_client(mockito::server_url());
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
         let component = AdsClient {
-            client: Box::new(mock),
+            context_id_component,
+            client: mars_client,
         };
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads(ad_placement_requests, None);
+        let result = component.request_ads::<AdSpoc>(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_request_uatiles_happy() {
-        let mut mock = MockMARSClient::new();
-        mock.expect_fetch_ads()
-            .returning(|_req, _| Ok(get_example_happy_uatile_response()));
-        mock.expect_get_context_id()
-            .returning(|| Ok("mock-context-id".to_string()));
+        use crate::test_utils::create_test_client;
+        use context_id::{ContextIDComponent, DefaultContextIdCallback};
+        viaduct_dev::init_backend_dev();
 
-        mock.expect_get_mars_endpoint()
-            .return_const(Url::parse("https://mock.endpoint/ads").unwrap());
+        let expected_response = get_example_happy_uatile_response();
+        let _m = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&expected_response).unwrap())
+            .create();
 
+        let mars_client = create_test_client(mockito::server_url());
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
         let component = AdsClient {
-            client: Box::new(mock),
+            context_id_component,
+            client: mars_client,
         };
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads(ad_placement_requests, None);
+        let result = component.request_ads::<AdUATile>(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }

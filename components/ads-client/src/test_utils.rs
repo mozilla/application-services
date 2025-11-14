@@ -11,11 +11,11 @@ use crate::{
     client::{
         ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
         ad_response::{
-            Ad, AdCallbacks, AdImage, AdResponse, AdSpoc, AdUATile, SpocFrequencyCaps, SpocRanking,
+            AdCallbacks, AdImage, AdResponse, AdSpoc, AdUATile, SpocFrequencyCaps, SpocRanking,
         },
     },
     http_cache::HttpCache,
-    mars::DefaultMARSClient,
+    mars::MARSClient,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
@@ -59,12 +59,12 @@ pub fn make_happy_ad_request() -> AdRequest {
     }
 }
 
-pub fn get_example_happy_image_response() -> AdResponse {
+pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
     AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![Ad::Image(AdImage {
+                vec![AdImage {
                     url: "https://ads.fakeexample.org/example_ad_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_1".to_string(),
                     format: "billboard".to_string(),
@@ -81,11 +81,11 @@ pub fn get_example_happy_image_response() -> AdResponse {
                             Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
             (
                 "example_placement_2".to_string(),
-                vec![Ad::Image(AdImage {
+                vec![AdImage {
                     url: "https://ads.fakeexample.org/example_ad_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_image_2".to_string(),
                     format: "skyscraper".to_string(),
@@ -102,18 +102,18 @@ pub fn get_example_happy_image_response() -> AdResponse {
                             Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
         ]),
     }
 }
 
-pub fn get_example_happy_spoc_response() -> AdResponse {
+pub fn get_example_happy_spoc_response() -> AdResponse<AdSpoc> {
     AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![Ad::Spoc(AdSpoc {
+                vec![AdSpoc {
                     url: "https://ads.fakeexample.org/example_spoc_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_spoc_image_1".to_string(),
                     format: "spoc".to_string(),
@@ -144,11 +144,11 @@ pub fn get_example_happy_spoc_response() -> AdResponse {
                                 .unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
             (
                 "example_placement_2".to_string(),
-                vec![Ad::Spoc(AdSpoc {
+                vec![AdSpoc {
                     url: "https://ads.fakeexample.org/example_spoc_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_spoc_image_2".to_string(),
                     format: "spoc".to_string(),
@@ -179,18 +179,18 @@ pub fn get_example_happy_spoc_response() -> AdResponse {
                                 .unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
         ]),
     }
 }
 
-pub fn get_example_happy_uatile_response() -> AdResponse {
+pub fn get_example_happy_uatile_response() -> AdResponse<AdUATile> {
     AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![Ad::UATile(AdUATile {
+                vec![AdUATile {
                     url: "https://ads.fakeexample.org/example_uatile_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_1".to_string(),
                     format: "uatile".to_string(),
@@ -208,11 +208,11 @@ pub fn get_example_happy_uatile_response() -> AdResponse {
                                 .unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
             (
                 "example_placement_2".to_string(),
-                vec![Ad::UATile(AdUATile {
+                vec![AdUATile {
                     url: "https://ads.fakeexample.org/example_uatile_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_2".to_string(),
                     format: "uatile".to_string(),
@@ -230,17 +230,13 @@ pub fn get_example_happy_uatile_response() -> AdResponse {
                                 .unwrap(),
                         ),
                     },
-                })],
+                }],
             ),
         ]),
     }
 }
 
-pub fn create_test_client(mock_server_url: String) -> DefaultMARSClient {
+pub fn create_test_client(mock_server_url: String) -> MARSClient {
     let http_cache = HttpCache::builder("test_client.db").build().unwrap();
-    DefaultMARSClient::new_with_endpoint(
-        TEST_CONTEXT_ID.to_string(),
-        mock_server_url,
-        Some(http_cache),
-    )
+    MARSClient::new_with_endpoint(mock_server_url, Some(http_cache))
 }
