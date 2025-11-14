@@ -1122,6 +1122,23 @@
     },
     {
       "attachment": {
+        "filename": "perplexity-16.pdf",
+        "hash": "69e0131f3e85657f827eb4ad3f01c25cf17540fe2db15c7e756f4dcfc1853dd2",
+        "location": "main-workspace/search-config-icons/15ae2412-8d7e-4086-b94b-9fa9ea6934f5.pdf",
+        "mimetype": "application/pdf",
+        "size": 5733
+      },
+      "engineIdentifiers": [
+        "perplexity"
+      ],
+      "filter_expression": "env.appinfo.OS == \"iOS\"",
+      "id": "f943d7bc-872e-4a81-810f-94d26465da69",
+      "imageSize": 16,
+      "last_modified": 1763049497744,
+      "schema": 1762992360903
+    },
+    {
+      "attachment": {
         "filename": "google-16-firefox.ico",
         "hash": "6da5620880159634213e197fafca1dde0272153be3e4590818533fab8d040770",
         "location": "main-workspace/search-config-icons/644faa05-4deb-491b-ae95-0962aefabe55.ico",
@@ -1189,5 +1206,5 @@
       "schema": 1743687832067
     }
   ],
-  "timestamp": 1746562822691
+  "timestamp": 1763049497744
 }
