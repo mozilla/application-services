@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["QUERY"],"fn":["join_query","longform_deeplink_url","set_clipboard"]};

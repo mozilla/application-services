@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cli_data_dir","cli_data_path","cli_data_subdir","ensure_cli_data_dir_exists","init_logging","init_logging_with","init_trace_logging","remote_settings_service","workspace_root_dir"],"mod":["fxa_creds","prompt"]};
