@@ -31,13 +31,6 @@ pub enum RequestAdsError {
 
     #[error("Error requesting ads from MARS: {0}")]
     FetchAds(#[from] FetchAdsError),
-
-    #[error("Unexpected ad type found in placement '{placement_id}'. Expected {expected_type}, but found {found_type}")]
-    UnexpectedAdType {
-        placement_id: String,
-        expected_type: String,
-        found_type: String,
-    },
 }
 
 #[derive(Debug, thiserror::Error)]

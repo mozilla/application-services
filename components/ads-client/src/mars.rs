@@ -13,8 +13,8 @@ use crate::{
     http_cache::{CacheOutcome, HttpCache, HttpCacheError},
     RequestCachePolicy,
 };
-use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use once_cell::sync::Lazy;
+use serde::de::DeserializeOwned;
 use url::Url;
 use viaduct::Request;
 
@@ -35,61 +35,24 @@ impl Environment {
     }
 }
 
-#[cfg_attr(test, mockall::automock)]
-pub trait MARSClient: Sync + Send {
-    fn fetch_ads(
-        &self,
-        request: &AdRequest,
-        cache_policy: &RequestCachePolicy,
-    ) -> Result<AdResponse, FetchAdsError>;
-    fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError>;
-    fn record_click(&self, callback: Url) -> Result<(), RecordClickError>;
-    fn report_ad(&self, callback: Url) -> Result<(), ReportAdError>;
-    fn get_context_id(&self) -> context_id::ApiResult<String>;
-    fn cycle_context_id(&mut self) -> context_id::ApiResult<String>;
-    fn get_mars_endpoint(&self) -> &Url;
-    fn clear_cache(&self) -> Result<(), HttpCacheError>;
-}
-
-pub struct DefaultMARSClient {
-    context_id_component: ContextIDComponent,
+pub struct MARSClient {
     endpoint: Url,
     http_cache: Option<HttpCache>,
 }
 
-impl DefaultMARSClient {
-    pub fn new(
-        context_id: String,
-        environment: Environment,
-        http_cache: Option<HttpCache>,
-    ) -> Self {
+impl MARSClient {
+    pub fn new(environment: Environment, http_cache: Option<HttpCache>) -> Self {
         let endpoint = environment.into_mars_url().clone();
 
         Self {
-            context_id_component: ContextIDComponent::new(
-                &context_id,
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
-            ),
             endpoint,
             http_cache,
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_endpoint(
-        context_id: String,
-        endpoint: String,
-        http_cache: Option<HttpCache>,
-    ) -> Self {
+    pub fn new_with_endpoint(endpoint: String, http_cache: Option<HttpCache>) -> Self {
         Self {
-            context_id_component: ContextIDComponent::new(
-                &context_id,
-                0,
-                false,
-                Box::new(DefaultContextIdCallback),
-            ),
             endpoint: Url::parse(endpoint.as_str()).unwrap(),
             http_cache,
         }
@@ -100,28 +63,19 @@ impl DefaultMARSClient {
         let response = request.send()?;
         check_http_status_for_error(&response).map_err(Into::into)
     }
-}
 
-impl MARSClient for DefaultMARSClient {
-    fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
-        let old_context_id = self.get_context_id()?;
-        self.context_id_component.force_rotation()?;
-        Ok(old_context_id)
-    }
-
-    fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(0)
-    }
-
-    fn get_mars_endpoint(&self) -> &Url {
+    pub fn get_mars_endpoint(&self) -> &Url {
         &self.endpoint
     }
 
-    fn fetch_ads(
+    pub fn fetch_ads<T>(
         &self,
         ad_request: &AdRequest,
         cache_policy: &RequestCachePolicy,
-    ) -> Result<AdResponse, FetchAdsError> {
+    ) -> Result<AdResponse<T>, FetchAdsError>
+    where
+        T: DeserializeOwned,
+    {
         let base = self.get_mars_endpoint();
         let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
@@ -140,29 +94,29 @@ impl MARSClient for DefaultMARSClient {
                 CacheOutcome::CleanupFailed(_err) => {}
             }
             check_http_status_for_error(&outcome.response)?;
-            let response_json: AdResponse = outcome.response.json()?;
+            let response_json: AdResponse<T> = outcome.response.json()?;
             Ok(response_json)
         } else {
             let response = request.send()?;
             check_http_status_for_error(&response)?;
-            let response_json: AdResponse = response.json()?;
+            let response_json: AdResponse<T> = response.json()?;
             Ok(response_json)
         }
     }
 
-    fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
+    pub fn record_impression(&self, callback: Url) -> Result<(), RecordImpressionError> {
         Ok(self.make_callback_request(callback)?)
     }
 
-    fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
+    pub fn record_click(&self, callback: Url) -> Result<(), RecordClickError> {
         Ok(self.make_callback_request(callback)?)
     }
 
-    fn report_ad(&self, callback: Url) -> Result<(), ReportAdError> {
+    pub fn report_ad(&self, callback: Url) -> Result<(), ReportAdError> {
         Ok(self.make_callback_request(callback)?)
     }
 
-    fn clear_cache(&self) -> Result<(), HttpCacheError> {
+    pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
         if let Some(cache) = &self.http_cache {
             cache.clear()?;
         }
@@ -174,29 +128,12 @@ impl MARSClient for DefaultMARSClient {
 mod tests {
 
     use super::*;
+    use crate::client::ad_response::AdImage;
     use crate::test_utils::{
         create_test_client, get_example_happy_image_response, make_happy_ad_request,
-        TEST_CONTEXT_ID,
     };
     use mockito::mock;
     use url::Host;
-
-    #[test]
-    fn test_get_context_id() {
-        let client = create_test_client(mockito::server_url());
-        assert_eq!(
-            client.get_context_id().unwrap(),
-            TEST_CONTEXT_ID.to_string()
-        );
-    }
-
-    #[test]
-    fn test_cycle_context_id() {
-        let mut client = create_test_client(mockito::server_url());
-        let old_id = client.cycle_context_id().unwrap();
-        assert_eq!(old_id, TEST_CONTEXT_ID);
-        assert_ne!(client.get_context_id().unwrap(), TEST_CONTEXT_ID);
-    }
 
     #[test]
     fn test_record_impression_with_valid_url_should_succeed() {
@@ -258,7 +195,7 @@ mod tests {
 
         let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads(&ad_request, &RequestCachePolicy::default());
+        let result = client.fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default());
         assert!(result.is_ok());
         assert_eq!(expected_response, result.unwrap());
     }
@@ -280,14 +217,14 @@ mod tests {
         // First call should be a miss then warm the cache
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &RequestCachePolicy::default())
+                .fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default())
                 .unwrap(),
             expected
         );
         // Second call should be a hit
         assert_eq!(
             client
-                .fetch_ads(&ad_request, &RequestCachePolicy::default())
+                .fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default())
                 .unwrap(),
             expected
         );
@@ -323,7 +260,7 @@ mod tests {
 
     #[test]
     fn default_client_uses_prod_url() {
-        let client = DefaultMARSClient::new("ctx".into(), Environment::Prod, None);
+        let client = MARSClient::new(Environment::Prod, None);
         assert_eq!(
             client.get_mars_endpoint().as_str(),
             "https://ads.mozilla.org/v1/"
