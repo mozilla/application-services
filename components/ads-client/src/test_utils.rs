@@ -10,7 +10,9 @@ use url::Url;
 use crate::{
     client::{
         ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
-        ad_response::{Ad, AdCallbacks, AdImage, AdResponse},
+        ad_response::{
+            Ad, AdCallbacks, AdImage, AdResponse, AdSpoc, AdUATile, SpocFrequencyCaps, SpocRanking,
+        },
     },
     http_cache::HttpCache,
     mars::DefaultMARSClient,
@@ -57,7 +59,7 @@ pub fn make_happy_ad_request() -> AdRequest {
     }
 }
 
-pub fn get_example_happy_ad_response() -> AdResponse {
+pub fn get_example_happy_image_response() -> AdResponse {
     AdResponse {
         data: HashMap::from([
             (
@@ -98,6 +100,134 @@ pub fn get_example_happy_ad_response() -> AdResponse {
                         .unwrap(),
                         report: Some(
                             Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
+                        ),
+                    },
+                })],
+            ),
+        ]),
+    }
+}
+
+pub fn get_example_happy_spoc_response() -> AdResponse {
+    AdResponse {
+        data: HashMap::from([
+            (
+                "example_placement_1".to_string(),
+                vec![Ad::Spoc(AdSpoc {
+                    url: "https://ads.fakeexample.org/example_spoc_1".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_spoc_image_1".to_string(),
+                    format: "spoc".to_string(),
+                    block_key: "spoc123".into(),
+                    title: "Example Spoc Title".to_string(),
+                    excerpt: "This is an example spoc excerpt".to_string(),
+                    domain: "example.com".to_string(),
+                    sponsor: "Example Sponsor".to_string(),
+                    sponsored_by_override: None,
+                    caps: SpocFrequencyCaps {
+                        cap_key: "spoc_cap_1".to_string(),
+                        day: 7,
+                    },
+                    ranking: SpocRanking {
+                        priority: 1,
+                        personalization_models: Some(HashMap::from([("model1".to_string(), 10)])),
+                        item_score: 0.85,
+                    },
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://ads.fakeexample.org/click/example_spoc_1")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_spoc_1",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_spoc_1")
+                                .unwrap(),
+                        ),
+                    },
+                })],
+            ),
+            (
+                "example_placement_2".to_string(),
+                vec![Ad::Spoc(AdSpoc {
+                    url: "https://ads.fakeexample.org/example_spoc_2".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_spoc_image_2".to_string(),
+                    format: "spoc".to_string(),
+                    block_key: "spoc456".into(),
+                    title: "Another Spoc Title".to_string(),
+                    excerpt: "This is another example spoc excerpt".to_string(),
+                    domain: "another-example.com".to_string(),
+                    sponsor: "Another Sponsor".to_string(),
+                    sponsored_by_override: Some("Override Sponsor".to_string()),
+                    caps: SpocFrequencyCaps {
+                        cap_key: "spoc_cap_2".to_string(),
+                        day: 14,
+                    },
+                    ranking: SpocRanking {
+                        priority: 2,
+                        personalization_models: None,
+                        item_score: 0.75,
+                    },
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://ads.fakeexample.org/click/example_spoc_2")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_spoc_2",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_spoc_2")
+                                .unwrap(),
+                        ),
+                    },
+                })],
+            ),
+        ]),
+    }
+}
+
+pub fn get_example_happy_uatile_response() -> AdResponse {
+    AdResponse {
+        data: HashMap::from([
+            (
+                "example_placement_1".to_string(),
+                vec![Ad::UATile(AdUATile {
+                    url: "https://ads.fakeexample.org/example_uatile_1".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_uatile_image_1".to_string(),
+                    format: "uatile".to_string(),
+                    block_key: "uatile123".into(),
+                    name: "Example UA Tile".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://ads.fakeexample.org/click/example_uatile_1")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_uatile_1",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_uatile_1")
+                                .unwrap(),
+                        ),
+                    },
+                })],
+            ),
+            (
+                "example_placement_2".to_string(),
+                vec![Ad::UATile(AdUATile {
+                    url: "https://ads.fakeexample.org/example_uatile_2".to_string(),
+                    image_url: "https://ads.fakeexample.org/example_uatile_image_2".to_string(),
+                    format: "uatile".to_string(),
+                    block_key: "uatile456".into(),
+                    name: "Another UA Tile".to_string(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://ads.fakeexample.org/click/example_uatile_2")
+                            .unwrap(),
+                        impression: Url::parse(
+                            "https://ads.fakeexample.org/impression/example_uatile_2",
+                        )
+                        .unwrap(),
+                        report: Some(
+                            Url::parse("https://ads.fakeexample.org/report/example_uatile_2")
+                                .unwrap(),
                         ),
                     },
                 })],

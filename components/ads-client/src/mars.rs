@@ -175,7 +175,8 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{
-        create_test_client, get_example_happy_ad_response, make_happy_ad_request, TEST_CONTEXT_ID,
+        create_test_client, get_example_happy_image_response, make_happy_ad_request,
+        TEST_CONTEXT_ID,
     };
     use mockito::mock;
     use url::Host;
@@ -244,7 +245,7 @@ mod tests {
     #[test]
     fn test_fetch_ads_success() {
         viaduct_dev::init_backend_dev();
-        let expected_response = get_example_happy_ad_response();
+        let expected_response = get_example_happy_image_response();
 
         let _m = mock("POST", "/ads")
             .match_header("content-type", "application/json")
@@ -265,7 +266,7 @@ mod tests {
     #[test]
     fn test_fetch_ads_cache_hit_skips_network() {
         viaduct_dev::init_backend_dev();
-        let expected = get_example_happy_ad_response();
+        let expected = get_example_happy_image_response();
         let _m = mock("POST", "/ads")
             .with_status(200)
             .with_header("content-type", "application/json")
