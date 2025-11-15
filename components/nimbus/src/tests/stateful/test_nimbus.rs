@@ -48,7 +48,6 @@ fn test_telemetry_reset() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
 
     let get_targeting_attributes_nimbus_id = || {
@@ -143,7 +142,6 @@ fn test_installation_date() -> Result<()> {
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
 
     client.initialize()?;
@@ -180,7 +178,6 @@ fn test_installation_date() -> Result<()> {
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
     delete_test_creation_date(tmp_dir.path()).ok();
     // When we check the filesystem, we will fail. We haven't `set_test_creation_date`
@@ -202,7 +199,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics.clone()),
-        None,
         None,
         None,
     )?;
@@ -234,7 +230,6 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -269,7 +264,6 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
 
     // 0. We haven't initialized anything yet, so dates won't be available.
@@ -298,7 +292,6 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
@@ -320,7 +313,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
     client.initialize()?;
 
@@ -340,7 +332,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics.clone()),
-        None,
         None,
         None,
     )?;
@@ -369,7 +360,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics.clone()),
-        None,
         None,
         None,
     )?;
@@ -404,7 +394,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -447,7 +436,6 @@ fn test_days_since_install() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -521,7 +509,6 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     client.set_install_time(Utc::now() - Duration::days(10));
     client.initialize()?;
@@ -590,7 +577,6 @@ fn test_days_since_update() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -662,7 +648,6 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -746,7 +731,6 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -871,7 +855,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -973,7 +956,6 @@ fn test_ios_rollout() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
 
     let exp = get_ios_rollout_experiment();
@@ -1010,7 +992,6 @@ fn test_fetch_enabled() -> Result<()> {
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
     client.set_fetch_enabled(false)?;
 
@@ -1023,7 +1004,6 @@ fn test_fetch_enabled() -> Result<()> {
         Default::default(),
         tmp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -1049,7 +1029,6 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -1115,7 +1094,6 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -1262,7 +1240,6 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
 
     let targeting_attributes = TargetingAttributes {
@@ -1390,7 +1367,6 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
 
@@ -1433,7 +1409,6 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
         Box::new(metrics.clone()),
         None,
         None,
-        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
 
@@ -1471,7 +1446,6 @@ fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<Nimb
         vec![coenrolling_feature.to_string()],
         temp_dir.path(),
         Box::new(metrics.clone()),
-        None,
         None,
         None,
     )
@@ -1670,7 +1644,6 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     let targeting_attributes = TargetingAttributes {
         app_context,
@@ -1729,7 +1702,6 @@ fn test_recorded_context_recorded() -> Result<()> {
         Box::new(metrics),
         None,
         None,
-        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
@@ -1776,7 +1748,6 @@ fn test_recorded_context_event_queries() -> Result<()> {
         Default::default(),
         temp_dir.path(),
         Box::new(metrics),
-        None,
         None,
         None,
     )?;
@@ -1837,7 +1808,6 @@ fn test_gecko_pref_enrollment() -> Result<()> {
         temp_dir.path(),
         Box::new(metrics),
         Some(Box::new(handler)),
-        None,
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
@@ -1916,7 +1886,6 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         temp_dir.path(),
         Box::new(metrics),
         Some(Box::new(handler)),
-        None,
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
