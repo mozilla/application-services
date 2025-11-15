@@ -169,6 +169,12 @@ dictionary PrefEnrollmentData {
     string variable;
 };
 
+
+dictionary NimbusServerSettings {
+    RemoteSettingsService rs_service;
+    string collection_name;
+};
+
 [Error]
 enum NimbusError {
     "InvalidPersistedData", "RkvError", "IOError",
@@ -207,8 +213,7 @@ interface NimbusClient {
         string dbpath,
         MetricsHandler metrics_handler,
         GeckoPrefHandler? gecko_pref_handler,
-        RemoteSettingsService? remote_settings_service,
-        string? collection_name
+        NimbusServerSettings? remote_settings_info
     );
 
     /// Initializes the database and caches enough information so that the
