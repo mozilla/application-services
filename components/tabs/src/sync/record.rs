@@ -24,8 +24,8 @@ pub struct TabsRecordTab {
 #[serde(rename_all = "camelCase")]
 // This struct mirrors what is stored on the server
 pub struct TabsRecord {
-    // `String` instead of `SyncGuid` because some IDs are FxA device ID (XXX - that doesn't
-    // matter though - this could easily be a Guid!)
+    // `String` instead of `SyncGuid` because `SyncGuid` is optimized for short uids,
+    // but we expect these to be long "xxx-xxx-xxx-xxx" FxA device uids.
     pub id: String,
     pub client_name: String,
     pub tabs: Vec<TabsRecordTab>,

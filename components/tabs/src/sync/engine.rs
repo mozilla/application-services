@@ -15,7 +15,7 @@ use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine, SyncEngineId,
 };
-use sync15::{telemetry, ClientData, CollectionName, DeviceType, RemoteClient, ServerTimestamp};
+use sync15::{telemetry, ClientData, CollectionName, RemoteClient, ServerTimestamp};
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -42,7 +42,7 @@ pub fn get_registered_sync_engine(
 }
 
 impl ClientRemoteTabs {
-    pub(crate) fn from_record_with_remote_client(
+    pub(crate) fn from_record(
         client_id: String,
         last_modified: ServerTimestamp,
         remote_client: &RemoteClient,
@@ -54,35 +54,6 @@ impl ClientRemoteTabs {
             device_type: remote_client.device_type,
             last_modified: last_modified.as_millis(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
-        }
-    }
-
-    // Note that this should die as part of https://github.com/mozilla/application-services/issues/5199
-    // If we don't have a `RemoteClient` record, then we don't know whether the ID passed here is
-    // the fxa_device_id (which is must be) or the client_id (which it will be if this ends up being
-    // called for desktop records, where client_id != fxa_device_id)
-    pub(crate) fn from_record(
-        client_id: String,
-        last_modified: ServerTimestamp,
-        record: TabsRecord,
-    ) -> Self {
-        Self {
-            client_id,
-            client_name: record.client_name,
-            device_type: DeviceType::Unknown,
-            last_modified: last_modified.as_millis(),
-            remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
-        }
-    }
-    fn to_record(&self) -> TabsRecord {
-        TabsRecord {
-            id: self.client_id.clone(),
-            client_name: self.client_name.clone(),
-            tabs: self
-                .remote_tabs
-                .iter()
-                .map(RemoteTab::to_record_tab)
-                .collect(),
         }
     }
 }
@@ -221,17 +192,15 @@ impl SyncEngine for TabsEngine {
             self.set_last_sync(timestamp)?;
         }
         // XXX - outgoing telem?
-        let outgoing = if let Some(local_tabs) = local_tabs {
-            let (client_name, device_type) = remote_clients
+        let outgoing = if let Some(tabs) = local_tabs {
+            let client_name = remote_clients
                 .get(local_id)
-                .map(|client| (client.device_name.clone(), client.device_type))
-                .unwrap_or_else(|| (String::new(), DeviceType::Unknown));
-            let local_record = ClientRemoteTabs {
-                client_id: local_id.clone(),
+                .map(|client| client.device_name.clone())
+                .unwrap_or_else(String::new);
+            let local_record = TabsRecord {
+                id: local_id.clone(),
                 client_name,
-                device_type,
-                last_modified: 0, // ignored for outgoing records.
-                remote_tabs: local_tabs.to_vec(),
+                tabs,
             };
             trace!("outgoing {:?}", local_record);
             let envelope = OutgoingEnvelope {
@@ -239,10 +208,7 @@ impl SyncEngine for TabsEngine {
                 ttl: Some(TABS_CLIENT_TTL),
                 ..Default::default()
             };
-            vec![OutgoingBso::from_content(
-                envelope,
-                local_record.to_record(),
-            )?]
+            vec![OutgoingBso::from_content(envelope, local_record)?]
         } else {
             vec![]
         };
@@ -327,6 +293,7 @@ impl crate::TabsStore {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::DeviceType;
     use serde_json::json;
     use sync15::bso::IncomingBso;
 
@@ -335,6 +302,39 @@ pub mod test {
         error_support::init_for_tests();
 
         let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path("test-incoming")));
+
+        let client_data = ClientData {
+            local_client_id: "my-device".to_string(),
+            recent_clients: HashMap::from([
+                (
+                    "my-device".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "my device".to_string(),
+                        device_type: sync15::DeviceType::Unknown,
+                    },
+                ),
+                (
+                    "device-no-tabs".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with no tabs".to_string(),
+                        device_type: DeviceType::Unknown,
+                    },
+                ),
+                (
+                    "device-with-a-tab".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with an updated tab".to_string(),
+                        device_type: DeviceType::Unknown,
+                    },
+                ),
+            ]),
+        };
+        engine
+            .prepare_for_sync(&|| client_data.clone())
+            .expect("should work");
 
         let records = vec![
             json!({
@@ -354,7 +354,6 @@ pub mod test {
                     "lastUsed": 1643764207
                 }]
             }),
-            // test an updated payload will replace the previous record
             json!({
                 "id": "device-with-a-tab",
                 "clientName": "device with an updated tab",
@@ -420,6 +419,21 @@ pub mod test {
         let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
             "test_no_incoming_doesnt_write",
         )));
+
+        let client_data = ClientData {
+            local_client_id: "my-device".to_string(),
+            recent_clients: HashMap::from([(
+                "device-with-a-tab".to_string(),
+                RemoteClient {
+                    fxa_device_id: None,
+                    device_name: "device-with-a-tab".to_string(),
+                    device_type: DeviceType::Unknown,
+                },
+            )]),
+        };
+        engine
+            .prepare_for_sync(&|| client_data.clone())
+            .expect("should work");
 
         let records = vec![json!({
             "id": "device-with-a-tab",
