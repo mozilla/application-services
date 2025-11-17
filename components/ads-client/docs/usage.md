@@ -30,15 +30,16 @@ If a cache configuration is provided, the client will initialize an on-disk HTTP
 
 #### Methods
 
-| Method                                                                                                                      | Return Type                                       | Description                                                                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clear_cache(&self)`                                                                                                        | `AdsClientApiResult<()>`                          | Clears the client's HTTP cache. Returns an error if clearing fails.                                                                           |
-| `cycle_context_id(&self)`                                                                                                   | `AdsClientApiResult<String>`                      | Rotates the client's context ID and returns the **previous** ID.                                                                              |
-| `record_click(&self, click_url: String)`                                                                                    | `AdsClientApiResult<()>`                          | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                        |
-| `record_impression(&self, impression_url: String)`                                                                          | `AdsClientApiResult<()>`                          | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                             |
-| `report_ad(&self, report_url: String)`                                                                                      | `AdsClientApiResult<()>`                          | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                         |
-| `request_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)`                   | `AdsClientApiResult<HashMap<String, MozAd>>`      | Requests one ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`.            |
+| Method                                                                                                                  | Return Type                                            | Description                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clear_cache(&self)`                                                                                                    | `AdsClientApiResult<()>`                               | Clears the client's HTTP cache. Returns an error if clearing fails.                                                                                                                  |
+| `cycle_context_id(&self)`                                                                                               | `AdsClientApiResult<String>`                           | Rotates the client's context ID and returns the **previous** ID.                                                                                                                     |
+| `record_click(&self, click_url: String)`                                                                                | `AdsClientApiResult<()>`                               | Records a click using the provided callback URL (typically from `ad.callbacks.click`).                                                                                               |
+| `record_impression(&self, impression_url: String)`                                                                      | `AdsClientApiResult<()>`                               | Records an impression using the provided callback URL (typically from `ad.callbacks.impression`).                                                                                    |
+| `report_ad(&self, report_url: String)`                                                                                  | `AdsClientApiResult<()>`                               | Reports an ad using the provided callback URL (typically from `ad.callbacks.report`).                                                                                                |
+| `request_image_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)`         | `AdsClientApiResult<HashMap<String, MozAdsImage>>`     | Requests one image ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`.                                             |
 | `request_spoc_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequestWithCount>, options: Option<MozAdsRequestOptions>)` | `AdsClientApiResult<HashMap<String, Vec<MozAdsSpoc>>>` | Requests spoc ads per placement. Each placement request specifies its own count. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`. |
+| `request_tile_ads(&self, moz_ad_requests: Vec<MozAdsPlacementRequest>, options: Option<MozAdsRequestOptions>)`          | `AdsClientApiResult<HashMap<String, MozAdsTile>>`      | Requests one tile ad per placement. Optional `MozAdsRequestOptions` can adjust caching behavior. Returns a map keyed by `placement_id`.                                              |
 
 > **Notes**
 >
@@ -94,19 +95,43 @@ pub struct MozAdsCacheConfig {
 
 ## `MozAdsPlacementRequest`
 
-Describes a single ad placement to request from MARS. A vector of these are required for the `request_ads` method on the client.
+Describes a single ad placement to request from MARS. A vector of these are required for the `request_image_ads` and `request_tile_ads` methods on the client.
 
 ```rust
 pub struct MozAdsPlacementRequest {
   pub placement_id: String,
-  pub iab_content: Option<IABContent>,
+  pub iab_content: Option<MozAdsIABContent>,
 }
 ```
 
-| Field          | Type                 | Description                                                                           |
-| -------------- | -------------------- | ------------------------------------------------------------------------------------- |
-| `placement_id` | `String`             | Unique identifier for the ad placement. Must be unique within one `request_ads` call. |
-| `iab_content`  | `Option<IABContent>` | Optional IAB content classification for targeting.                                    |
+| Field          | Type                       | Description                                                                     |
+| -------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| `placement_id` | `String`                   | Unique identifier for the ad placement. Must be unique within one request call. |
+| `iab_content`  | `Option<MozAdsIABContent>` | Optional IAB content classification for targeting.                              |
+
+**Validation Rules:**
+
+- `placement_id` values must be unique per request.
+
+---
+
+## `MozAdsPlacementRequestWithCount`
+
+Describes a single ad placement to request from MARS with a count parameter. A vector of these are required for the `request_spoc_ads` method on the client.
+
+```rust
+pub struct MozAdsPlacementRequestWithCount {
+  pub count: u32,
+  pub placement_id: String,
+  pub iab_content: Option<MozAdsIABContent>,
+}
+```
+
+| Field          | Type                       | Description                                                                     |
+| -------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| `count`        | `u32`                      | Number of spoc ads to request for this placement.                               |
+| `placement_id` | `String`                   | Unique identifier for the ad placement. Must be unique within one request call. |
+| `iab_content`  | `Option<MozAdsIABContent>` | Optional IAB content classification for targeting.                              |
 
 **Validation Rules:**
 
@@ -120,40 +145,40 @@ Options passed when making a single ad request.
 
 ```rust
 pub struct MozAdsRequestOptions {
-  pub cache_policy: Option<RequestCachePolicy>,
+  pub cache_policy: Option<MozAdsRequestCachePolicy>,
 }
 ```
 
-| Field          | Type                         | Description                                                                                    |
-| -------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `cache_policy` | `Option<RequestCachePolicy>` | Per-request caching policy. If `None`, uses the client’s default TTL with a `CacheFirst` mode. |
+| Field          | Type                               | Description                                                                                    |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `cache_policy` | `Option<MozAdsRequestCachePolicy>` | Per-request caching policy. If `None`, uses the client's default TTL with a `CacheFirst` mode. |
 
 ---
 
-## `RequestCachePolicy`
+## `MozAdsRequestCachePolicy`
 
 Defines how each request interacts with the cache.
 
 ```rust
-pub struct RequestCachePolicy {
-  pub mode: CacheMode,
+pub struct MozAdsRequestCachePolicy {
+  pub mode: MozAdsCacheMode,
   pub ttl_seconds: Option<u64>,
 }
 ```
 
-| Field         | Type          | Description                                                                                                                |
-| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `mode`        | `CacheMode`   | Strategy for combining cache and network. Can be `CacheFirst` or `NetworkFirst`.                                           |
-| `ttl_seconds` | `Option<u64>` | Optional per-request TTL override in seconds. `None` uses the client default. `Some(0)` disables caching for this request. |
+| Field         | Type              | Description                                                                                                                |
+| ------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `mode`        | `MozAdsCacheMode` | Strategy for combining cache and network. Can be `CacheFirst` or `NetworkFirst`.                                           |
+| `ttl_seconds` | `Option<u64>`     | Optional per-request TTL override in seconds. `None` uses the client default. `Some(0)` disables caching for this request. |
 
 ---
 
-## `CacheMode`
+## `MozAdsCacheMode`
 
 Determines how the cache is used during a request.
 
 ```rust
-pub enum CacheMode {
+pub enum MozAdsCacheMode {
   CacheFirst,
   NetworkFirst,
 }
@@ -166,74 +191,176 @@ pub enum CacheMode {
 
 ---
 
-## `MozAd`
+## `MozAdsImage`
 
-The ad creative, callbacks, and metadata provided for each ad returned from MARS.
+The image ad creative, callbacks, and metadata provided for each image ad returned from MARS.
 
 ```rust
-pub struct MozAd {
-  pub url: String,
-  pub image_url: String,
-  pub format: String,
-  pub block_key: String,
+pub struct MozAdsImage {
   pub alt_text: Option<String>,
-  pub callbacks: AdCallbacks,
+  pub block_key: String,
+  pub callbacks: MozAdsCallbacks,
+  pub format: String,
+  pub image_url: String,
+  pub url: String,
 }
 ```
 
-| Field       | Type             | Description                                 |
-| ----------- | ---------------- | ------------------------------------------- |
-| `url`       | `String`         | Destination URL.                            |
-| `image_url` | `String`         | Creative asset URL.                         |
-| `format`    | `String`         | Ad format e.g., `"skyscraper"`.             |
-| `block_key` | `String`         | The block key generated for the advertiser. |
-| `alt_text`  | `Option<String>` | Alt text if available.                      |
-| `callbacks` | `AdCallbacks`    | Lifecycle callback endpoints.               |
+| Field       | Type              | Description                                 |
+| ----------- | ----------------- | ------------------------------------------- |
+| `url`       | `String`          | Destination URL.                            |
+| `image_url` | `String`          | Creative asset URL.                         |
+| `format`    | `String`          | Ad format e.g., `"skyscraper"`.             |
+| `block_key` | `String`          | The block key generated for the advertiser. |
+| `alt_text`  | `Option<String>`  | Alt text if available.                      |
+| `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
 
 ---
 
-## `AdCallbacks`
+## `MozAdsSpoc`
+
+The spoc ad creative, callbacks, and metadata provided for each spoc ad returned from MARS.
 
 ```rust
-pub struct AdCallbacks {
-  pub click: String,
-  pub impression: String,
-  pub report: Option<String>,
+pub struct MozAdsSpoc {
+  pub block_key: String,
+  pub callbacks: MozAdsCallbacks,
+  pub caps: MozAdsSpocFrequencyCaps,
+  pub domain: String,
+  pub excerpt: String,
+  pub format: String,
+  pub image_url: String,
+  pub ranking: MozAdsSpocRanking,
+  pub sponsor: String,
+  pub sponsored_by_override: Option<String>,
+  pub title: String,
+  pub url: String,
 }
 ```
 
-| Field        | Type             | Description              |
-| ------------ | ---------------- | ------------------------ |
-| `click`      | `String`         | Click callback URL.      |
-| `impression` | `String`         | Impression callback URL. |
-| `report`     | `Option<String>` | Report callback URL.     |
+| Field                   | Type                      | Description                                 |
+| ----------------------- | ------------------------- | ------------------------------------------- |
+| `url`                   | `String`                  | Destination URL.                            |
+| `image_url`             | `String`                  | Creative asset URL.                         |
+| `format`                | `String`                  | Ad format e.g., `"spoc"`.                   |
+| `block_key`             | `String`                  | The block key generated for the advertiser. |
+| `title`                 | `String`                  | Spoc ad title.                              |
+| `excerpt`               | `String`                  | Spoc ad excerpt/description.                |
+| `domain`                | `String`                  | Domain of the spoc ad.                      |
+| `sponsor`               | `String`                  | Sponsor name.                               |
+| `sponsored_by_override` | `Option<String>`          | Optional override for sponsor name.         |
+| `caps`                  | `MozAdsSpocFrequencyCaps` | Frequency capping information.              |
+| `ranking`               | `MozAdsSpocRanking`       | Ranking and personalization information.    |
+| `callbacks`             | `MozAdsCallbacks`         | Lifecycle callback endpoints.               |
 
 ---
 
-## `AdContentCategory`
+## `MozAdsTile`
+
+The tile ad creative, callbacks, and metadata provided for each tile ad returned from MARS.
+
+```rust
+pub struct MozAdsTile {
+  pub block_key: String,
+  pub callbacks: MozAdsCallbacks,
+  pub format: String,
+  pub image_url: String,
+  pub name: String,
+  pub url: String,
+}
+```
+
+| Field       | Type              | Description                                 |
+| ----------- | ----------------- | ------------------------------------------- |
+| `url`       | `String`          | Destination URL.                            |
+| `image_url` | `String`          | Creative asset URL.                         |
+| `format`    | `String`          | Ad format e.g., `"tile"`.                   |
+| `block_key` | `String`          | The block key generated for the advertiser. |
+| `name`      | `String`          | Tile ad name.                               |
+| `callbacks` | `MozAdsCallbacks` | Lifecycle callback endpoints.               |
+
+---
+
+## `MozAdsSpocFrequencyCaps`
+
+Frequency capping information for spoc ads.
+
+```rust
+pub struct MozAdsSpocFrequencyCaps {
+  pub cap_key: String,
+  pub day: u32,
+}
+```
+
+| Field     | Type     | Description                       |
+| --------- | -------- | --------------------------------- |
+| `cap_key` | `String` | Frequency cap key identifier.     |
+| `day`     | `u32`    | Day number for the frequency cap. |
+
+---
+
+## `MozAdsSpocRanking`
+
+Ranking and personalization information for spoc ads.
+
+```rust
+pub struct MozAdsSpocRanking {
+  pub priority: u32,
+  pub personalization_models: HashMap<String, u32>,
+  pub item_score: f64,
+}
+```
+
+| Field                    | Type                   | Description                   |
+| ------------------------ | ---------------------- | ----------------------------- |
+| `priority`               | `u32`                  | Priority score for ranking.   |
+| `personalization_models` | `HashMap<String, u32>` | Personalization model scores. |
+| `item_score`             | `f64`                  | Overall item score.           |
+
+---
+
+## `MozAdsCallbacks`
+
+```rust
+pub struct MozAdsCallbacks {
+  pub click: Url,
+  pub impression: Url,
+  pub report: Option<Url>,
+}
+```
+
+| Field        | Type          | Description              |
+| ------------ | ------------- | ------------------------ |
+| `click`      | `Url`         | Click callback URL.      |
+| `impression` | `Url`         | Impression callback URL. |
+| `report`     | `Option<Url>` | Report callback URL.     |
+
+---
+
+## `MozAdsIABContent`
 
 Provides IAB content classification context for a placement.
 
 ```rust
-pub struct AdContentCategory {
-  pub taxonomy: IABContentTaxonomy,
+pub struct MozAdsIABContent {
+  pub taxonomy: MozAdsIABContentTaxonomy,
   pub category_ids: Vec<String>,
 }
 ```
 
-| Field          | Type                 | Description                           |
-| -------------- | -------------------- | ------------------------------------- |
-| `taxonomy`     | `IABContentTaxonomy` | IAB taxonomy version.                 |
-| `category_ids` | `Vec<String>`        | One or more IAB category identifiers. |
+| Field          | Type                       | Description                           |
+| -------------- | -------------------------- | ------------------------------------- |
+| `taxonomy`     | `MozAdsIABContentTaxonomy` | IAB taxonomy version.                 |
+| `category_ids` | `Vec<String>`              | One or more IAB category identifiers. |
 
 ---
 
-## `IABContentTaxonomy`
+## `MozAdsIABContentTaxonomy`
 
 The [IAB Content Taxonomy](https://www.iab.com/guidelines/content-taxonomy/) version to be used in the request. e.g `IAB-1.0`
 
 ```rust
-pub enum IABContentTaxonomy {
+pub enum MozAdsIABContentTaxonomy {
   IAB1_0,
   IAB2_0,
   IAB2_1,
@@ -265,7 +392,7 @@ where:
 
 - `server_max_age` comes from the HTTP Cache-Control: max-age=N header (if present),
 - `client_default_ttl` is set in `MozAdsCacheConfig`,
-- `per_request_ttl` is an optional override set in `RequestCachePolicy`.
+- `per_request_ttl` is an optional override set in `MozAdsRequestCachePolicy`.
 
 If the effective TTL resolves to 0 seconds, the response is not cached.
 
@@ -299,11 +426,11 @@ Assuming you have at least initialized the client with a `db_path`, individual r
 ```rust
 // Always fetch from network but only cache for 60 seconds
 let options = MozAdsRequestOptions(
-    cachePolicy: RequestCachePolicy(mode: .networkFirst, ttlSeconds: 60)
+    cachePolicy: MozAdsRequestCachePolicy(mode: .networkFirst, ttlSeconds: 60)
 )
 
 // Use it when requesting ads
-let placements = client.requestAds(configs, options: options)
+let placements = client.requestImageAds(configs, options: options)
 ```
 
 ### Cache Invalidation

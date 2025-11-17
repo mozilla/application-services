@@ -83,16 +83,16 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn request_ua_tile_ads(
+    pub fn request_tile_ads(
         &self,
         moz_ad_requests: Vec<MozAdsPlacementRequest>,
         options: Option<MozAdsRequestOptions>,
-    ) -> AdsClientApiResult<HashMap<String, MozAdsUATile>> {
+    ) -> AdsClientApiResult<HashMap<String, MozAdsTile>> {
         let inner = self.inner.lock();
         let requests: Vec<AdPlacementRequest> = moz_ad_requests.iter().map(|r| r.into()).collect();
         let cache_policy: RequestCachePolicy = options.into();
         let response = inner
-            .request_ua_tile_ads(requests, Some(cache_policy))
+            .request_tile_ads(requests, Some(cache_policy))
             .map_err(ComponentError::RequestAds)?;
         Ok(response.into_iter().map(|(k, v)| (k, v.into())).collect())
     }

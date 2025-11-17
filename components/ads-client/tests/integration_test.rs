@@ -90,7 +90,7 @@ fn test_newtab_tile_1_placement() {
         iab_content: None,
     };
 
-    let result = client.request_ua_tile_ads(vec![placement_request], None);
+    let result = client.request_tile_ads(vec![placement_request], None);
     println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());

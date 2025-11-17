@@ -5,7 +5,7 @@
 
 use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
 use crate::client::ad_response::{
-    AdCallbacks, AdImage, AdSpoc, AdUATile, SpocFrequencyCaps, SpocRanking,
+    AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
 use crate::error::ComponentError;
@@ -170,7 +170,7 @@ pub struct MozAdsSpocRanking {
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
-pub struct MozAdsUATile {
+pub struct MozAdsTile {
     pub block_key: String,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
@@ -250,8 +250,8 @@ impl From<AdSpoc> for MozAdsSpoc {
     }
 }
 
-impl From<AdUATile> for MozAdsUATile {
-    fn from(tile: AdUATile) -> Self {
+impl From<AdTile> for MozAdsTile {
+    fn from(tile: AdTile) -> Self {
         Self {
             block_key: tile.block_key,
             callbacks: tile.callbacks.into(),

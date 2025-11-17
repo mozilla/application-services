@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::{AdImage, AdResponse, AdSpoc, AdUATile};
+use crate::client::ad_response::{AdImage, AdResponse, AdSpoc, AdTile};
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
@@ -108,12 +108,12 @@ impl AdsClient {
         Ok(response.data)
     }
 
-    pub fn request_ua_tile_ads(
+    pub fn request_tile_ads(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<RequestCachePolicy>,
-    ) -> Result<HashMap<String, AdUATile>, RequestAdsError> {
-        let response = self.request_ads::<AdUATile>(ad_placement_requests, options)?;
+    ) -> Result<HashMap<String, AdTile>, RequestAdsError> {
+        let response = self.request_ads::<AdTile>(ad_placement_requests, options)?;
         Ok(response.take_first())
     }
 
@@ -147,7 +147,6 @@ impl AdsClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::ad_response::{AdImage, AdSpoc, AdUATile};
     use crate::test_utils::{
         get_example_happy_image_response, get_example_happy_spoc_response,
         get_example_happy_uatile_response, make_happy_placement_requests,
@@ -199,7 +198,7 @@ mod tests {
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads::<AdImage>(ad_placement_requests, None);
+        let result = component.request_image_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
@@ -231,13 +230,13 @@ mod tests {
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads::<AdSpoc>(ad_placement_requests, None);
+        let result = component.request_spoc_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_request_uatiles_happy() {
+    fn test_request_tiles_happy() {
         use crate::test_utils::create_test_client;
         use context_id::{ContextIDComponent, DefaultContextIdCallback};
         viaduct_dev::init_backend_dev();
@@ -263,7 +262,7 @@ mod tests {
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_ads::<AdUATile>(ad_placement_requests, None);
+        let result = component.request_tile_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }

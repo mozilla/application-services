@@ -88,7 +88,7 @@ pub struct AdSpoc {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdUATile {
+pub struct AdTile {
     pub block_key: String,
     pub callbacks: AdCallbacks,
     pub format: String,

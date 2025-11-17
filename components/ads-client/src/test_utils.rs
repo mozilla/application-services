@@ -11,7 +11,7 @@ use crate::{
     client::{
         ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
         ad_response::{
-            AdCallbacks, AdImage, AdResponse, AdSpoc, AdUATile, SpocFrequencyCaps, SpocRanking,
+            AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
         },
     },
     http_cache::HttpCache,
@@ -185,12 +185,12 @@ pub fn get_example_happy_spoc_response() -> AdResponse<AdSpoc> {
     }
 }
 
-pub fn get_example_happy_uatile_response() -> AdResponse<AdUATile> {
+pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
     AdResponse {
         data: HashMap::from([
             (
                 "example_placement_1".to_string(),
-                vec![AdUATile {
+                vec![AdTile {
                     url: "https://ads.fakeexample.org/example_uatile_1".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_1".to_string(),
                     format: "uatile".to_string(),
@@ -212,7 +212,7 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdUATile> {
             ),
             (
                 "example_placement_2".to_string(),
-                vec![AdUATile {
+                vec![AdTile {
                     url: "https://ads.fakeexample.org/example_uatile_2".to_string(),
                     image_url: "https://ads.fakeexample.org/example_uatile_image_2".to_string(),
                     format: "uatile".to_string(),
