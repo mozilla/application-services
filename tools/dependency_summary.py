@@ -995,11 +995,7 @@ for license in COMMON_LICENSE_FILE_NAME_ROOTS:
 
 def subprocess_run_cargo(args):
     """Run `cargo` as a subprocess, returning stdout."""
-    # This script needs to use the `--build-plan` option, hence require cargo nightly.
-    # By using $RUSTUP_TOOLCHAIN to specify this, we can cause rustup to helpfully
-    # download and install the nightly toolchain if it's not already available.
     env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = "nightly"
     p = subprocess.run(
         ("cargo",) + args,
         env=env,
@@ -1096,6 +1092,9 @@ class WorkspaceMetadata:
         """
         targets = self.get_compatible_targets_for_package(name, targets)
         cargo_args = (
+            # last nightly that supported --build-plan, details:
+            # https://github.com/rust-lang/cargo/issues/7614
+            "+nightly-2025-11-08",
             "-Z",
             "unstable-options",
             "build",

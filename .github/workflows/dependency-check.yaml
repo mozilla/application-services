@@ -55,8 +55,6 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           source $HOME/.cargo/env
           rustup toolchain install
-          # Needed because `tools/dependency_summary.py` uses nightly
-          rustup toolchain install nightly
       - name: Run Cargo Audit
         run: |
             cargo install cargo-audit --locked
