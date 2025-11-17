@@ -199,7 +199,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: "15.1"
+      xcode: "26.0"
     resource_class: m4pro.medium
 
 jobs:
