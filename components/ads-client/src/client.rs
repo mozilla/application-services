@@ -37,8 +37,12 @@ impl AdsClient {
 
         let client_config = client_config.unwrap_or_default();
 
-        let context_id_component =
-            ContextIDComponent::new(&context_id, 0, false, Box::new(DefaultContextIdCallback));
+        let context_id_component = ContextIDComponent::new(
+            &context_id,
+            0,
+            cfg!(test),
+            Box::new(DefaultContextIdCallback),
+        );
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
@@ -160,7 +164,6 @@ mod tests {
 
     #[test]
     fn test_cycle_context_id() {
-        viaduct_dev::init_backend_dev();
         let mut client = AdsClient::new(None);
         let old_id = client.get_context_id().unwrap();
         let previous_id = client.cycle_context_id().unwrap();
