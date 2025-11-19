@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::storage::RemoteTab;
 use serde_derive::{Deserialize, Serialize};
 
 // copy/pasta...
@@ -20,12 +21,36 @@ pub struct TabsRecordTab {
     pub inactive: bool,
 }
 
+impl From<RemoteTab> for TabsRecordTab {
+    fn from(tab: RemoteTab) -> Self {
+        Self {
+            title: tab.title.clone(),
+            url_history: tab.url_history.clone(),
+            icon: tab.icon.clone(),
+            last_used: tab.last_used.checked_div(1000).unwrap_or_default(),
+            inactive: tab.inactive,
+        }
+    }
+}
+
+impl From<TabsRecordTab> for RemoteTab {
+    fn from(tab: TabsRecordTab) -> Self {
+        Self {
+            title: tab.title.clone(),
+            url_history: tab.url_history.clone(),
+            icon: tab.icon.clone(),
+            last_used: tab.last_used.checked_mul(1000).unwrap_or_default(),
+            inactive: tab.inactive,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 // This struct mirrors what is stored on the server
 pub struct TabsRecord {
-    // `String` instead of `SyncGuid` because some IDs are FxA device ID (XXX - that doesn't
-    // matter though - this could easily be a Guid!)
+    // `String` instead of `SyncGuid` because `SyncGuid` is optimized for short uids,
+    // but we expect these to be long "xxx-xxx-xxx-xxx" FxA device uids.
     pub id: String,
     pub client_name: String,
     pub tabs: Vec<TabsRecordTab>,
