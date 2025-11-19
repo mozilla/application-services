@@ -40,11 +40,6 @@ impl FirefoxAccount {
     ///    - `device_type` - the [type](DeviceType) of device the application is installed on
     ///    - `supported_capabilities` - the set of [capabilities](DeviceCapability) to register
     ///       for this device in the "device commands" ecosystem.
-    ///
-    /// # Notes
-    ///
-    ///    - Device registration is only available to applications that have been
-    ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
     pub fn initialize_device(
         &self,
@@ -117,6 +112,54 @@ impl FirefoxAccount {
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<_, _>>()
+    }
+
+    /// Fetch and cache attached clients in the background, ignoring TTL.
+    ///
+    /// This method allows mobile clients to pre-warm the cache without blocking UI.
+    /// Unlike [`get_attached_clients`](FirefoxAccount::get_attached_clients), this always
+    /// performs a network request regardless of cache freshness.
+    ///
+    /// Mobile applications should call this method on a background thread when:
+    /// - The user logs in
+    /// - The app comes to the foreground
+    /// - A push notification is received indicating account changes
+    ///
+    /// After calling this method, [`get_attached_clients_from_cache`](FirefoxAccount::get_attached_clients_from_cache)
+    /// can be used on the main thread to get cached results without blocking.
+    ///
+    #[handle_error(Error)]
+    pub fn refresh_attached_clients_cache(&self) -> ApiResult<()> {
+        self.internal.lock().refresh_attached_clients_cache()
+    }
+
+    /// Get cached attached clients without blocking on network.
+    ///
+    /// This method returns the cached list of attached clients if available, even if stale.
+    /// It returns `None` if no cache is available. This method never blocks on network I/O,
+    /// making it safe to call from the main thread for immediate UI decisions.
+    ///
+    /// Mobile applications should use this method when they need to make immediate UI decisions,
+    /// such as whether to show Relay options in autofill or keyboard accessories.
+    ///
+    /// To ensure the cache is warm, call [`refresh_attached_clients_cache`](FirefoxAccount::refresh_attached_clients_cache)
+    /// proactively on a background thread.
+    ///
+    /// # Notes
+    ///
+    ///    - Returns `None` if no cached data is available
+    ///    - May return stale data (cache TTL is currently 6 hours)
+    ///    - Cached data is cleared on app restart and when push notifications indicate account changes
+    pub fn get_attached_clients_from_cache(&self) -> Option<Vec<AttachedClient>> {
+        self.internal
+            .lock()
+            .get_attached_clients_from_cache()
+            .map(|clients| {
+                clients
+                    .into_iter()
+                    .filter_map(|c| c.try_into().ok())
+                    .collect()
+            })
     }
 
     /// Update the display name used for this application instance.
