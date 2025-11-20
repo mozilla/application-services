@@ -180,6 +180,14 @@ impl HttpCacheStore {
         Ok(request_hash)
     }
 
+    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> SqliteResult<usize> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM http_cache WHERE request_hash = ?1",
+            params![request_hash.to_string()],
+        )
+    }
+
     /// Trim cache to
     pub fn trim_to_max_size(&self, max_size_bytes: i64) -> SqliteResult<()> {
         #[cfg(test)]
@@ -571,5 +579,31 @@ mod tests {
         // Verify both are cleared
         assert!(store.lookup(&request1).unwrap().is_none());
         assert!(store.lookup(&request2).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_invalidate_by_hash() {
+        let store = create_test_store();
+
+        let request1 = create_test_request("https://example.com/api1", b"body1");
+        let request2 = create_test_request("https://example.com/api2", b"body2");
+        let resp = create_test_response(200, b"resp");
+
+        store
+            .store_with_ttl(&request1, &resp, &Duration::new(300, 0))
+            .unwrap();
+        store
+            .store_with_ttl(&request2, &resp, &Duration::new(300, 0))
+            .unwrap();
+
+        assert!(store.lookup(&request1).unwrap().is_some());
+        assert!(store.lookup(&request2).unwrap().is_some());
+
+        let hash1 = RequestHash::from(&request1);
+        let deleted = store.invalidate_by_hash(&hash1).unwrap();
+        assert_eq!(deleted, 1);
+
+        assert!(store.lookup(&request1).unwrap().is_none());
+        assert!(store.lookup(&request2).unwrap().is_some());
     }
 }

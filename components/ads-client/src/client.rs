@@ -6,14 +6,15 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::{AdImage, AdResponse, AdSpoc, AdTile};
+use crate::client::ad_response::{
+    pop_request_hash_from_url, AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile,
+};
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::MARSClient;
 use ad_request::{AdPlacementRequest, AdRequest};
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
-use serde::de::DeserializeOwned;
 use url::Url;
 use uuid::Uuid;
 
@@ -75,18 +76,33 @@ impl AdsClient {
         }
     }
 
+    #[cfg(test)]
+    pub fn new_with_mars_client(client: MARSClient) -> Self {
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
+        Self {
+            context_id_component,
+            client,
+        }
+    }
+
     fn request_ads<T>(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<RequestCachePolicy>,
     ) -> Result<AdResponse<T>, RequestAdsError>
     where
-        T: DeserializeOwned,
+        T: AdResponseValue,
     {
         let context_id = self.get_context_id()?;
         let ad_request = AdRequest::build(context_id, ad_placement_requests)?;
         let cache_policy = options.unwrap_or_default();
-        let response = self.client.fetch_ads(&ad_request, &cache_policy)?;
+        let (mut response, request_hash) = self.client.fetch_ads(&ad_request, &cache_policy)?;
+        response.add_request_hash_to_callbacks(&request_hash);
         Ok(response)
     }
 
@@ -118,10 +134,18 @@ impl AdsClient {
     }
 
     pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
+        let mut impression_url = impression_url.clone();
+        if let Some(request_hash) = pop_request_hash_from_url(&mut impression_url) {
+            let _ = self.client.invalidate_cache_by_hash(&request_hash);
+        }
         self.client.record_impression(impression_url)
     }
 
     pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
+        let mut click_url = click_url.clone();
+        if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
+            let _ = self.client.invalidate_cache_by_hash(&request_hash);
+        }
         self.client.record_click(click_url)
     }
 
@@ -147,9 +171,12 @@ impl AdsClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{
-        get_example_happy_image_response, get_example_happy_spoc_response,
-        get_example_happy_uatile_response, make_happy_placement_requests,
+    use crate::{
+        client::config::Environment,
+        test_utils::{
+            get_example_happy_image_response, get_example_happy_spoc_response,
+            get_example_happy_uatile_response, make_happy_placement_requests,
+        },
     };
 
     use super::*;
@@ -173,8 +200,6 @@ mod tests {
 
     #[test]
     fn test_request_image_ads_happy() {
-        use crate::test_utils::create_test_client;
-        use context_id::{ContextIDComponent, DefaultContextIdCallback};
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_image_response();
@@ -184,29 +209,18 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response).unwrap())
             .create();
 
-        let mars_client = create_test_client(mockito::server_url());
-        let context_id_component = ContextIDComponent::new(
-            &uuid::Uuid::new_v4().to_string(),
-            0,
-            false,
-            Box::new(DefaultContextIdCallback),
-        );
-        let component = AdsClient {
-            context_id_component,
-            client: mars_client,
-        };
+        let mars_client = MARSClient::new(Environment::Test, None);
+        let ads_client = AdsClient::new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_image_ads(ad_placement_requests, None);
+        let result = ads_client.request_image_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_request_spocs_happy() {
-        use crate::test_utils::create_test_client;
-        use context_id::{ContextIDComponent, DefaultContextIdCallback};
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_spoc_response();
@@ -216,29 +230,18 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response).unwrap())
             .create();
 
-        let mars_client = create_test_client(mockito::server_url());
-        let context_id_component = ContextIDComponent::new(
-            &uuid::Uuid::new_v4().to_string(),
-            0,
-            false,
-            Box::new(DefaultContextIdCallback),
-        );
-        let component = AdsClient {
-            context_id_component,
-            client: mars_client,
-        };
+        let mars_client = MARSClient::new(Environment::Test, None);
+        let ads_client = AdsClient::new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_spoc_ads(ad_placement_requests, None);
+        let result = ads_client.request_spoc_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_request_tiles_happy() {
-        use crate::test_utils::create_test_client;
-        use context_id::{ContextIDComponent, DefaultContextIdCallback};
         viaduct_dev::init_backend_dev();
 
         let expected_response = get_example_happy_uatile_response();
@@ -248,22 +251,55 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response).unwrap())
             .create();
 
-        let mars_client = create_test_client(mockito::server_url());
-        let context_id_component = ContextIDComponent::new(
-            &uuid::Uuid::new_v4().to_string(),
-            0,
-            false,
-            Box::new(DefaultContextIdCallback),
-        );
-        let component = AdsClient {
-            context_id_component,
-            client: mars_client,
-        };
+        let mars_client = MARSClient::new(Environment::Test, None);
+        let ads_client = AdsClient::new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
-        let result = component.request_tile_ads(ad_placement_requests, None);
+        let result = ads_client.request_tile_ads(ad_placement_requests, None);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_record_click_invalidates_cache() {
+        viaduct_dev::init_backend_dev();
+        let cache = HttpCache::builder("test_record_click_invalidates_cache")
+            .build()
+            .unwrap();
+        let mars_client = MARSClient::new(Environment::Test, Some(cache));
+        let ads_client = AdsClient::new_with_mars_client(mars_client);
+
+        let response = get_example_happy_image_response();
+
+        let _m1 = mockito::mock("POST", "/ads")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(serde_json::to_string(&response).unwrap())
+            .expect(2) // we expect 2 requests to the server, one for the initial ad request and one after for the cache invalidation request
+            .create();
+
+        let response = ads_client
+            .request_image_ads(make_happy_placement_requests(), None)
+            .unwrap();
+        let callback_url = response.values().next().unwrap().callbacks.click.clone();
+
+        let _m2 = mockito::mock("GET", callback_url.path())
+            .with_status(200)
+            .create();
+
+        // Doing another request should hit the cache
+        ads_client
+            .request_image_ads(make_happy_placement_requests(), None)
+            .unwrap();
+
+        ads_client.record_click(callback_url).unwrap();
+
+        ads_client
+            .request_ads::<AdImage>(
+                make_happy_placement_requests(),
+                Some(RequestCachePolicy::default()),
+            )
+            .unwrap();
     }
 }

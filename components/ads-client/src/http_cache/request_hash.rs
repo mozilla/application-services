@@ -6,7 +6,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use viaduct::Request;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RequestHash(String);
 
 impl From<&Request> for RequestHash {
@@ -24,6 +24,18 @@ impl From<&Request> for RequestHash {
 
         request.body.hash(&mut hasher);
         RequestHash(format!("{:x}", hasher.finish()))
+    }
+}
+
+impl From<&str> for RequestHash {
+    fn from(s: &str) -> Self {
+        RequestHash(s.to_string())
+    }
+}
+
+impl From<String> for RequestHash {
+    fn from(s: String) -> Self {
+        RequestHash(s)
     }
 }
 
@@ -104,5 +116,16 @@ mod tests {
 
         assert_eq!(h_req1.to_string(), h_req2.to_string());
         assert_eq!(h_req1.to_string(), h_req3.to_string());
+    }
+
+    #[test]
+    fn test_request_hash_from_string() {
+        let hash_str = "abc123def456";
+        let hash = RequestHash::from(hash_str);
+        assert_eq!(hash.to_string(), hash_str);
+
+        let hash_string = String::from("xyz789");
+        let hash2 = RequestHash::from(hash_string);
+        assert_eq!(hash2.to_string(), "xyz789");
     }
 }
