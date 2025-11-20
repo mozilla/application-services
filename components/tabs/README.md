@@ -33,7 +33,14 @@ on the request and re-upload its tabs.
 
 ## Payload format
 
-Every remote sync record is roughly a list of tabs with their URL history (think of the back button). There is one record for each client.
+The sync payload has 3 distinct concepts:
+
+* Tabs: a title, a URL history (think back button), whether it is pinned/active etc, if it is in a tab group, etc.
+* Windows: So remote clients can display our tabs based on Window.
+* Tab groups: So tab-groups can be recreated (or at last reflected) on remote devices.
+
+These are distinct data-structures - eg, a tab has a "window id" and a "tab group id", and there
+are separate maps for these groups and windows.
 
 ### Association with device IDs
 

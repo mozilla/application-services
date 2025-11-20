@@ -17,7 +17,7 @@ use sync15::{
     client::{sync_multiple, MemoryCachedState, Sync15StorageClientInit},
     KeyBundle,
 };
-use tabs::{RemoteTabRecord, TabsEngine, TabsStore};
+use tabs::{LocalTabsInfo, RemoteTabRecord, TabsEngine, TabsStore};
 
 use anyhow::Result;
 
@@ -136,7 +136,14 @@ fn main() -> Result<()> {
                     ..Default::default()
                 }];
                 dbg!(&tabs);
-                store.storage.lock().unwrap().update_local_state(tabs);
+                store
+                    .storage
+                    .lock()
+                    .unwrap()
+                    .update_local_state(LocalTabsInfo {
+                        tabs,
+                        ..Default::default()
+                    });
             }
             'L' | 'l' => {
                 log::info!("Listing remote tabs.");
@@ -206,7 +213,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn read_local_state() -> Vec<RemoteTabRecord> {
+fn read_local_state() -> LocalTabsInfo {
     println!("Please run the following command in the Firefox Browser Toolbox:");
     println!(
         "   JSON.stringify(await Weave.Service.engineManager.get(\"tabs\").getTabsWithinPayloadSize())"
@@ -225,7 +232,7 @@ fn read_local_state() -> Vec<RemoteTabRecord> {
 
     let tabs = json.as_array().unwrap();
 
-    let mut local_state = vec![];
+    let mut local_state = LocalTabsInfo::default();
     for tab in tabs {
         let title = tab["title"].as_str().unwrap().to_owned();
         let last_used = tab["lastUsed"].as_i64().unwrap();
@@ -238,12 +245,13 @@ fn read_local_state() -> Vec<RemoteTabRecord> {
             .iter()
             .map(|u| u.as_str().unwrap().to_owned())
             .collect();
-        local_state.push(RemoteTabRecord {
+        local_state.tabs.push(RemoteTabRecord {
             title,
             url_history,
             icon,
             last_used,
             inactive: false,
+            ..Default::default()
         });
     }
     local_state

@@ -8,6 +8,7 @@ typedef i64 Timestamp;
 // exported via proc-macros
 typedef dictionary ClientRemoteTabs;
 typedef dictionary RemoteTabRecord;
+typedef dictionary LocalTabsInfo;
 
 namespace tabs {
 
@@ -28,7 +29,11 @@ interface TabsStore {
 
     sequence<ClientRemoteTabs> get_all();
 
+    /// An API for clients which know nothing about windows or tab groups.
     void set_local_tabs(sequence<RemoteTabRecord> remote_tabs);
+
+    /// More context-aware API for setting information about a tab like window and groups.
+    void set_local_tabs_info(LocalTabsInfo info);
 
     [Self=ByArc]
     RemoteCommandStore new_remote_command_store();

@@ -54,6 +54,16 @@ impl ClientRemoteTabs {
             device_type: remote_client.device_type,
             last_modified: last_modified.as_millis(),
             remote_tabs: record.tabs.into_iter().map(Into::into).collect(),
+            tab_groups: record
+                .tab_groups
+                .into_iter()
+                .map(|(n, v)| (n, v.into()))
+                .collect(),
+            windows: record
+                .windows
+                .into_iter()
+                .map(|(n, v)| (n, v.into()))
+                .collect(),
         }
     }
 }
@@ -167,7 +177,7 @@ impl SyncEngine for TabsEngine {
             }
         };
 
-        let Some(ref tabs) = *storage.local_tabs.borrow() else {
+        let Some(ref tabs_info) = *storage.local_tabs.borrow() else {
             // It's a less than ideal outcome if at startup (or any time) we are asked to
             // sync tabs before the app has told us what the tabs are, so make noise, but
             // don't actually write that we have no tabs.
@@ -183,7 +193,22 @@ impl SyncEngine for TabsEngine {
         let mut record = TabsRecord {
             id: local_id.clone(),
             client_name,
-            tabs: tabs.iter().map(Clone::clone).map(Into::into).collect(),
+            tabs: tabs_info
+                .tabs
+                .iter()
+                .map(Clone::clone)
+                .map(Into::into)
+                .collect(),
+            windows: tabs_info
+                .windows
+                .iter()
+                .map(|(n, v)| (n.clone(), v.clone().into()))
+                .collect(),
+            tab_groups: tabs_info
+                .tab_groups
+                .iter()
+                .map(|(n, v)| (n.clone(), v.clone().into()))
+                .collect(),
         };
         super::prepare_for_upload(&mut record);
 
