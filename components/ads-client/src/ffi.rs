@@ -93,6 +93,8 @@ pub enum MozAdsEnvironment {
     Prod,
     #[cfg(feature = "dev")]
     Staging,
+    #[cfg(test)]
+    Test,
 }
 
 #[derive(uniffi::Record)]
@@ -269,6 +271,8 @@ impl From<Environment> for MozAdsEnvironment {
             Environment::Prod => MozAdsEnvironment::Prod,
             #[cfg(feature = "dev")]
             Environment::Staging => MozAdsEnvironment::Staging,
+            #[cfg(test)]
+            Environment::Test => MozAdsEnvironment::Test,
         }
     }
 }
@@ -279,6 +283,8 @@ impl From<MozAdsEnvironment> for Environment {
             MozAdsEnvironment::Prod => Environment::Prod,
             #[cfg(feature = "dev")]
             MozAdsEnvironment::Staging => Environment::Staging,
+            #[cfg(test)]
+            MozAdsEnvironment::Test => Environment::Test,
         }
     }
 }

@@ -7,15 +7,11 @@ use std::collections::HashMap;
 
 use url::Url;
 
-use crate::{
-    client::{
-        ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
-        ad_response::{
-            AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
-        },
+use crate::client::{
+    ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
+    ad_response::{
+        AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
     },
-    http_cache::HttpCache,
-    mars::MARSClient,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
@@ -60,6 +56,7 @@ pub fn make_happy_ad_request() -> AdRequest {
 }
 
 pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
+    let base_url = mockito::server_url();
     AdResponse {
         data: HashMap::from([
             (
@@ -71,14 +68,11 @@ pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a puppy".to_string()),
                     callbacks: AdCallbacks {
-                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_1")
+                        click: Url::parse(&format!("{}/click/example_ad_1", base_url)).unwrap(),
+                        impression: Url::parse(&format!("{}/impression/example_ad_1", base_url))
                             .unwrap(),
-                        impression: Url::parse(
-                            "https://ads.fakeexample.org/impression/example_ad_1",
-                        )
-                        .unwrap(),
                         report: Some(
-                            Url::parse("https://ads.fakeexample.org/report/example_ad_1").unwrap(),
+                            Url::parse(&format!("{}/report/example_ad_1", base_url)).unwrap(),
                         ),
                     },
                 }],
@@ -92,14 +86,11 @@ pub fn get_example_happy_image_response() -> AdResponse<AdImage> {
                     block_key: "abc123".into(),
                     alt_text: Some("An ad for a pet duck".to_string()),
                     callbacks: AdCallbacks {
-                        click: Url::parse("https://ads.fakeexample.org/click/example_ad_2")
+                        click: Url::parse(&format!("{}/click/example_ad_2", base_url)).unwrap(),
+                        impression: Url::parse(&format!("{}/impression/example_ad_2", base_url))
                             .unwrap(),
-                        impression: Url::parse(
-                            "https://ads.fakeexample.org/impression/example_ad_2",
-                        )
-                        .unwrap(),
                         report: Some(
-                            Url::parse("https://ads.fakeexample.org/report/example_ad_2").unwrap(),
+                            Url::parse(&format!("{}/report/example_ad_2", base_url)).unwrap(),
                         ),
                     },
                 }],
@@ -234,9 +225,4 @@ pub fn get_example_happy_uatile_response() -> AdResponse<AdTile> {
             ),
         ]),
     }
-}
-
-pub fn create_test_client(mock_server_url: String) -> MARSClient {
-    let http_cache = HttpCache::builder("test_client.db").build().unwrap();
-    MARSClient::new_with_endpoint(mock_server_url, Some(http_cache))
 }

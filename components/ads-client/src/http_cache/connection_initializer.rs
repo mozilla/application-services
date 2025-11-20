@@ -33,6 +33,7 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
             );
             CREATE INDEX IF NOT EXISTS idx_http_cache_cached_at ON http_cache(cached_at);
             CREATE INDEX IF NOT EXISTS idx_http_cache_expires_at ON http_cache(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_http_cache_request_hash ON http_cache(request_hash);
         ";
         tx.execute_batch(SCHEMA)?;
         Ok(())

@@ -15,6 +15,7 @@ use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCa
 use viaduct::{Request, Response};
 
 pub use self::bytesize::ByteSize;
+pub use self::request_hash::RequestHash;
 use std::cmp;
 use std::path::Path;
 use std::time::Duration;
@@ -88,6 +89,7 @@ pub enum HttpCacheError {
     Sqlite(#[from] rusqlite::Error),
 }
 
+#[derive(Debug)]
 pub enum CacheOutcome {
     Hit,
     LookupFailed(rusqlite::Error), // cache miss path due to lookup error
@@ -116,6 +118,13 @@ impl HttpCache {
 
     pub fn clear(&self) -> Result<(), HttpCacheError> {
         self.store.clear_all().map_err(HttpCacheError::from)?;
+        Ok(())
+    }
+
+    pub fn invalidate_by_hash(&self, request_hash: &RequestHash) -> Result<(), HttpCacheError> {
+        self.store
+            .invalidate_by_hash(request_hash)
+            .map_err(HttpCacheError::from)?;
         Ok(())
     }
 
@@ -478,5 +487,53 @@ mod tests {
         cache.store.get_clock().advance(3);
         cache.store.delete_expired_entries().unwrap();
         assert!(cache.store.lookup(&req).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_invalidate_by_hash() {
+        use crate::http_cache::request_hash::RequestHash;
+
+        let cache = HttpCache::builder("test_invalidate.db").build().unwrap();
+
+        let request1 = viaduct::Request {
+            method: viaduct::Method::Post,
+            url: "https://example.com/api1".parse().unwrap(),
+            headers: viaduct::Headers::new(),
+            body: Some(b"body1".to_vec()),
+        };
+
+        let request2 = viaduct::Request {
+            method: viaduct::Method::Post,
+            url: "https://example.com/api2".parse().unwrap(),
+            headers: viaduct::Headers::new(),
+            body: Some(b"body2".to_vec()),
+        };
+
+        let response = viaduct::Response {
+            request_method: viaduct::Method::Post,
+            url: "https://example.com/test".parse().unwrap(),
+            status: 200,
+            headers: viaduct::Headers::new(),
+            body: b"test response".to_vec(),
+        };
+
+        cache
+            .store
+            .store_with_ttl(&request1, &response, &Duration::new(300, 0))
+            .unwrap();
+
+        cache
+            .store
+            .store_with_ttl(&request2, &response, &Duration::new(300, 0))
+            .unwrap();
+
+        assert!(cache.store.lookup(&request1).unwrap().is_some());
+        assert!(cache.store.lookup(&request2).unwrap().is_some());
+
+        let hash1 = RequestHash::from(&request1);
+        cache.invalidate_by_hash(&hash1).unwrap();
+
+        assert!(cache.store.lookup(&request1).unwrap().is_none());
+        assert!(cache.store.lookup(&request2).unwrap().is_some());
     }
 }

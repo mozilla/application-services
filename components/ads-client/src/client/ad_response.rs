@@ -3,6 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::http_cache::RequestHash;
 use serde::de::DeserializeOwned;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
@@ -10,12 +11,29 @@ use std::collections::HashMap;
 use url::Url;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct AdResponse<T: DeserializeOwned> {
+pub struct AdResponse<T: AdResponseValue> {
     #[serde(deserialize_with = "deserialize_ad_response", flatten)]
     pub data: HashMap<String, Vec<T>>,
 }
 
-impl<T: DeserializeOwned> AdResponse<T> {
+impl<T: AdResponseValue> AdResponse<T> {
+    pub fn add_request_hash_to_callbacks(&mut self, request_hash: &RequestHash) {
+        for ads in self.data.values_mut() {
+            for ad in ads.iter_mut() {
+                let callbacks = ad.callbacks_mut();
+                let hash_str = request_hash.to_string();
+                callbacks
+                    .click
+                    .query_pairs_mut()
+                    .append_pair("request_hash", &hash_str);
+                callbacks
+                    .impression
+                    .query_pairs_mut()
+                    .append_pair("request_hash", &hash_str);
+            }
+        }
+    }
+
     pub fn take_first(self) -> HashMap<String, T> {
         self.data
             .into_iter()
@@ -30,10 +48,31 @@ impl<T: DeserializeOwned> AdResponse<T> {
     }
 }
 
+pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
+    let mut request_hash = None;
+    let mut query = url::form_urlencoded::Serializer::new(String::new());
+
+    for (key, value) in url.query_pairs() {
+        if key == "request_hash" {
+            request_hash = Some(RequestHash::from(value.as_ref()));
+        } else {
+            query.append_pair(&key, &value);
+        }
+    }
+
+    let query_string = query.finish();
+    if query_string.is_empty() {
+        url.set_query(None);
+    } else {
+        url.set_query(Some(&query_string));
+    }
+    request_hash
+}
+
 fn deserialize_ad_response<'de, D, T>(deserializer: D) -> Result<HashMap<String, Vec<T>>, D::Error>
 where
     D: Deserializer<'de>,
-    T: DeserializeOwned,
+    T: AdResponseValue,
 {
     let raw = HashMap::<String, serde_json::Value>::deserialize(deserializer)?;
     let mut result = HashMap::new();
@@ -115,6 +154,28 @@ pub struct AdCallbacks {
     pub click: Url,
     pub impression: Url,
     pub report: Option<Url>,
+}
+
+pub trait AdResponseValue: DeserializeOwned {
+    fn callbacks_mut(&mut self) -> &mut AdCallbacks;
+}
+
+impl AdResponseValue for AdImage {
+    fn callbacks_mut(&mut self) -> &mut AdCallbacks {
+        &mut self.callbacks
+    }
+}
+
+impl AdResponseValue for AdSpoc {
+    fn callbacks_mut(&mut self) -> &mut AdCallbacks {
+        &mut self.callbacks
+    }
+}
+
+impl AdResponseValue for AdTile {
+    fn callbacks_mut(&mut self) -> &mut AdCallbacks {
+        &mut self.callbacks
+    }
 }
 
 #[cfg(test)]
@@ -371,5 +432,61 @@ mod tests {
         let second_ad = result.get("placement_2").unwrap();
         assert_eq!(second_ad.alt_text, Some("Third ad".to_string()));
         assert_eq!(second_ad.block_key, "key3");
+    }
+
+    #[test]
+    fn test_add_request_hash_to_callbacks() {
+        let mut response = AdResponse {
+            data: HashMap::from([(
+                "placement_1".to_string(),
+                vec![AdImage {
+                    alt_text: Some("An ad for a puppy".to_string()),
+                    block_key: "abc123".into(),
+                    callbacks: AdCallbacks {
+                        click: Url::parse("https://example.com/click").unwrap(),
+                        impression: Url::parse("https://example.com/impression").unwrap(),
+                        report: Some(Url::parse("https://example.com/report").unwrap()),
+                    },
+                    format: "billboard".to_string(),
+                    image_url: "https://example.com/image.png".to_string(),
+                    url: "https://example.com/ad".to_string(),
+                }],
+            )]),
+        };
+
+        let request_hash = RequestHash::from("abc123def456");
+        response.add_request_hash_to_callbacks(&request_hash);
+        let callbacks = &response.data.values().next().unwrap()[0].callbacks;
+
+        assert!(callbacks
+            .click
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
+        assert!(callbacks
+            .impression
+            .query()
+            .unwrap_or("")
+            .contains("request_hash=abc123def456"));
+    }
+
+    #[test]
+    fn test_pop_request_hash_from_url() {
+        let mut url_with_hash =
+            Url::parse("https://example.com/callback?request_hash=abc123def456&other=param")
+                .unwrap();
+        let extracted = pop_request_hash_from_url(&mut url_with_hash);
+        assert_eq!(extracted, Some(RequestHash::from("abc123def456")));
+        assert_eq!(url_with_hash.query(), Some("other=param"));
+
+        let mut url_without_hash = Url::parse("https://example.com/callback?other=param").unwrap();
+        let extracted_none = pop_request_hash_from_url(&mut url_without_hash);
+        assert_eq!(extracted_none, None);
+        assert_eq!(url_without_hash.query(), Some("other=param"));
+
+        let mut url_no_query = Url::parse("https://example.com/callback").unwrap();
+        let extracted_empty = pop_request_hash_from_url(&mut url_no_query);
+        assert_eq!(extracted_empty, None);
+        assert_eq!(url_no_query.query(), None);
     }
 }
