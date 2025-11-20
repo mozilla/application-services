@@ -150,20 +150,39 @@ impl LoginDb {
     }
 
     pub fn count_by_origin(&self, origin: &str) -> Result<i64> {
-        let mut stmt = self.db.prepare_cached(&COUNT_BY_ORIGIN_SQL)?;
-
-        let count: i64 = stmt.query_row(named_params! { ":origin": origin }, |row| row.get(0))?;
-        Ok(count)
+        match LoginEntry::validate_and_fixup_origin(origin) {
+            Ok(result) => {
+                let origin = result.unwrap_or(origin.to_string());
+                let mut stmt = self.db.prepare_cached(&COUNT_BY_ORIGIN_SQL)?;
+                let count: i64 =
+                    stmt.query_row(named_params! { ":origin": origin }, |row| row.get(0))?;
+                Ok(count)
+            }
+            Err(e) => {
+                // don't log the input string as it's PII.
+                warn!("count_by_origin was passed an invalid origin: {}", e);
+                Ok(0)
+            }
+        }
     }
 
     pub fn count_by_form_action_origin(&self, form_action_origin: &str) -> Result<i64> {
-        let mut stmt = self.db.prepare_cached(&COUNT_BY_FORM_ACTION_ORIGIN_SQL)?;
-
-        let count: i64 = stmt.query_row(
-            named_params! { ":form_action_origin": form_action_origin },
-            |row| row.get(0),
-        )?;
-        Ok(count)
+        match LoginEntry::validate_and_fixup_origin(form_action_origin) {
+            Ok(result) => {
+                let form_action_origin = result.unwrap_or(form_action_origin.to_string());
+                let mut stmt = self.db.prepare_cached(&COUNT_BY_FORM_ACTION_ORIGIN_SQL)?;
+                let count: i64 = stmt.query_row(
+                    named_params! { ":form_action_origin": form_action_origin },
+                    |row| row.get(0),
+                )?;
+                Ok(count)
+            }
+            Err(e) => {
+                // don't log the input string as it's PII.
+                warn!("count_by_origin was passed an invalid origin: {}", e);
+                Ok(0)
+            }
+        }
     }
 
     pub fn get_all(&self) -> Result<Vec<EncryptedLogin>> {
@@ -632,6 +651,8 @@ impl LoginDb {
     //   - Either `form_action_origin` or `http_realm` matches, depending on which one is non-null
     //
     // This is used for dupe-checking and `find_login_to_update()`
+    //
+    // Note that `entry` must be a normalized Login (via `fixup()`)
     fn get_by_entry_target(&self, entry: &LoginEntry) -> Result<Vec<EncryptedLogin>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
@@ -1213,11 +1234,24 @@ mod tests {
             ..LoginEntry::default()
         };
 
+        let origin_umlaut = "https://bücher.example.com";
+        let login_umlaut = LoginEntry {
+            origin: origin_umlaut.into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
         let db = LoginDb::open_in_memory();
-        db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
-            .expect("should be able to add logins");
+        db.add_many(
+            vec![login_a.clone(), login_b.clone(), login_umlaut.clone()],
+            &*TEST_ENCDEC,
+        )
+        .expect("should be able to add logins");
 
         assert_eq!(db.count_by_origin(origin_a).unwrap(), 1);
+        assert_eq!(db.count_by_origin(origin_umlaut).unwrap(), 1);
     }
 
     #[test]
@@ -1243,11 +1277,25 @@ mod tests {
             ..LoginEntry::default()
         };
 
+        let origin_umlaut = "https://bücher.example.com";
+        let login_umlaut = LoginEntry {
+            origin: origin_umlaut.into(),
+            form_action_origin: Some(origin_umlaut.into()),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..LoginEntry::default()
+        };
+
         let db = LoginDb::open_in_memory();
-        db.add_many(vec![login_a.clone(), login_b.clone()], &*TEST_ENCDEC)
-            .expect("should be able to add logins");
+        db.add_many(
+            vec![login_a.clone(), login_b.clone(), login_umlaut.clone()],
+            &*TEST_ENCDEC,
+        )
+        .expect("should be able to add logins");
 
         assert_eq!(db.count_by_form_action_origin(origin_a).unwrap(), 1);
+        assert_eq!(db.count_by_form_action_origin(origin_umlaut).unwrap(), 1);
     }
 
     #[test]
@@ -1510,6 +1558,10 @@ mod tests {
             vec!["example.com"],
             vec!["foo.com"],
         );
+    }
+
+    #[test]
+    fn test_get_by_base_domain_punicode() {
         // punycode! This is likely to need adjusting once we normalize
         // on insert.
         check_good_bad(
