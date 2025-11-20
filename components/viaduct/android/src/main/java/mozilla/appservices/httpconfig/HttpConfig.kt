@@ -37,9 +37,10 @@ object RustHttpConfig {
     // Protects imp/client
     private var lock = ReentrantReadWriteLock()
 
-    // Used to only initialize the client once
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1989865.
-    private var backendInitialized = AtomicBoolean(false)
+    // Add back once we move to the new backend again
+    // // Used to only initialize the client once
+    // // https://bugzilla.mozilla.org/show_bug.cgi?id=1989865.
+    // private var backendInitialized = AtomicBoolean(false)
 
     @Volatile
     private var client: Lazy<Client>? = null
