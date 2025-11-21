@@ -14,16 +14,8 @@ uniffi = { version = "0.29.0" }
 thiserror = "2"
 parking_lot = "0.12"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-
-[dependencies.bhttp]
-git = "https://github.com/martinthomson/ohttp.git"
-rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
-
-[dependencies.ohttp]
-default-features = false
-git = "https://github.com/martinthomson/ohttp.git"
-rev = "bf6a983845cc0b540effb3a615e92d914dfcfd0b"
-features = ["client", "server", "app-svc", "external-sqlite"]
+bhttp = "0.7.1"
+ohttp = { version = "0.7.1", default-features = false, features = ["client", "server", "app-svc", "external-sqlite"] }
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features=["build"]}
