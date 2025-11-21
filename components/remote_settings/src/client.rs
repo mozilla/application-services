@@ -1142,7 +1142,7 @@ impl GetItemsOptions {
     }
 
     /// Returns an iterator of (name, value) query pairs for these options.
-    pub fn iter_query_pairs(&self) -> impl Iterator<Item = (Cow<str>, Cow<str>)> {
+    pub fn iter_query_pairs(&self) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
         self.filters
             .iter()
             .map(Filter::as_query_pair)
@@ -1202,7 +1202,7 @@ enum Filter {
 }
 
 impl Filter {
-    fn as_query_pair(&self) -> (Cow<str>, Cow<str>) {
+    fn as_query_pair(&self) -> (Cow<'_, str>, Cow<'_, str>) {
         // For filters (https://docs.kinto-storage.org/en/latest/api/1.x/filtering.html),
         // the query pair syntax is `[operator_]field=value` for each field.
         match self {
@@ -1224,7 +1224,7 @@ impl Filter {
 struct Sort(String, SortOrder);
 
 impl Sort {
-    fn as_query_value(&self) -> Cow<str> {
+    fn as_query_value(&self) -> Cow<'_, str> {
         match self.1 {
             SortOrder::Ascending => self.0.as_str().into(),
             SortOrder::Descending => format!("-{}", self.0).into(),
@@ -2241,7 +2241,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
     fn test_valid_signature_after_retry() -> Result<()> {
         ensure_initialized();
         run_client_sync(
-            &vec![RemoteSettingsRecord {
+            &[RemoteSettingsRecord {
                 id: "bad-record".to_string(),
                 last_modified: 9999,
                 deleted: true,

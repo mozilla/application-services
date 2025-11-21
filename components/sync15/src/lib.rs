@@ -23,6 +23,7 @@ pub mod engine;
 mod error;
 #[cfg(feature = "crypto")]
 mod key_bundle;
+#[cfg(feature = "sync-client")]
 mod record_types;
 mod server_timestamp;
 pub mod telemetry;

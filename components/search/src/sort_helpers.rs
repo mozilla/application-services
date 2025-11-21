@@ -164,7 +164,7 @@ mod tests {
     fn test_sort_engines_by_order_hint() {
         let default_engine_id = None;
         let default_private_engine_id = None;
-        let mut engines = vec![
+        let mut engines = [
             create_engine("c-engine", Some(3), None),
             create_engine("b-engine", Some(2), None),
             create_engine("a-engine", Some(1), None),
@@ -190,7 +190,7 @@ mod tests {
     fn test_sort_engines_alphabetically_without_order_hint() {
         let default_engine_id = None;
         let default_private_engine_id = None;
-        let mut engines = vec![
+        let mut engines = [
             create_engine("c-engine", None, None),
             create_engine("b-engine", None, None),
             create_engine("a-engine", None, None),
@@ -216,7 +216,7 @@ mod tests {
     fn test_sort_engines_by_order_hint_and_alphabetically() {
         let default_engine_id = None;
         let default_private_engine_id = None;
-        let mut engines = vec![
+        let mut engines = [
             // Identifiers are the opposite order to the names, so that we
             // can show that we are sorting alphabetically by name.
             create_engine("d-engine", None, Some("Charlie")),
@@ -249,7 +249,7 @@ mod tests {
     fn test_sort_engines_with_defaults() {
         let default_engine_id = Some("a-engine".to_string());
         let default_private_engine_id = Some("b-engine".to_string());
-        let mut engines = vec![
+        let mut engines = [
             create_engine("c-engine", Some(3), None),
             create_engine("a-engine", Some(1), None), // Default engine should be first
             create_engine("b-engine", Some(2), None), // Default private engine should be second

@@ -278,15 +278,11 @@ impl From<Branch> for ExperimentBranch {
 // ⚠️ in `test_lib_bw_compat`, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RandomizationUnit {
+    #[default]
     NimbusId,
     UserId,
-}
-
-impl Default for RandomizationUnit {
-    fn default() -> Self {
-        Self::NimbusId
-    }
 }
 
 #[derive(Default)]

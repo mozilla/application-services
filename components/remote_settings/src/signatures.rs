@@ -67,7 +67,7 @@ mod tests {
     fn test_records_canonicaljson_serialization() {
         let bytes = serialize_data(
             1337,
-            &vec![RemoteSettingsRecord {
+            &[RemoteSettingsRecord {
                 last_modified: 42,
                 id: "bonjour".into(),
                 deleted: false,
@@ -84,7 +84,7 @@ mod tests {
     fn test_records_canonicaljson_serialization_with_attachment() {
         let bytes = serialize_data(
             1337,
-            &vec![RemoteSettingsRecord {
+            &[RemoteSettingsRecord {
                 last_modified: 42,
                 id: "bonjour".into(),
                 deleted: true,
