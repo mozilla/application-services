@@ -2,6 +2,11 @@
 
 [Full Changelog](In progress)
 
+### Nimbus
+
+### ⚠️ Breaking Changes ⚠️
+- Removed unused `home_directory` field from AppContext. Both Kotlin and Swift sides were passing null values and it wasn't used anywhere. ([#7085](https://github.com/mozilla/application-services/pull/7085)) ([#30782](https://github.com/mozilla-mobile/firefox-ios/pull/30782))
+
 ### `rc_crypto`
 - Thread-safety improvements for PKCS-token-dependent methods by introducing a
   global mutex. Refactored key unpacking logic and removed redundant code;

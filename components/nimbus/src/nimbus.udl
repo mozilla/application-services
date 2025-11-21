@@ -44,7 +44,6 @@ dictionary AppContext {
     // Note that installation date is
     // the unix time, which is milliseconds since epoch
     i64? installation_date;
-    string? home_directory;
     JsonObject? custom_targeting_attributes;
 };
 

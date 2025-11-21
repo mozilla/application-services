@@ -33,7 +33,6 @@ use serde_json::{Map, Value};
 /// - `android_sdk_version`: Android specific for targeting specific sdk versions
 /// - `debug_tag`: Used for debug purposes as a way to match only developer builds, etc.
 /// - `installation_date`: The date the application installed the app
-/// - `home_directory`: The application's home directory
 /// - `custom_targeting_attributes`: Contains attributes specific to the application, derived by the application
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AppContext {
@@ -51,7 +50,6 @@ pub struct AppContext {
     pub android_sdk_version: Option<String>,
     pub debug_tag: Option<String>,
     pub installation_date: Option<i64>,
-    pub home_directory: Option<String>,
     #[serde(flatten)]
     pub custom_targeting_attributes: Option<Map<String, Value>>,
 }
