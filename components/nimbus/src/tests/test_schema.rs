@@ -3,17 +3,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{error::Result, FeatureConfig};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct FeatureConfigProposed {
-    pub enabled: bool,
-    pub feature_id: String,
-    #[serde(default)]
-    pub value: Map<String, Value>,
-}
+use serde_json::json;
 
 #[test]
 fn test_deserialize_untyped_json() -> Result<()> {

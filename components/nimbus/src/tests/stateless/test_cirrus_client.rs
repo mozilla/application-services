@@ -12,7 +12,7 @@ use crate::{
     AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
 use serde_json::{from_str, to_string, to_value, Map, Value};
-use std::collections::HashMap;
+use std::{collections::HashMap, slice};
 
 fn create_client() -> Result<CirrusClient> {
     let metrics_handler = TestMetrics::new();
@@ -42,7 +42,7 @@ fn test_can_enroll() -> Result<()> {
     let client = create_client()?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
     client
-        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .set_experiments(to_string(&HashMap::from([("data", slice::from_ref(&exp))])).unwrap())
         .unwrap();
 
     let result = client.enroll("test".to_string(), Default::default(), &[])?;
@@ -70,7 +70,7 @@ fn test_will_not_enroll_if_previously_did_not_enroll() -> Result<()> {
     let client = create_client()?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
     client
-        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .set_experiments(to_string(&HashMap::from([("data", slice::from_ref(&exp))])).unwrap())
         .unwrap();
 
     let enrollment = ExperimentEnrollment {
@@ -94,7 +94,7 @@ fn test_handle_enrollment_works_with_json() -> Result<()> {
         "language == 'en' && region == 'US'",
     );
     client
-        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .set_experiments(to_string(&HashMap::from([("data", slice::from_ref(&exp))])).unwrap())
         .unwrap();
 
     let request = Map::from_iter(vec![
@@ -193,7 +193,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     )?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
     client
-        .set_experiments(to_string(&HashMap::from([("data", &[exp.clone()])])).unwrap())
+        .set_experiments(to_string(&HashMap::from([("data", slice::from_ref(&exp))])).unwrap())
         .unwrap();
     client.enroll("test".to_string(), Default::default(), &[])?;
 

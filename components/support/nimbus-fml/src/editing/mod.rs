@@ -8,6 +8,7 @@ mod error_kind;
 mod error_path;
 mod values_finder;
 
+#[cfg(feature = "client-lib")]
 pub(crate) use cursor_position::{CursorPosition, CursorSpan};
 pub(crate) use error_converter::ErrorConverter;
 pub(crate) use error_kind::ErrorKind;
@@ -18,6 +19,7 @@ pub(crate) struct FeatureValidationError {
     pub(crate) kind: ErrorKind,
 }
 
+#[cfg(feature = "client-lib")]
 #[derive(Debug, PartialEq, Default)]
 pub struct FmlEditorError {
     /// The message to display to the user.
@@ -34,6 +36,7 @@ pub struct FmlEditorError {
     pub col: u32,
 }
 
+#[cfg(feature = "client-lib")]
 #[derive(Debug, Default, PartialEq)]
 pub struct CorrectionCandidate {
     /// The string that should be inserted into the source
