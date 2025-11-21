@@ -1,0 +1,243 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/sync15/src/engine/bridged_engine.rs`."><title>bridged_engine.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sync15" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sync15/engine/</div>bridged_engine.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+<a href=#2 id=2 data-nosnippet>2</a> * License, v. 2.0. If a copy of the MPL was not distributed with this
+<a href=#3 id=3 data-nosnippet>3</a> * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use </span><span class="kw">crate</span>::error::debug;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use crate</span>::{telemetry, ServerTimestamp};
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>anyhow::Result;
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::bso::{IncomingBso, OutgoingBso};
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::Guid;
+<a href=#11 id=11 data-nosnippet>11</a>
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use super</span>::{CollSyncIds, EngineSyncAssociation, SyncEngine};
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a><span class="doccomment">/// A BridgedEngine acts as a bridge between application-services, rust
+<a href=#15 id=15 data-nosnippet>15</a>/// implemented sync engines and sync engines as defined by Desktop Firefox.
+<a href=#16 id=16 data-nosnippet>16</a>///
+<a href=#17 id=17 data-nosnippet>17</a>/// [Desktop Firefox has an abstract implementation of a Sync
+<a href=#18 id=18 data-nosnippet>18</a>/// Engine](https://searchfox.org/mozilla-central/source/services/sync/modules/engines.js)
+<a href=#19 id=19 data-nosnippet>19</a>/// with a number of functions each engine is expected to override. Engines
+<a href=#20 id=20 data-nosnippet>20</a>/// implemented in Rust use a different shape (specifically, the
+<a href=#21 id=21 data-nosnippet>21</a>/// [SyncEngine](crate::SyncEngine) trait), so this BridgedEngine trait adapts
+<a href=#22 id=22 data-nosnippet>22</a>/// between the 2.
+<a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">pub trait </span>BridgedEngine: Send + Sync {
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Returns the last sync time, in milliseconds, for this engine's
+<a href=#25 id=25 data-nosnippet>25</a>    /// collection. This is called before each sync, to determine the lower
+<a href=#26 id=26 data-nosnippet>26</a>    /// bound for new records to fetch from the server.
+<a href=#27 id=27 data-nosnippet>27</a>    </span><span class="kw">fn </span>last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i64&gt;;
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="doccomment">/// Sets the last sync time, in milliseconds. This is called throughout
+<a href=#30 id=30 data-nosnippet>30</a>    /// the sync, to fast-forward the stored last sync time to match the
+<a href=#31 id=31 data-nosnippet>31</a>    /// timestamp on the uploaded records.
+<a href=#32 id=32 data-nosnippet>32</a>    </span><span class="kw">fn </span>set_last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, last_sync_millis: i64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#33 id=33 data-nosnippet>33</a>
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="doccomment">/// Returns the sync ID for this engine's collection. This is only used in
+<a href=#35 id=35 data-nosnippet>35</a>    /// tests.
+<a href=#36 id=36 data-nosnippet>36</a>    </span><span class="kw">fn </span>sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;;
+<a href=#37 id=37 data-nosnippet>37</a>
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="doccomment">/// Resets the sync ID for this engine's collection, returning the new ID.
+<a href=#39 id=39 data-nosnippet>39</a>    /// As a side effect, implementations should reset all local Sync state,
+<a href=#40 id=40 data-nosnippet>40</a>    /// as in `reset`.
+<a href=#41 id=41 data-nosnippet>41</a>    /// (Note that bridged engines never maintain the "global" guid - that's all managed
+<a href=#42 id=42 data-nosnippet>42</a>    /// by the bridged_engine consumer (ie, desktop). bridged_engines only care about
+<a href=#43 id=43 data-nosnippet>43</a>    /// the per-collection one.)
+<a href=#44 id=44 data-nosnippet>44</a>    </span><span class="kw">fn </span>reset_sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt;;
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a>    <span class="doccomment">/// Ensures that the locally stored sync ID for this engine's collection
+<a href=#47 id=47 data-nosnippet>47</a>    /// matches the `new_sync_id` from the server. If the two don't match,
+<a href=#48 id=48 data-nosnippet>48</a>    /// implementations should reset all local Sync state, as in `reset`.
+<a href=#49 id=49 data-nosnippet>49</a>    /// This method returns the assigned sync ID, which can be either the
+<a href=#50 id=50 data-nosnippet>50</a>    /// `new_sync_id`, or a different one if the engine wants to force other
+<a href=#51 id=51 data-nosnippet>51</a>    /// devices to reset their Sync state for this collection the next time they
+<a href=#52 id=52 data-nosnippet>52</a>    /// sync.
+<a href=#53 id=53 data-nosnippet>53</a>    </span><span class="kw">fn </span>ensure_current_sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>, new_sync_id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt;;
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Tells the tabs engine about recent FxA devices. A bit of a leaky abstraction as it only
+<a href=#56 id=56 data-nosnippet>56</a>    /// makes sense for tabs.
+<a href=#57 id=57 data-nosnippet>57</a>    /// The arg is a json serialized `ClientData` struct.
+<a href=#58 id=58 data-nosnippet>58</a>    </span><span class="kw">fn </span>prepare_for_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, _client_data: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#59 id=59 data-nosnippet>59</a>        <span class="prelude-val">Ok</span>(())
+<a href=#60 id=60 data-nosnippet>60</a>    }
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// Indicates that the engine is about to start syncing. This is called
+<a href=#63 id=63 data-nosnippet>63</a>    /// once per sync, and always before `store_incoming`.
+<a href=#64 id=64 data-nosnippet>64</a>    </span><span class="kw">fn </span>sync_started(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="doccomment">/// Stages a batch of incoming Sync records. This is called multiple
+<a href=#67 id=67 data-nosnippet>67</a>    /// times per sync, once for each batch. Implementations can use the
+<a href=#68 id=68 data-nosnippet>68</a>    /// signal to check if the operation was aborted, and cancel any
+<a href=#69 id=69 data-nosnippet>69</a>    /// pending work.
+<a href=#70 id=70 data-nosnippet>70</a>    </span><span class="kw">fn </span>store_incoming(<span class="kw-2">&amp;</span><span class="self">self</span>, incoming_records: Vec&lt;IncomingBso&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="doccomment">/// Applies all staged records, reconciling changes on both sides and
+<a href=#73 id=73 data-nosnippet>73</a>    /// resolving conflicts. Returns a list of records to upload.
+<a href=#74 id=74 data-nosnippet>74</a>    </span><span class="kw">fn </span>apply(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ApplyResults&gt;;
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// Indicates that the given record IDs were uploaded successfully to the
+<a href=#77 id=77 data-nosnippet>77</a>    /// server. This is called multiple times per sync, once for each batch
+<a href=#78 id=78 data-nosnippet>78</a>    /// upload.
+<a href=#79 id=79 data-nosnippet>79</a>    </span><span class="kw">fn </span>set_uploaded(<span class="kw-2">&amp;</span><span class="self">self</span>, server_modified_millis: i64, ids: <span class="kw-2">&amp;</span>[Guid]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a>    <span class="doccomment">/// Indicates that all records have been uploaded. At this point, any record
+<a href=#82 id=82 data-nosnippet>82</a>    /// IDs marked for upload that haven't been passed to `set_uploaded`, can be
+<a href=#83 id=83 data-nosnippet>83</a>    /// assumed to have failed: for example, because the server rejected a record
+<a href=#84 id=84 data-nosnippet>84</a>    /// with an invalid TTL or sort index.
+<a href=#85 id=85 data-nosnippet>85</a>    </span><span class="kw">fn </span>sync_finished(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a>    <span class="doccomment">/// Resets all local Sync state, including any change flags, mirrors, and
+<a href=#88 id=88 data-nosnippet>88</a>    /// the last sync time, such that the next sync is treated as a first sync
+<a href=#89 id=89 data-nosnippet>89</a>    /// with all new local data. Does not erase any local user data.
+<a href=#90 id=90 data-nosnippet>90</a>    </span><span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// Erases all local user data for this collection, and any Sync metadata.
+<a href=#93 id=93 data-nosnippet>93</a>    /// This method is destructive, and unused for most collections.
+<a href=#94 id=94 data-nosnippet>94</a>    </span><span class="kw">fn </span>wipe(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#95 id=95 data-nosnippet>95</a>}
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a><span class="comment">// This is an adaptor trait - the idea is that engines can implement this
+<a href=#98 id=98 data-nosnippet>98</a>// trait along with SyncEngine and get a BridgedEngine for free. It's temporary
+<a href=#99 id=99 data-nosnippet>99</a>// so we can land this trait without needing to update desktop.
+<a href=#100 id=100 data-nosnippet>100</a>// Longer term, we should remove both this trait and BridgedEngine entirely, sucking up
+<a href=#101 id=101 data-nosnippet>101</a>// the breaking change for desktop. The main blocker to this is moving desktop away
+<a href=#102 id=102 data-nosnippet>102</a>// from the explicit timestamp handling and moving closer to the `get_collection_request`
+<a href=#103 id=103 data-nosnippet>103</a>// model.
+<a href=#104 id=104 data-nosnippet>104</a></span><span class="kw">pub trait </span>BridgedEngineAdaptor: Send + Sync {
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="comment">// These are the main mismatches between the 2 engines
+<a href=#106 id=106 data-nosnippet>106</a>    </span><span class="kw">fn </span>last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i64&gt;;
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">fn </span>set_last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, last_sync_millis: i64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">fn </span>sync_started(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#109 id=109 data-nosnippet>109</a>        <span class="prelude-val">Ok</span>(())
+<a href=#110 id=110 data-nosnippet>110</a>    }
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>SyncEngine;
+<a href=#113 id=113 data-nosnippet>113</a>}
+<a href=#114 id=114 data-nosnippet>114</a>
+<a href=#115 id=115 data-nosnippet>115</a><span class="kw">impl</span>&lt;A: BridgedEngineAdaptor&gt; BridgedEngine <span class="kw">for </span>A {
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">fn </span>last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i64&gt; {
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="self">self</span>.last_sync()
+<a href=#118 id=118 data-nosnippet>118</a>    }
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">fn </span>set_last_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, last_sync_millis: i64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="self">self</span>.set_last_sync(last_sync_millis)
+<a href=#122 id=122 data-nosnippet>122</a>    }
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">fn </span>sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="self">self</span>.engine().get_sync_assoc()<span class="question-mark">? </span>{
+<a href=#126 id=126 data-nosnippet>126</a>            EngineSyncAssociation::Disconnected =&gt; <span class="prelude-val">None</span>,
+<a href=#127 id=127 data-nosnippet>127</a>            EngineSyncAssociation::Connected(c) =&gt; <span class="prelude-val">Some</span>(c.coll.into()),
+<a href=#128 id=128 data-nosnippet>128</a>        })
+<a href=#129 id=129 data-nosnippet>129</a>    }
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="kw">fn </span>reset_sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+<a href=#132 id=132 data-nosnippet>132</a>        <span class="comment">// Note that bridged engines never maintain the "global" guid - that's all managed
+<a href=#133 id=133 data-nosnippet>133</a>        // by desktop. bridged_engines only care about the per-collection one.
+<a href=#134 id=134 data-nosnippet>134</a>        </span><span class="kw">let </span>global = Guid::empty();
+<a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">let </span>coll = Guid::random();
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="self">self</span>.engine()
+<a href=#137 id=137 data-nosnippet>137</a>            .reset(<span class="kw-2">&amp;</span>EngineSyncAssociation::Connected(CollSyncIds {
+<a href=#138 id=138 data-nosnippet>138</a>                global,
+<a href=#139 id=139 data-nosnippet>139</a>                coll: coll.clone(),
+<a href=#140 id=140 data-nosnippet>140</a>            }))<span class="question-mark">?</span>;
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="prelude-val">Ok</span>(coll.to_string())
+<a href=#142 id=142 data-nosnippet>142</a>    }
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">fn </span>ensure_current_sync_id(<span class="kw-2">&amp;</span><span class="self">self</span>, sync_id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+<a href=#145 id=145 data-nosnippet>145</a>        <span class="kw">let </span>engine = <span class="self">self</span>.engine();
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">let </span>assoc = engine.get_sync_assoc()<span class="question-mark">?</span>;
+<a href=#147 id=147 data-nosnippet>147</a>        <span class="kw">if </span><span class="macro">matches!</span>(assoc, EngineSyncAssociation::Connected(c) <span class="kw">if </span>c.coll == sync_id) {
+<a href=#148 id=148 data-nosnippet>148</a>            <span class="macro">debug!</span>(<span class="string">"ensure_current_sync_id is current"</span>);
+<a href=#149 id=149 data-nosnippet>149</a>        } <span class="kw">else </span>{
+<a href=#150 id=150 data-nosnippet>150</a>            <span class="kw">let </span>new_coll_ids = CollSyncIds {
+<a href=#151 id=151 data-nosnippet>151</a>                global: Guid::empty(),
+<a href=#152 id=152 data-nosnippet>152</a>                coll: sync_id.into(),
+<a href=#153 id=153 data-nosnippet>153</a>            };
+<a href=#154 id=154 data-nosnippet>154</a>            engine.reset(<span class="kw-2">&amp;</span>EngineSyncAssociation::Connected(new_coll_ids))<span class="question-mark">?</span>;
+<a href=#155 id=155 data-nosnippet>155</a>        }
+<a href=#156 id=156 data-nosnippet>156</a>        <span class="prelude-val">Ok</span>(sync_id.to_string())
+<a href=#157 id=157 data-nosnippet>157</a>    }
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">fn </span>prepare_for_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, client_data: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="comment">// unwrap here is unfortunate, but can hopefully go away if we can
+<a href=#161 id=161 data-nosnippet>161</a>        // start using the ClientData type instead of the string.
+<a href=#162 id=162 data-nosnippet>162</a>        </span><span class="self">self</span>.engine()
+<a href=#163 id=163 data-nosnippet>163</a>            .prepare_for_sync(<span class="kw-2">&amp;</span>|| serde_json::from_str::&lt;<span class="kw">crate</span>::ClientData&gt;(client_data).unwrap())
+<a href=#164 id=164 data-nosnippet>164</a>    }
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="kw">fn </span>sync_started(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#167 id=167 data-nosnippet>167</a>        A::sync_started(<span class="self">self</span>)
+<a href=#168 id=168 data-nosnippet>168</a>    }
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="kw">fn </span>store_incoming(<span class="kw-2">&amp;</span><span class="self">self</span>, incoming_records: Vec&lt;IncomingBso&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span>engine = <span class="self">self</span>.engine();
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span><span class="kw-2">mut </span>telem = telemetry::Engine::new(engine.collection_name());
+<a href=#173 id=173 data-nosnippet>173</a>        engine.stage_incoming(incoming_records, <span class="kw-2">&amp;mut </span>telem)
+<a href=#174 id=174 data-nosnippet>174</a>    }
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">fn </span>apply(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ApplyResults&gt; {
+<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw">let </span>engine = <span class="self">self</span>.engine();
+<a href=#178 id=178 data-nosnippet>178</a>        <span class="kw">let </span><span class="kw-2">mut </span>telem = telemetry::Engine::new(engine.collection_name());
+<a href=#179 id=179 data-nosnippet>179</a>        <span class="comment">// Desktop tells a bridged engine to apply the records without telling it
+<a href=#180 id=180 data-nosnippet>180</a>        // the server timestamp, and once applied, explicitly calls `set_last_sync()`
+<a href=#181 id=181 data-nosnippet>181</a>        // with that timestamp. So this adaptor needs to call apply with an invalid
+<a href=#182 id=182 data-nosnippet>182</a>        // timestamp, and hope that later call with the correct timestamp does come.
+<a href=#183 id=183 data-nosnippet>183</a>        // This isn't ideal as it means the timestamp is updated in a different transaction,
+<a href=#184 id=184 data-nosnippet>184</a>        // but nothing too bad should happen if it doesn't - we'll just end up applying
+<a href=#185 id=185 data-nosnippet>185</a>        // the same records again next sync.
+<a href=#186 id=186 data-nosnippet>186</a>        </span><span class="kw">let </span>records = engine.apply(ServerTimestamp::from_millis(<span class="number">0</span>), <span class="kw-2">&amp;mut </span>telem)<span class="question-mark">?</span>;
+<a href=#187 id=187 data-nosnippet>187</a>        <span class="prelude-val">Ok</span>(ApplyResults {
+<a href=#188 id=188 data-nosnippet>188</a>            records,
+<a href=#189 id=189 data-nosnippet>189</a>            num_reconciled: telem
+<a href=#190 id=190 data-nosnippet>190</a>                .get_incoming()
+<a href=#191 id=191 data-nosnippet>191</a>                .as_ref()
+<a href=#192 id=192 data-nosnippet>192</a>                .map(|i| i.get_reconciled() <span class="kw">as </span>usize),
+<a href=#193 id=193 data-nosnippet>193</a>        })
+<a href=#194 id=194 data-nosnippet>194</a>    }
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">fn </span>set_uploaded(<span class="kw-2">&amp;</span><span class="self">self</span>, millis: i64, ids: <span class="kw-2">&amp;</span>[Guid]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="self">self</span>.engine()
+<a href=#198 id=198 data-nosnippet>198</a>            .set_uploaded(ServerTimestamp::from_millis(millis), ids.to_vec())
+<a href=#199 id=199 data-nosnippet>199</a>    }
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a>    <span class="kw">fn </span>sync_finished(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="self">self</span>.engine().sync_finished()
+<a href=#203 id=203 data-nosnippet>203</a>    }
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="self">self</span>.engine().reset(<span class="kw-2">&amp;</span>EngineSyncAssociation::Disconnected)
+<a href=#207 id=207 data-nosnippet>207</a>    }
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">fn </span>wipe(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="self">self</span>.engine().wipe()
+<a href=#211 id=211 data-nosnippet>211</a>    }
+<a href=#212 id=212 data-nosnippet>212</a>}
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a><span class="comment">// TODO: We should see if we can remove this to reduce the number of types engines need to deal
+<a href=#215 id=215 data-nosnippet>215</a>// with. num_reconciled is only used for telemetry on desktop.
+<a href=#216 id=216 data-nosnippet>216</a></span><span class="attr">#[derive(Debug, Default)]
+<a href=#217 id=217 data-nosnippet>217</a></span><span class="kw">pub struct </span>ApplyResults {
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// List of records
+<a href=#219 id=219 data-nosnippet>219</a>    </span><span class="kw">pub </span>records: Vec&lt;OutgoingBso&gt;,
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="doccomment">/// The number of incoming records whose contents were merged because they
+<a href=#221 id=221 data-nosnippet>221</a>    /// changed on both sides. None indicates we aren't reporting this
+<a href=#222 id=222 data-nosnippet>222</a>    /// information.
+<a href=#223 id=223 data-nosnippet>223</a>    </span><span class="kw">pub </span>num_reconciled: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#224 id=224 data-nosnippet>224</a>}
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a><span class="kw">impl </span>ApplyResults {
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="kw">pub fn </span>new(records: Vec&lt;OutgoingBso&gt;, num_reconciled: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="self">Self </span>{
+<a href=#229 id=229 data-nosnippet>229</a>            records,
+<a href=#230 id=230 data-nosnippet>230</a>            num_reconciled: num_reconciled.into(),
+<a href=#231 id=231 data-nosnippet>231</a>        }
+<a href=#232 id=232 data-nosnippet>232</a>    }
+<a href=#233 id=233 data-nosnippet>233</a>}
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a><span class="comment">// Shorthand for engines that don't care.
+<a href=#236 id=236 data-nosnippet>236</a></span><span class="kw">impl </span>From&lt;Vec&lt;OutgoingBso&gt;&gt; <span class="kw">for </span>ApplyResults {
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">fn </span>from(records: Vec&lt;OutgoingBso&gt;) -&gt; <span class="self">Self </span>{
+<a href=#238 id=238 data-nosnippet>238</a>        <span class="self">Self </span>{
+<a href=#239 id=239 data-nosnippet>239</a>            records,
+<a href=#240 id=240 data-nosnippet>240</a>            num_reconciled: <span class="prelude-val">None</span>,
+<a href=#241 id=241 data-nosnippet>241</a>        }
+<a href=#242 id=242 data-nosnippet>242</a>    }
+<a href=#243 id=243 data-nosnippet>243</a>}</code></pre></div></section></main></body></html>
