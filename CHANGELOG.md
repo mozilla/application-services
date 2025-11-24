@@ -16,6 +16,10 @@
 ### Logins
 - fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
 
+### Places
+- `places::storage::history_metadata::delete_all_metadata_for_search()` was added to delete the search terms in history metadata. ([#7101](https://github.com/mozilla/application-services/pull/7101))
+
+
 # v146.0 (_2025-11-10_)
 
 ## ✨ What's New ✨
