@@ -13,6 +13,9 @@
   - When the keydb feature is enabled, `ensure_nss_initialized` is disabled in
     favor of `ensure_nss_initialized_with_profile_dir`.
 
+### Logins
+- fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
+
 # v146.0 (_2025-11-10_)
 
 ## ✨ What's New ✨
