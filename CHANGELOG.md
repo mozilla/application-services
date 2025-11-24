@@ -14,6 +14,8 @@
     favor of `ensure_nss_initialized_with_profile_dir`.
 
 ### Logins
+- `create_login_store_with_nss_keymanager` returns an `ApiResult` now, instead
+  of just panicking.
 - fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
 
 # v146.0 (_2025-11-10_)
