@@ -265,7 +265,7 @@ impl PlacesConnection {
 
     #[handle_error(crate::Error)]
     pub fn metadata_delete_search_terms(&self) -> ApiResult<()> {
-        self.with_conn(|conn| history_metadata::delete_all_metadata_for_search(conn))
+        self.with_conn(history_metadata::delete_all_metadata_for_search)
     }
 
     /// Add an observation to the database.
