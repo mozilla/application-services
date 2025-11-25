@@ -27,9 +27,8 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
-use std::{io::Write, str::FromStr};
 use tempfile::TempDir;
 use uuid::Uuid;
 
@@ -132,7 +131,6 @@ fn test_installation_date() -> Result<()> {
     let time_stamp = three_days_ago.timestamp_millis();
     let mut app_context = AppContext {
         installation_date: Some(time_stamp),
-        home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
         ..Default::default()
     };
     let client = NimbusClient::new(
@@ -163,9 +161,8 @@ fn test_installation_date() -> Result<()> {
     store.clear(&mut writer)?;
     writer.commit()?;
 
-    // Step 2: We test that we will fallback to the
-    // filesystem, and if that fails we
-    // set Today's date.
+    // Step 2: We test that when no installation_date is provided in context
+    // and no persisted date exists, we set Today's date.
 
     // We recreate our client to make sure
     // we wipe any non-persistent memory
@@ -182,9 +179,8 @@ fn test_installation_date() -> Result<()> {
         None,
         None,
     )?;
-    delete_test_creation_date(tmp_dir.path()).ok();
-    // When we check the filesystem, we will fail. We haven't `set_test_creation_date`
-    // yet.
+    // Since no installation_date is in context and storage is cleared,
+    // we will default to today's date
     client.initialize()?;
     client.apply_pending_experiments()?;
     // We verify that it's today.
@@ -207,15 +203,12 @@ fn test_installation_date() -> Result<()> {
         None,
     )?;
     client.initialize()?;
-    // We now store a date for days ago in our file system
-    // this shouldn't change the installation date for the nimbus client
-    // since client already persisted the date seen earlier.
-    let four_days_ago = Utc::now() - Duration::days(4);
-    set_test_creation_date(four_days_ago, tmp_dir.path())?;
+    // Since we already persisted the date from the previous run,
+    // we should still get 0 days_since_install
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
     // We will **STILL** get a 0 `days_since_install` since we persisted the value
-    // we got on the previous run, therefore we did not check the file system.
+    // we got on the previous run.
     assert!(matches!(targeting_attributes.days_since_install, Some(0)));
 
     // We now clear the persisted storage
@@ -227,7 +220,9 @@ fn test_installation_date() -> Result<()> {
     store.clear(&mut writer)?;
     writer.commit()?;
 
-    // Step 4: We test that if the storage is clear, we will fallback to the
+    // Step 4: Test with 4 days since installation
+    let four_days_ago = Utc::now() - Duration::days(4);
+    app_context.installation_date = Some(four_days_ago.timestamp_millis());
     let client = NimbusClient::new(
         app_context,
         Default::default(),
@@ -239,8 +234,6 @@ fn test_installation_date() -> Result<()> {
         None,
     )?;
     client.initialize()?;
-    // now that the store is clear, we will fallback again to the
-    // file system, and retrieve the four_days_ago number we stored earlier
     client.apply_pending_experiments()?;
     let targeting_attributes = client.get_targeting_attributes();
     assert!(matches!(targeting_attributes.days_since_install, Some(4)));
@@ -258,7 +251,6 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
     let time_stamp = three_days_ago.timestamp_millis();
     let app_context = AppContext {
         installation_date: Some(time_stamp),
-        home_directory: Some(tmp_dir.path().to_str().unwrap().to_string()),
         ..Default::default()
     };
     let client = NimbusClient::new(
@@ -931,25 +923,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
     // should be applied, but the second experiment will not be.
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 0);
-    Ok(())
-}
-
-fn set_test_creation_date<P: AsRef<Path>>(date: DateTime<Utc>, path: P) -> Result<()> {
-    use std::fs::OpenOptions;
-    let test_path = path.as_ref().with_file_name("test.json");
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(test_path)
-        .unwrap();
-    file.write_all(serde_json::to_string(&date).unwrap().as_bytes())?;
-    Ok(())
-}
-
-fn delete_test_creation_date<P: AsRef<Path>>(path: P) -> Result<()> {
-    let test_path = path.as_ref().with_file_name("test.json");
-    std::fs::remove_file(test_path)?;
     Ok(())
 }
 

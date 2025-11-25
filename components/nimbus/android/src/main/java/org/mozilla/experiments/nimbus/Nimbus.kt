@@ -623,7 +623,6 @@ open class Nimbus(
             os = "Android",
             osVersion = Build.VERSION.RELEASE,
             installationDate = packageInfo?.firstInstallTime,
-            homeDirectory = context.applicationInfo?.dataDir,
             customTargetingAttributes = appInfo.customTargetingAttributes,
         )
     }

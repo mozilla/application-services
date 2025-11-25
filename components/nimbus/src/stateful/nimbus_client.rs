@@ -10,7 +10,7 @@ use crate::{
         EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
         ExperimentEnrollment,
     },
-    error::{info, warn, BehaviorError},
+    error::{info, BehaviorError},
     evaluator::{
         get_calculated_attributes, is_experiment_available, CalculatedAttributes,
         ExperimentAvailable, TargetingAttributes,
@@ -49,7 +49,7 @@ use remote_settings::RemoteSettingsService;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use uuid::Uuid;
 
@@ -501,17 +501,6 @@ impl NimbusClient {
         Ok(
             if let Some(installation_date) = persisted_installation_date {
                 installation_date
-            } else if let Some(home_directory) = &self.app_context.home_directory {
-                let installation_date = match self.get_creation_date_from_path(home_directory) {
-                    Ok(installation_date) => installation_date,
-                    Err(e) => {
-                        warn!("[Nimbus] Unable to get installation date from path, defaulting to today: {:?}", e);
-                        Utc::now()
-                    }
-                };
-                let store = db.get_store(StoreId::Meta);
-                store.put(writer, DB_KEY_INSTALLATION_DATE, &installation_date)?;
-                installation_date
             } else {
                 Utc::now()
             },
@@ -551,34 +540,6 @@ impl NimbusClient {
                 _ => Utc::now(),
             },
         )
-    }
-
-    #[cfg(not(test))]
-    fn get_creation_date_from_path<P: AsRef<Path>>(&self, path: P) -> Result<DateTime<Utc>> {
-        info!("[Nimbus] Getting creation date from path");
-        let metadata = std::fs::metadata(path)?;
-        let system_time_created = metadata.created()?;
-        let date_time_created = DateTime::<Utc>::from(system_time_created);
-        info!(
-            "[Nimbus] Creation date retrieved form path successfully: {}",
-            date_time_created
-        );
-        Ok(date_time_created)
-    }
-
-    #[cfg(test)]
-    fn get_creation_date_from_path<P: AsRef<Path>>(&self, path: P) -> Result<DateTime<Utc>> {
-        use std::io::Read;
-        let test_path = path.as_ref().with_file_name("test.json");
-        let mut file = std::fs::File::open(test_path)?;
-        let mut buf = String::new();
-        file.read_to_string(&mut buf)?;
-
-        let res = match serde_json::from_str::<DateTime<Utc>>(&buf) {
-            Ok(v) => v,
-            Err(e) => return Err(NimbusError::JSONError("res = nimbus::stateful::nimbus_client::get_creation_date_from_path::serde_json::from_str".into(), e.to_string()))
-        };
-        Ok(res)
     }
 
     pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
