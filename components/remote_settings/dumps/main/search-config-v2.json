@@ -319,32 +319,6 @@
     },
     {
       "base": {
-        "classification": "unknown",
-        "name": "Azerdict",
-        "urls": {
-          "search": {
-            "base": "https://azerdict.com/english/",
-            "searchTermParamName": "word"
-          }
-        }
-      },
-      "id": "786aa916-a331-4b0c-8099-85927dd87be8",
-      "identifier": "azerdict",
-      "last_modified": 1702906502323,
-      "recordType": "engine",
-      "schema": 1702901819798,
-      "variants": [
-        {
-          "environment": {
-            "locales": [
-              "az"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "base": {
         "aliases": [
           "百度",
           "baidu"
@@ -3457,21 +3431,25 @@
       },
       "id": "bb836721-7be9-4de6-ac18-520189a69076",
       "identifier": "perplexity",
-      "last_modified": 1760466845276,
+      "last_modified": 1763654608996,
       "recordType": "engine",
-      "schema": 1760449157753,
+      "schema": 1763604941875,
       "variants": [
         {
           "environment": {
             "allRegionsAndLocales": true,
             "applications": [
-              "firefox"
+              "firefox",
+              "firefox-ios"
             ]
           },
           "isNewUntil": "2025-10-21",
           "subVariants": [
             {
               "environment": {
+                "applications": [
+                  "firefox"
+                ],
                 "minVersion": "143.0a1"
               },
               "urls": {
@@ -3487,6 +3465,15 @@
               }
             }
           ]
+        },
+        {
+          "environment": {
+            "allRegionsAndLocales": true,
+            "applications": [
+              "firefox-android"
+            ],
+            "minVersion": "145.0.1"
+          }
         }
       ]
     },
@@ -8422,5 +8409,5 @@
       "schema": 1707824831520
     }
   ],
-  "timestamp": 1761573989454
+  "timestamp": 1764082724032
 }
