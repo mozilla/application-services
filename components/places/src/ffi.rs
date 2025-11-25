@@ -263,6 +263,11 @@ impl PlacesConnection {
         })
     }
 
+    #[handle_error(crate::Error)]
+    pub fn metadata_delete_search_terms(&self) -> ApiResult<()> {
+        self.with_conn(history_metadata::delete_all_metadata_for_search)
+    }
+
     /// Add an observation to the database.
     #[handle_error(crate::Error)]
     pub fn apply_observation(&self, visit: VisitObservation) -> ApiResult<()> {
