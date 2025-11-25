@@ -273,14 +273,14 @@ pub struct SingleStoreDatabase {
 
 impl SingleStoreDatabase {
     /// Function used to obtain a "reader" which is used for read-only transactions.
-    pub fn read(&self) -> Result<Reader> {
+    pub fn read(&self) -> Result<Reader<'_>> {
         Ok(self.rkv.read()?)
     }
 
     /// Function used to obtain a "writer" which is used for transactions.
     /// The `writer.commit();` must be called to commit data added via the
     /// writer.
-    pub fn write(&self) -> Result<Writer> {
+    pub fn write(&self) -> Result<Writer<'_>> {
         Ok(self.rkv.write()?)
     }
 
@@ -588,14 +588,14 @@ impl Database {
     }
 
     /// Function used to obtain a "reader" which is used for read-only transactions.
-    pub fn read(&self) -> Result<Reader> {
+    pub fn read(&self) -> Result<Reader<'_>> {
         Ok(self.rkv.read()?)
     }
 
     /// Function used to obtain a "writer" which is used for transactions.
     /// The `writer.commit();` must be called to commit data added via the
     /// writer.
-    pub fn write(&self) -> Result<Writer> {
+    pub fn write(&self) -> Result<Writer<'_>> {
         Ok(self.rkv.write()?)
     }
 

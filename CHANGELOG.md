@@ -18,9 +18,21 @@
   - When the keydb feature is enabled, `ensure_nss_initialized` is disabled in
     favor of `ensure_nss_initialized_with_profile_dir`.
 
+### Logins
+- `create_login_store_with_nss_keymanager` returns an `ApiResult` now, instead
+  of just panicking.
+- fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
+
+### Places
+- `places::storage::history_metadata::get_most_recent_search_entries()` was added to fetch the most recent search entries in history metadata. ([#7104](https://github.com/mozilla/application-services/pull/7104))
+- `places::storage::history_metadata::delete_all_metadata_for_search()` was added to delete the search terms in history metadata. ([#7101](https://github.com/mozilla/application-services/pull/7101))
+
 # v146.0 (_2025-11-10_)
 
 ## ✨ What's New ✨
+
+### Ads Client
+- Add support for three ad types: Image, Spoc (Sponsored Content), and UA Tile
 
 ### Autofill
 - Adds a migration to migrate users to use subregion codes over fully qualified strings. ([bug 1993388](https://bugzilla.mozilla.org/show_bug.cgi?id=1993388))

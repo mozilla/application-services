@@ -30,15 +30,12 @@ uniffi::custom_type!(TabsGuid, String, {
     lower: |obj| obj.into(),
 });
 
-pub use crate::storage::{ClientRemoteTabs, RemoteTabRecord, TabsDeviceType};
+pub use crate::storage::{ClientRemoteTabs, LocalTabsInfo, RemoteTabRecord, TabsDeviceType};
 pub use crate::store::{RemoteCommandStore, TabsStore};
 pub use error::{ApiResult, Error, Result, TabsApiError};
 use sync15::DeviceType;
 
-pub use crate::sync::engine::get_registered_sync_engine;
-
-pub use crate::sync::bridge::TabsBridgedEngine;
-pub use crate::sync::engine::TabsEngine;
+pub use crate::sync::{get_registered_sync_engine, TabsBridgedEngine, TabsEngine};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RemoteCommand {

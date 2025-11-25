@@ -89,10 +89,7 @@ pub enum IABContentTaxonomy {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{
-        get_example_happy_ad_response, get_example_happy_placements, make_happy_placement_requests,
-        TEST_CONTEXT_ID,
-    };
+    use crate::test_utils::TEST_CONTEXT_ID;
 
     use super::*;
     use serde_json::{json, to_value};
@@ -223,54 +220,5 @@ mod tests {
     fn test_build_ad_request_fails_on_empty_request() {
         let request = AdRequest::build(TEST_CONTEXT_ID.to_string(), vec![]);
         assert!(request.is_err());
-    }
-
-    #[test]
-    fn test_build_placements_with_empty_placement_in_response() {
-        let mut ad_placement_requests = make_happy_placement_requests();
-        // Adding an extra placement request
-        ad_placement_requests.push(AdPlacementRequest {
-            placement: "example_placement_3".to_string(),
-            count: 1,
-            content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
-                categories: vec![],
-            }),
-        });
-
-        let mut api_resp = get_example_happy_ad_response();
-        api_resp
-            .data
-            .insert("example_placement_3".to_string(), vec![]);
-
-        let ad_request =
-            AdRequest::build(TEST_CONTEXT_ID.to_string(), ad_placement_requests).unwrap();
-
-        let placements = api_resp.build_placements(&ad_request).unwrap();
-
-        assert_eq!(placements, get_example_happy_placements());
-    }
-
-    #[test]
-    fn test_request_ads_with_missing_callback_in_response() {
-        let mut ad_placement_requests = make_happy_placement_requests();
-        // Adding an extra placement request
-        ad_placement_requests.push(AdPlacementRequest {
-            placement: "example_placement_3".to_string(),
-            count: 1,
-            content: Some(AdContentCategory {
-                taxonomy: IABContentTaxonomy::IAB2_1,
-                categories: vec![],
-            }),
-        });
-
-        let ad_request =
-            AdRequest::build(TEST_CONTEXT_ID.to_string(), ad_placement_requests).unwrap();
-
-        let placements = get_example_happy_ad_response()
-            .build_placements(&ad_request)
-            .unwrap();
-
-        assert_eq!(placements, get_example_happy_placements());
     }
 }

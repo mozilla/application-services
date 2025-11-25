@@ -18,7 +18,6 @@ the details of which are reproduced below.
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
-* [MIT License: rmp, rmp-serde](#mit-license-rmp-rmp-serde)
 * [MIT License: scroll](#mit-license-scroll)
 * [MIT License: scroll_derive](#mit-license-scroll_derive)
 * [MIT License: sharded-slab](#mit-license-sharded-slab)
@@ -495,7 +494,6 @@ The following text applies to code linked from these dependencies:
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),
-[paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
@@ -1120,37 +1118,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: rmp, rmp-serde
-
-The following text applies to code linked from these dependencies:
-[rmp-serde](https://github.com/3Hren/msgpack-rust),
-[rmp](https://github.com/3Hren/msgpack-rust)
-
-```
-MIT License
-
-Copyright (c) 2017 Evgeny Safronov
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------

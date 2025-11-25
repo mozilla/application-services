@@ -180,6 +180,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             "e7547f62-187b-b641-d462-e54a3f813d9a",
             "eb62e768-151b-45d1-9fe5-9e1d2a5991c5",
             "f312610a-ebfb-a106-ea92-fd643c5d3636",
+            "f943d7bc-872e-4a81-810f-94d26465da69",
             "fa0fc42c-d91d-fca7-34eb-806ff46062dc",
             "fca3e3ee-56cd-f474-dc31-307fd24a891d",
             "fe75ce3f-1545-400c-b28c-ad771054e69f",
@@ -1141,7 +1142,7 @@ impl GetItemsOptions {
     }
 
     /// Returns an iterator of (name, value) query pairs for these options.
-    pub fn iter_query_pairs(&self) -> impl Iterator<Item = (Cow<str>, Cow<str>)> {
+    pub fn iter_query_pairs(&self) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
         self.filters
             .iter()
             .map(Filter::as_query_pair)
@@ -1201,7 +1202,7 @@ enum Filter {
 }
 
 impl Filter {
-    fn as_query_pair(&self) -> (Cow<str>, Cow<str>) {
+    fn as_query_pair(&self) -> (Cow<'_, str>, Cow<'_, str>) {
         // For filters (https://docs.kinto-storage.org/en/latest/api/1.x/filtering.html),
         // the query pair syntax is `[operator_]field=value` for each field.
         match self {
@@ -1223,7 +1224,7 @@ impl Filter {
 struct Sort(String, SortOrder);
 
 impl Sort {
-    fn as_query_value(&self) -> Cow<str> {
+    fn as_query_value(&self) -> Cow<'_, str> {
         match self.1 {
             SortOrder::Ascending => self.0.as_str().into(),
             SortOrder::Descending => format!("-{}", self.0).into(),
@@ -2240,7 +2241,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
     fn test_valid_signature_after_retry() -> Result<()> {
         ensure_initialized();
         run_client_sync(
-            &vec![RemoteSettingsRecord {
+            &[RemoteSettingsRecord {
                 id: "bad-record".to_string(),
                 last_modified: 9999,
                 deleted: true,

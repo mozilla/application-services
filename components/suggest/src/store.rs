@@ -944,7 +944,7 @@ where
                 (name, count)
             })
             .collect();
-        table_names_with_counts.sort_by(|a, b| (b.1.cmp(&a.1)));
+        table_names_with_counts.sort_by(|a, b| b.1.cmp(&a.1));
         table_names_with_counts
     }
 

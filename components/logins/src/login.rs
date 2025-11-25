@@ -388,9 +388,9 @@ impl LoginEntry {
             password: sec_fields.password,
         }
     }
-    /// Internal helper for validation and fixups of an "origin" stored as
-    /// a string.
-    fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
+
+    /// Helper for validation and fixups of an "origin" provided as a string.
+    pub fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
         // Check we can parse the origin, then use the normalized version of it.
         match Url::parse(origin) {
             Ok(mut u) => {
@@ -858,6 +858,12 @@ mod tests {
                 Some((*output).into())
             );
         }
+
+        // Finally, look at some invalid logins
+        for input in &[".", "example", "example.com"] {
+            assert!(LoginEntry::validate_and_fixup_origin(input).is_err());
+        }
+
         Ok(())
     }
 

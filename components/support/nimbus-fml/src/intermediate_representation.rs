@@ -403,7 +403,7 @@ impl FeatureManifest {
     }
 
     #[allow(unused)]
-    pub(crate) fn iter_imported_files(&self) -> Vec<ImportedModule> {
+    pub(crate) fn iter_imported_files(&self) -> Vec<ImportedModule<'_>> {
         let map = &self.all_imports;
 
         self.imported_features

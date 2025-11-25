@@ -461,6 +461,8 @@ mod manifest_schema {
 
 #[cfg(test)]
 mod string_aliases {
+    use std::slice;
+
     use serde_json::json;
 
     use crate::intermediate_representation::PropDef;
@@ -517,12 +519,12 @@ mod string_aliases {
         // { newest-member: "Alice" }
         // We have a reference to a team mate, but no definitions.
         // Should error out.
-        let fm = with_feature(&[newest_member.clone()]);
+        let fm = with_feature(slice::from_ref(&newest_member));
         assert!(validator.validate_feature_def(&fm).is_err());
 
         // -> Validate a property in a nested object can validate against a string-alias
         // -> in a feature that uses the object.
-        let team_def = ObjectDef::new("Team", &[newest_member.clone()]);
+        let team_def = ObjectDef::new("Team", slice::from_ref(&newest_member));
         let team = {
             let t = TypeRef::Object("Team".to_string());
             let v = json!({ "newest-member": "Alice" });
@@ -532,20 +534,20 @@ mod string_aliases {
 
         // { all-names: ["Alice"], team: { newest-member: "Alice" } }
         let fm = with_feature(&[all_names.clone(), team.clone()]);
-        let objs = with_objects(&[team_def.clone()]);
+        let objs = with_objects(slice::from_ref(&team_def));
         let validator = SchemaValidator::new(&enums, &objs);
         validator.validate_feature_def(&fm)?;
 
         // { team: { newest-member: "Alice" } }
-        let fm = with_feature(&[team.clone()]);
-        let objs = with_objects(&[team_def.clone()]);
+        let fm = with_feature(slice::from_ref(&team));
+        let objs = with_objects(slice::from_ref(&team_def));
         let validator = SchemaValidator::new(&enums, &objs);
         assert!(validator.validate_feature_def(&fm).is_err());
 
         // -> Validate a property in a deeply nested object can validate against a string-alias
         // -> in a feature that uses the object.
 
-        let match_def = ObjectDef::new("Match", &[team.clone()]);
+        let match_def = ObjectDef::new("Match", slice::from_ref(&team));
         let match_ = {
             let t = TypeRef::Object("Match".to_string());
             let v = json!({ "team": { "newest-member": "Alice" }});
@@ -560,7 +562,7 @@ mod string_aliases {
         validator.validate_feature_def(&fm)?;
 
         // { match: {team: { newest-member: "Alice" }} }
-        let fm = with_feature(&[match_.clone()]);
+        let fm = with_feature(slice::from_ref(&match_));
         let validator = SchemaValidator::new(&enums, &objs);
         assert!(validator.validate_feature_def(&fm).is_err());
 

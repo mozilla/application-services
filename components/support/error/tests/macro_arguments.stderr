@@ -66,10 +66,10 @@ error[E0277]: the trait bound `String: GetErrorHandling` is not satisfied
 note: required by a bound in `convert_log_report_error`
    --> $WORKSPACE/components/support/error/src/handling.rs
     |
-    | pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
+ 94 | pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
     |        ------------------------ required by a bound in this function
-    | where
-    |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
+ 95 | where
+ 96 |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
     = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -82,9 +82,9 @@ error[E0277]: the trait bound `String: std::error::Error` is not satisfied
 note: required by a bound in `convert_log_report_error`
    --> $WORKSPACE/components/support/error/src/handling.rs
     |
-    | pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
+ 94 | pub fn convert_log_report_error<IE, EE>(e: IE) -> EE
     |        ------------------------ required by a bound in this function
-    | where
-    |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
+ 95 | where
+ 96 |     IE: GetErrorHandling<ExternalError = EE> + std::error::Error,
     |                                                ^^^^^^^^^^^^^^^^^ required by this bound in `convert_log_report_error`
     = note: this error originates in the attribute macro `handle_error` (in Nightly builds, run with -Z macro-backtrace for more info)

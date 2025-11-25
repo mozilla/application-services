@@ -123,7 +123,7 @@ impl SuggestDb {
     /// if [Self::interrupt_handle::interrupt] is called after the operation starts.  Calling
     /// [Self::write] multiple times during the operation risks missing a call that happens after
     /// between those calls.
-    pub fn write_scope(&self) -> Result<WriteScope> {
+    pub fn write_scope(&self) -> Result<WriteScope<'_>> {
         Ok(WriteScope {
             conn: self.conn.lock(),
             scope: self.interrupt_handle.begin_interrupt_scope()?,

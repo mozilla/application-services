@@ -23,9 +23,6 @@ pub enum ComponentError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequestAdsError {
-    #[error("Error building placements from ad response: {0}")]
-    BuildPlacements(#[from] BuildPlacementsError),
-
     #[error("Error building ad requests from configs: {0}")]
     BuildRequest(#[from] BuildRequestError),
 
@@ -41,12 +38,6 @@ pub enum BuildRequestError {
     #[error("Could not build request with empty placement configs")]
     EmptyConfig,
 
-    #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
-    DuplicatePlacementId { placement_id: String },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BuildPlacementsError {
     #[error("Duplicate placement_id found: {placement_id}. Placement_ids must be unique.")]
     DuplicatePlacementId { placement_id: String },
 }

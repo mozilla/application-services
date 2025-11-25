@@ -28,14 +28,10 @@ impl SettingsClient for Arc<RemoteSettingsClient> {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let records = self.get_records(false).ok_or(RemoteSettingsError::Other {
+        let records = self.get_records(true).ok_or(RemoteSettingsError::Other {
             reason: "Unable to fetch experiment records".to_owned(),
         })?;
-        let data_vec: Vec<_> = records
-            .into_iter()
-            .map(|r| r.fields.get("data").cloned())
-            .collect();
-        let wrapped_data = json!({ "data": data_vec });
+        let wrapped_data = json!({ "data": records });
         let resp = serde_json::to_string(&wrapped_data).map_err(|e| {
             NimbusError::JSONError(
                 "SettingsClient::fetch_experiments resp = serde_json::to_string".to_owned(),

@@ -18,19 +18,12 @@ use crate::PushError;
 ///
 /// Please contact services back-end for any additional bridge protocols.
 ///
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum BridgeType {
+    #[default]
     Fcm,
     Adm,
     Apns,
-}
-
-#[cfg(test)]
-// To avoid a future footgun, the default implementation is only for tests
-impl Default for BridgeType {
-    fn default() -> Self {
-        Self::Fcm
-    }
 }
 
 impl Display for BridgeType {

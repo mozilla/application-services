@@ -57,18 +57,6 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<rmp_serde::decode::Error> for Error {
-    fn from(e: rmp_serde::decode::Error) -> Self {
-        Self::Serialization(e.to_string())
-    }
-}
-
-impl From<rmp_serde::encode::Error> for Error {
-    fn from(e: rmp_serde::encode::Error) -> Self {
-        Self::Serialization(e.to_string())
-    }
-}
-
 #[extend::ext(name=RusqliteResultExt)]
 pub impl<T> Result<T, rusqlite::Error> {
     // Convert an rusqlite::Error to our error type, with a context value

@@ -160,7 +160,7 @@ impl GeckoPrefStore {
         Ok(())
     }
 
-    pub fn get_mutable_pref_state(&self) -> MutexGuard<GeckoPrefStoreState> {
+    pub fn get_mutable_pref_state(&self) -> MutexGuard<'_, GeckoPrefStoreState> {
         self.state
             .lock()
             .expect("Unable to lock GeckoPrefStore state")

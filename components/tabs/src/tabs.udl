@@ -5,8 +5,10 @@ typedef string TabsGuid;
 [Custom]
 typedef i64 Timestamp;
 
-[External="sync15"]
-typedef enum DeviceType;
+// exported via proc-macros
+typedef dictionary ClientRemoteTabs;
+typedef dictionary RemoteTabRecord;
+typedef dictionary LocalTabsInfo;
 
 namespace tabs {
 
@@ -27,7 +29,11 @@ interface TabsStore {
 
     sequence<ClientRemoteTabs> get_all();
 
+    /// An API for clients which know nothing about windows or tab groups.
     void set_local_tabs(sequence<RemoteTabRecord> remote_tabs);
+
+    /// More context-aware API for setting information about a tab like window and groups.
+    void set_local_tabs_info(LocalTabsInfo info);
 
     [Self=ByArc]
     RemoteCommandStore new_remote_command_store();
@@ -38,24 +44,6 @@ interface TabsStore {
     [Self=ByArc]
     TabsBridgedEngine bridged_engine();
 
-};
-
-dictionary RemoteTabRecord {
-    string title;
-    sequence<string> url_history;
-    string? icon;
-    /// Number of ms since the unix epoch (as reported by the client's clock)
-    i64 last_used;
-    boolean inactive = false;
-};
-
-dictionary ClientRemoteTabs {
-    string client_id;
-    string client_name;
-    DeviceType device_type;
-    /// Number of ms since the unix epoch (as reported by the server's clock)
-    i64 last_modified;
-    sequence<RemoteTabRecord> remote_tabs;
 };
 
 /// A command which should be sent to a remote device.

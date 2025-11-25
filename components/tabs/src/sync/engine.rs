@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::TabsRecord;
 use crate::schema;
-use crate::storage::{ClientRemoteTabs, RemoteTab, TABS_CLIENT_TTL};
+use crate::storage::{ClientRemoteTabs, TABS_CLIENT_TTL};
 use crate::store::TabsStore;
-use crate::sync::record::{TabsRecord, TabsRecordTab};
 use anyhow::Result;
 use error_support::{debug, info, trace, warn};
 
@@ -15,7 +15,7 @@ use sync15::bso::{IncomingBso, OutgoingBso, OutgoingEnvelope};
 use sync15::engine::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, SyncEngine, SyncEngineId,
 };
-use sync15::{telemetry, ClientData, CollectionName, DeviceType, RemoteClient, ServerTimestamp};
+use sync15::{telemetry, ClientData, CollectionName, RemoteClient, ServerTimestamp};
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -42,7 +42,7 @@ pub fn get_registered_sync_engine(
 }
 
 impl ClientRemoteTabs {
-    pub(crate) fn from_record_with_remote_client(
+    pub(crate) fn from_record(
         client_id: String,
         last_modified: ServerTimestamp,
         remote_client: &RemoteClient,
@@ -53,57 +53,17 @@ impl ClientRemoteTabs {
             client_name: remote_client.device_name.clone(),
             device_type: remote_client.device_type,
             last_modified: last_modified.as_millis(),
-            remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
-        }
-    }
-
-    // Note that this should die as part of https://github.com/mozilla/application-services/issues/5199
-    // If we don't have a `RemoteClient` record, then we don't know whether the ID passed here is
-    // the fxa_device_id (which is must be) or the client_id (which it will be if this ends up being
-    // called for desktop records, where client_id != fxa_device_id)
-    pub(crate) fn from_record(
-        client_id: String,
-        last_modified: ServerTimestamp,
-        record: TabsRecord,
-    ) -> Self {
-        Self {
-            client_id,
-            client_name: record.client_name,
-            device_type: DeviceType::Unknown,
-            last_modified: last_modified.as_millis(),
-            remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
-        }
-    }
-    fn to_record(&self) -> TabsRecord {
-        TabsRecord {
-            id: self.client_id.clone(),
-            client_name: self.client_name.clone(),
-            tabs: self
-                .remote_tabs
-                .iter()
-                .map(RemoteTab::to_record_tab)
+            remote_tabs: record.tabs.into_iter().map(Into::into).collect(),
+            tab_groups: record
+                .tab_groups
+                .into_iter()
+                .map(|(n, v)| (n, v.into()))
                 .collect(),
-        }
-    }
-}
-
-impl RemoteTab {
-    pub(crate) fn from_record_tab(tab: &TabsRecordTab) -> Self {
-        Self {
-            title: tab.title.clone(),
-            url_history: tab.url_history.clone(),
-            icon: tab.icon.clone(),
-            last_used: tab.last_used.checked_mul(1000).unwrap_or_default(),
-            inactive: tab.inactive,
-        }
-    }
-    pub(super) fn to_record_tab(&self) -> TabsRecordTab {
-        TabsRecordTab {
-            title: self.title.clone(),
-            url_history: self.url_history.clone(),
-            icon: self.icon.clone(),
-            last_used: self.last_used.checked_div(1000).unwrap_or_default(),
-            inactive: self.inactive,
+            windows: record
+                .windows
+                .into_iter()
+                .map(|(n, v)| (n, v.into()))
+                .collect(),
         }
     }
 }
@@ -202,51 +162,64 @@ impl SyncEngine for TabsEngine {
         timestamp: ServerTimestamp,
         _telem: &mut telemetry::Engine,
     ) -> Result<Vec<OutgoingBso>> {
-        // We've already applied them - really we just need to fetch outgoing.
-        let (local_tabs, remote_clients) = {
-            let mut storage = self.store.storage.lock().unwrap();
-            let local_tabs = storage.prepare_local_tabs_for_upload();
-            let remote_clients: HashMap<String, RemoteClient> = {
-                match storage.get_meta::<String>(schema::REMOTE_CLIENTS_KEY)? {
-                    None => HashMap::default(),
-                    Some(json) => serde_json::from_str(&json).unwrap(),
-                }
-            };
-            (local_tabs, remote_clients)
-        };
-
+        // We've already applied them - we just need to fetch outgoing.
         let local_id = &*self.local_id.read().unwrap();
         // Timestamp will be zero when used as a "bridged" engine.
         if timestamp.0 != 0 {
             self.set_last_sync(timestamp)?;
         }
-        // XXX - outgoing telem?
-        let outgoing = if let Some(local_tabs) = local_tabs {
-            let (client_name, device_type) = remote_clients
-                .get(local_id)
-                .map(|client| (client.device_name.clone(), client.device_type))
-                .unwrap_or_else(|| (String::new(), DeviceType::Unknown));
-            let local_record = ClientRemoteTabs {
-                client_id: local_id.clone(),
-                client_name,
-                device_type,
-                last_modified: 0, // ignored for outgoing records.
-                remote_tabs: local_tabs.to_vec(),
-            };
-            trace!("outgoing {:?}", local_record);
-            let envelope = OutgoingEnvelope {
-                id: local_id.as_str().into(),
-                ttl: Some(TABS_CLIENT_TTL),
-                ..Default::default()
-            };
-            vec![OutgoingBso::from_content(
-                envelope,
-                local_record.to_record(),
-            )?]
-        } else {
-            vec![]
+
+        let mut storage = self.store.storage.lock().unwrap();
+        let remote_clients: HashMap<String, RemoteClient> = {
+            match storage.get_meta::<String>(schema::REMOTE_CLIENTS_KEY)? {
+                None => HashMap::default(),
+                Some(json) => serde_json::from_str(&json).unwrap(),
+            }
         };
-        Ok(outgoing)
+
+        let Some(ref tabs_info) = *storage.local_tabs.borrow() else {
+            // It's a less than ideal outcome if at startup (or any time) we are asked to
+            // sync tabs before the app has told us what the tabs are, so make noise, but
+            // don't actually write that we have no tabs.
+            warn!("syncing without local tabs");
+            return Ok(vec![]);
+        };
+
+        let client_name = remote_clients
+            .get(local_id)
+            .map(|client| client.device_name.clone())
+            .unwrap_or_default();
+
+        let mut record = TabsRecord {
+            id: local_id.clone(),
+            client_name,
+            tabs: tabs_info
+                .tabs
+                .iter()
+                .map(Clone::clone)
+                .map(Into::into)
+                .collect(),
+            windows: tabs_info
+                .windows
+                .iter()
+                .map(|(n, v)| (n.clone(), v.clone().into()))
+                .collect(),
+            tab_groups: tabs_info
+                .tab_groups
+                .iter()
+                .map(|(n, v)| (n.clone(), v.clone().into()))
+                .collect(),
+        };
+        super::prepare_for_upload(&mut record);
+
+        trace!("outgoing {:?}", record);
+        let envelope = OutgoingEnvelope {
+            id: local_id.as_str().into(),
+            ttl: Some(TABS_CLIENT_TTL),
+            ..Default::default()
+        };
+        // XXX - outgoing telem?
+        Ok(vec![OutgoingBso::from_content(envelope, record)?])
     }
 
     fn set_uploaded(&self, new_timestamp: ServerTimestamp, ids: Vec<Guid>) -> Result<()> {
@@ -327,6 +300,7 @@ impl crate::TabsStore {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use crate::DeviceType;
     use serde_json::json;
     use sync15::bso::IncomingBso;
 
@@ -335,6 +309,39 @@ pub mod test {
         error_support::init_for_tests();
 
         let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path("test-incoming")));
+
+        let client_data = ClientData {
+            local_client_id: "my-device".to_string(),
+            recent_clients: HashMap::from([
+                (
+                    "my-device".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "my device".to_string(),
+                        device_type: sync15::DeviceType::Unknown,
+                    },
+                ),
+                (
+                    "device-no-tabs".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with no tabs".to_string(),
+                        device_type: DeviceType::Unknown,
+                    },
+                ),
+                (
+                    "device-with-a-tab".to_string(),
+                    RemoteClient {
+                        fxa_device_id: None,
+                        device_name: "device with an updated tab".to_string(),
+                        device_type: DeviceType::Unknown,
+                    },
+                ),
+            ]),
+        };
+        engine
+            .prepare_for_sync(&|| client_data.clone())
+            .expect("should work");
 
         let records = vec![
             json!({
@@ -354,7 +361,6 @@ pub mod test {
                     "lastUsed": 1643764207
                 }]
             }),
-            // test an updated payload will replace the previous record
             json!({
                 "id": "device-with-a-tab",
                 "clientName": "device with an updated tab",
@@ -420,6 +426,21 @@ pub mod test {
         let engine = TabsEngine::new(Arc::new(TabsStore::new_with_mem_path(
             "test_no_incoming_doesnt_write",
         )));
+
+        let client_data = ClientData {
+            local_client_id: "my-device".to_string(),
+            recent_clients: HashMap::from([(
+                "device-with-a-tab".to_string(),
+                RemoteClient {
+                    fxa_device_id: None,
+                    device_name: "device-with-a-tab".to_string(),
+                    device_type: DeviceType::Unknown,
+                },
+            )]),
+        };
+        engine
+            .prepare_for_sync(&|| client_data.clone())
+            .expect("should work");
 
         let records = vec![json!({
             "id": "device-with-a-tab",

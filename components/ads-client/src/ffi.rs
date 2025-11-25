@@ -4,7 +4,9 @@
 */
 
 use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
-use crate::client::ad_response::{Ad, AdCallbacks};
+use crate::client::ad_response::{
+    AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+};
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
 use crate::error::ComponentError;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
@@ -91,6 +93,8 @@ pub enum MozAdsEnvironment {
     Prod,
     #[cfg(feature = "dev")]
     Staging,
+    #[cfg(test)]
+    Test,
 }
 
 #[derive(uniffi::Record)]
@@ -129,12 +133,51 @@ pub enum MozAdsCacheMode {
 }
 
 #[derive(Debug, PartialEq, uniffi::Record)]
-pub struct MozAd {
+pub struct MozAdsImage {
     pub alt_text: Option<String>,
     pub block_key: String,
     pub callbacks: MozAdsCallbacks,
     pub format: String,
     pub image_url: String,
+    pub url: String,
+}
+
+#[derive(Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsSpoc {
+    pub block_key: String,
+    pub callbacks: MozAdsCallbacks,
+    pub caps: MozAdsSpocFrequencyCaps,
+    pub domain: String,
+    pub excerpt: String,
+    pub format: String,
+    pub image_url: String,
+    pub ranking: MozAdsSpocRanking,
+    pub sponsor: String,
+    pub sponsored_by_override: Option<String>,
+    pub title: String,
+    pub url: String,
+}
+
+#[derive(Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsSpocFrequencyCaps {
+    pub cap_key: String,
+    pub day: u32,
+}
+
+#[derive(Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsSpocRanking {
+    pub priority: u32,
+    pub personalization_models: std::collections::HashMap<String, u32>,
+    pub item_score: f64,
+}
+
+#[derive(Debug, PartialEq, uniffi::Record)]
+pub struct MozAdsTile {
+    pub block_key: String,
+    pub callbacks: MozAdsCallbacks,
+    pub format: String,
+    pub image_url: String,
+    pub name: String,
     pub url: String,
 }
 
@@ -158,12 +201,78 @@ impl From<MozAdsCallbacks> for AdCallbacks {
     }
 }
 
+impl From<SpocFrequencyCaps> for MozAdsSpocFrequencyCaps {
+    fn from(caps: SpocFrequencyCaps) -> Self {
+        Self {
+            cap_key: caps.cap_key,
+            day: caps.day,
+        }
+    }
+}
+
+impl From<SpocRanking> for MozAdsSpocRanking {
+    fn from(ranking: SpocRanking) -> Self {
+        Self {
+            priority: ranking.priority,
+            personalization_models: ranking.personalization_models.unwrap_or_default(),
+            item_score: ranking.item_score,
+        }
+    }
+}
+
+impl From<AdImage> for MozAdsImage {
+    fn from(img: AdImage) -> Self {
+        Self {
+            alt_text: img.alt_text,
+            block_key: img.block_key,
+            callbacks: img.callbacks.into(),
+            format: img.format,
+            image_url: img.image_url,
+            url: img.url,
+        }
+    }
+}
+
+impl From<AdSpoc> for MozAdsSpoc {
+    fn from(spoc: AdSpoc) -> Self {
+        Self {
+            block_key: spoc.block_key,
+            callbacks: spoc.callbacks.into(),
+            caps: spoc.caps.into(),
+            domain: spoc.domain,
+            excerpt: spoc.excerpt,
+            format: spoc.format,
+            image_url: spoc.image_url,
+            ranking: spoc.ranking.into(),
+            sponsor: spoc.sponsor,
+            sponsored_by_override: spoc.sponsored_by_override,
+            title: spoc.title,
+            url: spoc.url,
+        }
+    }
+}
+
+impl From<AdTile> for MozAdsTile {
+    fn from(tile: AdTile) -> Self {
+        Self {
+            block_key: tile.block_key,
+            callbacks: tile.callbacks.into(),
+            format: tile.format,
+            image_url: tile.image_url,
+            name: tile.name,
+            url: tile.url,
+        }
+    }
+}
+
 impl From<Environment> for MozAdsEnvironment {
     fn from(env: Environment) -> Self {
         match env {
             Environment::Prod => MozAdsEnvironment::Prod,
             #[cfg(feature = "dev")]
             Environment::Staging => MozAdsEnvironment::Staging,
+            #[cfg(test)]
+            Environment::Test => MozAdsEnvironment::Test,
         }
     }
 }
@@ -174,6 +283,8 @@ impl From<MozAdsEnvironment> for Environment {
             MozAdsEnvironment::Prod => Environment::Prod,
             #[cfg(feature = "dev")]
             MozAdsEnvironment::Staging => Environment::Staging,
+            #[cfg(test)]
+            MozAdsEnvironment::Test => Environment::Test,
         }
     }
 }
@@ -225,32 +336,6 @@ impl From<MozAdsCacheMode> for CacheMode {
         match mode {
             MozAdsCacheMode::CacheFirst => CacheMode::CacheFirst,
             MozAdsCacheMode::NetworkFirst => CacheMode::NetworkFirst,
-        }
-    }
-}
-
-impl From<Ad> for MozAd {
-    fn from(ad: Ad) -> Self {
-        Self {
-            alt_text: ad.alt_text,
-            block_key: ad.block_key,
-            callbacks: ad.callbacks.into(),
-            format: ad.format,
-            image_url: ad.image_url,
-            url: ad.url,
-        }
-    }
-}
-
-impl From<MozAd> for Ad {
-    fn from(ad: MozAd) -> Self {
-        Self {
-            alt_text: ad.alt_text,
-            block_key: ad.block_key,
-            callbacks: ad.callbacks.into(),
-            format: ad.format,
-            image_url: ad.image_url,
-            url: ad.url,
         }
     }
 }

@@ -14,10 +14,6 @@ use super::filters;
 
 use super::common::{self, code_type};
 
-pub struct ObjectRuntime;
-
-impl CodeDeclaration for ObjectRuntime {}
-
 pub struct ObjectCodeType {
     id: String,
 }

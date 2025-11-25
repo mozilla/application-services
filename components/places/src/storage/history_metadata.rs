@@ -443,6 +443,13 @@ lazy_static! {
         LIMIT :limit",
         common_select_sql = COMMON_METADATA_SELECT
     );
+    static ref SEARCH_QUERY_SQL: String = format!(
+        "{common_select_sql}
+        WHERE search_term NOT NULL
+        ORDER BY updated_at DESC
+        LIMIT :limit",
+        common_select_sql = COMMON_METADATA_SELECT
+    );
     static ref QUERY_SQL: String = format!(
         "{common_select_sql}
         WHERE
@@ -507,6 +514,20 @@ pub fn get_most_recent(db: &PlacesDb, limit: i32) -> Result<Vec<HistoryMetadata>
     )
 }
 
+// Returns the most recent history metadata entries where search term is not null (newest first),
+// limited by `limit`.
+//
+// Internally this uses [`SEARCH_QUERY_SQL`], ordered by descending `updated_at`.
+pub fn get_most_recent_search_entries(db: &PlacesDb, limit: i32) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_cached(
+        SEARCH_QUERY_SQL.as_str(),
+        rusqlite::named_params! {
+            ":limit": limit,
+        },
+        HistoryMetadata::from_row,
+    )
+}
+
 pub fn get_highlights(
     db: &PlacesDb,
     weights: HistoryHighlightWeights,
@@ -559,6 +580,12 @@ pub fn delete_all_metadata_for_page(db: &PlacesDb, place_id: RowId) -> Result<()
          WHERE place_id = :place_id",
         &[(":place_id", &place_id)],
     )?;
+    Ok(())
+}
+
+/// Delete all metadata for search queries table.
+pub fn delete_all_metadata_for_search(db: &PlacesDb) -> Result<()> {
+    db.execute_cached("DELETE FROM moz_places_metadata_search_queries", [])?;
     Ok(())
 }
 
@@ -1481,6 +1508,213 @@ mod tests {
     }
 
     #[test]
+    fn test_get_most_recent_search_entries_empty() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        let rows = get_most_recent_search_entries(&conn, 5).expect("query ok");
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn test_get_most_recent_search_entries_with_limits_and_same_observation() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to 1 should return the most recent entry where search is not null.
+        let most_recents1 = get_most_recent_search_entries(&conn, 1).expect("query ok");
+        assert_eq!(most_recents1.len(), 1);
+        assert_eq!(most_recents1[0].url, "http://mozilla.org/1/");
+
+        // Limiting to 3 should also return one entry, since we only have one unique URL.
+        let most_recents2 = get_most_recent_search_entries(&conn, 3).expect("query ok");
+        assert_eq!(most_recents2.len(), 1);
+        assert_eq!(most_recents2[0].url, "http://mozilla.org/1/");
+
+        // Limiting to 10 should also return one entry, since we only have one unique URL.
+        let most_recents3 = get_most_recent_search_entries(&conn, 10).expect("query ok");
+        assert_eq!(most_recents3.len(), 1);
+        assert_eq!(most_recents3[0].url, "http://mozilla.org/1/");
+    }
+
+    #[test]
+    fn test_get_most_recent_search_entries_with_limits_and_different_observations() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/2/",
+            view_time Some(20),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/3/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/4/",
+            view_time None,
+            search_term Some("search_term_3"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to 1 should return the most recent entry where search is not null.
+        let most_recents1 = get_most_recent_search_entries(&conn, 1).expect("query ok");
+        assert_eq!(most_recents1.len(), 1);
+        assert_eq!(most_recents1[0].url, "http://mozilla.org/4/");
+
+        // Limiting to 2 should return the two most recent entries.
+        let most_recents2 = get_most_recent_search_entries(&conn, 2).expect("query ok");
+        assert_eq!(most_recents2.len(), 2);
+        assert_eq!(most_recents2[0].url, "http://mozilla.org/4/");
+        assert_eq!(most_recents2[1].url, "http://mozilla.org/3/");
+
+        // Limiting to 10 should return all three entries, in the correct order.
+        let most_recents3 = get_most_recent_search_entries(&conn, 10).expect("query ok");
+        assert_eq!(most_recents3.len(), 3);
+        assert_eq!(most_recents3[0].url, "http://mozilla.org/4/");
+        assert_eq!(most_recents3[1].url, "http://mozilla.org/3/");
+        assert_eq!(most_recents3[2].url, "http://mozilla.org/1/");
+    }
+
+    #[test]
+    fn test_get_most_recent_search_entries_with_negative_limit_with_same_observation() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to -1 should return all entries properly ordered.
+        let most_recents = get_most_recent_search_entries(&conn, -1).expect("query ok");
+        assert_eq!(most_recents.len(), 1);
+        assert_eq!(most_recents[0].url, "http://mozilla.org/1/");
+    }
+
+    #[test]
+    fn test_get_most_recent_search_entries_with_negative_limit_with_different_observations() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "http://mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/2/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        bump_clock();
+
+        note_observation!(&conn,
+            url "http://mozilla.org/3/",
+            view_time None,
+            search_term Some("search_term_3"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // Limiting to -1 should return all entries properly ordered.
+        let most_recents = get_most_recent_search_entries(&conn, -1).expect("query ok");
+        assert_eq!(most_recents.len(), 3);
+        assert_eq!(most_recents[0].url, "http://mozilla.org/3/");
+        assert_eq!(most_recents[1].url, "http://mozilla.org/2/");
+        assert_eq!(most_recents[2].url, "http://mozilla.org/1/");
+    }
+
+    #[test]
     fn test_get_highlights() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
@@ -2389,6 +2623,96 @@ mod tests {
         delete_everything(&conn).expect("places wipe succeeds");
 
         assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
+    }
+
+    #[test]
+    fn test_delete_all_metadata_for_search() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/2/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        assert_table_size!(&conn, "moz_places_metadata", 2);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 2);
+
+        delete_all_metadata_for_search(&conn).expect("query ok");
+
+        assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
+    }
+
+    #[test]
+    fn test_delete_all_metadata_for_search_only_deletes_search_metadata() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // url  |   search_term |   referrer
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(
+            &conn,
+            url "https://www.mozilla.org/2/",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Media),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/3/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(
+            &conn,
+            url "https://www.mozilla.org/4/",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        assert_eq!(4, get_since(&conn, 0).expect("get worked").len());
+
+        assert_table_size!(&conn, "moz_places_metadata", 4);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 2);
+
+        delete_all_metadata_for_search(&conn).expect("query ok");
+
+        assert_table_size!(&conn, "moz_places_metadata", 2);
         assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
     }
 
