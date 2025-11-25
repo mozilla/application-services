@@ -214,6 +214,14 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
+    pub fn get_most_recent_search_entries_in_history_metadata(
+        &self,
+        limit: i32,
+    ) -> ApiResult<Vec<HistoryMetadata>> {
+        self.with_conn(|conn| history_metadata::get_most_recent_search_entries(conn, limit))
+    }
+
+    #[handle_error(crate::Error)]
     pub fn query_history_metadata(
         &self,
         query: String,
