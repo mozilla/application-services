@@ -583,6 +583,12 @@ pub fn delete_all_metadata_for_page(db: &PlacesDb, place_id: RowId) -> Result<()
     Ok(())
 }
 
+/// Delete all metadata for search queries table.
+pub fn delete_all_metadata_for_search(db: &PlacesDb) -> Result<()> {
+    db.execute_cached("DELETE FROM moz_places_metadata_search_queries", [])?;
+    Ok(())
+}
+
 pub fn delete_metadata(
     db: &PlacesDb,
     url: &Url,
@@ -2617,6 +2623,96 @@ mod tests {
         delete_everything(&conn).expect("places wipe succeeds");
 
         assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
+    }
+
+    #[test]
+    fn test_delete_all_metadata_for_search() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/2/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        assert_table_size!(&conn, "moz_places_metadata", 2);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 2);
+
+        delete_all_metadata_for_search(&conn).expect("query ok");
+
+        assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
+    }
+
+    #[test]
+    fn test_delete_all_metadata_for_search_only_deletes_search_metadata() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // url  |   search_term |   referrer
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/1/",
+            view_time None,
+            search_term Some("search_term_1"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(
+            &conn,
+            url "https://www.mozilla.org/2/",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Media),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/3/",
+            view_time None,
+            search_term Some("search_term_2"),
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(
+            &conn,
+            url "https://www.mozilla.org/4/",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
+        );
+
+        assert_eq!(4, get_since(&conn, 0).expect("get worked").len());
+
+        assert_table_size!(&conn, "moz_places_metadata", 4);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 2);
+
+        delete_all_metadata_for_search(&conn).expect("query ok");
+
+        assert_table_size!(&conn, "moz_places_metadata", 2);
         assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
     }
 

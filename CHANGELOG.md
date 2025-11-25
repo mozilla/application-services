@@ -14,10 +14,13 @@
     favor of `ensure_nss_initialized_with_profile_dir`.
 
 ### Logins
+- `create_login_store_with_nss_keymanager` returns an `ApiResult` now, instead
+  of just panicking.
 - fix `count_by_origin` and `count_by_form_action_origin` with punicode origins
 
 ### Places
 - `places::storage::history_metadata::get_most_recent_search_entries()` was added to fetch the most recent search entries in history metadata. ([#7104](https://github.com/mozilla/application-services/pull/7104))
+- `places::storage::history_metadata::delete_all_metadata_for_search()` was added to delete the search terms in history metadata. ([#7101](https://github.com/mozilla/application-services/pull/7101))
 
 # v146.0 (_2025-11-10_)
 

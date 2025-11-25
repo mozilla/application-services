@@ -92,6 +92,9 @@ interface PlacesConnection {
     void metadata_delete_older_than(PlacesTimestamp older_than);
 
     [Throws=PlacesApiError]
+    void metadata_delete_search_terms();
+
+    [Throws=PlacesApiError]
     void apply_observation(VisitObservation visit);
 
     [Throws=PlacesApiError]
