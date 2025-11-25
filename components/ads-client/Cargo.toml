@@ -33,7 +33,6 @@ sql-support = { path = "../support/sql" }
 mockall = "0.12"
 mockito = { version = "0.31", default-features = false }
 viaduct-dev = { path = "../support/viaduct-dev" }
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 
 [build-dependencies]
 uniffi = { version = "0.29.0", features = ["build"] }

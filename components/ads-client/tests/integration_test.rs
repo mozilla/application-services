@@ -15,7 +15,7 @@ use viaduct::Request;
 #[test]
 #[ignore]
 fn test_mock_pocket_billboard_1_placement() {
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::init_backend_dev();
 
     let client = MozAdsClient::new(None);
 
@@ -25,7 +25,6 @@ fn test_mock_pocket_billboard_1_placement() {
     };
 
     let result = client.request_image_ads(vec![placement_request], None);
-    println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
 
@@ -44,7 +43,7 @@ fn test_mock_pocket_billboard_1_placement() {
 #[test]
 #[ignore]
 fn test_newtab_spocs_placement() {
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::init_backend_dev();
 
     let client = MozAdsClient::new(None);
 
@@ -56,7 +55,6 @@ fn test_newtab_spocs_placement() {
     };
 
     let result = client.request_spoc_ads(vec![placement_request], None);
-    println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
 
@@ -81,7 +79,7 @@ fn test_newtab_spocs_placement() {
 #[test]
 #[ignore]
 fn test_newtab_tile_1_placement() {
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::init_backend_dev();
 
     let client = MozAdsClient::new(None);
 
@@ -91,7 +89,6 @@ fn test_newtab_tile_1_placement() {
     };
 
     let result = client.request_tile_ads(vec![placement_request], None);
-    println!("result: {:?}", result);
 
     assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
 
@@ -110,7 +107,7 @@ fn test_newtab_tile_1_placement() {
 #[test]
 #[ignore]
 fn test_cache_works_using_real_timeouts() {
-    viaduct_reqwest::use_reqwest_backend();
+    viaduct_dev::init_backend_dev();
 
     let cache = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))

@@ -29,7 +29,7 @@ enum Event {
     SendRequest {
         request: Request,
         settings: ClientSettings,
-        channel: oneshot::Sender<Response>,
+        channel: oneshot::Sender<Result<Response>>,
     },
     Quit,
 }
@@ -49,9 +49,10 @@ fn worker_thread(channel: mpsc::Receiver<Event>) {
                 settings,
                 channel,
             }) => {
-                if let Err(e) = send_request(request, settings, channel) {
-                    error!("Error sending request: {e}");
-                }
+                let result = send_request(request, settings);
+                channel
+                    .send(result)
+                    .expect("Error sending to oneshot channel");
             }
             Ok(Event::Quit) => {
                 info!("Saw Quit event, exiting");
@@ -62,11 +63,7 @@ fn worker_thread(channel: mpsc::Receiver<Event>) {
 }
 
 /// Handle `Event::SendRequest`
-fn send_request(
-    request: Request,
-    settings: ClientSettings,
-    channel: oneshot::Sender<Response>,
-) -> Result<()> {
+fn send_request(request: Request, settings: ClientSettings) -> Result<Response> {
     let method = match request.method {
         Method::Get => minreq::Method::Get,
         Method::Head => minreq::Method::Head,
@@ -89,18 +86,15 @@ fn send_request(
         .with_timeout(settings.timeout.div_ceil(1000) as u64)
         .with_body(request.body.unwrap_or_default());
     let mut resp = req.send().map_backend_error()?;
-    channel
-        .send(Response {
-            request_method: request.method,
-            url: Url::parse(&resp.url)?,
-            // Use `take` to take all headers, but not partially deconstruct the `Response`.
-            // This lets us use `into_bytes()` below.
-            headers: Headers::try_from_hashmap(std::mem::take(&mut resp.headers))?,
-            status: resp.status_code as u16,
-            body: resp.into_bytes(),
-        })
-        .map_backend_error()?;
-    Ok(())
+    Ok(Response {
+        request_method: request.method,
+        url: Url::parse(&resp.url)?,
+        // Use `take` to take all headers, but not partially deconstruct the `Response`.
+        // This lets us use `into_bytes()` below.
+        headers: Headers::try_from_hashmap(std::mem::take(&mut resp.headers))?,
+        status: resp.status_code as u16,
+        body: resp.into_bytes(),
+    })
 }
 
 /// Initialize the `dev` backend.
@@ -155,6 +149,6 @@ impl Backend for DevBackend {
             })
             .map_backend_error()?;
         // Await the response from the worker thread.
-        oneshot_rx.await.map_backend_error()
+        oneshot_rx.await.expect("Error awaiting oneshot channel")
     }
 }
