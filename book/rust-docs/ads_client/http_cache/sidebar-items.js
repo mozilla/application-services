@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CacheMode","CacheOutcome","HttpCacheError"],"struct":["ByteSize","HttpCache","RequestCachePolicy","RequestHash","SendOutcome"],"type":["HttpCacheSendResult"]};
