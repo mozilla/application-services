@@ -5,10 +5,10 @@
 
 [versions]
 # AGP
-android-gradle-plugin = "8.13.0"
+android-gradle-plugin = "8.13.1"
 
 # Google
-protobuf = "4.33.0"
+protobuf = "4.33.1"
 protobuf-plugin = "0.9.5"
 
 # Kotlin
@@ -17,7 +17,7 @@ coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
 
 # Mozilla
-android-components = "144.0.1"
+android-components = "145.0.2"
 glean = "66.1.0"
 rust-android-gradle = "0.9.6"
 
@@ -41,7 +41,7 @@ androidx-test-runner = "1.7.0"
 
 # Third Party Testing
 junit4 = "4.13.2"
-junit6 = "6.0.0"
+junit6 = "6.0.1"
 mockito = "5.20.0"
 robolectric = "4.16"
 
