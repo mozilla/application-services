@@ -38,7 +38,6 @@ dependencies = [
  "uuid",
  "viaduct",
  "viaduct-dev",
- "viaduct-reqwest",
 ]
 
 [[package]]
@@ -5053,7 +5052,6 @@ dependencies = [
  "bhttp",
  "error-support",
  "ffi-support",
- "hyper",
  "ohttp",
  "once_cell",
  "parking_lot",
@@ -5062,7 +5060,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.3",
- "tokio",
  "uniffi",
  "url",
 ]
