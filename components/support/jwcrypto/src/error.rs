@@ -26,4 +26,8 @@ pub enum JwCryptoError {
     InvalidKey,
     #[error("EmptyCyphertext")]
     EmptyCyphertext,
+    #[error("NSS error during authentication: {reason}")]
+    NSSAuthenticationError { reason: String },
+    #[error("Encryption key is missing.")]
+    MissingKey,
 }

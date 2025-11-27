@@ -2349,8 +2349,10 @@ dependencies = [
 name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "base64 0.21.2",
  "error-support",
+ "futures",
  "nss",
  "rc_crypto",
  "serde",

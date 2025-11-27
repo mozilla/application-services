@@ -30,6 +30,9 @@ pub mod ec;
 mod encdec;
 mod error;
 
+#[cfg(feature = "keydb")]
+pub mod keystore;
+
 pub use encdec::EncryptorDecryptor;
 
 /// Specifies the mode, algorithm and keys of the encryption operation.
