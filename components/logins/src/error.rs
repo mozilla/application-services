@@ -131,8 +131,8 @@ pub enum InvalidLogin {
     NoTarget,
     // Login has an illegal origin field, split off from IllegalFieldValue since this is a known
     // issue with the Desktop logins and we don't want to report it to Sentry (see #5233).
-    #[error("Login has illegal origin")]
-    IllegalOrigin,
+    #[error("Login has illegal origin: {reason}")]
+    IllegalOrigin { reason: String },
     #[error("Login has illegal field: {field_info}")]
     IllegalFieldValue { field_info: String },
 }

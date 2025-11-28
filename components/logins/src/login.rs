@@ -435,7 +435,10 @@ impl LoginEntry {
                     error_support::redact_url(origin)
                 );
                 // We can't fixup completely invalid records, so always throw.
-                Err(InvalidLogin::IllegalOrigin.into())
+                Err(InvalidLogin::IllegalOrigin {
+                    reason: e.to_string(),
+                }
+                .into())
             }
         }
     }
@@ -1129,7 +1132,8 @@ mod tests {
             TestCase {
                 login: login_with_malformed_origin_parens,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal origin",
+                expected_err:
+                    "Invalid login: Login has illegal origin: relative URL without a base",
             },
             TestCase {
                 login: login_with_host_unicode,

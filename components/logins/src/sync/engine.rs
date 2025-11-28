@@ -144,7 +144,7 @@ impl LoginsSyncEngine {
                         match e {
                             // This is a known error with Desktop logins (see #5233), just log it
                             // rather than reporting to sentry
-                            Error::InvalidLogin(InvalidLogin::IllegalOrigin) => {
+                            Error::InvalidLogin(InvalidLogin::IllegalOrigin { reason: _ }) => {
                                 warn!("logins-deserialize-error: {e}");
                             }
                             // For all other errors, report them to Sentry
