@@ -3,17 +3,25 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+mod telemetry;
+
+use std::sync::Arc;
+
 use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABContentTaxonomy};
 use crate::client::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
+use crate::client::telemetry::{AdsTelemetry, PrintAdsTelemetry};
 use crate::error::ComponentError;
+use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
 use error_support::{ErrorHandling, GetErrorHandling};
 use url::Url;
 
 pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
+
+pub use telemetry::MozAdsTelemetry;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum MozAdsClientApiError {
@@ -85,6 +93,21 @@ pub struct MozAdsCallbacks {
 pub struct MozAdsClientConfig {
     pub environment: MozAdsEnvironment,
     pub cache_config: Option<MozAdsCacheConfig>,
+    pub telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+}
+
+impl From<MozAdsClientConfig> for AdsClientConfig {
+    fn from(config: MozAdsClientConfig) -> Self {
+        let telemetry: Arc<dyn AdsTelemetry> = config
+            .telemetry
+            .map(|t| Arc::new(MozAdsTelemetryWrapper { inner: t }) as Arc<dyn AdsTelemetry>)
+            .unwrap_or_else(|| Arc::new(PrintAdsTelemetry));
+        Self {
+            environment: config.environment.into(),
+            cache_config: config.cache_config.map(Into::into),
+            telemetry,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, uniffi::Enum, Eq, PartialEq)]
@@ -358,15 +381,6 @@ impl From<MozAdsRequestOptions> for RequestCachePolicy {
 impl From<Option<MozAdsRequestOptions>> for RequestCachePolicy {
     fn from(options: Option<MozAdsRequestOptions>) -> Self {
         options.map(Into::into).unwrap_or_default()
-    }
-}
-
-impl From<MozAdsClientConfig> for AdsClientConfig {
-    fn from(config: MozAdsClientConfig) -> Self {
-        Self {
-            environment: config.environment.into(),
-            cache_config: config.cache_config.map(Into::into),
-        }
     }
 }
 
