@@ -3,8 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
 use url::Url;
+
+use super::telemetry::AdsTelemetry;
 
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
@@ -13,10 +17,10 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> =
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
 
-#[derive(Default)]
 pub struct AdsClientConfig {
     pub environment: Environment,
     pub cache_config: Option<AdsCacheConfig>,
+    pub telemetry: Arc<dyn AdsTelemetry>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
