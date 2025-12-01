@@ -11,10 +11,11 @@ use crate::client::ad_response::{
     pop_request_hash_from_url, AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile,
 };
 use crate::client::config::AdsClientConfig;
-use crate::client::telemetry::{AdsTelemetry, ClientOperationEvent};
+use crate::client::telemetry::ClientOperationEvent;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
-use crate::http_cache::{HttpCache, RequestCachePolicy};
+use crate::http_cache::{CacheOutcome, HttpCache, HttpCacheBuilderError, RequestCachePolicy};
 use crate::mars::MARSClient;
+use crate::telemetry::Telemetry;
 use ad_request::{AdPlacementRequest, AdRequest};
 use context_id::{ContextIDComponent, DefaultContextIdCallback};
 use url::Url;
@@ -30,14 +31,34 @@ pub mod telemetry;
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
-pub struct AdsClient {
-    client: MARSClient,
+pub struct AdsClient<T>
+where
+    T: Telemetry<CacheOutcome>
+        + Telemetry<ClientOperationEvent>
+        + Telemetry<HttpCacheBuilderError>
+        + Telemetry<RecordClickError>
+        + Telemetry<RecordImpressionError>
+        + Telemetry<ReportAdError>
+        + Telemetry<RequestAdsError>
+        + Telemetry<serde_json::Error>,
+{
+    client: MARSClient<T>,
     context_id_component: ContextIDComponent,
-    telemetry: Arc<dyn AdsTelemetry>,
+    telemetry: Arc<T>,
 }
 
-impl AdsClient {
-    pub fn new(client_config: AdsClientConfig) -> Self {
+impl<T> AdsClient<T>
+where
+    T: Telemetry<CacheOutcome>
+        + Telemetry<serde_json::Error>
+        + Telemetry<ClientOperationEvent>
+        + Telemetry<HttpCacheBuilderError>
+        + Telemetry<RecordClickError>
+        + Telemetry<RecordImpressionError>
+        + Telemetry<ReportAdError>
+        + Telemetry<RequestAdsError>,
+{
+    pub fn new(client_config: AdsClientConfig<T>) -> Self {
         let context_id = Uuid::new_v4().to_string();
         let context_id_component = ContextIDComponent::new(
             &context_id,
@@ -97,35 +118,19 @@ impl AdsClient {
         client
     }
 
-    #[cfg(test)]
-    pub fn new_with_mars_client(client: MARSClient) -> Self {
-        use crate::client::telemetry::PrintAdsTelemetry;
-
-        let context_id_component = ContextIDComponent::new(
-            &uuid::Uuid::new_v4().to_string(),
-            0,
-            false,
-            Box::new(DefaultContextIdCallback),
-        );
-        Self {
-            context_id_component,
-            client,
-            telemetry: Arc::new(PrintAdsTelemetry),
-        }
-    }
-
-    fn request_ads<T>(
+    fn request_ads<A>(
         &self,
         ad_placement_requests: Vec<AdPlacementRequest>,
         options: Option<RequestCachePolicy>,
-    ) -> Result<AdResponse<T>, RequestAdsError>
+    ) -> Result<AdResponse<A>, RequestAdsError>
     where
-        T: AdResponseValue,
+        A: AdResponseValue,
     {
         let context_id = self.get_context_id()?;
         let ad_request = AdRequest::build(context_id, ad_placement_requests)?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) = self.client.fetch_ads(&ad_request, &cache_policy)?;
+        let (mut response, request_hash) =
+            self.client.fetch_ads::<A>(&ad_request, &cache_policy)?;
         response.add_request_hash_to_callbacks(&request_hash);
         Ok(response)
     }
@@ -237,18 +242,30 @@ impl AdsClient {
 mod tests {
     use crate::{
         client::config::Environment,
-        client::telemetry::PrintAdsTelemetry,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
-            get_example_happy_uatile_response, make_happy_placement_requests,
+            get_example_happy_uatile_response, make_happy_placement_requests, PrintAdsTelemetry,
         },
     };
 
     use super::*;
 
+    fn new_with_mars_client(client: MARSClient<PrintAdsTelemetry>) -> AdsClient<PrintAdsTelemetry> {
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
+        AdsClient {
+            context_id_component,
+            client,
+            telemetry: Arc::new(PrintAdsTelemetry),
+        }
+    }
+
     #[test]
     fn test_get_context_id() {
-        use crate::client::telemetry::PrintAdsTelemetry;
         use std::sync::Arc;
         let config = AdsClientConfig {
             environment: Environment::Test,
@@ -262,7 +279,6 @@ mod tests {
 
     #[test]
     fn test_cycle_context_id() {
-        use crate::client::telemetry::PrintAdsTelemetry;
         use std::sync::Arc;
         let config = AdsClientConfig {
             environment: Environment::Test,
@@ -288,8 +304,9 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, Arc::new(PrintAdsTelemetry));
-        let ads_client = AdsClient::new_with_mars_client(mars_client);
+        let telemetry = Arc::new(PrintAdsTelemetry);
+        let mars_client = MARSClient::new(Environment::Test, None, telemetry.clone());
+        let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
@@ -309,8 +326,9 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, Arc::new(PrintAdsTelemetry));
-        let ads_client = AdsClient::new_with_mars_client(mars_client);
+        let telemetry = Arc::new(PrintAdsTelemetry);
+        let mars_client = MARSClient::new(Environment::Test, None, telemetry.clone());
+        let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
@@ -330,8 +348,9 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let mars_client = MARSClient::new(Environment::Test, None, Arc::new(PrintAdsTelemetry));
-        let ads_client = AdsClient::new_with_mars_client(mars_client);
+        let telemetry = Arc::new(PrintAdsTelemetry);
+        let mars_client = MARSClient::new(Environment::Test, None, telemetry.clone());
+        let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
 
@@ -346,9 +365,9 @@ mod tests {
         let cache = HttpCache::builder("test_record_click_invalidates_cache")
             .build()
             .unwrap();
-        let mars_client =
-            MARSClient::new(Environment::Test, Some(cache), Arc::new(PrintAdsTelemetry));
-        let ads_client = AdsClient::new_with_mars_client(mars_client);
+        let telemetry = Arc::new(PrintAdsTelemetry);
+        let mars_client = MARSClient::new(Environment::Test, Some(cache), telemetry.clone());
+        let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();
 

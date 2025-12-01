@@ -3,18 +3,29 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use url::Url;
 
-use crate::client::{
-    ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
-    ad_response::{
-        AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+use crate::{
+    client::{
+        ad_request::{AdContentCategory, AdPlacementRequest, AdRequest, IABContentTaxonomy},
+        ad_response::{
+            AdCallbacks, AdImage, AdResponse, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
+        },
     },
+    telemetry::Telemetry,
 };
 
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
+
+pub struct PrintAdsTelemetry;
+
+impl<A: Debug> Telemetry<A> for PrintAdsTelemetry {
+    fn record(&self, event: &A) {
+        println!("record: {:?}", event);
+    }
+}
 
 pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
     vec![

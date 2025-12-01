@@ -22,22 +22,20 @@ use crate::{
 use url::Url;
 use viaduct::Request;
 
-pub trait MARSTelemetry: Telemetry<CacheOutcome> + Telemetry<serde_json::Error> {}
-
-impl<A> MARSTelemetry for A where A: Telemetry<CacheOutcome> + Telemetry<serde_json::Error> {}
-
-pub struct MARSClient {
+pub struct MARSClient<T>
+where
+    T: Telemetry<CacheOutcome> + Telemetry<serde_json::Error>,
+{
     endpoint: Url,
     http_cache: Option<HttpCache>,
-    telemetry: Arc<dyn MARSTelemetry>,
+    telemetry: Arc<T>,
 }
 
-impl MARSClient {
-    pub fn new(
-        environment: Environment,
-        http_cache: Option<HttpCache>,
-        telemetry: Arc<dyn MARSTelemetry>,
-    ) -> Self {
+impl<T> MARSClient<T>
+where
+    T: Telemetry<CacheOutcome> + Telemetry<serde_json::Error>,
+{
+    pub fn new(environment: Environment, http_cache: Option<HttpCache>, telemetry: Arc<T>) -> Self {
         let endpoint = environment.into_mars_url().clone();
 
         Self {
@@ -57,28 +55,28 @@ impl MARSClient {
         &self.endpoint
     }
 
-    pub fn fetch_ads<T>(
+    pub fn fetch_ads<A>(
         &self,
         ad_request: &AdRequest,
         cache_policy: &RequestCachePolicy,
-    ) -> Result<(AdResponse<T>, RequestHash), FetchAdsError>
+    ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
-        T: AdResponseValue,
+        A: AdResponseValue,
     {
         let base = self.get_mars_endpoint();
         let url = base.join("ads")?;
         let request = Request::post(url).json(ad_request);
         let request_hash = RequestHash::from(&request);
 
-        let response: AdResponse<T> = if let Some(cache) = self.http_cache.as_ref() {
+        let response: AdResponse<A> = if let Some(cache) = self.http_cache.as_ref() {
             let outcome = cache.send_with_policy(&request, cache_policy)?;
             self.telemetry.record(&outcome.cache_outcome);
             check_http_status_for_error(&outcome.response)?;
-            AdResponse::<T>::parse(outcome.response.json()?, self.telemetry.as_ref())?
+            AdResponse::<A>::parse(outcome.response.json()?, self.telemetry.as_ref())?
         } else {
             let response = request.send()?;
             check_http_status_for_error(&response)?;
-            AdResponse::<T>::parse(response.json()?, self.telemetry.as_ref())?
+            AdResponse::<A>::parse(response.json()?, self.telemetry.as_ref())?
         };
         Ok((response, request_hash))
     }
@@ -118,8 +116,9 @@ mod tests {
 
     use super::*;
     use crate::client::ad_response::AdImage;
-    use crate::client::telemetry::PrintAdsTelemetry;
-    use crate::test_utils::{get_example_happy_image_response, make_happy_ad_request};
+    use crate::test_utils::{
+        get_example_happy_image_response, make_happy_ad_request, PrintAdsTelemetry,
+    };
     use mockito::mock;
     use std::sync::Arc;
 

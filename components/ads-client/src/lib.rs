@@ -19,11 +19,12 @@ mod error;
 mod ffi;
 pub mod http_cache;
 mod mars;
-mod telemetry;
+pub mod telemetry;
 
 pub use ffi::*;
 
 use crate::client::config::AdsClientConfig;
+use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
 #[cfg(test)]
 mod test_utils;
@@ -38,14 +39,14 @@ uniffi::custom_type!(AdsClientUrl, String, {
 
 #[derive(uniffi::Object)]
 pub struct MozAdsClient {
-    inner: Mutex<AdsClient>,
+    inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
 }
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
     pub fn new(client_config: Option<MozAdsClientConfig>) -> Self {
         let client_config = client_config.unwrap_or_default();
-        let client_config: AdsClientConfig = client_config.into();
+        let client_config: AdsClientConfig<MozAdsTelemetryWrapper> = client_config.into();
         let client = AdsClient::new(client_config);
         Self {
             inner: Mutex::new(client),

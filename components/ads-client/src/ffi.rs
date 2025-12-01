@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-mod telemetry;
+pub mod telemetry;
 
 use std::sync::Arc;
 
@@ -12,9 +12,8 @@ use crate::client::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
-use crate::client::telemetry::{AdsTelemetry, PrintAdsTelemetry};
 use crate::error::ComponentError;
-use crate::ffi::telemetry::MozAdsTelemetryWrapper;
+use crate::ffi::telemetry::{MozAdsTelemetryWrapper, NoopMozAdsTelemetry};
 use crate::http_cache::{CacheMode, RequestCachePolicy};
 use error_support::{ErrorHandling, GetErrorHandling};
 use url::Url;
@@ -96,12 +95,16 @@ pub struct MozAdsClientConfig {
     pub telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
-impl From<MozAdsClientConfig> for AdsClientConfig {
+impl From<MozAdsClientConfig> for AdsClientConfig<MozAdsTelemetryWrapper> {
     fn from(config: MozAdsClientConfig) -> Self {
-        let telemetry: Arc<dyn AdsTelemetry> = config
+        let telemetry = config
             .telemetry
-            .map(|t| Arc::new(MozAdsTelemetryWrapper { inner: t }) as Arc<dyn AdsTelemetry>)
-            .unwrap_or_else(|| Arc::new(PrintAdsTelemetry));
+            .map(|t| Arc::new(MozAdsTelemetryWrapper { inner: t }))
+            .unwrap_or_else(|| {
+                Arc::new(MozAdsTelemetryWrapper {
+                    inner: Arc::new(NoopMozAdsTelemetry),
+                })
+            });
         Self {
             environment: config.environment.into(),
             cache_config: config.cache_config.map(Into::into),

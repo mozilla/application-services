@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use crate::client::telemetry::{AdsTelemetry, ClientOperationEvent};
+use crate::client::telemetry::ClientOperationEvent;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
 use crate::telemetry::Telemetry;
@@ -17,6 +17,16 @@ pub trait MozAdsTelemetry: Send + Sync {
     fn record_client_operation_total(&self, label: &str);
     fn record_deserialization_error(&self, label: &str, value: &str);
     fn record_http_cache_outcome(&self, label: &str);
+}
+
+pub struct NoopMozAdsTelemetry;
+
+impl MozAdsTelemetry for NoopMozAdsTelemetry {
+    fn record_build_cache_error(&self, _label: &str, _value: &str) {}
+    fn record_client_error(&self, _label: &str, _value: &str) {}
+    fn record_client_operation_total(&self, _label: &str) {}
+    fn record_deserialization_error(&self, _label: &str, _value: &str) {}
+    fn record_http_cache_outcome(&self, _label: &str) {}
 }
 
 pub struct MozAdsTelemetryWrapper {
@@ -103,5 +113,3 @@ impl Telemetry<ClientOperationEvent> for MozAdsTelemetryWrapper {
         self.inner.record_client_operation_total(label);
     }
 }
-
-impl AdsTelemetry for MozAdsTelemetryWrapper {}

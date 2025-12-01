@@ -11,23 +11,23 @@ use std::collections::HashMap;
 use url::Url;
 
 #[derive(Debug, PartialEq, Serialize)]
-pub struct AdResponse<T: AdResponseValue> {
-    pub data: HashMap<String, Vec<T>>,
+pub struct AdResponse<A: AdResponseValue> {
+    pub data: HashMap<String, Vec<A>>,
 }
 
-impl<T: AdResponseValue> AdResponse<T> {
-    pub fn parse(
+impl<A: AdResponseValue> AdResponse<A> {
+    pub fn parse<T: Telemetry<serde_json::Error> + ?Sized>(
         data: serde_json::Value,
-        telemetry: &dyn Telemetry<serde_json::Error>,
-    ) -> Result<AdResponse<T>, serde_json::Error> {
-        let raw: HashMap<String, serde_json::Value> = ::serde_json::from_value(data)?;
+        telemetry: &T,
+    ) -> Result<AdResponse<A>, serde_json::Error> {
+        let raw: HashMap<String, serde_json::Value> = serde_json::from_value(data)?;
         let mut result = HashMap::new();
 
         for (key, value) in raw {
             if let serde_json::Value::Array(arr) = value {
-                let mut ads: Vec<T> = vec![];
+                let mut ads: Vec<A> = vec![];
                 for item in arr {
-                    match serde_json::from_value::<T>(item.clone()) {
+                    match serde_json::from_value::<A>(item.clone()) {
                         Ok(ad) => ads.push(ad),
                         Err(e) => {
                             telemetry.record(&e);
@@ -60,7 +60,7 @@ impl<T: AdResponseValue> AdResponse<T> {
         }
     }
 
-    pub fn take_first(self) -> HashMap<String, T> {
+    pub fn take_first(self) -> HashMap<String, A> {
         self.data
             .into_iter()
             .filter_map(|(k, mut v)| {
@@ -175,7 +175,7 @@ impl AdResponseValue for AdTile {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::telemetry::PrintAdsTelemetry;
+    use crate::test_utils::PrintAdsTelemetry;
 
     use super::*;
     use serde_json::{from_str, json};
