@@ -15,6 +15,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mozilla.experiments.nimbus.internal.NimbusServerSettings
 import org.robolectric.RobolectricTestRunner
 import kotlin.random.Random
 
