@@ -61,6 +61,7 @@ members = [
     "megazords/ios-rust",
     "megazords/ios-rust/focus",
     "tools/embedded-uniffi-bindgen",
+    "tools/generate-rust-dashboards",
     "tools/start-bindings",
     "tools/uniffi-bindgen-library-mode",
     "automation/swift-components-docs",
