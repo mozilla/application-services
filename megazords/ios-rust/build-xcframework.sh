@@ -5,6 +5,8 @@
 BUILD_PROFILE="release"
 FRAMEWORK_NAME="MozillaRustComponents"
 IS_FOCUS=
+# This should match firefox-ios deployment target
+IOS_DEPLOYMENT_TARGET=${IOS_DEPLOYMENT_TARGET:-15.0}
 # Optional flags to pass on to generate-files.sh
 GENERATE_ARGS=()
 # FRAMEWORK_FILENAME exist purely because we would like to ship
@@ -106,6 +108,10 @@ cargo_build () {
   env -i \
     NSS_STATIC=1 \
     NSS_DIR="$LIBS_DIR/nss" \
+    IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+    CFLAGS_x86_64_apple_ios="${CFLAGS_x86_64_apple_ios:-}" \
+    CFLAGS_aarch64_apple_ios="${CFLAGS_aarch64_apple_ios:-}" \
+    CFLAGS_aarch64_apple_ios_simulator="${CFLAGS_aarch64_apple_ios_simulator:-}" \
     PATH="${PATH}" \
     RUSTC_WRAPPER="${RUSTC_WRAPPER:-}" \
     SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-}" \
@@ -119,14 +125,15 @@ cargo_build () {
 set -euvx
 
 # Intel iOS simulator
-CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
+CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios -mios-simulator-version-min=${IOS_DEPLOYMENT_TARGET}" \
   cargo_build x86_64-apple-ios
 
 # Hardware iOS targets
-cargo_build aarch64-apple-ios
+CFLAGS_aarch64_apple_ios="-target aarch64-apple-ios -miphoneos-version-min=${IOS_DEPLOYMENT_TARGET}" \
+  cargo_build aarch64-apple-ios
 
 # M1 iOS simulator.
-CFLAGS_aarch64_apple_ios_sim="--target aarch64-apple-ios-sim" \
+CFLAGS_aarch64_apple_ios_simulator="-target aarch64-apple-ios-sim -mios-simulator-version-min=${IOS_DEPLOYMENT_TARGET}" \
   cargo_build aarch64-apple-ios-sim
 
 # TODO: would it be useful to also include desktop builds here?
