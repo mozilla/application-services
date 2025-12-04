@@ -3,8 +3,15 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
 use url::Url;
+
+use crate::client::telemetry::ClientOperationEvent;
+use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
+use crate::http_cache::{CacheOutcome, HttpCacheBuilderError};
+use crate::telemetry::Telemetry;
 
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
@@ -13,10 +20,20 @@ static MARS_API_ENDPOINT_PROD: Lazy<Url> =
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
 
-#[derive(Default)]
-pub struct AdsClientConfig {
+pub struct AdsClientConfig<T>
+where
+    T: Telemetry<CacheOutcome>
+        + Telemetry<ClientOperationEvent>
+        + Telemetry<HttpCacheBuilderError>
+        + Telemetry<RecordClickError>
+        + Telemetry<RecordImpressionError>
+        + Telemetry<ReportAdError>
+        + Telemetry<RequestAdsError>
+        + Telemetry<serde_json::Error>,
+{
     pub environment: Environment,
     pub cache_config: Option<AdsCacheConfig>,
+    pub telemetry: Arc<T>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
