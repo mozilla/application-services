@@ -20,7 +20,7 @@ parking_lot = "0.12"
 lazy_static = "1.4"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1"
-caseless = "0.2"
+icu_casemap = "2"
 rusqlite = { version = "0.37.0", features = ["functions", "window", "bundled", "unlock_notify"] }
 sql-support = { path = "../support/sql" }
 types = { path = "../support/types" }
