@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Relay
+- Added `fetch_profile()` method to check premium subscription status via `has_premium` field ([#7113](https://github.com/mozilla/application-services/pull/7113))
+
 ### Nimbus
 
 ### ⚠️ Breaking Changes ⚠️

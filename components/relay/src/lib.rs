@@ -63,6 +63,48 @@ pub struct RelayAddress {
     pub num_spam: i64,
 }
 
+/// Represents a bounce status object nested within the profile.
+#[derive(Debug, Deserialize, uniffi::Record)]
+pub struct BounceStatus {
+    pub paused: bool,
+    #[serde(rename = "type")]
+    pub bounce_type: String,
+}
+
+/// Represents a Relay user profile returned by the Relay API.
+///
+/// Contains information about the user's subscription status, usage statistics,
+/// and account settings.
+///
+/// See: https://mozilla.github.io/fx-private-relay/api_docs.html#tag/privaterelay/operation/profiles_retrieve
+#[derive(Debug, Deserialize, uniffi::Record)]
+pub struct RelayProfile {
+    pub id: i64,
+    pub server_storage: bool,
+    pub store_phone_log: bool,
+    pub subdomain: Option<String>,
+    pub has_premium: bool,
+    pub has_phone: bool,
+    pub has_vpn: bool,
+    pub has_megabundle: bool,
+    pub onboarding_state: i64,
+    pub onboarding_free_state: i64,
+    pub date_phone_registered: Option<String>,
+    pub date_subscribed: Option<String>,
+    pub avatar: Option<String>,
+    pub next_email_try: String,
+    pub bounce_status: BounceStatus,
+    pub api_token: String,
+    pub emails_blocked: i64,
+    pub emails_forwarded: i64,
+    pub emails_replied: i64,
+    pub level_one_trackers_blocked: i64,
+    pub remove_level_one_email_trackers: Option<bool>,
+    pub total_masks: i64,
+    pub at_mask_limit: bool,
+    pub metrics_enabled: bool,
+}
+
 #[derive(Debug, Serialize)]
 struct CreateAddressPayload<'a> {
     enabled: bool,
@@ -210,6 +252,47 @@ impl RelayClient {
 
         let address: RelayAddress = response.json()?;
         Ok(address)
+    }
+
+    /// Retrieves the profile for the authenticated user.
+    ///
+    /// Returns a [`RelayProfile`] object containing subscription status, usage statistics,
+    /// and account settings. The `has_premium` field indicates whether the user has
+    /// an active premium subscription.
+    ///
+    /// ## Errors
+    ///
+    /// - `RelayApi`: Returned for any non-successful (non-2xx) HTTP response.
+    ///     Provides the HTTP `status` and response `body`; downstream consumers can inspect
+    ///     these fields. If the response body is JSON with `error_code` or `detail` fields,
+    ///     these are parsed and included for more granular handling; otherwise, the raw
+    ///     response text is used as the error detail.
+    /// - `Network`: Returned for transport-level failures, like loss of connectivity,
+    ///     with details in `reason`.
+    /// - Other variants may be returned for unexpected deserialization, URL, or backend errors.
+    #[handle_error(Error)]
+    pub fn fetch_profile(&self) -> ApiResult<RelayProfile> {
+        let url = self.build_url("/api/v1/profiles/")?;
+        let request = self.prepare_request(Method::Get, url)?;
+
+        let response = request.send()?;
+        let status = response.status;
+        let body = response.text();
+        log::trace!("response text: {}", body);
+
+        if status >= 400 {
+            return Err(Error::RelayApi {
+                status,
+                body: body.to_string(),
+            });
+        }
+
+        // The API returns an array with a single profile object for the authenticated user
+        let profiles: Vec<RelayProfile> = response.json()?;
+        profiles.into_iter().next().ok_or_else(|| Error::RelayApi {
+            status: 200,
+            body: "No profile found for authenticated user".to_string(),
+        })
     }
 }
 
@@ -536,5 +619,185 @@ mod tests {
         assert_eq!(address.full_address, "new123456@mozmail.com");
         assert_eq!(address.generated_for, "example.com");
         assert!(address.enabled);
+    }
+
+    fn mock_profile_json(
+        id: i64,
+        has_premium: bool,
+        subdomain: Option<&str>,
+        total_masks: i64,
+        at_mask_limit: bool,
+        emails_forwarded: i64,
+        emails_blocked: i64,
+    ) -> String {
+        let subdomain_json = subdomain
+            .map(|s| format!(r#""{}""#, s))
+            .unwrap_or_else(|| "null".to_string());
+        let date_subscribed = if has_premium {
+            r#""2023-01-10T08:00:00Z""#
+        } else {
+            "null"
+        };
+        let date_phone_registered = if has_premium {
+            r#""2023-01-15T10:30:00Z""#
+        } else {
+            "null"
+        };
+        let avatar = if has_premium {
+            r#""https://example.com/avatar.png""#
+        } else {
+            "null"
+        };
+        let remove_level_one_email_trackers = if has_premium { "true" } else { "null" };
+
+        format!(
+            r#"
+        [
+            {{
+                "id": {id},
+                "server_storage": {has_premium},
+                "store_phone_log": {has_premium},
+                "subdomain": {subdomain_json},
+                "has_premium": {has_premium},
+                "has_phone": {has_premium},
+                "has_vpn": false,
+                "has_megabundle": false,
+                "onboarding_state": 5,
+                "onboarding_free_state": 0,
+                "date_phone_registered": {date_phone_registered},
+                "date_subscribed": {date_subscribed},
+                "avatar": {avatar},
+                "next_email_try": "2023-12-01T00:00:00Z",
+                "bounce_status": {{
+                    "paused": false,
+                    "type": "none"
+                }},
+                "api_token": "550e8400-e29b-41d4-a716-446655440000",
+                "emails_blocked": {emails_blocked},
+                "emails_forwarded": {emails_forwarded},
+                "emails_replied": 10,
+                "level_one_trackers_blocked": 42,
+                "remove_level_one_email_trackers": {remove_level_one_email_trackers},
+                "total_masks": {total_masks},
+                "at_mask_limit": {at_mask_limit},
+                "metrics_enabled": true
+            }}
+        ]
+        "#
+        )
+    }
+
+    #[test]
+    fn test_fetch_profile_premium_user() {
+        viaduct_dev::init_backend_dev();
+
+        let profile_json = mock_profile_json(123, true, Some("testuser"), 15, false, 150, 25);
+
+        let _mock = mock("GET", "/api/v1/profiles/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(profile_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+
+        let profile = client
+            .expect("success")
+            .fetch_profile()
+            .expect("should fetch profile");
+
+        assert_eq!(profile.id, 123);
+        assert!(profile.has_premium);
+        assert_eq!(profile.total_masks, 15);
+        assert!(!profile.at_mask_limit);
+        assert_eq!(profile.subdomain, Some("testuser".to_string()));
+        assert!(profile.has_phone);
+        assert!(!profile.has_vpn);
+        assert_eq!(profile.emails_forwarded, 150);
+        assert_eq!(profile.emails_blocked, 25);
+    }
+
+    #[test]
+    fn test_fetch_profile_free_user() {
+        viaduct_dev::init_backend_dev();
+
+        let profile_json = mock_profile_json(456, false, None, 5, true, 20, 5);
+
+        let _mock = mock("GET", "/api/v1/profiles/")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(profile_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+
+        let profile = client
+            .expect("success")
+            .fetch_profile()
+            .expect("should fetch profile");
+
+        assert_eq!(profile.id, 456);
+        assert!(!profile.has_premium);
+        assert_eq!(profile.total_masks, 5);
+        assert!(profile.at_mask_limit);
+        assert_eq!(profile.subdomain, None);
+        assert!(!profile.has_phone);
+        assert_eq!(profile.date_subscribed, None);
+    }
+
+    #[test]
+    fn test_fetch_profile_unauthorized() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"detail": "Authentication credentials were not provided."}"#;
+        let _mock = mock("GET", "/api/v1/profiles/")
+            .with_status(403)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), None);
+        let result = client.expect("success").fetch_profile();
+
+        match result {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 403);
+                assert_eq!(code, "unknown");
+                assert_eq!(detail, "Authentication credentials were not provided.");
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_fetch_profile_invalid_token() {
+        viaduct_dev::init_backend_dev();
+
+        let error_json = r#"{"error_code": "invalid_token", "detail": "Invalid FXA token."}"#;
+        let _mock = mock("GET", "/api/v1/profiles/")
+            .with_status(401)
+            .with_header("content-type", "application/json")
+            .with_body(error_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("bad_token".to_string()));
+        let result = client.expect("success").fetch_profile();
+
+        match result {
+            Err(RelayApiError::Api {
+                status,
+                code,
+                detail,
+            }) => {
+                assert_eq!(status, 401);
+                assert_eq!(code, "invalid_token");
+                assert_eq!(detail, "Invalid FXA token.");
+            }
+            other => panic!("Expected RelayApiError::Api but got {:?}", other),
+        }
     }
 }

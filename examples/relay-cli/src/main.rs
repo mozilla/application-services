@@ -19,7 +19,10 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Fetch all Relay addresses
     Fetch,
+    /// Fetch user profile information
+    Profile,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -33,6 +36,7 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Fetch => fetch_addresses(client?),
+        Commands::Profile => fetch_profile(client?),
     }
 }
 
@@ -66,6 +70,34 @@ fn fetch_addresses(client: RelayClient) -> anyhow::Result<()> {
         }
         Err(e) => {
             eprintln!("Failed to fetch addresses: {:?}", e);
+        }
+    }
+    Ok(())
+}
+
+fn fetch_profile(client: RelayClient) -> anyhow::Result<()> {
+    match client.fetch_profile() {
+        Ok(profile) => {
+            println!("User Profile:");
+            println!("  ID: {}", profile.id);
+            println!("  Premium: {}", profile.has_premium);
+            println!("  Phone: {}", profile.has_phone);
+            println!("  VPN: {}", profile.has_vpn);
+            println!("  Total Masks: {}", profile.total_masks);
+            println!("  At Mask Limit: {}", profile.at_mask_limit);
+            println!("  Emails Forwarded: {}", profile.emails_forwarded);
+            println!("  Emails Blocked: {}", profile.emails_blocked);
+            println!("  Emails Replied: {}", profile.emails_replied);
+            println!("  Trackers Blocked: {}", profile.level_one_trackers_blocked);
+            if let Some(subdomain) = profile.subdomain {
+                println!("  Subdomain: {}", subdomain);
+            }
+            if let Some(date_subscribed) = profile.date_subscribed {
+                println!("  Subscribed Since: {}", date_subscribed);
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to fetch profile: {:?}", e);
         }
     }
     Ok(())
