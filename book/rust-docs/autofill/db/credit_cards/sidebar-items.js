@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["delete_credit_card","scrub_encrypted_credit_card_data","scrub_undecryptable_credit_card_data_for_remote_replacement","touch","update_credit_card"],"struct":["CreditCardsDeletionMetrics"]};
