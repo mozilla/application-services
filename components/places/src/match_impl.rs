@@ -4,7 +4,7 @@
 
 use crate::util;
 use bitflags::bitflags;
-use caseless::Caseless;
+use icu_casemap::CaseMapperBorrowed;
 use rusqlite::{
     self,
     types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
@@ -12,6 +12,8 @@ use rusqlite::{
 use std::borrow::Cow;
 
 const MAX_CHARS_TO_SEARCH_THROUGH: usize = 255;
+
+static CASE_MAPPER: CaseMapperBorrowed<'_> = CaseMapperBorrowed::new();
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u32)]
@@ -225,8 +227,10 @@ fn string_match(token: &str, source: &str) -> bool {
     if source.len() < token.len() {
         return false;
     }
-    let mut ti = token.chars().default_case_fold();
-    let mut si = source.chars().default_case_fold();
+    let t_folded = CASE_MAPPER.fold_string(token);
+    let mut ti = t_folded.chars();
+    let s_folded = CASE_MAPPER.fold_string(source);
+    let mut si = s_folded.chars();
     loop {
         match (ti.next(), si.next()) {
             (None, _) => return true,
