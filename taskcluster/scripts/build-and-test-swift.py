@@ -97,7 +97,7 @@ def generate_glean_metrics(args):
         "PATH": os.environ["PATH"],
     }
     glean_script = (
-        ROOT_DIR / "components/external/glean/glean-core/ios/sdk_generator.sh"
+        ROOT_DIR / "tools/sdk_generator.sh"
     )
     out_dir = args.out_dir / "all" / "Generated" / "Metrics"
     focus_out_dir = args.out_dir / "focus" / "Generated" / "Metrics"
