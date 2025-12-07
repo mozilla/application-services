@@ -1,6 +1,8 @@
-# v147.0 (In progress)
+# v148.0 (In progress)
 
 [Full Changelog](In progress)
+
+# v147.0 (_2025-12-07_)
 
 ### Relay
 - Added `fetch_profile()` method to check premium subscription status via `has_premium` field ([#7113](https://github.com/mozilla/application-services/pull/7113))
@@ -29,6 +31,8 @@
 ### Places
 - `places::storage::history_metadata::get_most_recent_search_entries()` was added to fetch the most recent search entries in history metadata. ([#7104](https://github.com/mozilla/application-services/pull/7104))
 - `places::storage::history_metadata::delete_all_metadata_for_search()` was added to delete the search terms in history metadata. ([#7101](https://github.com/mozilla/application-services/pull/7101))
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v146.0...v147.0)
 
 # v146.0 (_2025-11-10_)
 
