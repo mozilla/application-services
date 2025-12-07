@@ -432,6 +432,10 @@ impl CollectionDownloader {
             }
             std::fs::write(&dumps_path, serde_json::to_string_pretty(&data)?)?;
 
+            // Write timestamp file for fast timestamp checking without JSON parsing
+            let timestamp_path = dumps_path.with_extension("timestamp");
+            std::fs::write(&timestamp_path, data.timestamp.to_string())?;
+
             // Count attachments needing updates
             for record in &data.data {
                 if let Some(attachment) = record.get("attachment") {

@@ -213,10 +213,17 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         &self.collection_name
     }
 
+    fn load_packaged_timestamp(&self) -> Option<u64> {
+        // Using the macro generated `get_packaged_timestamp` in macros.rs
+        Self::get_packaged_timestamp(&self.collection_name)
+    }
+
     fn load_packaged_data(&self) -> Option<CollectionData> {
         // Using the macro generated `get_packaged_data` in macros.rs
-        Self::get_packaged_data(&self.collection_name)
-            .and_then(|data| serde_json::from_str(data).ok())
+        let str_data = Self::get_packaged_data(&self.collection_name)?;
+        let data: CollectionData = serde_json::from_str(str_data).ok()?;
+        debug_assert_eq!(data.timestamp, self.load_packaged_timestamp().unwrap());
+        Some(data)
     }
 
     fn load_packaged_attachment(&self, filename: &str) -> Option<(&'static [u8], &'static str)> {
@@ -241,6 +248,28 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             .collect()
     }
 
+    /// Returns the parsed packaged data, but only if it's newer than the data we have
+    /// in storage. This avoids parsing the packaged data if we won't use it.
+    fn get_packaged_data_if_newer(
+        &self,
+        storage: &mut Storage,
+        collection_url: &str,
+    ) -> Result<Option<CollectionData>> {
+        let packaged_ts = self.load_packaged_timestamp();
+        let storage_ts = storage.get_last_modified_timestamp(collection_url)?;
+        let packaged_is_newer = match (packaged_ts, storage_ts) {
+            (Some(packaged_ts), Some(storage_ts)) => packaged_ts > storage_ts,
+            (Some(_), None) => true, // no storage data
+            (None, _) => false,      // no packaged data
+        };
+
+        if packaged_is_newer {
+            Ok(self.load_packaged_data())
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Get the current set of records.
     ///
     /// If records are not present in storage this will normally return None.  Use `sync_if_empty =
@@ -248,23 +277,15 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     pub fn get_records(&self, sync_if_empty: bool) -> Result<Option<Vec<RemoteSettingsRecord>>> {
         let mut inner = self.inner.lock();
         let collection_url = inner.api_client.collection_url();
-        let is_prod = inner.api_client.is_prod_server()?;
-        let packaged_data = if is_prod {
-            self.load_packaged_data()
-        } else {
-            None
-        };
 
         // Case 1: The packaged data is more recent than the cache
         //
         // This happens when there's no cached data or when we get new packaged data because of a
         // product update
-        if let Some(packaged_data) = packaged_data {
-            let cached_timestamp = inner
-                .storage
-                .get_last_modified_timestamp(&collection_url)?
-                .unwrap_or(0);
-            if packaged_data.timestamp > cached_timestamp {
+        if inner.api_client.is_prod_server()? {
+            if let Some(packaged_data) =
+                self.get_packaged_data_if_newer(&mut inner.storage, &collection_url)?
+            {
                 // Remove previously cached data (packaged data does not have tombstones like diff responses do).
                 inner.storage.empty()?;
                 // Insert new packaged data.
