@@ -8,7 +8,7 @@ export SOURCE_ROOT
 export PROJECT=MozillaRustComponentsWrapper
 
 # Glean deletes everything in the folder it outputs, so we keep them in their own dir
-./components/external/glean/glean-core/ios/sdk_generator.sh \
+./tools/sdk_generator.sh \
     -g Glean \
     -o ./megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated/Glean \
   "${SOURCE_ROOT}"/components/nimbus/metrics.yaml \
