@@ -8,7 +8,7 @@ use crate::{
     defaults::Defaults,
     enrollment::{
         EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-        ExperimentEnrollment,
+        ExperimentEnrollment, PreviousGeckoPrefState,
     },
     error::{info, BehaviorError},
     evaluator::{
@@ -31,8 +31,8 @@ use crate::{
             unenroll_for_pref,
         },
         gecko_prefs::{
-            GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, PrefBranch,
-            PrefEnrollmentData, PrefUnenrollReason,
+            GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref,
+            PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
         },
         matcher::AppContext,
         persistence::{Database, StoreId, Writer},
@@ -40,8 +40,8 @@ use crate::{
         updating::{read_and_remove_pending_experiments, write_pending_experiments},
     },
     strings::fmt_with_map,
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, Experiment,
-    ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
+    Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use once_cell::sync::OnceCell;
@@ -801,6 +801,72 @@ impl NimbusClient {
             return Ok(results.concat());
         }
         Ok(Vec::new())
+    }
+
+    pub fn register_previous_gecko_pref_states(
+        &self,
+        gecko_pref_states: &[GeckoPrefState],
+    ) -> Result<()> {
+        let all_prev_gecko_pref_states =
+            super::gecko_prefs::build_prev_gecko_pref_states(gecko_pref_states);
+
+        let db = self.db()?;
+        let mut writer = db.write()?;
+
+        for (experiment_slug, prev_gecko_pref_states) in all_prev_gecko_pref_states {
+            Self::add_prev_gecko_pref_state_for_experiment(
+                db,
+                &mut writer,
+                &experiment_slug,
+                prev_gecko_pref_states,
+            )?;
+        }
+
+        let mut state = self.mutable_state.lock().unwrap();
+        self.end_initialize(db, writer, &mut state)?;
+        Ok(())
+    }
+
+    pub(crate) fn add_prev_gecko_pref_state_for_experiment(
+        db: &Database,
+        writer: &mut Writer,
+        experiment_slug: &str,
+        prev_gecko_pref_states: Vec<PreviousGeckoPrefState>,
+    ) -> Result<()> {
+        let enrollments = db.get_store(StoreId::Enrollments);
+
+        if let Ok(Some(existing_enrollment)) =
+            enrollments.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
+        {
+            // Previous states are only valid on Enrolled experiments
+            let updated_states =
+                existing_enrollment.on_add_gecko_pref_states(prev_gecko_pref_states);
+            enrollments.put(writer, experiment_slug, &updated_states)?;
+        }
+        Ok(())
+    }
+
+    pub fn get_previous_gecko_pref_states(
+        &self,
+        experiment_slug: String,
+    ) -> Result<Option<Vec<PreviousGeckoPrefState>>> {
+        let db = self.db()?;
+        let reader = db.read()?;
+
+        Ok(db
+            .get_store(StoreId::Enrollments)
+            .get::<ExperimentEnrollment, _>(&reader, &experiment_slug)?
+            .and_then(|enrollment| {
+                if let EnrollmentStatus::Enrolled {
+                    prev_gecko_pref_states: prev_gecko_pref_state,
+                    ..
+                } = enrollment.status
+                {
+                    prev_gecko_pref_state
+                } else {
+                    None
+                }
+            }))
     }
 
     #[cfg(test)]

@@ -1,4 +1,6 @@
 # v148.0 (In progress)
+### Nimbus
+* Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
 
 ### Logins
 - Add breach alert support, including a database migration to version 3,
