@@ -440,6 +440,8 @@ impl ExperimentEnrollment {
             status: EnrollmentStatus::Enrolled {
                 branch: "control".to_string(),
                 reason: EnrolledReason::Qualified,
+                #[cfg(feature = "stateful")]
+                previous_state: None,
             },
         }
     }

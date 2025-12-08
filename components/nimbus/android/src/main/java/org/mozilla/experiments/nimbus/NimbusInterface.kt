@@ -17,6 +17,7 @@ import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
+import org.mozilla.experiments.nimbus.internal.PreviousState
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -190,6 +191,26 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
         geckoPrefState: GeckoPrefState,
         prefUnenrollReason: PrefUnenrollReason,
     ): List<EnrollmentChangeEvent> = listOf()
+
+    /**
+     * Add the original Gecko pref values as a previous state on each involved enrollment.
+     *
+     * @param geckoPrefStates The list of items that should have their enrollment state updated with
+     * original Gecko pref previous state information.
+     */
+    fun registerPreviousGeckoPrefStates(
+        geckoPrefStates: List<GeckoPrefState>,
+    ) = Unit
+
+    /**
+     * Retrieves a previous state, if available on an enrolled experiment, from a given slug.
+     *
+     * @param experimentSlug The slug of the experiment.
+     * @return The previous state of the given slug. Will return null if not available or invalid slug.
+     */
+    fun getPreviousState(
+        experimentSlug: String,
+    ): PreviousState? = null
 
     /**
      *  Reset internal state in response to application-level telemetry reset.

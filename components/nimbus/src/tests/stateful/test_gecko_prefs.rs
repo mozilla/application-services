@@ -3,12 +3,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    enrollment::ExperimentEnrollment,
+    enrollment::{ExperimentEnrollment, PreviousGeckoPrefState},
     error::Result,
     json::PrefValue,
     stateful::gecko_prefs::{
         create_feature_prop_pref_map, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore,
-        GeckoPrefStoreState,
+        GeckoPrefStoreState, PrefBranch, PrefEnrollmentData,
     },
     tests::helpers::{get_multi_feature_experiment, TestGeckoPrefHandler},
     EnrolledExperiment,
@@ -216,6 +216,125 @@ fn test_gecko_pref_store_pref_is_user_set() -> Result<()> {
 
     assert!(store.pref_is_user_set("test.pref.set_by_user"));
     assert!(!store.pref_is_user_set("test.pref.NOT.set_by_user"));
+
+    Ok(())
+}
+
+#[test]
+fn test_build_previous_states() -> Result<()> {
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(json!("gecko-pref-value-1"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: "experiment-slug-1".to_string(),
+            pref_value: json!("pref-value-1"),
+            feature_id: "feature-id-1".to_string(),
+            variable: "variable-1".to_string(),
+        });
+
+    // Belongs to the same experiment variable as 1, but a different pref
+    let pref_state_2 = GeckoPrefState::new("test.some.pref.2", Some(PrefBranch::User))
+        .with_gecko_value(json!("gecko-pref-value-2"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: "experiment-slug-1".to_string(),
+            pref_value: json!("pref-value-2"),
+            feature_id: "feature-id-1".to_string(),
+            variable: "variable-1".to_string(),
+        });
+
+    // Other random independent experiment
+    let pref_state_3 = GeckoPrefState::new("test.some.pref.3", Some(PrefBranch::Default))
+        .with_gecko_value(json!("gecko-pref-value-3"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: "experiment-slug-3".to_string(),
+            pref_value: json!("experiment-pref-value-3"),
+            feature_id: "feature-id-3".to_string(),
+            variable: "variable-3".to_string(),
+        });
+
+    // Experiment missing gecko value
+    let pref_state_4 = GeckoPrefState::new("test.some.pref.4", Some(PrefBranch::Default))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: "experiment-slug-4".to_string(),
+            pref_value: json!("experiment-pref-value-4"),
+            feature_id: "feature-id-4".to_string(),
+            variable: "variable-4".to_string(),
+        });
+
+    // Experiment missing enrollment data
+    let pref_state_5 = GeckoPrefState::new("test.some.pref.5", Some(PrefBranch::Default))
+        .with_gecko_value(json!("gecko-pref-value-5"));
+
+    let pref_states = vec![
+        pref_state_1,
+        pref_state_2,
+        pref_state_3,
+        pref_state_4,
+        pref_state_5,
+    ];
+    let previous_states = crate::stateful::gecko_prefs::build_previous_states(&pref_states);
+
+    assert_eq!(3, previous_states.len());
+    assert!(previous_states.contains_key("experiment-slug-1"));
+    assert!(previous_states.contains_key("experiment-slug-3"));
+
+    let PreviousGeckoPrefState {
+        original_values: original_values_1,
+        feature_id: feature_id_1,
+        variable: variable_1,
+    } = previous_states
+        .get("experiment-slug-1")
+        .expect("Missing slug");
+
+    assert_eq!("feature-id-1", feature_id_1);
+    assert_eq!("variable-1", variable_1);
+    assert_eq!(2, original_values_1.len());
+
+    assert_eq!("test.some.pref.1", original_values_1[0].pref);
+    assert_eq!(PrefBranch::Default, original_values_1[0].branch);
+    assert_eq!(
+        "gecko-pref-value-1",
+        original_values_1[0].value.clone().unwrap()
+    );
+
+    assert_eq!("test.some.pref.2", original_values_1[1].pref);
+    assert_eq!(PrefBranch::User, original_values_1[1].branch);
+    assert_eq!(
+        "gecko-pref-value-2",
+        original_values_1[1].value.clone().unwrap()
+    );
+
+    let PreviousGeckoPrefState {
+        original_values: original_values_3,
+        feature_id: feature_id_3,
+        variable: variable_3,
+    } = previous_states
+        .get("experiment-slug-3")
+        .expect("Missing slug");
+
+    assert_eq!("feature-id-3", feature_id_3);
+    assert_eq!("variable-3", variable_3);
+    assert_eq!(1, original_values_3.len());
+    assert_eq!("test.some.pref.3", original_values_3[0].pref);
+    assert_eq!(PrefBranch::Default, original_values_3[0].branch);
+    assert_eq!(
+        "gecko-pref-value-3",
+        original_values_3[0].value.clone().unwrap()
+    );
+
+    let PreviousGeckoPrefState {
+        original_values: original_values_4,
+        feature_id: feature_id_4,
+        variable: variable_4,
+    } = previous_states
+        .get("experiment-slug-4")
+        .expect("Missing slug");
+
+    assert_eq!("feature-id-4", feature_id_4);
+    assert_eq!("variable-4", variable_4);
+    assert_eq!(1, original_values_4.len());
+    assert_eq!("test.some.pref.4", original_values_4[0].pref);
+    assert_eq!(PrefBranch::Default, original_values_4[0].branch);
+    assert_eq!(None, original_values_4[0].value.clone());
 
     Ok(())
 }
