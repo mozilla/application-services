@@ -3,7 +3,10 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    enrollment::{DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment},
+    enrollment::{
+        DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
+        PreviousGeckoPrefState,
+    },
     error::{info, Result},
     json::PrefValue,
     metrics::MalformedFeatureConfigExtraDef,
@@ -12,7 +15,10 @@ use crate::{
             EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
             SingleIntervalCounter,
         },
-        gecko_prefs::{create_feature_prop_pref_map, GeckoPrefState, PrefUnenrollReason},
+        gecko_prefs::{
+            create_feature_prop_pref_map, GeckoPrefState, OriginalGeckoPref, PrefBranch,
+            PrefEnrollmentData, PrefUnenrollReason,
+        },
         persistence::{Database, StoreId},
         targeting::RecordedContext,
     },
@@ -1975,5 +1981,287 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+#[test]
+fn register_previous_gecko_pref_states() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let temp_dir = tempfile::tempdir()?;
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+    let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "test_feature",
+        "test_prop",
+        pref_state.clone(),
+    )]));
+    let client = NimbusClient::new(
+        app_context.clone(),
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        Box::new(metrics.clone()),
+        Some(Box::new(handler)),
+        None,
+        None,
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let experiment_slug_1 = "exp-1";
+    let experiment_1 = get_multi_feature_experiment(
+        experiment_slug_1,
+        vec![(
+            "test_feature",
+            json!({
+                "test_prop": "some-experiment-value"
+            }),
+        )],
+    )
+    .with_targeting("true");
+
+    let experiment_slug_2 = "exp-2";
+    let experiment_2 = get_multi_feature_experiment(
+        experiment_slug_2,
+        vec![(
+            "test_feature_2",
+            json!({
+                "test_prop": "some-experiment-value"
+            }),
+        )],
+    )
+    .with_targeting("true");
+
+    client.set_experiments_locally(to_local_experiments_string(&[experiment_1, experiment_2])?)?;
+    client.apply_pending_experiments()?;
+
+    let mut active_experiments = client.get_active_experiments()?;
+    active_experiments.sort_by(|a, b| a.slug.cmp(&b.slug));
+    assert_eq!(active_experiments.len(), 2);
+    assert_eq!(active_experiments[0].slug, experiment_slug_1);
+    assert_eq!(active_experiments[1].slug, experiment_slug_2);
+
+    // Shouldn't have a previous state yet
+    {
+        let db = client.db()?;
+        let reader = db.read()?;
+
+        let enrollments: Vec<ExperimentEnrollment> =
+            db.get_store(StoreId::Enrollments).collect_all(&reader)?;
+
+        assert_eq!(enrollments.len(), 2);
+        let enrollment_1 = enrollments
+            .iter()
+            .find(|e| e.slug == experiment_slug_1)
+            .expect("Should have an ExperimentEnrollment present.");
+        assert!(matches!(
+            enrollment_1.status,
+            EnrollmentStatus::Enrolled {
+                prev_gecko_pref_states: None,
+                ..
+            }
+        ));
+    }
+
+    let gecko_pref_state_1 = GeckoPrefState::new("some.pref", Some(PrefBranch::Default))
+        .with_gecko_value(json!("some-gecko-value"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: experiment_slug_1.to_string(),
+            pref_value: json!("enrollment-pref-value"),
+            feature_id: "feature_id".into(),
+            variable: "variable".into(),
+        });
+
+    let gecko_pref_state_2 = GeckoPrefState::new("some.pref.2", Some(PrefBranch::Default))
+        .with_gecko_value(json!("some-gecko-value-2"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: experiment_slug_2.to_string(),
+            pref_value: json!("enrollment-pref-value-2"),
+            feature_id: "feature_id-2".into(),
+            variable: "variable-2".into(),
+        });
+
+    let gecko_pref_state_3 = GeckoPrefState::new("some.pref", Some(PrefBranch::Default))
+        .with_gecko_value(json!("some-gecko-value-3"))
+        .with_enrollment_value(PrefEnrollmentData {
+            experiment_slug: experiment_slug_2.to_string(),
+            pref_value: json!("enrollment-pref-value-3"),
+            feature_id: "feature_id-3".into(),
+            variable: "variable-3".into(),
+        });
+
+    let gecko_pref_states = vec![
+        gecko_pref_state_1.clone(),
+        gecko_pref_state_2.clone(),
+        gecko_pref_state_3.clone(),
+    ];
+    let registration = client.register_previous_gecko_pref_states(&gecko_pref_states);
+    assert!(registration.is_ok());
+
+    let db = client.db()?;
+    let reader = db.read()?;
+    let mut enrollments: Vec<ExperimentEnrollment> =
+        db.get_store(StoreId::Enrollments).collect_all(&reader)?;
+    enrollments.sort_by(|a, b| a.slug.cmp(&b.slug));
+    assert_eq!(active_experiments.len(), 2);
+
+    let prev_gecko_pref_state_1 = PreviousGeckoPrefState {
+        original_value: (&gecko_pref_state_1).into(),
+        feature_id: "feature_id".into(),
+        variable: "variable".into(),
+    };
+
+    assert!(matches!(
+        enrollments[0].clone().status,
+        EnrollmentStatus::Enrolled { prev_gecko_pref_states : Some(ref states), .. }
+            if states[0] == prev_gecko_pref_state_1.clone()
+    ));
+
+    let prev_gecko_pref_states_1_using_get = client
+        .get_previous_gecko_pref_states(experiment_slug_1.to_string())
+        .expect("An error occured")
+        .expect("Missing states");
+
+    assert_eq!(
+        prev_gecko_pref_state_1,
+        prev_gecko_pref_states_1_using_get[0]
+    );
+
+    let prev_gecko_pref_state_2 = PreviousGeckoPrefState {
+        original_value: (&gecko_pref_state_2).into(),
+        feature_id: "feature_id-2".into(),
+        variable: "variable-2".into(),
+    };
+
+    let prev_gecko_pref_state_3 = PreviousGeckoPrefState {
+        original_value: (&gecko_pref_state_3).into(),
+        feature_id: "feature_id-3".into(),
+        variable: "variable-3".into(),
+    };
+
+    assert!(matches!(
+        enrollments[1].clone().status,
+        EnrollmentStatus::Enrolled { prev_gecko_pref_states : Some(ref states), .. }
+            if states[0] == prev_gecko_pref_state_2.clone() && states[1] == prev_gecko_pref_state_3.clone()
+    ));
+
+    let prev_gecko_pref_states_2_using_get = client
+        .get_previous_gecko_pref_states(experiment_slug_2.to_string())
+        .expect("An error occured")
+        .expect("Missing states");
+
+    assert_eq!(
+        prev_gecko_pref_state_2,
+        prev_gecko_pref_states_2_using_get[0]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
+    let metrics = TestMetrics::new();
+    let temp_dir = tempfile::tempdir()?;
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+    let pref_state = GeckoPrefState::new("test.pref", None).with_gecko_value(PrefValue::Null);
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "test_feature",
+        "test_prop",
+        pref_state.clone(),
+    )]));
+    let client = NimbusClient::new(
+        app_context.clone(),
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        Box::new(metrics.clone()),
+        Some(Box::new(handler)),
+        None,
+        None,
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let experiment_slug = "exp-1";
+    let experiment = get_multi_feature_experiment(
+        experiment_slug,
+        vec![(
+            "test_feature",
+            json!({
+                "test_prop": "some-experiment-value"
+            }),
+        )],
+    )
+    .with_targeting("true");
+
+    client.set_experiments_locally(to_local_experiments_string(&[experiment])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 1);
+
+    let original_prev_gecko_pref_states = vec![PreviousGeckoPrefState {
+        original_value: OriginalGeckoPref {
+            pref: "some.pref".into(),
+            branch: PrefBranch::Default,
+            value: Some(serde_json::Value::String(String::from("some-gecko-value"))),
+        },
+        feature_id: "some_control".into(),
+        variable: "test_variable".into(),
+    }];
+
+    let db = client.db()?;
+    let mut writer = db.write()?;
+    NimbusClient::add_prev_gecko_pref_state_for_experiment(
+        db,
+        &mut writer,
+        experiment_slug,
+        original_prev_gecko_pref_states.clone(),
+    )?;
+    let enrollments: Vec<ExperimentEnrollment> =
+        db.get_store(StoreId::Enrollments).collect_all(&writer)?;
+
+    let experiment_result = enrollments
+        .into_iter()
+        .find(|e| e.slug == experiment_slug)
+        .expect("Should have an Experiment present.");
+
+    assert!(matches!(
+        experiment_result.status,
+        EnrollmentStatus::Enrolled { prev_gecko_pref_states, .. }
+            if prev_gecko_pref_states == Some(original_prev_gecko_pref_states.clone())
+    ));
+
+    let reader_result = db
+        .get_store(StoreId::Enrollments)
+        .get::<ExperimentEnrollment, _>(&writer, experiment_slug)?
+        .and_then(|enrollment| {
+            if let EnrollmentStatus::Enrolled {
+                prev_gecko_pref_states: prev_gecko_pref_state,
+                ..
+            } = enrollment.status
+            {
+                prev_gecko_pref_state
+            } else {
+                None
+            }
+        })
+        .unwrap();
+
+    assert_eq!(reader_result, original_prev_gecko_pref_states.clone());
     Ok(())
 }
