@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-use crate::enrollment::Participation;
+use crate::enrollment::{Participation, PreviousState};
 use crate::stateful::persistence::{
     DB_KEY_EXPERIMENT_PARTICIPATION, DB_KEY_ROLLOUT_PARTICIPATION,
     DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
@@ -178,6 +178,24 @@ pub fn unenroll_for_pref(
     }
 
     Ok(events)
+}
+
+#[inline]
+pub fn get_previous_state_for_experiment<'r>(
+    db: &Database,
+    reader: &'r impl Readable<'r>,
+    experiment_slug: &str,
+) -> Result<Option<PreviousState>> {
+    Ok(db
+        .get_store(StoreId::Enrollments)
+        .get::<ExperimentEnrollment, _>(reader, experiment_slug)?
+        .and_then(|enrollment| {
+            if let EnrollmentStatus::Enrolled { previous_state, .. } = enrollment.status {
+                previous_state
+            } else {
+                None
+            }
+        }))
 }
 
 pub fn get_experiment_participation<'r>(
