@@ -16,11 +16,17 @@ buildscript {
             classpath libs.mozilla.glean.gradle.plugin
         }
     }
+
+    dependencies {
+        classpath libs.kotlin.serialization
+    }
 }
 
 plugins {
     alias libs.plugins.python.envs.plugin
 }
+
+apply plugin: 'kotlinx-serialization'
 
 apply from: "$appServicesRootDir/build-scripts/component-common.gradle"
 apply from: "$appServicesRootDir/publish.gradle"
