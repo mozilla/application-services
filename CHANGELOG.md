@@ -1,4 +1,6 @@
 # v148.0 (In progress)
+### Nimbus
+* Adds `PreviousState` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. `PreviousState::GeckoPref` is added to support previous states for Gecko pref experiments.
 
 [Full Changelog](In progress)
 
