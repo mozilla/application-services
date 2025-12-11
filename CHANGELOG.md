@@ -1,5 +1,17 @@
 # v148.0 (In progress)
 
+### Logins
+- Breach alert support. This migrates the database to version 3.
+  - new `Login` properties
+    - `time_last_potentially_valnerable_password_set`
+    - `time_last_breach_alert_dismissed`
+  - additional LoginStore API methods
+    - `is_potentially_vulnerable_password`
+    - `set_potentially_vulnerable_password`
+    - `reset_all_potentially_vulnerable_passwords`
+    - `is_breach_alert_dismissed`
+    - `record_breach_alert_dismissal`
+
 [Full Changelog](In progress)
 
 # v147.0 (_2025-12-07_)

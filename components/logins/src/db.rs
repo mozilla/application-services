@@ -306,6 +306,75 @@ impl LoginDb {
         Ok(())
     }
 
+    pub fn is_potentially_vulnerable_password(&self, id: &str) -> Result<bool> {
+        let is_potentially_vulnerable_password: bool = self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid AND timeLastPotentiallyVulnerablePasswordSet IS NOT NULL)",
+            named_params! { ":guid": id },
+            |row| row.get(0),
+        )?;
+        Ok(is_potentially_vulnerable_password)
+    }
+
+    pub fn set_potentially_vulnerable_password(&self, id: &str) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
+        self.ensure_local_overlay_exists(id)?;
+        self.mark_mirror_overridden(id)?;
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        self.execute_cached(
+            "UPDATE loginsL
+             SET timeLastPotentiallyVulnerablePasswordSet = :now_millis
+             WHERE guid = :guid
+                 AND is_deleted = 0",
+            named_params! {
+                ":now_millis": now_ms,
+                ":guid": id,
+            },
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn reset_all_potentially_vulnerable_passwords(&self) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
+        self.execute_cached(
+            "UPDATE loginsL
+             SET timeLastPotentiallyVulnerablePasswordSet = NULL
+             WHERE timeLastPotentiallyVulnerablePasswordSet IS NOT NULL
+                 AND is_deleted = 0",
+            [],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn is_breach_alert_dismissed(&self, id: &str) -> Result<bool> {
+        let is_breach_alert_dismissed: bool = self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid AND timeLastPotentiallyVulnerablePasswordSet < timeLastBreachAlertDismissed)",
+            named_params! { ":guid": id },
+            |row| row.get(0),
+        )?;
+        Ok(is_breach_alert_dismissed)
+    }
+
+    pub fn record_breach_alert_dismissal(&self, id: &str) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
+        self.ensure_local_overlay_exists(id)?;
+        self.mark_mirror_overridden(id)?;
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        self.execute_cached(
+            "UPDATE loginsL
+             SET timeLastBreachAlertDismissed = :now_millis
+             WHERE guid = :guid
+                 AND is_deleted = 0",
+            named_params! {
+                ":now_millis": now_ms,
+                ":guid": id,
+            },
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     // The single place we insert new rows or update existing local rows.
     // just the SQL - no validation or anything.
     fn insert_new_login(&self, login: &EncryptedLogin) -> Result<()> {
@@ -322,6 +391,8 @@ impl LoginDb {
                 timeCreated,
                 timeLastUsed,
                 timePasswordChanged,
+                timeLastPotentiallyVulnerablePasswordSet,
+                timeLastBreachAlertDismissed,
                 local_modified,
                 is_deleted,
                 sync_status
@@ -337,6 +408,8 @@ impl LoginDb {
                 :time_created,
                 :time_last_used,
                 :time_password_changed,
+                :time_last_potentially_valnerable_password_set,
+                :time_last_breach_alert_dismissed,
                 :local_modified,
                 0, -- is_deleted
                 {new} -- sync_status
@@ -356,6 +429,8 @@ impl LoginDb {
                 ":times_used": login.meta.times_used,
                 ":time_last_used": login.meta.time_last_used,
                 ":time_password_changed": login.meta.time_password_changed,
+                ":time_last_potentially_valnerable_password_set": login.fields.time_last_potentially_valnerable_password_set,
+                ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
                 ":local_modified": login.meta.time_created,
                 ":sec_fields": login.sec_fields,
                 ":guid": login.guid(),
@@ -368,18 +443,20 @@ impl LoginDb {
         // assumes the "local overlay" exists, so the guid must too.
         let sql = format!(
             "UPDATE loginsL
-             SET local_modified      = :now_millis,
-                 timeLastUsed        = :time_last_used,
-                 timePasswordChanged = :time_password_changed,
-                 httpRealm           = :http_realm,
-                 formActionOrigin    = :form_action_origin,
-                 usernameField       = :username_field,
-                 passwordField       = :password_field,
-                 timesUsed           = :times_used,
-                 secFields           = :sec_fields,
-                 origin              = :origin,
+             SET local_modified                           = :now_millis,
+                 timeLastUsed                             = :time_last_used,
+                 timePasswordChanged                      = :time_password_changed,
+                 timeLastPotentiallyVulnerablePasswordSet = :time_last_potentially_valnerable_password_set,
+                 timeLastBreachAlertDismissed             = :time_last_breach_alert_dismissed,
+                 httpRealm                                = :http_realm,
+                 formActionOrigin                         = :form_action_origin,
+                 usernameField                            = :username_field,
+                 passwordField                            = :password_field,
+                 timesUsed                                = :times_used,
+                 secFields                                = :sec_fields,
+                 origin                                   = :origin,
                  -- leave New records as they are, otherwise update them to `changed`
-                 sync_status         = max(sync_status, {changed})
+                 sync_status                              = max(sync_status, {changed})
              WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
         );
@@ -397,6 +474,8 @@ impl LoginDb {
                 ":time_password_changed": login.meta.time_password_changed,
                 ":sec_fields": login.sec_fields,
                 ":guid": &login.meta.id,
+                ":time_last_potentially_valnerable_password_set": login.fields.time_last_potentially_valnerable_password_set,
+                ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
                 // time_last_used has been set to now.
                 ":now_millis": login.meta.time_last_used,
             },
@@ -459,6 +538,8 @@ impl LoginDb {
                             http_realm: new_entry.http_realm,
                             username_field: new_entry.username_field,
                             password_field: new_entry.password_field,
+                            time_last_potentially_valnerable_password_set: None,
+                            time_last_breach_alert_dismissed: None,
                         },
                         sec_fields,
                     };
@@ -573,6 +654,8 @@ impl LoginDb {
                 http_realm: entry.http_realm,
                 username_field: entry.username_field,
                 password_field: entry.password_field,
+                time_last_potentially_valnerable_password_set: None,
+                time_last_breach_alert_dismissed: None,
             },
             sec_fields,
         };
@@ -1018,6 +1101,9 @@ pub mod test_utils {
                 timePasswordChanged,
                 timeCreated,
 
+                timeLastPotentiallyVulnerablePasswordSet,
+                timeLastBreachAlertDismissed,
+
                 guid
             ) VALUES (
                 :is_overridden,
@@ -1034,6 +1120,9 @@ pub mod test_utils {
                 :time_last_used,
                 :time_password_changed,
                 :time_created,
+
+                :time_last_potentially_valnerable_password_set,
+                :time_last_breach_alert_dismissed,
 
                 :guid
             )";
@@ -1052,6 +1141,8 @@ pub mod test_utils {
             ":time_last_used": login.meta.time_last_used,
             ":time_password_changed": login.meta.time_password_changed,
             ":time_created": login.meta.time_created,
+            ":time_last_potentially_valnerable_password_set": login.fields.time_last_potentially_valnerable_password_set,
+            ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
             ":guid": login.guid_str(),
         })?;
         Ok(())
@@ -1676,6 +1767,61 @@ mod tests {
         let login2 = db.get_by_id(&login.meta.id).unwrap().unwrap();
         assert!(login2.meta.time_last_used > login.meta.time_last_used);
         assert_eq!(login2.meta.times_used, login.meta.times_used + 1);
+    }
+
+    #[test]
+    fn test_breach_alerts() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(
+                LoginEntry {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user1".into(),
+                    password: "password1".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+        // initial state
+        assert!(login
+            .fields
+            .time_last_potentially_valnerable_password_set
+            .is_none());
+        assert!(!db
+            .is_potentially_vulnerable_password(&login.meta.id)
+            .unwrap());
+        assert!(login.fields.time_last_breach_alert_dismissed.is_none());
+
+        // set
+        db.set_potentially_vulnerable_password(&login.meta.id)
+            .unwrap();
+        assert!(db
+            .is_potentially_vulnerable_password(&login.meta.id)
+            .unwrap());
+        let login1 = db.get_by_id(&login.meta.id).unwrap().unwrap();
+        assert!(login1
+            .fields
+            .time_last_potentially_valnerable_password_set
+            .is_some());
+
+        // dismiss
+        db.record_breach_alert_dismissal(&login.meta.id).unwrap();
+        let login2 = db.get_by_id(&login.meta.id).unwrap().unwrap();
+        assert!(login2.fields.time_last_breach_alert_dismissed.is_some());
+
+        // reset
+        db.reset_all_potentially_vulnerable_passwords().unwrap();
+        assert!(!db
+            .is_potentially_vulnerable_password(&login.meta.id)
+            .unwrap());
+        let login3 = db.get_by_id(&login.meta.id).unwrap().unwrap();
+        assert!(login3
+            .fields
+            .time_last_potentially_valnerable_password_set
+            .is_none())
     }
 
     #[test]

@@ -179,6 +179,31 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn is_potentially_vulnerable_password(&self, id: &str) -> ApiResult<bool> {
+        self.lock_db()?.is_potentially_vulnerable_password(id)
+    }
+
+    #[handle_error(Error)]
+    pub fn set_potentially_vulnerable_password(&self, id: &str) -> ApiResult<()> {
+        self.lock_db()?.set_potentially_vulnerable_password(id)
+    }
+
+    #[handle_error(Error)]
+    pub fn reset_all_potentially_vulnerable_passwords(&self) -> ApiResult<()> {
+        self.lock_db()?.reset_all_potentially_vulnerable_passwords()
+    }
+
+    #[handle_error(Error)]
+    pub fn is_breach_alert_dismissed(&self, id: &str) -> ApiResult<bool> {
+        self.lock_db()?.is_breach_alert_dismissed(id)
+    }
+
+    #[handle_error(Error)]
+    pub fn record_breach_alert_dismissal(&self, id: &str) -> ApiResult<()> {
+        self.lock_db()?.record_breach_alert_dismissal(id)
+    }
+
+    #[handle_error(Error)]
     pub fn delete(&self, id: &str) -> ApiResult<bool> {
         self.lock_db()?.delete(id)
     }
