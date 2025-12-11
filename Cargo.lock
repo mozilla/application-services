@@ -1697,6 +1697,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "generate-rust-dashboards"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "clap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
