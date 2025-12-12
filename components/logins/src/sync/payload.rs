@@ -70,6 +70,9 @@ impl IncomingLogin {
             http_realm: p.http_realm,
             username_field: p.username_field,
             password_field: p.password_field,
+            time_last_potentially_valnerable_password_set: p
+                .time_last_potentially_valnerable_password_set,
+            time_last_breach_alert_dismissed: p.time_last_breach_alert_dismissed,
         };
         let original_sec_fields = SecureLoginFields {
             username: p.username,
@@ -86,6 +89,8 @@ impl IncomingLogin {
             http_realm: login_entry.http_realm,
             username_field: login_entry.username_field,
             password_field: login_entry.password_field,
+            time_last_potentially_valnerable_password_set: None,
+            time_last_breach_alert_dismissed: None,
         };
         let id = String::from(p.guid);
         let sec_fields = SecureLoginFields {
@@ -169,6 +174,14 @@ pub struct LoginPayload {
     // Additional "unknown" round-tripped fields.
     #[serde(flatten)]
     unknown_fields: UnknownFields,
+
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_optional_timestamp")]
+    pub time_last_potentially_valnerable_password_set: Option<i64>,
+
+    #[serde(default)]
+    #[serde(deserialize_with = "deserialize_optional_timestamp")]
+    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 // These probably should be on the payload itself, but one refactor at a time!
@@ -197,6 +210,10 @@ impl EncryptedLogin {
                 time_password_changed: self.meta.time_password_changed,
                 time_last_used: self.meta.time_last_used,
                 times_used: self.meta.times_used,
+                time_last_potentially_valnerable_password_set: self
+                    .fields
+                    .time_last_potentially_valnerable_password_set,
+                time_last_breach_alert_dismissed: self.fields.time_last_breach_alert_dismissed,
                 unknown_fields,
             },
         )?)
@@ -215,6 +232,18 @@ where
     // in an i64 (a date 1000 years in the future, for example), but
     // appropriately handling that is complex.
     Ok(i64::deserialize(deserializer).unwrap_or_default().max(0))
+}
+
+// Quiet clippy, since this function is passed to deserialiaze_with...
+#[allow(clippy::unnecessary_wraps)]
+fn deserialize_optional_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use serde::de::Deserialize;
+    Ok(i64::deserialize(deserializer).ok())
 }
 
 #[cfg(not(feature = "keydb"))]

@@ -292,6 +292,8 @@ pub struct LoginFields {
     pub http_realm: Option<String>,
     pub username_field: String,
     pub password_field: String,
+    pub time_last_potentially_valnerable_password_set: Option<i64>,
+    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 /// LoginEntry fields that are stored encrypted
@@ -465,6 +467,10 @@ pub struct Login {
     // secure fields
     pub username: String,
     pub password: String,
+
+    // breach alerts
+    pub time_last_potentially_valnerable_password_set: Option<i64>,
+    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 impl Login {
@@ -484,6 +490,9 @@ impl Login {
 
             username: sec_fields.username,
             password: sec_fields.password,
+
+            time_last_potentially_valnerable_password_set: fields.time_last_breach_alert_dismissed,
+            time_last_breach_alert_dismissed: fields.time_last_breach_alert_dismissed,
         }
     }
 
@@ -525,6 +534,9 @@ impl Login {
                 http_realm: self.http_realm,
                 username_field: self.username_field,
                 password_field: self.password_field,
+                time_last_potentially_valnerable_password_set: self
+                    .time_last_breach_alert_dismissed,
+                time_last_breach_alert_dismissed: self.time_last_breach_alert_dismissed,
             },
             sec_fields,
         })
@@ -581,6 +593,11 @@ impl EncryptedLogin {
 
                 username_field: string_or_default(row, "usernameField")?,
                 password_field: string_or_default(row, "passwordField")?,
+
+                time_last_potentially_valnerable_password_set: row
+                    .get::<_, Option<i64>>("timeLastPotentiallyVulnerablePasswordSet")?,
+                time_last_breach_alert_dismissed: row
+                    .get::<_, Option<i64>>("timeLastBreachAlertDismissed")?,
             },
             sec_fields: row.get("secFields")?,
         };

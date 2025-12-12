@@ -92,6 +92,10 @@ dictionary Login {
     // secure login fields
     string password;
     string username;
+
+    // breach alert fields
+    i64? time_last_potentially_valnerable_password_set;
+    i64? time_last_breach_alert_dismissed;
 };
 
 /// Metrics tracking deletion of logins that cannot be decrypted, see `delete_undecryptable_records_for_remote_replacement`
@@ -227,6 +231,21 @@ interface LoginStore {
 
     [Throws=LoginsApiError]
     void touch([ByRef] string id);
+
+    [Throws=LoginsApiError]
+    boolean is_potentially_vulnerable_password([ByRef] string id);
+
+    [Throws=LoginsApiError]
+    void set_potentially_vulnerable_password([ByRef] string id);
+
+    [Throws=LoginsApiError]
+    void reset_all_potentially_vulnerable_passwords();
+
+    [Throws=LoginsApiError]
+    boolean is_breach_alert_dismissed([ByRef] string id);
+
+    [Throws=LoginsApiError]
+    void record_breach_alert_dismissal([ByRef] string id);
 
     [Throws=LoginsApiError]
     boolean is_empty();
