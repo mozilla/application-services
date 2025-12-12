@@ -38,13 +38,14 @@ impl From<SendTabPayload> for crate::SendTabPayload {
 }
 
 impl SendTabPayload {
-    pub fn single_tab(title: &str, url: &str) -> (Self, telemetry::SentCommand) {
+    pub fn single_tab(title: &str, url: &str, private: bool) -> (Self, telemetry::SentCommand) {
         let sent_telemetry: telemetry::SentCommand = telemetry::SentCommand::for_send_tab();
         (
             SendTabPayload {
                 entries: vec![TabHistoryEntry {
                     title: title.to_string(),
                     url: url.to_string(),
+                    private,
                 }],
                 flow_id: sent_telemetry.flow_id.clone(),
                 stream_id: sent_telemetry.stream_id.clone(),
@@ -58,6 +59,8 @@ impl SendTabPayload {
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,
+    #[serde(default)]
+    pub private: bool,
 }
 
 impl From<TabHistoryEntry> for crate::TabHistoryEntry {
@@ -65,6 +68,7 @@ impl From<TabHistoryEntry> for crate::TabHistoryEntry {
         crate::TabHistoryEntry {
             title: e.title,
             url: e.url,
+            is_private: e.private,
         }
     }
 }
@@ -82,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_payload() {
-        let (payload, telem) = SendTabPayload::single_tab("title", "http://example.com");
+        let (payload, telem) = SendTabPayload::single_tab("title", "http://example.com", true);
         let json = serde_json::to_string(&payload).expect("should work");
         assert_eq!(telem.flow_id.len(), 12);
         assert_eq!(telem.stream_id.len(), 12);
@@ -90,7 +94,27 @@ mod tests {
         let p2: SendTabPayload = serde_json::from_str(&json).expect("should work");
         // no 'PartialEq' derived so check each field individually...
         assert_eq!(payload.entries[0].url, "http://example.com".to_string());
+        assert!(payload.entries[0].private);
         assert_eq!(payload.flow_id, p2.flow_id);
         assert_eq!(payload.stream_id, p2.stream_id);
+    }
+
+    #[test]
+    fn test_raw_payload() {
+        let json = r#"{"title": "new title", "url": "https://example99.com", "private": true}"#;
+        let p: TabHistoryEntry = serde_json::from_str(json).expect("should work");
+        assert_eq!(p.title, "new title");
+        assert_eq!(p.url, "https://example99.com");
+        assert!(p.private);
+    }
+
+    #[test]
+    fn test_raw_payload_without_private() {
+        // no "private" field
+        let json = r#"{"title": "the title", "url": "https://example.com"}"#;
+        let p: TabHistoryEntry = serde_json::from_str(json).expect("should work");
+        assert_eq!(p.title, "the title");
+        assert_eq!(p.url, "https://example.com");
+        assert!(!p.private);
     }
 }

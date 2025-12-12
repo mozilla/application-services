@@ -526,10 +526,12 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * @param targetDeviceId The target Device ID
      * @param title The document title of the tab being sent
      * @param url The url of the tab being sent
+     * @param isPrivate Whether the tab is open as a private tab. Has a default value to help with progressive
+     * implementation of this new attribute, but the default should be removed at some point.
      */
-    fun sendSingleTab(targetDeviceId: String, title: String, url: String) {
+    fun sendSingleTab(targetDeviceId: String, title: String, url: String, isPrivate: Boolean = false) {
         withMetrics {
-            this.inner.sendSingleTab(targetDeviceId, title, url)
+            this.inner.sendSingleTab(targetDeviceId, title, url, isPrivate)
         }
     }
 
