@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Ads Client
+- Add agnostic telemetry support (compatible with Glean)
+
 # v147.0 (_2025-12-07_)
 
 ### Relay
