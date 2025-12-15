@@ -121,7 +121,7 @@ ext.configureUniFFIBindgen = { crateName ->
 
             workingDir project.rootDir
             commandLine bindgen
-            args 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
+            args 'generate', '--library', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
 
             outputs.dir uniffiOutDir
             // Re-generate when the native megazord library is rebuilt
@@ -143,7 +143,7 @@ ext.configureUniFFIBindgen = { crateName ->
                 }
                 exec {
                     workingDir project.rootDir
-                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
+                    commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
                 }
             }
 

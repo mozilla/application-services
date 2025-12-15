@@ -33,7 +33,7 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "2"
 anyhow = "1.0"
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
@@ -41,4 +41,4 @@ tempfile = "3.1"
 sql-support = { path = "../support/sql" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { version = "0.31", features=["build"]}

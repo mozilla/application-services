@@ -2,27 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Copied from uniffi-rs/uniffi/src/cli/uniffi_bindgen.rs (v0.29.3) and lightly modified.
+// Copied from uniffi-rs/uniffi/src/cli/uniffi_bindgen.rs (v0.31) and lightly modified.
 
-use anyhow::{bail, Result};
 use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::fmt;
+// TODO: remove blanket import
 use uniffi_bindgen::bindings::*;
 use uniffi_bindgen::pipeline::initial;
 use uniffi_pipeline::PrintOptions;
 
-/// Enumeration of all foreign language targets currently supported by our CLI.
-///
-#[derive(Copy, Clone, Eq, PartialEq, Hash, ValueEnum)]
-enum TargetLanguage {
+/// TargetLanguage uniffi_bindgen, with a `clap::ValueEnum` derive.
+#[derive(Copy, Clone, ValueEnum)]
+enum TargetLanguageArg {
     Kotlin,
     Swift,
     Python,
     Ruby,
 }
 
-impl fmt::Display for TargetLanguage {
+impl fmt::Display for TargetLanguageArg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Kotlin => write!(f, "kotlin"),
@@ -33,33 +32,14 @@ impl fmt::Display for TargetLanguage {
     }
 }
 
-impl TryFrom<&str> for TargetLanguage {
-    type Error = anyhow::Error;
-    fn try_from(value: &str) -> Result<Self> {
-        Ok(match value.to_ascii_lowercase().as_str() {
-            "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
-            "swift" => TargetLanguage::Swift,
-            "python" | "py" => TargetLanguage::Python,
-            "ruby" | "rb" => TargetLanguage::Ruby,
-            _ => bail!("Unknown or unsupported target language: \"{value}\""),
-        })
-    }
-}
-
-impl TryFrom<&std::ffi::OsStr> for TargetLanguage {
-    type Error = anyhow::Error;
-    fn try_from(value: &std::ffi::OsStr) -> Result<Self> {
-        match value.to_str() {
-            None => bail!("Unreadable target language"),
-            Some(s) => s.try_into(),
+impl From<TargetLanguageArg> for TargetLanguage {
+    fn from(l: TargetLanguageArg) -> Self {
+        match l {
+            TargetLanguageArg::Kotlin => Self::Kotlin,
+            TargetLanguageArg::Swift => Self::Swift,
+            TargetLanguageArg::Python => Self::Python,
+            TargetLanguageArg::Ruby => Self::Ruby,
         }
-    }
-}
-
-impl TryFrom<String> for TargetLanguage {
-    type Error = anyhow::Error;
-    fn try_from(value: String) -> Result<Self> {
-        TryFrom::try_from(value.as_str())
     }
 }
 
@@ -80,7 +60,7 @@ enum Commands {
     Generate {
         /// Foreign language(s) for which to build bindings.
         #[clap(long, short, value_enum)]
-        language: Vec<TargetLanguage>,
+        language: Vec<TargetLanguageArg>,
 
         /// Directory in which to write generated files. Default is same folder as .udl file.
         #[clap(long, short)]
@@ -93,14 +73,6 @@ enum Commands {
         /// Path to optional uniffi config file. This config is merged with the `uniffi.toml` config present in each crate, with its values taking precedence.
         #[clap(long, short)]
         config: Option<Utf8PathBuf>,
-
-        /// Extract proc-macro metadata from a native lib (cdylib or staticlib) for this crate.
-        #[clap(long)]
-        lib_file: Option<Utf8PathBuf>,
-
-        /// Pass in a cdylib path rather than a UDL file
-        #[clap(long = "library")]
-        library_mode: bool,
 
         /// When `--library` is passed, only generate bindings for one crate.
         /// When `--library` is not passed, use this as the crate name instead of attempting to
@@ -145,8 +117,16 @@ struct PipelineArgs {
     #[clap(long = "crate")]
     crate_name: Option<String>,
 
+    /// Whether we should exclude dependencies when running "cargo metadata".
+    /// This will mean external types may not be resolved if they are implemented in crates
+    /// outside of this workspace.
+    /// This can be used in environments when all types are in the namespace and fetching
+    /// all sub-dependencies causes obscure platform specific problems.
+    #[clap(long)]
+    metadata_no_deps: bool,
+
     /// Bindings Language
-    language: TargetLanguage,
+    language: TargetLanguageArg,
 
     /// Only show passes that match <PASS>
     ///
@@ -167,167 +147,39 @@ struct PipelineArgs {
     filter_name: Option<String>,
 }
 
-fn gen_library_mode(
-    library_path: &camino::Utf8Path,
-    crate_name: Option<String>,
-    languages: Vec<TargetLanguage>,
-    cfo: Option<&camino::Utf8Path>,
-    out_dir: &camino::Utf8Path,
-    fmt: bool,
-) -> anyhow::Result<()> {
-    use uniffi_bindgen::library_mode::generate_bindings;
-
-    let config_supplier = crate::config_supplier::NoCargoConfigSupplier;
-
-    for language in languages {
-        // to help avoid mistakes we check the library is actually a cdylib, except
-        // for swift where static libs are often used to extract the metadata.
-        if !matches!(language, TargetLanguage::Swift) && !uniffi_bindgen::is_cdylib(library_path) {
-            anyhow::bail!(
-                "Generate bindings for {language} requires a cdylib, but {library_path} was given"
-            );
-        }
-
-        // Type-bounds on trait implementations makes selecting between languages a bit tedious.
-        match language {
-            TargetLanguage::Kotlin => generate_bindings(
-                library_path,
-                crate_name.clone(),
-                &KotlinBindingGenerator,
-                &config_supplier,
-                cfo,
-                out_dir,
-                fmt,
-            )?
-            .len(),
-            TargetLanguage::Python => generate_bindings(
-                library_path,
-                crate_name.clone(),
-                &PythonBindingGenerator,
-                &config_supplier,
-                cfo,
-                out_dir,
-                fmt,
-            )?
-            .len(),
-            TargetLanguage::Ruby => generate_bindings(
-                library_path,
-                crate_name.clone(),
-                &RubyBindingGenerator,
-                &config_supplier,
-                cfo,
-                out_dir,
-                fmt,
-            )?
-            .len(),
-            TargetLanguage::Swift => generate_bindings(
-                library_path,
-                crate_name.clone(),
-                &SwiftBindingGenerator,
-                &config_supplier,
-                cfo,
-                out_dir,
-                fmt,
-            )?
-            .len(),
-        };
-    }
-    Ok(())
-}
-
-fn gen_bindings(
-    udl_file: &camino::Utf8Path,
-    cfo: Option<&camino::Utf8Path>,
-    languages: Vec<TargetLanguage>,
-    odo: Option<&camino::Utf8Path>,
-    library_file: Option<&camino::Utf8Path>,
-    crate_name: Option<&str>,
-    fmt: bool,
-) -> anyhow::Result<()> {
-    use uniffi_bindgen::generate_bindings;
-    for language in languages {
-        match language {
-            TargetLanguage::Kotlin => generate_bindings(
-                udl_file,
-                cfo,
-                KotlinBindingGenerator,
-                odo,
-                library_file,
-                crate_name,
-                fmt,
-            )?,
-            TargetLanguage::Python => generate_bindings(
-                udl_file,
-                cfo,
-                PythonBindingGenerator,
-                odo,
-                library_file,
-                crate_name,
-                fmt,
-            )?,
-            TargetLanguage::Ruby => generate_bindings(
-                udl_file,
-                cfo,
-                RubyBindingGenerator,
-                odo,
-                library_file,
-                crate_name,
-                fmt,
-            )?,
-            TargetLanguage::Swift => generate_bindings(
-                udl_file,
-                cfo,
-                SwiftBindingGenerator,
-                odo,
-                library_file,
-                crate_name,
-                fmt,
-            )?,
-        };
-    }
-    Ok(())
-}
-
 pub fn run_main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    let metadata_no_deps = false;
     match cli.command {
         Commands::Generate {
             language,
             out_dir,
             no_format,
             config,
-            lib_file,
             source,
             crate_name,
-            library_mode,
+            ..
         } => {
-            if library_mode {
-                if lib_file.is_some() {
-                    panic!("--lib-file is not compatible with --library.")
-                }
-                let out_dir = out_dir.expect("--out-dir is required when using --library");
-                if language.is_empty() {
-                    panic!("please specify at least one language with --language")
-                }
-                gen_library_mode(
-                    &source,
-                    crate_name,
-                    language,
-                    config.as_deref(),
-                    &out_dir,
-                    !no_format,
-                )?;
-            } else {
-                gen_bindings(
-                    &source,
-                    config.as_deref(),
-                    language,
-                    out_dir.as_deref(),
-                    lib_file.as_deref(),
-                    crate_name.as_deref(),
-                    !no_format,
-                )?;
+            if language.is_empty() {
+                panic!("please specify at least one language with --language")
             }
+
+            let mut paths = uniffi_bindgen::BindgenPaths::default();
+            paths.add_layer(crate::config_supplier::NoCargoConfigSupplier);
+
+            generate_with_bindgen_paths(
+                GenerateOptions {
+                    languages: language.into_iter().map(TargetLanguage::from).collect(),
+                    out_dir: out_dir
+                        .expect("--out-dir is required when generating {language} bindings"),
+                    source,
+                    config_override: config,
+                    crate_filter: crate_name,
+                    metadata_no_deps,
+                    format: !no_format,
+                },
+                paths,
+            )?;
         }
         Commands::Scaffolding {
             out_dir,
@@ -341,11 +193,13 @@ pub fn run_main() -> anyhow::Result<()> {
             )?;
         }
         Commands::Pipeline(args) => {
-            let config_supplier = crate::config_supplier::NoCargoConfigSupplier;
+            let mut paths = uniffi_bindgen::BindgenPaths::default();
+            paths.add_layer(crate::config_supplier::NoCargoConfigSupplier);
+
             let initial_root = if args.library_mode {
-                initial::Root::from_library(config_supplier, &args.source, args.crate_name)?
+                initial::Root::from_library(paths, &args.source, args.crate_name)?
             } else {
-                initial::Root::from_udl(config_supplier, &args.source, args.crate_name)?
+                initial::Root::from_udl(paths, &args.source, args.crate_name)?
             };
 
             let opts = PrintOptions {
@@ -355,7 +209,7 @@ pub fn run_main() -> anyhow::Result<()> {
                 filter_name: args.filter_name,
             };
             match args.language {
-                TargetLanguage::Python => python::pipeline().print_passes(initial_root, opts)?,
+                TargetLanguageArg::Python => python::pipeline().print_passes(initial_root, opts)?,
                 language => unimplemented!("{language} does not use the bindings IR pipeline yet"),
             };
         }
