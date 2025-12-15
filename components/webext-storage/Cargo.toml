@@ -24,7 +24,7 @@ serde_derive = "1"
 sql-support = { path = "../support/sql" }
 sync15 = {path = "../../components/sync15", features=["sync-engine"]}
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 url = { version = "2.1", features = ["serde"] }
 
 [dev-dependencies]
@@ -36,4 +36,4 @@ sql-support = { path = "../support/sql" }
 serde_json = { version = "1", features = ["preserve_order"] }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { version = "0.31", features=["build"]}

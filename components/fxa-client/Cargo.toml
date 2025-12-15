@@ -25,12 +25,12 @@ error-support = { path = "../support/error", features = ["tracing-logging"] }
 thiserror = "2"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 payload-support = { path = "../support/payload" }
 nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features = ["build"] }
+uniffi = { version = "0.31", features = ["build"] }
 
 [dev-dependencies]
 viaduct-dev = { path = "../support/viaduct-dev"}

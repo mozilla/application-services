@@ -16,10 +16,10 @@ log = { version = "0.4" }
 parking_lot = { version = ">=0.11,<=0.12" }
 tracing = { version = "0.1", optional = true }
 tracing-support = { path = "../tracing", optional = true }
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { version = "0.31", features=["build"]}
 
 [features]
 backtrace = ["dep:backtrace"]
