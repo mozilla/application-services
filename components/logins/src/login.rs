@@ -357,6 +357,9 @@ pub struct LoginEntryWithMeta {
 }
 
 /// A bulk insert result entry, returned by `add_many` and `add_many_with_records`
+/// Please note that although the success case is much larger than the error case, this is
+/// negligible in real life, as we expect a very small success/error ratio.
+#[allow(clippy::large_enum_variant)]
 pub enum BulkResultEntry {
     Success { login: Login },
     Error { message: String },
