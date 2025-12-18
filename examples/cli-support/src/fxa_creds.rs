@@ -92,7 +92,7 @@ pub fn get_account_and_token(
     // TODO: we should probably set a persist callback on acct?
     let acct = load_or_create_fxa_creds(cred_file, config.clone(), scopes)?;
     // `scope` could be a param, but I can't see it changing.
-    match acct.get_access_token(SYNC_SCOPE, None) {
+    match acct.get_access_token(SYNC_SCOPE, true) {
         Ok(t) => Ok((acct, t)),
         Err(e) => {
             match e {
@@ -101,7 +101,7 @@ pub fn get_account_and_token(
                     println!("Saw an auth error using stored credentials - attempting to re-authenticate");
                     println!("If fails, consider deleting {cred_file} to start from scratch");
                     handle_oauth_flow(cred_file, &acct, scopes)?;
-                    let token = acct.get_access_token(SYNC_SCOPE, None)?;
+                    let token = acct.get_access_token(SYNC_SCOPE, true)?;
                     Ok((acct, token))
                 }
                 _ => Err(e.into()),

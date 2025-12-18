@@ -7,8 +7,19 @@
 
 [Full Changelog](In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Fxa Client
+- Removed the optional `ttl` paramater to `get_access_token`.  In practice, no consumers were using this.
+
+## ✨ What's New ✨
+
 ### Ads Client
 - Add agnostic telemetry support (compatible with Glean)
+
+### Fxa Client
+- Added optional `use_cache` paramater to `get_access_token`.  Set this to `false` to force
+  requesting a new token.
 
 # v147.0 (_2025-12-07_)
 
