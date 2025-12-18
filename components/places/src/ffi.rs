@@ -536,6 +536,11 @@ impl PlacesConnection {
     }
 
     #[handle_error(crate::Error)]
+    pub fn folders_search(&self, query: String, limit: i32) -> ApiResult<Vec<BookmarkFolder>> {
+        self.with_conn(|conn| bookmarks::fetch::search_folders(conn, query.as_str(), limit as u32))
+    }
+
+    #[handle_error(crate::Error)]
     pub fn bookmarks_get_recent(&self, limit: i32) -> ApiResult<Vec<BookmarkItem>> {
         self.with_conn(|conn| {
             // XXX - We should return the exact type - ie, BookmarkData rather than BookmarkItem.
