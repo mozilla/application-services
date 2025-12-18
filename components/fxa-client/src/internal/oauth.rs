@@ -38,18 +38,21 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    /// * `ttl` - the ttl in seconds of the token requested from the server.
+    /// * `use_cache` - optionally set to false to force a new token request.  The fetched
+    ///   token will still be cached for later `get_access_token` calls.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(&mut self, scope: &str, use_cache: bool) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(Error::MultipleScopesRequested);
         }
-        if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
-            if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
-                // If the cached key is missing the required sync scoped key, try to fetch it again
-                if oauth_info.check_missing_sync_scoped_key().is_ok() {
-                    return Ok(oauth_info.clone());
+        if use_cache {
+            if let Some(oauth_info) = self.state.get_cached_access_token(scope) {
+                if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
+                    // If the cached key is missing the required sync scoped key, try to fetch it again
+                    if oauth_info.check_missing_sync_scoped_key().is_ok() {
+                        return Ok(oauth_info.clone());
+                    }
                 }
             }
         }
@@ -59,7 +62,7 @@ impl FirefoxAccount {
                     self.client.create_access_token_using_refresh_token(
                         self.state.config(),
                         &refresh_token.token,
-                        ttl,
+                        None,
                         &[scope],
                     )?
                 } else {

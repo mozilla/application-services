@@ -636,7 +636,8 @@ interface FirefoxAccount {
   ///    - `scope` - the OAuth scope to be granted by the token.
   ///        - This must be one of the scopes requested during the signin flow.
   ///        - Only a single scope is supported; for multiple scopes request multiple tokens.
-  ///    - `ttl` - optionally, the time for which the token should be valid, in seconds.
+  ///    - `use_cache` - optionally set to false to force a new token request.  The fetched
+  ///       token will still be cached for later `get_access_token` calls.
   ///
   /// # Notes
   ///
@@ -645,7 +646,7 @@ interface FirefoxAccount {
   ///      before requesting a fresh token.
   ///
   [Throws=FxaError]
-  AccessTokenInfo get_access_token([ByRef] string scope,  optional i64? ttl = null);
+  AccessTokenInfo get_access_token([ByRef] string scope, optional boolean use_cache = true);
 
   /// Get the session token for the user's account, if one is available.
   ///
