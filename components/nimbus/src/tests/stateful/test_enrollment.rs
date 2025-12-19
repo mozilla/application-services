@@ -59,7 +59,7 @@ fn test_enrollments() -> Result<()> {
 
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_attributes, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1])?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1], &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 1);
@@ -95,7 +95,7 @@ fn test_enrollments() -> Result<()> {
     ));
 
     // Now opt-out.
-    opt_out(&db, &mut writer, "secure-gold")?;
+    opt_out(&db, &mut writer, "secure-gold", &None)?;
     assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
     // check we recorded the "why" correctly.
     let ee: ExperimentEnrollment = db
@@ -142,7 +142,7 @@ fn test_updates() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 2);
@@ -151,7 +151,7 @@ fn test_updates() -> Result<()> {
     // pretend we just updated from the server and one of the 2 is missing.
     let exps = &[exps[1].clone()];
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps, &None)?;
 
     // should only have 1 now.
     let enrollments = get_enrollments(&db, &writer)?;
@@ -192,7 +192,7 @@ fn test_global_opt_out() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
@@ -217,7 +217,7 @@ fn test_global_opt_out() -> Result<()> {
 
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 2);
@@ -235,7 +235,7 @@ fn test_global_opt_out() -> Result<()> {
 
     let mut targeting_helper = th.clone();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut targeting_helper, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
@@ -263,7 +263,7 @@ fn test_global_opt_out() -> Result<()> {
     set_experiment_participation(&db, &mut writer, true)?;
 
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
+    let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps, &None)?;
 
     let enrollments = get_enrollments(&db, &writer)?;
     assert_eq!(enrollments.len(), 0);
@@ -424,7 +424,7 @@ fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
 
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let _ = evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout])?;
+    let _ = evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout], &None)?;
 
     let enrollments = get_experiment_enrollments(&db, &writer)?;
     println!("Total enrollments: {}", enrollments.len());
@@ -500,7 +500,8 @@ fn test_rollouts_opt_out_with_experiments_opt_in() -> Result<()> {
 
     let ids = no_coenrolling_features();
     let mut evolver = EnrollmentsEvolver::new(&aru, &mut th, &ids);
-    let _events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout])?;
+    let _events =
+        evolver.evolve_enrollments_in_db(&db, &mut writer, &[experiment, rollout], &None)?;
 
     // Use the same helper function as the working test
     let enrollments = get_experiment_enrollments(&db, &writer)?;

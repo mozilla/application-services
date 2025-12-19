@@ -43,6 +43,7 @@ import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.JsonObject
 import org.mozilla.experiments.nimbus.internal.NimbusException
+import org.mozilla.experiments.nimbus.internal.OriginalGeckoPref
 import org.mozilla.experiments.nimbus.internal.PrefBranch
 import org.mozilla.experiments.nimbus.internal.PrefEnrollmentData
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
@@ -860,6 +861,7 @@ class NimbusTests {
             ),
         ),
         var setValues: List<GeckoPrefState>? = null,
+        var originalGeckoPrefs: List<OriginalGeckoPref>? = null,
     ) : GeckoPrefHandler {
         override fun getPrefsWithState(): Map<String, Map<String, GeckoPrefState>> {
             return internalMap
@@ -867,6 +869,10 @@ class NimbusTests {
 
         override fun setGeckoPrefsState(newPrefsState: List<GeckoPrefState>) {
             setValues = newPrefsState
+        }
+
+        override fun setGeckoPrefsOriginalValues(originalGeckoPrefs: List<OriginalGeckoPref>) {
+            originalGeckoPrefs = originalGeckoPrefs
         }
     }
 
@@ -887,6 +893,21 @@ class NimbusTests {
 
         assertEquals(1, handler.setValues?.size)
         assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
+    }
+
+    @Test
+    fun `GeckoPrefHandler setGeckoPrefsOriginalValues function`() {
+      val handler = TestGeckoPrefHandler()
+      val originalValues = listOf(
+          OriginalGeckoPref(
+              pref = "pref.number",
+              branch = PrefBranch.DEFAULT,
+              value = "1",
+          ),
+      )
+      handler.setGeckoPrefsOriginalValues(originalValues)
+      assertEquals(1, handler.originalGeckoPrefs?.size)
+      assertEquals("pref.number", handler.originalGeckoPrefs?.get(0)?.pref)
     }
 
     @Test

@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use crate::enrollment::Participation;
+use crate::stateful::gecko_prefs::GeckoPrefStore;
 use crate::stateful::persistence::{
     DB_KEY_EXPERIMENT_PARTICIPATION, DB_KEY_ROLLOUT_PARTICIPATION,
     DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
@@ -27,6 +30,7 @@ impl EnrollmentsEvolver<'_> {
         db: &Database,
         writer: &mut Writer,
         next_experiments: &[Experiment],
+        gecko_pref_store: &Option<Arc<GeckoPrefStore>>,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get separate participation states from the db
         let is_participating_in_experiments = get_experiment_participation(db, writer)?;
@@ -47,6 +51,7 @@ impl EnrollmentsEvolver<'_> {
             &prev_experiments,
             next_experiments,
             &prev_enrollments,
+            gecko_pref_store,
         )?;
         let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
@@ -134,13 +139,14 @@ pub fn opt_out(
     db: &Database,
     writer: &mut Writer,
     experiment_slug: &str,
+    gecko_prefs: &Option<Arc<GeckoPrefStore>>,
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
     let enr_store = db.get_store(StoreId::Enrollments);
     if let Ok(Some(existing_enrollment)) =
         enr_store.get::<ExperimentEnrollment, Writer>(writer, experiment_slug)
     {
-        let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events);
+        let updated_enrollment = &existing_enrollment.on_explicit_opt_out(&mut events, gecko_prefs);
         enr_store.put(writer, experiment_slug, updated_enrollment)?;
     } else {
         events.push(EnrollmentChangeEvent {
