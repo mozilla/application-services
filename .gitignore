@@ -31,6 +31,7 @@ xcuserdata
 
 # UniFFI generated artifacts
 components/**/ios/Generated
+megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated
 
 # We don't car about Cargo.lock for our tests.
 testing/sync-test/Cargo.lock
