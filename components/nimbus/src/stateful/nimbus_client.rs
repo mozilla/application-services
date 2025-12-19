@@ -347,7 +347,7 @@ impl NimbusClient {
     pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_out(db, &mut writer, &experiment_slug)?;
+        let result = opt_out(db, &mut writer, &experiment_slug, &self.gecko_prefs)?;
         let mut state = self.mutable_state.lock().unwrap();
         self.end_initialize(db, writer, &mut state)?;
         Ok(result)
@@ -456,7 +456,7 @@ impl NimbusClient {
             &mut targeting_helper,
             &coenrolling_feature_ids,
         );
-        evolver.evolve_enrollments_in_db(db, writer, experiments)
+        evolver.evolve_enrollments_in_db(db, writer, experiments, &self.gecko_prefs)
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
