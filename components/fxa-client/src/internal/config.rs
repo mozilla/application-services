@@ -133,7 +133,7 @@ impl Config {
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
         if let Some(token_server_url_override) = &self.token_server_url_override {
-            return util::parse_url(
+            return util::parse_user_url(
                 token_server_url_override,
                 "token_server_endpoint_url (override)",
             );
