@@ -21,8 +21,8 @@ if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   exit 1
 fi
 
-if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  DIST_DIR=$(abspath "desktop/darwin/nss")
+if [[ "${CROSS_COMPILE_TARGET}" == "darwin-x86-64" ]]; then
+  DIST_DIR=$(abspath "desktop/darwin-x86-64/nss")
   TARGET_OS="macos"
   TARGET_ARCH="x86_64"
 elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
@@ -55,7 +55,7 @@ fi
 
 # We do not know how to cross compile these, so we pull pre-built versions from NSS CI
 # https://github.com/mozilla/application-services/issues/962
-if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
+if [[ "${CROSS_COMPILE_TARGET}" == "darwin-x86-64" ]]; then
   if [[ "${MOZ_AUTOMATION}" == "1" ]]; then
     # run-task has already downloaded + extracted the dependency
     NSS_DIST_DIR="${MOZ_FETCHES_DIR}/dist"

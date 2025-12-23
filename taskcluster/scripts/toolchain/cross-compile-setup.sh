@@ -2,20 +2,39 @@
 
 set -eux
 
-export PATH=$PATH:/builds/worker/clang/bin
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_STATIC=1
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_DIR=/builds/worker/checkouts/vcs/libs/desktop/darwin/nss
-# x86_64 Darwin
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CC=/builds/worker/clang/bin/clang-20
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_TOOLCHAIN_PREFIX=/builds/worker/cctools/bin
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_AR=/builds/worker/cctools/bin/x86_64-apple-darwin-ar
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RANLIB=/builds/worker/cctools/bin/x86_64-apple-darwin-ranlib
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_LD_LIBRARY_PATH=/builds/worker/clang/lib
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C linker=/builds/worker/clang/bin/clang-20 -C link-arg=-fuse-ld=/builds/worker/cctools/bin/x86_64-apple-darwin-ld -C link-arg=-B -C link-arg=/builds/worker/cctools/bin -C link-arg=-target -C link-arg=x86_64-apple-darwin -C link-arg=-isysroot -C link-arg=/tmp/MacOSX11.0.sdk -C link-arg=-Wl,-syslibroot,/tmp/MacOSX11.0.sdk -C link-arg=-Wl,-dead_strip"
-# For ring's use of `cc`.
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /builds/worker/cctools/bin -target x86_64-apple-darwin -isysroot /tmp/MacOSX11.0.sdk -Wl,-syslibroot,/tmp/MacOSX11.0.sdk -Wl,-dead_strip"
-# Pass bindgen a `--sysroot` argument so that it can find the include files when cross-compiling.
-export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_BINDGEN_EXTRA_CLANG_ARGS="--sysroot /tmp/MacOSX11.0.sdk"
+SYSROOT="/tmp/MacOSX11.0.sdk"
+CHECKOUT="/builds/worker/checkouts/vcs"
+CLANG_BIN="/builds/worker/clang/bin"
+CLANG_LIB="/builds/worker/clang/lib"
+CCTOOL_BIN="/builds/worker/cctools/bin"
+
+export PATH=$PATH:$CLANG_BIN
+
+# Setup environment variables for rust-android-gradle plugin.
+# shellcheck disable=SC2086
+for TARGET in x86_64-apple-darwin aarch64-apple-darwin; do
+  case "$TARGET" in
+    x86_64-apple-darwin)
+      BUILD_PATH="darwin-x86-64"
+      ;;
+    aarch64-apple-darwin)
+      BUILD_PATH="darwin-aarch64"
+      ;;
+  esac
+
+  RUST_ANDROID_PREFIX=$(echo "ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_${TARGET}" | tr '[:lower:]-' '[:upper:]_')
+
+  export ${RUST_ANDROID_PREFIX}_NSS_STATIC=1
+  export ${RUST_ANDROID_PREFIX}_NSS_DIR=${CHECKOUT}/libs/desktop/darwin-${BUILD_PATH}/nss
+  export ${RUST_ANDROID_PREFIX}_CC=${CLANG_BIN}/clang-20
+  export ${RUST_ANDROID_PREFIX}_TOOLCHAIN_PREFIX=${CCTOOL_BIN}
+  export ${RUST_ANDROID_PREFIX}_AR=${CCTOOL_BIN}/${TARGET}-ar
+  export ${RUST_ANDROID_PREFIX}_RANLIB=${CCTOOL_BIN}/${TARGET}-ranlib
+  export ${RUST_ANDROID_PREFIX}_LD_LIBRARY_PATH=${CLANG_LIB}
+  export ${RUST_ANDROID_PREFIX}_RUSTFLAGS="-C linker=${CLANG_BIN}/clang-20 -C link-arg=-fuse-ld=${CCTOOL_BIN}/${TARGET}-ld -C link-arg=-B -C link-arg=${CCTOOL_BIN} -C link-arg=-target -C link-arg=${TARGET} -C link-arg=-isysroot -C link-arg=${SYSROOT} -C link-arg=-Wl,-syslibroot,${SYSROOT} -C link-arg=-Wl,-dead_strip"
+  export ${RUST_ANDROID_PREFIX}_CFLAGS_${TARGET//-/_}="-B ${CCTOOL_BIN} -target ${TARGET} -isysroot ${SYSROOT} -Wl,-syslibroot,${SYSROOT} -Wl,-dead_strip"
+  export ${RUST_ANDROID_PREFIX}_BINDGEN_EXTRA_CLANG_ARGS="--sysroot ${SYSROOT}"
+done
 
 # x86_64 Windows
 # The wrong linker gets used otherwise: https://github.com/rust-lang/rust/issues/33465.
@@ -47,7 +66,7 @@ pushd /tmp || exit
 
 tooltool.py \
   --url=http://taskcluster/tooltool.mozilla-releng.net/ \
-  --manifest="/builds/worker/checkouts/vcs/libs/macos-cc-tools.manifest" \
+  --manifest="${CHECKOUT}/libs/macos-cc-tools.manifest" \
   fetch
 # tooltool doesn't know how to unpack zstd-files,
 # so we do it manually.
