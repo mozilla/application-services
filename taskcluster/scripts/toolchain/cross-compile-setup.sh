@@ -32,7 +32,8 @@ for TARGET in x86_64-apple-darwin aarch64-apple-darwin; do
   export ${RUST_ANDROID_PREFIX}_RANLIB=${CCTOOL_BIN}/${TARGET}-ranlib
   export ${RUST_ANDROID_PREFIX}_LD_LIBRARY_PATH=${CLANG_LIB}
   export ${RUST_ANDROID_PREFIX}_RUSTFLAGS="-C linker=${CLANG_BIN}/clang-20 -C link-arg=-fuse-ld=${CCTOOL_BIN}/${TARGET}-ld -C link-arg=-B -C link-arg=${CCTOOL_BIN} -C link-arg=-target -C link-arg=${TARGET} -C link-arg=-isysroot -C link-arg=${SYSROOT} -C link-arg=-Wl,-syslibroot,${SYSROOT} -C link-arg=-Wl,-dead_strip"
-  export ${RUST_ANDROID_PREFIX}_CFLAGS_${TARGET//-/_}="-B ${CCTOOL_BIN} -target ${TARGET} -isysroot ${SYSROOT} -Wl,-syslibroot,${SYSROOT} -Wl,-dead_strip"
+  export ${RUST_ANDROID_PREFIX}_CFLAGS_${TARGET//-/_}="-B ${CCTOOL_BIN} -target ${TARGET} -isysroot ${SYSROOT}"
+  export ${RUST_ANDROID_PREFIX}_LDFLAGS_${TARGET//-/_}="-B ${CCTOOL_BIN} -target ${TARGET} -isysroot ${SYSROOT} -Wl,-syslibroot,${SYSROOT} -Wl,-dead_strip"
   export ${RUST_ANDROID_PREFIX}_BINDGEN_EXTRA_CLANG_ARGS="--sysroot ${SYSROOT}"
 done
 
