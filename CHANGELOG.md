@@ -19,6 +19,7 @@
 ## ✨ What's New ✨
 
 ### Ads Client
+* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
 - Enable staging environment support for all platforms (previously feature-gated)
 
 ### Viaduct
@@ -36,15 +37,15 @@
 * Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
 ([#7173](https://github.com/mozilla/application-services/pull/7173))
 
-### Ads-Client
-* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
-
 ### Relay
 
 * Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
 
 ### Logins
 - Added `runMaintenance` API to `DatabaseLoginsStorage`
+
+### Android
+- Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
 
 [Full Changelog](In progress)
 
