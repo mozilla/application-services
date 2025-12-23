@@ -93,6 +93,8 @@ gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   -Dpython=python3
 
 GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release-$(echo ${OS_COMPILER} | tr '[:upper:]' '[:lower:]')/"
+echo "=== Dumping build.ninja for nss-ios ==="
+cat "${GENERATED_DIR}/build.ninja"
 ninja -C "${GENERATED_DIR}"
 
 # Assemble the DIST_DIR with relevant libraries and headers

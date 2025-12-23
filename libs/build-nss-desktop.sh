@@ -78,6 +78,12 @@ elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
     -Dsign_libs=0 \
     -Ddisable_libpkix=1
   NSS_DIST_DIR="${NSS_SRC_DIR}/dist"
+
+  # Debug output for CI
+  if [[ -f "${NSS_SRC_DIR}/nss/out/Release/build.ninja" ]]; then
+    echo "=== Dumping build.ninja for nss-desktop ==="
+    cat "${NSS_SRC_DIR}/nss/out/Release/build.ninja"
+  fi
 fi
 
 # Assemble the DIST_DIR with relevant libraries and headers
