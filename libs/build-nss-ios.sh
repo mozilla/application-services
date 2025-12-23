@@ -93,7 +93,16 @@ gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   -Dpython=python3
 
 GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release-$(echo ${OS_COMPILER} | tr '[:upper:]' '[:lower:]')/"
-ninja -C "${GENERATED_DIR}"
+echo "=== Dumping build.ninja for nss-ios ==="
+cat "${GENERATED_DIR}/build.ninja"
+
+ninja -C "${GENERATED_DIR}" nss_static_libs freebl_static pk11wrap_static softokn_static
+if [[ "${ARCH}" == "x86_64" ]]; then
+  ninja -C "${GENERATED_DIR}" hw-acc-crypto-avx hw-acc-crypto-avx2 gcm-aes-x86_c_lib sha-x86_c_lib
+fi
+if [[ "${ARCH}" == "aarch64" ]] || [[ "${ARCH}" == "arm64" ]]; then
+  ninja -C "${GENERATED_DIR}" gcm-aes-aarch64_c_lib armv8_c_lib
+fi
 
 # Assemble the DIST_DIR with relevant libraries and headers
 ./copy-nss-libs.sh \
