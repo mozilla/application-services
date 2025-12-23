@@ -4,6 +4,7 @@
 
 use crate::{Error, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use error_support::report_error;
 use rc_crypto::rand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,16 +55,41 @@ impl Xorable for [u8] {
 }
 
 pub fn parse_url(url: &str, when: impl Into<String>) -> Result<url::Url> {
-    url::Url::parse(url).map_err(|_| Error::MalformedUrl {
-        sanitized_url: sanitized_url(url),
-        when: when.into(),
+    url::Url::parse(url).map_err(|_| {
+        let sanitized_url = sanitized_url(url);
+        let when = when.into();
+        report_error!("fxa-client-malformed-url", "{sanitized_url} ({when})");
+        Error::MalformedUrl {
+            sanitized_url,
+            when,
+        }
+    })
+}
+
+/// Parse a user-specified URL
+///
+/// This works the same as [parse_url], except we don't report errors to sentry for malformed URL.
+/// (https://bugzilla.mozilla.org/show_bug.cgi?id=2007419)
+pub fn parse_user_url(url: &str, when: impl Into<String>) -> Result<url::Url> {
+    url::Url::parse(url).map_err(|_| {
+        let sanitized_url = sanitized_url(url);
+        let when = when.into();
+        Error::MalformedUrl {
+            sanitized_url,
+            when,
+        }
     })
 }
 
 pub fn join_url(url: &url::Url, path: &str, when: impl Into<String>) -> Result<url::Url> {
-    url.join(path).map_err(|_| Error::MalformedUrl {
-        sanitized_url: sanitized_url(url.as_str()),
-        when: when.into(),
+    url.join(path).map_err(|_| {
+        let sanitized_url = sanitized_url(url.as_str());
+        let when = when.into();
+        report_error!("fxa-client-malformed-url", "{sanitized_url} ({when})");
+        Error::MalformedUrl {
+            sanitized_url,
+            when,
+        }
     })
 }
 

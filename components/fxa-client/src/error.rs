@@ -228,6 +228,11 @@ impl GetErrorHandling for Error {
                     .report_error("fxa-state-machine-error")
             }
             Error::OriginMismatch(_) => ErrorHandling::convert(FxaError::OriginMismatch),
+            // Just log a warning for these.  They're already reported in `parse_url` and
+            // `join_url`.
+            Error::MalformedUrl { .. } => {
+                ErrorHandling::convert(FxaError::Other(self.to_string())).log_warning()
+            }
             _ => ErrorHandling::convert(FxaError::Other(self.to_string()))
                 .report_error("fxa-client-other-error"),
         }
