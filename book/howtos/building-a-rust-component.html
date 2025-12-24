@@ -1,0 +1,408 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>How to build a new syncable component - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5f333e0d.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-5592c39f.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="guide-to-building-a-syncable-rust-component"><a class="header" href="#guide-to-building-a-syncable-rust-component">Guide to Building a Syncable Rust Component</a></h1>
+<blockquote>
+<p>This is a guide to creating a new Syncable Rust Component like many of the components in this repo. If you are looking for information how to build (ie,compile, etc) the existing components, you are looking for <a href="../building.html">our build documentation</a></p>
+</blockquote>
+<p>Welcome!</p>
+<p>It’s great that you want to build a Rust Component - this guide should help
+get you started. It documents some nomenclature, best-practices and other
+tips and tricks to get you started.</p>
+<p>This document is just for general guidance - every component will be different
+and we are still learning how to make these components. Please update this
+document with these learnings.</p>
+<p>To repeat with emphasis - <strong>please consider this a living document</strong>.</p>
+<h1 id="general-design-and-structure-of-the-component"><a class="header" href="#general-design-and-structure-of-the-component">General design and structure of the component</a></h1>
+<p>We think components should be structured as described here.</p>
+<h2 id="we-build-libraries-not-frameworks"><a class="header" href="#we-build-libraries-not-frameworks">We build libraries, not frameworks</a></h2>
+<p>Think of building a “library”, not a “framework” - the application should be in
+control and calling functions exposed by your component, not providing functions
+for your component to call.</p>
+<h2 id="the-store-is-the-entry-point"><a class="header" href="#the-store-is-the-entry-point">The “store” is the “entry-point”</a></h2>
+<p>[Note that some of the older components use the term “store” differently; we
+should rename them! In Places, it’s called an “API”; in Logins an “engine”. See
+<code>webext-storage</code> for a more recent component that uses the term “Store” as we
+think it should be used.]</p>
+<p>The “Store” is the entry-point for the consuming application - it provides the
+core functionality exposed by the component and manages your databases and other
+singletons. The responsibilities of the “Store” will include things like creating the
+DB if it doesn’t exist, doing schema upgrades etc.</p>
+<p>The functionality exposed by the “Store” will depend on the complexity of the
+API being exposed. For example, for <code>webext-storage</code>, where there are only a
+handful of simple public functions, it just directly exposes all the
+functionality of the component. However, for Places, which has a much more
+complex API, the (logical) Store instead supplies “Connection” instances which
+expose the actual functionality.</p>
+<h2 id="using-sqlite"><a class="header" href="#using-sqlite">Using sqlite</a></h2>
+<p>We prefer sqlite instead of (say) JSON files or RKV.</p>
+<p>Always put sqlite into WAL mode, then have exactly 1 writer connection and as
+many reader connections you need - which will depend on your use-case - for
+example, <code>webext_storage</code> has 1 reader, while <code>places</code> has many.</p>
+<p>(Note that places has 2 writers (one for sync, one for the api), but we
+believe this was a mistake and should have been able to make things work
+better with exactly 1 shared between sync and the api)</p>
+<p>We typically have a “DB” abstraction which manages the database itself - the
+logic for handling schema upgrades etc and enforcing the “only 1 writer” rule
+is done by this.</p>
+<p>However, this is just a convenience - the DB abstractions aren’t really passed
+around - we just pass raw connections (or transactions) around. For example, if
+there’s a utility function that reads from the DB, it will just have a Rusqlite
+connection passed. (Again, older components don’t really do this well, but
+<code>webext-storage</code> does)</p>
+<p>We try and leverage rust to ensure transactions are enforced at the correct
+boundaries - for example, functions which write data but which must be done as
+part of a transaction will accept a Rusqlite <code>Transaction</code> reference as the
+param, whereas something that only reads the Db will accept a Rusqlite
+<code>Connection</code> - note that because <code>Transaction</code> supports
+<code>Deref&lt;Target = Connection&gt;</code>, you can pass a <code>&amp;Transaction</code> wherever a
+<code>&amp;Connection</code> is needed - but not vice-versa.</p>
+<h3 id="meta-data"><a class="header" href="#meta-data">Meta-data</a></h3>
+<p>You are likely to have a table just for key/value metadata, and this table will
+be used by sync (and possibly other parts of the component) to track the
+sync IDs, lastModified timestamps etc.</p>
+<h3 id="schema-management"><a class="header" href="#schema-management">Schema management</a></h3>
+<p>The schemas are stored in the tree in .sql files and pulled into the source at
+build time via <code>include_str!</code>. Depending on the complexity of your component,
+there may be a need for different Connections to have different Sql (for
+example, it may be that only your ‘write’ connection requires the sql to define
+triggers or temp tables, so these might be in their own file.)</p>
+<p>Because requirements evolve, there will be a need to support schema upgrades.
+This is done by way of sqlite’s <code>PRAGMA user_version</code> - which can be thought of
+as simple metadata for the database itself. In short, immediately after opening
+the database for the first time, we check this version and if it’s less than
+expected we perform the schema upgrades necessary, then re-write the version
+to the new version.</p>
+<p>This is easier to read than explain, so read the <code>upgrade()</code> function in
+<a href="https://github.com/mozilla/application-services/blob/main/components/places/src/db/schema.rs">the Places schema code</a></p>
+<p>You will need to be a big careful here because schema upgrades are going to
+block the calling application immediately after they upgrade to a new version,
+so if your schema change requires a table scan of a massive table, you are going
+to have a bad time. Apart from that though, you are largely free to do whatever
+sqlite lets you do!</p>
+<p>Note that most of our components have very similar schema and database
+management code - these are screaming out to be refactored so common logic can
+be shared. Please be brave and have a go at this!</p>
+<h3 id="triggers"><a class="header" href="#triggers">Triggers</a></h3>
+<p>We tend to like triggers for encompassing application logic - for example, if
+updating one row means a row in a different table should be updated based on
+that data, we’d tend to prefer an, eg,  <code>AFTER UPDATE</code> trigger than having our
+code manually implement the logic.</p>
+<p>However, you should take care here, because functionality based on triggers is
+difficult to debug (eg, logging in a trigger is difficult) and the functionality
+can be difficult to locate (eg, users unfamiliar with the component may wonder
+why they can’t find certain functionity in the rust code and may not consider
+looking in the sqlite triggers)</p>
+<p>You should also be careful when creating triggers on persistent main tables.
+For example, bumping the change counter isn’t a good use for a trigger,
+because it’ll run for all changes on the table—including those made by Sync.
+This means Sync will end up tracking its own changes, and getting into infinite
+syncing loops. Triggers on temporary tables, or ones that are used for
+bookkeeping where the caller doesn’t matter, like bumping the foreign
+reference count for a URL, are generally okay.</p>
+<h2 id="general-structure-of-the-rust-code"><a class="header" href="#general-structure-of-the-rust-code">General structure of the rust code</a></h2>
+<p>We prefer flatter module hierarchies where possible. For example, in <code>Places</code>
+we ended up with <code>sync_history</code> and <code>sync_bookmarks</code> sub-modules rather than
+a <code>sync</code> submodule itself with <code>history</code> and <code>bookmarks</code>.</p>
+<p>Note that the raw connections are never exposed to consumers - for example, they
+will tend to be stored as private fields in, eg, a Mutex.</p>
+<h1 id="syncing"><a class="header" href="#syncing">Syncing</a></h1>
+<p>The traits you need to implement to sync aren’t directly covered here.</p>
+<p>All meta-data related to sync must be stored in the same database as the
+data itself - often in a <code>meta</code> table.</p>
+<p>All logic for knowing which records need to be sync must be part of the
+application logic, and will often be implemented using <code>triggers</code>. It’s quite
+common for components to use a “change counter” strategy, which can be
+summarized as:</p>
+<ul>
+<li>
+<p>Every table which defines the “top level” items being synced will have a
+column called something like ‘sync_change_counter’ - the app will probably
+track this counter manually instead of using a trigger, because sync itself
+will need different behavior when it updates the records.</p>
+</li>
+<li>
+<p>At sync time, items with a non-zero change counter are candidates for syncing.</p>
+</li>
+<li>
+<p>As the sync starts, for each item, the current value of the change counter is
+remembered. At the end of the sync, the counter is decremented by this value.
+Thus, items which were changed between the time the sync started and completed
+will be left with a non-zero change counter at the end of the sync.</p>
+</li>
+</ul>
+<h2 id="syncing-faqs"><a class="header" href="#syncing-faqs">Syncing FAQs</a></h2>
+<p>This section is stolen from <a href="https://docs.google.com/document/d/1s9ld2F4e83eQ944kN6QXXTRlqrX74w2AJS6W2fDyAJ8">this document</a></p>
+<h3 id="whats-the-global-sync-id-and-the-collection-sync-id"><a class="header" href="#whats-the-global-sync-id-and-the-collection-sync-id">What’s the global sync ID and the collection sync ID?</a></h3>
+<p>Both guids, both used to identify when the data in the server has changed
+radically underneath us (eg, when looking at lastModified is no longer a sane
+thing to do.)</p>
+<p>The “global sync ID” changing means that every collection needs to be assumed as
+having changed radically, whereas just the “collection sync ID” changing means
+just that one collection.</p>
+<p>These global IDs are most likely to change on a node reassignment (which should
+be rare now with durable storage), a password reset, etc. An example of when the
+collection ID will change is a “bookmarks restore” - handling an old version of
+a database re-appearing is why we store these IDs in the database itself.</p>
+<h3 id="whats-get_sync_assoc-why-is-it-important-what-is-storesyncassociation"><a class="header" href="#whats-get_sync_assoc-why-is-it-important-what-is-storesyncassociation">What’s <code>get_sync_assoc</code>, why is it important? What is <code>StoreSyncAssociation</code>?</a></h3>
+<p>They are all used to track the guids above. It’s vitally important we know when
+these guids change.</p>
+<p>StoreSyncAssociation is a simple enum which reflects the state a sync engine
+can be in - either <code>Disconnected</code> (ie, we have no idea what the GUIDs are) or
+<code>Connected</code> where we know what we think the IDs are (but the server may or may
+not match with this)</p>
+<p>These GUIDs will typically be stored in the DB in the metadata table.</p>
+<h3 id="what-is-apply_incoming-versus-sync_finished"><a class="header" href="#what-is-apply_incoming-versus-sync_finished">what is <code>apply_incoming</code> versus <code>sync_finished</code></a></h3>
+<p><code>apply_incoming</code> is where any records incoming from the server (ie, possibly
+all records on the server if this is a first-sync, records with a timestamp
+later than our last sync otherwise) are processed.</p>
+<p><code>sync_finished</code> is where we’ve done all the sync work other than uploading new
+changes to the server.</p>
+<h3 id="whats-the-diff-between-reset-and-wipe"><a class="header" href="#whats-the-diff-between-reset-and-wipe">What’s the diff between reset and wipe?</a></h3>
+<ul>
+<li>Reset means “I don’t know what’s on the server - I need to reconcile everything there with everything I have”. IOW, a “first sync”</li>
+<li>Wipe means literally “wipe all server data”</li>
+</ul>
+<h1 id="exposing-to-consumers"><a class="header" href="#exposing-to-consumers">Exposing to consumers</a></h1>
+<p>You will need an FFI or some other way of exposing stuff to your consumers.</p>
+<p>We use a tool called <a href="https://github.com/mozilla/uniffi-rs/">UniFFI</a> to automatically
+generate FFI bindings from the Rust code.</p>
+<p>If UniFFI doesn’t work for you, then you’ll need to hand-write the FFI layer.
+Here are some earlier blog posts on the topic which might be helpful:</p>
+<ul>
+<li><a href="https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-21-rust-on-android.html">Building and Deploying a Rust library on Android</a></li>
+<li><a href="https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-06-rust-on-ios.html">Building and Deploying a Rust library on iOS</a></li>
+<li><a href="https://discourse.mozilla.org/t/dear-diary-turns-out-x-platform-is-hard/25348">Blog post re: lessons in binding to Rust code from iOS</a></li>
+</ul>
+<p>The above are likely to be superseded by uniffi docs, but for now, good luck!</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/howtos/building-a-rust-component.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../howtos/adding-a-new-component.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../naming-conventions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../howtos/adding-a-new-component.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../naming-conventions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

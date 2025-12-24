@@ -1,0 +1,745 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Sync Manager - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5f333e0d.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-5592c39f.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="sync-manager"><a class="header" href="#sync-manager">Sync manager</a></h1>
+<p>We’ve identified the need for a “sync manager” (although are yet to identify a
+good name for it!) This manager will be responsible for managing “global sync
+state” and coordinating each engine.</p>
+<p>At a very high level, the sync manager is responsible for all syncing. So far,
+so obvious. However, given our architecture, it’s possible to identify a
+key architectural split.</p>
+<ul>
+<li>
+<p>The embedding application will be responsible for most high-level operations.
+For example, the app itself will choose how often regular syncs should
+happen, what environmental concerns apply (eg, should I only sync on WiFi?),
+letting the user choose exactly what to sync, and so forth.</p>
+</li>
+<li>
+<p>A lower-level component will be responsible for the direct interaction with
+the engines and with the various servers needed to perform a sync. It will
+also have the ultimate responsibility to not cause harm to the service (for
+example, it will be likely to enforce some kind of rate limiting or ensuring
+that service requests for backoff are enforced)</p>
+</li>
+</ul>
+<p>Because all application-services engines are written in Rust, it’s tempting to
+suggest that this lower-level component also be written in Rust and everything
+“just works”, but there are a couple of complications here:</p>
+<ul>
+<li>
+<p>For iOS, we hope to integrate with older engines which aren’t written in
+Rust, even if iOS does move to the new Sync Manager.</p>
+</li>
+<li>
+<p>For Desktop, we hope to start by reusing the existing “sync manager”
+implemented by Desktop, and start moving individual engines across.</p>
+</li>
+<li>
+<p>There may be some cross-crate issues even for the Rust implemented engines.
+Or more specifically, we’d like to avoid assuming any particular linkage or
+packaging of Rust implemented engines.</p>
+</li>
+</ul>
+<p>Even with these complications, we expect there to be a number of high-level
+components, each written in a platform specific language (eg, Kotlin or Swift)
+and a single lower-level component to be implemented in Rust and delivered
+as part of the application-services library - but that’s not a free-pass.</p>
+<p>Why “a number of high-level components”? Because that is the thing which
+understands the requirements of the embedding application. For example, Android
+may end up with a single high-level component in the android-components repo
+and shared between all Android components. Alternatively, the Android teams
+may decide the sync manager isn’t generic enough to share, so each app will
+have their own. iOS will probably end up with its own and you could imagine
+a future where Desktop does too - but they should all be able to share the
+low level component.</p>
+<h1 id="the-responsibilities-of-the-sync-manager"><a class="header" href="#the-responsibilities-of-the-sync-manager">The responsibilities of the Sync Manager.</a></h1>
+<p>The primary responsibilities of the “high level” portion of the sync manager are:</p>
+<ul>
+<li>
+<p>Manage all FxA interaction. The low-level component will have a way to
+communicate auth related problems, but it is the high-level component
+which takes concrete FxA action.</p>
+</li>
+<li>
+<p>Expose all UI for the user to choose what to sync and coordinate this with
+the low-level component. Note that because these choices can be made on any
+connected device, these choices must be communicated in both directions.</p>
+</li>
+<li>
+<p>Implement timers or any other mechanism to fully implement the “sync
+scheduler”, including any policy decisions such as only syncing on WiFi,
+etc.</p>
+</li>
+<li>
+<p>Implement a UI so the user can “sync now”.</p>
+</li>
+<li>
+<p>Collect telemetry from the low-level component, probably augment it, then
+submit it to the telemetry pipeline.</p>
+</li>
+</ul>
+<p>The primary responsibilities of the “low level” portion of the sync manager are:</p>
+<ul>
+<li>
+<p>Manage the <code>meta/global</code>, <code>crypto/keys</code> and <code>info/collections</code> resources,
+and interact with each engine as necessary based on the content of these
+resources.</p>
+</li>
+<li>
+<p>Manage interaction with the token server.</p>
+</li>
+<li>
+<p>Enforce constraints necessary to ensure the entire ecosystem is not
+subject to undue load. For example, this component should ignore attempts to
+sync continuously, or to sync when the services have requested backoff.</p>
+</li>
+<li>
+<p>Manage the “clients” collection - we probably can’t ignore this any longer,
+especially for bookmarks (as desktop will send a wipe command on bookmark
+restore, and things will “be bad” if we don’t see that command).</p>
+</li>
+<li>
+<p>Define a minimal “service state” so certain things can be coordinated with
+the high-level component. Examples of these states are “everything seems ok”,
+“the service requested we backoff for some period”, “an authentication error
+occurred”, and possibly others.</p>
+</li>
+<li>
+<p>Perform, or coordinate, the actual sync of the rust implemented engines -
+from the containing app’s POV, there’s a single “sync now” entry-point (in
+practice there might be a couple, but conceptually there’s a single way to
+sync). Note that as below, how non-rust implemented engines are managed is
+TBD.</p>
+</li>
+<li>
+<p>Manage the collection of (but <em>not</em> the submission of) telemetry from the
+various engines.</p>
+</li>
+<li>
+<p>Expose APIs and otherwise coordinate with the high-level component.</p>
+</li>
+</ul>
+<p>Stuff we aren’t quite sure where it fits include:</p>
+<ul>
+<li>Coordination with non-rust implemented engines. These engines are almost
+certainly going to be implemented in the same language as the high-level
+component, which will make integration simpler. However, the low-level
+component will almost certainly need some information about these engines for
+populating info/collections etc. For now, we are punting on this until things
+become a bit clearer.</li>
+</ul>
+<h1 id="implementation-details"><a class="header" href="#implementation-details">Implementation Details.</a></h1>
+<p>The above has been carefully written to try and avoid implementation details -
+the intent is that it’s an overview of the architecture without any specific
+implementation decisions.</p>
+<p>These next sections start getting specific, so implementation choices need to
+be made, and thus will possibly be more contentious.</p>
+<p>In other words, get your spray-cans ready because there’s a bikeshed being built!</p>
+<p>However, let’s start small and make some general observations.</p>
+<h2 id="current-implementations-and-challenges-with-the-rust-components"><a class="header" href="#current-implementations-and-challenges-with-the-rust-components">Current implementations and challenges with the Rust components</a></h2>
+<ul>
+<li>
+<p>Some apps only care about a subset of the engines - lockbox is one such app
+and only cares about a single collection/engine. It might be the case that
+lockbox uses a generic application-services library with many engines
+available, even though it only wants logins. Thus, the embedding application
+is the only thing which knows which engines should be considered to “exist”.
+It may be that the app layer passes an engine to the sync manager, or the
+sync manager knows via some magic how to obtain these handles.</p>
+</li>
+<li>
+<p>Some apps will use a combination of Rust components and “legacy”
+engines. For example, iOS is moving some of the engines to using Rust
+components, while other engines will be ported after delivery of the
+sync manager, if they are ported at all. We also plan
+to introduce some rust engines into desktop without integrating the
+“sync manager”</p>
+</li>
+<li>
+<p>The rust components themselves are designed to be consumed as individual
+components - the “logins” component doesn’t know anything about the
+“bookmarks” component.</p>
+</li>
+</ul>
+<p>There are a couple of gotchyas in the current implementations too - there’s an
+issue when certain engines don’t yet appear in meta/global - see bug 1479929
+for all the details.</p>
+<p>The tl;dr of the above is that each rust component should be capable of
+working with different sync managers. That said though, let’s not over-engineer
+this and pretend we can design a single, canonical thing that will not need
+changing as we consider desktop and iOS.</p>
+<h2 id="state-state-and-more-state-and-then-some-state"><a class="header" href="#state-state-and-more-state-and-then-some-state">State, state and more state. And then some state.</a></h2>
+<p>There’s loads of state here. The app itself has some state. The high-level
+Sync Manager component will have state, the low-level component will have state,
+and each engine has state. Some of this state will need to be persisted (either
+on the device or on the storage servers) and some of this state can be considered
+ephemeral and lives only as long as the app.</p>
+<p>A key challenge will be defining this state in a coherent way with clear
+boundaries between them, in an effort to allow decoupling of the various bits
+so Desktop and iOS can fit into this world.</p>
+<p>This state management should also provide the correct degree of isolation for
+the various components. For example, each engine should only know about state
+which directly impacts how it works. For example, the keys used to encrypt
+a collection should only be exposed to that specific engine, and there’s no
+need for one engine to know what info/collections returns for other engines,
+nor whether the device is currently connected to WiFi.</p>
+<p>A thorn here is for persisted state - it would be ideal if the low-level
+component could avoid needing to persist any state, so it can avoid any
+kind of storage abstraction. We have a couple of ways of managing this:</p>
+<ul>
+<li>
+<p>The state which needs to be persisted is quite small, so we could delegate
+state storage to the high-level component in an opaque way, as this
+high-level component almost certainly already has storage requirements, such
+as storing the “choose what to sync” preferences.</p>
+</li>
+<li>
+<p>The low-level component could add its own storage abstraction. This would
+isolate the high-level component from this storage requirement, but would
+add complexity to the sync manager - for example, it would need to be passed
+a directory where it should create a file or database.</p>
+</li>
+</ul>
+<p>We’ll probably go with the former.</p>
+<h1 id="implementation-plan-for-the-low-level-component"><a class="header" href="#implementation-plan-for-the-low-level-component">Implementation plan for the low-level component.</a></h1>
+<p>Let’s try and move into actionable decisions for the implementation. We expect
+the implementation of the low-level component to happen first, followed very
+closely by the implementation of the high-level component for Android. So we
+focus first on these.</p>
+<h2 id="clients-engine"><a class="header" href="#clients-engine">Clients Engine</a></h2>
+<p>The clients engine includes some meta-data about each client. We’ve decided
+we can’t replace the clients engine with the FxA device record and we can’t
+simply drop this engine entirely.</p>
+<p>Of particular interest is “commands” - these involve communicating with the
+engine regarding commands targeting it, and accepting commands to be send to
+other devices. Note that outgoing commands are likely to not originate from a sync,
+but instead from other actions, such as “restore bookmarks”.</p>
+<p>However, because the only current requirement for commands is to wipe the
+store, and because you could anticipate “wipe” also being used when remotely
+disconnecting a device (eg, when a device is lost or stolen), our lives would
+probably be made much simpler by initially supporting only per-engine wipe
+commands.</p>
+<p>Note that there has been some discussion about not implementing the client
+engine and replacing “commands” with some other mechanism. However, we have
+decided to not do that because the implementation isn’t considered too
+difficult, and because desktop will probably require a number of changes to
+remove it (eg, “synced tabs” will not work correctly without a client record
+with the same guid as the clients engine.)</p>
+<p>Note however that unlike desktop, we will use the FxA device ID as the client
+ID. Because FxA device IDs are more ephemeral than sync IDs, it will be
+necessary for engines using this ID to track the most-recent ID they synced
+with so the old record can be deleted when a change is detected.</p>
+<h2 id="collections-vs-engines-vs-stores-vs-preferences-vs-apis"><a class="header" href="#collections-vs-engines-vs-stores-vs-preferences-vs-apis">Collections vs engines vs stores vs preferences vs Apis</a></h2>
+<p>For the purposes of the sync manager, we define:</p>
+<ul>
+<li>
+<p>An <em>engine</em> is the unit exposed to the user - an “engine” can be enabled
+or disabled. There is a single set of canonical “engines” used across the
+entire sync ecosystem - ie, desktop and mobile devices all need to agree
+about what engines exist and what the identifier for an engine is.</p>
+</li>
+<li>
+<p>An <em>Api</em> is the unit exposed to the application layer for general application
+functionality. Application services has ‘places’ and ‘logins’ Apis and is
+the API used by the application to store and fetch items. Each ‘Api’ may
+have one or more ‘stores’ (although the application layer will generally not
+interact directly with a store)</p>
+</li>
+<li>
+<p>A <em>store</em> is the code which actually syncs. This is largely an implementation
+detail. There may be multiple stores per engine (eg, the “history” engine
+may have “history” and “forms” stores) and a single ‘Api’ may expose multiple
+stores (eg, the “places Api” will expose history and bookmarks stores)</p>
+</li>
+<li>
+<p>A <em>collection</em> is a unit of storage on a server. It’s even more of an
+implementation detail than a store. For example, you might imagine a future
+where the “history” store uses multiple “collections” to help with containers.</p>
+</li>
+</ul>
+<p>In practice, this means that the high-level component should only need to care
+about an <em>engine</em> (for exposing a choice of what to sync to the user) and an
+<em>api</em> (for interacting with the data managed by that api). The low-level
+component will manage the mapping of engines to stores.</p>
+<h2 id="the-declined-list"><a class="header" href="#the-declined-list">The declined list</a></h2>
+<p>This document isn’t going to outline the history of how “declined” is used, nor
+talk about how this might change in the future. For the purposes of the sync
+manager, we have the following hard requirements:</p>
+<ul>
+<li>
+<p>The low-level component needs to know what the currently declined set of
+engines is for the purposes of re-populating <code>meta/global</code>.</p>
+</li>
+<li>
+<p>The low-level component needs to know when the declined set needs to change
+based on user input (ie, when the user opts in to or out of a particular
+engine on this device)</p>
+</li>
+<li>
+<p>The high-level component needs to be aware that the set of declined engines
+may change on every sync (ie, when the user opts in to or out of a particular
+engine on another device)</p>
+</li>
+</ul>
+<p>A complication is that due to networks being unreliable, there’s an inherent
+conflict between “what is the current state?” and “what state changes are
+requested?”. For example, if the user changes the state of an engine while
+there’s no network, then exits the app, how do we ensure the user’s new state
+is updated next time the app starts? What if the user has since made a
+different state request on a different device? Is the state as last-known on
+this device considered canonical?</p>
+<p>To clarify, consider:</p>
+<ul>
+<li>
+<p>User on this device declines logins. This device now believes logins is
+disabled but history is enabled, but is unable to write this to the server
+due to no network.</p>
+</li>
+<li>
+<p>The user declines history on a different device, but doesn’t change logins.
+This device does manage to write the new list to the server.</p>
+</li>
+<li>
+<p>This device restarts and the network is up. It believes history is enabled
+but logins is not - however, the state on the server is the exact opposite.</p>
+</li>
+</ul>
+<p>How does this device react?</p>
+<p>(On the plus side, this is an extreme edge-case which none of our existing
+implementations handle “correctly” - which is easy to say, because there’s
+no real definition for “correctly”)</p>
+<p>Regardless, the low-level component will not pretend to hide this complexity
+(ie, it will ignore it!). The low-level component will allow the app to ask
+for state changes as part of a sync, and will return what’s on the server at
+the end of every sync. The app is then free to build whatever experience
+it desires around this.</p>
+<h2 id="disconnecting-from-sync"><a class="header" href="#disconnecting-from-sync">Disconnecting from Sync</a></h2>
+<p>The low-level component needs to have the ability to disconnect all engines
+from Sync. Engines which are declined should also be reset.</p>
+<p>Because we will need wipe() functionality to implement the clients engine,
+and because Lockbox wants to wipe on disconnect, we will provide disconnect
+and wipe functionality.</p>
+<h1 id="specific-deliverables-for-the-low-level-component"><a class="header" href="#specific-deliverables-for-the-low-level-component">Specific deliverables for the low-level component.</a></h1>
+<p>Breaking the above down into actionable tasks which can be some somewhat
+concurrently, we will deliver:</p>
+<h2 id="the-api"><a class="header" href="#the-api">The API</a></h2>
+<p>A straw-man for the API we will expose to the high-level components. This
+probably isn’t too big, but we should do this as thoroughly as we can. In
+particular, ensure we have covered:</p>
+<ul>
+<li>
+<p>Declined management - how the app changes the declined list and how it learns
+of changes from other devices.</p>
+</li>
+<li>
+<p>How telemetry gets handed from the low-level to the high-level.</p>
+</li>
+<li>
+<p>The “state” - in particular, how the high-level component understands the
+auth state is wrong, and whether the service is in a degraded mode (eg,
+server requested backoff)</p>
+</li>
+<li>
+<p>How the high-level component might specify “special” syncs, such as “just
+one engine” or “this is a pre-sleep, quick-as-possible sync”, etc</p>
+</li>
+</ul>
+<p>There’s a straw-man proposal for this at the end of the document.</p>
+<h2 id="a-command-line-and-possibly-android-utility"><a class="header" href="#a-command-line-and-possibly-android-utility">A command-line (and possibly Android) utility.</a></h2>
+<p>We should build a utility (or 2) which can stand in for the high-level
+component, for testing and demonstration purposes.</p>
+<p>This is something like places-utils.rs and the little utility Grisha has
+been using. This utility should act like a real client (ie, it should have
+an FxA device record, etc) and it should use the low-level component in
+exactly the same we we expect real products to use it.</p>
+<p>Because it is just a consumer of the low-level component, it will force us to
+confront some key issues, such as how to get references to engines stored in
+multiple crates, how to present a unified “state” for things like auth errors,
+etc.</p>
+<h2 id="the-clients-engine"><a class="header" href="#the-clients-engine">The “clients” engine</a></h2>
+<p>The initial work for the clients engine can probably be done without too
+much regard for how things are tied together - for example, much work could
+be done without caring how we get a reference to engines across crates.</p>
+<h2 id="state-work"><a class="header" href="#state-work">State work</a></h2>
+<p>Implementing things needed to we can expose the correct state to the high-level
+manager for things like auth errors, backoff semantics, etc</p>
+<h2 id="tie-it-together-and-other-misc-things"><a class="header" href="#tie-it-together-and-other-misc-things">Tie it together and other misc things.</a></h2>
+<p>There will be lots of loose ends to clean up - things like telemetry, etc.</p>
+<h1 id="followup-with-non-rust-engines"><a class="header" href="#followup-with-non-rust-engines">Followup with non-rust engines.</a></h1>
+<p>We have identified that iOS will, at least in the short term, want the
+sync manager to be implemented in Swift. This will be responsible for
+syncing both the Swift and Rust implemented engines.</p>
+<p>At some point in the future, Desktop may do the same - we will have both
+Rust and JS implemented engines which need to be coordinated. We ignore this
+requirement for now.</p>
+<p>This approach still has a fairly easy time coordinating with the Rust
+implemented engines - the FFI will need to expose the relevant sync
+entry-points to be called by Swift, but the Swift code can hard-code the
+Rust engines it has and make explicit calls to these entry-points.</p>
+<p>This Swift code will need to create the structures identified below, but this
+shouldn’t be too much of a burden as it already has the information necessary
+to do so (ie, it already has info/collections etc)</p>
+<p>TODO: dig into the Swift code and make sure this is sane.</p>
+<h1 id="details"><a class="header" href="#details">Details</a></h1>
+<p>While we use rust struct definitions here, it’s important to keep in mind that
+as mentioned above, we’ll need to support the manager being written in
+something other than rust, and to support engines written in other than rust.</p>
+<p>The structures below are a straw-man, but hopefully capture all the information
+that needs to be passed around.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>
+// We want to define a list of "engine IDs" - ie, canonical strings which
+// refer to what the user perceives as an "enigine" - but as above, these
+// *do not* correspond 1:1 with either "stores" or "collections" (eg, "history"
+// refers to 2 stores, and in a future world, might involve 3 collections).
+enum Engine {
+  History, // The "History" and "Forms" stores.
+  Bookmarks, // The "Bookmark" store.
+  Passwords,
+}
+
+impl Engine {
+  fn as_str(&amp;self) -&gt; &amp;'static str {
+    match self {
+      History =&gt; "history",
+      // etc
+  }
+}
+
+// A struct which reflects engine declined states.
+struct EngineState {
+  engine: Engine,
+  enabled: bool,
+}
+
+// A straw-man for the reasons why a sync is happening.
+enum SyncReason {
+  Scheduled,
+  User,
+  PreSleep,
+  Startup,
+}
+
+// A straw man for the general status.
+enum ServiceStatus {
+  Ok,
+  // Some general network issue.
+  NetworkError,
+  // Some apparent issue with the servers.
+  ServiceError,
+  // Some external FxA action needs to be taken.
+  AuthenticationError,
+  // We declined to do anything for backoff or rate-limiting reasons.
+  BackedOff,
+  // Something else - you need to check the logs for more details.
+  OtherError,
+}
+
+// Info we need from FxA to sync. This is roughly our Sync15StorageClientInit
+// structure with the FxA device ID.
+struct AccountInfo {
+  key_id: String,
+  access_token: String,
+  tokenserver_url: Url,
+  device_id: String,
+}
+
+// Instead of massive param and result lists, we use structures.
+// This structure is passed to each and every sync.
+struct SyncParams {
+  // The engines to Sync. None means "sync all"
+  engines: Option&lt;Vec&lt;Engine&gt;&gt;,
+  // Why this sync is being done.
+  reason: SyncReason,
+
+  // Any state changes which should be done as part of this sync.
+  engine_state_changes: Vec&lt;EngineState&gt;,
+
+  // An opaque state "blob". This should be persisted by the app so it is
+  // reused next sync.
+  persisted_state: Option&lt;String&gt;,
+}
+
+struct SyncResult {
+  // The general health.
+  service_status: ServiceStatus,
+
+  // The result for each engine.
+  engine_results: HashMap&lt;Engine, Result&lt;()&gt;&gt;,
+
+  // The list of declined engines, or None if we failed to get that far.
+  declined_engines: Option&lt;Vec&lt;Engine&gt;&gt;,
+
+  // When we are allowed to sync again. If &gt; now() then there's some kind
+  // of back-off. Note that it's not strictly necessary for the app to
+  // enforce this (ie, it can keep asking us to sync, but we might decline).
+  // But we might not too - eg, we might try a user-initiated sync.
+  next_sync_allowed_at: Timestamp,
+
+  // New opaque state which should be persisted by the embedding app and supplied
+  // the next time Sync is called.
+  persisted_state: String,
+
+  // Telemetry. Nailing this down is tbd.
+  telemetry: Option&lt;JSONValue&gt;,
+}
+
+struct SyncManager {}
+
+impl SyncManager {
+  // Initialize the sync manager with the set of Engines known by this
+  // application without regard to the enabled/declined states.
+  // XXX - still TBD is how we will pass "stores" around - it may be that
+  // this function ends up taking an `impl Store`
+  fn init(&amp;self, engines: Vec&lt;&amp;str&gt;) -&gt; Result&lt;()&gt;;
+
+  fn sync(&amp;self, params: SyncParams) -&gt; Result&lt;SyncResult&gt;;
+
+  // Interrupt any current syncs. Note that this can be called from a different
+  // thread.
+  fn interrupt() -&gt; Result&lt;()&gt;;
+
+  // Disconnect this device from sync. This may "reset" the stores, but will
+  // not wipe local data.
+  fn disconnect(&amp;self) -&gt; Result&lt;()&gt;;
+
+  // Wipe all local data for all local stores. This can be done after
+  // disconnecting.
+  // There's no exposed way to wipe the remote store - while it's possible
+  // stores will want to do this, there's no need to expose this to the user.
+  fn wipe(&amp;self) -&gt; Result&lt;()&gt;;
+}
+<span class="boring">}</span></code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/design/sync-manager.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../design/megazords.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../design/sync-overview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../design/megazords.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../design/sync-overview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
