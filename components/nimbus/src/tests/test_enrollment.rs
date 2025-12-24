@@ -3,7 +3,8 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // Testing enrollment.rs
-
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefBranch};
 use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_date};
 use crate::{
     defaults::Defaults,
@@ -16,6 +17,15 @@ use crate::{
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
+#[cfg(feature = "stateful")]
+use crate::{
+    stateful::gecko_prefs::{
+        create_feature_prop_pref_map, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore,
+    },
+    tests::helpers::TestGeckoPrefHandler,
+};
+#[cfg(feature = "stateful")]
+use std::sync::Arc;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stateful")] {
@@ -434,7 +444,15 @@ fn test_ios_rollout_experiment() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
+        .evolve_enrollment::<Experiment>(
+            true,
+            None,
+            Some(exp),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
+        )?
         .unwrap();
     println!("Enrollment: {:?}", &enrollment.status);
     assert!(matches!(
@@ -453,7 +471,15 @@ fn test_evolver_new_experiment_enrolled() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(true, None, Some(exp), None, &mut events)?
+        .evolve_enrollment::<Experiment>(
+            true,
+            None,
+            Some(exp),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
+        )?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -475,7 +501,15 @@ fn test_evolver_new_experiment_not_enrolled() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
+        .evolve_enrollment::<Experiment>(
+            true,
+            None,
+            Some(&exp),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
+        )?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -496,7 +530,15 @@ fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(false, None, Some(&exp), None, &mut events)?
+        .evolve_enrollment::<Experiment>(
+            false,
+            None,
+            Some(&exp),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
+        )?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -518,7 +560,15 @@ fn test_evolver_new_experiment_enrollment_paused() -> Result<()> {
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     let mut events = vec![];
     let enrollment = evolver
-        .evolve_enrollment::<Experiment>(true, None, Some(&exp), None, &mut events)?
+        .evolve_enrollment::<Experiment>(
+            true,
+            None,
+            Some(&exp),
+            None,
+            &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
+        )?
         .unwrap();
     assert!(matches!(
         enrollment.status,
@@ -551,6 +601,8 @@ fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
@@ -580,6 +632,8 @@ fn test_evolver_experiment_update_not_enrolled_enrollment_paused() -> Result<()>
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert_eq!(enrollment.status, existing_enrollment.status);
@@ -609,6 +663,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_not_selected() -> Result
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -642,6 +698,8 @@ fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()>
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -670,6 +728,8 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -679,6 +739,8 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -713,6 +775,8 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -722,12 +786,16 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     dbg!(&enrollment.status);
     if let EnrollmentStatus::Enrolled {
         reason: EnrolledReason::Qualified,
         branch,
+        #[cfg(feature = "stateful")]
+            previous_state: None,
         ..
     } = enrollment.status
     {
@@ -753,6 +821,8 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -762,6 +832,8 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
 
@@ -799,6 +871,8 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let observed = evolver
@@ -808,6 +882,8 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -837,8 +913,14 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) =
-        evolver.evolve_enrollments::<Experiment>(Participation::default(), &[], &recipes, &[])?;
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        Participation::default(),
+        &[],
+        &recipes,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -855,6 +937,8 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
         &prev_recipes,
         &recipes,
         enrollments.as_slice(),
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -871,6 +955,8 @@ fn test_rollout_unenrolls_when_bucketing_changes() -> Result<()> {
         &prev_recipes,
         &recipes,
         enrollments.as_slice(),
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -899,8 +985,14 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
     let ro = get_bucketed_rollout(slug, 0);
     let recipes = [ro];
 
-    let (enrollments, _) =
-        evolver.evolve_enrollments::<Experiment>(Participation::default(), &[], &recipes, &[])?;
+    let (enrollments, _) = evolver.evolve_enrollments::<Experiment>(
+        Participation::default(),
+        &[],
+        &recipes,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -917,6 +1009,8 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         &prev_recipes,
         &recipes,
         enrollments.as_slice(),
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -933,6 +1027,8 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         &prev_recipes,
         &recipes,
         enrollments.as_slice(),
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -955,6 +1051,8 @@ fn test_rollout_unenrolls_then_reenrolls_when_bucketing_changes() -> Result<()> 
         &prev_recipes,
         &recipes,
         enrollments.as_slice(),
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollments.len(), 1);
     let enr = enrollments.first().unwrap();
@@ -1001,6 +1099,8 @@ fn test_experiment_does_not_reenroll_from_disqualified_not_selected_or_not_targe
                 },
             },
         ],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(enrollments.len(), 2);
@@ -1043,6 +1143,8 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -1052,6 +1154,8 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -1078,6 +1182,8 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -1087,6 +1193,8 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -1128,6 +1236,8 @@ fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -1163,6 +1273,8 @@ fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()>
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -1187,6 +1299,8 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1227,6 +1341,8 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1254,6 +1370,8 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(2, enrollments.len());
@@ -1277,6 +1395,8 @@ fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
         &existing_experiments,
         &updated_experiments,
         &existing_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     // There should be one WasEnrolled; the NotEnrolled will have been
@@ -1340,6 +1460,8 @@ fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         &[],
         &test_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -1406,6 +1528,8 @@ fn test_multi_feature_per_branch_conflict() -> Result<()> {
         &[],
         &test_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let enrolled_count = enrollments
@@ -1450,6 +1574,8 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         &[],
         &test_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let enrolled_count = enrollments
@@ -1467,6 +1593,8 @@ fn test_evolver_feature_id_reuse() -> Result<()> {
         &test_experiments,
         &[test_experiments[1].clone(), conflicting_experiment.clone()],
         &enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     debug!("events = {:?}", events);
@@ -1517,6 +1645,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &[],
         &next_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let feature_map =
@@ -1559,6 +1689,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -1603,6 +1735,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let feature_map =
@@ -1635,6 +1769,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let feature_map =
@@ -1671,6 +1807,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     // 4b. Add the single feature experiments.
@@ -1686,6 +1824,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -1727,6 +1867,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -1767,6 +1909,8 @@ fn test_evolver_multi_feature_experiments() -> Result<()> {
         &prev_experiments,
         &next_experiments,
         &prev_enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     let feature_map =
@@ -1823,6 +1967,8 @@ fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert_eq!(enrollment, existing_enrollment);
@@ -2038,8 +2184,14 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
     let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) =
-        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+        true,
+        &no_experiments,
+        &all_experiments,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
     let expected = HashMap::from([
@@ -2064,8 +2216,14 @@ fn test_evolve_enrollments_with_coenrolling_features() -> Result<()> {
     assert_eq!(observed, expected);
 
     let experiments = [exp3, exp4];
-    let (enrollments, _) =
-        evolver.evolve_enrollment_recipes(true, &all_experiments, &experiments, &enrollments)?;
+    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+        true,
+        &all_experiments,
+        &experiments,
+        &enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
     let expected = HashMap::from([
@@ -2124,8 +2282,14 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
     let all_experiments = [exp1, exp2, exp3.clone(), exp4.clone()];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) =
-        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+        true,
+        &no_experiments,
+        &all_experiments,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
     let expected = HashMap::from([
@@ -2156,8 +2320,14 @@ fn test_evolve_enrollments_with_coenrolling_multi_features() -> Result<()> {
     assert_eq!(observed, expected);
 
     let experiments = [exp3, exp4];
-    let (enrollments, _) =
-        evolver.evolve_enrollment_recipes(true, &all_experiments, &experiments, &enrollments)?;
+    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+        true,
+        &all_experiments,
+        &experiments,
+        &enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
     let expected = HashMap::from([
@@ -2276,6 +2446,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "hello".to_owned(), // XXX this OK?
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     }];
 
@@ -2295,6 +2467,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         &test_experiments,
         &test_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -2316,6 +2490,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         &[],
         &test_experiments,
         &existing_enrollments[..],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
 
     assert_eq!(
@@ -2352,6 +2528,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
         &[],
         test_experiments,
         &[],
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(
         enrollments.len(),
@@ -2375,6 +2553,8 @@ fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
         test_experiments,
         test_experiments,
         &enrollments,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(
         enrollments.len(),
@@ -2412,6 +2592,8 @@ fn test_evolver_experiment_update_error() -> Result<()> {
             Some(&exp),
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     assert!(matches!(
@@ -2435,6 +2617,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -2444,6 +2628,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
             None,
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     if let EnrollmentStatus::WasEnrolled { branch, .. } = enrollment.status {
@@ -2480,6 +2666,8 @@ fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
             None,
             Some(&existing_enrollment),
             &mut events,
+            #[cfg(feature = "stateful")]
+            &None,
         )?
         .unwrap();
     if let EnrollmentStatus::WasEnrolled { branch, .. } = enrollment.status {
@@ -2514,6 +2702,8 @@ fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
         None,
         Some(&existing_enrollment),
         &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert!(enrollment.is_none());
     assert!(events.is_empty());
@@ -2540,6 +2730,8 @@ fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
         None,
         Some(&existing_enrollment),
         &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert_eq!(enrollment.unwrap(), existing_enrollment);
     assert!(events.is_empty());
@@ -2566,6 +2758,8 @@ fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
         None,
         Some(&existing_enrollment),
         &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
     )?;
     assert!(enrollment.is_none());
     assert!(events.is_empty());
@@ -2592,6 +2786,8 @@ fn test_evolver_new_experiment_enrollment_already_exists() {
         Some(&exp),
         Some(&existing_enrollment),
         &mut vec![],
+        #[cfg(feature = "stateful")]
+        &None,
     );
     assert!(res.is_err());
 }
@@ -2603,7 +2799,15 @@ fn test_evolver_existing_experiment_has_no_enrollment() {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, &mut vec![]);
+    let res = evolver.evolve_enrollment(
+        true,
+        Some(&exp),
+        Some(&exp),
+        None,
+        &mut vec![],
+        #[cfg(feature = "stateful")]
+        &None,
+    );
     assert!(res.is_err());
 }
 
@@ -2615,7 +2819,15 @@ fn test_evolver_no_experiments_no_enrollment() {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
     evolver
-        .evolve_enrollment::<Experiment>(true, None, None, None, &mut vec![])
+        .evolve_enrollment::<Experiment>(
+            true,
+            None,
+            None,
+            None,
+            &mut vec![],
+            #[cfg(feature = "stateful")]
+            &None,
+        )
         .unwrap();
 }
 
@@ -2656,8 +2868,14 @@ fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let (enrollments, events) =
-        evolver.evolve_enrollments::<Experiment>(Participation::default(), &[], recipes, &[])?;
+    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+        Participation::default(),
+        &[],
+        recipes,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
     assert_eq!(enrollments.len(), 2);
     assert_eq!(events.len(), 2);
 
@@ -2717,8 +2935,14 @@ fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
     let mut th = app_ctx.into();
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
-    let (enrollments, events) =
-        evolver.evolve_enrollments::<Experiment>(Participation::default(), &[], recipes, &[])?;
+    let (enrollments, events) = evolver.evolve_enrollments::<Experiment>(
+        Participation::default(),
+        &[],
+        recipes,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
     assert_eq!(enrollments.len(), 3);
     assert_eq!(events.len(), 3);
 
@@ -2915,6 +3139,8 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: exp_slug,
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
 
@@ -2923,6 +3149,8 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: ro_slug,
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollments = &[ro_enrollment, exp_enrollment];
@@ -2943,8 +3171,14 @@ fn test_rollouts_end_to_end() -> Result<()> {
     let ids = no_coenrolling_features();
     let mut evolver = enrollment_evolver(&mut th, &aru, &ids);
 
-    let (enrollments, _events) =
-        evolver.evolve_enrollments::<Experiment>(Participation::default(), &[], recipes, &[])?;
+    let (enrollments, _events) = evolver.evolve_enrollments::<Experiment>(
+        Participation::default(),
+        &[],
+        recipes,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let features = map_features_by_feature_id(&enrollments, recipes, &no_coenrolling_features());
 
@@ -2962,6 +3196,8 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
         enrollment.status,
         EnrollmentStatus::Enrolled {
             reason: EnrolledReason::OptIn,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
             ..
         }
     ));
@@ -2990,9 +3226,15 @@ fn test_enrollment_enrolled_explicit_opt_out() {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
-    let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
+    let enrollment = existing_enrollment.on_explicit_opt_out(
+        &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
+    );
     if let EnrollmentStatus::Disqualified { branch, .. } = enrollment.status {
         assert_eq!(branch, "control");
     } else {
@@ -3015,7 +3257,11 @@ fn test_enrollment_not_enrolled_explicit_opt_out() {
             reason: NotEnrolledReason::NotTargeted,
         },
     };
-    let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
+    let enrollment = existing_enrollment.on_explicit_opt_out(
+        &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
+    );
     assert!(matches!(
         enrollment.status,
         EnrollmentStatus::NotEnrolled {
@@ -3037,7 +3283,11 @@ fn test_enrollment_disqualified_explicit_opt_out() {
             reason: DisqualifiedReason::NotTargeted,
         },
     };
-    let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
+    let enrollment = existing_enrollment.on_explicit_opt_out(
+        &mut events,
+        #[cfg(feature = "stateful")]
+        &None,
+    );
     assert_eq!(enrollment, existing_enrollment);
     assert!(events.is_empty());
 }
@@ -3210,8 +3460,14 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
     let all_experiments = [exp1, exp2];
     let no_experiments: [Experiment; 0] = [];
 
-    let (enrollments, _) =
-        evolver.evolve_enrollment_recipes(true, &no_experiments, &all_experiments, &[])?;
+    let (enrollments, _) = evolver.evolve_enrollment_recipes(
+        true,
+        &no_experiments,
+        &all_experiments,
+        &[],
+        #[cfg(feature = "stateful")]
+        &None,
+    )?;
 
     let observed = map_features_by_feature_id(&enrollments, &all_experiments, &ids);
     let expected = HashMap::from([(
@@ -3226,4 +3482,262 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
     assert_eq!(observed, expected);
 
     Ok(())
+}
+
+#[test]
+#[cfg(feature = "stateful")]
+fn test_on_add_state() {
+    let exp = get_test_experiments()[0].clone();
+    let existing_enrollment = ExperimentEnrollment {
+        slug: exp.slug,
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref {
+            pref: "test.some.pref".to_string(),
+            branch: PrefBranch::Default,
+            value: Some(serde_json::Value::String(String::from("some-gecko-value"))),
+        }],
+        feature_id: "feature-id".to_string(),
+        variable: "variable".to_string(),
+    });
+
+    let enrollment = existing_enrollment.on_add_state(original_previous_state);
+
+    if let EnrollmentStatus::Enrolled {
+        previous_state:
+            Some(PreviousState::GeckoPref(PreviousGeckoPrefState {
+                original_values,
+                feature_id,
+                variable,
+            })),
+        ..
+    } = &enrollment.status
+    {
+        assert_eq!("feature-id", feature_id);
+        assert_eq!("variable", variable);
+        assert_eq!(1, original_values.len());
+        assert_eq!("test.some.pref", original_values[0].pref);
+        assert_eq!(
+            "some-gecko-value",
+            original_values[0].value.clone().unwrap()
+        );
+        assert_eq!(PrefBranch::Default, original_values[0].branch);
+    } else {
+        panic!("Wrong variant!");
+    }
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_on_revert_to_previous_state_with_gecko_prefs() {
+    let exp = get_test_experiments()[0].clone();
+    let existing_enrollment = ExperimentEnrollment {
+        slug: exp.slug,
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref::from(&pref_state_1)],
+        feature_id: "feature-id".to_string(),
+        variable: "variable".to_string(),
+    });
+    let enrollment = existing_enrollment.on_add_state(original_previous_state);
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "feature-id",
+        "test_prop",
+        pref_state_1.clone(),
+    )]));
+    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
+    let store = Arc::new(GeckoPrefStore::new(handler.clone()));
+    let _ = store.initialize();
+    let gecko_pref_store = Some(store);
+
+    if let EnrollmentStatus::Enrolled {
+        previous_state: Some(previous_state),
+        ..
+    } = &enrollment.status
+    {
+        previous_state.on_revert_to_previous_state(&gecko_pref_store);
+        let test_handler = unsafe {
+            std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
+                handler,
+            )
+        };
+        let test_handler_state = test_handler
+            .state
+            .lock()
+            .expect("Unable to lock transmuted handler state");
+        let original_prefs_stored = test_handler_state.original_prefs_state.clone().unwrap();
+
+        let PreviousState::GeckoPref(gecko_pref_state) = previous_state;
+        assert_eq!(1, original_prefs_stored.len());
+        assert_eq!(gecko_pref_state.original_values, original_prefs_stored);
+    }
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_will_pref_experiment_change_no_change() {
+    let original_experiment = get_test_experiments()[0].clone();
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref::from(&pref_state_1)],
+        feature_id: "some_control".to_string(),
+        variable: "variable".to_string(),
+    });
+    let original_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: Some(original_previous_state),
+        },
+    };
+
+    let updated_experiment = get_test_experiments()[0].clone();
+    let updated_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+
+    assert!(
+        !original_enrollment.will_pref_experiment_change(&updated_experiment, &updated_enrollment)
+    );
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_will_pref_experiment_change_branch_changed() {
+    let original_experiment = get_test_experiments()[0].clone();
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref::from(&pref_state_1)],
+        feature_id: "some_control".to_string(),
+        variable: "variable".to_string(),
+    });
+    let original_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: Some(original_previous_state),
+        },
+    };
+
+    let updated_experiment = get_test_experiments()[0].clone();
+    let updated_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "changed_branch".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+
+    assert!(
+        original_enrollment.will_pref_experiment_change(&updated_experiment, &updated_enrollment)
+    );
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_will_pref_experiment_change_feature_id_changed() {
+    let original_experiment = get_test_experiments()[0].clone();
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref::from(&pref_state_1)],
+        feature_id: "changed_feature_id".to_string(),
+        variable: "variable".to_string(),
+    });
+    let original_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: Some(original_previous_state),
+        },
+    };
+
+    let updated_experiment = get_test_experiments()[0].clone();
+    let updated_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+
+    assert!(
+        original_enrollment.will_pref_experiment_change(&updated_experiment, &updated_enrollment)
+    );
+}
+
+#[cfg(feature = "stateful")]
+#[test]
+fn test_will_pref_experiment_change_not_enrolled() {
+    let original_experiment = get_test_experiments()[0].clone();
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref::from(&pref_state_1)],
+        feature_id: "some_control".to_string(),
+        variable: "variable".to_string(),
+    });
+    let original_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: Some(original_previous_state),
+        },
+    };
+
+    let updated_experiment = get_test_experiments()[0].clone();
+    let updated_enrollment = ExperimentEnrollment {
+        slug: original_experiment.slug.clone(),
+        status: EnrollmentStatus::Error {
+            reason: "Something went wrong".to_string(),
+        },
+    };
+
+    assert!(
+        original_enrollment.will_pref_experiment_change(&updated_experiment, &updated_enrollment)
+    );
 }

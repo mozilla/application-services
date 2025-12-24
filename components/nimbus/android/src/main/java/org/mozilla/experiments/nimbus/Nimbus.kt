@@ -44,6 +44,7 @@ import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
+import org.mozilla.experiments.nimbus.internal.PreviousState
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import java.io.File
 import java.io.IOException
@@ -436,6 +437,18 @@ open class Nimbus(
         prefUnenrollReason: PrefUnenrollReason,
     ): List<EnrollmentChangeEvent> {
         return nimbusClient.unenrollForGeckoPref(geckoPrefState, prefUnenrollReason)
+    }
+
+    override fun registerPreviousGeckoPrefStates(geckoPrefStates: List<GeckoPrefState>) {
+        dbScope.launch {
+            withCatchAll("registerPreviousGeckoPrefStates") {
+                nimbusClient.registerPreviousGeckoPrefStates(geckoPrefStates)
+            }
+        }
+    }
+
+    override fun getPreviousState(experimentSlug: String): PreviousState? {
+        return nimbusClient.getPreviousState(experimentSlug)
     }
 
     @WorkerThread
