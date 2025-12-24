@@ -2,18 +2,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
+
 use parking_lot::Mutex;
 
-static RECENT_BREADCRUMBS: Mutex<BreadcrumbRingBuffer> = Mutex::new(BreadcrumbRingBuffer::new());
+static GLOBALS: Mutex<Globals> = Mutex::new(Globals::new());
 
 pub fn report_error_to_app(type_name: String, message: String) {
+    let mut globals = GLOBALS.lock();
+    if !globals
+        .rate_limiter
+        .should_send_report(&type_name, Instant::now())
+    {
+        return;
+    }
+
     // Report errors by sending a tracing event to the `app-services-error-reporter::error` target.
     //
     // Applications should register for these events and send a glean error ping when they occur.
     //
     // breadcrumbs will be sent in the `breadcrumbs` field as a single string, with each individual
     // breadcrumb joined by newlines.
-    let breadcrumbs = RECENT_BREADCRUMBS.lock().get_breadcrumbs().join("\n");
+    let breadcrumbs = globals.breadcrumbs.get_breadcrumbs().join("\n");
     tracing_support::error!(target: "app-services-error-reporter::error", message, type_name, breadcrumbs);
 }
 
@@ -22,8 +35,23 @@ pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32
     //   - Push it to the `RECENT_BREADCRUMBS` list
     //   - Send out the `app-services-error-reporter::breadcrumb`.  Applications can register for
     //     these events and log them.
-    RECENT_BREADCRUMBS.lock().push(message.clone());
+    GLOBALS.lock().breadcrumbs.push(message.clone());
     tracing_support::info!(target: "app-services-error-reporter::breadcrumb", message, module, line, column);
+}
+
+// Global structs used for error reporting
+struct Globals {
+    breadcrumbs: BreadcrumbRingBuffer,
+    rate_limiter: RateLimiter,
+}
+
+impl Globals {
+    const fn new() -> Self {
+        Self {
+            breadcrumbs: BreadcrumbRingBuffer::new(),
+            rate_limiter: RateLimiter::new(),
+        }
+    }
 }
 
 /// Ring buffer implementation that we use to store the most recent 20 breadcrumbs
@@ -71,6 +99,45 @@ fn truncate_breadcrumb(breadcrumb: String) -> String {
         .find(|i| breadcrumb.is_char_boundary(*i))
         .unwrap_or(0);
     breadcrumb[0..split_point].to_string()
+}
+
+/// Rate-limits error reports by type to 20 / hour
+///
+/// This uses the simplest algorithm possible.  We could use something like a token bucket to allow
+/// for a small burst of errors, but that doesn't seem so useful.  In that scenario, the first
+/// error report is the one we want to fix.
+struct RateLimiter {
+    // Optional so we can make `new()` const.
+    last_report: Option<HashMap<String, Instant>>,
+}
+
+impl RateLimiter {
+    // Rate limit reports if they're within 3 minutes of each other.
+    const INTERVAL: Duration = Duration::from_secs(180);
+
+    const fn new() -> Self {
+        Self { last_report: None }
+    }
+
+    fn should_send_report(&mut self, error_type: &str, now: Instant) -> bool {
+        let last_report = self.last_report.get_or_insert_with(HashMap::default);
+
+        if let Some(last_report) = last_report.get(error_type) {
+            match now.checked_duration_since(*last_report) {
+                // Not enough time has passed, rate-limit the report
+                Some(elapsed) if elapsed < Self::INTERVAL => {
+                    return false;
+                }
+                // For all other cases, fall through and allow the report to be sent.
+                //
+                // Note: this also covers the `None` case which happens when the clock is
+                // non-monotonic.  Letting an extra event through seems okay in this case.
+                _ => (),
+            }
+        }
+        last_report.insert(error_type.to_string(), now);
+        true
+    }
 }
 
 #[cfg(test)]
@@ -211,5 +278,28 @@ mod test {
         // This one needs truncating and we need to make sure don't truncate in the middle of the
         // fire emoji, which is multiple bytes long.
         assert_eq!(truncate_breadcrumb("0".repeat(99) + "🔥").len(), 99);
+    }
+
+    #[test]
+    fn test_rate_limiter() {
+        let mut rate_limiter = RateLimiter::new();
+        let start = Instant::now();
+        let min = Duration::from_secs(60);
+        // The first error report is okay
+        assert!(rate_limiter.should_send_report("test-type", start));
+        // The report should be rate limited until 3 minutes pass, then we can send another one.
+        // Subtract time from the instant to simulate time going forward.
+        assert!(!rate_limiter.should_send_report("test-type", start));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 1));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 2));
+        assert!(rate_limiter.should_send_report("test-type", start + min * 3));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 4));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 5));
+        assert!(rate_limiter.should_send_report("test-type", start + min * 6));
+
+        assert!(rate_limiter.should_send_report("test-type", start + min * 60));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 61));
+        assert!(!rate_limiter.should_send_report("test-type", start + min * 62));
+        assert!(rate_limiter.should_send_report("test-type", start + min * 63));
     }
 }
