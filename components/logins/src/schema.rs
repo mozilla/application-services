@@ -95,7 +95,8 @@ use sql_support::ConnExt;
 
 /// Version 1: SQLCipher -> plaintext migration.
 /// Version 2: addition of `loginsM.enc_unknown_fields`.
-pub(super) const VERSION: i64 = 2;
+/// Version 3: addition of `timeOfLastBreach` and `timeLastBreachAlertDismissed`.
+pub(super) const VERSION: i64 = 3;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -125,29 +126,34 @@ pub const COMMON_COLS: &str = "
     timeCreated,
     timeLastUsed,
     timePasswordChanged,
-    timesUsed
+    timesUsed,
+    timeOfLastBreach,
+    timeLastBreachAlertDismissed
 ";
 
 const COMMON_SQL: &str = "
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    origin              TEXT NOT NULL,
+    id                                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    origin                                      TEXT NOT NULL,
     -- Exactly one of httpRealm or formActionOrigin should be set
-    httpRealm           TEXT,
-    formActionOrigin    TEXT,
-    usernameField       TEXT,
-    passwordField       TEXT,
-    timesUsed           INTEGER NOT NULL DEFAULT 0,
-    timeCreated         INTEGER NOT NULL,
-    timeLastUsed        INTEGER,
-    timePasswordChanged INTEGER NOT NULL,
-    secFields           TEXT,
-    guid                TEXT NOT NULL UNIQUE
+    httpRealm                                   TEXT,
+    formActionOrigin                            TEXT,
+    usernameField                               TEXT,
+    passwordField                               TEXT,
+    timesUsed                                   INTEGER NOT NULL DEFAULT 0,
+    timeCreated                                 INTEGER NOT NULL,
+    timeLastUsed                                INTEGER,
+    timePasswordChanged                         INTEGER NOT NULL,
+    timeOfLastBreach    INTEGER,
+    timeLastBreachAlertDismissed                INTEGER,
+    secFields                                   TEXT,
+    guid                                        TEXT NOT NULL UNIQUE
 ";
 
 lazy_static! {
     static ref CREATE_LOCAL_TABLE_SQL: String = format!(
         "CREATE TABLE IF NOT EXISTS loginsL (
             {common_sql},
+
             -- Milliseconds, or NULL if never modified locally.
             local_modified INTEGER,
 
@@ -220,24 +226,38 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
 #[allow(clippy::unnecessary_wraps)]
 fn upgrade(db: &Connection, from: i64) -> Result<()> {
     debug!("Upgrading schema from {} to {}", from, VERSION);
+
     if from == VERSION {
         return Ok(());
     }
-    assert_ne!(
-        from, 0,
-        "Upgrading from user_version = 0 should already be handled (in `init`)"
-    );
 
-    // Schema upgrades.
-    if from == 1 {
-        // Just one new nullable column makes this fairly easy
-        db.execute_batch("ALTER TABLE loginsM ADD enc_unknown_fields TEXT;")?;
+    for version in from..VERSION {
+        upgrade_from(db, version)?;
     }
-    // XXX - next migration, be sure to:
-    // from = 2;
-    // if from == 2 ...
+
     db.execute_batch(&SET_VERSION_SQL)?;
     Ok(())
+}
+
+fn upgrade_from(db: &Connection, from: i64) -> Result<()> {
+    // Schema upgrades.
+    match from {
+        0 => Err(Error::IncompatibleVersion(from)),
+
+        // Just one new nullable column makes this fairly easy
+        1 => Ok(db.execute_batch("ALTER TABLE loginsM ADD enc_unknown_fields TEXT;")?),
+
+        // again, easy migratable nullable columns
+        2 => Ok(db.execute_batch(
+            "ALTER TABLE loginsL ADD timeOfLastBreach INTEGER;
+        ALTER TABLE loginsM ADD timeOfLastBreach INTEGER;
+        ALTER TABLE loginsL ADD timeLastBreachAlertDismissed INTEGER;
+        ALTER TABLE loginsM ADD timeLastBreachAlertDismissed INTEGER;",
+        )?),
+
+        // next migration, add here
+        _ => Err(Error::IncompatibleVersion(from)),
+    }
 }
 
 pub(crate) fn create(db: &Connection) -> Result<()> {
@@ -272,10 +292,35 @@ mod tests {
     }
 
     #[test]
-    fn test_upgrade_v1() {
+    fn test_upgrade() {
         ensure_initialized();
         // manually setup a V1 schema.
         let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS loginsL (
+                    -- this was common_sql as at v1
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    origin              TEXT NOT NULL,
+                    httpRealm           TEXT,
+                    formActionOrigin    TEXT,
+                    usernameField       TEXT,
+                    passwordField       TEXT,
+                    timesUsed           INTEGER NOT NULL DEFAULT 0,
+                    timeCreated         INTEGER NOT NULL,
+                    timeLastUsed        INTEGER,
+                    timePasswordChanged INTEGER NOT NULL,
+                    secFields           TEXT,
+                    
+                    local_modified INTEGER,
+
+                    is_deleted     TINYINT NOT NULL DEFAULT 0,
+                    sync_status    TINYINT NOT NULL DEFAULT 0
+                );
+            ",
+            )
+            .unwrap();
         connection
             .execute_batch(
                 "
@@ -314,8 +359,18 @@ mod tests {
         let version = db.conn_ext_query_one::<i64>("PRAGMA user_version").unwrap();
         assert_eq!(version, VERSION);
 
-        // and ensure sql selecting the new column works.
+        // ensure we have migrated to v2
         db.execute_batch("SELECT enc_unknown_fields FROM loginsM")
+            .unwrap();
+
+        // and ensure we have also migrated to v3
+        db.execute_batch("SELECT timeOfLastBreach FROM loginsL")
+            .unwrap();
+        db.execute_batch("SELECT timeOfLastBreach FROM loginsM")
+            .unwrap();
+        db.execute_batch("SELECT timeLastBreachAlertDismissed FROM loginsL")
+            .unwrap();
+        db.execute_batch("SELECT timeLastBreachAlertDismissed FROM loginsM")
             .unwrap();
     }
 }
