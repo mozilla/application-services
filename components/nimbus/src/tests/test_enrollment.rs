@@ -3,7 +3,8 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 // Testing enrollment.rs
-
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefBranch};
 use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_date};
 use crate::{
     defaults::Defaults,
@@ -670,6 +671,8 @@ fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -713,6 +716,8 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -728,6 +733,8 @@ fn test_evolver_experiment_update_enrolled_then_experiment_paused() -> Result<()
     if let EnrollmentStatus::Enrolled {
         reason: EnrolledReason::Qualified,
         branch,
+        #[cfg(feature = "stateful")]
+            previous_state: None,
         ..
     } = enrollment.status
     {
@@ -753,6 +760,8 @@ fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -799,6 +808,8 @@ fn test_evolver_experiment_update_enrolled_then_bucketing_changed() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let observed = evolver
@@ -1043,6 +1054,8 @@ fn test_evolver_experiment_update_enrolled_then_branches_changed() -> Result<()>
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -1078,6 +1091,8 @@ fn test_evolver_experiment_update_enrolled_then_branch_disappears() -> Result<()
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -2276,6 +2291,8 @@ fn test_evolve_enrollments_error_handling() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "hello".to_owned(), // XXX this OK?
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     }];
 
@@ -2435,6 +2452,8 @@ fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = evolver
@@ -2915,6 +2934,8 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: exp_slug,
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
 
@@ -2923,6 +2944,8 @@ fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
         status: EnrollmentStatus::Enrolled {
             branch: ro_slug,
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollments = &[ro_enrollment, exp_enrollment];
@@ -2962,6 +2985,8 @@ fn test_enrollment_explicit_opt_in() -> Result<()> {
         enrollment.status,
         EnrollmentStatus::Enrolled {
             reason: EnrolledReason::OptIn,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
             ..
         }
     ));
@@ -2990,6 +3015,8 @@ fn test_enrollment_enrolled_explicit_opt_out() {
         status: EnrollmentStatus::Enrolled {
             branch: "control".to_owned(),
             reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         },
     };
     let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
@@ -3226,4 +3253,53 @@ fn test_evolve_enrollments_ordering() -> Result<()> {
     assert_eq!(observed, expected);
 
     Ok(())
+}
+
+#[test]
+#[cfg(feature = "stateful")]
+fn test_on_add_state() {
+    let exp = get_test_experiments()[0].clone();
+    let existing_enrollment = ExperimentEnrollment {
+        slug: exp.slug,
+        status: EnrollmentStatus::Enrolled {
+            branch: "control".to_owned(),
+            reason: EnrolledReason::Qualified,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
+        },
+    };
+    let original_previous_state: PreviousState = PreviousState::GeckoPref(PreviousGeckoPrefState {
+        original_values: vec![OriginalGeckoPref {
+            pref: "test.some.pref".to_string(),
+            branch: PrefBranch::Default,
+            value: Some(serde_json::Value::String(String::from("some-gecko-value"))),
+        }],
+        feature_id: "feature-id".to_string(),
+        variable: "variable".to_string(),
+    });
+
+    let enrollment = existing_enrollment.on_add_state(original_previous_state);
+
+    if let EnrollmentStatus::Enrolled {
+        previous_state:
+            Some(PreviousState::GeckoPref(PreviousGeckoPrefState {
+                original_values,
+                feature_id,
+                variable,
+            })),
+        ..
+    } = &enrollment.status
+    {
+        assert_eq!("feature-id", feature_id);
+        assert_eq!("variable", variable);
+        assert_eq!(1, original_values.len());
+        assert_eq!("test.some.pref", original_values[0].pref);
+        assert_eq!(
+            "some-gecko-value",
+            original_values[0].value.clone().unwrap()
+        );
+        assert_eq!(PrefBranch::Default, original_values[0].branch);
+    } else {
+        panic!("Wrong variant!");
+    }
 }

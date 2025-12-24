@@ -69,3 +69,47 @@ fn test_not_enrolled_reason_schema_with_feature_conflict() {
         matches!(non_enrollment.status, EnrollmentStatus::NotEnrolled{ ref reason, ..} if reason == &NotEnrolledReason::FeatureConflict)
     );
 }
+
+// In bug 1997373, we added a `previous_state` field to the EnrollmentStatus schema.
+// This test check tht the data deserializes correctly both with and without the new field.
+#[cfg(feature = "stateful")]
+#[test]
+fn test_experiment_schema_with_previous_state() {
+    // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+    let previous_state_empty: EnrollmentStatus = serde_json::from_value(json!({
+            "Enrolled": {
+            "reason": "Qualified",
+            "branch": "some_branch",
+        }
+    }))
+    .unwrap();
+    assert!(
+        matches!(previous_state_empty, EnrollmentStatus::Enrolled {ref previous_state, ..} if previous_state.is_none())
+    );
+
+    let previous_state_exists: EnrollmentStatus = serde_json::from_value(json!({
+    "Enrolled": {
+        "reason": "Qualified",
+        "branch": "some_branch",
+        "previous_state": {
+        "GeckoPref": {
+            "original_values": [{
+            "pref": "some_pref",
+            "branch": "default",
+            "value": 5
+            }],
+            "feature_id": "some_control",
+            "variable": "some_variable"
+        }
+        }
+    }
+    }))
+    .unwrap();
+    assert!(matches!(
+            previous_state_exists,
+            EnrollmentStatus::Enrolled {
+                previous_state: Some(PreviousState::GeckoPref(PreviousGeckoPrefState { ref original_values, .. })),
+                ..
+            } if original_values[0].pref == "some_pref" &&  original_values[0].value.clone().unwrap() == 5
+    ));
+}

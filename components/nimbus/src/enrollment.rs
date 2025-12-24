@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #[cfg(feature = "stateful")]
-use crate::stateful::gecko_prefs::PrefUnenrollReason;
+use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefUnenrollReason};
 use crate::{
     defaults::Defaults,
     error::{debug, warn, NimbusError, Result},
@@ -21,7 +21,7 @@ pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(36
 
 // These are types we use internally for managing enrollments.
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
     /// A normal enrollment as per the experiment's rules.
@@ -45,7 +45,7 @@ impl Display for EnrolledReason {
 // These are types we use internally for managing non-enrollments.
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
     /// The experiment targets a different application.
@@ -99,7 +99,7 @@ impl Default for Participation {
 // These are types we use internally for managing disqualifications.
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DisqualifiedReason {
     /// There was an error.
@@ -134,10 +134,29 @@ impl Display for DisqualifiedReason {
     }
 }
 
-// Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
-
+// The previous state of a Gecko pref before enrollment took place.
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[cfg(feature = "stateful")]
+pub struct PreviousGeckoPrefState {
+    pub original_values: Vec<OriginalGeckoPref>,
+    pub feature_id: String,
+    pub variable: String,
+}
+
+// The previous state of a given feature before enrollment.
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq, uniffi::Enum)]
+#[cfg(feature = "stateful")]
+pub enum PreviousState {
+    GeckoPref(PreviousGeckoPrefState),
+}
+
+// Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExperimentEnrollment {
     pub slug: String,
@@ -430,6 +449,20 @@ impl ExperimentEnrollment {
         }
     }
 
+    // Previous state is only settable on Enrolled experiments
+    #[cfg(feature = "stateful")]
+    pub(crate) fn on_add_state(&self, previous_state: PreviousState) -> ExperimentEnrollment {
+        let mut next = self.clone();
+        if let EnrollmentStatus::Enrolled { reason, branch, .. } = &self.status {
+            next.status = EnrollmentStatus::Enrolled {
+                previous_state: Some(previous_state),
+                reason: reason.clone(),
+                branch: branch.clone(),
+            };
+        }
+        next
+    }
+
     /// Reset identifiers in response to application-level telemetry reset.
     ///
     /// We move any enrolled experiments to the "disqualified" state, since their further
@@ -531,12 +564,15 @@ impl ExperimentEnrollment {
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
-// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
     Enrolled {
         reason: EnrolledReason,
         branch: String,
+        #[cfg(feature = "stateful")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        previous_state: Option<PreviousState>,
     },
     NotEnrolled {
         reason: NotEnrolledReason,
@@ -577,6 +613,8 @@ impl EnrollmentStatus {
         EnrollmentStatus::Enrolled {
             reason,
             branch: branch.to_owned(),
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         }
     }
 

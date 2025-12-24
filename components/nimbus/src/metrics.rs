@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "stateful")]
+use crate::enrollment::PreviousState;
+
 use crate::{enrollment::ExperimentEnrollment, EnrolledFeature, EnrollmentStatus};
 use serde_derive::{Deserialize, Serialize};
 
@@ -28,6 +31,9 @@ pub struct EnrollmentStatusExtraDef {
     pub status: Option<String>,
     #[cfg(not(feature = "stateful"))]
     pub user_id: Option<String>,
+    #[cfg(feature = "stateful")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_state: Option<PreviousState>,
 }
 
 #[cfg(test)]
@@ -93,6 +99,8 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
             status: Some(enrollment.status.name()),
             #[cfg(not(feature = "stateful"))]
             user_id: None,
+            #[cfg(feature = "stateful")]
+            previous_state: None,
         }
     }
 }
