@@ -299,17 +299,18 @@ class FxaClient(inner: FirefoxAccount, persistCallback: PersistCallback?) : Auto
      * re-login by starting a new OAuth flow.
      *
      * @param scope Single OAuth scope (no spaces) for which the client wants access
-     * @param ttl time in seconds for which the token will be valid
+     * @param useCache set to false to force a new token request.  The fetched token will still be
+     * cached for later `get_access_token` calls.
      * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete
      * @throws FxaException.Network Network error while requesting the access token.
      * @throws FxaException.Unauthorized We couldn't provide an access token for this scope.
      * @throws FxaException.SyncScopedKeyMissingInServerResponse we received an access token for the
      * sync scoped, but the sync key that should accompany it was missing.
      */
-    fun getAccessToken(scope: String, ttl: Long? = null): AccessTokenInfo {
+    fun getAccessToken(scope: String, useCache: Boolean = true): AccessTokenInfo {
         return withMetrics {
             try {
-                this.inner.getAccessToken(scope, ttl)
+                this.inner.getAccessToken(scope, useCache)
             } finally {
                 this.tryPersistState()
             }
