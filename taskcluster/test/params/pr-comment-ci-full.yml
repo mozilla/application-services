@@ -15,7 +15,6 @@ files_changed:
 - megazords/full/android/build.gradle
 - publish.gradle
 - gradle/libs.versions.toml
-- tools/nimbus-gradle-plugin/build.gradle
 filters:
 - target_tasks_method
 - branch-build
