@@ -117,17 +117,17 @@ ext.configureUniFFIBindgen = { crateName ->
         // in moz-central we can use an `Exec` task because we can assume the bindgen tool has already been built.
         generateUniffiBindings = tasks.register("generateUniffiBindings", Exec) {
             def libraryPath = "${gradle.mozconfig.topobjdir}/dist/bin/libmegazord.so"
-            def megazordNative = "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+            def bindgen = gradle.ext.mozconfig.substs.EMBEDDED_UNIFFI_BINDGEN
 
             workingDir project.rootDir
-            commandLine "${gradle.mozconfig.topobjdir}/dist/host/bin/embedded-uniffi-bindgen"
+            commandLine bindgen
             args 'generate', '--library', libraryPath, "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format'
 
             outputs.dir uniffiOutDir
             // Re-generate when the native megazord library is rebuilt
-            inputs.files megazordNative
+            inputs.files libraryPath
             // Re-generate if our uniffi-bindgen tooling changes.
-            inputs.dir "${project.appServicesRootDir}/tools/embedded-uniffi-bindgen/"
+            inputs.files bindgen
         }
     } else {
         // In app-services we can't use `Exec` because the megazord target isn't built yet, which we force via `doFirst`

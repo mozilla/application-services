@@ -5,7 +5,6 @@ authors = ["The Firefox Sync Developers <sync-team@mozilla.com>"]
 edition = "2021"
 license = "MPL-2.0"
 
-# A bin target needed when used in m-c.
 [[bin]]
 name = "embedded-uniffi-bindgen"
 

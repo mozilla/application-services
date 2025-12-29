@@ -27,10 +27,11 @@ export MOZ_AVOID_JJ_VCS=1
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D260481
 # Bug 1981871 - Make `./mach rusttests` run some tests via cargo directly,
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D260480
-# gradle
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D245762
 # enable `--with-appservices-in-tree` config option by default
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
+# unstub toolchains
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D274371
+
 # vet nimbus, rc_crypto, ece, etc
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
 # lint
@@ -52,7 +53,6 @@ rm -rf gradle
 rm proguard-rules-consumer-jna.pro
 rm install-nimbus-cli.sh
 rm rust-toolchain.toml
-rm -rf components/external
 rm -rf docs/shared
 # need a story for these generated deps - bug 1963617
 rm DEPENDENCIES.md megazords/full/android/dependency-licenses.xml megazords/full/DEPENDENCIES.md megazords/ios-rust/DEPENDENCIES.md megazords/ios-rust/focus/DEPENDENCIES.md
@@ -215,7 +215,7 @@ cargo update -p gkrust-shared
 cargo update -p expect-test --precise 1.4.1
 cargo update -p fragile --precise 2.0.0
 cargo update -p mockito --precise 0.31.0
-cargo update -p predicates --precise 3.0.4
+cargo update -p predicates --precise 3.1.3
 cargo update -p predicates-core --precise 1.0.6
 cargo update -p predicates-tree --precise 1.0.9
 
@@ -227,8 +227,8 @@ sed -e 's|/dom/webgpu/tests/cts/vendor/target/|/dom/webgpu/tests/cts/vendor/targ
 mv .gitignore.tmp .gitignore
 # .hgignore needs the same, but with a leading `^` instead of `/`
 sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/target/\
-^services/app-services/**/target/\
-^services/app-services/**/Cargo.lock|' \
+^services/app-services/.*/target/\
+^services/app-services/.*/Cargo.lock|' \
   .hgignore > .hgignore.tmp
 mv .hgignore.tmp .hgignore
 
