@@ -1,0 +1,445 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ADR-0007 - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-5f333e0d.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-5592c39f.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="limit-visits-migrated-to-places-history-in-firefox-ios"><a class="header" href="#limit-visits-migrated-to-places-history-in-firefox-ios">Limit Visits Migrated to Places History in Firefox iOS</a></h1>
+<ul>
+<li>Status: accepted</li>
+<li>Deciders: teshaq, mhammond, lougeniaC64, dnarcese</li>
+<li>Date: 2023-01-06</li>
+</ul>
+<h2 id="context-and-problem-statement"><a class="header" href="#context-and-problem-statement">Context and Problem Statement</a></h2>
+<p><a href="https://mozilla-hub.atlassian.net/browse/SYNC-3086">The Application-Services team removed a legacy implementation of history in Firefox-ios and replaced it with a maintained implementation that was powering Firefox Android.</a></p>
+<p>A significant part of the project is migrating users’ history from the old database to a new one. To measure risk, we ran a dry-run migration. A dry-run migration runs a background thread in the user’s application and attempts to migrate to a fake database. The dry-run was implemented purely to collect telemetry on the migration to evaluate risk. The results can be found in the <a href="https://mozilla.cloud.looker.com/dashboards/917?Submission+Date=28+day+ago+for+28+day&amp;Channel=mozdata.firefox%5E_ios.metrics&amp;Places+History+Migration+Migration+Error+Rate+Numerator=NOT+NULL">following Looker dashboard</a>. Below is a list of observations.</p>
+<h3 id="observations-from-dry-run-experiment"><a class="header" href="#observations-from-dry-run-experiment">Observations from Dry-Run Experiment</a></h3>
+<p>The following is a list of observations from the experiment:</p>
+<ul>
+<li>5-6% of migrations do not end. This means for 5-6% of users, the application was terminated before migration ended. For a real migration, this would mean those users lose all of their history unless we attempt the migration multiple times.</li>
+<li>Out of the migrations that failed (the 5-6% mentioned above) 97% of those users had over 10,000 history visits.</li>
+<li>Out of migrations that do end, over 99% of migrations are successful.
+<ul>
+<li>This means that we are not experiencing many errors with the migration beyond the time it takes.</li>
+</ul>
+</li>
+<li>The average for visits migrated is around 25,000 - 45,000 visits.</li>
+<li>The median for visits migrated is around 5,000-15,000 visits.
+<ul>
+<li>The difference between the average and the median suggests that we have many users with a large number of visits</li>
+</ul>
+</li>
+<li>For migrations that did end, the following are the percentiles for how long it took (in milliseconds). We would like to emphasize that <strong>the following only includes migrations that did end</strong>
+<ul>
+<li>10th percentile: 37 ms</li>
+<li>25th percentile: 80 ms</li>
+<li>50th percentile: 400 ms</li>
+<li>75th percentile: 2,500 ms (2.5 seconds)</li>
+<li>90th percentile: 6,400 ms (6.4 seconds)</li>
+<li>95th percentile: 11,000 ms (11 seconds)</li>
+<li>99th percentile: 25,000 ms (25 seconds)</li>
+<li>99.9th  percentile: 50,000 ms (50 seconds)</li>
+</ul>
+</li>
+</ul>
+<h3 id="problem-statement"><a class="header" href="#problem-statement">Problem Statement</a></h3>
+<p>Given the observations from the dry-run experiment, the rest of the document examines an approach to answer the question: <strong>How can we increase the rate of which migrations end, and simultaneously keep the user’s database size at a reasonable size?</strong></p>
+<p>The user implication of keeping the rate of ended migrations high is that users keep their history, and can interact normally with the URL bar to search history, searching history in the history panel and navigating to sites they visited in the past.</p>
+<p>The user implication of keeping a reasonable database size is that the database is less likely to lock on long queries. Meaning we reduce performance issues when users use the search bar, the history panel and when navigating to sites.</p>
+<p>Finally, it’s important to note that power users and daily active users will be more likely to have large histories and thus:</p>
+<ul>
+<li>Power users are more likely to fail their migration.</li>
+<li>Power users are more likely to have performance issues with history and the search bar.
+<ul>
+<li>We saw a version of this with Favicons in an earlier incident, where users were coming across a significant number of database locks, crashing the app. This isn’t to say that the incident is directly related to this, however, large histories could contribute to the state we saw in the incident as it would take longer to run the queries.</li>
+</ul>
+</li>
+</ul>
+<h2 id="decision-drivers"><a class="header" href="#decision-drivers">Decision Drivers <!-- optional --></a></h2>
+<ul>
+<li>
+<p>We must not lose users’ recent history.</p>
+<ul>
+<li>What is considered “recent” is not concretely defined. There is prior art, however:
+<ul>
+<li><a href="https://github.com/mozilla/application-services/blob/c34de065f5773b529a0def773cffb29b45676bce/components/places/src/history_sync/mod.rs#L16">Firefox Sync in Android syncs 5000 visits.</a></li>
+<li><a href="https://github.com/mozilla-mobile/firefox-android/blob/8077db4b55c1a8976ec130462767e3075b9cbeab/android-components/components/browser/storage-sync/src/main/java/mozilla/components/browser/storage/sync/PlacesHistoryStorageWorker.kt#L38">Firefox Desktop and Android impose limits on the size of the database, 75 MiB in Android</a></li>
+<li><a href="https://searchfox.org/mozilla-central/rev/f40d29a11f2eb4685256b59934e637012ea6fb78/browser/app/profile/firefox.js#2134">When importing history from chrome to Firefox, we only migrate the latest 2000 visits</a></li>
+<li><a href="https://support.google.com/chrome/answer/95589">Chrome only keeps a user’s history for 90 days</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>User’s experience with History must not regress, and ideally should improve.</p>
+<ul>
+<li>User experience is tightly coupled with the size of the database. The larger the database, the longer queries take. The longer queries take, the longer it would take for a user to observe their searched history and the history panel.</li>
+</ul>
+</li>
+</ul>
+<h2 id="considered-options"><a class="header" href="#considered-options">Considered Options</a></h2>
+<ul>
+<li>Keep the migration as-is.
+<ul>
+<li>This option means that we have no limit. We will attempt to migrate all history for our users.</li>
+</ul>
+</li>
+<li>Introduce a date-based limit on visits for the migration
+<ul>
+<li>This option means that we only migrate visits that occurred in the past X days/weeks/months etc</li>
+</ul>
+</li>
+<li>Introduce a visit number-based limit for the migration
+<ul>
+<li>This option means we only migrate the latest X visits</li>
+</ul>
+</li>
+</ul>
+<h2 id="decision-outcome"><a class="header" href="#decision-outcome">Decision Outcome</a></h2>
+<p>Chosen option: <strong>Introduce a visit number-based limit for the migration</strong>. This option was chosen because given our decision drivers:</p>
+<ol>
+<li>We must not lose users’ recent history:</li>
+</ol>
+<ul>
+<li>We have established in the results of the dry-run, that the majority of failed migrations were for users with a large number of visits.</li>
+<li>By setting a reasonable limit, we can increase the likelihood the migration succeeds. We can set the limit to encompass “recent history” while choosing a limit that has an over 99% success rate.</li>
+</ul>
+<ol start="2">
+<li>User’s experience with History must not regress, and ideally should improve.</li>
+</ol>
+<ul>
+<li>We have established in our decision driver that the user’s experience with history is coupled with the database size.</li>
+<li>By setting a reasonable limit, we can keep the size of the history database controlled.</li>
+<li>It’s also worth noting that with the switch to the new implementation of history, we are also introducing a target size for the database. This means that we have maintenance logic that would compact the database and prune it if it grows beyond the target size.</li>
+</ul>
+<h3 id="positive-consequences"><a class="header" href="#positive-consequences">Positive Consequences</a></h3>
+<ul>
+<li>The migration runs in a shorter time.
+<ul>
+<li>This means a higher chance of the migration succeeding, thus keeping the user’s recent history without loss.</li>
+</ul>
+</li>
+<li>Users who have less than the selected limit, will still get all their history. More on this in the Suggested Limit section.</li>
+<li>We keep the size of the history database low.
+<ul>
+<li>This way users with more than the limit, will only keep their recent history.</li>
+<li>Additionally, when we delete users’ history from the old database, the size of the data the app keeps will decrease dramatically.</li>
+<li>Keeping the database size low means we lower the chance a user has performance issues with the database.</li>
+</ul>
+</li>
+</ul>
+<h3 id="negative-consequences"><a class="header" href="#negative-consequences">Negative Consequences</a></h3>
+<p>The biggest negative consequence is that <strong>Users with more visits than the limit, will lose visits</strong>.</p>
+<ul>
+<li>Since we would only keep the latest X visits for a user, if a user has Y visits, they would lose all of the Y-X visits (assuming Y is greater than X)</li>
+<li>The effect here is mitigated by the observation that recent history is more important to users than older history. Unfortunately, we do not have any telemetry to demonstrate this claim, but it’s an assumption based on the existing limits on history imposed in Android and Desktop mentioned in the decision drivers section.</li>
+</ul>
+<h2 id="pros-and-cons-of-the-other-options"><a class="header" href="#pros-and-cons-of-the-other-options">Pros and Cons of the Other Options</a></h2>
+<h3 id="keep-the-migration-as-is"><a class="header" href="#keep-the-migration-as-is">Keep the migration as-is</a></h3>
+<ul>
+<li>Good because if the migration succeeds, users keep all their history.</li>
+<li>Bad, because it’s less likely for migrations to succeed.</li>
+<li>Bad, because even if the migration succeeds it causes the size of the database to be large if a user has a lot of history.
+<ul>
+<li>Large databases can cause a regression in performance.</li>
+<li>Users with a lot of history will now have two large databases (the old and new ones) since we won’t delete the data in the old database right away to support downgrades.</li>
+</ul>
+</li>
+<li>Bad, because it can take a long time for the migration to finish.</li>
+<li>Bad because until the migration is over users will experience the app without history.</li>
+</ul>
+<h3 id="introduce-a-date-based-limit-on-visits"><a class="header" href="#introduce-a-date-based-limit-on-visits">Introduce a date-based limit on visits</a></h3>
+<ul>
+<li>Good, because we match users’ usage of the app.
+<ul>
+<li>Users that use the app more, will keep more of their history.</li>
+</ul>
+</li>
+<li>Good, because it’s more likely that the migration ends because we set a limit</li>
+<li>Bad because it’s hard to predict how large user’s databases will be.
+<ul>
+<li>This is particularly important for Sync users. As Firefox-iOS syncs all your history, meaning if a user has many visits before the limit across multiple platforms, a large number of visits will be migrated.</li>
+</ul>
+</li>
+<li>Bad, because users who haven’t used the app since the limit, will lose all their history
+<ul>
+<li>For example, if the limit is 3 months, a user who last used the app 3 months ago will suddenly lose all their history</li>
+</ul>
+</li>
+</ul>
+<h2 id="suggested-limit"><a class="header" href="#suggested-limit">Suggested Limit</a></h2>
+<p>This section describes a suggested limit for the visits. Although it’s backed up with telemetry, the specific number is up for discussion. <strong>It’s also important to note that statistical significance was not a part of the analysis. Migration has run for over 16,000 users and although that may not be a statistically significant representation of our population, it’s good enough input to make an educated suggestion.</strong></p>
+<ul>
+<li>First, we start by observing the distribution of visit counts. This will tell us how many of our users have between 0-10000 visits, 10000-20000, etc. We will identify that most of our users have less than 10,000 visits.</li>
+<li>Then, we will observe the dry-run migration ended rate based on the above buckets. We will observe that users with under 10,000 visits have a high chance of migration success.</li>
+<li>Finally, based on the analysis and prior art we’ll suggest 10,000 visits.</li>
+</ul>
+<h3 id="user-history-distribution"><a class="header" href="#user-history-distribution">User History Distribution</a></h3>
+<p>We will look at <a href="https://mozilla.cloud.looker.com/looks/1078">https://mozilla.cloud.looker.com/looks/1078</a> which demonstrates a distribution of our users based on the number of history visits. Note that the chart is based on our release population.</p>
+<h4 id="observations"><a class="header" href="#observations">Observations</a></h4>
+<ul>
+<li>67% of firefox-ios users have less than 10,000 visits</li>
+<li>There is a very long tail to the distribution, with 6% of users having over 100,000 visits.</li>
+</ul>
+<h3 id="dry-run-ending-rate-by-visits"><a class="header" href="#dry-run-ending-rate-by-visits">Dry-run Ending Rate by Visits</a></h3>
+<p>We will look at <a href="https://mozilla.cloud.looker.com/looks/1081">https://mozilla.cloud.looker.com/looks/1081</a>. The chart demonstrates the rate at which migrations end by the number of visits. We bucket users in buckets of 10,000 visits.</p>
+<h4 id="observations-1"><a class="header" href="#observations-1">Observations</a></h4>
+<ul>
+<li>We observe that for users that have visits under 10,000, the success rate is over 99.6%.</li>
+<li>We observe that for users with over 100,000 visits, the success rate drops to 75~80%.</li>
+<li>Users in between, have success rates in between. For example, users with visits between 10,000 and 20,000 have a 98-99% success rate.</li>
+<li>All success rates for buckets beyond 20,000 visits drop under 96%.</li>
+</ul>
+<h3 id="suggestion"><a class="header" href="#suggestion">Suggestion</a></h3>
+<p>Based on the above, we’re suggesting a limit of 10,000 visits because</p>
+<ul>
+<li>10,000 visits encompass the full history of 67% of our users.</li>
+<li>Migrations with under 10,000 visits have a success rate of over 99%.</li>
+<li>For users with over 10,000 visits, they still keep the latest 10,000 visits. The choice is reasonable considering:
+<ul>
+<li><a href="https://github.com/mozilla/application-services/blob/c34de065f5773b529a0def773cffb29b45676bce/components/places/src/history_sync/mod.rs#L16">Sync only retrieves the latest 5000 visits in Android</a></li>
+<li><a href="https://searchfox.org/mozilla-central/rev/f40d29a11f2eb4685256b59934e637012ea6fb78/browser/app/profile/firefox.js#2134">Migrating from Chrome to Firefox only migrates 2000 visits in Desktop</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="links"><a class="header" href="#links">Links <!-- optional --></a></h2>
+<ul>
+<li><a href="https://mozilla-hub.atlassian.net/browse/SYNC-3086">Epic for moving iOS’s history implementation to application-services places</a></li>
+<li><a href="https://experimenter.services.mozilla.com/nimbus/running-a-dry-run-migration-to-the-application-services-history-in-firefox-ios">Dry-run migration experiment</a></li>
+<li><a href="https://mozilla.cloud.looker.com/dashboards/917?Submission+Date=28+day+ago+for+28+day&amp;Channel=mozdata.firefox%5E_ios.metrics&amp;Places+History+Migration+Migration+Error+Rate+Numerator=NOT+NULL">Overall dry-run migration looker dashboard</a></li>
+<li><a href="https://mozilla.cloud.looker.com/looks/1078">Firefox iOS User distribution by history</a></li>
+<li><a href="https://mozilla.cloud.looker.com/looks/1081">Migration Ended rate by User History</a></li>
+<li><a href="https://github.com/mozilla/application-services/blob/c34de065f5773b529a0def773cffb29b45676bce/components/places/src/history_sync/mod.rs#L16">Firefox Sync on Android only Syncs 5000 sites</a></li>
+<li><a href="https://searchfox.org/mozilla-central/rev/f40d29a11f2eb4685256b59934e637012ea6fb78/browser/app/profile/firefox.js#2134">Firefox Desktop Limits import from Chrome to 2000 visits</a></li>
+<li><a href="https://github.com/mozilla-mobile/firefox-android/blob/8077db4b55c1a8976ec130462767e3075b9cbeab/android-components/components/browser/storage-sync/src/main/java/mozilla/components/browser/storage/sync/PlacesHistoryStorageWorker.kt#L38">Firefox Android limits the size of its <code>places.db</code> to 75MiB</a></li>
+<li><a href="https://support.google.com/chrome/answer/95589">Chrome only keeps 90 days of history</a></li>
+<li><a href="https://docs.google.com/document/d/1brA7BQIObLOOsdf_9lJW3VAPh68AzCu1xrgcpGDnPak/edit">Performance incident in Firefox iOS</a></li>
+</ul>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/adr/0007-limit-visits-migration-to-10000.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../adr/0005-remote-settings-client.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../design/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../adr/0005-remote-settings-client.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../design/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

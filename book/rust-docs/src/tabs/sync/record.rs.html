@@ -1,0 +1,257 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/tabs/src/sync/record.rs`."><title>record.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="tabs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">tabs/sync/</div>record.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+<a href=#2 id=2 data-nosnippet>2</a> * License, v. 2.0. If a copy of the MPL was not distributed with this
+<a href=#3 id=3 data-nosnippet>3</a> * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use </span><span class="kw">crate</span>::storage::{RemoteTab, TabGroup, Window};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>std::collections::HashMap;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>types::Timestamp;
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="comment">// copy/pasta...
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">fn </span>skip_if_default&lt;T: PartialEq + Default&gt;(v: <span class="kw-2">&amp;</span>T) -&gt; bool {
+<a href=#12 id=12 data-nosnippet>12</a>    <span class="kw-2">*</span>v == T::default()
+<a href=#13 id=13 data-nosnippet>13</a>}
+<a href=#14 id=14 data-nosnippet>14</a>
+<a href=#15 id=15 data-nosnippet>15</a><span class="attr">#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
+<a href=#16 id=16 data-nosnippet>16</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">pub struct </span>TabsRecordTab {
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">pub </span>title: String,
+<a href=#19 id=19 data-nosnippet>19</a>    <span class="kw">pub </span>url_history: Vec&lt;String&gt;,
+<a href=#20 id=20 data-nosnippet>20</a>    <span class="kw">pub </span>icon: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="kw">pub </span>last_used: i64, <span class="comment">// Seconds since epoch!
+<a href=#22 id=22 data-nosnippet>22</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#23 id=23 data-nosnippet>23</a>    </span><span class="kw">pub </span>inactive: bool,
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub </span>pinned: bool,
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#27 id=27 data-nosnippet>27</a>    </span><span class="kw">pub </span>index: u32, <span class="comment">// the position
+<a href=#28 id=28 data-nosnippet>28</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#29 id=29 data-nosnippet>29</a>    </span><span class="kw">pub </span>tab_group_id: String,
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#31 id=31 data-nosnippet>31</a>    </span><span class="kw">pub </span>window_id: String,
+<a href=#32 id=32 data-nosnippet>32</a>}
+<a href=#33 id=33 data-nosnippet>33</a>
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">impl </span>From&lt;RemoteTab&gt; <span class="kw">for </span>TabsRecordTab {
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">fn </span>from(tab: RemoteTab) -&gt; <span class="self">Self </span>{
+<a href=#36 id=36 data-nosnippet>36</a>        <span class="self">Self </span>{
+<a href=#37 id=37 data-nosnippet>37</a>            title: tab.title,
+<a href=#38 id=38 data-nosnippet>38</a>            url_history: tab.url_history,
+<a href=#39 id=39 data-nosnippet>39</a>            icon: tab.icon,
+<a href=#40 id=40 data-nosnippet>40</a>            last_used: tab.last_used.checked_div(<span class="number">1000</span>).unwrap_or_default(),
+<a href=#41 id=41 data-nosnippet>41</a>            inactive: tab.inactive,
+<a href=#42 id=42 data-nosnippet>42</a>            pinned: tab.pinned,
+<a href=#43 id=43 data-nosnippet>43</a>            index: tab.index,
+<a href=#44 id=44 data-nosnippet>44</a>            tab_group_id: tab.tab_group_id,
+<a href=#45 id=45 data-nosnippet>45</a>            window_id: tab.window_id,
+<a href=#46 id=46 data-nosnippet>46</a>        }
+<a href=#47 id=47 data-nosnippet>47</a>    }
+<a href=#48 id=48 data-nosnippet>48</a>}
+<a href=#49 id=49 data-nosnippet>49</a>
+<a href=#50 id=50 data-nosnippet>50</a><span class="kw">impl </span>From&lt;TabsRecordTab&gt; <span class="kw">for </span>RemoteTab {
+<a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">fn </span>from(tab: TabsRecordTab) -&gt; <span class="self">Self </span>{
+<a href=#52 id=52 data-nosnippet>52</a>        <span class="self">Self </span>{
+<a href=#53 id=53 data-nosnippet>53</a>            title: tab.title,
+<a href=#54 id=54 data-nosnippet>54</a>            url_history: tab.url_history,
+<a href=#55 id=55 data-nosnippet>55</a>            icon: tab.icon,
+<a href=#56 id=56 data-nosnippet>56</a>            last_used: tab.last_used.checked_mul(<span class="number">1000</span>).unwrap_or_default(),
+<a href=#57 id=57 data-nosnippet>57</a>            inactive: tab.inactive,
+<a href=#58 id=58 data-nosnippet>58</a>            pinned: tab.pinned,
+<a href=#59 id=59 data-nosnippet>59</a>            index: tab.index,
+<a href=#60 id=60 data-nosnippet>60</a>            tab_group_id: tab.tab_group_id,
+<a href=#61 id=61 data-nosnippet>61</a>            window_id: tab.window_id,
+<a href=#62 id=62 data-nosnippet>62</a>        }
+<a href=#63 id=63 data-nosnippet>63</a>    }
+<a href=#64 id=64 data-nosnippet>64</a>}
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a><span class="attr">#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
+<a href=#67 id=67 data-nosnippet>67</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href=#68 id=68 data-nosnippet>68</a></span><span class="kw">pub struct </span>TabsRecordWindow {
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">pub </span>id: String,
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="kw">pub </span>last_used: Timestamp,
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">pub </span>index: u32,
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#73 id=73 data-nosnippet>73</a>    </span><span class="kw">pub </span>window_type: u8, <span class="comment">// The repr of a `crate::storage::WindowType`
+<a href=#74 id=74 data-nosnippet>74</a></span>}
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a><span class="kw">impl </span>From&lt;Window&gt; <span class="kw">for </span>TabsRecordWindow {
+<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">fn </span>from(w: Window) -&gt; <span class="self">Self </span>{
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="self">Self </span>{
+<a href=#79 id=79 data-nosnippet>79</a>            id: w.id,
+<a href=#80 id=80 data-nosnippet>80</a>            last_used: w.last_used,
+<a href=#81 id=81 data-nosnippet>81</a>            index: w.index,
+<a href=#82 id=82 data-nosnippet>82</a>            window_type: w.window_type <span class="kw">as </span>u8,
+<a href=#83 id=83 data-nosnippet>83</a>        }
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="kw">impl </span>From&lt;TabsRecordWindow&gt; <span class="kw">for </span>Window {
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">fn </span>from(w: TabsRecordWindow) -&gt; <span class="self">Self </span>{
+<a href=#89 id=89 data-nosnippet>89</a>        <span class="self">Self </span>{
+<a href=#90 id=90 data-nosnippet>90</a>            id: w.id,
+<a href=#91 id=91 data-nosnippet>91</a>            last_used: w.last_used,
+<a href=#92 id=92 data-nosnippet>92</a>            index: w.index,
+<a href=#93 id=93 data-nosnippet>93</a>            window_type: w.window_type.into(),
+<a href=#94 id=94 data-nosnippet>94</a>        }
+<a href=#95 id=95 data-nosnippet>95</a>    }
+<a href=#96 id=96 data-nosnippet>96</a>}
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a><span class="attr">#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Default)]
+<a href=#99 id=99 data-nosnippet>99</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href=#100 id=100 data-nosnippet>100</a></span><span class="kw">pub struct </span>TabsRecordTabGroup {
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="comment">// Empty and closed tab groups are not included.
+<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="kw">pub </span>id: String,
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">pub </span>name: String,
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">pub </span>color: String,
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">pub </span>collapsed: bool,
+<a href=#106 id=106 data-nosnippet>106</a>}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a><span class="kw">impl </span>From&lt;TabGroup&gt; <span class="kw">for </span>TabsRecordTabGroup {
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">fn </span>from(group: TabGroup) -&gt; <span class="self">Self </span>{
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="self">Self </span>{
+<a href=#111 id=111 data-nosnippet>111</a>            id: group.id,
+<a href=#112 id=112 data-nosnippet>112</a>            name: group.name,
+<a href=#113 id=113 data-nosnippet>113</a>            color: group.color,
+<a href=#114 id=114 data-nosnippet>114</a>            collapsed: group.collapsed,
+<a href=#115 id=115 data-nosnippet>115</a>        }
+<a href=#116 id=116 data-nosnippet>116</a>    }
+<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a><span class="kw">impl </span>From&lt;TabsRecordTabGroup&gt; <span class="kw">for </span>TabGroup {
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">fn </span>from(group: TabsRecordTabGroup) -&gt; <span class="self">Self </span>{
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="self">Self </span>{
+<a href=#122 id=122 data-nosnippet>122</a>            id: group.id,
+<a href=#123 id=123 data-nosnippet>123</a>            name: group.name,
+<a href=#124 id=124 data-nosnippet>124</a>            color: group.color,
+<a href=#125 id=125 data-nosnippet>125</a>            collapsed: group.collapsed,
+<a href=#126 id=126 data-nosnippet>126</a>        }
+<a href=#127 id=127 data-nosnippet>127</a>    }
+<a href=#128 id=128 data-nosnippet>128</a>}
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+<a href=#131 id=131 data-nosnippet>131</a>#[cfg_attr(test, derive(Default))]
+<a href=#132 id=132 data-nosnippet>132</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href=#133 id=133 data-nosnippet>133</a></span><span class="doccomment">/// This struct mirrors what is stored on the server as the top-level payload.
+<a href=#134 id=134 data-nosnippet>134</a></span><span class="kw">pub struct </span>TabsRecord {
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="comment">// `String` instead of `SyncGuid` because `SyncGuid` is optimized for short uids,
+<a href=#136 id=136 data-nosnippet>136</a>    // but we expect these to be long "xxx-xxx-xxx-xxx" FxA device uids.
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">pub </span>id: String,
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="kw">pub </span>client_name: String,
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">pub </span>tabs: Vec&lt;TabsRecordTab&gt;,
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub </span>tab_groups: HashMap&lt;String, TabsRecordTabGroup&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"skip_if_default"</span>)]
+<a href=#143 id=143 data-nosnippet>143</a>    </span><span class="kw">pub </span>windows: HashMap&lt;String, TabsRecordWindow&gt;,
+<a href=#144 id=144 data-nosnippet>144</a>}
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a><span class="attr">#[cfg(test)]
+<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">pub mod </span>test {
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">use </span>serde_json::json;
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="attr">#[test]
+<a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">fn </span>test_payload() {
+<a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">let </span>payload = <span class="macro">json!</span>({
+<a href=#154 id=154 data-nosnippet>154</a>            <span class="string">"id"</span>: <span class="string">"JkeBPC50ZI0m"</span>,
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="string">"clientName"</span>: <span class="string">"client name"</span>,
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="string">"tabs"</span>: [{
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="string">"title"</span>: <span class="string">"the title"</span>,
+<a href=#158 id=158 data-nosnippet>158</a>                <span class="string">"urlHistory"</span>: [
+<a href=#159 id=159 data-nosnippet>159</a>                    <span class="string">"https://mozilla.org/"
+<a href=#160 id=160 data-nosnippet>160</a>                </span>],
+<a href=#161 id=161 data-nosnippet>161</a>                <span class="string">"icon"</span>: <span class="string">"https://mozilla.org/icon"</span>,
+<a href=#162 id=162 data-nosnippet>162</a>                <span class="string">"lastUsed"</span>: <span class="number">1643764207
+<a href=#163 id=163 data-nosnippet>163</a>            </span>}]
+<a href=#164 id=164 data-nosnippet>164</a>        });
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="kw">let </span>record: TabsRecord = serde_json::from_value(payload).expect(<span class="string">"should work"</span>);
+<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">assert_eq!</span>(record.id, <span class="string">"JkeBPC50ZI0m"</span>);
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">assert_eq!</span>(record.client_name, <span class="string">"client name"</span>);
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="macro">assert_eq!</span>(record.tabs.len(), <span class="number">1</span>);
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="macro">assert_eq!</span>(record.windows.len(), <span class="number">0</span>);
+<a href=#170 id=170 data-nosnippet>170</a>        <span class="macro">assert_eq!</span>(record.tab_groups.len(), <span class="number">0</span>);
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">let </span>tab = <span class="kw-2">&amp;</span>record.tabs[<span class="number">0</span>];
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="macro">assert_eq!</span>(tab.title, <span class="string">"the title"</span>);
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="macro">assert_eq!</span>(tab.icon, <span class="prelude-val">Some</span>(<span class="string">"https://mozilla.org/icon"</span>.to_string()));
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="macro">assert_eq!</span>(tab.last_used, <span class="number">1643764207</span>);
+<a href=#175 id=175 data-nosnippet>175</a>        <span class="macro">assert!</span>(!tab.inactive);
+<a href=#176 id=176 data-nosnippet>176</a>    }
+<a href=#177 id=177 data-nosnippet>177</a>
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="attr">#[test]
+<a href=#179 id=179 data-nosnippet>179</a>    </span><span class="kw">fn </span>test_roundtrip() {
+<a href=#180 id=180 data-nosnippet>180</a>        <span class="kw">let </span>tab = TabsRecord {
+<a href=#181 id=181 data-nosnippet>181</a>            id: <span class="string">"JkeBPC50ZI0m"</span>.into(),
+<a href=#182 id=182 data-nosnippet>182</a>            client_name: <span class="string">"client name"</span>.into(),
+<a href=#183 id=183 data-nosnippet>183</a>            tabs: <span class="macro">vec!</span>[TabsRecordTab {
+<a href=#184 id=184 data-nosnippet>184</a>                title: <span class="string">"the title"</span>.into(),
+<a href=#185 id=185 data-nosnippet>185</a>                url_history: <span class="macro">vec!</span>[<span class="string">"https://mozilla.org/"</span>.into()],
+<a href=#186 id=186 data-nosnippet>186</a>                icon: <span class="prelude-val">Some</span>(<span class="string">"https://mozilla.org/icon"</span>.into()),
+<a href=#187 id=187 data-nosnippet>187</a>                last_used: <span class="number">1643764207</span>,
+<a href=#188 id=188 data-nosnippet>188</a>                inactive: <span class="bool-val">true</span>,
+<a href=#189 id=189 data-nosnippet>189</a>                ..Default::default()
+<a href=#190 id=190 data-nosnippet>190</a>            }],
+<a href=#191 id=191 data-nosnippet>191</a>            tab_groups: HashMap::new(),
+<a href=#192 id=192 data-nosnippet>192</a>            windows: HashMap::new(),
+<a href=#193 id=193 data-nosnippet>193</a>        };
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>round_tripped =
+<a href=#195 id=195 data-nosnippet>195</a>            serde_json::from_value(serde_json::to_value(tab.clone()).unwrap()).unwrap();
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="macro">assert_eq!</span>(tab, round_tripped);
+<a href=#197 id=197 data-nosnippet>197</a>    }
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="attr">#[test]
+<a href=#200 id=200 data-nosnippet>200</a>    </span><span class="kw">fn </span>test_extra_fields() {
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">let </span>payload = <span class="macro">json!</span>({
+<a href=#202 id=202 data-nosnippet>202</a>            <span class="string">"id"</span>: <span class="string">"JkeBPC50ZI0m"</span>,
+<a href=#203 id=203 data-nosnippet>203</a>            <span class="comment">// Let's say we agree on new tabs to record, we want old versions to
+<a href=#204 id=204 data-nosnippet>204</a>            // ignore them!
+<a href=#205 id=205 data-nosnippet>205</a>            </span><span class="string">"ignoredField"</span>: <span class="string">"??"</span>,
+<a href=#206 id=206 data-nosnippet>206</a>            <span class="string">"foo"</span>: [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>],
+<a href=#207 id=207 data-nosnippet>207</a>            <span class="string">"bar"</span>: [{<span class="string">"id"</span>: <span class="number">1</span>}],
+<a href=#208 id=208 data-nosnippet>208</a>            <span class="string">"clientName"</span>: <span class="string">"client name"</span>,
+<a href=#209 id=209 data-nosnippet>209</a>            <span class="string">"tabs"</span>: [{
+<a href=#210 id=210 data-nosnippet>210</a>                <span class="string">"title"</span>: <span class="string">"the title"</span>,
+<a href=#211 id=211 data-nosnippet>211</a>                <span class="string">"urlHistory"</span>: [
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="string">"https://mozilla.org/"
+<a href=#213 id=213 data-nosnippet>213</a>                </span>],
+<a href=#214 id=214 data-nosnippet>214</a>                <span class="string">"icon"</span>: <span class="string">"https://mozilla.org/icon"</span>,
+<a href=#215 id=215 data-nosnippet>215</a>                <span class="string">"lastUsed"</span>: <span class="number">1643764207</span>,
+<a href=#216 id=216 data-nosnippet>216</a>                <span class="comment">// Ditto - make sure we ignore unexpected fields in each tab.
+<a href=#217 id=217 data-nosnippet>217</a>                </span><span class="string">"ignoredField"</span>: <span class="string">"??"</span>,
+<a href=#218 id=218 data-nosnippet>218</a>            }]
+<a href=#219 id=219 data-nosnippet>219</a>        });
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">let </span>record: TabsRecord = serde_json::from_value(payload).unwrap();
+<a href=#221 id=221 data-nosnippet>221</a>        <span class="comment">// The point of this test is really just to ensure the deser worked, so
+<a href=#222 id=222 data-nosnippet>222</a>        // just check the ID.
+<a href=#223 id=223 data-nosnippet>223</a>        </span><span class="macro">assert_eq!</span>(record.id, <span class="string">"JkeBPC50ZI0m"</span>);
+<a href=#224 id=224 data-nosnippet>224</a>    }
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="attr">#[test]
+<a href=#227 id=227 data-nosnippet>227</a>    </span><span class="kw">fn </span>test_windows_tab_groups() {
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">let </span>payload = <span class="macro">json!</span>({
+<a href=#229 id=229 data-nosnippet>229</a>            <span class="string">"id"</span>: <span class="string">"JkeBPC50ZI0m"</span>,
+<a href=#230 id=230 data-nosnippet>230</a>            <span class="string">"clientName"</span>: <span class="string">"client name"</span>,
+<a href=#231 id=231 data-nosnippet>231</a>            <span class="string">"tabs"</span>: [{
+<a href=#232 id=232 data-nosnippet>232</a>                <span class="string">"title"</span>: <span class="string">"the title"</span>,
+<a href=#233 id=233 data-nosnippet>233</a>                <span class="string">"urlHistory"</span>: [
+<a href=#234 id=234 data-nosnippet>234</a>                    <span class="string">"https://mozilla.org/"
+<a href=#235 id=235 data-nosnippet>235</a>                </span>],
+<a href=#236 id=236 data-nosnippet>236</a>                <span class="string">"icon"</span>: <span class="string">"https://mozilla.org/icon"</span>,
+<a href=#237 id=237 data-nosnippet>237</a>                <span class="string">"lastUsed"</span>: <span class="number">1643764207
+<a href=#238 id=238 data-nosnippet>238</a>            </span>}],
+<a href=#239 id=239 data-nosnippet>239</a>            <span class="string">"windows" </span>: {
+<a href=#240 id=240 data-nosnippet>240</a>                <span class="string">"window-1" </span>: {
+<a href=#241 id=241 data-nosnippet>241</a>                    <span class="string">"id"</span>: <span class="string">"window-1"</span>,
+<a href=#242 id=242 data-nosnippet>242</a>                    <span class="string">"lastUsed"</span>: <span class="number">1</span>,
+<a href=#243 id=243 data-nosnippet>243</a>                    <span class="string">"index"</span>: <span class="number">0</span>,
+<a href=#244 id=244 data-nosnippet>244</a>                    <span class="string">"windowType"</span>: <span class="number">1
+<a href=#245 id=245 data-nosnippet>245</a>                </span>}
+<a href=#246 id=246 data-nosnippet>246</a>            }
+<a href=#247 id=247 data-nosnippet>247</a>        });
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>record: TabsRecord = serde_json::from_value(payload).expect(<span class="string">"should work"</span>);
+<a href=#249 id=249 data-nosnippet>249</a>        <span class="macro">assert_eq!</span>(record.windows.len(), <span class="number">1</span>);
+<a href=#250 id=250 data-nosnippet>250</a>        <span class="macro">assert_eq!</span>(record.windows.get(<span class="string">"window-1"</span>).unwrap().id, <span class="string">"window-1"</span>);
+<a href=#251 id=251 data-nosnippet>251</a>        <span class="macro">assert_eq!</span>(
+<a href=#252 id=252 data-nosnippet>252</a>            record.windows.get(<span class="string">"window-1"</span>).unwrap().last_used,
+<a href=#253 id=253 data-nosnippet>253</a>            types::Timestamp(<span class="number">1</span>)
+<a href=#254 id=254 data-nosnippet>254</a>        );
+<a href=#255 id=255 data-nosnippet>255</a>        <span class="macro">assert_eq!</span>(record.tab_groups.len(), <span class="number">0</span>);
+<a href=#256 id=256 data-nosnippet>256</a>    }
+<a href=#257 id=257 data-nosnippet>257</a>}</code></pre></div></section></main></body></html>

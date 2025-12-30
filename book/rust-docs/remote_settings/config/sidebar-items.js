@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RemoteSettingsServer"],"struct":["BaseUrl","RemoteSettingsConfig","RemoteSettingsConfig2"]};
