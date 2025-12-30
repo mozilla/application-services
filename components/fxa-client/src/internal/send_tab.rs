@@ -43,13 +43,14 @@ impl FirefoxAccount {
         target_device_id: &str,
         title: &str,
         url: &str,
+        private: bool,
     ) -> Result<()> {
         let devices = self.get_devices(false)?;
         let target = devices
             .iter()
             .find(|d| d.id == target_device_id)
             .ok_or_else(|| Error::UnknownTargetDevice(target_device_id.to_owned()))?;
-        let (payload, sent_telemetry) = SendTabPayload::single_tab(title, url);
+        let (payload, sent_telemetry) = SendTabPayload::single_tab(title, url, private);
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload =
             encrypt_command(oldsync_key, target, send_tab::COMMAND_NAME, &payload)?;
