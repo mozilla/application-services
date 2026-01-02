@@ -72,6 +72,7 @@ use nss::pk11::sym_key::{
 /// Note that EncryptorDecryptor must not call any LoginStore methods. The login store can call out
 /// to the EncryptorDecryptor when it's internal mutex is held so calling back in to the LoginStore
 /// may deadlock.
+#[uniffi::trait_interface]
 pub trait EncryptorDecryptor: Send + Sync {
     fn encrypt(&self, cleartext: Vec<u8>) -> ApiResult<Vec<u8>>;
     fn decrypt(&self, ciphertext: Vec<u8>) -> ApiResult<Vec<u8>>;
@@ -152,6 +153,7 @@ impl EncryptorDecryptor for ManagedEncryptorDecryptor {
 
 /// Consumers can implement the KeyManager in combination with the ManagedEncryptorDecryptor to hand
 /// over the encryption key whenever encryption or decryption happens.
+#[uniffi::trait_interface]
 pub trait KeyManager: Send + Sync {
     fn get_key(&self) -> ApiResult<Vec<u8>>;
 }

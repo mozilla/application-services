@@ -15,5 +15,5 @@ viaduct = { path = "../../viaduct" }
 hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"] }
 hyper-tls = { version = "0.5", features = ["vendored"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
-uniffi = { version = "0.29.0" }
+uniffi = { git = "https://github.com/mhammond/uniffi-rs", rev = "ca9495e29ab473ea0f8e417dd49e27e72cc81f1d" }
 url = "2"

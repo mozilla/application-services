@@ -19,33 +19,15 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::Deserialize;
-use uniffi_bindgen::BindgenCrateConfigSupplier;
+use uniffi_bindgen::BindgenPathsLayer;
 
 pub struct NoCargoConfigSupplier;
 
-impl BindgenCrateConfigSupplier for NoCargoConfigSupplier {
-    fn get_toml(&self, crate_name: &str) -> Result<Option<toml::value::Table>> {
-        match self.get_toml_path(crate_name) {
-            None => Ok(None),
-            Some(path) => Ok(Some(toml::from_str(&fs::read_to_string(path)?)?)),
-        }
-    }
-
-    fn get_toml_path(&self, crate_name: &str) -> Option<Utf8PathBuf> {
+impl BindgenPathsLayer for NoCargoConfigSupplier {
+    fn get_udl_path(&self, crate_name: &str, udl_name: &str) -> Option<Utf8PathBuf> {
         let crate_map = CRATE_MAP.as_ref().expect("Error parsing Cargo.toml files");
         let crate_root = crate_map.get(crate_name)?;
-        let toml_path = crate_root.join("uniffi.toml");
-        toml_path.exists().then_some(toml_path)
-    }
-
-    /// Obtains the contents of the named UDL file which was referenced by the type metadata.
-    fn get_udl(&self, crate_name: &str, udl_name: &str) -> Result<String> {
-        let crate_map = CRATE_MAP.as_ref().expect("Error parsing Cargo.toml files");
-        let crate_root = crate_map
-            .get(crate_name)
-            .ok_or_else(|| anyhow!("Unknown crate: {crate_name}"))?;
-        let udl_path = crate_root.join(format!("src/{udl_name}.udl"));
-        fs::read_to_string(&udl_path).context(format!("Error reading {udl_path}"))
+        Some(crate_root.join(format!("src/{udl_name}.udl")))
     }
 }
 
