@@ -262,6 +262,12 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
         }
     }
 
+    override fun searchFolders(query: String, limit: Int): List<BookmarkFolder`> {
+        return readQueryCounters.measure {
+            this.conn.foldersSearch(query, limit)
+        }
+    }
+
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
         return readQueryCounters.measure {
             this.conn.bookmarksGetRecent(limit)
