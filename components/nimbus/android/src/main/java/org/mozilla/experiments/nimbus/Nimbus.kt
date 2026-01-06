@@ -333,7 +333,9 @@ open class Nimbus(
         }
     }
 
-    override fun applyLocalExperiments(@RawRes file: Int): Job =
+    override fun applyLocalExperiments(
+        @RawRes file: Int,
+    ): Job =
         applyLocalExperiments { loadRawResource(file) }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -369,7 +371,9 @@ open class Nimbus(
         }
     }
 
-    override fun setExperimentsLocally(@RawRes file: Int) {
+    override fun setExperimentsLocally(
+        @RawRes file: Int,
+    ) {
         dbScope.launch {
             withCatchAll("setExperimentsLocally") {
                 loadRawResource(file)

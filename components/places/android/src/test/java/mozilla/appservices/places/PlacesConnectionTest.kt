@@ -92,22 +92,18 @@ class PlacesConnectionTest {
             Pair("https://www.example.com/12345", false),
             // Bad URLs should still work without.
             Pair("https://www.example.com:badurl", false),
-
             Pair("https://www.mozilla.com", true),
             Pair("https://www.firefox.com", true),
             Pair("https://www.mozilla.org", false),
-
             // Dupes should still work
             Pair("https://www.example.com/1234", true),
             Pair("https://www.example.com/12345", false),
-
             // The unicode URLs should work when escaped the way we
             // encountered them
             Pair("$unicodeInPath/1", true),
             Pair("$escapedUnicodeInPath/2", true),
             Pair("$unicodeInDomain/1", true),
             Pair("$escapedUnicodeInDomain/2", true),
-
             // But also the other way.
             Pair("$unicodeInPath/2", true),
             Pair("$escapedUnicodeInPath/1", true),

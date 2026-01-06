@@ -152,12 +152,16 @@ interface NimbusInterface : FeaturesInterface, NimbusMessagingInterface, NimbusE
      *      If this is cancelled, then {initialize} is called, which copies the database in to an
      *      in memory cache.
      */
-    fun applyLocalExperiments(@RawRes file: Int): Job = Job()
+    fun applyLocalExperiments(
+        @RawRes file: Int,
+    ): Job = Job()
 
     /**
      * A utility method to load a file from resources and pass it to `setExperimentsLocally(String)`.
      */
-    fun setExperimentsLocally(@RawRes file: Int) = Unit
+    fun setExperimentsLocally(
+        @RawRes file: Int,
+    ) = Unit
 
     /**
      * Testing method to reset the enrollments and experiments database back to its initial state.

@@ -54,7 +54,6 @@ object SyncTelemetry {
     @Suppress("LongParameterList")
     fun processSyncTelemetry(
         syncTelemetry: SyncTelemetryPing,
-
         // The following are present to make this function testable. In tests, we need to "intercept"
         // values set in singleton ping objects before they're reset by a 'submit' call.
         submitGlobalPing: () -> Unit = { Pings.sync.submit() },

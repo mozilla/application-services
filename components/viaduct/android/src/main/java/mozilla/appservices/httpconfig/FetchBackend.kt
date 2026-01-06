@@ -67,7 +67,6 @@ internal class FetchBackend(val client: Lazy<FetchClient>) : Backend {
             body = fetchResp.body.useStream {
                 it.readBytes()
             },
-
         )
     }
 }
