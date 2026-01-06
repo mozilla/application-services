@@ -4,7 +4,7 @@
 
 package mozilla.appservices.logins
 
-/**
+/*
  * Import some private Glean types, so that we can use them in type declarations.
  *
  * I do not like importing these private classes, but I do like the nice generic

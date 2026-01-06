@@ -62,7 +62,10 @@ private class ErrorEventSink : EventSink {
             val fields = json.decodeFromString<TracingBreadcrumbFields>(event.fields)
 
             ApplicationErrorReporterRegistry.errorReporter?.reportBreadcrumb(
-                event.message, fields.module, fields.line, fields.column,
+                event.message,
+                fields.module,
+                fields.line,
+                fields.column,
             )
         }
     }

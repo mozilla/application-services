@@ -3,8 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 @file:Suppress(
-    "ClassName", "InvalidPackageDeclaration", "ktlint:standard:filename",
-    "ktlint:standard:property-naming", "MatchingDeclarationName",
+    "ClassName",
+    "InvalidPackageDeclaration",
+    "ktlint:standard:filename",
+    "ktlint:standard:property-naming",
+    "MatchingDeclarationName",
 )
 
 package com.example.app

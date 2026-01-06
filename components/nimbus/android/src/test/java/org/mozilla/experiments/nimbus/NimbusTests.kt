@@ -834,7 +834,8 @@ class NimbusTests {
 
         val calculatedAttributes = getCalculatedAttributes(
             date.timeInMillis - 86400000 * 5,
-            db.path, deviceInfo.localeTag,
+            db.path,
+            deviceInfo.localeTag,
         )
 
         assertEquals(5, calculatedAttributes.daysSinceInstall)
