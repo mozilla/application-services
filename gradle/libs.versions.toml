@@ -17,7 +17,7 @@ coroutines = "1.10.2"
 kotlinx-serialization = "1.9.0"
 
 # Mozilla
-android-components = "145.0.2"
+android-components = "146.0.1"
 glean = "66.1.0"
 rust-android-gradle = "0.9.6"
 
