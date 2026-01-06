@@ -31,7 +31,7 @@ jna = "5.18.1"
 
 # Linting and Static Analysis
 detekt = "1.23.8"
-ktlint = "1.7.1"
+ktlint = "1.8.0"
 
 # AndroidX Testing
 androidx-test = "1.7.0"
