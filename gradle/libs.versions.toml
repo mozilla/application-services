@@ -8,8 +8,8 @@
 android-gradle-plugin = "8.13.2"
 
 # Google
-protobuf = "4.33.1"
-protobuf-plugin = "0.9.5"
+protobuf = "4.33.2"
+protobuf-plugin = "0.9.6"
 
 # Kotlin
 kotlin = "2.2.21"
