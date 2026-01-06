@@ -41,8 +41,8 @@ androidx-test-runner = "1.7.0"
 
 # Third Party Testing
 junit4 = "4.13.2"
-junit6 = "6.0.1"
-mockito = "5.20.0"
+junit6 = "6.0.2"
+mockito = "5.21.0"
 robolectric = "4.16"
 
 # Miscellaneous Gradle plugins
