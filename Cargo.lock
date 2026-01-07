@@ -306,9 +306,9 @@ dependencies = [
 
 [[package]]
 name = "bhttp"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c659d6e2707aa970a0482d3f1a0f23ff470a423b0f52961632bbf3000b7ff7"
+checksum = "9d305a54bcb99974213b4c78a486c34091e83c5d6d6572f7f4331c904ea9d127"
 dependencies = [
  "thiserror 2.0.3",
 ]
@@ -3048,9 +3048,9 @@ dependencies = [
 
 [[package]]
 name = "ohttp"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e482d6d044fb97988130b6719a91c846006030c9424f943c817b81adf3969126"
+checksum = "41a03aaaf57495c75ce66aee6a7c3b21abf046c9d4cca3d45b22cdbf0de1bfba"
 dependencies = [
  "bindgen",
  "byteorder",
