@@ -1,6 +1,8 @@
 # How to locally test Swift Package Manager components on Focus iOS
 > This is a guide on testing the Swift Package Manager component locally against a local build of Focus iOS. For more information on our Swift Package Manager design, read the [ADR that introduced it](../adr/0003-swift-packaging.md)
 
+**NOTE** - This guide is slightly out of date and needs to be updated. Better instructions can be found in the [instructions for Firefox](./locally-published-components-in-firefox-ios.md), but that process needs some Focus-specific tweaks.
+
 > This guide assumes the component you want to test is already distributed with the [`rust-components-swift`](https://github.com/mozilla/rust-components-swift) repository, you can read [the guide for adding a new component](./adding-a-new-component.md#including-the-component-in-the-swift-package-manager-megazord) if you would like to distribute a new component.
 
 To test a component locally, you will need to do the following:
