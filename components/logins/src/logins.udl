@@ -94,6 +94,11 @@ dictionary Login {
     string username;
 
     // breach alert fields
+    /// These fields can be synced from Desktop and are NOT included in LoginEntry,
+    /// so update() will not modify them. Use the dedicated API methods to manipulate:
+    /// record_breach(), reset_all_breaches(), is_potentially_breached(),
+    /// record_breach_alert_dismissal(), record_breach_alert_dismissal_time(),
+    /// and is_breach_alert_dismissed().
     i64? time_of_last_breach;
     i64? time_last_breach_alert_dismissed;
 };

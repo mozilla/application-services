@@ -455,8 +455,6 @@ impl LoginDb {
              SET local_modified                           = :now_millis,
                  timeLastUsed                             = :time_last_used,
                  timePasswordChanged                      = :time_password_changed,
-                 timeOfLastBreach = :time_of_last_breach,
-                 timeLastBreachAlertDismissed             = :time_last_breach_alert_dismissed,
                  httpRealm                                = :http_realm,
                  formActionOrigin                         = :form_action_origin,
                  usernameField                            = :username_field,
@@ -483,8 +481,6 @@ impl LoginDb {
                 ":time_password_changed": login.meta.time_password_changed,
                 ":sec_fields": login.sec_fields,
                 ":guid": &login.meta.id,
-                ":time_of_last_breach": login.fields.time_of_last_breach,
-                ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
                 // time_last_used has been set to now.
                 ":now_millis": login.meta.time_last_used,
             },
@@ -1799,8 +1795,9 @@ mod tests {
         assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
         assert!(login.fields.time_last_breach_alert_dismissed.is_none());
 
-        // set - use a time that's definitely after password was changed
-        let breach_time = login.meta.time_password_changed + 1000;
+        // Wait and use a time that's definitely after password was changed
+        thread::sleep(time::Duration::from_millis(50));
+        let breach_time = util::system_time_ms_i64(SystemTime::now());
         db.record_breach(&login.meta.id, breach_time).unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
         let login1 = db.get_by_id(&login.meta.id).unwrap().unwrap();
@@ -1817,9 +1814,10 @@ mod tests {
         let login3 = db.get_by_id(&login.meta.id).unwrap().unwrap();
         assert!(login3.fields.time_of_last_breach.is_none());
 
-        // set again - use a time that's definitely after password was changed
-        let breach_time2 = login.meta.time_password_changed + 2000;
-        db.record_breach(&login.meta.id, breach_time2).unwrap();
+        // Wait and use a time that's definitely after password was changed
+        thread::sleep(time::Duration::from_millis(50));
+        let breach_time = util::system_time_ms_i64(SystemTime::now());
+        db.record_breach(&login.meta.id, breach_time).unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
 
         // now change password
@@ -1834,6 +1832,45 @@ mod tests {
         .unwrap();
         // not breached anymore
         assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
+    }
+
+    #[test]
+    fn test_breach_alert_fields_not_overwritten_by_update() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let login = db
+            .add(
+                LoginEntry {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("https://www.example.com".into()),
+                    username: "user1".into(),
+                    password: "password1".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+        assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
+
+        // Wait and use a time that's definitely after password was changed
+        thread::sleep(time::Duration::from_millis(50));
+        let breach_time = util::system_time_ms_i64(SystemTime::now());
+        db.record_breach(&login.meta.id, breach_time).unwrap();
+        assert!(db.is_potentially_breached(&login.meta.id).unwrap());
+
+        // change some fields
+        db.update(
+            &login.meta.id.clone(),
+            LoginEntry {
+                username_field: "changed-username-field".into(),
+                ..login.clone().decrypt(&*TEST_ENCDEC).unwrap().entry()
+            },
+            &*TEST_ENCDEC,
+        )
+        .unwrap();
+
+        // breach still present
+        assert!(db.is_potentially_breached(&login.meta.id).unwrap());
     }
 
     #[test]
