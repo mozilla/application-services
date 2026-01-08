@@ -429,7 +429,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
-            BookmarkPosition.Specific(position.toUInt())
+            BookmarkPosition.Specific(position)
         }
         val folder = InsertableBookmarkFolder(
             parentGuid = parentGUID,
@@ -444,7 +444,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
-            BookmarkPosition.Specific(position.toUInt())
+            BookmarkPosition.Specific(position)
         }
         val sep = InsertableBookmarkSeparator(parentGuid = parentGUID, position = p)
         return this.doInsert(InsertableBookmarkItem.Separator(sep))
@@ -454,7 +454,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         val p = if (position == null) {
             BookmarkPosition.Append
         } else {
-            BookmarkPosition.Specific(position.toUInt())
+            BookmarkPosition.Specific(position)
         }
         val bm = InsertableBookmark(parentGuid = parentGUID, position = p, url = url, title = title)
         return this.doInsert(InsertableBookmarkItem.Bookmark(bm))
@@ -464,7 +464,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         val p: UInt? = if (position == null) {
             null
         } else {
-            position.toUInt()
+            position
         }
         return writeQueryCounters.measure {
             val info = BookmarkUpdateInfo(guid = guid, title = title, url = url, parentGuid = parentGuid, position = p)
