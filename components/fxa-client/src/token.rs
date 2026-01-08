@@ -18,7 +18,7 @@
 use crate::{ApiResult, Error, FirefoxAccount};
 use error_support::handle_error;
 use serde_derive::*;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 impl FirefoxAccount {
     /// Get a short-lived OAuth access token for the user's account.
@@ -37,7 +37,8 @@ impl FirefoxAccount {
     ///    - `scope` - the OAuth scope to be granted by the token.
     ///        - This must be one of the scopes requested during the signin flow.
     ///        - Only a single scope is supported; for multiple scopes request multiple tokens.
-    ///    - `ttl` - optionally, the time for which the token should be valid, in seconds.
+    ///    - `use_cache` - optionally set to false to force a new token request.  The fetched
+    ///       token will still be cached for later `get_access_token` calls.
     ///
     /// # Notes
     ///
@@ -45,12 +46,10 @@ impl FirefoxAccount {
     ///      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
     ///      before requesting a fresh token.
     #[handle_error(Error)]
-    pub fn get_access_token(&self, scope: &str, ttl: Option<i64>) -> ApiResult<AccessTokenInfo> {
-        // Signedness converstion for Kotlin compatibility :-/
-        let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
+    pub fn get_access_token(&self, scope: &str, use_cache: bool) -> ApiResult<AccessTokenInfo> {
         self.internal
             .lock()
-            .get_access_token(scope, ttl)?
+            .get_access_token(scope, use_cache)?
             .try_into()
     }
 
