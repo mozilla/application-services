@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use crate::{
-    enrollment::{EnrollmentStatus, ExperimentEnrollment},
+    enrollment::{EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState},
     error::Result,
     json::PrefValue,
     EnrolledExperiment, Experiment, NimbusError,
@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum PrefBranch {
     Default,
@@ -38,6 +38,7 @@ pub struct GeckoPref {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrefEnrollmentData {
+    pub experiment_slug: String,
     pub pref_value: PrefValue,
     pub feature_id: String,
     pub variable: String,
@@ -84,6 +85,26 @@ impl GeckoPrefState {
 pub enum PrefUnenrollReason {
     Changed,
     FailedToSet,
+}
+
+// The pre-experiment original state of a Gecko pref. Values may be used to set on Gecko to restore the pref to the original state.
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct OriginalGeckoPref {
+    pub pref: String,
+    pub branch: PrefBranch,
+    pub value: Option<PrefValue>,
+}
+
+impl<'a> From<&'a GeckoPrefState> for OriginalGeckoPref {
+    fn from(state: &'a GeckoPrefState) -> Self {
+        Self {
+            pref: state.gecko_pref.pref.clone(),
+            branch: state.gecko_pref.branch,
+            value: state.gecko_value.clone(),
+        }
+    }
 }
 
 pub type MapOfFeatureIdToPropertyNameToGeckoPrefState =
@@ -279,6 +300,7 @@ impl GeckoPrefStore {
                             // experiments.
                             props.entry(prop_name.clone()).and_modify(|pref_state| {
                                 pref_state.enrollment_value = Some(PrefEnrollmentData {
+                                    experiment_slug: slug.clone(),
                                     pref_value: prop_value.clone(),
                                     feature_id: feature,
                                     variable: prop_name,
@@ -334,4 +356,25 @@ pub fn query_gecko_pref_store(
     Ok(gecko_pref_store
         .map(|store| Value::Bool(store.pref_is_user_set(&gecko_pref)))
         .unwrap_or(Value::Bool(false)))
+}
+
+pub(crate) type MapOfExperimentSlugToPreviousState = HashMap<String, Vec<PreviousGeckoPrefState>>;
+pub(crate) fn build_prev_gecko_pref_states(
+    states: &[GeckoPrefState],
+) -> MapOfExperimentSlugToPreviousState {
+    let mut original_gecko_states = MapOfExperimentSlugToPreviousState::new();
+    for state in states {
+        let Some(enrollment_value) = &state.enrollment_value else {
+            continue;
+        };
+        original_gecko_states
+            .entry(enrollment_value.experiment_slug.clone())
+            .or_default()
+            .push(PreviousGeckoPrefState {
+                original_value: state.into(),
+                feature_id: enrollment_value.feature_id.clone(),
+                variable: enrollment_value.variable.clone(),
+            });
+    }
+    original_gecko_states
 }

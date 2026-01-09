@@ -101,6 +101,14 @@ dictionary EnrollmentStatusExtraDef {
     string? reason;
     string? slug;
     string? status;
+    sequence<PreviousGeckoPrefState>? prev_gecko_pref_states;
+};
+
+
+dictionary PreviousGeckoPrefState {
+    OriginalGeckoPref original_value;
+    string feature_id;
+    string variable;
 };
 
 dictionary FeatureExposureExtraDef {
@@ -139,12 +147,20 @@ enum PrefBranch {
     "User",
 };
 
+dictionary OriginalGeckoPref {
+    string pref;
+    PrefBranch branch;
+    PrefValue? value;
+};
+
+
 enum PrefUnenrollReason {
     "Changed",
     "FailedToSet",
 };
 
 dictionary PrefEnrollmentData {
+    string experiment_slug;
     PrefValue pref_value;
     string feature_id;
     string variable;
@@ -362,6 +378,11 @@ interface NimbusClient {
     [Throws=NimbusError]
     sequence<EnrollmentChangeEvent> unenroll_for_gecko_pref(GeckoPrefState pref_state, PrefUnenrollReason pref_unenroll_reason);
 
+    [Throws=NimbusError]
+    void register_previous_gecko_pref_states([ByRef] sequence<GeckoPrefState> gecko_pref_states);
+
+    [Throws=NimbusError]
+    sequence<PreviousGeckoPrefState>? get_previous_gecko_pref_states(string experiment_slug);
 };
 
 interface NimbusTargetingHelper {
