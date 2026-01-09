@@ -5,8 +5,6 @@
   new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
   and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
 
-[Full Changelog](In progress)
-
 ## ⚠️ Breaking Changes ⚠️
 
 ### Fxa Client
@@ -20,6 +18,9 @@
 ### Fxa Client
 - Added optional `use_cache` paramater to `get_access_token`.  Set this to `false` to force
   requesting a new token.
+- Removed `SwiftKeychainWrapper` logic. ([#7150](https://github.com/mozilla/application-services/pull/7150))
+
+[Full Changelog](In progress)
 
 # v147.0 (_2025-12-07_)
 
