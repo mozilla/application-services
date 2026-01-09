@@ -47,7 +47,7 @@ configurations {
     // For libmegazord, we copy the desktop libs from the
     // [rust-android-gradle plugin](https://github.com/mozilla/rust-android-gradle), which is
     // configurable via `local.properties`. The official packages are built in taskcluster include
-    // `linux-x86-64` and `darwin-x86-64` and the list is controlled by
+    // `linux-x86-64`, `darwin-x86-64`, and `darwin-aarch64` and the list is controlled by
     // taskcluster/kinds/module-build/kind.yml
     //
     // For libjnidispatch, we include all libraries included in the official JAR file.

@@ -18,7 +18,7 @@ fi
 if [[ "${#}" -ne 1 ]]
 then
     echo "Usage:"
-    echo "./build-all.sh [ios|android|desktop]"
+    echo "./build-all.sh [ios|android|desktop|darwin-x86-64|darwin-aarch64]"
     exit 1
 fi
 
@@ -110,9 +110,12 @@ then
 elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
-elif [[ "${PLATFORM}" == "darwin" ]]
+elif [[ "${PLATFORM}" == "darwin-x86-64" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
+elif [[ "${PLATFORM}" == "darwin-aarch64" ]]
+then
+  ./build-nss-macos-cross.sh "${NSS_SRC_PATH}" "${PLATFORM}"
 else
   echo "Unrecognized platform"
   exit 1

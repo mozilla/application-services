@@ -93,39 +93,23 @@ gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   -Dpython=python3
 
 GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release-$(echo ${OS_COMPILER} | tr '[:upper:]' '[:lower:]')/"
-ninja -C "${GENERATED_DIR}"
+echo "=== Dumping build.ninja for nss-ios ==="
+cat "${GENERATED_DIR}/build.ninja"
 
-mkdir -p "${DIST_DIR}/include/nss"
-mkdir -p "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libnssdev.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libnsspki.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libnssutil.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libpk11wrap_static.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libpkcs12.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libpkcs7.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
-# HW specific.
+ninja -C "${GENERATED_DIR}" nss_static_libs freebl_static pk11wrap_static softokn_static
 if [[ "${ARCH}" == "x86_64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
-elif [[ "${ARCH}" == "arm64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
+  ninja -C "${GENERATED_DIR}" hw-acc-crypto-avx hw-acc-crypto-avx2 gcm-aes-x86_c_lib sha-x86_c_lib
 fi
-cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.a" "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libnspr4.a" "${DIST_DIR}/lib"
+if [[ "${ARCH}" == "aarch64" ]] || [[ "${ARCH}" == "arm64" ]]; then
+  ninja -C "${GENERATED_DIR}" gcm-aes-aarch64_c_lib armv8_c_lib
+fi
 
-cp -p -L -R "${BUILD_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
-cp -p -L -R "${NSPR_BUILD_DIR}/dist/include/nspr/"* "${DIST_DIR}/include/nss"
+# Assemble the DIST_DIR with relevant libraries and headers
+./copy-nss-libs.sh \
+  "ios" \
+  "${ARCH}" \
+  "${DIST_DIR}" \
+  "${BUILD_DIR}/lib" \
+  "${NSPR_BUILD_DIR}/dist/lib" \
+  "${BUILD_DIR}/public/nss" \
+  "${NSPR_BUILD_DIR}/dist/include/nspr"
