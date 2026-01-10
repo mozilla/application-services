@@ -5,7 +5,10 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use nimbus::error::{info, Result};
+use nimbus::{
+    error::{info, Result},
+    stateful::client::NimbusServerSettings,
+};
 
 #[derive(Parser)]
 #[command(name = "Nimbus SDK Demo")]
@@ -199,8 +202,10 @@ fn main() -> Result<()> {
         db_path,
         Box::new(NoopMetricsHandler),
         None,
-        Some(Arc::new(remote_settings_services)),
-        Some(collection_name.to_string()),
+        Some(NimbusServerSettings {
+            rs_service: Arc::new(remote_settings_services),
+            collection_name: collection_name.to_string(),
+        }),
     )?;
     info!("Nimbus ID is {}", nimbus_client.nimbus_id()?);
 
