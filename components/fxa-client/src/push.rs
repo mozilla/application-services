@@ -95,10 +95,16 @@ impl FirefoxAccount {
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     #[handle_error(Error)]
-    pub fn send_single_tab(&self, target_device_id: &str, title: &str, url: &str) -> ApiResult<()> {
+    pub fn send_single_tab(
+        &self,
+        target_device_id: &str,
+        title: &str,
+        url: &str,
+        private: bool,
+    ) -> ApiResult<()> {
         self.internal
             .lock()
-            .send_single_tab(target_device_id, title, url)
+            .send_single_tab(target_device_id, title, url, private)
     }
 
     /// Use device commands to close one or more tabs on another device.
@@ -240,4 +246,5 @@ pub struct CloseTabsPayload {
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,
+    pub is_private: bool,
 }

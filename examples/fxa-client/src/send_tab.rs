@@ -68,7 +68,7 @@ fn poll(account: &FirefoxAccount) -> Result<()> {
 }
 
 fn send(account: &FirefoxAccount, device_id: String, title: String, url: String) -> Result<()> {
-    account.send_single_tab(&device_id, &title, &url)?;
+    account.send_single_tab(&device_id, &title, &url, false)?;
     println!("Tab sent!");
     Ok(())
 }
