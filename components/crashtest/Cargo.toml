@@ -9,7 +9,7 @@ exclude = ["/android", "/ios"]
 [dependencies]
 log = "0.4"
 thiserror = "2"
-uniffi = { version = "0.29.0" }
+uniffi = { git = "https://github.com/bendk/uniffi-rs", rev = "498cdcf9b0e060bc29848bd6896e4635ec890f22" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { git = "https://github.com/bendk/uniffi-rs", rev = "498cdcf9b0e060bc29848bd6896e4635ec890f22", features=["build"]}
