@@ -78,3 +78,89 @@ fn test_recorded_context_validate_queries() -> Result<()> {
 
     Ok(())
 }
+
+fn create_helper(context: serde_json::Value) -> NimbusTargetingHelper {
+    NimbusTargetingHelper::new(context, Arc::new(Mutex::new(EventStore::new())), None)
+}
+
+#[test]
+fn test_eval_jexl_debug_success() {
+    use serde_json::json;
+
+    let helper = create_helper(json!({
+        "locale": "en-US",
+    }));
+
+    let result = helper
+        .eval_jexl_debug("locale == 'en-US'".to_string())
+        .unwrap();
+
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["success"], true);
+    assert_eq!(parsed["result"], true);
+}
+
+#[test]
+fn test_eval_jexl_debug_error() {
+    use serde_json::json;
+
+    let helper = create_helper(json!({}));
+
+    let result = helper.eval_jexl_debug("invalid {{".to_string()).unwrap();
+
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["success"], false);
+    assert!(!parsed["error"].as_str().unwrap().is_empty());
+}
+
+#[test]
+fn test_eval_jexl_debug_json_structure() {
+    use serde_json::json;
+
+    let helper = create_helper(json!({"test": true}));
+
+    let result = helper.eval_jexl_debug("test".to_string()).unwrap();
+
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    // Verify JSON structure for success case
+    assert!(parsed.is_object());
+    assert_eq!(parsed["success"], true);
+    assert!(parsed.get("result").is_some());
+    assert!(parsed.get("error").is_none());
+}
+
+#[test]
+fn test_eval_jexl_debug_returns_pretty_json() {
+    use serde_json::json;
+
+    let helper = create_helper(json!({"locale": "en-US"}));
+
+    let result = helper.eval_jexl_debug("locale".to_string()).unwrap();
+
+    // Pretty JSON should have newlines
+    assert!(result.contains('\n'));
+    // Should be valid JSON
+    assert!(serde_json::from_str::<serde_json::Value>(&result).is_ok());
+}
+
+#[test]
+fn test_eval_jexl_debug_with_version_compare() {
+    use crate::AppContext;
+
+    let app_ctx = AppContext {
+        app_version: Some("115.0".to_string()),
+        ..Default::default()
+    };
+
+    let targeting_attributes: crate::TargetingAttributes = app_ctx.into();
+    let helper = create_helper(serde_json::to_value(&targeting_attributes).unwrap());
+
+    let result = helper
+        .eval_jexl_debug("app_version|versionCompare('114.0') > 0".to_string())
+        .unwrap();
+
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed["success"], true);
+    assert_eq!(parsed["result"], true);
+}

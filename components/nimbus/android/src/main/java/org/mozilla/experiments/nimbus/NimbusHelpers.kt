@@ -61,6 +61,9 @@ class NimbusMessagingHelper(
             targetingHelper.evalJexl(expression)
         }
 
+    override fun evalJexlDebug(expression: String): String =
+        targetingHelper.evalJexlDebug(expression)
+
     override fun clearCache() = cache.clear()
 
     override fun destroy() {
@@ -75,6 +78,9 @@ class NimbusMessagingHelper(
 
 internal class AlwaysFalseTargetingHelper : NimbusTargetingHelperInterface {
     override fun evalJexl(expression: String): Boolean = false
+
+    override fun evalJexlDebug(expression: String): String =
+        """{"success": false, "error": "Not implemented"}"""
 }
 
 internal class NonStringHelper : NimbusStringHelperInterface {

@@ -55,6 +55,35 @@ impl NimbusTargetingHelper {
         }
     }
 
+    #[cfg(feature = "stateful")]
+    pub fn eval_jexl_debug(&self, expression: String) -> Result<String> {
+        let eval_result = jexl_eval_raw(
+            &expression,
+            &self.context,
+            self.event_store.clone(),
+            self.gecko_pref_store.clone(),
+        );
+
+        let response = match eval_result {
+            Ok(value) => {
+                serde_json::json!({
+                    "success": true,
+                    "result": value
+                })
+            }
+            Err(e) => {
+                serde_json::json!({
+                    "success": false,
+                    "error": e.to_string()
+                })
+            }
+        };
+
+        serde_json::to_string_pretty(&response).map_err(|e| {
+            NimbusError::JSONError("Failed to serialize JEXL result".to_string(), e.to_string())
+        })
+    }
+
     pub fn evaluate_jexl_raw_value(&self, expr: &str) -> Result<Value> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "stateful")] {

@@ -1,5 +1,14 @@
 # v149.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus
+* Added `eval_jexl_debug()` method to `NimbusTargetingHelper` interface for CLI testing and debugging. Evaluates JEXL expressions and returns debug results as JSON. Consumers implementing this interface must add the new method.
+([#7156](https://github.com/mozilla/application-services/pull/7156))
+([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
+
+## ✨ What's New ✨
+
 ### Nimbus
 * Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
 

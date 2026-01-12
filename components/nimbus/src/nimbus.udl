@@ -390,6 +390,11 @@ interface NimbusTargetingHelper {
     /// the helper at construction.
     [Throws=NimbusError]
     boolean eval_jexl(string expression);
+
+    /// Evaluate a JEXL expression and return debug results as JSON.
+    /// For CLI testing and debugging.
+    [Throws=NimbusError]
+    string eval_jexl_debug(string expression);
 };
 
 interface NimbusStringHelper {
