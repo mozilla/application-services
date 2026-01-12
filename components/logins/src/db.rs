@@ -438,9 +438,9 @@ impl LoginDb {
                 ":times_used": login.meta.times_used,
                 ":time_last_used": login.meta.time_last_used,
                 ":time_password_changed": login.meta.time_password_changed,
-                ":time_of_last_breach": login.fields.time_of_last_breach,
-                ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
                 ":local_modified": login.meta.time_created,
+                ":time_of_last_breach": login.meta.time_of_last_breach,
+                ":time_last_breach_alert_dismissed": login.meta.time_last_breach_alert_dismissed,
                 ":sec_fields": login.sec_fields,
                 ":guid": login.guid(),
             },
@@ -508,6 +508,8 @@ impl LoginDb {
                         time_password_changed: now_ms,
                         time_last_used: now_ms,
                         times_used: 1,
+                        time_of_last_breach: None,
+                        time_last_breach_alert_dismissed: None,
                     },
                 }
             })
@@ -543,8 +545,6 @@ impl LoginDb {
                             http_realm: new_entry.http_realm,
                             username_field: new_entry.username_field,
                             password_field: new_entry.password_field,
-                            time_of_last_breach: None,
-                            time_last_breach_alert_dismissed: None,
                         },
                         sec_fields,
                     };
@@ -577,6 +577,8 @@ impl LoginDb {
                 time_password_changed: now_ms,
                 time_last_used: now_ms,
                 times_used: 1,
+                time_of_last_breach: None,
+                time_last_breach_alert_dismissed: None,
             },
         };
 
@@ -652,6 +654,8 @@ impl LoginDb {
                 time_password_changed,
                 time_last_used: now_ms,
                 times_used: existing.times_used + 1,
+                time_of_last_breach: None,
+                time_last_breach_alert_dismissed: None,
             },
             fields: LoginFields {
                 origin: entry.origin,
@@ -659,8 +663,6 @@ impl LoginDb {
                 http_realm: entry.http_realm,
                 username_field: entry.username_field,
                 password_field: entry.password_field,
-                time_of_last_breach: None,
-                time_last_breach_alert_dismissed: None,
             },
             sec_fields,
         };
@@ -1146,8 +1148,8 @@ pub mod test_utils {
             ":time_last_used": login.meta.time_last_used,
             ":time_password_changed": login.meta.time_password_changed,
             ":time_created": login.meta.time_created,
-            ":time_of_last_breach": login.fields.time_of_last_breach,
-            ":time_last_breach_alert_dismissed": login.fields.time_last_breach_alert_dismissed,
+            ":time_of_last_breach": login.meta.time_of_last_breach,
+            ":time_last_breach_alert_dismissed": login.meta.time_last_breach_alert_dismissed,
             ":guid": login.guid_str(),
         })?;
         Ok(())
@@ -1455,6 +1457,8 @@ mod tests {
             time_password_changed: now_ms + 100,
             time_last_used: now_ms + 10,
             times_used: 42,
+            time_of_last_breach: None,
+            time_last_breach_alert_dismissed: None,
         };
 
         let db = LoginDb::open_in_memory();
@@ -1493,6 +1497,8 @@ mod tests {
             time_password_changed: now_ms + 100,
             time_last_used: now_ms + 10,
             times_used: 42,
+            time_of_last_breach: None,
+            time_last_breach_alert_dismissed: None,
         };
 
         let db = LoginDb::open_in_memory();
@@ -1791,9 +1797,9 @@ mod tests {
             )
             .unwrap();
         // initial state
-        assert!(login.fields.time_of_last_breach.is_none());
+        assert!(login.meta.time_of_last_breach.is_none());
         assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
-        assert!(login.fields.time_last_breach_alert_dismissed.is_none());
+        assert!(login.meta.time_last_breach_alert_dismissed.is_none());
 
         // Wait and use a time that's definitely after password was changed
         thread::sleep(time::Duration::from_millis(50));
@@ -1801,18 +1807,18 @@ mod tests {
         db.record_breach(&login.meta.id, breach_time).unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
         let login1 = db.get_by_id(&login.meta.id).unwrap().unwrap();
-        assert!(login1.fields.time_of_last_breach.is_some());
+        assert!(login1.meta.time_of_last_breach.is_some());
 
         // dismiss
         db.record_breach_alert_dismissal(&login.meta.id).unwrap();
         let login2 = db.get_by_id(&login.meta.id).unwrap().unwrap();
-        assert!(login2.fields.time_last_breach_alert_dismissed.is_some());
+        assert!(login2.meta.time_last_breach_alert_dismissed.is_some());
 
         // reset
         db.reset_all_breaches().unwrap();
         assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
         let login3 = db.get_by_id(&login.meta.id).unwrap().unwrap();
-        assert!(login3.fields.time_of_last_breach.is_none());
+        assert!(login3.meta.time_of_last_breach.is_none());
 
         // Wait and use a time that's definitely after password was changed
         thread::sleep(time::Duration::from_millis(50));
