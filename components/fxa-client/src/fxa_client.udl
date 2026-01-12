@@ -552,7 +552,7 @@ interface FirefoxAccount {
   ///      granted the `https:///identity.mozilla.com/apps/oldsync` scope.
   ///
   [Throws=FxaError]
-  void send_single_tab([ByRef] string target_device_id, [ByRef] string title, [ByRef] string url );
+  void send_single_tab([ByRef] string target_device_id, [ByRef] string title, [ByRef] string url, optional boolean is_private = false );
 
 
   /// Use device commands to close one or more tabs on another device.
@@ -930,11 +930,14 @@ dictionary CloseTabsPayload {
   sequence<string> urls;
 };
 
-/// An individual entry in the navigation history of a sent tab.
+/// A received tab. Mis-named as the original intent was to keep
+/// the full "back" history for a tab, where this would be one such
+/// entry - but that never happened.
 ///
 dictionary TabHistoryEntry {
   string title;
   string url;
+  boolean is_private;
 };
 
 /// A client connected to the user's account.
