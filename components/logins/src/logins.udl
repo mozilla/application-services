@@ -57,6 +57,12 @@ dictionary LoginMeta {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+
+    /// These fields can be synced from Desktop and are NOT included in LoginEntry,
+    /// so update() will not modify them. Use the dedicated API methods to manipulate
+    /// these fields, or use add_with_meta/update with LoginEntryWithMeta.
+    i64? time_of_last_breach;
+    i64? time_last_breach_alert_dismissed;
 };
 
 /// A login together with record fields, handed over to the store API; ie a login persisted
@@ -81,6 +87,9 @@ dictionary Login {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+    // breach fields
+    i64? time_of_last_breach;
+    i64? time_last_breach_alert_dismissed;
 
     // login fields
     string origin;
@@ -92,15 +101,6 @@ dictionary Login {
     // secure login fields
     string password;
     string username;
-
-    // breach alert fields
-    /// These fields can be synced from Desktop and are NOT included in LoginEntry,
-    /// so update() will not modify them. Use the dedicated API methods to manipulate:
-    /// record_breach(), reset_all_breaches(), is_potentially_breached(),
-    /// record_breach_alert_dismissal(), record_breach_alert_dismissal_time(),
-    /// and is_breach_alert_dismissed().
-    i64? time_of_last_breach;
-    i64? time_last_breach_alert_dismissed;
 };
 
 /// Metrics tracking deletion of logins that cannot be decrypted, see `delete_undecryptable_records_for_remote_replacement`
