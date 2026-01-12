@@ -1,11 +1,11 @@
-# v148.0 (In progress)
+# v148.0 (_2026-01-12_)
 
 ### Logins
 - Add breach alert support, including a database migration to version 3,
   new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
   and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v147.0...v148.0)
 
 ## ⚠️ Breaking Changes ⚠️
 
