@@ -5,6 +5,7 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
+import android.os.Looper
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CancellationException
@@ -43,11 +44,14 @@ import org.mozilla.experiments.nimbus.internal.GeckoPrefState
 import org.mozilla.experiments.nimbus.internal.JsonObject
 import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.PrefBranch
+import org.mozilla.experiments.nimbus.internal.PrefEnrollmentData
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
+import org.mozilla.experiments.nimbus.internal.PreviousGeckoPrefState
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 import org.mozilla.experiments.nimbus.internal.getCalculatedAttributes
 import org.mozilla.experiments.nimbus.internal.validateEventQueries
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.util.Calendar
 import java.util.concurrent.Executors
@@ -850,7 +854,7 @@ class NimbusTests {
                 "number" to GeckoPrefState(
                     geckoPref = GeckoPref("pref.number", PrefBranch.DEFAULT),
                     geckoValue = "1",
-                    enrollmentValue = null,
+                    enrollmentValue = PrefEnrollmentData("test-experiment", "42", "about_welcome", "number"),
                     isUserSet = false,
                 ),
             ),
@@ -911,6 +915,37 @@ class NimbusTests {
         assertEquals(1, events.size)
         assertEquals(EnrollmentChangeEventType.DISQUALIFICATION, events[0].change)
         assertEquals(0, handler.setValues?.size)
+    }
+
+    @Test
+    fun `register previous gecko states and check values`() {
+        val handler = TestGeckoPrefHandler()
+
+        val nimbus = createNimbus(geckoPrefHandler = handler)
+
+        suspend fun getString(): String {
+            return testExperimentsJsonString(appInfo, packageName)
+        }
+
+        val job = nimbus.applyLocalExperiments(::getString)
+        runBlocking {
+            job.join()
+        }
+
+        assertEquals(1, handler.setValues?.size)
+        assertEquals("42", handler.setValues?.get(0)?.enrollmentValue?.prefValue)
+
+        nimbus.registerPreviousGeckoPrefStates(handler.setValues!!)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val previousStates = nimbus.getPreviousGeckoPrefStates("test-experiment")
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNotNull(previousStates)
+        val geckoPreviousStates = previousStates as List<PreviousGeckoPrefState>
+        assertEquals(1, geckoPreviousStates.size)
+        assertEquals("1", geckoPreviousStates[0].originalValue.value)
+        assertEquals("pref.number", geckoPreviousStates[0].originalValue.pref)
     }
 }
 
