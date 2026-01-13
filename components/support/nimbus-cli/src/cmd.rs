@@ -94,6 +94,11 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             manifest,
             experiment,
         } => params.validate_experiment(manifest, experiment)?,
+        AppCommand::Jexl {
+            app,
+            expression,
+            open,
+        } => app.eval_jexl(expression, open)?,
     };
 
     Ok(status)
@@ -363,6 +368,7 @@ impl LaunchableApp {
             reset_db: !preserve_nimbus_db,
             experiments: Some(&payload),
             log_state: true,
+            jexl_expression: None,
         };
         self.start_app(protocol, open)
     }
@@ -379,6 +385,7 @@ impl LaunchableApp {
             reset_db: !preserve_nimbus_db,
             experiments: Some(&value),
             log_state: true,
+            jexl_expression: None,
         };
         self.start_app(protocol, open)
     }
@@ -426,6 +433,79 @@ impl LaunchableApp {
 
     fn open(&self, open: &AppOpenArgs) -> Result<bool> {
         self.start_app(Default::default(), open)
+    }
+
+    fn eval_jexl(&self, expression: &str, open: &AppOpenArgs) -> Result<bool> {
+        let mut stdout = StandardStream::stdout(ColorChoice::Auto);
+        prompt(&mut stdout, &format!("# Evaluating JEXL: {}", expression))?;
+
+        // Create protocol
+        let protocol = StartAppProtocol {
+            jexl_expression: Some(expression),
+            ..Default::default()
+        };
+
+        // Send to app
+        self.start_app(protocol, open)?;
+
+        // Wait for result
+        prompt(&mut stdout, "# Waiting for result...")?;
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        // Capture and display
+        let result = self.capture_jexl_result()?;
+        println!("\n{}", result);
+
+        Ok(true)
+    }
+
+    fn capture_jexl_result(&self) -> Result<String> {
+        match self {
+            Self::Android { .. } => {
+                let output = self
+                    .exe()?
+                    .args(["logcat", "-d", "-s", "NimbusCLI:I", "NimbusCLI:E"])
+                    .output()?;
+
+                let logs = String::from_utf8_lossy(&output.stdout);
+
+                for line in logs.lines().rev() {
+                    if let Some(json) = line.split("JEXL_RESULT: ").nth(1) {
+                        return Ok(json.to_string());
+                    }
+                }
+
+                bail!("Failed to find JEXL result in logs")
+            }
+
+            Self::Ios { device_id, .. } => {
+                let output = self
+                    .exe()?
+                    .args([
+                        "spawn",
+                        device_id,
+                        "log",
+                        "show",
+                        "--predicate",
+                        "processImagePath contains 'Firefox'",
+                        "--last",
+                        "10s",
+                        "--style",
+                        "compact",
+                    ])
+                    .output()?;
+
+                let logs = String::from_utf8_lossy(&output.stdout);
+
+                for line in logs.lines().rev() {
+                    if let Some(json) = line.split("JEXL_RESULT: ").nth(1) {
+                        return Ok(json.to_string());
+                    }
+                }
+
+                bail!("Failed to find JEXL result in logs")
+            }
+        }
     }
 
     fn start_app(&self, app_protocol: StartAppProtocol, open: &AppOpenArgs) -> Result<bool> {
@@ -518,9 +598,10 @@ impl LaunchableApp {
                 reset_db,
                 experiments,
                 log_state,
+                jexl_expression,
             } = app_protocol;
 
-            if log_state || experiments.is_some() || reset_db {
+            if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
                 args.extend(["--esn nimbus-cli".to_string(), "--ei version 1".to_string()]);
             }
 
@@ -533,6 +614,10 @@ impl LaunchableApp {
             }
             if log_state {
                 args.push("--ez log-state true".to_string());
+            }
+            if let Some(expr) = jexl_expression {
+                let escaped = expr.replace('\'', "&apos;");
+                args.push(format!("--es eval-jexl '{}'", escaped));
             };
             args.extend_from_slice(ending_args);
 
@@ -573,9 +658,10 @@ impl LaunchableApp {
                     log_state,
                     experiments,
                     reset_db,
+                    jexl_expression,
                 } = app_protocol;
 
-                if log_state || experiments.is_some() || reset_db {
+                if log_state || experiments.is_some() || reset_db || jexl_expression.is_some() {
                     args.extend([
                         "--nimbus-cli".to_string(),
                         "--version".to_string(),
@@ -596,6 +682,9 @@ impl LaunchableApp {
                 }
                 if log_state {
                     args.push("--log-state".to_string());
+                }
+                if let Some(expr) = jexl_expression {
+                    args.extend(["--eval-jexl".to_string(), expr.replace('\'', "&apos;")]);
                 }
             }
             args.extend_from_slice(ending_args);

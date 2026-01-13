@@ -274,6 +274,15 @@ pub(crate) enum CliCommand {
         #[command(flatten)]
         manifest: ManifestArgs,
     },
+
+    /// Evaluate a JEXL expression against the app context
+    Jexl {
+        /// The JEXL expression to evaluate
+        expression: String,
+
+        #[command(flatten)]
+        open: OpenArgs,
+    },
 }
 
 #[derive(Args, Clone, Debug, Default)]
