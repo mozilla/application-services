@@ -12,6 +12,14 @@
 ### Nimbus
 * Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
 
+
+### Viaduct
+* Support setting default user-agent headers during initialization of reqwest backend.
+
+
+### FxA Client
+* Moved hardcoded FxA UA from Viaduct to the FxA Component.
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)

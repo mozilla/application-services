@@ -7,3 +7,4 @@
 #include <stdint.h>
 
 void viaduct_use_reqwest_backend();
+void viaduct_set_reqwest_user_agent(const char *user_agent);

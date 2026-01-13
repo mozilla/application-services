@@ -4,16 +4,21 @@
 
 use error_support::{error, warn};
 use once_cell::sync::Lazy;
-use std::{io::Read, sync::Once};
+use std::{
+    io::Read,
+    sync::{Mutex, Once},
+};
 use viaduct::{settings::GLOBAL_SETTINGS, OldBackend as Backend};
 
 // Note: we don't `use` things from reqwest or the viaduct crate because
 // it would be rather confusing given that we have the same name for
 // most things as them.
 
+static CUSTOM_USER_AGENT: Mutex<Option<String>> = Mutex::new(None);
+
 static CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
     let settings = GLOBAL_SETTINGS.read();
-    let mut builder = reqwest::blocking::ClientBuilder::new()
+    let builder = reqwest::blocking::ClientBuilder::new()
         .timeout(settings.read_timeout)
         .connect_timeout(settings.connect_timeout)
         .redirect(if settings.follow_redirects {
@@ -21,14 +26,6 @@ static CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
         } else {
             reqwest::redirect::Policy::none()
         });
-    if cfg!(target_os = "ios") {
-        // The FxA servers rely on the UA agent to filter
-        // some push messages directed to iOS devices.
-        // This is obviously a terrible hack and we should
-        // probably do https://github.com/mozilla/application-services/issues/1326
-        // instead, but this will unblock us for now.
-        builder = builder.user_agent("Firefox-iOS-FxA/24");
-    }
     // Note: no cookie or cache support.
     builder
         .build()
@@ -58,6 +55,16 @@ fn into_reqwest(
         result
             .headers_mut()
             .insert(HeaderName::from_bytes(h.name().as_bytes()).unwrap(), value);
+    }
+
+    if let Ok(guard) = CUSTOM_USER_AGENT.lock() {
+        if let Some(ua) = guard.as_ref() {
+            if let Ok(ua_value) = reqwest::header::HeaderValue::from_str(ua) {
+                result
+                    .headers_mut()
+                    .insert(reqwest::header::USER_AGENT, ua_value);
+            }
+        }
     }
     *result.body_mut() = request.body.map(reqwest::blocking::Body::from);
     Ok(result)
@@ -110,6 +117,24 @@ pub fn use_reqwest_backend() {
         viaduct::set_backend(Box::leak(Box::new(ReqwestBackend)))
             .expect("Backend already set (FFI)");
     })
+}
+
+/// Sets a custom User-Agent string for reqwest HTTP requests.
+/// Safety Requirements:
+/// - `user_agent` must be a valid pointer to a null-terminated C string
+/// - The string must remain valid for the duration of this call
+/// - The pointer must not be accessed concurrently from other threads during this call
+#[no_mangle]
+#[cfg(target_os = "ios")]
+pub unsafe extern "C" fn viaduct_set_reqwest_user_agent(user_agent: *const std::os::raw::c_char) {
+    if !user_agent.is_null() {
+        let ua_str = std::ffi::CStr::from_ptr(user_agent)
+            .to_string_lossy()
+            .into_owned();
+        if let Ok(mut custom_ua) = CUSTOM_USER_AGENT.lock() {
+            *custom_ua = Some(ua_str);
+        }
+    }
 }
 
 #[no_mangle]
