@@ -937,7 +937,7 @@ dictionary CloseTabsPayload {
 dictionary TabHistoryEntry {
   string title;
   string url;
-  boolean is_private;
+  boolean is_private = false;
 };
 
 /// A client connected to the user's account.
