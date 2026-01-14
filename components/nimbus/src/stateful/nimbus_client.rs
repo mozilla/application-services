@@ -977,7 +977,7 @@ impl NimbusClient {
     pub fn record_malformed_feature_config(&self, feature_id: String, part_id: String) {
         let event = if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(&feature_id)
         {
-            MalformedFeatureConfigExtraDef::from(f, part_id)
+            MalformedFeatureConfigExtraDef::from_feature_and_part(f, part_id)
         } else {
             MalformedFeatureConfigExtraDef::new(feature_id, part_id)
         };

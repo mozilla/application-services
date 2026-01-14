@@ -198,11 +198,11 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
 
     let metric_records: Vec<EnrollmentStatusExtraDef> = metrics_handler.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 1);
-    assert_eq!(metric_records[0].slug(), exp.slug);
-    assert_eq!(metric_records[0].status(), "Enrolled");
-    assert_eq!(metric_records[0].reason(), "Qualified");
-    assert_eq!(metric_records[0].branch(), "treatment");
-    assert_eq!(metric_records[0].user_id(), "test");
+    assert_eq!(metric_records[0].slug, Some(exp.slug));
+    assert_eq!(metric_records[0].status.as_deref(), Some("Enrolled"));
+    assert_eq!(metric_records[0].reason.as_deref(), Some("Qualified"));
+    assert_eq!(metric_records[0].branch.as_deref(), Some("treatment"));
+    assert_eq!(metric_records[0].user_id.as_deref(), Some("test"));
 
     assert_eq!(metrics_handler.get_nimbus_user_id(), Some("test".into()));
 

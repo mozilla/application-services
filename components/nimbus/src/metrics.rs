@@ -4,36 +4,11 @@
 
 use serde_derive::{Deserialize, Serialize};
 
+use crate::EnrollmentStatus;
 use crate::enrollment::ExperimentEnrollment;
-use crate::{EnrolledFeature, EnrollmentStatus};
-
 #[cfg(feature = "stateful")]
 use crate::enrollment::PreviousGeckoPrefState;
-
-#[uniffi::trait_interface]
-pub trait MetricsHandler: Send + Sync {
-    #[cfg(feature = "stateful")]
-    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
-
-    #[cfg(not(feature = "stateful"))]
-    fn record_enrollment_statuses_v2(
-        &self,
-        enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
-        nimbus_user_id: Option<String>,
-    );
-
-    #[cfg(feature = "stateful")]
-    fn record_feature_activation(&self, event: FeatureExposureExtraDef);
-
-    #[cfg(feature = "stateful")]
-    fn record_feature_exposure(&self, event: FeatureExposureExtraDef);
-
-    #[cfg(feature = "stateful")]
-    fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
-
-    #[cfg(feature = "stateful")]
-    fn submit_targeting_context(&self);
-}
+pub use crate::metrics::detail::*;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct EnrollmentStatusExtraDef {
@@ -48,38 +23,6 @@ pub struct EnrollmentStatusExtraDef {
     #[cfg(feature = "stateful")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_gecko_pref_states: Option<Vec<PreviousGeckoPrefState>>,
-}
-
-#[cfg(test)]
-impl EnrollmentStatusExtraDef {
-    pub fn branch(&self) -> &str {
-        self.branch.as_ref().unwrap()
-    }
-
-    pub fn conflict_slug(&self) -> &str {
-        self.conflict_slug.as_ref().unwrap()
-    }
-
-    pub fn error_string(&self) -> &str {
-        self.error_string.as_ref().unwrap()
-    }
-
-    pub fn reason(&self) -> &str {
-        self.reason.as_ref().unwrap()
-    }
-
-    pub fn slug(&self) -> &str {
-        self.slug.as_ref().unwrap()
-    }
-
-    pub fn status(&self) -> &str {
-        self.status.as_ref().unwrap()
-    }
-
-    #[cfg(not(feature = "stateful"))]
-    pub fn user_id(&self) -> &str {
-        self.user_id.as_ref().unwrap()
-    }
 }
 
 impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
@@ -119,47 +62,84 @@ impl From<ExperimentEnrollment> for EnrollmentStatusExtraDef {
     }
 }
 
-#[derive(Clone)]
-pub struct FeatureExposureExtraDef {
-    pub branch: Option<String>,
-    pub slug: String,
-    pub feature_id: String,
-}
-
-impl From<EnrolledFeature> for FeatureExposureExtraDef {
-    fn from(value: EnrolledFeature) -> Self {
-        Self {
-            feature_id: value.feature_id,
-            branch: value.branch,
-            slug: value.slug,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct MalformedFeatureConfigExtraDef {
-    pub slug: Option<String>,
-    pub branch: Option<String>,
-    pub feature_id: String,
-    pub part: String,
-}
-
 #[cfg(feature = "stateful")]
-impl MalformedFeatureConfigExtraDef {
-    pub(crate) fn from(value: EnrolledFeature, part: String) -> Self {
-        Self {
-            slug: Some(value.slug),
-            branch: value.branch,
-            feature_id: value.feature_id,
-            part,
+mod detail {
+    use crate::EnrolledFeature;
+
+    use super::EnrollmentStatusExtraDef;
+
+    #[uniffi::trait_interface]
+    pub trait MetricsHandler: Send + Sync {
+        fn record_enrollment_statuses(
+            &self,
+            enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
+        );
+
+        fn record_feature_activation(&self, event: FeatureExposureExtraDef);
+
+        fn record_feature_exposure(&self, event: FeatureExposureExtraDef);
+
+        fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
+
+        fn submit_targeting_context(&self);
+    }
+
+    #[derive(Clone)]
+    pub struct FeatureExposureExtraDef {
+        pub branch: Option<String>,
+        pub slug: String,
+        pub feature_id: String,
+    }
+
+    impl From<EnrolledFeature> for FeatureExposureExtraDef {
+        fn from(value: EnrolledFeature) -> Self {
+            Self {
+                feature_id: value.feature_id,
+                branch: value.branch,
+                slug: value.slug,
+            }
         }
     }
 
-    pub(crate) fn new(feature_id: String, part: String) -> Self {
-        Self {
-            feature_id,
-            part,
-            ..Default::default()
+    #[derive(Clone, Default)]
+    #[cfg_attr(test, derive(Debug, Eq, PartialEq))]
+    pub struct MalformedFeatureConfigExtraDef {
+        pub slug: Option<String>,
+        pub branch: Option<String>,
+        pub feature_id: String,
+        pub part: String,
+    }
+
+    impl MalformedFeatureConfigExtraDef {
+        pub(crate) fn from_feature_and_part(value: EnrolledFeature, part: String) -> Self {
+            Self {
+                slug: Some(value.slug),
+                branch: value.branch,
+                feature_id: value.feature_id,
+                part,
+            }
         }
+
+        pub(crate) fn new(feature_id: String, part: String) -> Self {
+            Self {
+                feature_id,
+                part,
+                ..Default::default()
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+mod detail {
+    use super::EnrollmentStatusExtraDef;
+
+    #[uniffi::trait_interface]
+    pub trait MetricsHandler: Send + Sync {
+        fn record_enrollment_statuses_v2(
+            &self,
+            enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
+            nimbus_user_id: Option<String>,
+        );
     }
 }

@@ -1254,20 +1254,20 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
-    assert_eq!(metric_records[0].slug(), slug_1);
-    assert_eq!(metric_records[0].status(), "Enrolled");
-    assert_eq!(metric_records[0].reason(), "Qualified");
-    assert_eq!(metric_records[0].branch(), "treatment");
+    assert_eq!(metric_records[0].slug.as_ref().unwrap(), slug_1);
+    assert_eq!(metric_records[0].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[0].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[0].branch.as_ref().unwrap(), "treatment");
 
-    assert_eq!(metric_records[1].slug(), slug_2);
-    assert_eq!(metric_records[1].status(), "Enrolled");
-    assert_eq!(metric_records[1].reason(), "Qualified");
-    assert_eq!(metric_records[1].branch(), "control");
+    assert_eq!(metric_records[1].slug.as_ref().unwrap(), slug_2);
+    assert_eq!(metric_records[1].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[1].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[1].branch.as_ref().unwrap(), "control");
 
-    assert_eq!(metric_records[2].slug(), slug_3);
-    assert_eq!(metric_records[2].status(), "Enrolled");
-    assert_eq!(metric_records[2].reason(), "Qualified");
-    assert_eq!(metric_records[2].branch(), "control");
+    assert_eq!(metric_records[2].slug.as_ref().unwrap(), slug_3);
+    assert_eq!(metric_records[2].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[2].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[2].branch.as_ref().unwrap(), "control");
 
     let slug_4 = "experiment-3";
     let exp_2 = get_targeted_experiment(slug_2, "false");
@@ -1285,22 +1285,22 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
 
-    assert_eq!(metric_records[3].slug(), slug_2);
-    assert_eq!(metric_records[3].status(), "Disqualified");
-    assert_eq!(metric_records[3].reason(), "NotTargeted");
-    assert_eq!(metric_records[3].branch(), "control");
+    assert_eq!(metric_records[3].slug.as_ref().unwrap(), slug_2);
+    assert_eq!(metric_records[3].status.as_ref().unwrap(), "Disqualified");
+    assert_eq!(metric_records[3].reason.as_ref().unwrap(), "NotTargeted");
+    assert_eq!(metric_records[3].branch.as_ref().unwrap(), "control");
 
-    assert_eq!(metric_records[4].slug(), slug_4);
-    assert_eq!(metric_records[4].status(), "Error");
+    assert_eq!(metric_records[4].slug.as_ref().unwrap(), slug_4);
+    assert_eq!(metric_records[4].status.as_ref().unwrap(), "Error");
     assert_eq!(
-        metric_records[4].error_string(),
+        metric_records[4].error_string.as_ref().unwrap(),
         "EvaluationError: Identifier 'blah' is undefined"
     );
 
-    assert_eq!(metric_records[5].slug(), slug_3);
-    assert_eq!(metric_records[5].status(), "Disqualified");
-    assert_eq!(metric_records[5].reason(), "NotSelected");
-    assert_eq!(metric_records[5].branch(), "control");
+    assert_eq!(metric_records[5].slug.as_ref().unwrap(), slug_3);
+    assert_eq!(metric_records[5].status.as_ref().unwrap(), "Disqualified");
+    assert_eq!(metric_records[5].reason.as_ref().unwrap(), "NotSelected");
+    assert_eq!(metric_records[5].branch.as_ref().unwrap(), "control");
 
     Ok(())
 }
