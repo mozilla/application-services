@@ -439,20 +439,16 @@ impl LaunchableApp {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         prompt(&mut stdout, &format!("# Evaluating JEXL: {}", expression))?;
 
-        // Create protocol
         let protocol = StartAppProtocol {
             jexl_expression: Some(expression),
             ..Default::default()
         };
 
-        // Send to app
         self.start_app(protocol, open)?;
 
-        // Wait for result
         prompt(&mut stdout, "# Waiting for result...")?;
         std::thread::sleep(std::time::Duration::from_secs(2));
 
-        // Capture and display
         let result = self.capture_jexl_result()?;
         println!("\n{}", result);
 
