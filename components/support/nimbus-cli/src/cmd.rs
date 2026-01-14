@@ -487,7 +487,7 @@ impl LaunchableApp {
                         "log",
                         "show",
                         "--predicate",
-                        "processImagePath contains 'Firefox'",
+                        "process == 'Client'",
                         "--last",
                         "10s",
                         "--style",
