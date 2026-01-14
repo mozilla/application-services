@@ -23,6 +23,7 @@ pub struct Settings {
     pub connect_timeout: Option<Duration>,
     pub follow_redirects: bool,
     pub use_caches: bool,
+    pub default_user_agent: Option<String>,
     // For testing purposes, we allow exactly one additional Url which is
     // allowed to not be https.
     //
@@ -44,6 +45,7 @@ pub static GLOBAL_SETTINGS: Lazy<RwLock<Settings>> = Lazy::new(|| {
         connect_timeout: Some(TIMEOUT_DURATION),
         follow_redirects: true,
         use_caches: false,
+        default_user_agent: None,
         addn_allowed_insecure_url: None,
     })
 });
@@ -54,6 +56,16 @@ pub fn allow_android_emulator_loopback() {
     let url = url::Url::parse("http://10.0.2.2").unwrap();
     let mut settings = GLOBAL_SETTINGS.write();
     settings.addn_allowed_insecure_url = Some(url);
+}
+
+/// Set the global default user-agent
+///
+/// This is what's used when no user-agent is set in the `ClientSettings` and no `user-agent`
+/// header is set in the Request.
+#[uniffi::export]
+pub fn set_global_default_user_agent(user_agent: String) {
+    let mut settings = GLOBAL_SETTINGS.write();
+    settings.default_user_agent = Some(user_agent);
 }
 
 /// Validate a request, respecting the `addn_allowed_insecure_url` setting.

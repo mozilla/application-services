@@ -535,11 +535,23 @@ impl Client {
         }
     }
 
-    fn make_request(&self, request: Request) -> Result<Response> {
+    #[cfg_attr(not(target_os = "ios"), allow(unused_mut))]
+    fn make_request(&self, mut request: Request) -> Result<Response> {
         if self.simulate_network_error.swap(false, Ordering::Relaxed) {
             return Err(Error::RequestError(viaduct::ViaductError::NetworkError(
                 "Simulated error".to_owned(),
             )));
+        }
+
+        // The FxA servers rely on the UA agent to filter
+        // some push messages directed to iOS devices.
+        //
+        // It's not clear why this is the correct user-agent, but it's what's worked historically.
+        #[cfg(target_os = "ios")]
+        {
+            request = request
+                .header(header_names::USER_AGENT, "Firefox-iOS-FxA/24")
+                .map_err(|e| Error::RequestError(e))?;
         }
 
         let url = request.url.path().to_string();

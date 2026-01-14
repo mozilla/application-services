@@ -202,8 +202,7 @@ async fn fetch_config_from_network(gateway_host: &str) -> Result<Vec<u8>> {
     let settings = crate::ClientSettings {
         timeout: 10000,
         redirect_limit: 5,
-        #[cfg(feature = "ohttp")]
-        ohttp_channel: None,
+        ..crate::ClientSettings::default()
     };
 
     let response = backend.send_request(request, settings).await?;

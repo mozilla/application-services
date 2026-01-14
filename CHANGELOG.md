@@ -9,6 +9,9 @@
 
 ## ✨ What's New ✨
 
+### Viaduct
+* Support setting default user-agent headers.
+
 ### Nimbus
 * Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
 

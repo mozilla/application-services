@@ -51,8 +51,7 @@ impl old_backend::Backend for Arc<dyn Backend> {
                 None => 0,
             },
             redirect_limit: if settings.follow_redirects { 10 } else { 0 },
-            #[cfg(feature = "ohttp")]
-            ohttp_channel: None,
+            ..ClientSettings::default()
         };
         pollster::block_on(self.send_request(request, client_settings))
     }

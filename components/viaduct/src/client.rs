@@ -2,7 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{new_backend::get_backend, settings::validate_request, Request, Response, Result};
+use crate::{
+    header_names::USER_AGENT,
+    new_backend::get_backend,
+    settings::{validate_request, GLOBAL_SETTINGS},
+    Request, Response, Result,
+};
 
 /// HTTP Client
 ///
@@ -14,7 +19,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(settings: ClientSettings) -> Self {
+    pub fn new(mut settings: ClientSettings) -> Self {
+        settings.update_from_global_settings();
         Self { settings }
     }
 
@@ -31,13 +37,19 @@ impl Client {
         }
         let mut client_settings = settings;
         client_settings.ohttp_channel = Some(channel.to_string());
-        Ok(Self {
-            settings: client_settings,
-        })
+        Ok(Self::new(client_settings))
     }
 
-    pub async fn send(&self, request: Request) -> Result<Response> {
+    fn set_user_agent(&self, request: &mut Request) -> Result<()> {
+        if let Some(user_agent) = &self.settings.user_agent {
+            request.headers.insert_if_missing(USER_AGENT, user_agent)?;
+        }
+        Ok(())
+    }
+
+    pub async fn send(&self, mut request: Request) -> Result<Response> {
         validate_request(&request)?;
+        self.set_user_agent(&mut request)?;
 
         // Check if this client should use OHTTP for all requests
         #[cfg(feature = "ohttp")]
@@ -65,15 +77,30 @@ impl Client {
 #[derive(Debug, uniffi::Record, Clone)]
 #[repr(C)]
 pub struct ClientSettings {
-    // Timeout for the entire request in ms (0 indicates no timeout).
+    /// Timeout for the entire request in ms (0 indicates no timeout).
     #[uniffi(default = 0)]
     pub timeout: u32,
-    // Maximum amount of redirects to follow (0 means redirects are not allowed)
+    /// Maximum amount of redirects to follow (0 means redirects are not allowed)
     #[uniffi(default = 10)]
     pub redirect_limit: u32,
-    // OHTTP channel to use for all requests (if any)
+    /// OHTTP channel to use for all requests (if any)
     #[cfg(feature = "ohttp")]
     pub ohttp_channel: Option<String>,
+    /// Client default user-agent.
+    ///
+    /// This overrides the global default user-agent and is used when no `User-agent` header is set
+    /// directly in the Request.
+    #[uniffi(default = None)]
+    pub user_agent: Option<String>,
+}
+
+impl ClientSettings {
+    pub fn update_from_global_settings(&mut self) {
+        let settings = GLOBAL_SETTINGS.read();
+        if self.user_agent.is_none() {
+            self.user_agent = settings.default_user_agent.clone();
+        }
+    }
 }
 
 impl Default for ClientSettings {
@@ -84,8 +111,50 @@ impl Default for ClientSettings {
             #[cfg(not(target_os = "ios"))]
             timeout: 10000,
             redirect_limit: 10,
+            user_agent: None,
             #[cfg(feature = "ohttp")]
             ohttp_channel: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use url::Url;
+
+    use super::*;
+    use crate::settings;
+
+    #[test]
+    fn test_user_agent() {
+        let mut req = Request::get(Url::parse("http://example.com/").unwrap());
+        // No default user agent
+        let client = Client::new(ClientSettings::default());
+        client.set_user_agent(&mut req).unwrap();
+        assert_eq!(req.headers.get(USER_AGENT), None);
+        // Global user-agent set
+        settings::set_global_default_user_agent("global-user-agent".into());
+        let client = Client::new(ClientSettings::default());
+        let mut req = Request::get(Url::parse("http://example.com/").unwrap());
+        client.set_user_agent(&mut req).unwrap();
+        assert_eq!(req.headers.get(USER_AGENT), Some("global-user-agent"));
+        // ClientSettings overrides that
+        let client = Client::new(ClientSettings {
+            user_agent: Some("client-settings-user-agent".into()),
+            ..ClientSettings::default()
+        });
+        let mut req = Request::get(Url::parse("http://example.com/").unwrap());
+        client.set_user_agent(&mut req).unwrap();
+        assert_eq!(
+            req.headers.get(USER_AGENT),
+            Some("client-settings-user-agent")
+        );
+        // Request header overrides that
+        let mut req = Request::get(Url::parse("http://example.com/").unwrap());
+        req.headers
+            .insert(USER_AGENT, "request-user-agent")
+            .unwrap();
+        client.set_user_agent(&mut req).unwrap();
+        assert_eq!(req.headers.get(USER_AGENT), Some("request-user-agent"));
     }
 }
