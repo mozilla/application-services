@@ -94,7 +94,7 @@ pub(crate) fn process_cmd(cmd: &AppCommand) -> Result<bool> {
             manifest,
             experiment,
         } => params.validate_experiment(manifest, experiment)?,
-        AppCommand::Jexl {
+        AppCommand::EvalJexl {
             app,
             expression,
             open,
@@ -447,12 +447,31 @@ impl LaunchableApp {
         self.start_app(protocol, open)?;
 
         prompt(&mut stdout, "# Waiting for result...")?;
-        std::thread::sleep(std::time::Duration::from_secs(2));
 
-        let result = self.capture_jexl_result()?;
-        println!("\n{}", result);
+        let max_retries = 2;
+        let mut last_error = None;
 
-        Ok(true)
+        for attempt in 1..=max_retries {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+
+            match self.capture_jexl_result() {
+                Ok(result) => {
+                    println!("\n{}", result);
+                    return Ok(true);
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                    if attempt < max_retries {
+                        prompt(
+                            &mut stdout,
+                            &format!("# Retry {}/{}...", attempt, max_retries - 1),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        Err(last_error.unwrap())
     }
 
     fn capture_jexl_result(&self) -> Result<String> {

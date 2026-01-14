@@ -215,7 +215,7 @@ Options:
           Print help (see a summary with '-h')
 ```
 
-### Jexl
+### eval-jexl
 
 ```sh
 Evaluate a JEXL expression against the app context.
@@ -223,7 +223,7 @@ Evaluate a JEXL expression against the app context.
 This command is useful for testing and debugging JEXL targeting expressions.
 The app will evaluate the expression and return the result as JSON.
 
-Usage: nimbus-cli --app <APP> --channel <CHANNEL> jexl <EXPRESSION> [OPTIONS]
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> eval-jexl <EXPRESSION> [OPTIONS]
 
 Arguments:
   <EXPRESSION>
@@ -249,13 +249,13 @@ Options:
 **Example:**
 ```sh
 # Evaluate a simple expression
-nimbus-cli --app fenix --channel developer jexl "locale == 'en-US'"
+nimbus-cli --app fenix --channel developer eval-jexl "locale == 'en-US'"
 
 # Test version comparison
-nimbus-cli --app firefox_ios --channel beta jexl "app_version|versionCompare('120.0') >= 0"
+nimbus-cli --app firefox_ios --channel beta eval-jexl "app_version|versionCompare('120.0') >= 0"
 
 # Copy deeplink to clipboard for manual testing
-nimbus-cli --app fenix --channel developer jexl "is_default_browser" --pbcopy
+nimbus-cli --app fenix --channel developer eval-jexl "is_default_browser" --pbcopy
 ```
 
 ## Environment Variables

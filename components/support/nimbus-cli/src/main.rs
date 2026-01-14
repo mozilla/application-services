@@ -221,7 +221,7 @@ enum AppCommand {
         experiment: ExperimentSource,
     },
 
-    Jexl {
+    EvalJexl {
         app: LaunchableApp,
         expression: String,
         open: AppOpenArgs,
@@ -420,9 +420,9 @@ impl TryFrom<&Cli> for AppCommand {
                     open: open.into(),
                 }
             }
-            CliCommand::Jexl { expression, open } => {
+            CliCommand::EvalJexl { expression, open } => {
                 let app = LaunchableApp::try_from(cli)?;
-                AppCommand::Jexl {
+                AppCommand::EvalJexl {
                     app,
                     expression: expression.clone(),
                     open: open.into(),
@@ -466,7 +466,7 @@ impl CliCommand {
         | Self::LogState { open, .. }
         | Self::TestFeature { open, .. }
         | Self::Unenroll { open, .. }
-        | Self::Jexl { open, .. } = self
+        | Self::EvalJexl { open, .. } = self
         {
             Some(open)
         } else {
@@ -1896,14 +1896,14 @@ mod unit_tests {
             "fenix",
             "--channel",
             "developer",
-            "jexl",
+            "eval-jexl",
             "locale == 'en-US'",
         ])?;
 
         let expected = vec![
             AppCommand::NoOp,
             AppCommand::Kill { app: fenix() },
-            AppCommand::Jexl {
+            AppCommand::EvalJexl {
                 app: fenix(),
                 expression: "locale == 'en-US'".to_string(),
                 open: Default::default(),
@@ -1921,14 +1921,14 @@ mod unit_tests {
             "fenix",
             "--channel",
             "developer",
-            "jexl",
+            "eval-jexl",
             "locale == 'en-US'",
             "--pbcopy",
         ])?;
 
         let expected = vec![
             AppCommand::NoOp,
-            AppCommand::Jexl {
+            AppCommand::EvalJexl {
                 app: fenix(),
                 expression: "locale == 'en-US'".to_string(),
                 open: with_pbcopy(),

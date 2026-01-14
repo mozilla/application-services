@@ -276,7 +276,7 @@ pub(crate) enum CliCommand {
     },
 
     /// Evaluate a JEXL expression against the app context
-    Jexl {
+    EvalJexl {
         /// The JEXL expression to evaluate
         expression: String,
 
