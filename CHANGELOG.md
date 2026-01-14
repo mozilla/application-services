@@ -12,6 +12,7 @@
 ### Nimbus
 * Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
 * Added `eval-jexl` command to nimbus-cli for evaluating JEXL targeting expressions against the app context. Useful for testing and debugging targeting expressions on iOS and Android.
+([#7160](https://github.com/mozilla/application-services/pull/7160))
 
 [Full Changelog](In progress)
 
