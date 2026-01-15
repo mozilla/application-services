@@ -112,12 +112,6 @@ EXTRA_PACKAGE_METADATA = {
         "license": "BSD-3-Clause",
         "license_file": "https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE",
     },
-    "ext-swift-keychain-wrapper": {
-        "name": "SwiftKeychainWrapper",
-        "repository": "https://github.com/jrendel/SwiftKeychainWrapper",
-        "license": "MIT",
-        "license_file": "https://raw.githubusercontent.com/jrendel/SwiftKeychainWrapper/develop/LICENSE",
-    },
     "ext-nss": {
         "name": "NSS",
         "repository": "https://hg.mozilla.org/projects/nss",
@@ -1134,8 +1128,6 @@ class WorkspaceMetadata:
             if self.target_is_android(target):
                 extras.add("ext-jna")
                 extras.add("ext-protobuf")
-            if self.target_is_ios(target):
-                extras.add("ext-swift-keychain-wrapper")
         for dep in deps:
             name = self.pkgInfoById[dep]["name"]
             if name in PACKAGES_WITH_EXTRA_DEPENDENCIES:
