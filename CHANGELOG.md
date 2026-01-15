@@ -1,5 +1,9 @@
 # v149.0 (In progress)
 
+### AdsClient
+* Try to reset cache database schema on connection initialization failure.
+* Reset cache on context ID rotation.
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus

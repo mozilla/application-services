@@ -206,6 +206,7 @@ where
     pub fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
         let old_context_id = self.get_context_id()?;
         self.context_id_component.force_rotation()?;
+        let _ = self.client.clear_cache();
         Ok(old_context_id)
     }
 

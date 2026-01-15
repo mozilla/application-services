@@ -35,7 +35,11 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
             CREATE INDEX IF NOT EXISTS idx_http_cache_expires_at ON http_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_http_cache_request_hash ON http_cache(request_hash);
         ";
-        tx.execute_batch(SCHEMA)?;
+        // If the schema fails to initialize, it might be corrupted or outdated so we drop the table and try again
+        if tx.execute_batch(SCHEMA).is_err() {
+            tx.execute_batch("DROP TABLE IF EXISTS http_cache")?;
+            tx.execute_batch(SCHEMA)?;
+        }
         Ok(())
     }
 
@@ -51,5 +55,41 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
             }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+    use sql_support::open_database::ConnectionInitializer;
+
+    #[test]
+    fn test_corrupted_schema_is_recreated() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let initializer = HttpCacheConnectionInitializer {};
+
+        // Create a corrupted table with only one column
+        conn.execute_batch("CREATE TABLE http_cache (request_hash TEXT);")
+            .unwrap();
+
+        // Run init - should drop the corrupted table and recreate it properly
+        let tx = conn.transaction().unwrap();
+        initializer.init(&tx).unwrap();
+        tx.commit().unwrap();
+
+        // Verify the table was recreated with correct schema by checking column count
+        let column_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('http_cache')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert!(
+            column_count > 1,
+            "Table should have more than 1 column after recreation"
+        );
     }
 }
