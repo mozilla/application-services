@@ -32,6 +32,10 @@
 ### Ads-Client
 * Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
 
+### Relay
+
+* Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)
