@@ -10,4 +10,7 @@ jobs:
           treeherder-symbol: Nd
           target-tasks-method: nightly
       when:
-          - {hour: 5, minute: 0}
+          by-project:
+              application-services:
+                  - {hour: 5, minute: 0}
+              default: []
