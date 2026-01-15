@@ -113,7 +113,6 @@ impl From<MozAdsClientConfig> for AdsClientConfig<MozAdsTelemetryWrapper> {
 pub enum MozAdsEnvironment {
     #[default]
     Prod,
-    #[cfg(feature = "dev")]
     Staging,
     #[cfg(test)]
     Test,
@@ -291,7 +290,6 @@ impl From<Environment> for MozAdsEnvironment {
     fn from(env: Environment) -> Self {
         match env {
             Environment::Prod => MozAdsEnvironment::Prod,
-            #[cfg(feature = "dev")]
             Environment::Staging => MozAdsEnvironment::Staging,
             #[cfg(test)]
             Environment::Test => MozAdsEnvironment::Test,
@@ -303,7 +301,6 @@ impl From<MozAdsEnvironment> for Environment {
     fn from(env: MozAdsEnvironment) -> Self {
         match env {
             MozAdsEnvironment::Prod => Environment::Prod,
-            #[cfg(feature = "dev")]
             MozAdsEnvironment::Staging => Environment::Staging,
             #[cfg(test)]
             MozAdsEnvironment::Test => Environment::Test,

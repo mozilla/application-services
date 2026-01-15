@@ -11,7 +11,6 @@ use crate::telemetry::Telemetry;
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
 
-#[cfg(feature = "dev")]
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
 
@@ -28,7 +27,6 @@ where
 pub enum Environment {
     #[default]
     Prod,
-    #[cfg(feature = "dev")]
     Staging,
     #[cfg(test)]
     Test,
@@ -38,7 +36,6 @@ impl Environment {
     pub fn into_mars_url(self) -> Url {
         match self {
             Environment::Prod => MARS_API_ENDPOINT_PROD.clone(),
-            #[cfg(feature = "dev")]
             Environment::Staging => MARS_API_ENDPOINT_STAGING.clone(),
             #[cfg(test)]
             Environment::Test => Url::parse(&mockito::server_url()).unwrap(),

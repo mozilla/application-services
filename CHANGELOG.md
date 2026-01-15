@@ -9,6 +9,9 @@
 
 ## ✨ What's New ✨
 
+### Ads Client
+- Enable staging environment support for all platforms (previously feature-gated) 
+
 ### Viaduct
 * Support setting default user-agent headers.
 
