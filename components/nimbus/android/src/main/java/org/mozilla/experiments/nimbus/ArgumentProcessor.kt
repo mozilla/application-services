@@ -51,12 +51,15 @@ fun NimbusInterface.initializeTooling(context: Context, intent: Intent) {
 
     args.evalJexl?.let { expression ->
         // Evaluate JEXL and log the result
+        @Suppress("TooGenericExceptionCaught")
         try {
             val messagingHelper = createMessageHelper()
             val result = messagingHelper.evalJexl(expression)
             val resultJson = """{"success": true, "result": $result}"""
             android.util.Log.i("NimbusTooling", "JEXL_RESULT: $resultJson")
         } catch (e: Exception) {
+            // We catch all exceptions because we want to handle any JEXL evaluation error
+            // and return it as a JSON result for the CLI to capture
             val errorJson = """{"success": false, "error": "${e.message}"}"""
             android.util.Log.e("NimbusTooling", "JEXL_RESULT: $errorJson")
         }
