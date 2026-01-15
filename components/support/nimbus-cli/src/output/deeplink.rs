@@ -100,8 +100,9 @@ pub(crate) fn longform_deeplink_url(
         reset_db,
         experiments,
         log_state,
+        jexl_expression,
     } = app_protocol;
-    if !reset_db && experiments.is_none() && !log_state {
+    if !reset_db && experiments.is_none() && !log_state && jexl_expression.is_none() {
         return Ok(deeplink.to_string());
     }
 
@@ -120,6 +121,10 @@ pub(crate) fn longform_deeplink_url(
     }
     if *log_state {
         parts.push("--log-state".to_string());
+    }
+    if let Some(jexl_expr) = jexl_expression {
+        let string = percent_encoding::utf8_percent_encode(jexl_expr, QUERY).to_string();
+        parts.push(format!("--eval-jexl={string}"));
     }
 
     Ok(join_query(deeplink, &parts.join("&")))
@@ -149,6 +154,7 @@ mod unit_tests {
             reset_db: false,
             experiments: None,
             log_state: false,
+            jexl_expression: None,
         };
         assert_eq!("host".to_string(), longform_deeplink_url("host", &p)?);
         assert_eq!(
@@ -164,6 +170,7 @@ mod unit_tests {
             reset_db: true,
             experiments: None,
             log_state: false,
+            jexl_expression: None,
         };
         assert_eq!(
             "host?--nimbus-cli&--reset-db".to_string(),
@@ -183,6 +190,7 @@ mod unit_tests {
             reset_db: false,
             experiments: None,
             log_state: true,
+            jexl_expression: None,
         };
         assert_eq!(
             "host?--nimbus-cli&--log-state".to_string(),
@@ -203,6 +211,7 @@ mod unit_tests {
             reset_db: false,
             experiments: Some(&v),
             log_state: false,
+            jexl_expression: None,
         };
         assert_eq!(
             "host?--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
@@ -210,6 +219,26 @@ mod unit_tests {
         );
         assert_eq!(
             "host?query=1&--nimbus-cli&--experiments=%7B%22data%22%3A[]%7D".to_string(),
+            longform_deeplink_url("host?query=1", &p)?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_url_jexl_expression() -> Result<()> {
+        let p = StartAppProtocol {
+            reset_db: false,
+            experiments: None,
+            log_state: false,
+            jexl_expression: Some("locale == 'en-US'"),
+        };
+        assert_eq!(
+            "host?--nimbus-cli&--eval-jexl=locale%20==%20%27en-US%27".to_string(),
+            longform_deeplink_url("host", &p)?
+        );
+        assert_eq!(
+            "host?query=1&--nimbus-cli&--eval-jexl=locale%20==%20%27en-US%27".to_string(),
             longform_deeplink_url("host?query=1", &p)?
         );
 

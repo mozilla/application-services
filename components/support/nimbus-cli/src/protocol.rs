@@ -15,4 +15,5 @@ pub(crate) struct StartAppProtocol<'a> {
     pub(crate) reset_db: bool,
     pub(crate) experiments: Option<&'a Value>,
     pub(crate) log_state: bool,
+    pub(crate) jexl_expression: Option<&'a str>,
 }

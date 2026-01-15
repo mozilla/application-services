@@ -30,6 +30,7 @@ Commands:
   fetch         Fetch one or more named experiments and rollouts and put them in a file
   fetch-list    Fetch a list of experiments and put it in a file
   info          Displays information about an experiment
+  jexl          Evaluate a JEXL expression against the app context
   list          List the experiments from a server
   log-state     Print the state of the Nimbus database to logs
   open          Open the app without changing the state of experiment enrollments
@@ -212,6 +213,49 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+```
+
+### eval-jexl
+
+```sh
+Evaluate a JEXL expression against the app context.
+
+This command is useful for testing and debugging JEXL targeting expressions.
+The app will evaluate the expression and return the result as JSON.
+
+Usage: nimbus-cli --app <APP> --channel <CHANNEL> eval-jexl <EXPRESSION> [OPTIONS]
+
+Arguments:
+  <EXPRESSION>
+          The JEXL expression to evaluate (e.g. "locale == 'en-US'")
+
+Options:
+      --deeplink <DEEPLINK>
+          Optional deeplink. If present, launch with this link
+
+      --pbcopy
+          Copy the deeplink URL to clipboard instead of launching
+
+      --pbpaste
+          Use the deeplink URL from clipboard
+
+      --output <OUTPUT>
+          Write the deeplink URL to a file
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+**Example:**
+```sh
+# Evaluate a simple expression
+nimbus-cli --app fenix --channel developer eval-jexl "locale == 'en-US'"
+
+# Test version comparison
+nimbus-cli --app firefox_ios --channel beta eval-jexl "app_version|versionCompare('120.0') >= 0"
+
+# Copy deeplink to clipboard for manual testing
+nimbus-cli --app fenix --channel developer eval-jexl "is_default_browser" --pbcopy
 ```
 
 ## Environment Variables

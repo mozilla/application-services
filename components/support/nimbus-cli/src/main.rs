@@ -220,6 +220,12 @@ enum AppCommand {
         manifest: ManifestSource,
         experiment: ExperimentSource,
     },
+
+    EvalJexl {
+        app: LaunchableApp,
+        expression: String,
+        open: AppOpenArgs,
+    },
 }
 
 impl AppCommand {
@@ -414,6 +420,14 @@ impl TryFrom<&Cli> for AppCommand {
                     open: open.into(),
                 }
             }
+            CliCommand::EvalJexl { expression, open } => {
+                let app = LaunchableApp::try_from(cli)?;
+                AppCommand::EvalJexl {
+                    app,
+                    expression: expression.clone(),
+                    open: open.into(),
+                }
+            }
             _ => Self::NoOp,
         })
     }
@@ -451,7 +465,8 @@ impl CliCommand {
         | Self::Enroll { open, .. }
         | Self::LogState { open, .. }
         | Self::TestFeature { open, .. }
-        | Self::Unenroll { open, .. } = self
+        | Self::Unenroll { open, .. }
+        | Self::EvalJexl { open, .. } = self
         {
             Some(open)
         } else {
@@ -1870,6 +1885,56 @@ mod unit_tests {
         ];
         assert_eq!(expected, observed);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_jexl() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "eval-jexl",
+            "locale == 'en-US'",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::Kill { app: fenix() },
+            AppCommand::EvalJexl {
+                app: fenix(),
+                expression: "locale == 'en-US'".to_string(),
+                open: Default::default(),
+            },
+        ];
+        assert_eq!(expected, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_jexl_with_pbcopy() -> Result<()> {
+        let observed = get_commands_from_cli([
+            "nimbus-cli",
+            "--app",
+            "fenix",
+            "--channel",
+            "developer",
+            "eval-jexl",
+            "locale == 'en-US'",
+            "--pbcopy",
+        ])?;
+
+        let expected = vec![
+            AppCommand::NoOp,
+            AppCommand::EvalJexl {
+                app: fenix(),
+                expression: "locale == 'en-US'".to_string(),
+                open: with_pbcopy(),
+            },
+        ];
+        assert_eq!(expected, observed);
         Ok(())
     }
 }
