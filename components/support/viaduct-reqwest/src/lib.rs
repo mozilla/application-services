@@ -21,13 +21,9 @@ static CLIENT: Lazy<reqwest::blocking::Client> = Lazy::new(|| {
         } else {
             reqwest::redirect::Policy::none()
         });
-    if cfg!(target_os = "ios") {
-        // The FxA servers rely on the UA agent to filter
-        // some push messages directed to iOS devices.
-        // This is obviously a terrible hack and we should
-        // probably do https://github.com/mozilla/application-services/issues/1326
-        // instead, but this will unblock us for now.
-        builder = builder.user_agent("Firefox-iOS-FxA/24");
+
+    if let Some(user_agent) = &settings.default_user_agent {
+        builder = builder.user_agent(user_agent);
     }
     // Note: no cookie or cache support.
     builder
