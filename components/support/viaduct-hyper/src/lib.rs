@@ -30,8 +30,11 @@ struct HyperBackend {
 }
 
 /// Set the viaduct backend to the `hyper`-based one with HTTPS support.
+///
+/// Named `viaduct_init_backend_hyper` since that reads better on iOS/Swift where there aren't any
+/// namespaces.  Once we move to UniFII 0.31 we can use the renaming feature to do this instead.
 #[uniffi::export]
-pub fn init_backend_hyper() -> Result<()> {
+pub fn viaduct_init_backend_hyper() -> Result<()> {
     info!("initializing hyper backend");
     // Create a multi-threaded runtime, with 1 worker thread.
     //
@@ -80,10 +83,24 @@ impl Backend for HyperBackend {
 /// This expects to be run in a `tokio::spawn` closure
 async fn make_request_inner(
     client: Client,
-    request: Request,
+    mut request: Request,
     settings: ClientSettings,
 ) -> Result<Response> {
     let mut url = request.url.clone();
+    // If the user-agent isn't set, try to get it from `GLOBAL_SETTINGS`.
+    // This only affects consumers who aren't yet using `Client` to make their requests, since
+    // `Client` already does this.  Once we move all consumers over, we can remove this code.
+    if request.headers.get("User-Agent").is_none() {
+        let user_agent = settings.user_agent.or_else(|| {
+            viaduct::settings::GLOBAL_SETTINGS
+                .read()
+                .default_user_agent
+                .clone()
+        });
+        if let Some(ua) = user_agent {
+            request = request.header("User-Agent", ua)?;
+        }
+    }
     let mut resp = make_single_request(&client, request.clone()).await?;
     let mut redirect_count = 0;
     while resp.status().is_redirection() {
