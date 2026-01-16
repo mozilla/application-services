@@ -38,7 +38,7 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    viaduct_hyper::init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper()?;
     let config = CuratedRecommendationsConfig {
         base_host: cli.base_host.clone(),
         user_agent_header: cli.user_agent.clone(),

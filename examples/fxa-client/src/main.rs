@@ -68,7 +68,7 @@ enum Command {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     nss::ensure_initialized();
-    viaduct_hyper::init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper()?;
     if cli.log {
         if cli.debug {
             init_logging_with("fxa_client=debug");

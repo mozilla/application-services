@@ -134,7 +134,7 @@ fn main() -> Result<()> {
     // Possible values are "info", "debug", "warn" and "error"
     // Check [`env_logger`](https://docs.rs/env_logger/) for more details
     error_support::init_for_tests_with_level(error_support::Level::Info);
-    viaduct_hyper::init_backend_hyper().expect("Error initalizing viaduct");
+    viaduct_hyper::viaduct_init_backend_hyper().expect("Error initalizing viaduct");
 
     // Initiate the matches for the command line arguments
     let args = Args::parse();
