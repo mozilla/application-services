@@ -10,12 +10,14 @@ from fml import FmlClient
 
 class TestMetricsHandler(MetricsHandler):
     recordings = []
+    nimbus_user_id = None
 
-    def record_enrollment_statuses(
-        self, enrollment_status_extras: [EnrollmentStatusExtraDef]
+    def record_enrollment_statuses_v2(
+        self, enrollment_status_extras: [EnrollmentStatusExtraDef], nimbus_user_id: str
     ):
         self.recordings.clear()
         self.recordings.extend(enrollment_status_extras)
+        self.nimbus_user_id = nimbus_user_id
 
 
 @pytest.fixture
