@@ -1,5 +1,5 @@
 [bindings.kotlin]
-package_name = "mozilla.appservices.ads_client"
+package_name = "mozilla.appservices.adsclient"
 
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
