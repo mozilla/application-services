@@ -96,7 +96,8 @@ use sql_support::ConnExt;
 /// Version 1: SQLCipher -> plaintext migration.
 /// Version 2: addition of `loginsM.enc_unknown_fields`.
 /// Version 3: addition of `timeOfLastBreach` and `timeLastBreachAlertDismissed`.
-pub(super) const VERSION: i64 = 3;
+/// Version 4: addition of `breachesL` table
+pub(super) const VERSION: i64 = 4;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -143,7 +144,7 @@ const COMMON_SQL: &str = "
     timeCreated                                 INTEGER NOT NULL,
     timeLastUsed                                INTEGER,
     timePasswordChanged                         INTEGER NOT NULL,
-    timeOfLastBreach    INTEGER,
+    timeOfLastBreach                            INTEGER,
     timeLastBreachAlertDismissed                INTEGER,
     secFields                                   TEXT,
     guid                                        TEXT NOT NULL UNIQUE
@@ -194,6 +195,21 @@ const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
 const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
     CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
     ON loginsL (is_deleted, origin)
+";
+
+// breachesL stores encrypted passwords from logins that have been marked as breached.
+// This allows cross-domain password reuse detection: if a password was breached on site A,
+// we can warn users who reuse that same password on site B.
+//
+// Performance considerations:
+// - No index is needed: queries scan all rows, which is acceptable given the small expected size
+//   (typically < 1000 entries per user)
+// - Future consideration: implement retention policy to prevent unbounded growth
+//   (e.g., remove entries older than N months, or cap at N entries)
+const CREATE_LOCAL_BREACHES_TABLE_SQL: &str = "
+    CREATE TABLE IF NOT EXISTS breachesL (
+        encryptedPassword TEXT
+    )
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -256,6 +272,8 @@ fn upgrade_from(db: &Connection, from: i64) -> Result<()> {
         ALTER TABLE loginsM ADD timeLastBreachAlertDismissed INTEGER;",
         )?),
 
+        3 => Ok(db.execute_batch(CREATE_LOCAL_BREACHES_TABLE_SQL)?),
+
         // next migration, add here
         _ => Err(Error::IncompatibleVersion(from)),
     }
@@ -269,6 +287,7 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
         CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
         CREATE_DELETED_ORIGIN_INDEX_SQL,
         CREATE_META_TABLE_SQL,
+        CREATE_LOCAL_BREACHES_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
     Ok(())
