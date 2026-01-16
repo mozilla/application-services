@@ -60,3 +60,4 @@ def test_metrics_handler(app_context, experiment, req):
     json.loads(client.handle_enrollment(req()))
 
     assert len(test_metrics.recordings) == 1
+    assert test_metrics.nimbus_user_id
