@@ -51,6 +51,14 @@
 * Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
 ([#7173](https://github.com/mozilla/application-services/pull/7173))
 
+### Logins
+- Added `runMaintenance` API to `DatabaseLoginsStorage`
+- Add password reuse detection for breach alerts: Database schema upgraded to version 4 with new `breachesL` table storing encrypted breached passwords. New APIs `are_potentially_vulnerable_passwords()` (batch check) and `is_potentially_vulnerable_password()` (single check) enable cross-domain password reuse detection.
+- Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
+
+### Ads-Client
+* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
+
 ### Relay
 
 * Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
@@ -66,7 +74,6 @@
 - Add breach alert support, including a database migration to version 3,
   new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
   and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
-- Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v147.0...v148.0)
 
