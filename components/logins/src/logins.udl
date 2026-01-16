@@ -244,6 +244,28 @@ interface LoginStore {
     [Throws=LoginsApiError]
     boolean is_potentially_breached([ByRef] string id);
 
+    /// Returns all passwords from the local breach database (breachesL table) in plaintext.
+    ///
+    /// This list contains passwords from logins that have been marked as breached via
+    /// `record_breach()`. This method is designed for batch checking of multiple logins:
+    /// call this once and perform password matching in memory, rather than calling
+    /// `is_potentially_vulnerable_password()` repeatedly which would decrypt the entire
+    /// breach database for each login.
+    ///
+    /// Performance guidance:
+    /// - For checking a single login: use `is_potentially_vulnerable_password()`
+    /// - For checking multiple logins: use this method + client-side matching
+    [Throws=LoginsApiError]
+    sequence<string> get_potentially_vulnerable_passwords();
+
+    /// Checks if a login's password matches any password in the local breach database.
+    ///
+    /// Returns true if this login's password appears in the breachesL table, indicating
+    /// that the same password has been breached on a different domain (password reuse).
+    /// This is independent of whether this specific login has been marked as breached.
+    [Throws=LoginsApiError]
+    boolean is_potentially_vulnerable_password([ByRef] string id);
+
     /// Stores a known breach date for a login.
     /// In Firefox Desktop this is updated once per session from Remote Settings.
     [Throws=LoginsApiError]

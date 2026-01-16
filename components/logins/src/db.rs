@@ -306,27 +306,126 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn record_breach(&self, id: &str, timestamp: i64) -> Result<()> {
+    pub fn record_breach(
+        &self,
+        guid: &str,
+        timestamp: i64,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<()> {
+        let existing = match self.get_by_id(guid)? {
+            Some(e) => e.decrypt(encdec)?,
+            None => return Err(Error::NoSuchRecord(guid.to_owned())),
+        };
+        let encrypted_password_bytes = encdec
+            .encrypt(existing.password.as_bytes().into())
+            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting password)")))?;
+        let encrypted_password = std::str::from_utf8(&encrypted_password_bytes).map_err(|e| {
+            Error::EncryptionFailed(format!("{e} (encrypting password: data not utf8)"))
+        })?;
+        let is_potentially_vulnerable_password =
+            self.is_potentially_vulnerable_password(guid, encdec)?;
+
         let tx = self.unchecked_transaction()?;
-        self.ensure_local_overlay_exists(id)?;
-        self.mark_mirror_overridden(id)?;
+        self.ensure_local_overlay_exists(guid)?;
+        self.mark_mirror_overridden(guid)?;
         self.execute_cached(
             "UPDATE loginsL
              SET timeOfLastBreach = :now_millis
              WHERE guid = :guid",
             named_params! {
                 ":now_millis": timestamp,
-                ":guid": id,
+                ":guid": guid,
             },
         )?;
+        if !is_potentially_vulnerable_password {
+            self.execute_cached(
+                "INSERT INTO breachesL (encryptedPassword) VALUES (:encrypted_password)",
+                named_params! {
+                    ":encrypted_password": encrypted_password,
+                },
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }
 
-    pub fn is_potentially_breached(&self, id: &str) -> Result<bool> {
+    /// Returns all breached passwords from the local breach database in plaintext.
+    ///
+    /// This method is designed to support batch checking of multiple logins for password reuse.
+    /// When checking many logins, calling `is_potentially_vulnerable_password()` for each one
+    /// would decrypt the entire breachesL table repeatedly (N * M decryptions where N = logins
+    /// to check, M = breached passwords). Instead, consumers can call this once and perform
+    /// their own matching in memory, reducing the cost to just M decryptions.
+    ///
+    /// Performance trade-off:
+    /// - Single check: Use `is_potentially_vulnerable_password()` (better)
+    /// - Multiple checks: Use `get_potentially_vulnerable_passwords()` + client-side matching (better)
+    pub fn get_potentially_vulnerable_passwords(
+        &self,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<Vec<String>> {
+        let all_encrypted_passwords: Vec<String> = self.db.query_rows_and_then_cached(
+            "SELECT encryptedPassword FROM breachesL",
+            [],
+            |row| row.get(0),
+        )?;
+        let mut potentially_vulnerable_passwords: Vec<String> = vec![];
+        // Decrypt and return all breached passwords from the local breach database
+        for ciphertext in &all_encrypted_passwords {
+            let decrypted_bytes = encdec.decrypt(ciphertext.as_bytes().into()).map_err(|e| {
+                Error::DecryptionFailed(format!("Failed to decrypt password from breachesL: {}", e))
+            })?;
+
+            let decrypted_password = std::str::from_utf8(&decrypted_bytes).map_err(|e| {
+                Error::DecryptionFailed(format!(
+                    "Decrypted password from breachesL is not valid UTF-8: {}",
+                    e
+                ))
+            })?;
+
+            potentially_vulnerable_passwords.push(decrypted_password.to_string());
+        }
+        Ok(potentially_vulnerable_passwords)
+    }
+
+    pub fn is_potentially_vulnerable_password(
+        &self,
+        guid: &str,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<bool> {
+        let existing = match self.get_by_id(guid)? {
+            Some(e) => e.decrypt(encdec)?,
+            None => return Err(Error::NoSuchRecord(guid.to_owned())),
+        };
+        let all_encrypted_passwords: Vec<String> = self.db.query_rows_and_then_cached(
+            "SELECT encryptedPassword FROM breachesL",
+            [],
+            |row| row.get(0),
+        )?;
+        // Check if the login's password matches any breached password by decrypting and comparing
+        for ciphertext in &all_encrypted_passwords {
+            let decrypted_bytes = encdec.decrypt(ciphertext.as_bytes().into()).map_err(|e| {
+                Error::DecryptionFailed(format!("Failed to decrypt password from breachesL: {}", e))
+            })?;
+
+            let decrypted_password = std::str::from_utf8(&decrypted_bytes).map_err(|e| {
+                Error::DecryptionFailed(format!(
+                    "Decrypted password from breachesL is not valid UTF-8: {}",
+                    e
+                ))
+            })?;
+
+            if decrypted_password == existing.password {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    pub fn is_potentially_breached(&self, guid: &str) -> Result<bool> {
         let is_potentially_breached: bool = self.db.query_row(
             "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid AND timeOfLastBreach IS NOT NULL AND timeOfLastBreach > timePasswordChanged)",
-            named_params! { ":guid": id },
+            named_params! { ":guid": guid },
             |row| row.get(0),
         )?;
         Ok(is_potentially_breached)
@@ -340,6 +439,7 @@ impl LoginDb {
              WHERE timeOfLastBreach IS NOT NULL",
             [],
         )?;
+        self.execute_cached("DELETE FROM breachesL", [])?;
         tx.commit()?;
         Ok(())
     }
@@ -979,6 +1079,7 @@ impl LoginDb {
         row_count += self.execute("DELETE FROM loginsL", [])?;
         row_count += self.execute("DELETE FROM loginsM", [])?;
         row_count += self.execute("DELETE FROM loginsSyncMeta", [])?;
+        row_count += self.execute("DELETE FROM breachesL", [])?;
         tx.commit()?;
         Ok(row_count)
     }
@@ -1804,7 +1905,8 @@ mod tests {
         // Wait and use a time that's definitely after password was changed
         thread::sleep(time::Duration::from_millis(50));
         let breach_time = util::system_time_ms_i64(SystemTime::now());
-        db.record_breach(&login.meta.id, breach_time).unwrap();
+        db.record_breach(&login.meta.id, breach_time, &*TEST_ENCDEC)
+            .unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
         let login1 = db.get_by_id(&login.meta.id).unwrap().unwrap();
         assert!(login1.meta.time_of_last_breach.is_some());
@@ -1823,7 +1925,8 @@ mod tests {
         // Wait and use a time that's definitely after password was changed
         thread::sleep(time::Duration::from_millis(50));
         let breach_time = util::system_time_ms_i64(SystemTime::now());
-        db.record_breach(&login.meta.id, breach_time).unwrap();
+        db.record_breach(&login.meta.id, breach_time, &*TEST_ENCDEC)
+            .unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
 
         // now change password
@@ -1861,7 +1964,8 @@ mod tests {
         // Wait and use a time that's definitely after password was changed
         thread::sleep(time::Duration::from_millis(50));
         let breach_time = util::system_time_ms_i64(SystemTime::now());
-        db.record_breach(&login.meta.id, breach_time).unwrap();
+        db.record_breach(&login.meta.id, breach_time, &*TEST_ENCDEC)
+            .unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
 
         // change some fields
@@ -1899,7 +2003,8 @@ mod tests {
         // Record a breach that happened after password was created
         // Use a timestamp that's definitely after the login's timePasswordChanged
         let breach_time = login.meta.time_password_changed + 1000;
-        db.record_breach(&login.meta.id, breach_time).unwrap();
+        db.record_breach(&login.meta.id, breach_time, &*TEST_ENCDEC)
+            .unwrap();
         assert!(db.is_potentially_breached(&login.meta.id).unwrap());
 
         // Dismiss with a specific timestamp after the breach
@@ -2194,6 +2299,194 @@ mod tests {
             let mut entry = login.entry();
             entry.password = "pass3".to_string();
             db.add_or_update(entry, &*TEST_ENCDEC).unwrap();
+        }
+
+        #[test]
+        fn test_password_reuse_detection() {
+            ensure_initialized();
+            let db = LoginDb::open_in_memory();
+
+            // Create two logins with the same password
+            let login1 = db
+                .add(
+                    LoginEntry {
+                        origin: "https://site1.com".into(),
+                        http_realm: Some("realm".into()),
+                        username: "user1".into(),
+                        password: "shared_password".into(),
+                        ..Default::default()
+                    },
+                    &*TEST_ENCDEC,
+                )
+                .unwrap();
+
+            let login2 = db
+                .add(
+                    LoginEntry {
+                        origin: "https://site2.com".into(),
+                        http_realm: Some("realm".into()),
+                        username: "user2".into(),
+                        password: "shared_password".into(),
+                        ..Default::default()
+                    },
+                    &*TEST_ENCDEC,
+                )
+                .unwrap();
+
+            // Initially, neither login is vulnerable
+            assert!(!db
+                .is_potentially_vulnerable_password(&login1.meta.id, &*TEST_ENCDEC)
+                .unwrap());
+            assert!(!db
+                .is_potentially_vulnerable_password(&login2.meta.id, &*TEST_ENCDEC)
+                .unwrap());
+            // And the list of vulnerable passwords should be empty
+            assert_eq!(
+                db.get_potentially_vulnerable_passwords(&*TEST_ENCDEC)
+                    .unwrap()
+                    .len(),
+                0
+            );
+
+            // Mark login1 as breached
+            let breach_time = util::system_time_ms_i64(SystemTime::now());
+            db.record_breach(&login1.meta.id, breach_time, &*TEST_ENCDEC)
+                .unwrap();
+
+            // login1 should be recognized as breached
+            assert!(db.is_potentially_breached(&login1.meta.id).unwrap());
+
+            // login2 should be recognized as vulnerable (same password as breached login1)
+            assert!(db
+                .is_potentially_vulnerable_password(&login2.meta.id, &*TEST_ENCDEC)
+                .unwrap());
+            // The vulnerable passwords list should contain the shared password (only once, no duplicates)
+            let vulnerable_passwords = db
+                .get_potentially_vulnerable_passwords(&*TEST_ENCDEC)
+                .unwrap();
+            assert_eq!(vulnerable_passwords.len(), 1);
+            assert_eq!(vulnerable_passwords[0], "shared_password");
+
+            // Change password of login2 → should no longer be vulnerable
+            db.update(
+                &login2.meta.id,
+                LoginEntry {
+                    origin: "https://site2.com".into(),
+                    http_realm: Some("realm".into()),
+                    username: "user2".into(),
+                    password: "different_password".into(),
+                    ..Default::default()
+                },
+                &*TEST_ENCDEC,
+            )
+            .unwrap();
+
+            assert!(!db
+                .is_potentially_vulnerable_password(&login2.meta.id, &*TEST_ENCDEC)
+                .unwrap());
+        }
+
+        #[test]
+        fn test_reset_all_breaches_clears_breach_table() {
+            ensure_initialized();
+            let db = LoginDb::open_in_memory();
+
+            let login = db
+                .add(
+                    LoginEntry {
+                        origin: "https://example.com".into(),
+                        http_realm: Some("realm".into()),
+                        username: "user".into(),
+                        password: "password123".into(),
+                        ..Default::default()
+                    },
+                    &*TEST_ENCDEC,
+                )
+                .unwrap();
+
+            let breach_time = util::system_time_ms_i64(SystemTime::now());
+            db.record_breach(&login.meta.id, breach_time, &*TEST_ENCDEC)
+                .unwrap();
+
+            // Verify that breachesL has an entry
+            let count: i64 = db
+                .db
+                .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(count, 1);
+            // And verify via the API
+            let vulnerable_passwords = db
+                .get_potentially_vulnerable_passwords(&*TEST_ENCDEC)
+                .unwrap();
+            assert_eq!(vulnerable_passwords.len(), 1);
+            assert_eq!(vulnerable_passwords[0], "password123");
+
+            // Reset all breaches
+            db.reset_all_breaches().unwrap();
+
+            // After reset, breachesL should be empty
+            let count: i64 = db
+                .db
+                .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(count, 0);
+            // And verify via the API
+            assert_eq!(
+                db.get_potentially_vulnerable_passwords(&*TEST_ENCDEC)
+                    .unwrap()
+                    .len(),
+                0
+            );
+
+            // And the login should no longer be breached
+            assert!(!db.is_potentially_breached(&login.meta.id).unwrap());
+        }
+
+        #[test]
+        fn test_different_passwords_not_vulnerable() {
+            ensure_initialized();
+            let db = LoginDb::open_in_memory();
+
+            let login1 = db
+                .add(
+                    LoginEntry {
+                        origin: "https://site1.com".into(),
+                        http_realm: Some("realm".into()),
+                        username: "user".into(),
+                        password: "password_A".into(),
+                        ..Default::default()
+                    },
+                    &*TEST_ENCDEC,
+                )
+                .unwrap();
+
+            let login2 = db
+                .add(
+                    LoginEntry {
+                        origin: "https://site2.com".into(),
+                        http_realm: Some("realm".into()),
+                        username: "user".into(),
+                        password: "password_B".into(),
+                        ..Default::default()
+                    },
+                    &*TEST_ENCDEC,
+                )
+                .unwrap();
+
+            let breach_time = util::system_time_ms_i64(SystemTime::now());
+            db.record_breach(&login1.meta.id, breach_time, &*TEST_ENCDEC)
+                .unwrap();
+
+            // login2 has a different password → not vulnerable
+            assert!(!db
+                .is_potentially_vulnerable_password(&login2.meta.id, &*TEST_ENCDEC)
+                .unwrap());
+            // But password_A should be in the vulnerable list
+            let vulnerable_passwords = db
+                .get_potentially_vulnerable_passwords(&*TEST_ENCDEC)
+                .unwrap();
+            assert_eq!(vulnerable_passwords.len(), 1);
+            assert_eq!(vulnerable_passwords[0], "password_A");
         }
     }
 }

@@ -23,6 +23,10 @@
 * Added `eval-jexl` command to nimbus-cli for evaluating JEXL targeting expressions against the app context. Useful for testing and debugging targeting expressions on iOS and Android.
 ([#7160](https://github.com/mozilla/application-services/pull/7160))
 
+### Logins
+- Add password reuse detection for breach alerts: Database schema upgraded to version 4 with new `breachesL` table storing encrypted breached passwords. New APIs `get_potentially_vulnerable_passwords()` and `is_potentially_vulnerable_password()` enable cross-domain password reuse detection.
+- Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)
@@ -31,7 +35,6 @@
 - Add breach alert support, including a database migration to version 3,
   new `Login` fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`),
   and new `LoginStore` APIs (`record_breach`, `reset_all_breaches`, `is_potentially_breached`, `record_breach_alert_dismissal_time`, `record_breach_alert_dismissal`, `is_breach_alert_dismissed`). ([#7127](https://github.com/mozilla/application-services/pull/7127))
-- Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v147.0...v148.0)
 
