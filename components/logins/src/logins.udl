@@ -49,18 +49,15 @@ dictionary LoginEntry {
     string username;
 };
 
-/// Login data specific to database records.
-/// The add_with_record API inputs this.
+/// Metadata fields managed internally by the library.
+/// These are automatically set on `add()` and updated on operations like `touch()` and `update()`.
+/// Not included in LoginEntry; use `add_with_meta()` when importing records with existing metadata.
 dictionary LoginMeta {
     string id;
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-
-    /// These fields can be synced from Desktop and are NOT included in LoginEntry,
-    /// so update() will not modify them. Use the dedicated API methods to manipulate
-    /// these fields, or use add_with_meta/update with LoginEntryWithMeta.
     i64? time_of_last_breach;
     i64? time_last_breach_alert_dismissed;
 };
@@ -240,6 +237,22 @@ interface LoginStore {
     /// Determines whether a login’s password is potentially breached, based on the breach date and the time of the last password change.
     [Throws=LoginsApiError]
     boolean is_potentially_breached([ByRef] string id);
+
+    /// Checks multiple logins for password reuse in a single batch operation.
+    ///
+    /// Returns the GUIDs of logins whose passwords match any password in the breach database.
+    /// This is more efficient than calling `is_potentially_vulnerable_password()` repeatedly,
+    /// as it decrypts the breach database only once.
+    [Throws=LoginsApiError]
+    sequence<string> are_potentially_vulnerable_passwords(sequence<string> ids);
+
+    /// Checks if a login's password matches any password in the local breach database.
+    ///
+    /// Returns true if this login's password appears in the breachesL table, indicating
+    /// that the same password has been breached on a different domain (password reuse).
+    /// This is independent of whether this specific login has been marked as breached.
+    [Throws=LoginsApiError]
+    boolean is_potentially_vulnerable_password([ByRef] string id);
 
     /// Stores a known breach date for a login.
     /// In Firefox Desktop this is updated once per session from Remote Settings.
