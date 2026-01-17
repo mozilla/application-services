@@ -5,7 +5,7 @@
 use super::CollectionRequest;
 use crate::bso::{IncomingBso, OutgoingBso};
 use crate::client_types::ClientData;
-use crate::{telemetry, CollectionName, Guid, ServerTimestamp};
+use crate::{CollectionName, Guid, ServerTimestamp, telemetry};
 use anyhow::Result;
 use std::fmt;
 

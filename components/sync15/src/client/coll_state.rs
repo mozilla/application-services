@@ -4,11 +4,11 @@
 
 use super::request::InfoConfiguration;
 use super::{CollectionKeys, GlobalState};
+use crate::KeyBundle;
+use crate::ServerTimestamp;
 use crate::engine::{CollSyncIds, EngineSyncAssociation, SyncEngine};
 use crate::error;
 use crate::error::{info, trace, warn};
-use crate::KeyBundle;
-use crate::ServerTimestamp;
 
 /// Holds state for a collection necessary to perform a sync of it. Lives for the lifetime
 /// of a single sync.
@@ -166,13 +166,13 @@ impl<'state> LocalCollStateMachine<'state> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::request::{InfoCollections, InfoConfiguration};
     use super::super::CollectionKeys;
+    use super::super::request::{InfoCollections, InfoConfiguration};
     use super::*;
     use crate::bso::{IncomingBso, OutgoingBso};
     use crate::engine::CollectionRequest;
     use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
-    use crate::{telemetry, CollectionName};
+    use crate::{CollectionName, telemetry};
     use anyhow::Result;
     use nss::ensure_initialized;
     use std::cell::{Cell, RefCell};

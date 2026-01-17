@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{CollectionUpdate, GlobalState, LocalCollStateMachine, Sync15StorageClient};
+use crate::KeyBundle;
 use crate::clients_engine;
 use crate::engine::SyncEngine;
-use crate::error::{info, warn, Error};
+use crate::error::{Error, info, warn};
 use crate::telemetry;
-use crate::KeyBundle;
 use interrupt_support::Interruptee;
 
 #[allow(clippy::too_many_arguments)]
