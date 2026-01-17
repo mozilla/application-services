@@ -21,27 +21,27 @@ class ArgumentProcessorTest {
             Uri.parse("my-app://foo?--nimbus-cli"),
         )
         assertNotNull(obs)
-        assertEquals(CliArgs(false, null, false, false), obs)
+        assertEquals(CliArgs(false, null, false, false, null), obs)
 
         val obs1 = createCommandLineArgs(
             Uri.parse("my-app://foo?--nimbus-cli&--reset-db"),
         )
-        assertEquals(CliArgs(true, null, false, false), obs1)
+        assertEquals(CliArgs(true, null, false, false, null), obs1)
 
         val obs2 = createCommandLineArgs(
             Uri.parse("my-app://foo?--reset-db&--nimbus-cli&--log-state"),
         )
-        assertEquals(CliArgs(true, null, true, false), obs2)
+        assertEquals(CliArgs(true, null, true, false, null), obs2)
 
         val obs3 = createCommandLineArgs(
             Uri.parse("my-app://foo?--nimbus-cli=true&--reset-db=1&--log-state"),
         )
-        assertEquals(CliArgs(true, null, true, false), obs3)
+        assertEquals(CliArgs(true, null, true, false, null), obs3)
 
         val obs4 = createCommandLineArgs(
             Uri.parse("my-app://foo?--nimbus-cli&--reset-db=0&--log-state=false"),
         )
-        assertEquals(CliArgs(false, null, false, false), obs4)
+        assertEquals(CliArgs(false, null, false, false, null), obs4)
     }
 
     @Test
@@ -51,7 +51,7 @@ class ArgumentProcessorTest {
             Uri.parse("my-app://foo?--nimbus-cli&--experiments=$unenrollAll"),
         )
         assertNotNull(obs)
-        assertEquals(CliArgs(false, unenrollAll, false, false), obs)
+        assertEquals(CliArgs(false, unenrollAll, false, false, null), obs)
 
         val encoded = URLEncoder.encode(unenrollAll, "UTF-8")
         assertNotEquals(encoded, unenrollAll)
@@ -60,7 +60,7 @@ class ArgumentProcessorTest {
             Uri.parse("my-app://foo?--nimbus-cli&--experiments=$encoded"),
         )
         assertNotNull(obs1)
-        assertEquals(CliArgs(false, unenrollAll, false, false), obs1)
+        assertEquals(CliArgs(false, unenrollAll, false, false, null), obs1)
     }
 
     @Test
@@ -70,7 +70,7 @@ class ArgumentProcessorTest {
             Uri.parse("my-app://foo?--nimbus-cli&--experiments=$good"),
         )
         assertNotNull(obs)
-        assertEquals(CliArgs(false, good, false, false), obs)
+        assertEquals(CliArgs(false, good, false, false, null), obs)
 
         fun isInvalid(bad: String) {
             val obs0 = createCommandLineArgs(
