@@ -93,7 +93,7 @@ fn main() -> ApiResult<()> {
     init_logging(&cli);
     // Applications must initialize viaduct for the HTTP client to work.
     // This example uses the `hyper` backend because it's easy to setup.
-    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
+    viaduct_hyper::viaduct_init_backend_hyper().expect("Error initializing viaduct");
     let component = build_example_component()?;
     println!();
     match cli.command {

@@ -234,7 +234,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
-    viaduct_hyper::init_backend_hyper()?;
+    viaduct_hyper::viaduct_init_backend_hyper()?;
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file, &[SYNC_SCOPE])?;
 

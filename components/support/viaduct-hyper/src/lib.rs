@@ -30,8 +30,11 @@ struct HyperBackend {
 }
 
 /// Set the viaduct backend to the `hyper`-based one with HTTPS support.
+///
+/// Named `viaduct_init_backend_hyper` since that reads better on iOS/Swift where there aren't any
+/// namespaces.  Once we move to UniFII 0.31 we can use the renaming feature to do this instead.
 #[uniffi::export]
-pub fn init_backend_hyper() -> Result<()> {
+pub fn viaduct_init_backend_hyper() -> Result<()> {
     info!("initializing hyper backend");
     // Create a multi-threaded runtime, with 1 worker thread.
     //
