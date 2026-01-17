@@ -4,6 +4,8 @@
 
 #![allow(unexpected_cfgs)]
 
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::OriginalGeckoPref;
 use crate::{
     enrollment::{EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason},
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
@@ -223,6 +225,7 @@ impl MetricsHandler for TestMetrics {
 #[cfg(feature = "stateful")]
 pub struct TestGeckoPrefHandlerState {
     pub prefs_set: Option<Vec<GeckoPrefState>>,
+    pub original_prefs_state: Option<Vec<OriginalGeckoPref>>,
 }
 
 #[cfg(feature = "stateful")]
@@ -236,7 +239,10 @@ impl TestGeckoPrefHandler {
     pub(crate) fn new(prefs: MapOfFeatureIdToPropertyNameToGeckoPrefState) -> Self {
         Self {
             prefs,
-            state: Mutex::new(TestGeckoPrefHandlerState { prefs_set: None }),
+            state: Mutex::new(TestGeckoPrefHandlerState {
+                prefs_set: None,
+                original_prefs_state: None,
+            }),
         }
     }
 }
@@ -252,6 +258,13 @@ impl GeckoPrefHandler for TestGeckoPrefHandler {
             .lock()
             .expect("Unable to lock TestGeckoPrefHandler state")
             .prefs_set = Some(new_prefs_state);
+    }
+
+    fn set_gecko_prefs_original_values(&self, original_prefs_state: Vec<OriginalGeckoPref>) {
+        self.state
+            .lock()
+            .expect("Unable to lock TestGeckoPrefHandler state")
+            .original_prefs_state = Some(original_prefs_state);
     }
 }
 

@@ -128,6 +128,9 @@ callback interface GeckoPrefHandler {
     record<string, record<string, GeckoPrefState>> get_prefs_with_state();
 
     void set_gecko_prefs_state(sequence<GeckoPrefState> new_prefs_state);
+
+    void set_gecko_prefs_original_values(sequence<OriginalGeckoPref> original_gecko_prefs);
+
 };
 
 dictionary GeckoPref {
