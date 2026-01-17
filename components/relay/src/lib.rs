@@ -32,6 +32,8 @@ pub struct RelayClient {
     server_url: String,
     /// Optional authentication token for API requests.
     auth_token: Option<String>,
+    /// Optional platform identifier for X-Relay-Client header.
+    platform: Option<String>,
 }
 
 /// Represents a Relay email address object returned by the Relay API.
@@ -124,6 +126,9 @@ impl RelayClient {
         if let Some(ref token) = self.auth_token {
             request = request.header(header_names::AUTHORIZATION, format!("Bearer {}", token))?;
         }
+        if let Some(ref platform) = self.platform {
+            request = request.header("X-Relay-Client", platform)?;
+        }
         Ok(request)
     }
 }
@@ -135,15 +140,21 @@ impl RelayClient {
     /// # Parameters
     /// - `server_url`: Base URL for the Relay API.
     /// - `auth_token`: Optional relay-scoped access token (see struct docs).
+    /// - `platform`: Optional platform identifier ("iOS" or "Android").
     ///
     /// # Returns
     /// A new [`RelayClient`] configured for the specified server and token.
     #[uniffi::constructor]
     #[handle_error(Error)]
-    pub fn new(server_url: String, auth_token: Option<String>) -> ApiResult<Self> {
+    pub fn new(
+        server_url: String,
+        auth_token: Option<String>,
+        platform: Option<String>,
+    ) -> ApiResult<Self> {
         Ok(Self {
             server_url,
             auth_token,
+            platform,
         })
     }
 
@@ -340,7 +351,7 @@ mod tests {
             .with_body(error_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
         let result = client.expect("success").fetch_addresses();
 
         match result {
@@ -371,7 +382,7 @@ mod tests {
             .with_body(error_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), None);
+        let client = RelayClient::new(mockito::server_url(), None, None);
         let result = client.expect("success").accept_terms();
 
         match result {
@@ -399,7 +410,7 @@ mod tests {
             .with_body(error_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
         let result = client
             .expect("success")
             .create_address("Label", "example.com", "example.com");
@@ -436,7 +447,7 @@ mod tests {
             .with_body(addresses_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
 
         let addresses = client
             .expect("success")
@@ -463,7 +474,7 @@ mod tests {
             .with_body(addresses_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
         let addresses = client
             .expect("success")
             .fetch_addresses()
@@ -486,7 +497,7 @@ mod tests {
             .with_body(addresses_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
         let addresses = client
             .expect("success")
             .fetch_addresses()
@@ -513,7 +524,7 @@ mod tests {
         }
 
         let _mock = mock.create();
-        let client = RelayClient::new(mockito::server_url(), token.map(String::from));
+        let client = RelayClient::new(mockito::server_url(), token.map(String::from), None);
 
         let result = client.expect("success").accept_terms();
 
@@ -609,7 +620,7 @@ mod tests {
             .with_body(address_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
 
         let address = client
             .expect("success")
@@ -619,6 +630,52 @@ mod tests {
         assert_eq!(address.full_address, "new123456@mozmail.com");
         assert_eq!(address.generated_for, "example.com");
         assert!(address.enabled);
+    }
+
+    #[test]
+    fn test_create_address_with_platform() {
+        viaduct_dev::init_backend_dev();
+
+        let address_json = r#"{
+            "mask_type": "alias",
+            "enabled": true,
+            "description": "Test",
+            "generated_for": "example.com",
+            "block_list_emails": false,
+            "used_on": "example.com",
+            "id": 1,
+            "address": "test123",
+            "domain": 2,
+            "full_address": "test123@mozmail.com",
+            "created_at": "2021-01-01T00:00:00Z",
+            "last_modified_at": "2021-01-01T00:00:00Z",
+            "last_used_at": null,
+            "num_forwarded": 0,
+            "num_blocked": 0,
+            "num_level_one_trackers_blocked": 0,
+            "num_replied": 0,
+            "num_spam": 0
+        }"#;
+
+        let _mock = mock("POST", "/api/v1/relayaddresses/")
+            .match_header("authorization", "Bearer mock_token")
+            .match_header("x-relay-client", "iOS")
+            .with_status(201)
+            .with_body(address_json)
+            .create();
+
+        let client = RelayClient::new(
+            mockito::server_url(),
+            Some("mock_token".to_string()),
+            Some("iOS".to_string()),
+        );
+
+        let address = client
+            .expect("success")
+            .create_address("Test", "example.com", "example.com")
+            .expect("should create address");
+
+        assert_eq!(address.full_address, "test123@mozmail.com");
     }
 
     fn mock_profile_json(
@@ -699,7 +756,7 @@ mod tests {
             .with_body(profile_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
 
         let profile = client
             .expect("success")
@@ -729,7 +786,7 @@ mod tests {
             .with_body(profile_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()), None);
 
         let profile = client
             .expect("success")
@@ -756,7 +813,7 @@ mod tests {
             .with_body(error_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), None);
+        let client = RelayClient::new(mockito::server_url(), None, None);
         let result = client.expect("success").fetch_profile();
 
         match result {
@@ -784,7 +841,7 @@ mod tests {
             .with_body(error_json)
             .create();
 
-        let client = RelayClient::new(mockito::server_url(), Some("bad_token".to_string()));
+        let client = RelayClient::new(mockito::server_url(), Some("bad_token".to_string()), None);
         let result = client.expect("success").fetch_profile();
 
         match result {

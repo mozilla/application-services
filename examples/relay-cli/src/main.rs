@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
     viaduct_hyper::init_backend_hyper()?;
 
     let token = prompt_token()?;
-    let client = RelayClient::new("https://relay.firefox.com".to_string(), Some(token));
+    let client = RelayClient::new("https://relay.firefox.com".to_string(), Some(token), None);
 
     match cli.command {
         Commands::Fetch => fetch_addresses(client?),
