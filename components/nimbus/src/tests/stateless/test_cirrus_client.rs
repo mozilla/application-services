@@ -205,6 +205,9 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     assert_eq!(metric_records[0].branch(), "treatment");
     assert_eq!(metric_records[0].user_id(), "test");
 
+    let nimbus_user_id: Option<String> = metrics_handler.get_nimbus_user_id();
+    assert_eq!(nimbus_user_id, Some("test".into()));
+
     Ok(())
 }
 
