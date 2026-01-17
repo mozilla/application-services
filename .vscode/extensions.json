@@ -15,6 +15,6 @@
     // YAML language support.
     "redhat.vscode-yaml",
     // Cargo.toml versions helper.
-    "serayuzgur.crates"
+    "fill-labs.dependi"
   ]
 }
