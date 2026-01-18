@@ -8,6 +8,8 @@ mod environment_matching;
 mod error;
 mod filter;
 mod sort_helpers;
+#[cfg(test)]
+mod test_helpers;
 pub use error::SearchApiError;
 
 pub mod selector;
