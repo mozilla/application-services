@@ -20,7 +20,7 @@ sql-support = { path = "../support/sql" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 sync15 = { path = "../sync15", features = ["sync-engine"] }
 thiserror = "2"
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 url = "2"
 types = { path = "../support/types" }
 
@@ -29,4 +29,4 @@ error-support = { path = "../support/error", features=["testing"] }
 tempfile = "3.1"
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features=["build"]}
+uniffi = { version = "0.31", features=["build"]}

@@ -19,11 +19,11 @@ error-support = { path = "../support/error" }
 sql-support = { path = "../support/sql" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 thiserror = "2"
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 types = { path = "../support/types" }
 
 [build-dependencies]
-uniffi = { version = "0.29.0", features = ["build"] }
+uniffi = { version = "0.31", features = ["build"] }
 
 [dev-dependencies]
 error-support = { path = "../support/error", features = ["testing"] }
