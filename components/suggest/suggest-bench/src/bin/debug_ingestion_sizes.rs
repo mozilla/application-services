@@ -5,6 +5,6 @@
 use suggest::benchmarks::ingest;
 
 fn main() {
-    viaduct_hyper::init_backend_hyper().expect("Error initializing viaduct");
+    viaduct_hyper::viaduct_init_backend_hyper().expect("Error initializing viaduct");
     ingest::print_debug_ingestion_sizes()
 }
