@@ -338,7 +338,10 @@ fn do_sync(
     };
     let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
 
-    let mut disk_cached_state = engine.get_global_state()?;
+    // We don't track any state at all - this means every sync acts like a first sync.
+    // We should consider supporting this - choices would be to re-open the database ourself and abuse the
+    // meta tables, storing a disk on file, etc.
+    let mut disk_cached_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
     let mut result = sync_multiple(
@@ -350,7 +353,8 @@ fn do_sync(
         &engine.scope,
         None,
     );
-    engine.set_global_state(&disk_cached_state)?;
+
+    // and here we should persist `disk_cached_state` somewhere.
 
     if let Err(e) = result.result {
         return Err(e.into());
