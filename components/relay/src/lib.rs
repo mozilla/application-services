@@ -124,6 +124,10 @@ impl RelayClient {
         if let Some(ref token) = self.auth_token {
             request = request.header(header_names::AUTHORIZATION, format!("Bearer {}", token))?;
         }
+        request = request.header(
+            "X-Relay-Client",
+            format!("appservices-{}", std::env::consts::OS),
+        )?;
         Ok(request)
     }
 }
@@ -131,6 +135,10 @@ impl RelayClient {
 #[uniffi::export]
 impl RelayClient {
     /// Creates a new `RelayClient` instance.
+    ///
+    /// The client automatically includes an `X-Relay-Client` header with the platform
+    /// identifier based on the target OS (e.g., "appservices-ios", "appservices-android",
+    /// "appservices-macos", etc.) to help the Relay backend distinguish mobile vs desktop requests.
     ///
     /// # Parameters
     /// - `server_url`: Base URL for the Relay API.
@@ -619,6 +627,50 @@ mod tests {
         assert_eq!(address.full_address, "new123456@mozmail.com");
         assert_eq!(address.generated_for, "example.com");
         assert!(address.enabled);
+    }
+
+    #[test]
+    fn test_create_address_with_platform_header() {
+        viaduct_dev::init_backend_dev();
+
+        let expected_platform = format!("appservices-{}", std::env::consts::OS);
+
+        let address_json = r#"{
+            "mask_type": "alias",
+            "enabled": true,
+            "description": "Test",
+            "generated_for": "example.com",
+            "block_list_emails": false,
+            "used_on": "example.com",
+            "id": 1,
+            "address": "test123",
+            "domain": 2,
+            "full_address": "test123@mozmail.com",
+            "created_at": "2021-01-01T00:00:00Z",
+            "last_modified_at": "2021-01-01T00:00:00Z",
+            "last_used_at": null,
+            "num_forwarded": 0,
+            "num_blocked": 0,
+            "num_level_one_trackers_blocked": 0,
+            "num_replied": 0,
+            "num_spam": 0
+        }"#;
+
+        let _mock = mock("POST", "/api/v1/relayaddresses/")
+            .match_header("authorization", "Bearer mock_token")
+            .match_header("x-relay-client", expected_platform.as_str())
+            .with_status(201)
+            .with_body(address_json)
+            .create();
+
+        let client = RelayClient::new(mockito::server_url(), Some("mock_token".to_string()));
+
+        let address = client
+            .expect("success")
+            .create_address("Test", "example.com", "example.com")
+            .expect("should create address with platform header");
+
+        assert_eq!(address.full_address, "test123@mozmail.com");
     }
 
     fn mock_profile_json(
