@@ -28,6 +28,8 @@
 ([#7160](https://github.com/mozilla/application-services/pull/7160))
 * Added Android support for eval-jexl functionality through the `NimbusTargetingHelper.evalJexl()` method, enabling JEXL expression evaluation on Android with full targeting context support.
 ([#7163](https://github.com/mozilla/application-services/pull/7163))
+* Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
+([#7173](https://github.com/mozilla/application-services/pull/7173))
 
 ### Ads-Client
 * Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
