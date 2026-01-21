@@ -466,10 +466,10 @@ impl LaunchableApp {
                 }
                 Err(e) => {
                     last_error = Some(e);
-                    if attempt < max_retries {
+                    if attempt < MAX_RETRIES {
                         prompt(
                             &mut stdout,
-                            &format!("# Retry {}/{}...", attempt, max_retries - 1),
+                            &format!("# Retry {}/{}...", attempt, MAX_RETRIES - 1),
                         )?;
                     }
                 }
