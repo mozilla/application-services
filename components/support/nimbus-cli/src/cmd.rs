@@ -439,6 +439,11 @@ impl LaunchableApp {
         let mut stdout = StandardStream::stdout(ColorChoice::Auto);
         prompt(&mut stdout, &format!("# Evaluating JEXL: {}", expression))?;
 
+        // Clear logcat before starting to ensure we only read fresh logs
+        if matches!(self, Self::Android { .. }) {
+            let _ = self.exe()?.args(["logcat", "-c"]).output();
+        }
+
         let protocol = StartAppProtocol {
             jexl_expression: Some(expression),
             ..Default::default()
@@ -448,11 +453,11 @@ impl LaunchableApp {
 
         prompt(&mut stdout, "# Waiting for result...")?;
 
-        let max_retries = 2;
+        let max_retries = 3;
         let mut last_error = None;
 
         for attempt in 1..=max_retries {
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::thread::sleep(std::time::Duration::from_secs(3));
 
             match self.capture_jexl_result() {
                 Ok(result) => {
@@ -479,7 +484,7 @@ impl LaunchableApp {
             Self::Android { .. } => {
                 let output = self
                     .exe()?
-                    .args(["logcat", "-d", "-s", "NimbusCLI:I", "NimbusCLI:E"])
+                    .args(["logcat", "-d"])
                     .output()?;
 
                 let logs = String::from_utf8_lossy(&output.stdout);
