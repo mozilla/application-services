@@ -482,10 +482,7 @@ impl LaunchableApp {
     fn capture_jexl_result(&self) -> Result<String> {
         match self {
             Self::Android { .. } => {
-                let output = self
-                    .exe()?
-                    .args(["logcat", "-d"])
-                    .output()?;
+                let output = self.exe()?.args(["logcat", "-d"]).output()?;
 
                 let logs = String::from_utf8_lossy(&output.stdout);
 
