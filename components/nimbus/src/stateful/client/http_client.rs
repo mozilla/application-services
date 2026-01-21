@@ -28,7 +28,9 @@ impl SettingsClient for Arc<RemoteSettingsClient> {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let records = self.get_records(true).ok_or(RemoteSettingsError::Other {
+        self.sync()?;
+
+        let records = self.get_records(false).ok_or(RemoteSettingsError::Other {
             reason: "Unable to fetch experiment records".to_owned(),
         })?;
         let wrapped_data = json!({ "data": records });
