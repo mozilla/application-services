@@ -441,7 +441,7 @@ impl LaunchableApp {
 
         // Clear logcat before starting to ensure we only read fresh logs
         if matches!(self, Self::Android { .. }) {
-            let _ = self.exe()?.args(["logcat", "-c"]).output();
+            self.exe()?.args(["logcat", "-c"]).output()?;
         }
 
         let protocol = StartAppProtocol {
@@ -453,10 +453,10 @@ impl LaunchableApp {
 
         prompt(&mut stdout, "# Waiting for result...")?;
 
-        let max_retries = 3;
+        const MAX_RETRIES: u32 = 3;
         let mut last_error = None;
 
-        for attempt in 1..=max_retries {
+        for attempt in 1..=MAX_RETRIES {
             std::thread::sleep(std::time::Duration::from_secs(3));
 
             match self.capture_jexl_result() {
