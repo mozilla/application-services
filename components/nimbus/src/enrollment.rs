@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #[cfg(feature = "stateful")]
-use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefUnenrollReason};
+use crate::stateful::gecko_prefs::{GeckoPrefStore, OriginalGeckoPref, PrefUnenrollReason};
 use crate::{
     defaults::Defaults,
     error::{debug, warn, NimbusError, Result},
@@ -145,6 +145,41 @@ pub struct PreviousGeckoPrefState {
     pub variable: String,
 }
 
+#[cfg(feature = "stateful")]
+impl PreviousGeckoPrefState {
+    pub(crate) fn on_revert_all_to_prev_gecko_pref_states(
+        prev_gecko_pref_states: &[Self],
+        gecko_pref_store: Option<&GeckoPrefStore>,
+    ) {
+        if let Some(store) = gecko_pref_store {
+            let original_values: Vec<_> = prev_gecko_pref_states
+                .iter()
+                .map(|state| state.original_value.clone())
+                .collect();
+            store
+                .handler
+                .set_gecko_prefs_original_values(original_values);
+        }
+    }
+
+    pub(crate) fn on_partially_revert_to_prev_gecko_pref_states(
+        prev_gecko_pref_states: &[Self],
+        non_reverting_pref_name: &str,
+        gecko_pref_store: Option<&GeckoPrefStore>,
+    ) {
+        if let Some(store) = gecko_pref_store {
+            let qualified_values: Vec<_> = prev_gecko_pref_states
+                .iter()
+                .filter(|state| state.original_value.pref != non_reverting_pref_name)
+                .map(|state| state.original_value.clone())
+                .collect();
+            store
+                .handler
+                .set_gecko_prefs_original_values(qualified_values);
+        }
+    }
+}
+
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
 // ⚠️ in `src/stateful/tests/test_enrollment_bw_compat.rs` below, and may require a DB migration. ⚠️
@@ -232,6 +267,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         updated_experiment: &Experiment,
         targeting_helper: &NimbusTargetingHelper,
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match &self.status {
@@ -265,12 +301,16 @@ impl ExperimentEnrollment {
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
                         &self.slug
                     );
+                    #[cfg(feature = "stateful")]
+                    self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
                     let updated_enrollment =
                         self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
                     out_enrollment_events.push(updated_enrollment.get_change_event());
                     updated_enrollment
                 } else if !updated_experiment.has_branch(branch) {
                     // The branch we were in disappeared!
+                    #[cfg(feature = "stateful")]
+                    self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
                     let updated_enrollment =
                         self.disqualify_from_enrolled(DisqualifiedReason::Error);
                     out_enrollment_events.push(updated_enrollment.get_change_event());
@@ -285,6 +325,22 @@ impl ExperimentEnrollment {
                         updated_experiment,
                         targeting_helper,
                     )?;
+
+                    #[cfg(feature = "stateful")]
+                    if let EnrollmentStatus::Enrolled {
+                        prev_gecko_pref_states: Some(prev_gecko_pref_states),
+                        ..
+                    } = &self.status
+                    {
+                        if self
+                            .will_pref_experiment_change(updated_experiment, &evaluated_enrollment)
+                        {
+                            PreviousGeckoPrefState::on_revert_all_to_prev_gecko_pref_states(
+                                prev_gecko_pref_states,
+                                gecko_pref_store,
+                            );
+                        }
+                    }
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
                             let updated_enrollment =
@@ -369,6 +425,7 @@ impl ExperimentEnrollment {
     /// from the database after `PREVIOUS_ENROLLMENTS_GC_TIME`.
     fn on_experiment_ended(
         &self,
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Option<Self> {
         debug!(
@@ -382,6 +439,9 @@ impl ExperimentEnrollment {
             | EnrollmentStatus::WasEnrolled { .. }
             | EnrollmentStatus::Error { .. } => return None, // We were never enrolled anyway, simply delete the enrollment record from the DB.
         };
+        #[cfg(feature = "stateful")]
+        self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
+
         let enrollment = Self {
             slug: self.slug.clone(),
             status: EnrollmentStatus::WasEnrolled {
@@ -399,9 +459,13 @@ impl ExperimentEnrollment {
     pub(crate) fn on_explicit_opt_out(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> ExperimentEnrollment {
         match self.status {
             EnrollmentStatus::Enrolled { .. } => {
+                #[cfg(feature = "stateful")]
+                self.maybe_revert_all_gecko_pref_states(gecko_pref_store);
+
                 let enrollment = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
                 out_enrollment_events.push(enrollment.get_change_event());
                 enrollment
@@ -455,6 +519,44 @@ impl ExperimentEnrollment {
             };
         }
         next
+    }
+
+    #[cfg(feature = "stateful")]
+    // Used for reverting every pref except the one that changed outside of Nimbus. The pref that changed outside of Nimbus should not be reverted.
+    pub(crate) fn maybe_revert_unchanged_gecko_pref_states(
+        &self,
+        non_reverting_pref_name: &str,
+        gecko_pref_store: Option<&GeckoPrefStore>,
+    ) {
+        if let EnrollmentStatus::Enrolled {
+            prev_gecko_pref_states: Some(prev_gecko_pref_states),
+            ..
+        } = &self.status
+        {
+            PreviousGeckoPrefState::on_partially_revert_to_prev_gecko_pref_states(
+                prev_gecko_pref_states,
+                non_reverting_pref_name,
+                gecko_pref_store,
+            );
+        }
+    }
+
+    #[cfg(feature = "stateful")]
+    // Used for reverting all prefs when an enrollment discontinues and no prefs were changed outside of Nimbus.
+    pub(crate) fn maybe_revert_all_gecko_pref_states(
+        &self,
+        gecko_pref_store: Option<&GeckoPrefStore>,
+    ) {
+        if let EnrollmentStatus::Enrolled {
+            prev_gecko_pref_states: Some(prev_gecko_pref_states),
+            ..
+        } = &self.status
+        {
+            PreviousGeckoPrefState::on_revert_all_to_prev_gecko_pref_states(
+                prev_gecko_pref_states,
+                gecko_pref_store,
+            );
+        }
     }
 
     /// Reset identifiers in response to application-level telemetry reset.
@@ -555,6 +657,69 @@ impl ExperimentEnrollment {
             | EnrollmentStatus::Error { .. } => self.clone(),
         }
     }
+
+    #[cfg(feature = "stateful")]
+    pub(crate) fn will_pref_experiment_change(
+        &self,
+        updated_experiment: &Experiment,
+        updated_enrollment: &ExperimentEnrollment,
+    ) -> bool {
+        let EnrollmentStatus::Enrolled {
+            prev_gecko_pref_states: Some(original_prev_gecko_pref_states),
+            branch: original_branch_slug,
+            ..
+        } = &self.status
+        else {
+            // Can't change if it isn't a pref experiment
+            return false;
+        };
+
+        let EnrollmentStatus::Enrolled {
+            branch: updated_branch_slug,
+            ..
+        } = &updated_enrollment.status
+        else {
+            // If we are no longer going to be enrolled, then a change happened
+            return true;
+        };
+
+        // Branch changed
+        if updated_branch_slug != original_branch_slug {
+            return true;
+        }
+
+        // Couldn't get a branch, something changed
+        let Some(updated_branch) = updated_experiment.get_branch(updated_branch_slug) else {
+            return true;
+        };
+
+        let original_feature_ids: HashSet<&String> = original_prev_gecko_pref_states
+            .iter()
+            .map(|state| &state.feature_id)
+            .collect();
+        let updated_features = updated_branch.get_feature_configs();
+
+        // Amount of features should be the same
+        if updated_features.len() != original_feature_ids.len() {
+            return true;
+        }
+
+        for original_state in original_prev_gecko_pref_states {
+            let Some(updated_feature) = updated_features
+                .iter()
+                .find(|config| config.feature_id == original_state.feature_id)
+            else {
+                // If original feature isn't present, then something changed
+                return true;
+            };
+
+            // Property key should still exist in the feature's value map
+            if !updated_feature.value.contains_key(&original_state.variable) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -650,6 +815,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
     where
         E: ExperimentMetadata + Clone,
@@ -671,6 +837,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_rollouts,
             &next_rollouts,
             &ro_enrollments,
+            #[cfg(feature = "stateful")]
+            gecko_pref_store,
         )?;
 
         enrollments.extend(next_ro_enrollments);
@@ -695,6 +863,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
+            #[cfg(feature = "stateful")]
+            gecko_pref_store,
         )?;
 
         enrollments.extend(next_exp_enrollments);
@@ -711,6 +881,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_experiments: &[E],
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)>
     where
         E: ExperimentMetadata + Clone,
@@ -750,6 +921,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 next_experiments_map.get(slug).copied(),
                 Some(prev_enrollment),
                 &mut enrollment_events,
+                #[cfg(feature = "stateful")]
+                gecko_pref_store,
             ) {
                 Ok(enrollment) => enrollment,
                 Err(e) => {
@@ -851,6 +1024,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                     Some(next_experiment),
                     prev_enrollment,
                     &mut enrollment_events,
+                    #[cfg(feature = "stateful")]
+                    gecko_pref_store,
                 ) {
                     Ok(enrollment) => enrollment,
                     Err(e) => {
@@ -944,6 +1119,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiment: Option<&Experiment>,
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
+        #[cfg(feature = "stateful")] gecko_pref_store: Option<&GeckoPrefStore>,
     ) -> Result<Option<ExperimentEnrollment>>
     where
         E: ExperimentMetadata + Clone,
@@ -972,9 +1148,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                 out_enrollment_events,
             )?),
             // Experiment deleted remotely.
-            (Some(_), None, Some(enrollment)) => {
-                enrollment.on_experiment_ended(out_enrollment_events)
-            }
+            (Some(_), None, Some(enrollment)) => enrollment.on_experiment_ended(
+                #[cfg(feature = "stateful")]
+                gecko_pref_store,
+                out_enrollment_events,
+            ),
             // Known experiment.
             (Some(_), Some(experiment), Some(enrollment)) => {
                 Some(enrollment.on_experiment_updated(
@@ -982,6 +1160,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     experiment,
                     &targeting_helper,
+                    #[cfg(feature = "stateful")]
+                    gecko_pref_store,
                     out_enrollment_events,
                 )?)
             }

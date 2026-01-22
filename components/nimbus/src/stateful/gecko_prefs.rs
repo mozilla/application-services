@@ -131,6 +131,9 @@ pub trait GeckoPrefHandler: Send + Sync {
 
     /// Used to set the state for each pref based on enrollments
     fn set_gecko_prefs_state(&self, new_prefs_state: Vec<GeckoPrefState>);
+
+    /// Used to set back to the original state for each pref based on the original Gecko value
+    fn set_gecko_prefs_original_values(&self, original_gecko_prefs: Vec<OriginalGeckoPref>);
 }
 
 #[derive(Default)]
