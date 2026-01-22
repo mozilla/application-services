@@ -8,7 +8,7 @@ use crate::{
     json::PrefValue,
     stateful::gecko_prefs::{
         create_feature_prop_pref_map, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore,
-        GeckoPrefStoreState, PrefBranch, PrefEnrollmentData,
+        GeckoPrefStoreState, OriginalGeckoPref, PrefBranch, PrefEnrollmentData,
     },
     tests::helpers::{get_multi_feature_experiment, TestGeckoPrefHandler},
     EnrolledExperiment,
@@ -361,4 +361,36 @@ fn test_build_prev_gecko_pref_states() -> Result<()> {
     assert_eq!(None, original_value_4.value.clone());
 
     Ok(())
+}
+
+#[test]
+fn test_set_gecko_prefs_original_values() {
+    let pref_state_1 = GeckoPrefState::new("test.some.pref.1", Some(PrefBranch::Default))
+        .with_gecko_value(serde_json::Value::String(String::from(
+            "some-gecko-value-1",
+        )));
+    let original_gecko_prefs = vec![OriginalGeckoPref::from(&pref_state_1)];
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![(
+        "feature-id",
+        "test_prop",
+        pref_state_1.clone(),
+    )]));
+    let handler: Arc<Box<dyn GeckoPrefHandler>> = Arc::new(Box::new(handler));
+    let store = Arc::new(GeckoPrefStore::new(handler.clone()));
+    let _ = store.initialize();
+
+    handler.set_gecko_prefs_original_values(original_gecko_prefs.clone());
+    let test_handler = unsafe {
+        std::mem::transmute::<Arc<Box<dyn GeckoPrefHandler>>, Arc<Box<TestGeckoPrefHandler>>>(
+            handler,
+        )
+    };
+    let test_handler_state = test_handler
+        .state
+        .lock()
+        .expect("Unable to lock transmuted handler state");
+
+    let original_prefs_stored = test_handler_state.original_prefs_state.clone().unwrap();
+    assert_eq!(1, original_prefs_stored.len());
+    assert_eq!(&original_gecko_prefs, &original_prefs_stored);
 }
