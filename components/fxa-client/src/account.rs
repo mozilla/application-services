@@ -12,15 +12,19 @@
 //! The methods in this section provide URLs at which the user can perform various
 //! account-management activities.
 
-use crate::{ApiResult, Error, FirefoxAccount};
+use crate::{ApiResult, Error, FirefoxAccount, FxaServer};
 use error_support::handle_error;
 
 impl FirefoxAccount {
+    /// Check if an account was created from a config
+    #[handle_error(Error)]
+    pub fn matches_server(&self, server: &FxaServer) -> ApiResult<bool> {
+        self.internal.lock().matches_server(server)
+    }
+
     /// Get the token server URL
     ///
     /// The token server URL can be used to get the URL and access token for the user's sync data.
-    ///
-    /// **💾 This method alters the persisted account state.**
     #[handle_error(Error)]
     pub fn get_token_server_endpoint_url(&self) -> ApiResult<String> {
         self.internal.lock().get_token_server_endpoint_url()

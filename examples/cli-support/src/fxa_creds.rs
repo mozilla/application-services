@@ -9,7 +9,7 @@ use std::{
     io::{Read, Write},
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use url::Url;
 
 // This crate awkardly uses some internal implementation details of the fxa-client crate,
@@ -35,14 +35,22 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
 }
 
 fn load_or_create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {
-    load_fxa_creds(path).or_else(|e| {
-        log::info!(
-            "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
-            path,
-            e
-        );
-        create_fxa_creds(path, cfg, scopes)
-    })
+    match load_fxa_creds(path) {
+        Ok(account) => {
+            if !account.matches_server(&cfg.server)? {
+                bail!("Stored credentials don't match configured server.\nDelete {path} to start over or specify a different server arg")
+            }
+            Ok(account)
+        }
+        Err(e) => {
+            log::info!(
+                "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
+                path,
+                e
+            );
+            create_fxa_creds(path, cfg, scopes)
+        }
+    }
 }
 
 fn create_fxa_creds(path: &str, cfg: FxaConfig, scopes: &[&str]) -> Result<FirefoxAccount> {

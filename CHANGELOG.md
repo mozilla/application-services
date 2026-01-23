@@ -1,5 +1,11 @@
 # v149.0 (In progress)
 
+## ✨ What's New ✨
+
+### FxA Client
+- Support for the token exchange API, which we plan to use for getting access tokens for Relay.
+  ([#7179](https://github.com/mozilla/application-services/pull/7179)).
+
 ### AdsClient
 * Try to reset cache database schema on connection initialization failure.
 * Reset cache on context ID rotation.

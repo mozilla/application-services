@@ -11,7 +11,7 @@ use self::{
     state_persistence::PersistedState,
     telemetry::FxaTelemetry,
 };
-use crate::{DeviceConfig, Error, FxaConfig, FxaRustAuthState, FxaState, Result};
+use crate::{DeviceConfig, Error, FxaConfig, FxaRustAuthState, FxaServer, FxaState, Result};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -122,6 +122,18 @@ impl FirefoxAccount {
     pub fn clear_devices_and_attached_clients_cache(&mut self) {
         self.attached_clients_cache = None;
         self.devices_cache = None;
+    }
+
+    /// Check if this account was created from a config
+    pub fn matches_server(&self, server: &FxaServer) -> Result<bool> {
+        // This check depends on the fact that we get the `content_url` when constructing our
+        // internal config and never change it.  It's slightly brittle, but that's okay since it's
+        // only used by the CLI.
+        let content_url = self.state.config().content_url()?.to_string();
+        let server_url = server.content_url();
+        // Ignore trailing slashes when comparing the URLs.
+        Ok(content_url.strip_suffix("/").unwrap_or(&content_url)
+            == server_url.strip_suffix("/").unwrap_or(server_url))
     }
 
     /// Get the Sync Token Server endpoint URL.

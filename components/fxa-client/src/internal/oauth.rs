@@ -57,7 +57,27 @@ impl FirefoxAccount {
             }
         }
         let resp = match self.state.refresh_token() {
-            Some(refresh_token) => {
+            Some(mut refresh_token) => {
+                if !refresh_token.scopes.contains(scope) {
+                    // We don't currently have this scope - try token exchange to upgrade.
+                    let exchange_resp = self.client.exchange_token_for_scope(
+                        self.state.config(),
+                        &refresh_token.token,
+                        scope,
+                    )?;
+                    // Update state with the new refresh token that has combined scopes.
+                    if let Some(new_refresh_token) = exchange_resp.refresh_token {
+                        self.state.update_refresh_token(RefreshToken::new(
+                            new_refresh_token,
+                            exchange_resp.scope,
+                        ));
+                    }
+                    // Get the updated refresh token from state.
+                    refresh_token = match self.state.refresh_token() {
+                        None => return Err(Error::NoCachedToken(scope.to_string())),
+                        Some(token) => token,
+                    };
+                }
                 if refresh_token.scopes.contains(scope) {
                     self.client.create_access_token_using_refresh_token(
                         self.state.config(),
@@ -419,10 +439,7 @@ impl FirefoxAccount {
         }
         self.state.complete_oauth_flow(
             scoped_keys,
-            RefreshToken {
-                token: new_refresh_token,
-                scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
-            },
+            RefreshToken::new(new_refresh_token, resp.scope),
             resp.session_token,
         );
         Ok(())
@@ -531,6 +548,15 @@ impl TryFrom<Url> for AuthorizationParameters {
 pub struct RefreshToken {
     pub token: String,
     pub scopes: HashSet<String>,
+}
+
+impl RefreshToken {
+    pub fn new(token: String, scopes: String) -> Self {
+        Self {
+            token,
+            scopes: scopes.split(' ').map(ToString::to_string).collect(),
+        }
+    }
 }
 
 impl std::fmt::Debug for RefreshToken {

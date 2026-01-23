@@ -103,7 +103,7 @@ impl std::fmt::Display for Header {
 }
 
 /// A list of headers.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct Headers {
     headers: Vec<Header>,
 }
@@ -333,6 +333,14 @@ impl Headers {
     /// Note that we also implement IntoIterator.
     pub fn iter(&self) -> <&Headers as IntoIterator>::IntoIter {
         self.into_iter()
+    }
+}
+
+impl std::fmt::Debug for Headers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map()
+            .entries(self.headers.iter().map(|h| (h.name().as_str(), &h.value)))
+            .finish()
     }
 }
 
