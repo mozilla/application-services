@@ -11,10 +11,13 @@
 ([#7156](https://github.com/mozilla/application-services/pull/7156))
 ([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
 
+### Glean
+- Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
+
 ## ✨ What's New ✨
 
 ### Ads Client
-- Enable staging environment support for all platforms (previously feature-gated) 
+- Enable staging environment support for all platforms (previously feature-gated)
 
 ### Viaduct
 * Support setting default user-agent headers.
