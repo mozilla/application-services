@@ -1979,7 +1979,6 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         Box::new(metrics.clone()),
         Some(Box::new(handler)),
         None,
-        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
@@ -2159,7 +2158,6 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         temp_dir.path(),
         Box::new(metrics.clone()),
         Some(Box::new(handler)),
-        None,
         None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
