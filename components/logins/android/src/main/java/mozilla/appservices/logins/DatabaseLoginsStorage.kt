@@ -121,6 +121,13 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
         return store.registerWithSyncManager()
     }
 
+    /**
+     * Performs maintenance actions on the store
+     */
+    fun runMaintenance() {
+        return store.runMaintenance()
+    }
+
     @Synchronized
     @Throws(LoginsApiException::class)
     override fun close() {
