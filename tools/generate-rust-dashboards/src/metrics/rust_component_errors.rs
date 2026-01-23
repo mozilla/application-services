@@ -20,6 +20,10 @@ pub fn add_to_dashboard(builder: &mut DashboardBuilder, config: &TeamConfig) -> 
     builder.add_panel_title("Component Errors");
 
     for app in config.applications().iter() {
+        // Errors are only implemented on Android at this point.
+        if *app != Application::Android {
+            continue;
+        }
         builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Nightly));
         builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Beta));
         builder.add_panel_third(count_panel(config, *app, ReleaseChannel::Release));
