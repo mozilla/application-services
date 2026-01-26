@@ -38,8 +38,6 @@ android {
 }
 
 dependencies {
-    api project(":httpconfig")
-
     implementation libs.mozilla.glean
 
     testImplementation libs.mozilla.glean.forUnitTests
