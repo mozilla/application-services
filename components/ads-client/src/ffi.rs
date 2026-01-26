@@ -16,6 +16,7 @@ use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
 use error_support::{ErrorHandling, GetErrorHandling};
+use nimbus::NimbusClient;
 use url::Url;
 
 pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
@@ -93,6 +94,7 @@ pub struct MozAdsClientConfig {
     pub environment: MozAdsEnvironment,
     pub cache_config: Option<MozAdsCacheConfig>,
     pub telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    pub nimbus: Option<Arc<NimbusClient>>,
 }
 
 impl From<MozAdsClientConfig> for AdsClientConfig<MozAdsTelemetryWrapper> {
@@ -105,6 +107,7 @@ impl From<MozAdsClientConfig> for AdsClientConfig<MozAdsTelemetryWrapper> {
             environment: config.environment.into(),
             cache_config: config.cache_config.map(Into::into),
             telemetry,
+            nimbus: config.nimbus,
         }
     }
 }
