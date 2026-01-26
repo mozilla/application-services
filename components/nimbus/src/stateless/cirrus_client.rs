@@ -149,7 +149,7 @@ impl CirrusClient {
                 prev_enrollments,
             )?;
 
-        self.metrics_handler.record_enrollment_statuses(
+        self.metrics_handler.record_enrollment_statuses_v2(
             enrollments
                 .iter()
                 .cloned()
@@ -159,6 +159,7 @@ impl CirrusClient {
                     extra
                 })
                 .collect(),
+            Some(user_id.clone()),
         );
 
         let enrolled_feature_config_map =

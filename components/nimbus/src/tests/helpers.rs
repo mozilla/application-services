@@ -154,6 +154,8 @@ struct MetricState {
     exposures: Vec<FeatureExposureExtraDef>,
     #[cfg(feature = "stateful")]
     malformeds: Vec<MalformedFeatureConfigExtraDef>,
+    #[cfg(not(feature = "stateful"))]
+    nimbus_user_id: Option<String>,
 }
 
 /// A Rust implementation of the MetricsHandler trait
@@ -174,6 +176,11 @@ impl TestMetrics {
 
     pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
         self.state.lock().unwrap().enrollment_statuses.clone()
+    }
+
+    #[cfg(not(feature = "stateful"))]
+    pub fn get_nimbus_user_id(&self) -> Option<String> {
+        self.state.lock().unwrap().nimbus_user_id.clone()
     }
 }
 
@@ -196,9 +203,21 @@ impl TestMetrics {
 }
 
 impl MetricsHandler for TestMetrics {
+    #[cfg(feature = "stateful")]
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>) {
         let mut state = self.state.lock().unwrap();
         state.enrollment_statuses.extend(enrollment_status_extras);
+    }
+
+    #[cfg(not(feature = "stateful"))]
+    fn record_enrollment_statuses_v2(
+        &self,
+        enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
+        nimbus_user_id: Option<String>,
+    ) {
+        let mut state = self.state.lock().unwrap();
+        state.enrollment_statuses.extend(enrollment_status_extras);
+        state.nimbus_user_id = nimbus_user_id;
     }
 
     #[cfg(feature = "stateful")]
