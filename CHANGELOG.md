@@ -38,6 +38,9 @@
 
 * Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
 
+### Logins
+- Added `runMaintenance` API to `DatabaseLoginsStorage`
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)
