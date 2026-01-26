@@ -28,10 +28,12 @@ url = { version = "2", features = ["serde"] }
 uuid = { version = "1.3", features = ["v4"] }
 viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
+nimbus = { path = "../nimbus", package = "nimbus-sdk" }
 
 [dev-dependencies]
 mockall = "0.12"
 mockito = { version = "0.31", default-features = false }
+tempfile = "3"
 viaduct-dev = { path = "../support/viaduct-dev" }
 
 [build-dependencies]

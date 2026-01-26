@@ -38,6 +38,8 @@ android {
 }
 
 dependencies {
+    api project(":nimbus")
+
     implementation libs.mozilla.glean
 
     testImplementation libs.mozilla.glean.forUnitTests

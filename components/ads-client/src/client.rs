@@ -11,6 +11,7 @@ use crate::client::ad_response::{
 };
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
+use crate::experiments::is_http_cache_enabled;
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::MARSClient;
 use crate::telemetry::Telemetry;
@@ -52,8 +53,11 @@ where
         let telemetry = client_config.telemetry;
 
         // Configure the cache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
+        // Nimbus experiment can disable the cache entirely.
         if let Some(cache_cfg) = client_config.cache_config {
+            // Check if cache is disabled by Nimbus experiment
+            let cache_enabled = is_http_cache_enabled(client_config.nimbus.clone());
+
             let default_cache_ttl = Duration::from_secs(
                 cache_cfg
                     .default_cache_ttl_seconds
@@ -62,16 +66,20 @@ where
             let max_cache_size =
                 ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            let http_cache = match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry.record(&e);
-                    None
+            let http_cache = if cache_enabled {
+                match HttpCache::builder(cache_cfg.db_path)
+                    .max_size(max_cache_size)
+                    .default_ttl(default_cache_ttl)
+                    .build()
+                {
+                    Ok(cache) => Some(cache),
+                    Err(e) => {
+                        telemetry.record(&e);
+                        None
+                    }
                 }
+            } else {
+                None
             };
 
             let client = MARSClient::new(client_config.environment, http_cache, telemetry.clone());
@@ -259,6 +267,7 @@ mod tests {
             environment: Environment::Test,
             cache_config: None,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            nimbus: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
@@ -271,6 +280,7 @@ mod tests {
             environment: Environment::Test,
             cache_config: None,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            nimbus: None,
         };
         let mut client = AdsClient::new(config);
         let old_id = client.get_context_id().unwrap();

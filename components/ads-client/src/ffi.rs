@@ -18,6 +18,7 @@ use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
 use crate::MozAdsClient;
 use error_support::{ErrorHandling, GetErrorHandling};
+use nimbus::NimbusClient;
 use parking_lot::Mutex;
 use url::Url;
 
@@ -99,6 +100,7 @@ struct MozAdsClientBuilderInner {
     environment: Option<MozAdsEnvironment>,
     cache_config: Option<MozAdsCacheConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    nimbus: Option<Arc<NimbusClient>>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -129,6 +131,11 @@ impl MozAdsClientBuilder {
         self
     }
 
+    pub fn nimbus(self: Arc<Self>, nimbus: Arc<NimbusClient>) -> Arc<Self> {
+        self.0.lock().nimbus = Some(nimbus);
+        self
+    }
+
     pub fn build(&self) -> MozAdsClient {
         let inner = self.0.lock();
         let client_config = AdsClientConfig {
@@ -139,6 +146,7 @@ impl MozAdsClientBuilder {
                 .clone()
                 .map(MozAdsTelemetryWrapper::new)
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            nimbus: inner.nimbus.clone(),
         };
         let client = AdsClient::new(client_config);
         MozAdsClient {

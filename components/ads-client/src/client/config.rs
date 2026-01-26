@@ -3,7 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use nimbus::NimbusClient;
 use once_cell::sync::Lazy;
+use std::sync::Arc;
 use url::Url;
 
 use crate::telemetry::Telemetry;
@@ -21,6 +23,7 @@ where
     pub environment: Environment,
     pub cache_config: Option<AdsCacheConfig>,
     pub telemetry: T,
+    pub nimbus: Option<Arc<NimbusClient>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
