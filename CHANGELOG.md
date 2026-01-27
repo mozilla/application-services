@@ -13,10 +13,13 @@
 * Update Cirrus metrics handler interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
 
+### Glean
+- Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
+
 ## ✨ What's New ✨
 
 ### Ads Client
-- Enable staging environment support for all platforms (previously feature-gated) 
+- Enable staging environment support for all platforms (previously feature-gated)
 
 ### Viaduct
 * Support setting default user-agent headers.
