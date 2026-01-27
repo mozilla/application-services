@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// NOTE: This tool is only used for Swift and Python as it pre-dates better support for our needs in uniffi itself.
+// We should do what we can to drop this and use uniffi directly.
 use std::{
     env::consts::{DLL_PREFIX, DLL_SUFFIX},
     fmt, process,
@@ -10,7 +12,9 @@ use std::{
 use anyhow::{bail, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Args, Parser, Subcommand};
-use uniffi_bindgen::bindings::{generate_swift_bindings, SwiftBindingsOptions};
+use uniffi_bindgen::bindings::{
+    generate, generate_swift_bindings, GenerateOptions, SwiftBindingsOptions,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -86,20 +90,7 @@ fn run_uniffi_bindgen(cli: Cli) -> Result<()> {
         cli.command.language(),
         &metadata.workspace_root,
     )?;
-    let config_supplier = uniffi::CargoMetadataConfigSupplier::from(metadata);
-
     match cli.command {
-        Command::Kotlin { out_dir } => {
-            uniffi::generate_bindings_library_mode(
-                &megazord.library_path,
-                None,
-                &uniffi::KotlinBindingGenerator,
-                &config_supplier,
-                None,
-                &out_dir,
-                false,
-            )?;
-        }
         Command::Swift {
             out_dir,
             mut swift_sources,
@@ -118,11 +109,11 @@ fn run_uniffi_bindgen(cli: Cli) -> Result<()> {
             }
 
             generate_swift_bindings(SwiftBindingsOptions {
-                out_dir,
                 generate_swift_sources: swift_sources,
                 generate_headers: headers,
                 generate_modulemap: modulemap,
-                library_path: megazord.library_path,
+                source: megazord.library_path,
+                out_dir,
                 xcframework,
                 module_name: Some(module_name),
                 modulemap_filename,
@@ -131,15 +122,18 @@ fn run_uniffi_bindgen(cli: Cli) -> Result<()> {
             })?;
         }
         Command::Python { out_dir } => {
-            uniffi::generate_bindings_library_mode(
-                &megazord.library_path,
-                None,
-                &uniffi::PythonBindingGenerator,
-                &config_supplier,
-                None,
-                &out_dir,
-                false,
-            )?;
+            generate(GenerateOptions {
+                languages: vec![uniffi_bindgen::bindings::TargetLanguage::Python],
+                source: megazord.library_path,
+                out_dir,
+                config_override: None,
+                format: false,
+                crate_filter: None,
+                metadata_no_deps: false,
+            })?;
+        }
+        _ => {
+            unreachable!("app-services only uses this tool for Swift.")
         }
     };
     Ok(())

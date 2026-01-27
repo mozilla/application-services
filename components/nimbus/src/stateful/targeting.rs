@@ -39,6 +39,7 @@ impl NimbusTargetingHelper {
     }
 }
 
+#[uniffi::trait_interface]
 pub trait RecordedContext: Send + Sync {
     /// Returns a JSON representation of the context object
     ///

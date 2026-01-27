@@ -413,6 +413,10 @@ the details of which are reproduced below.
     <url>https://github.com/serde-rs/serde/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: serde_core</name>
+    <url>https://github.com/serde-rs/serde/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: serde_derive</name>
     <url>https://github.com/serde-rs/serde/blob/master/LICENSE-APACHE</url>
   </license>
@@ -423,6 +427,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: serde_path_to_error</name>
     <url>https://github.com/dtolnay/path-to-error/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: serde_spanned</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: sha2</name>
@@ -474,7 +482,19 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: toml</name>
-    <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_datetime</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_parser</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: toml_writer</name>
+    <url>https://github.com/toml-rs/toml/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: typenum</name>

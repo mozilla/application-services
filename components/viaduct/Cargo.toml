@@ -21,7 +21,7 @@ pollster = "0.3.0"
 prost = "0.13"
 ffi-support = "0.4"
 thiserror = "2"
-uniffi = { version = "0.29.0" }
+uniffi = { version = "0.31" }
 bhttp = { version = "0.7.2", optional = true }
 ohttp = { version = "0.7.2", features = ["client", "server", "app-svc", "external-sqlite"], default-features = false, optional = true }
 
