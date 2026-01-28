@@ -219,27 +219,14 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use remote_settings::{
-                    RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService,
-                };
+                use cli_support::remote_settings_service;
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
 
-                let curr_dir = std::env::current_dir().expect("Current directory not set");
-                let rs_dir = curr_dir.join("remote-settings");
-                let server = RemoteSettingsServer::Custom {
-                    url: endpoint.clone(),
-                };
-                let config2 = RemoteSettingsConfig2 {
-                    server: Some(server),
-                    ..Default::default()
-                };
-                let rs_service =
-                    RemoteSettingsService::new(rs_dir.to_string_lossy().to_string(), config2);
-
+                let rs_service = remote_settings_service(Some(endpoint.to_string()));
                 let client = rs_service.make_client(collection_name);
                 let response = client.get_records(true);
                 serde_json::to_value(response)?
