@@ -20,7 +20,7 @@ pub(crate) mod jexl_filter;
 mod macros;
 
 pub use client::{Attachment, RemoteSettingsRecord, RsJsonObject};
-pub use config::{BaseUrl, RemoteSettingsConfig2, RemoteSettingsServer};
+pub use config::{BaseUrl, RemoteSettingsConfig, RemoteSettingsServer};
 pub use context::RemoteSettingsContext;
 pub use error::{trace, ApiResult, RemoteSettingsError, Result};
 
@@ -52,7 +52,7 @@ impl RemoteSettingsService {
     /// directory does not exist, it will be created when the storage is first used. Only the
     /// directory and the SQLite files will be created, any parent directories must already exist.
     #[uniffi::constructor]
-    pub fn new(storage_dir: String, config: RemoteSettingsConfig2) -> Self {
+    pub fn new(storage_dir: String, config: RemoteSettingsConfig) -> Self {
         Self {
             internal: service::RemoteSettingsService::new(storage_dir, config),
         }
@@ -82,7 +82,7 @@ impl RemoteSettingsService {
     /// Only intended for QA/debugging.  Swapping the remote settings server in the middle of
     /// execution can cause weird effects.
     #[handle_error(Error)]
-    pub fn update_config(&self, config: RemoteSettingsConfig2) -> ApiResult<()> {
+    pub fn update_config(&self, config: RemoteSettingsConfig) -> ApiResult<()> {
         self.internal.update_config(config)
     }
 
