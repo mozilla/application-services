@@ -190,6 +190,12 @@ interface PlacesConnection {
     [Throws=PlacesApiError]
     sequence<BookmarkItem> bookmarks_search(string query, i32 limit);
 
+    /// Searches folders for a string in the folder title.
+    /// Matching folders are returned without any child information - ie, both `child_guids`
+    /// and `child_nodes` will be null.
+    [Throws=PlacesApiError]
+    sequence<BookmarkFolder> folders_search(string query, i32 limit);
+
     // XXX - should return BookmarkData
     [Throws=PlacesApiError]
     sequence<BookmarkItem> bookmarks_get_recent(i32 limit);

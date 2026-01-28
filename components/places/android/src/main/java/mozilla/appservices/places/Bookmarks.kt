@@ -4,6 +4,7 @@
 
 package mozilla.appservices.places
 
+import mozilla.appservices.places.uniffi.BookmarkFolder
 import mozilla.appservices.places.uniffi.BookmarkItem
 
 /**
@@ -105,6 +106,22 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * has its `interrupt()` method called on another thread.
      */
     fun searchBookmarks(query: String, limit: Int): List<BookmarkItem>
+
+    /**
+     * Returns the list of bookmark folders that match the provided search string.
+     *
+     * The order of the results is unspecified. The returned folders have no information
+     * about any children which may exist in the folder.
+     *
+     * @param query The search query
+     * @param limit The maximum number of items to return.
+     * @return A list of folders where the title contains a word
+     * (e.g. space separated item) from the query.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
+     */
+    fun searchFolders(query: String, limit: Int): List<BookmarkFolder>
 
     /**
      * Returns the list of most recently added bookmarks.
