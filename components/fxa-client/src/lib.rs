@@ -135,7 +135,7 @@ pub enum FxaServer {
 }
 
 impl FxaServer {
-    fn content_url(&self) -> &str {
+    pub fn content_url(&self) -> &str {
         match self {
             Self::Release | Self::China => "https://accounts.firefox.com",
             Self::Stable => "https://stable.dev.lcip.org",

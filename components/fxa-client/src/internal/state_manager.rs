@@ -259,6 +259,12 @@ impl StateManager {
         self.persisted_state.server_local_device_info = None;
     }
 
+    /// Update the refresh token only
+    pub fn update_refresh_token(&mut self, token: RefreshToken) {
+        self.persisted_state.refresh_token = Some(token);
+        self.persisted_state.access_token_cache.clear();
+    }
+
     /// Used by the application to test auth token issues
     pub fn simulate_temporary_auth_token_issue(&mut self) {
         for (_, access_token) in self.persisted_state.access_token_cache.iter_mut() {

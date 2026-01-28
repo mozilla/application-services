@@ -13,16 +13,19 @@ use fxa_client::{FirefoxAccount, FxaConfig, FxaServer};
 
 static CREDENTIALS_FILENAME: &str = "credentials.json";
 static CLIENT_ID: &str = "a2270f727f45f648";
-static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 #[derive(Parser)]
 #[command(about, long_about = None)]
 struct Cli {
     /// The FxA server to use
-    #[arg(value_enum, default_value_t = Server::Release)]
-    server: Server,
+    #[clap(long)]
+    server: Option<Server>,
+
+    /// Custom FxA server URL
+    #[clap(long)]
+    custom_url: Option<String>,
 
     /// Request a session scope
     #[clap(long, short, action)]
@@ -40,6 +43,10 @@ struct Cli {
     #[clap(long, short, action)]
     debug: bool,
 
+    /// Set the logging level to TRACE
+    #[clap(long, short, action)]
+    trace: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -56,12 +63,29 @@ enum Server {
     Stage,
     /// local dev sever
     LocalDev,
+    /// custom sever URL
+    Custom,
 }
 
 #[derive(Subcommand)]
 enum Command {
     Devices(devices::DeviceArgs),
     SendTab(send_tab::SendTabArgs),
+    /// Get a new access token for a scope
+    ///
+    /// This can be used to test the token exchange API for relay
+    /// (https://bugzilla.mozilla.org/show_bug.cgi?id=2012143).
+    ///
+    /// * Start with a fresh account by using the `cargo fxa disconnect`
+    /// * Run `cargo fxa --log --trace get-access-token https://identity.mozilla.com/apps/relay`.
+    ///   * You should see a token exchange request in the trace logs.
+    /// * Run `cargo fxa --log --trace get-access-token https://identity.mozilla.com/apps/relay`
+    ///   again.
+    ///   * This time there shouldn't be a token exchange request, since the refresh token now has
+    ///     the relay scope.
+    GetAccessToken {
+        scope: String,
+    },
     Disconnect,
 }
 
@@ -70,7 +94,9 @@ fn main() -> Result<()> {
     nss::ensure_initialized();
     viaduct_hyper::viaduct_init_backend_hyper()?;
     if cli.log {
-        if cli.debug {
+        if cli.trace {
+            init_logging_with("fxa_client=trace");
+        } else if cli.debug {
             init_logging_with("fxa_client=debug");
         } else if cli.info {
             init_logging_with("fxa_client=info");
@@ -90,6 +116,14 @@ fn main() -> Result<()> {
     match cli.command {
         Command::Devices(args) => devices::run(&account, args),
         Command::SendTab(args) => send_tab::run(&account, args),
+        Command::GetAccessToken { scope } => {
+            println!("Requesting access token with scope: {scope}");
+            account.get_access_token(&scope, false)?;
+            println!("Saving account with updated token");
+            persist_fxa_state(&account)?;
+            println!("Success");
+            Ok(())
+        }
         Command::Disconnect => {
             account.disconnect();
             Ok(())
@@ -99,16 +133,31 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+impl Cli {
+    fn server(&self) -> Result<FxaServer> {
+        Ok(match &self.server {
+            None => FxaServer::Release,
+            Some(Server::Release) => FxaServer::Release,
+            Some(Server::Stable) => FxaServer::Stable,
+            Some(Server::Stage) => FxaServer::Stage,
+            Some(Server::China) => FxaServer::China,
+            Some(Server::LocalDev) => FxaServer::LocalDev,
+            Some(Server::Custom) => FxaServer::Custom {
+                url: match &self.custom_url {
+                    Some(url) => url.clone(),
+                    None => bail!("--custom-url missing"),
+                },
+            },
+        })
+    }
+}
+
 fn load_account(cli: &Cli, scopes: &[&str]) -> Result<FirefoxAccount> {
+    let server = cli.server()?;
+    let redirect_uri = format!("{}/oauth/success/a2270f727f45f648", server.content_url());
     let config = FxaConfig {
-        server: match cli.server {
-            Server::Release => FxaServer::Release,
-            Server::Stable => FxaServer::Stable,
-            Server::Stage => FxaServer::Stage,
-            Server::China => FxaServer::China,
-            Server::LocalDev => FxaServer::LocalDev,
-        },
-        redirect_uri: REDIRECT_URI.into(),
+        server,
+        redirect_uri,
         client_id: CLIENT_ID.into(),
         token_server_url_override: None,
     };

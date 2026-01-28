@@ -9,7 +9,7 @@
 //! live objects that can be inspected by other parts of the code.
 
 use super::{config::Config, util};
-use crate::{Error, Result};
+use crate::{trace, Error, Result};
 use error_support::breadcrumb;
 use parking_lot::Mutex;
 use rc_crypto::{
@@ -146,6 +146,14 @@ pub(crate) trait FxAClient {
         client_id: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
+    /// Exchange a refresh token for a new one with additional scopes (RFC 8693 Token Exchange).
+    /// This is used to upgrade a refresh token's scope without additional confirmation.
+    fn exchange_token_for_scope(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+        scope: &str,
+    ) -> Result<OAuthTokenResponse>;
     #[allow(dead_code)]
     fn get_fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse>;
     #[allow(dead_code)]
@@ -277,6 +285,20 @@ impl FxAClient for Client {
             .body(parameters)
             .build()?;
         self.make_request(request)?.json().map_err(Into::into)
+    }
+
+    fn exchange_token_for_scope(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+        scope: &str,
+    ) -> Result<OAuthTokenResponse> {
+        let req = OAauthTokenRequest::TokenExchange {
+            subject_token: refresh_token.to_string(),
+            subject_token_type: "urn:ietf:params:oauth:token-type:refresh_token".to_string(),
+            scope: scope.to_string(),
+        };
+        self.make_oauth_token_request(config, None, serde_json::to_value(req).unwrap())
     }
 
     fn create_authorization_code_using_session_token(
@@ -567,7 +589,9 @@ impl Client {
             }
         }
         self.state.lock().insert(url, HttpClientState::Ok);
+        trace!("Making request: {request:?}");
         let resp = request.send()?;
+        trace!("Response: {resp:?}");
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
         } else {
@@ -904,6 +928,13 @@ enum OAauthTokenRequest {
         #[serde(skip_serializing_if = "Option::is_none")]
         ttl: Option<u64>,
     },
+    /// RFC 8693 Token Exchange - exchange a refresh token for a new one with additional scopes.
+    #[serde(rename = "urn:ietf:params:oauth:grant-type:token-exchange")]
+    TokenExchange {
+        subject_token: String,
+        subject_token_type: String,
+        scope: String,
+    },
 }
 
 #[derive(Deserialize)]
@@ -989,6 +1020,7 @@ struct InvokeCommandRequest<'a> {
 mod tests {
     use super::*;
     use mockito::mock;
+
     #[test]
     #[allow(non_snake_case)]
     fn check_OAauthTokenRequest_serialization() {
@@ -1007,6 +1039,17 @@ mod tests {
             ttl: Some(123),
         };
         assert_eq!("{\"grant_type\":\"refresh_token\",\"client_id\":\"bar\",\"refresh_token\":\"foo\",\"scope\":\"bobo\",\"ttl\":123}", serde_json::to_string(&using_code).unwrap());
+
+        // Token exchange (RFC 8693)
+        let token_exchange = OAauthTokenRequest::TokenExchange {
+            subject_token: "my_refresh_token".to_owned(),
+            subject_token_type: "urn:ietf:params:oauth:token-type:refresh_token".to_owned(),
+            scope: "https://identity.mozilla.com/apps/relay".to_owned(),
+        };
+        assert_eq!(
+            "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"subject_token\":\"my_refresh_token\",\"subject_token_type\":\"urn:ietf:params:oauth:token-type:refresh_token\",\"scope\":\"https://identity.mozilla.com/apps/relay\"}",
+            serde_json::to_string(&token_exchange).unwrap()
+        );
     }
 
     #[test]
