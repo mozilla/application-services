@@ -69,15 +69,14 @@ pub fn workspace_root_dir() -> PathBuf {
     cargo_toml_path.parent().unwrap().to_path_buf()
 }
 
-pub fn remote_settings_service(endpoint: Option<String>) -> Arc<RemoteSettingsService> {
-    let config = match endpoint {
-        Some(endpoint) => {
-            let server = RemoteSettingsServer::Custom { url: endpoint };
-            RemoteSettingsConfig2 {
-                server: Some(server),
-                ..Default::default()
-            }
-        }
+pub fn remote_settings_service(
+    rs_server: Option<RemoteSettingsServer>,
+) -> Arc<RemoteSettingsService> {
+    let config = match rs_server {
+        Some(rs_server) => RemoteSettingsConfig2 {
+            server: Some(rs_server),
+            ..Default::default()
+        },
         None => RemoteSettingsConfig2::default(),
     };
 

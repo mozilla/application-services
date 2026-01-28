@@ -220,13 +220,16 @@ impl TryFrom<&ExperimentListSource> for Value {
                 is_preview,
             } => {
                 use cli_support::remote_settings_service;
+                use remote_settings::RemoteSettingsServer;
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
-
-                let rs_service = remote_settings_service(Some(endpoint.to_string()));
+                let server = RemoteSettingsServer::Custom {
+                    url: endpoint.clone(),
+                };
+                let rs_service = remote_settings_service(Some(server));
                 let client = rs_service.make_client(collection_name);
                 let response = client.get_records(true);
                 serde_json::to_value(response)?
