@@ -36,6 +36,10 @@ moz-phab patch --apply-to=here --skip-dependencies --no-branch D274371
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
 # lint
 moz-phab patch --apply-to=here --no-branch D246875
+# nimbus-fml binary in artifact builds.
+moz-phab patch --apply-to=here --no-branch D280708
+# build config tweaks
+moz-phab patch --apply-to=here --no-branch D280709
 
 # the import of app-services via a branch markh is maintaining while we work towards `main`
 git clone https://github.com/mozilla/application-services tmp-app-services
@@ -231,6 +235,10 @@ sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/tar
 ^services/app-services/.*/Cargo.lock|' \
   .hgignore > .hgignore.tmp
 mv .hgignore.tmp .hgignore
+
+# ohttp needs to switch from feature 'app-svc' to 'gecko'
+sed -e 's|"app-svc"|"gecko"|' services/app-services/components/viaduct/Cargo.toml > services/app-services/components/viaduct/Cargo.toml.tmp
+mv services/app-services/components/viaduct/Cargo.toml.tmp services/app-services/components/viaduct/Cargo.toml
 
 git commit -a -m "Integrate app-services into the build system"
 
