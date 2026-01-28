@@ -42,79 +42,57 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
 
     @Throws(LoginsApiException::class)
     fun delete(id: String): Boolean {
-        return writeQueryCounters.measure {
-            store.delete(id)
-        }
+        return store.delete(id)
     }
 
     @Throws(LoginsApiException::class)
     fun get(id: String): Login? {
-        return readQueryCounters.measure {
-            store.get(id)
-        }
+        return store.get(id)
     }
 
     @Throws(LoginsApiException::class)
     fun touch(id: String) {
-        writeQueryCounters.measure {
-            store.touch(id)
-        }
+        store.touch(id)
     }
 
     @Throws(LoginsApiException::class)
     fun isEmpty(): Boolean {
-        return readQueryCounters.measure {
-            store.isEmpty()
-        }
+        return store.isEmpty()
     }
 
     @Throws(LoginsApiException::class)
     fun list(): List<Login> {
-        return readQueryCounters.measure {
-            store.list()
-        }
+        return store.list()
     }
 
     @Throws(LoginsApiException::class)
     fun hasLoginsByBaseDomain(baseDomain: String): Boolean {
-        return readQueryCounters.measure {
-            store.hasLoginsByBaseDomain(baseDomain)
-        }
+        return store.hasLoginsByBaseDomain(baseDomain)
     }
 
     @Throws(LoginsApiException::class)
     fun getByBaseDomain(baseDomain: String): List<Login> {
-        return readQueryCounters.measure {
-            store.getByBaseDomain(baseDomain)
-        }
+        return store.getByBaseDomain(baseDomain)
     }
 
     @Throws(LoginsApiException::class)
     fun findLoginToUpdate(look: LoginEntry): Login? {
-        return readQueryCounters.measure {
-            store.findLoginToUpdate(look)
-        }
+        return store.findLoginToUpdate(look)
     }
 
     @Throws(LoginsApiException::class)
     fun add(entry: LoginEntry): Login {
-        return writeQueryCounters.measure {
-            store.add(entry)
-        }
+        return store.add(entry)
     }
 
     @Throws(LoginsApiException::class)
     fun update(id: String, entry: LoginEntry): Login {
-        return writeQueryCounters.measure {
-            store.update(id, entry)
-        }
+        return store.update(id, entry)
     }
 
     @Throws(LoginsApiException::class)
     fun addOrUpdate(entry: LoginEntry): Login {
-        return writeQueryCounters.measure {
-            store.addOrUpdate(entry)
-        }
+        return store.addOrUpdate(entry)
     }
 
     fun registerWithSyncManager() {
@@ -132,20 +110,6 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
     @Throws(LoginsApiException::class)
     override fun close() {
         store.close()
-    }
-
-    private val readQueryCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
-            LoginsStoreMetrics.readQueryCount,
-            LoginsStoreMetrics.readQueryErrorCount,
-        )
-    }
-
-    private val writeQueryCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
-            LoginsStoreMetrics.writeQueryCount,
-            LoginsStoreMetrics.writeQueryErrorCount,
-        )
     }
 
     @Throws(LoginsApiException::class)
