@@ -12,4 +12,4 @@
 imports = ["json"]
 into_custom = "json.loads({})"
 from_custom = "json.dumps({})"
-type_name = "dict[str, Any]"
+type_name = "dict"
