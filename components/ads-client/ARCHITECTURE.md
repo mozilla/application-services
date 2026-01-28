@@ -13,7 +13,7 @@ This component uses a clear separation between **FFI (Foreign Function Interface
 
 #### 1. Clear Public API Identification
 
-All types prefixed with `MozAds` (e.g., `MozAdsClient`, `MozAd`, `MozAdsClientConfig`) represent the **public API contract**. This makes it immediately obvious:
+All types prefixed with `MozAds` (e.g., `MozAdsClient`, `MozAd`, `MozAdsClientBuilder`) represent the **public API contract**. This makes it immediately obvious:
 
 - What types external consumers depend on
 - What changes require coordination with consumers
@@ -40,7 +40,38 @@ The separation enables future API versioning strategies:
 - Evolve the public API independently from internal implementation
 - Provide migration paths between API versions
 
-### Implementation Pattern
+### Implementation Patterns
+
+#### Builder Pattern for Client Construction
+
+`MozAdsClientBuilder` follows the fluent builder pattern compatible with UniFFI's Arc-based object model:
+
+```rust
+#[derive(uniffi::Object)]
+pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
+
+#[uniffi::export]
+impl MozAdsClientBuilder {
+    // Setter methods take Arc<Self> and return Arc<Self> for chaining
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
+        self  // Returns self for method chaining
+    }
+    
+    // build() takes &self (not consuming) to work with UniFFI's Arc wrapping
+    pub fn build(&self) -> MozAdsClient { ... }
+}
+```
+
+Key design decisions:
+- **Mutex wrapper**: Enables interior mutability across FFI boundaries
+- **Arc<Self> for setters**: Required for UniFFI objects, enables method chaining
+- **&self for build()**: UniFFI wraps objects in Arc, so we can't consume self
+- **Separate inner struct**: Keeps the actual configuration fields in a non-uniffi type
+
+This pattern is consistent with other builders in the codebase (e.g., `SuggestStoreBuilder`).
+
+#### Type Conversions
 
 The conversion between FFI and business logic types is handled through `From`/`Into` trait implementations in `ffi.rs`:
 
