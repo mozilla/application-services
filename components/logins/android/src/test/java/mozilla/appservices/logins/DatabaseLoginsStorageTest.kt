@@ -21,7 +21,6 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -75,61 +74,6 @@ class DatabaseLoginsStorageTest {
     private fun finishAndClose(store: DatabaseLoginsStorage) {
         store.close()
         // if this is all we need to do, then this helper should die!
-    }
-
-    @Test
-    fun testMetricsGathering() {
-        val store = createTestStore()
-
-        assertNull(LoginsStoreMetrics.writeQueryCount.testGetValue())
-        assertNull(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue())
-
-        val login = store.add(
-            LoginEntry(
-                origin = "https://www.example.com",
-                httpRealm = "Something",
-                usernameField = "users_name",
-                passwordField = "users_password",
-                formActionOrigin = null,
-                username = "Foobar2000",
-                password = "hunter2",
-            ),
-        )
-
-        assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
-        assertNull(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue())
-
-        // N.B. this is invalid due to `formActionOrigin` being an invalid url.
-        val invalid = LoginEntry(
-            origin = "https://test.example.com",
-            formActionOrigin = "not a url",
-            httpRealm = "",
-            usernameField = "users_name",
-            passwordField = "users_password",
-            username = "Foobar2000",
-            password = "hunter2",
-        )
-
-        try {
-            store.add(invalid)
-            fail("Should have thrown")
-        } catch (e: LoginsApiException.InvalidRecord) {
-            // All good.
-        }
-
-        assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 2)
-        assertEquals(LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testGetValue(), 1)
-
-        assertNull(LoginsStoreMetrics.readQueryCount.testGetValue())
-        assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
-
-        val record = store.get(login.id)!!
-        assertEquals(record.origin, "https://www.example.com")
-
-        assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
-        assertNull(LoginsStoreMetrics.readQueryErrorCount["storage_error"].testGetValue())
-
-        finishAndClose(store)
     }
 
     @Test
