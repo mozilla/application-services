@@ -24,8 +24,7 @@ impl RemoteSettingsBenchmarkClient {
             remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
-                collection_name: rs::Collection::Amp.name().to_owned(),
-                server_url: None,
+                app_context: Some(RemoteSettingsContext::default()),
             })?,
             rs::Collection::Amp,
         )?;
@@ -33,8 +32,7 @@ impl RemoteSettingsBenchmarkClient {
             remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
-                collection_name: rs::Collection::Other.name().to_owned(),
-                server_url: None,
+                app_context: Some(RemoteSettingsContext::default()),
             })?,
             rs::Collection::Other,
         )?;
@@ -42,8 +40,7 @@ impl RemoteSettingsBenchmarkClient {
             remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
                 server: None,
                 bucket_name: None,
-                collection_name: rs::Collection::Fakespot.name().to_owned(),
-                server_url: None,
+                app_context: Some(RemoteSettingsContext::default()),
             })?,
             rs::Collection::Fakespot,
         )?;
@@ -52,7 +49,7 @@ impl RemoteSettingsBenchmarkClient {
 
     fn fetch_data_with_client(
         &mut self,
-        client: remote_settings::RemoteSettings,
+        client: remote_settings::RemoteSettingsClient,
         collection: rs::Collection,
     ) -> Result<()> {
         let response = client.get_records()?;
