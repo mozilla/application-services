@@ -24,9 +24,9 @@ export MOZ_AVOID_JJ_VCS=1
 
 # existing patches against m-c
 # Bug 1981747 - Add `./mach setup-app-services`
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D260481
+# moz-phab patch --apply-to=here --skip-dependencies --no-branch D260481
 # Bug 1981871 - Make `./mach rusttests` run some tests via cargo directly,
-moz-phab patch --apply-to=here --skip-dependencies --no-branch D260480
+# moz-phab patch --apply-to=here --skip-dependencies --no-branch D260480
 # enable `--with-appservices-in-tree` config option by default
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D263599
 # unstub toolchains
@@ -36,6 +36,8 @@ moz-phab patch --apply-to=here --skip-dependencies --no-branch D274371
 moz-phab patch --apply-to=here --skip-dependencies --no-branch D258722
 # lint
 moz-phab patch --apply-to=here --no-branch D246875
+# build config tweaks
+moz-phab patch --apply-to=here --no-branch D280709
 
 # the import of app-services via a branch markh is maintaining while we work towards `main`
 git clone https://github.com/mozilla/application-services tmp-app-services
@@ -73,27 +75,17 @@ rm -rf tmp-app-services
 git add -f services/app-services
 git commit -m "Import application-services commit $commit"
 
+# rm the vendored app-services, as our "./mach vendor rust" no longer will.
+rm -rf rm -rf third_party/application-services/
+git add -f third_party/application-services/
+git commit -m "Force remove vendored application-services"
+
 # We've committed an app-services unmodified apart from removal of things we don't need.
 # apply the final "patch" in the stack, which we do by abusing sed.
 # This is mildly (hah!) fragile.
 
 # Update Cargo.toml.
-sed -e 's|context_id = { git = .*$|context_id = { path = "services/app-services/components/context_id" }|' \
-    -e 's|error-support = { git = .*$|error-support = { path = "services/app-services/components/support/error" }|' \
-    -e 's|filter_adult = { git = .*$|filter_adult = { path = "services/app-services/components/filter_adult" }|' \
-    -e 's|interrupt-support = { git = .*$|interrupt-support = { path = "services/app-services/components/support/interrupt" }|' \
-    -e 's|relevancy = { git = .*$|relevancy = { path = "services/app-services/components/relevancy" }|' \
-    -e 's|search = { git = .*$|search = { path = "services/app-services/components/search" }|' \
-    -e 's|sql-support = { git = .*$|sql-support = { path = "services/app-services/components/support/sql" }|' \
-    -e 's|suggest = { git = .*$|suggest = { path = "services/app-services/components/suggest" }|' \
-    -e 's|sync15 = { git = .*$|sync15 = { path = "services/app-services/components/sync15" }|' \
-    -e 's|tabs = { git = .*$|tabs = { path = "services/app-services/components/tabs" }|' \
-    -e 's|tracing-support = { git = .*$|tracing-support = { path = "services/app-services/components/support/tracing" }|' \
-    -e 's|viaduct = { git = .*$|viaduct = { path = "services/app-services/components/viaduct" }|' \
-    -e 's|webext-storage = { git = .*$|webext-storage = { path = "services/app-services/components/webext-storage" }|' \
-    -e 's|logins = { git = .*$|logins = { path = "services/app-services/components/logins" }|' \
-    -e 's|init_rust_components = { git = .*$|init_rust_components = { path = "services/app-services/components/init_rust_components" }|' \
-    Cargo.toml > Cargo.toml.tmp
+sed -e 's|third_party/application-services|services/app-services|' Cargo.toml > Cargo.toml.tmp
 mv Cargo.toml.tmp Cargo.toml
 
 # [dependencies] is conveniently at the end of these toml files
@@ -232,11 +224,18 @@ sed -e 's|\^dom/webgpu/tests/cts/vendor/target/|^dom/webgpu/tests/cts/vendor/tar
   .hgignore > .hgignore.tmp
 mv .hgignore.tmp .hgignore
 
+# ohttp needs to switch from feature 'app-svc' to 'gecko'
+sed -e 's|"app-svc"|"gecko"|' services/app-services/components/viaduct/Cargo.toml > services/app-services/components/viaduct/Cargo.toml.tmp
+mv services/app-services/components/viaduct/Cargo.toml.tmp services/app-services/components/viaduct/Cargo.toml
+
 git commit -a -m "Integrate app-services into the build system"
 
 # Vendor everything in - `--force`` while we work though the vetting.
 ./mach vendor rust --force
 git add -f third_party/rust/.
 git commit -a -m "final vendor."
+
+# panic=unwind
+moz-phab patch --apply-to=here --skip-dependencies --no-branch D284982
 
 echo "Done!"
