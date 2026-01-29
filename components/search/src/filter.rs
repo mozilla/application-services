@@ -487,11 +487,10 @@ fn find_engine_id_with_match(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, vec};
-
     use super::*;
     use crate::*;
     use once_cell::sync::Lazy;
+    use std::{collections::HashMap, vec};
 
     #[test]
     fn test_default_search_engine_url() {
@@ -617,982 +616,6 @@ mod tests {
             Some("en-GB Display Name".to_string()),
             "Should override display name with en-GB version"
         );
-    }
-
-    #[test]
-    fn test_from_configuration_details_fallsback_to_defaults() {
-        // This test doesn't use `..Default::default()` as we want to
-        // be explicit about `JSONEngineBase` and handling `None`
-        // options/default values.
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
-            "test",
-            JSONEngineBase {
-                aliases: None,
-                charset: None,
-                classification: SearchEngineClassification::General,
-                name: "Test".to_string(),
-                partner_code: None,
-                urls: JSONEngineUrls {
-                    search: Some(JSONEngineUrl {
-                        base: Some("https://example.com".to_string()),
-                        ..Default::default()
-                    }),
-                    suggestions: None,
-                    trending: None,
-                    search_form: None,
-                    visual_search: None,
-                },
-            },
-            &JSONEngineVariant {
-                environment: JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    ..Default::default()
-                },
-                is_new_until: None,
-                optional: false,
-                partner_code: None,
-                telemetry_suffix: None,
-                urls: None,
-                sub_variants: vec![],
-            },
-            &None,
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: Vec::new(),
-                charset: "UTF-8".to_string(),
-                classification: SearchEngineClassification::General,
-                identifier: "test".to_string(),
-                is_new_until: None,
-                partner_code: String::new(),
-                name: "Test".to_string(),
-                optional: false,
-                order_hint: None,
-                telemetry_suffix: String::new(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        ..Default::default()
-                    },
-                    suggestions: None,
-                    trending: None,
-                    search_form: None,
-                    visual_search: None,
-                },
-                click_url: None
-            }
-        )
-    }
-
-    static ENGINE_BASE: Lazy<JSONEngineBase> = Lazy::new(|| JSONEngineBase {
-        aliases: Some(vec!["foo".to_string(), "bar".to_string()]),
-        charset: Some("ISO-8859-15".to_string()),
-        classification: SearchEngineClassification::Unknown,
-        name: "Test".to_string(),
-        partner_code: Some("firefox".to_string()),
-        urls: JSONEngineUrls {
-            search: Some(JSONEngineUrl {
-                base: Some("https://example.com".to_string()),
-                method: Some(crate::JSONEngineMethod::Post),
-                params: Some(vec![
-                    SearchUrlParam {
-                        name: "param".to_string(),
-                        value: Some("test param".to_string()),
-                        enterprise_value: None,
-                        experiment_config: None,
-                    },
-                    SearchUrlParam {
-                        name: "enterprise-name".to_string(),
-                        value: None,
-                        enterprise_value: Some("enterprise-value".to_string()),
-                        experiment_config: None,
-                    },
-                ]),
-                search_term_param_name: Some("baz".to_string()),
-                ..Default::default()
-            }),
-            suggestions: Some(JSONEngineUrl {
-                base: Some("https://example.com/suggestions".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "suggest-name".to_string(),
-                    value: None,
-                    enterprise_value: None,
-                    experiment_config: Some("suggest-experiment-value".to_string()),
-                }]),
-                search_term_param_name: Some("suggest".to_string()),
-                ..Default::default()
-            }),
-            trending: Some(JSONEngineUrl {
-                base: Some("https://example.com/trending".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "trend-name".to_string(),
-                    value: Some("trend-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                ..Default::default()
-            }),
-            search_form: Some(JSONEngineUrl {
-                base: Some("https://example.com/search_form".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "search-form-name".to_string(),
-                    value: Some("search-form-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                ..Default::default()
-            }),
-            visual_search: Some(JSONEngineUrl {
-                base: Some("https://example.com/visual_search".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "visual-search-name".to_string(),
-                    value: Some("visual-search-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("url".to_string()),
-                display_name_map: Some(HashMap::from([
-                    // Default display name
-                    ("default".to_string(), "Visual Search".to_string()),
-                    // en-GB locale with unique display name
-                    ("en-GB".to_string(), "Visual Search en-GB".to_string()),
-                ])),
-                is_new_until: Some("2095-01-01".to_string()),
-                exclude_partner_code_from_telemetry: true,
-                accepted_content_types: Some(vec![
-                    "image/gif".to_string(),
-                    "image/jpeg".to_string(),
-                ]),
-            }),
-        },
-    });
-
-    #[test]
-    fn test_from_configuration_details_uses_values() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &JSONEngineVariant {
-                environment: JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    ..Default::default()
-                },
-                is_new_until: None,
-                optional: false,
-                partner_code: None,
-                telemetry_suffix: None,
-                urls: None,
-                sub_variants: vec![],
-            },
-            &None,
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: None,
-                partner_code: "firefox".to_string(),
-                name: "Test".to_string(),
-                optional: false,
-                order_hint: None,
-                telemetry_suffix: String::new(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        method: "POST".to_string(),
-                        params: vec![
-                            SearchUrlParam {
-                                name: "param".to_string(),
-                                value: Some("test param".to_string()),
-                                enterprise_value: None,
-                                experiment_config: None,
-                            },
-                            SearchUrlParam {
-                                name: "enterprise-name".to_string(),
-                                value: None,
-                                enterprise_value: Some("enterprise-value".to_string()),
-                                experiment_config: None,
-                            },
-                        ],
-                        search_term_param_name: Some("baz".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-name".to_string(),
-                            value: None,
-                            enterprise_value: None,
-                            experiment_config: Some("suggest-experiment-value".to_string()),
-                        }],
-                        search_term_param_name: Some("suggest".to_string()),
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-name".to_string(),
-                            value: Some("trend-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search_form".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-name".to_string(),
-                            value: Some("search-form-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual_search".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-name".to_string(),
-                            value: Some("visual-search-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url".to_string()),
-                        display_name: Some("Visual Search".to_string()),
-                        is_new_until: Some("2095-01-01".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        accepted_content_types: Some(vec![
-                            "image/gif".to_string(),
-                            "image/jpeg".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
-    }
-
-    #[test]
-    fn test_from_configuration_details_uses_values_locale_match() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                // en-GB locale
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &JSONEngineVariant {
-                environment: JSONVariantEnvironment {
-                    all_regions_and_locales: true,
-                    ..Default::default()
-                },
-                is_new_until: None,
-                optional: false,
-                partner_code: None,
-                telemetry_suffix: None,
-                urls: None,
-                sub_variants: vec![],
-            },
-            &None,
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: None,
-                partner_code: "firefox".to_string(),
-                name: "Test".to_string(),
-                optional: false,
-                order_hint: None,
-                telemetry_suffix: String::new(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com".to_string(),
-                        method: "POST".to_string(),
-                        params: vec![
-                            SearchUrlParam {
-                                name: "param".to_string(),
-                                value: Some("test param".to_string()),
-                                enterprise_value: None,
-                                experiment_config: None,
-                            },
-                            SearchUrlParam {
-                                name: "enterprise-name".to_string(),
-                                value: None,
-                                enterprise_value: Some("enterprise-value".to_string()),
-                                experiment_config: None,
-                            },
-                        ],
-                        search_term_param_name: Some("baz".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-name".to_string(),
-                            value: None,
-                            enterprise_value: None,
-                            experiment_config: Some("suggest-experiment-value".to_string()),
-                        }],
-                        search_term_param_name: Some("suggest".to_string()),
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-name".to_string(),
-                            value: Some("trend-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search_form".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-name".to_string(),
-                            value: Some("search-form-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual_search".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-name".to_string(),
-                            value: Some("visual-search-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url".to_string()),
-                        // Should be the en-GB display name since the "en-GB"
-                        // locale is present in `display_name_map`.
-                        display_name: Some("Visual Search en-GB".to_string()),
-                        is_new_until: Some("2095-01-01".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        accepted_content_types: Some(vec![
-                            "image/gif".to_string(),
-                            "image/jpeg".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
-    }
-
-    static ENGINE_VARIANT: Lazy<JSONEngineVariant> = Lazy::new(|| JSONEngineVariant {
-        environment: JSONVariantEnvironment {
-            all_regions_and_locales: true,
-            ..Default::default()
-        },
-        is_new_until: Some("2063-04-05".to_string()),
-        optional: true,
-        partner_code: Some("trek".to_string()),
-        telemetry_suffix: Some("star".to_string()),
-        urls: Some(JSONEngineUrls {
-            search: Some(JSONEngineUrl {
-                base: Some("https://example.com/variant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "variant".to_string(),
-                    value: Some("test variant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("ship".to_string()),
-                ..Default::default()
-            }),
-            suggestions: Some(JSONEngineUrl {
-                base: Some("https://example.com/suggestions-variant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "suggest-variant".to_string(),
-                    value: Some("sugg test variant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("variant".to_string()),
-                ..Default::default()
-            }),
-            trending: Some(JSONEngineUrl {
-                base: Some("https://example.com/trending-variant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "trend-variant".to_string(),
-                    value: Some("trend test variant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("trend".to_string()),
-                exclude_partner_code_from_telemetry: true,
-                ..Default::default()
-            }),
-            search_form: Some(JSONEngineUrl {
-                base: Some("https://example.com/search_form".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "search-form-name".to_string(),
-                    value: Some("search-form-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                ..Default::default()
-            }),
-            visual_search: Some(JSONEngineUrl {
-                base: Some("https://example.com/visual-search-variant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "visual-search-variant-name".to_string(),
-                    value: Some("visual-search-variant-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("url_variant".to_string()),
-                display_name_map: Some(HashMap::from([
-                    ("default".to_string(), "Visual Search Variant".to_string()),
-                    // en-GB locale with unique display name
-                    (
-                        "en-GB".to_string(),
-                        "Visual Search Variant en-GB".to_string(),
-                    ),
-                ])),
-                is_new_until: Some("2096-02-02".to_string()),
-                accepted_content_types: Some(vec![
-                    "image/png".to_string(),
-                    "image/jpeg".to_string(),
-                ]),
-                ..Default::default()
-            }),
-        }),
-        sub_variants: vec![],
-    });
-
-    #[test]
-    fn test_from_configuration_details_merges_variants() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &ENGINE_VARIANT,
-            &None,
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: Some("2063-04-05".to_string()),
-                partner_code: "trek".to_string(),
-                name: "Test".to_string(),
-                optional: true,
-                order_hint: None,
-                telemetry_suffix: "star".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com/variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "variant".to_string(),
-                            value: Some("test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("ship".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-variant".to_string(),
-                            value: Some("sugg test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("variant".to_string()),
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-variant".to_string(),
-                            value: Some("trend test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("trend".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search_form".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-name".to_string(),
-                            value: Some("search-form-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual-search-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-variant-name".to_string(),
-                            value: Some("visual-search-variant-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url_variant".to_string()),
-                        // Should be the "default" display name since the "fi"
-                        // locale isn't present in `display_name_map`.
-                        display_name: Some("Visual Search Variant".to_string()),
-                        is_new_until: Some("2096-02-02".to_string()),
-                        exclude_partner_code_from_telemetry: false,
-                        accepted_content_types: Some(vec![
-                            "image/png".to_string(),
-                            "image/jpeg".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
-    }
-
-    #[test]
-    fn test_from_configuration_details_merges_variants_locale_match() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                // en-GB locale
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &ENGINE_VARIANT,
-            &None,
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: Some("2063-04-05".to_string()),
-                partner_code: "trek".to_string(),
-                name: "Test".to_string(),
-                optional: true,
-                order_hint: None,
-                telemetry_suffix: "star".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com/variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "variant".to_string(),
-                            value: Some("test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("ship".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-variant".to_string(),
-                            value: Some("sugg test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("variant".to_string()),
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-variant".to_string(),
-                            value: Some("trend test variant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("trend".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search_form".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-name".to_string(),
-                            value: Some("search-form-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual-search-variant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-variant-name".to_string(),
-                            value: Some("visual-search-variant-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url_variant".to_string()),
-                        // Should be the en-GB display name since the "en-GB"
-                        // locale is present in `display_name_map`.
-                        display_name: Some("Visual Search Variant en-GB".to_string()),
-                        is_new_until: Some("2096-02-02".to_string()),
-                        exclude_partner_code_from_telemetry: false,
-                        accepted_content_types: Some(vec![
-                            "image/png".to_string(),
-                            "image/jpeg".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
-    }
-
-    static ENGINE_SUBVARIANT: Lazy<JSONEngineVariant> = Lazy::new(|| JSONEngineVariant {
-        environment: JSONVariantEnvironment {
-            all_regions_and_locales: true,
-            ..Default::default()
-        },
-        is_new_until: Some("2063-04-05".to_string()),
-        optional: true,
-        partner_code: Some("trek2".to_string()),
-        telemetry_suffix: Some("star2".to_string()),
-        urls: Some(JSONEngineUrls {
-            search: Some(JSONEngineUrl {
-                base: Some("https://example.com/subvariant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "subvariant".to_string(),
-                    value: Some("test subvariant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("shuttle".to_string()),
-                ..Default::default()
-            }),
-            suggestions: Some(JSONEngineUrl {
-                base: Some("https://example.com/suggestions-subvariant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "suggest-subvariant".to_string(),
-                    value: Some("sugg test subvariant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("subvariant".to_string()),
-                exclude_partner_code_from_telemetry: true,
-                ..Default::default()
-            }),
-            trending: Some(JSONEngineUrl {
-                base: Some("https://example.com/trending-subvariant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "trend-subvariant".to_string(),
-                    value: Some("trend test subvariant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("subtrend".to_string()),
-                ..Default::default()
-            }),
-            search_form: Some(JSONEngineUrl {
-                base: Some("https://example.com/search-form-subvariant".to_string()),
-                method: Some(crate::JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "search-form-subvariant".to_string(),
-                    value: Some("search form subvariant".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                ..Default::default()
-            }),
-            visual_search: Some(JSONEngineUrl {
-                base: Some("https://example.com/visual-search-subvariant".to_string()),
-                method: Some(JSONEngineMethod::Get),
-                params: Some(vec![SearchUrlParam {
-                    name: "visual-search-subvariant-name".to_string(),
-                    value: Some("visual-search-subvariant-value".to_string()),
-                    enterprise_value: None,
-                    experiment_config: None,
-                }]),
-                search_term_param_name: Some("url_subvariant".to_string()),
-                display_name_map: Some(HashMap::from([
-                    (
-                        "default".to_string(),
-                        "Visual Search Subvariant".to_string(),
-                    ),
-                    // en-GB locale with unique display name
-                    (
-                        "en-GB".to_string(),
-                        "Visual Search Subvariant en-GB".to_string(),
-                    ),
-                ])),
-                is_new_until: Some("2097-03-03".to_string()),
-                accepted_content_types: Some(vec![
-                    "image/jpeg".to_string(),
-                    "image/webp".to_string(),
-                ]),
-                ..Default::default()
-            }),
-        }),
-        sub_variants: vec![],
-    });
-
-    #[test]
-    fn test_from_configuration_details_merges_sub_variants() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                locale: "fi".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &ENGINE_VARIANT,
-            &Some(ENGINE_SUBVARIANT.clone()),
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: Some("2063-04-05".to_string()),
-                partner_code: "trek2".to_string(),
-                name: "Test".to_string(),
-                optional: true,
-                order_hint: None,
-                telemetry_suffix: "star2".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com/subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "subvariant".to_string(),
-                            value: Some("test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("shuttle".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-subvariant".to_string(),
-                            value: Some("sugg test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("subvariant".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-subvariant".to_string(),
-                            value: Some("trend test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("subtrend".to_string()),
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search-form-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-subvariant".to_string(),
-                            value: Some("search form subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual-search-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-subvariant-name".to_string(),
-                            value: Some("visual-search-subvariant-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url_subvariant".to_string()),
-                        // Should be the "default" display name since the "fi"
-                        // locale isn't present in `display_name_map`.
-                        display_name: Some("Visual Search Subvariant".to_string()),
-                        is_new_until: Some("2097-03-03".to_string()),
-                        exclude_partner_code_from_telemetry: false,
-                        accepted_content_types: Some(vec![
-                            "image/jpeg".to_string(),
-                            "image/webp".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
-    }
-
-    #[test]
-    fn test_from_configuration_details_merges_sub_variants_locale_match() {
-        let result = SearchEngineDefinition::from_configuration_details(
-            &SearchUserEnvironment {
-                // en-GB locale
-                locale: "en-GB".into(),
-                ..Default::default()
-            },
-            "test",
-            Lazy::force(&ENGINE_BASE).clone(),
-            &ENGINE_VARIANT,
-            &Some(ENGINE_SUBVARIANT.clone()),
-        );
-
-        assert_eq!(
-            result,
-            SearchEngineDefinition {
-                aliases: vec!["foo".to_string(), "bar".to_string()],
-                charset: "ISO-8859-15".to_string(),
-                classification: SearchEngineClassification::Unknown,
-                identifier: "test".to_string(),
-                is_new_until: Some("2063-04-05".to_string()),
-                partner_code: "trek2".to_string(),
-                name: "Test".to_string(),
-                optional: true,
-                order_hint: None,
-                telemetry_suffix: "star2".to_string(),
-                urls: SearchEngineUrls {
-                    search: SearchEngineUrl {
-                        base: "https://example.com/subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "subvariant".to_string(),
-                            value: Some("test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("shuttle".to_string()),
-                        ..Default::default()
-                    },
-                    suggestions: Some(SearchEngineUrl {
-                        base: "https://example.com/suggestions-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "suggest-subvariant".to_string(),
-                            value: Some("sugg test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("subvariant".to_string()),
-                        exclude_partner_code_from_telemetry: true,
-                        ..Default::default()
-                    }),
-                    trending: Some(SearchEngineUrl {
-                        base: "https://example.com/trending-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "trend-subvariant".to_string(),
-                            value: Some("trend test subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("subtrend".to_string()),
-                        ..Default::default()
-                    }),
-                    search_form: Some(SearchEngineUrl {
-                        base: "https://example.com/search-form-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "search-form-subvariant".to_string(),
-                            value: Some("search form subvariant".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        ..Default::default()
-                    }),
-                    visual_search: Some(SearchEngineUrl {
-                        base: "https://example.com/visual-search-subvariant".to_string(),
-                        method: "GET".to_string(),
-                        params: vec![SearchUrlParam {
-                            name: "visual-search-subvariant-name".to_string(),
-                            value: Some("visual-search-subvariant-value".to_string()),
-                            enterprise_value: None,
-                            experiment_config: None,
-                        }],
-                        search_term_param_name: Some("url_subvariant".to_string()),
-                        // Should be the en-GB display name since the "en-GB"
-                        // locale is present in `display_name_map`.
-                        display_name: Some("Visual Search Subvariant en-GB".to_string()),
-                        is_new_until: Some("2097-03-03".to_string()),
-                        exclude_partner_code_from_telemetry: false,
-                        accepted_content_types: Some(vec![
-                            "image/jpeg".to_string(),
-                            "image/webp".to_string(),
-                        ]),
-                    }),
-                },
-                click_url: None
-            }
-        )
     }
 
     static ENGINES_LIST: Lazy<Vec<SearchEngineDefinition>> = Lazy::new(|| {
@@ -1977,6 +1000,389 @@ mod tests {
         assert_eq!(
             user_env.locale, "fr-CA",
             "Should leave locale unchanged if no match or english locale fallback is not found"
+        );
+    }
+}
+
+#[cfg(test)]
+mod from_configuration_details_tests {
+    use crate::test_helpers::{
+        ExpectedEngineFromJSONBase, JSON_ENGINE_BASE, JSON_ENGINE_SUBVARIANT, JSON_ENGINE_VARIANT,
+    };
+    use crate::*;
+    use once_cell::sync::Lazy;
+
+    #[test]
+    fn test_fallsback_to_defaults() {
+        // This test doesn't use `..Default::default()` as we want to
+        // be explicit about `JSONEngineBase` and handling `None`
+        // options/default values.
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            JSONEngineBase {
+                aliases: None,
+                charset: None,
+                classification: SearchEngineClassification::General,
+                name: "Test".to_string(),
+                partner_code: None,
+                urls: JSONEngineUrls {
+                    search: Some(JSONEngineUrl {
+                        base: Some("https://example.com".to_string()),
+                        ..Default::default()
+                    }),
+                    suggestions: None,
+                    trending: None,
+                    search_form: None,
+                    visual_search: None,
+                },
+            },
+            &JSONEngineVariant {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner_code: None,
+                telemetry_suffix: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            SearchEngineDefinition {
+                aliases: Vec::new(),
+                charset: "UTF-8".to_string(),
+                classification: SearchEngineClassification::General,
+                identifier: "test".to_string(),
+                is_new_until: None,
+                partner_code: String::new(),
+                name: "Test".to_string(),
+                optional: false,
+                order_hint: None,
+                telemetry_suffix: String::new(),
+                urls: SearchEngineUrls {
+                    search: SearchEngineUrl {
+                        base: "https://example.com".to_string(),
+                        ..Default::default()
+                    },
+                    suggestions: None,
+                    trending: None,
+                    search_form: None,
+                    visual_search: None,
+                },
+                click_url: None
+            }
+        )
+    }
+
+    #[test]
+    fn test_uses_base_values_only() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSONEngineVariant {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner_code: None,
+                telemetry_suffix: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test").build()
+        );
+    }
+
+    #[test]
+    fn test_uses_locale_specific_visual_display_name() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSONEngineVariant {
+                environment: JSONVariantEnvironment {
+                    all_regions_and_locales: true,
+                    ..Default::default()
+                },
+                is_new_until: None,
+                optional: false,
+                partner_code: None,
+                telemetry_suffix: None,
+                urls: None,
+                sub_variants: vec![],
+            },
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .visual_search_display_name("Visual Search en-GB")
+                .build()
+        );
+    }
+
+    #[test]
+    fn test_merges_variants() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSON_ENGINE_VARIANT,
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .variant_partner_code("trek")
+                .variant_telemetry_suffix("star")
+                .variant_search_url(
+                    "https://example.com/variant",
+                    "GET",
+                    "variant",
+                    "test variant",
+                    "ship",
+                )
+                .variant_suggestions_url(
+                    "https://example.com/suggestions-variant",
+                    "GET",
+                    "suggest-variant",
+                    "sugg test variant",
+                    "variant",
+                )
+                .variant_trending_url(
+                    "https://example.com/trending-variant",
+                    "GET",
+                    "trend-variant",
+                    "trend test variant",
+                    "trend",
+                    true,
+                )
+                .variant_search_form_url(
+                    "https://example.com/search_form",
+                    "GET",
+                    "search-form-name",
+                    "search-form-value",
+                )
+                .variant_visual_search_url(
+                    "https://example.com/visual-search-variant",
+                    "visual-search-variant-name",
+                    "visual-search-variant-value",
+                    "url_variant",
+                    "Visual Search Variant",
+                    "2096-02-02",
+                )
+                .build()
+        );
+    }
+
+    #[test]
+    fn test_merges_variant_and_uses_locale_specific_visual_search_display_name() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSON_ENGINE_VARIANT,
+            &None,
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .variant_partner_code("trek")
+                .variant_telemetry_suffix("star")
+                .variant_search_url(
+                    "https://example.com/variant",
+                    "GET",
+                    "variant",
+                    "test variant",
+                    "ship",
+                )
+                .variant_suggestions_url(
+                    "https://example.com/suggestions-variant",
+                    "GET",
+                    "suggest-variant",
+                    "sugg test variant",
+                    "variant",
+                )
+                .variant_trending_url(
+                    "https://example.com/trending-variant",
+                    "GET",
+                    "trend-variant",
+                    "trend test variant",
+                    "trend",
+                    true,
+                )
+                .variant_search_form_url(
+                    "https://example.com/search_form",
+                    "GET",
+                    "search-form-name",
+                    "search-form-value",
+                )
+                .variant_visual_search_url(
+                    "https://example.com/visual-search-variant",
+                    "visual-search-variant-name",
+                    "visual-search-variant-value",
+                    "url_variant",
+                    // locale-specific display name is the key difference here
+                    "Visual Search Variant en-GB",
+                    "2096-02-02",
+                )
+                .build()
+        );
+    }
+
+    #[test]
+    fn test_merges_sub_variants() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "fi".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSON_ENGINE_VARIANT,
+            &Some(JSON_ENGINE_SUBVARIANT.clone()),
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .subvariant_partner_code("trek2")
+                .subvariant_telemetry_suffix("star2")
+                .subvariant_search_url(
+                    "https://example.com/subvariant",
+                    "GET",
+                    "subvariant",
+                    "test subvariant",
+                    "shuttle",
+                )
+                .subvariant_suggestions_url(
+                    "https://example.com/suggestions-subvariant",
+                    "GET",
+                    "suggest-subvariant",
+                    "sugg test subvariant",
+                    "subvariant",
+                    true,
+                )
+                .subvariant_trending_url(
+                    "https://example.com/trending-subvariant",
+                    "GET",
+                    "trend-subvariant",
+                    "trend test subvariant",
+                    "subtrend",
+                )
+                .subvariant_search_form_url(
+                    "https://example.com/search-form-subvariant",
+                    "GET",
+                    "search-form-subvariant",
+                    "search form subvariant",
+                )
+                .subvariant_visual_search_url(
+                    "https://example.com/visual-search-subvariant",
+                    "visual-search-subvariant-name",
+                    "visual-search-subvariant-value",
+                    "url_subvariant",
+                    "Visual Search Subvariant",
+                    "2097-03-03",
+                )
+                .build()
+        );
+    }
+
+    #[test]
+    fn test_merges_subvariant_and_uses_locale_specific_visual_search_display_name() {
+        let result = SearchEngineDefinition::from_configuration_details(
+            &SearchUserEnvironment {
+                locale: "en-GB".into(),
+                ..Default::default()
+            },
+            "test",
+            Lazy::force(&JSON_ENGINE_BASE).clone(),
+            &JSON_ENGINE_VARIANT,
+            &Some(JSON_ENGINE_SUBVARIANT.clone()),
+        );
+
+        assert_eq!(
+            result,
+            ExpectedEngineFromJSONBase::new("test", "Test")
+                .variant_is_new_until("2063-04-05")
+                .variant_optional(true)
+                .subvariant_partner_code("trek2")
+                .subvariant_telemetry_suffix("star2")
+                .subvariant_search_url(
+                    "https://example.com/subvariant",
+                    "GET",
+                    "subvariant",
+                    "test subvariant",
+                    "shuttle",
+                )
+                .subvariant_suggestions_url(
+                    "https://example.com/suggestions-subvariant",
+                    "GET",
+                    "suggest-subvariant",
+                    "sugg test subvariant",
+                    "subvariant",
+                    true,
+                )
+                .subvariant_trending_url(
+                    "https://example.com/trending-subvariant",
+                    "GET",
+                    "trend-subvariant",
+                    "trend test subvariant",
+                    "subtrend",
+                )
+                .subvariant_search_form_url(
+                    "https://example.com/search-form-subvariant",
+                    "GET",
+                    "search-form-subvariant",
+                    "search form subvariant",
+                )
+                .subvariant_visual_search_url(
+                    "https://example.com/visual-search-subvariant",
+                    "visual-search-subvariant-name",
+                    "visual-search-subvariant-value",
+                    "url_subvariant",
+                    // locale-specific display name is the key difference here
+                    "Visual Search Subvariant en-GB",
+                    "2097-03-03",
+                )
+                .build()
         );
     }
 }
