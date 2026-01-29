@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsService};
 
 pub mod fxa_creds;
 pub mod prompt;
@@ -74,6 +74,6 @@ pub fn remote_settings_service() -> Arc<RemoteSettingsService> {
         data_path(Some("remote-settings"))
             .to_string_lossy()
             .to_string(),
-        RemoteSettingsConfig2::default(),
+        RemoteSettingsConfig::default(),
     ))
 }
