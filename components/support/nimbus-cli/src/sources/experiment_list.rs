@@ -219,7 +219,10 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use remote_settings::{RemoteSettings, RemoteSettingsConfig, RemoteSettingsServer};
+                use remote_settings::{
+                    RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsServer,
+                    RemoteSettingsService,
+                };
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
@@ -229,14 +232,15 @@ impl TryFrom<&ExperimentListSource> for Value {
                     server: Some(RemoteSettingsServer::Custom {
                         url: endpoint.clone(),
                     }),
-                    server_url: None,
                     bucket_name: None,
-                    collection_name,
+                    app_context: Some(RemoteSettingsContext::default()),
                 };
-                let client = RemoteSettings::new(config)?;
+                let service = RemoteSettingsService::new(String::from(":memory:"), config);
+                let client = service.make_client(collection_name);
 
-                let response = client.get_records_raw()?;
-                response.json::<Value>()?
+                let records = client.get_records(true);
+                let json_records = serde_json::to_string(&records)?;
+                serde_json::from_str::<Value>(&json_records)?
             }
             ExperimentListSource::FromFile { file } => {
                 let v: Value = value_utils::read_from_file(file)?;
