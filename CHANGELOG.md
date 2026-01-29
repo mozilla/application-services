@@ -1,16 +1,12 @@
 # v149.0 (In progress)
 
-## ✨ What's New ✨
-
-### FxA Client
-- Support for the token exchange API, which we plan to use for getting access tokens for Relay.
-  ([#7179](https://github.com/mozilla/application-services/pull/7179)).
-
-### AdsClient
-* Try to reset cache database schema on connection initialization failure.
-* Reset cache on context ID rotation.
-
 ## ⚠️ Breaking Changes ⚠️
+
+### General
+* Updated UniFFI to 0.31 ([#7140](https://github.com/mozilla/application-services/issues/7140))
+
+### Glean
+* Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
 
 ### Nimbus
 * Added `eval_jexl_debug()` method to `NimbusTargetingHelper` interface for CLI testing and debugging. Evaluates JEXL expressions and returns debug results as JSON. Consumers implementing this interface must add the new method.
@@ -19,20 +15,24 @@
 * Update Cirrus metrics handler interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
 
-### Glean
-- Updated to v67.0.0 ([#7177](https://github.com/mozilla/application-services/issues/7177))
-
 ## ✨ What's New ✨
 
 ### Ads Client
 * Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
-- Enable staging environment support for all platforms (previously feature-gated)
+* Try to reset cache database schema on connection initialization failure.
+* Reset cache on context ID rotation.
+* Enable staging environment support for all platforms (previously feature-gated)
 
-### Viaduct
-* Support setting default user-agent headers.
+### Android
+* Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
 
 ### FxA Client
-- Removed `SwiftKeychainWrapper` logic. ([#7150](https://github.com/mozilla/application-services/pull/7150))
+* Support for the token exchange API, which we plan to use for getting access tokens for Relay.
+  ([#7179](https://github.com/mozilla/application-services/pull/7179)).
+* Removed `SwiftKeychainWrapper` logic. ([#7150](https://github.com/mozilla/application-services/pull/7150))
+
+### Logins
+- Added `runMaintenance` API to `DatabaseLoginsStorage`
 
 ### Nimbus
 * Adds a `Vec<PreviousGeckoPrefState>` on `ExperimentEnrollment` when it is of type `EnrollmentStatus::Enrolled` and getters and setters. This is to support returning to an original value on Gecko pref experiments.
@@ -47,11 +47,8 @@
 
 * Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.
 
-### Logins
-- Added `runMaintenance` API to `DatabaseLoginsStorage`
-
-### Android
-- Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
+### Viaduct
+* Support setting default user-agent headers.
 
 [Full Changelog](In progress)
 
