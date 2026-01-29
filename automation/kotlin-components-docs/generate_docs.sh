@@ -11,13 +11,27 @@ REPO_ROOT="$( dirname "$( dirname "$THIS_DIR" )" )"
 WORKING_DIR=$THIS_DIR
 CARGO="$HOME/.cargo/bin/cargo"
 
+case "$(uname -s)" in
+    Linux*)               DLL_SUFFIX=".so" ;;
+    Darwin*)              DLL_SUFFIX=".dylib" ;;
+    CYGWIN*|MINGW*|MSYS*) DLL_SUFFIX=".dll" ;;
+    *)                    DLL_SUFFIX=".so" ;;
+esac
+
+case "$(uname -s)" in
+    CYGWIN*|MINGW*|MSYS*) DLL_PREFIX="" ;;
+    *)                    DLL_PREFIX="lib" ;;
+esac
+
 # Set the documentation directory
 KOTLIN_DIR="$WORKING_DIR/src/main/kotlin"
 
 # Generate Kotlin bindings to use as the documentation source
 echo "Generating Kotlin bindings with uniffi-bindgen..."
 
-$CARGO uniffi-bindgen-library-mode -m megazord kotlin "$KOTLIN_DIR"
+cd "$REPO_ROOT"
+
+$CARGO uniffi-bindgen generate --language kotlin --no-format --out-dir "$KOTLIN_DIR" "target/debug/${DLL_PREFIX}megazord${DLL_SUFFIX}"
 
 # Generate documentation with increased memory
 (cd "$WORKING_DIR" && "$REPO_ROOT/gradlew" --max-workers=2 dokkaHtml -Dorg.gradle.vfs.watch=false)
