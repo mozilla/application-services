@@ -60,10 +60,12 @@ enum Commands {
 
 #[derive(Clone, Debug, ValueEnum)]
 enum BackendStyle {
-    // New backend
+    /// New backend: use the new async Backend trait
     New,
-    // Bridged backend: initialize the new backend, but use the old API
+    /// Bridged backend: initialize the new backend, but use the old API
     Bridged,
+    /// Old backend: use only the old sync Backend trait (reqwest-based)
+    Old,
 }
 
 fn main() -> Result<()> {
@@ -104,6 +106,13 @@ fn main() -> Result<()> {
                     }
                     print_response(req.send());
                 }
+                BackendStyle::Old => {
+                    viaduct_reqwest::use_reqwest_backend();
+                    if let Some(t) = cli.timeout {
+                        set_old_global_timeout(t);
+                    }
+                    print_response(req.send());
+                }
             }
         }
         #[cfg(feature = "ohttp")]
@@ -130,12 +139,15 @@ fn run_ohttp_example(
     println!("Initializing viaduct backend...");
 
     match backend_style {
-        BackendStyle::New => {
+        BackendStyle::New | BackendStyle::Bridged => {
+            println!("Using new/bridged backend (hyper-based)");
             viaduct_hyper::viaduct_init_backend_hyper()?;
         }
-        BackendStyle::Bridged => {
-            println!("OHTTP is not compatible with the bridged backend. Use --backend=new or omit the backend parameter.");
-            return Ok(());
+        BackendStyle::Old => {
+            println!("Using old backend (reqwest-based, global settings will be used)");
+            viaduct_reqwest::use_reqwest_backend();
+            // Set reasonable global settings for OHTTP
+            set_old_global_timeout(30000); // 30 second timeout
         }
     }
 

@@ -434,3 +434,31 @@ uniffi::custom_type!(Headers, std::collections::HashMap<String, String>, {
 });
 
 uniffi::setup_scaffolding!("viaduct");
+
+/// Send a request through an OHTTP channel.
+///
+/// This encrypts the request and routes it through the configured OHTTP
+/// relay/gateway for the specified channel.
+///
+/// # Arguments
+/// * `request` - The request to send
+/// * `channel` - The name of the OHTTP channel to use (e.g., "merino")
+///
+/// # Example (Kotlin)
+/// ```kotlin
+/// val response = sendOhttpRequest(
+///     Request(
+///         method = Method.GET,
+///         url = "https://example.com/api",
+///         headers = mapOf("Accept" to "application/json"),
+///         body = null
+///     ),
+///     "merino"
+/// )
+/// ```
+#[cfg(feature = "ohttp")]
+#[uniffi::export]
+pub async fn send_ohttp_request(request: Request, channel: String) -> Result<Response> {
+    let settings = crate::ClientSettings::default();
+    crate::ohttp::process_ohttp_request(request, &channel, settings).await
+}

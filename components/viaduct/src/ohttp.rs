@@ -11,6 +11,27 @@ use url::Url;
 
 use crate::{Headers, Method, Request, Response, Result, ViaductError};
 
+/// Send a request using either the new backend or the old backend.
+///
+/// This function provides compatibility with both backend systems:
+/// - If the new backend is initialized, it uses it with the provided settings
+/// - Otherwise, it falls back to the old backend (which uses global settings)
+///
+/// Note: When using the old backend, the `settings` parameter is ignored and
+/// global settings from `GLOBAL_SETTINGS` are used instead.
+async fn send_request(request: Request, settings: crate::ClientSettings) -> Result<Response> {
+    // Try to use the new backend first
+    if let Ok(backend) = crate::new_backend::get_backend() {
+        return backend.send_request(request, settings).await;
+    }
+
+    // Fall back to the old backend (synchronous, uses global settings)
+    crate::trace!(
+        "OHTTP: Using old backend (global settings will be used instead of per-request settings)"
+    );
+    crate::backend::send(request)
+}
+
 /// Configuration for an OHTTP channel
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct OhttpConfig {
@@ -198,14 +219,13 @@ async fn fetch_config_from_network(gateway_host: &str) -> Result<Vec<u8>> {
     let config_url = Url::parse(&gateway_url)?.join("ohttp-configs")?;
 
     let request = Request::get(config_url.clone());
-    let backend = crate::new_backend::get_backend()?;
     let settings = crate::ClientSettings {
         timeout: 10000,
         redirect_limit: 5,
         ..crate::ClientSettings::default()
     };
 
-    let response = backend.send_request(request, settings).await?;
+    let response = send_request(request, settings).await?;
 
     if !response.is_success() {
         return Err(ViaductError::OhttpConfigFetchFailed(format!(
@@ -338,8 +358,7 @@ pub async fn process_ohttp_request(
     // Send the encrypted request to the relay using the backend
     crate::trace!("Sending to relay with timeout: {}ms", settings.timeout);
     let relay_start = std::time::Instant::now();
-    let backend = crate::new_backend::get_backend()?;
-    let relay_response = backend.send_request(relay_request, settings).await?;
+    let relay_response = send_request(relay_request, settings).await?;
     let relay_duration = relay_start.elapsed();
 
     crate::trace!(
