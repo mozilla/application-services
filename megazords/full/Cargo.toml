@@ -23,7 +23,7 @@ viaduct = { path = "../../components/viaduct", features = ["ohttp"] }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }
-error-support = { path = "../../components/support/error", features = ["tracing-reporting"] }
+error-support = { path = "../../components/support/error" }
 suggest = { path = "../../components/suggest" }
 search = { path = "../../components/search" }
 tracing-support = { path = "../../components/support/tracing" }

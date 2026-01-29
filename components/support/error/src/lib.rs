@@ -3,31 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // kinda abusing features here, but features "override" builtin support.
-#[cfg(not(feature = "tracing-logging"))]
-pub use log::{debug, error, info, trace, warn, Level};
-
-#[cfg(feature = "tracing-logging")]
 pub use tracing_support::{debug, error, info, trace, warn, Level};
 
-#[cfg(all(feature = "testing", not(feature = "tracing-logging")))]
-pub fn init_for_tests() {
-    let _ = env_logger::try_init();
-}
-
-#[cfg(all(feature = "testing", not(feature = "tracing-logging")))]
-pub fn init_for_tests_with_level(level: Level) {
-    // There's gotta be a better way :(
-    let level_name = match level {
-        Level::Debug => "debug",
-        Level::Trace => "trace",
-        Level::Info => "info",
-        Level::Warn => "warn",
-        Level::Error => "error",
-    };
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(level_name)).init();
-}
-
-#[cfg(all(feature = "testing", feature = "tracing-logging"))]
+#[cfg(feature = "testing")]
 pub use tracing_support::{init_for_tests, init_for_tests_with_level};
 
 mod macros;
@@ -67,17 +45,7 @@ pub mod backtrace {
 mod redact;
 pub use redact::*;
 
-#[cfg(not(feature = "tracing-reporting"))]
-mod reporting;
-#[cfg(not(feature = "tracing-reporting"))]
-pub use reporting::{
-    report_breadcrumb, report_error_to_app, set_application_error_reporter,
-    unset_application_error_reporter, ApplicationErrorReporter,
-};
-
-#[cfg(feature = "tracing-reporting")]
 mod error_tracing;
-#[cfg(feature = "tracing-reporting")]
 pub use error_tracing::{report_breadcrumb, report_error_to_app};
 
 pub use error_support_macros::handle_error;
