@@ -11,6 +11,7 @@ use crate::client::ad_response::{
 };
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
+use crate::experiments::ExperimentClient;
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::MARSClient;
 use crate::telemetry::Telemetry;
@@ -34,6 +35,8 @@ where
 {
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
+    #[allow(dead_code)]
+    experiment_client: Option<ExperimentClient>,
     telemetry: T,
 }
 
@@ -51,44 +54,55 @@ where
         );
         let telemetry = client_config.telemetry;
 
+        // Create ExperimentClient using the parent directory of the cache db
+        let experiment_client = client_config
+            .cache_config
+            .as_ref()
+            .and_then(|cfg| std::path::Path::new(&cfg.db_path).parent()) // Perhaps we should have a data_dir param to store all the ads-client related data
+            .and_then(|p| p.to_str())
+            .and_then(ExperimentClient::new);
+
+        let cache_enabled = experiment_client
+            .as_ref()
+            .map(|c| c.is_http_cache_enabled())
+            .unwrap_or(true);
+
         // Configure the cache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
-        if let Some(cache_cfg) = client_config.cache_config {
-            let default_cache_ttl = Duration::from_secs(
-                cache_cfg
-                    .default_cache_ttl_seconds
-                    .unwrap_or(DEFAULT_TTL_SECONDS),
-            );
-            let max_cache_size =
-                ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
+        // Nimbus experiment can disable the cache entirely.
+        let http_cache = if let Some(cache_cfg) = client_config.cache_config {
+            if cache_enabled {
+                let default_cache_ttl = Duration::from_secs(
+                    cache_cfg
+                        .default_cache_ttl_seconds
+                        .unwrap_or(DEFAULT_TTL_SECONDS),
+                );
+                let max_cache_size =
+                    ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
 
-            let http_cache = match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry.record(&e);
-                    None
+                match HttpCache::builder(cache_cfg.db_path)
+                    .max_size(max_cache_size)
+                    .default_ttl(default_cache_ttl)
+                    .build()
+                {
+                    Ok(cache) => Some(cache),
+                    Err(e) => {
+                        telemetry.record(&e);
+                        None
+                    }
                 }
-            };
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
-            let client = MARSClient::new(client_config.environment, http_cache, telemetry.clone());
-            let client = Self {
-                context_id_component,
-                client,
-                telemetry: telemetry.clone(),
-            };
-            telemetry.record(&ClientOperationEvent::New);
-            return client;
-        }
-
-        let client = MARSClient::new(client_config.environment, None, telemetry.clone());
+        let client = MARSClient::new(client_config.environment, http_cache, telemetry.clone());
         let client = Self {
             context_id_component,
             client,
             telemetry: telemetry.clone(),
+            experiment_client,
         };
         telemetry.record(&ClientOperationEvent::New);
         client
@@ -250,6 +264,7 @@ mod tests {
             context_id_component,
             client,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            experiment_client: None,
         }
     }
 
