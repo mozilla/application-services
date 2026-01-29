@@ -14,13 +14,20 @@ use null_client::NullClient;
 use remote_settings::RemoteSettingsService;
 use url::Url;
 
+pub struct NimbusServerSettings {
+    pub rs_service: Arc<RemoteSettingsService>,
+    pub collection_name: String,
+}
+
 pub(crate) fn create_client(
-    rs_service: Option<Arc<RemoteSettingsService>>,
-    collection_name: Option<String>,
+    rs_info: Option<NimbusServerSettings>,
 ) -> Result<Box<dyn SettingsClient + Send>> {
-    Ok(match (rs_service, collection_name) {
-        (Some(rs_service), Some(collection_name)) => {
-            let url = Url::parse(&rs_service.client_url())?; // let call this the server url
+    Ok(match rs_info {
+        Some(NimbusServerSettings {
+            rs_service,
+            collection_name,
+        }) => {
+            let url = Url::parse(&rs_service.client_url())?; // server url
             match url.scheme() {
                 "file" => {
                     // Everything in `config` other than the url/path is ignored for the
@@ -35,8 +42,7 @@ pub(crate) fn create_client(
                 _ => Box::new(rs_service.make_client(collection_name)),
             }
         }
-        (Some(_), None) => return Err(NimbusError::InternalError("collection name required")),
-        (None, _) => Box::new(NullClient::new()),
+        None => Box::new(NullClient::new()),
     })
 }
 
