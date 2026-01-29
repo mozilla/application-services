@@ -11,6 +11,7 @@ use rkv::StoreOptions;
 use nimbus::{
     error::{debug, Result},
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
+    stateful::client::NimbusServerSettings,
     AppContext, NimbusClient, RemoteSettingsServer,
 };
 
@@ -99,8 +100,10 @@ fn new_test_client_internal(
         tmp_dir.path(),
         Box::new(NoopMetricsHandler),
         None,
-        Some(Arc::new(remote_settings_service)),
-        Some("collection_name".to_string()),
+        Some(NimbusServerSettings {
+            rs_service: Arc::new(remote_settings_service),
+            collection_name: "collection_name".to_string(),
+        }),
     )
 }
 
