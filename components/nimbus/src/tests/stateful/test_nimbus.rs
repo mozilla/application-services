@@ -1985,6 +1985,137 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
 }
 
 #[test]
+fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
+    let metrics = TestMetrics::new();
+
+    let temp_dir = tempfile::tempdir()?;
+
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        app_version: Some("124.0.0".to_string()),
+        ..Default::default()
+    };
+    let recorded_context = Arc::new(TestRecordedContext::new());
+
+    let pref_state_1 = GeckoPrefState::new("test.pref.1", None).with_gecko_value(PrefValue::Null);
+    let pref_state_2 = GeckoPrefState::new("test.pref.2", None).with_gecko_value(PrefValue::Null);
+    let handler = TestGeckoPrefHandler::new(create_feature_prop_pref_map(vec![
+        ("test_feature", "test_prop", pref_state_1.clone()),
+        ("test_feature_2", "test_prop_2", pref_state_2.clone()),
+    ]));
+
+    let client = NimbusClient::new(
+        app_context,
+        Some(recorded_context),
+        Default::default(),
+        temp_dir.path(),
+        Box::new(metrics),
+        Some(Box::new(handler)),
+        None,
+        None,
+    )?;
+    client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
+    client.initialize()?;
+
+    let rollout_slug = "rollout-1";
+    let mut rollout = get_multi_feature_experiment(
+        rollout_slug,
+        vec![
+            (
+                "test_feature",
+                json!({
+                    "test_prop": "some-rollout-value"
+                }),
+            ),
+            (
+                "test_feature_2",
+                json!({
+                    "test_prop_2": "some-rollout-value-2"
+                }),
+            ),
+        ],
+    )
+    .with_targeting("true");
+    rollout.is_rollout = true;
+
+    let experiment_slug = "exp-1";
+    let experiment = get_multi_feature_experiment(
+        experiment_slug,
+        vec![
+            (
+                "test_feature",
+                json!({
+                    "test_prop": "some-experiment-value"
+                }),
+            ),
+            (
+                "test_feature_2",
+                json!({
+                    "test_prop_2": "some-experiment-value-2"
+                }),
+            ),
+        ],
+    )
+    .with_targeting("true");
+
+    client.set_experiments_locally(to_local_experiments_string(&[rollout, experiment])?)?;
+    client.apply_pending_experiments()?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 2);
+
+    {
+        let handler = client.get_gecko_pref_store();
+        let handler_state = handler
+            .state
+            .lock()
+            .expect("Unable to lock transmuted handler state");
+        let prefs = handler_state.prefs_set.clone().unwrap();
+
+        assert_eq!(2, prefs.len());
+    }
+
+    // Register post enrolled states for reverting
+    let enrolled_pref_1;
+    let enrolled_pref_2;
+    {
+        let store = client.gecko_prefs.as_ref().unwrap();
+        let pref_store_state = store.get_mutable_pref_state();
+        enrolled_pref_1 =
+            pref_store_state.gecko_prefs_with_state["test_feature"]["test_prop"].clone();
+        enrolled_pref_2 =
+            pref_store_state.gecko_prefs_with_state["test_feature_2"]["test_prop_2"].clone();
+    }
+    client.register_previous_gecko_pref_states(&[enrolled_pref_1, enrolled_pref_2])?;
+
+    let unenroll_events =
+        client.unenroll_for_gecko_pref(pref_state_1, PrefUnenrollReason::Changed)?;
+
+    let active_experiments = client.get_active_experiments()?;
+    assert_eq!(active_experiments.len(), 0);
+    assert_eq!(2, unenroll_events.len());
+
+    {
+        let handler = client.get_gecko_pref_store();
+        let handler_state = handler
+            .state
+            .lock()
+            .expect("Unable to lock transmuted handler state");
+
+        let original_prefs_stored = handler_state.original_prefs_state.clone().unwrap();
+
+        assert_eq!(1, original_prefs_stored.len());
+        assert_eq!(
+            OriginalGeckoPref::from(&pref_state_2).pref,
+            original_prefs_stored[0].pref
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn register_previous_gecko_pref_states() -> Result<()> {
     let metrics = TestMetrics::new();
     let temp_dir = tempfile::tempdir()?;
