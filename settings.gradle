@@ -7,15 +7,6 @@ import org.yaml.snakeyaml.Yaml
 // (They are the same in app-services but different in moz-central)
 def appServicesRootDir = gradle.root.hasProperty("mozconfig") ? new File(ext.topsrcdir, "services/app-services/") : rootDir
 
-// It's not clear this is needed at all. It is certain it's not wanted when in mozilla-central.
-if (!gradle.root.hasProperty("mozconfig")) {
-    includeBuild("$appServicesRootDir/tools/nimbus-gradle-plugin") {
-        dependencySubstitution {
-            substitute module("org.mozilla.appservices:tooling-nimbus-gradle") using(project(':'))
-        }
-    }
-}
-
 buildscript {
     dependencies {
         classpath 'org.yaml:snakeyaml:2.2'
