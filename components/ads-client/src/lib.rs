@@ -23,7 +23,6 @@ pub mod telemetry;
 
 pub use ffi::*;
 
-use crate::client::config::AdsClientConfig;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
 #[cfg(test)]
@@ -44,13 +43,9 @@ pub struct MozAdsClient {
 #[uniffi::export]
 impl MozAdsClient {
     #[uniffi::constructor]
-    pub fn new(client_config: Option<MozAdsClientConfig>) -> Self {
-        let client_config = client_config.unwrap_or_default();
-        let client_config: AdsClientConfig<MozAdsTelemetryWrapper> = client_config.into();
-        let client = AdsClient::new(client_config);
-        Self {
-            inner: Mutex::new(client),
-        }
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> MozAdsClientBuilder {
+        MozAdsClientBuilder::new()
     }
 
     #[handle_error(ComponentError)]
