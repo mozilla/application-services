@@ -14,6 +14,7 @@
 ([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
 * Update Cirrus metrics handler interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
+* Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
 
 ## ✨ What's New ✨
 

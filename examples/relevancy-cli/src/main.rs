@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     println!("================== Initializing Relevancy ===================");
     let relevancy_store = RelevancyStore::new(
         "file:relevancy-cli-relevancy?mode=memory&cache=shared".to_owned(),
-        remote_settings_service(),
+        remote_settings_service(None),
     );
     relevancy_store.ensure_interest_data_populated()?;
 

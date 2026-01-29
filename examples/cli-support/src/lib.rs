@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
 
 pub mod fxa_creds;
 pub mod prompt;
@@ -69,11 +69,21 @@ pub fn workspace_root_dir() -> PathBuf {
     cargo_toml_path.parent().unwrap().to_path_buf()
 }
 
-pub fn remote_settings_service() -> Arc<RemoteSettingsService> {
+pub fn remote_settings_service(
+    rs_server: Option<RemoteSettingsServer>,
+) -> Arc<RemoteSettingsService> {
+    let config = match rs_server {
+        Some(rs_server) => RemoteSettingsConfig2 {
+            server: Some(rs_server),
+            ..Default::default()
+        },
+        None => RemoteSettingsConfig2::default(),
+    };
+
     Arc::new(RemoteSettingsService::new(
         data_path(Some("remote-settings"))
             .to_string_lossy()
             .to_string(),
-        RemoteSettingsConfig2::default(),
+        config,
     ))
 }
