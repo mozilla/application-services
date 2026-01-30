@@ -2881,7 +2881,6 @@ dependencies = [
  "cfg-if",
  "chrono",
  "clap",
- "cli-support",
  "copypasta",
  "glob",
  "heck",

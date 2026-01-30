@@ -219,17 +219,35 @@ impl TryFrom<&ExperimentListSource> for Value {
                 endpoint,
                 is_preview,
             } => {
-                use cli_support::remote_settings_service;
-                use remote_settings::RemoteSettingsServer;
+                use remote_settings::{
+                    RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService,
+                };
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
+                // taken from cli-support, since depending on it means it needs to link NSS
+                let cargo_output = std::process::Command::new(env!("CARGO"))
+                    .arg("locate-project")
+                    .arg("--workspace")
+                    .arg("--message-format=plain")
+                    .output()
+                    .unwrap()
+                    .stdout;
+                let cargo_toml_path = Path::new(std::str::from_utf8(&cargo_output).unwrap().trim());
+                let workspace_dir = cargo_toml_path.parent().unwrap().to_path_buf();
+                let rs_dir = workspace_dir.join("./cli-data/remote-settings");
                 let server = RemoteSettingsServer::Custom {
                     url: endpoint.clone(),
                 };
-                let rs_service = remote_settings_service(Some(server));
+                let config = RemoteSettingsConfig2 {
+                    server: Some(server),
+                    ..Default::default()
+                };
+                let rs_service =
+                    RemoteSettingsService::new(rs_dir.to_string_lossy().to_string(), config);
+
                 let client = rs_service.make_client(collection_name);
                 let response = client.get_records(true);
                 serde_json::to_value(response)?
