@@ -227,7 +227,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 } else {
                     "nimbus-mobile-experiments".to_string()
                 };
-
+                // taken from cli-support, since depending on it means it needs to link NSS
                 let cargo_output = std::process::Command::new(env!("CARGO"))
                     .arg("locate-project")
                     .arg("--workspace")
