@@ -132,7 +132,7 @@ impl RemoteSettingsService {
                 base_url.clone(),
                 bucket_name.clone(),
                 config.app_context.clone(),
-            )?;
+            );
         }
         inner.base_url = base_url;
         inner.bucket_name = bucket_name;
