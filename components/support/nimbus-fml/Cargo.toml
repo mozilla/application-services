@@ -38,7 +38,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
-askama = "0.13"
+askama = "0.14"
 textwrap = { version = "0.16", default-features = false }
 heck = "0.5"
 icu_segmenter = "2"

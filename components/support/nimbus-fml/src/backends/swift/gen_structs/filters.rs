@@ -8,18 +8,25 @@ use std::fmt::{self, Display};
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::Literal;
 
-pub fn type_label(type_: impl Borrow<TypeIdentifier>) -> Result<String, askama::Error> {
+pub fn type_label(
+    type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).type_label(&oracle))
 }
 
-pub fn defaults_type_label(type_: impl Borrow<TypeIdentifier>) -> Result<String, askama::Error> {
+pub fn defaults_type_label(
+    type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).defaults_type(&oracle))
 }
 
 pub fn literal(
     type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
     renderer: impl LiteralRenderer,
     literal: impl Borrow<Literal>,
     ctx: impl Display,
@@ -32,6 +39,7 @@ pub fn literal(
 
 pub fn property(
     type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
     prop: impl fmt::Display,
     vars: impl fmt::Display,
     default: impl fmt::Display,
@@ -43,6 +51,7 @@ pub fn property(
 
 pub fn to_json(
     prop: impl fmt::Display,
+    _: &dyn askama::Values,
     type_: impl Borrow<TypeIdentifier>,
 ) -> Result<String, askama::Error> {
     let oracle = &ConcreteCodeOracle;
@@ -51,21 +60,28 @@ pub fn to_json(
 }
 
 /// Get the idiomatic Swift rendering of a class name (for enums, records, errors, etc).
-pub fn class_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn class_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::class_name(&nm))
 }
 
 /// Get the idiomatic Swift rendering of a variable name.
-pub fn var_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn var_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::var_name(&nm))
 }
 
 /// Get the idiomatic Swift rendering of an individual enum variant.
-pub fn enum_variant_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn enum_variant_name(
+    nm: impl fmt::Display,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     Ok(common::enum_variant_name(&nm))
 }
 
-pub fn comment(txt: impl fmt::Display, spaces: &str) -> Result<String, askama::Error> {
+pub fn comment(
+    txt: impl fmt::Display,
+    _: &dyn askama::Values,
+    spaces: &str,
+) -> Result<String, askama::Error> {
     use textwrap::{fill, Options};
 
     let indent1 = "/// ".to_string();
@@ -79,7 +95,7 @@ pub fn comment(txt: impl fmt::Display, spaces: &str) -> Result<String, askama::E
     Ok(lines)
 }
 
-pub fn quoted(txt: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn quoted(txt: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::quoted(&txt))
 }
 
@@ -94,15 +110,15 @@ mod json_tests {
     fn scalar_types() -> Result<(), Error> {
         let p = "prop";
 
-        assert_eq!(to_json(p, TypeRef::Boolean)?, format!("{p}"));
-        assert_eq!(to_json(p, TypeRef::Int)?, format!("{p}"));
-        assert_eq!(to_json(p, TypeRef::String)?, format!("{p}"));
+        assert_eq!(to_json(p, &(), TypeRef::Boolean)?, format!("{p}"));
+        assert_eq!(to_json(p, &(), TypeRef::Int)?, format!("{p}"));
+        assert_eq!(to_json(p, &(), TypeRef::String)?, format!("{p}"));
         assert_eq!(
-            to_json(p, TypeRef::StringAlias("Name".to_string()))?,
+            to_json(p, &(), TypeRef::StringAlias("Name".to_string()))?,
             format!("{p}")
         );
         assert_eq!(
-            to_json(p, TypeRef::Enum("Name".to_string()))?,
+            to_json(p, &(), TypeRef::Enum("Name".to_string()))?,
             format!("{p}.rawValue")
         );
         Ok(())
@@ -111,9 +127,9 @@ mod json_tests {
     #[test]
     fn bundled_types() -> Result<(), Error> {
         let p = "prop";
-        assert_eq!(to_json(p, TypeRef::BundleText)?, format!("{p}"));
+        assert_eq!(to_json(p, &(), TypeRef::BundleText)?, format!("{p}"));
         assert_eq!(
-            to_json(p, TypeRef::BundleImage)?,
+            to_json(p, &(), TypeRef::BundleImage)?,
             format!("{p}.encodableImageName")
         );
 
@@ -124,16 +140,17 @@ mod json_tests {
     fn optional_types() -> Result<(), Error> {
         let p = "prop";
         assert_eq!(
-            to_json(p, TypeRef::Option(Box::new(TypeRef::String)))?,
+            to_json(p, &(), TypeRef::Option(Box::new(TypeRef::String)))?,
             format!("{p}")
         );
         assert_eq!(
-            to_json(p, TypeRef::Option(Box::new(TypeRef::BundleImage)))?,
+            to_json(p, &(), TypeRef::Option(Box::new(TypeRef::BundleImage)))?,
             format!("{p}?.encodableImageName")
         );
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::Option(Box::new(TypeRef::Enum("Name".to_string())))
             )?,
             format!("{p}?.rawValue")
@@ -145,16 +162,17 @@ mod json_tests {
     fn list_types() -> Result<(), Error> {
         let p = "prop";
         assert_eq!(
-            to_json(p, TypeRef::List(Box::new(TypeRef::String)))?,
+            to_json(p, &(), TypeRef::List(Box::new(TypeRef::String)))?,
             format!("{p}")
         );
         assert_eq!(
-            to_json(p, TypeRef::List(Box::new(TypeRef::BundleImage)))?,
+            to_json(p, &(), TypeRef::List(Box::new(TypeRef::BundleImage)))?,
             format!("{p}.map {{ $0.encodableImageName }}")
         );
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::List(Box::new(TypeRef::Enum("Name".to_string())))
             )?,
             format!("{p}.map {{ $0.rawValue }}")
@@ -166,16 +184,17 @@ mod json_tests {
     fn string_map_types() -> Result<(), Error> {
         let p = "prop";
         assert_eq!(
-            to_json(p, TypeRef::StringMap(Box::new(TypeRef::String)))?,
+            to_json(p, &(), TypeRef::StringMap(Box::new(TypeRef::String)))?,
             format!("{p}")
         );
         assert_eq!(
-            to_json(p, TypeRef::StringMap(Box::new(TypeRef::BundleImage)))?,
+            to_json(p, &(), TypeRef::StringMap(Box::new(TypeRef::BundleImage)))?,
             format!("{p}.mapValuesNotNull {{ $0.encodableImageName }}")
         );
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::StringMap(Box::new(TypeRef::Enum("Name".to_string())))
             )?,
             format!("{p}.mapValuesNotNull {{ $0.rawValue }}")
@@ -184,6 +203,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::StringMap(Box::new(TypeRef::Option(Box::new(TypeRef::String))))
             )?,
             format!("{p}")
@@ -191,6 +211,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::StringMap(Box::new(TypeRef::Option(Box::new(TypeRef::BundleImage))))
             )?,
             format!("{p}.mapValuesNotNull {{ $0?.encodableImageName }}")
@@ -198,6 +219,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::StringMap(Box::new(TypeRef::Option(Box::new(TypeRef::Enum(
                     "Name".to_string()
                 )))))
@@ -213,6 +235,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::EnumMap(Box::new(TypeRef::String), Box::new(TypeRef::String))
             )?,
             format!("{p}")
@@ -220,6 +243,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::EnumMap(
                     Box::new(TypeRef::StringAlias("Name".to_string())),
                     Box::new(TypeRef::String)
@@ -233,6 +257,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("Name".to_string())),
                     Box::new(TypeRef::String)
@@ -253,6 +278,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("Name".to_string())),
                     Box::new(TypeRef::BundleImage)
@@ -265,6 +291,7 @@ mod json_tests {
         assert_eq!(
             to_json(
                 p,
+                &(),
                 TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("Name".to_string())),
                     Box::new(TypeRef::List(Box::new(TypeRef::String)))
@@ -275,7 +302,7 @@ mod json_tests {
 
         // Map<Enum, List<Image>>
         assert_eq!(
-            to_json(p, TypeRef::EnumMap(Box::new(TypeRef::Enum("Name".to_string())), Box::new(TypeRef::List(Box::new(TypeRef::BundleImage)))))?,
+            to_json(p, &(), TypeRef::EnumMap(Box::new(TypeRef::Enum("Name".to_string())), Box::new(TypeRef::List(Box::new(TypeRef::BundleImage)))))?,
             format!("prop.mapEntriesNotNull({{ $0.rawValue }}, {{ $0.map {{ $0.encodableImageName }} }})")
         );
         Ok(())

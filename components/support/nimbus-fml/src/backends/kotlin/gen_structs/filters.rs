@@ -8,18 +8,25 @@ use std::fmt::{self, Display};
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::{Literal, PrefBranch};
 
-pub fn type_label(type_: impl Borrow<TypeIdentifier>) -> Result<String, askama::Error> {
+pub fn type_label(
+    type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).type_label(&oracle))
 }
 
-pub fn defaults_type_label(type_: impl Borrow<TypeIdentifier>) -> Result<String, askama::Error> {
+pub fn defaults_type_label(
+    type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_.borrow()).defaults_type(&oracle))
 }
 
 pub fn literal(
     type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
     renderer: impl LiteralRenderer,
     literal: impl Borrow<Literal>,
     ctx: impl Display,
@@ -32,6 +39,7 @@ pub fn literal(
 
 pub fn property(
     type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
     prop: impl fmt::Display,
     vars: impl fmt::Display,
     default: impl fmt::Display,
@@ -43,6 +51,7 @@ pub fn property(
 
 pub fn preference_getter(
     type_: impl Borrow<TypeIdentifier>,
+    _: &dyn askama::Values,
     prefs: impl fmt::Display,
     pref_key: impl fmt::Display,
 ) -> Result<String, askama::Error> {
@@ -57,6 +66,7 @@ pub fn preference_getter(
 
 pub fn to_json(
     prop: impl fmt::Display,
+    _: &dyn askama::Values,
     type_: impl Borrow<TypeIdentifier>,
 ) -> Result<String, askama::Error> {
     let oracle = &ConcreteCodeOracle;
@@ -65,21 +75,28 @@ pub fn to_json(
 }
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
-pub fn class_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn class_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::class_name(&nm))
 }
 
 /// Get the idiomatic Kotlin rendering of a variable name.
-pub fn var_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn var_name(nm: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::var_name(&nm))
 }
 
 /// Get the idiomatic Kotlin rendering of an individual enum variant.
-pub fn enum_variant_name(nm: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn enum_variant_name(
+    nm: impl fmt::Display,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     Ok(common::enum_variant_name(&nm))
 }
 
-pub fn comment(txt: impl fmt::Display, spaces: &str) -> Result<String, askama::Error> {
+pub fn comment(
+    txt: impl fmt::Display,
+    _: &dyn askama::Values,
+    spaces: &str,
+) -> Result<String, askama::Error> {
     use textwrap::{fill, Options};
 
     let indent_start = "/** ".to_string();
@@ -99,11 +116,14 @@ pub fn comment(txt: impl fmt::Display, spaces: &str) -> Result<String, askama::E
     ))
 }
 
-pub fn quoted(txt: impl fmt::Display) -> Result<String, askama::Error> {
+pub fn quoted(txt: impl fmt::Display, _: &dyn askama::Values) -> Result<String, askama::Error> {
     Ok(common::quoted(&txt))
 }
 
-pub fn pref_branch_string(pref_branch: PrefBranch) -> Result<String, askama::Error> {
+pub fn pref_branch_string(
+    pref_branch: PrefBranch,
+    _: &dyn askama::Values,
+) -> Result<String, askama::Error> {
     Ok(match pref_branch {
         PrefBranch::Default => "PrefBranch.DEFAULT",
         PrefBranch::User => "PrefBranch.USER",
