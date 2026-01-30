@@ -12,10 +12,13 @@ use crate::client::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
+use crate::client::AdsClient;
 use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
+use crate::MozAdsClient;
 use error_support::{ErrorHandling, GetErrorHandling};
+use parking_lot::Mutex;
 use url::Url;
 
 pub type AdsClientApiResult<T> = std::result::Result<T, MozAdsClientApiError>;
@@ -88,23 +91,58 @@ pub struct MozAdsCallbacks {
     pub report: Option<Url>,
 }
 
-#[derive(Default, uniffi::Record)]
-pub struct MozAdsClientConfig {
-    pub environment: MozAdsEnvironment,
-    pub cache_config: Option<MozAdsCacheConfig>,
-    pub telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+#[derive(uniffi::Object)]
+pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
+
+#[derive(Default)]
+struct MozAdsClientBuilderInner {
+    environment: Option<MozAdsEnvironment>,
+    cache_config: Option<MozAdsCacheConfig>,
+    telemetry: Option<Arc<dyn MozAdsTelemetry>>,
 }
 
-impl From<MozAdsClientConfig> for AdsClientConfig<MozAdsTelemetryWrapper> {
-    fn from(config: MozAdsClientConfig) -> Self {
-        let telemetry = config
-            .telemetry
-            .map(MozAdsTelemetryWrapper::new)
-            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
-        Self {
-            environment: config.environment.into(),
-            cache_config: config.cache_config.map(Into::into),
-            telemetry,
+impl Default for MozAdsClientBuilder {
+    fn default() -> Self {
+        Self(Mutex::new(MozAdsClientBuilderInner::default()))
+    }
+}
+
+#[uniffi::export]
+impl MozAdsClientBuilder {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
+        self.0.lock().environment = Some(environment);
+        self
+    }
+
+    pub fn cache_config(self: Arc<Self>, cache_config: MozAdsCacheConfig) -> Arc<Self> {
+        self.0.lock().cache_config = Some(cache_config);
+        self
+    }
+
+    pub fn telemetry(self: Arc<Self>, telemetry: Arc<dyn MozAdsTelemetry>) -> Arc<Self> {
+        self.0.lock().telemetry = Some(telemetry);
+        self
+    }
+
+    pub fn build(&self) -> MozAdsClient {
+        let inner = self.0.lock();
+        let client_config = AdsClientConfig {
+            environment: inner.environment.unwrap_or_default().into(),
+            cache_config: inner.cache_config.clone().map(Into::into),
+            telemetry: inner
+                .telemetry
+                .clone()
+                .map(MozAdsTelemetryWrapper::new)
+                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+        };
+        let client = AdsClient::new(client_config);
+        MozAdsClient {
+            inner: Mutex::new(client),
         }
     }
 }
@@ -118,7 +156,7 @@ pub enum MozAdsEnvironment {
     Test,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Clone, uniffi::Record)]
 pub struct MozAdsCacheConfig {
     pub db_path: String,
     pub default_cache_ttl_seconds: Option<u64>,

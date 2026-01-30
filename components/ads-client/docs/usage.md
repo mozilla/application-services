@@ -17,16 +17,35 @@ pub struct MozAdsClient {
 }
 ```
 
-#### Constructors
+#### Creating a Client
 
-```rust
-impl MozAdsClient {
-  pub fn new(client_config: Option<MozAdsClientConfig>) -> Self
-}
+Use the `MozAdsClientBuilder` to configure and create the client. The builder provides a fluent API for setting configuration options.
+
+**Swift:**
+```swift
+let client = MozAdsClientBuilder()
+    .environment(environment: .prod)
+    .cacheConfig(cacheConfig: cache)
+    .telemetry(telemetry: telemetry)
+    .build()
 ```
 
-Creates a new ads client with an optional configuration object.
-If a cache configuration is provided, the client will initialize an on-disk HTTP cache at the given path.
+**Kotlin:**
+```kotlin
+val client = MozAdsClientBuilder()
+    .environment(MozAdsEnvironment.PROD)
+    .cacheConfig(cache)
+    .telemetry(telemetry)
+    .build()
+```
+
+**Rust:**
+```rust
+let client = MozAdsClientBuilder::new()
+    .environment(MozAdsEnvironment::Prod)
+    .cache_config(cache_config)
+    .build();
+```
 
 #### Methods
 
@@ -45,26 +64,30 @@ If a cache configuration is provided, the client will initialize an on-disk HTTP
 >
 > - We recommend that this client be initialized as a singleton or something similar so that multiple instances of the client do not exist at once.
 > - Responses omit placements with no fill. Empty placements do not appear in the returned maps.
-> - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientConfig`. Per-request cache settings can be set with `MozAdsRequestOptions`.
+> - The HTTP cache is internally managed. Configuration can be set with `MozAdsClientBuilder`. Per-request cache settings can be set with `MozAdsRequestOptions`.
 > - If `cache_config` is `None`, caching is disabled entirely.
 
 ---
 
-## `MozAdsClientConfig`
+## `MozAdsClientBuilder`
 
-Configuration for initializing the ads client.
+Builder for configuring and creating the ads client. Use the fluent builder pattern to set configuration options.
 
 ```rust
-pub struct MozAdsClientConfig {
-  pub environment: Environment,
-  pub cache_config: Option<MozAdsCacheConfig>,
-  pub telemetry: Option<Arc<dyn MozAdsTelemetry>>,
-}
+pub struct MozAdsClientBuilder
 ```
 
-| Field          | Type                               | Description                                                                                            |
+#### Methods
+
+- **`new() -> MozAdsClientBuilder`** - Creates a new builder with default values
+- **`environment(self, environment: MozAdsEnvironment) -> Self`** - Sets the MARS environment (Prod, Staging, or Test)
+- **`cache_config(self, cache_config: MozAdsCacheConfig) -> Self`** - Sets the cache configuration
+- **`telemetry(self, telemetry: Arc<dyn MozAdsTelemetry>) -> Self`** - Sets the telemetry implementation
+- **`build(self) -> MozAdsClient`** - Builds and returns the configured client
+
+| Configuration  | Type                               | Description                                                                                            |
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `environment`  | `Environment`                      | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. |
+| `environment`  | `MozAdsEnvironment`                | Selects which MARS environment to connect to. Unless in a dev build, this value can only ever be Prod. Defaults to Prod. |
 | `cache_config` | `Option<MozAdsCacheConfig>`        | Optional configuration for the internal cache.                                                         |
 | `telemetry`    | `Option<Arc<dyn MozAdsTelemetry>>` | Optional telemetry instance for recording metrics. If not provided, a no-op implementation is used.    |
 
@@ -72,7 +95,7 @@ pub struct MozAdsClientConfig {
 
 ## `MozAdsTelemetry`
 
-Telemetry interface for recording ads client metrics. You must provide an implementation of this interface to the `MozAdsClientConfig` constructor to enable telemetry collection. If no telemetry instance is provided, a no-op implementation is used and no metrics will be recorded.
+Telemetry interface for recording ads client metrics. You must provide an implementation of this interface to the `MozAdsClientBuilder` constructor to enable telemetry collection. If no telemetry instance is provided, a no-op implementation is used and no metrics will be recorded.
 
 ```rust
 pub trait MozAdsTelemetry: Send + Sync {
@@ -86,7 +109,7 @@ pub trait MozAdsTelemetry: Send + Sync {
 
 ### Implementing Telemetry
 
-To enable telemetry collection, you need to implement the `MozAdsTelemetry` interface and provide an instance to the `MozAdsClientConfig` constructor. The following examples show how to bind Glean metrics to the telemetry interface.
+To enable telemetry collection, you need to implement the `MozAdsTelemetry` interface and provide an instance to the `MozAdsClientBuilder` constructor. The following examples show how to bind Glean metrics to the telemetry interface.
 
 #### Swift Example
 
@@ -489,13 +512,12 @@ let cache = MozAdsCacheConfig(
 )
 
 let telemetry = AdsClientTelemetry()
-let clientCfg = MozAdsClientConfig(
-    environment: .prod,
-    cacheConfig: cache,
-    telemetry: telemetry
-)
 
-let client = MozAdsClient(clientConfig: clientCfg)
+let client = MozAdsClientBuilder()
+    .environment(environment: .prod)
+    .cacheConfig(cacheConfig: cache)
+    .telemetry(telemetry: telemetry)
+    .build()
 ```
 
 ```kotlin
@@ -507,13 +529,12 @@ val cache = MozAdsCacheConfig(
 )
 
 val telemetry = AdsClientTelemetry()
-val clientCfg = MozAdsClientConfig(
-    environment = MozAdsEnvironment.PROD,
-    cacheConfig = cache,
-    telemetry = telemetry
-)
 
-val client = MozAdsClient(clientCfg)
+val client = MozAdsClientBuilder()
+    .environment(MozAdsEnvironment.PROD)
+    .cacheConfig(cache)
+    .telemetry(telemetry)
+    .build()
 ```
 
 Where `db_path` represents the location of the SQLite file. This must be a file that the client has permission to write to.

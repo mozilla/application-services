@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use ads_client::{
     http_cache::{ByteSize, CacheOutcome, HttpCache, RequestCachePolicy},
-    MozAdsClient, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
+    MozAdsClientBuilder, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
 use url::Url;
 use viaduct::Request;
@@ -17,7 +17,7 @@ use viaduct::Request;
 fn test_mock_pocket_billboard_1_placement() {
     viaduct_dev::init_backend_dev();
 
-    let client = MozAdsClient::new(None);
+    let client = MozAdsClientBuilder::new().build();
 
     let placement_request = MozAdsPlacementRequest {
         placement_id: "mock_pocket_billboard_1".to_string(),
@@ -45,7 +45,7 @@ fn test_mock_pocket_billboard_1_placement() {
 fn test_newtab_spocs_placement() {
     viaduct_dev::init_backend_dev();
 
-    let client = MozAdsClient::new(None);
+    let client = MozAdsClientBuilder::new().build();
 
     let count = 3;
     let placement_request = MozAdsPlacementRequestWithCount {
@@ -81,7 +81,7 @@ fn test_newtab_spocs_placement() {
 fn test_newtab_tile_1_placement() {
     viaduct_dev::init_backend_dev();
 
-    let client = MozAdsClient::new(None);
+    let client = MozAdsClientBuilder::new().build();
 
     let placement_request = MozAdsPlacementRequest {
         placement_id: "newtab_tile_1".to_string(),

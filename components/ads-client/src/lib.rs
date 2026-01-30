@@ -23,7 +23,6 @@ pub mod telemetry;
 
 pub use ffi::*;
 
-use crate::client::config::AdsClientConfig;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 
 #[cfg(test)]
@@ -41,18 +40,9 @@ uniffi::custom_type!(AdsClientUrl, String, {
 pub struct MozAdsClient {
     inner: Mutex<AdsClient<MozAdsTelemetryWrapper>>,
 }
+
 #[uniffi::export]
 impl MozAdsClient {
-    #[uniffi::constructor]
-    pub fn new(client_config: Option<MozAdsClientConfig>) -> Self {
-        let client_config = client_config.unwrap_or_default();
-        let client_config: AdsClientConfig<MozAdsTelemetryWrapper> = client_config.into();
-        let client = AdsClient::new(client_config);
-        Self {
-            inner: Mutex::new(client),
-        }
-    }
-
     #[handle_error(ComponentError)]
     pub fn request_image_ads(
         &self,
