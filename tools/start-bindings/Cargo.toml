@@ -8,7 +8,7 @@ anyhow = "1"
 camino = "1"
 cargo_metadata = "0.15"
 clap = {version = "4.2", default-features = false, features = ["std", "derive"]}
-askama = "0.13"
+askama = "0.14"
 serde_yaml = "0.8"
 toml = "0.5"
 toml_edit = "0.22.21"
