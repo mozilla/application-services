@@ -16,6 +16,12 @@
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
 * Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
 
+### Error support
+* Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
+  We don't believe this should affect any consumers, since they're were already using the
+  `tracing-logging` feature and were either also using `tracing-reporting` or not handling error
+  reporting at all.
+
 ## ✨ What's New ✨
 
 ### Ads Client

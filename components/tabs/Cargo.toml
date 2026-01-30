@@ -8,7 +8,7 @@ exclude = ["/android", "/ios"]
 
 [dependencies]
 anyhow = "1.0"
-error-support = { path = "../support/error", features = [ "tracing-logging" ] }
+error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 payload-support = { path = "../support/payload" }
 lazy_static = "1.4"

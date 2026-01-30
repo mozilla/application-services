@@ -8,7 +8,7 @@ exclude = ["/android", "/ios"]
 
 [dependencies]
 uniffi = { version = "0.31" }
-error-support = { path = "../error", default-features = false, features = ["tracing-logging"] }
+error-support = { path = "../error", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
 tracing-support = { path = "../tracing" }
 
