@@ -29,6 +29,7 @@
 * Try to reset cache database schema on connection initialization failure.
 * Reset cache on context ID rotation.
 * Enable staging environment support for all platforms (previously feature-gated)
+* Added Nimbus integration to enable HTTP cache experimentation. Builder pattern now supports optional `nimbus()` setter to configure NimbusClient integration. ([#7188](https://github.com/mozilla/application-services/pull/7188))
 
 ### Android
 * Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))

@@ -16,6 +16,7 @@ use http_cache::RequestCachePolicy;
 
 mod client;
 mod error;
+mod experiments;
 mod ffi;
 pub mod http_cache;
 mod mars;
