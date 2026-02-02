@@ -1,5 +1,6 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.init_rust_components"
+omit_checksums = true
 
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"

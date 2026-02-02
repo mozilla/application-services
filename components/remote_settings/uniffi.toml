@@ -1,5 +1,6 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.remotesettings"
+omit_checksums = true
 
 [bindings.kotlin.custom_types.RsJsonObject]
 # Name of the type in the Kotlin code

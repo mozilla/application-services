@@ -1,5 +1,7 @@
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"
 ffi_module_filename = "searchFFI"
+
 [bindings.kotlin]
 package_name = "mozilla.appservices.search"
+omit_checksums = true

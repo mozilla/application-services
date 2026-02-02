@@ -1,5 +1,6 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.rust_log_forwarder"
+omit_checksums = true
 
 [bindings.swift]
 ffi_module_name = "MozillaRustComponents"

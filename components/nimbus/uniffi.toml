@@ -1,5 +1,6 @@
 [bindings.kotlin]
 package_name = "org.mozilla.experiments.nimbus.internal"
+omit_checksums = true
 
 [bindings.kotlin.custom_types.JsonObject]
 # Name of the type in the Kotlin code
