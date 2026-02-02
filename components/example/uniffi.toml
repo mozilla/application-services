@@ -3,3 +3,4 @@
 # names.
 [bindings.kotlin]
 package_name = "mozilla.appservices.example_component"
+omit_checksums = true

@@ -4,3 +4,4 @@ ffi_module_filename = "relayFFI"
 
 [bindings.kotlin]
 package_name = "mozilla.appservices.relay"
+omit_checksums = true
