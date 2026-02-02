@@ -87,6 +87,8 @@ where
         Ok(self.make_callback_request(callback)?)
     }
 
+    // TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
+    #[allow(dead_code)]
     pub fn invalidate_cache_by_hash(
         &self,
         request_hash: &crate::http_cache::RequestHash,

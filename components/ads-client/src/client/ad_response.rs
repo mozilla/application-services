@@ -74,6 +74,8 @@ impl<A: AdResponseValue> AdResponse<A> {
     }
 }
 
+// TODO: Remove this allow(dead_code) when cache invalidation is re-enabled behind Nimbus experiment
+#[allow(dead_code)]
 pub fn pop_request_hash_from_url(url: &mut Url) -> Option<RequestHash> {
     let mut request_hash = None;
     let mut query = url::form_urlencoded::Serializer::new(String::new());

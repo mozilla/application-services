@@ -6,9 +6,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::client::ad_response::{
-    pop_request_hash_from_url, AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile,
-};
+use crate::client::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
 use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
@@ -158,10 +156,12 @@ where
     }
 
     pub fn record_impression(&self, impression_url: Url) -> Result<(), RecordImpressionError> {
-        let mut impression_url = impression_url.clone();
-        if let Some(request_hash) = pop_request_hash_from_url(&mut impression_url) {
-            let _ = self.client.invalidate_cache_by_hash(&request_hash);
-        }
+        // TODO: Re-enable cache invalidation behind a Nimbus experiment.
+        // The mobile team has requested this be temporarily disabled.
+        // let mut impression_url = impression_url.clone();
+        // if let Some(request_hash) = pop_request_hash_from_url(&mut impression_url) {
+        //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
+        // }
         self.client
             .record_impression(impression_url)
             .inspect_err(|e| {
@@ -174,10 +174,12 @@ where
     }
 
     pub fn record_click(&self, click_url: Url) -> Result<(), RecordClickError> {
-        let mut click_url = click_url.clone();
-        if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
-            let _ = self.client.invalidate_cache_by_hash(&request_hash);
-        }
+        // TODO: Re-enable cache invalidation behind a Nimbus experiment.
+        // The mobile team has requested this be temporarily disabled.
+        // let mut click_url = click_url.clone();
+        // if let Some(request_hash) = pop_request_hash_from_url(&mut click_url) {
+        //     let _ = self.client.invalidate_cache_by_hash(&request_hash);
+        // }
         self.client
             .record_click(click_url)
             .inspect_err(|e| {
@@ -347,6 +349,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder("test_record_click_invalidates_cache")
