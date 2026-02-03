@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import mozilla.appservices.tracing.EventSink
+import mozilla.appservices.tracing.EventSinkSpecification
+import mozilla.appservices.tracing.EventTarget
 import mozilla.appservices.tracing.TracingEvent
 import mozilla.appservices.tracing.TracingLevel
 import mozilla.appservices.tracing.registerEventSink
@@ -28,7 +30,10 @@ public object RustComponentsErrorTelemetry {
      */
     fun register() {
         Glean.registerPings(Pings)
-        registerEventSink("app-services-error-reporter", TracingLevel.DEBUG, ErrorEventSink())
+        val spec = EventSinkSpecification(
+            targets = listOf(EventTarget("app-services-error-reporter", TracingLevel.DEBUG)),
+        )
+        registerEventSink(spec, ErrorEventSink())
     }
 }
 
