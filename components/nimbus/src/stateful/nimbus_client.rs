@@ -47,7 +47,7 @@ use crate::stateful::targeting::{RecordedContext, validate_event_queries};
 use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use crate::strings::fmt_with_map;
 #[cfg(test)]
-use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
+use crate::tests::helpers::{TestGeckoPrefHandler, TestRecordedContext};
 use crate::{
     AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
 };
@@ -95,7 +95,7 @@ pub struct NimbusClient {
     event_store: Arc<Mutex<EventStore>>,
     recorded_context: Option<Arc<dyn RecordedContext>>,
     pub(crate) gecko_prefs: Option<Arc<GeckoPrefStore>>,
-    metrics_handler: Arc<Box<dyn MetricsHandler>>,
+    metrics_handler: Arc<dyn MetricsHandler>,
 }
 
 impl NimbusClient {
@@ -107,7 +107,7 @@ impl NimbusClient {
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
-        metrics_handler: Box<dyn MetricsHandler>,
+        metrics_handler: Arc<dyn MetricsHandler>,
         gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
         remote_settings_info: Option<NimbusServerSettings>,
     ) -> Result<Self> {
@@ -146,7 +146,7 @@ impl NimbusClient {
             event_store: Arc::default(),
             recorded_context,
             gecko_prefs: prefs,
-            metrics_handler: Arc::new(metrics_handler),
+            metrics_handler,
         })
     }
 
@@ -885,15 +885,6 @@ impl NimbusClient {
                     None
                 }
             }))
-    }
-
-    #[cfg(test)]
-    pub fn get_metrics_handler(&self) -> &&TestMetrics {
-        let metrics = &**self.metrics_handler;
-        // SAFETY: The cast to TestMetrics is safe because the Rust instance is guaranteed to be
-        // a TestMetrics instance. TestMetrics is the only Rust-implemented version of
-        // MetricsHandler, and, like this method, is only used in tests.
-        unsafe { std::mem::transmute::<&&dyn MetricsHandler, &&TestMetrics>(&metrics) }
     }
 
     #[cfg(test)]

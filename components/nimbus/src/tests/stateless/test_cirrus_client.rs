@@ -15,7 +15,6 @@ use crate::{
 };
 
 fn create_client() -> Result<CirrusClient> {
-    let metrics_handler = TestMetrics::new();
     CirrusClient::new(
         to_string(&AppContext {
             app_id: "test app id".to_string(),
@@ -26,7 +25,7 @@ fn create_client() -> Result<CirrusClient> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
-        Box::new(metrics_handler),
+        TestMetrics::new(),
         Default::default(),
     )
 }
@@ -188,7 +187,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
-        Box::new(metrics_handler.clone()),
+        metrics_handler.clone(),
         Default::default(),
     )?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
@@ -205,8 +204,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
     assert_eq!(metric_records[0].branch(), "treatment");
     assert_eq!(metric_records[0].user_id(), "test");
 
-    let nimbus_user_id: Option<String> = metrics_handler.get_nimbus_user_id();
-    assert_eq!(nimbus_user_id, Some("test".into()));
+    assert_eq!(metrics_handler.get_nimbus_user_id(), Some("test".into()));
 
     Ok(())
 }

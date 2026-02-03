@@ -100,7 +100,7 @@ fn new_test_client_internal(
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(NoopMetricsHandler),
+        Arc::new(NoopMetricsHandler),
         None,
         Some(NimbusServerSettings {
             rs_service: Arc::new(remote_settings_service),

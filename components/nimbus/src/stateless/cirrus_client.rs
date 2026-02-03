@@ -65,13 +65,13 @@ pub struct CirrusClient {
     app_context: AppContext,
     coenrolling_feature_ids: Vec<String>,
     state: Mutex<CirrusMutableState>,
-    metrics_handler: Arc<Box<dyn MetricsHandler>>,
+    metrics_handler: Arc<dyn MetricsHandler>,
 }
 
 impl CirrusClient {
     pub fn new(
         app_context: String,
-        metrics_handler: Box<dyn MetricsHandler>,
+        metrics_handler: Arc<dyn MetricsHandler>,
         coenrolling_feature_ids: Vec<String>,
     ) -> Result<Self> {
         let app_context: AppContext = match serde_json::from_str(&app_context) {
@@ -82,7 +82,7 @@ impl CirrusClient {
             app_context,
             coenrolling_feature_ids,
             state: Default::default(),
-            metrics_handler: Arc::new(metrics_handler),
+            metrics_handler,
         })
     }
 

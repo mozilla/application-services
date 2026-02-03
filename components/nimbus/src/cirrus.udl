@@ -11,7 +11,8 @@ enum NimbusError {
     "ParseIntError", "TransformParameterError", "CirrusError", "UniFFICallbackError"
 };
 
-callback interface MetricsHandler {
+[Trait, WithForeign]
+interface MetricsHandler {
     void record_enrollment_statuses_v2(sequence<EnrollmentStatusExtraDef> enrollment_status_extras, string? nimbus_user_id);
 };
 

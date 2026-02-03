@@ -83,7 +83,8 @@ enum EnrollmentChangeEventType {
     "UnenrollFailed",
 };
 
-callback interface MetricsHandler {
+[Trait, WithForeign]
+interface MetricsHandler {
     void record_enrollment_statuses(sequence<EnrollmentStatusExtraDef> enrollment_status_extras);
     /// Feature activation is the pre-cursor to feature exposure: it is defined as the first time
     /// the feature configuration is asked for.
