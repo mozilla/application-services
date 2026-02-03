@@ -177,9 +177,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     }
 
     override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<HistoryVisitInfo> {
-        readQueryCounters.measure {
-            return this.conn.getVisitInfos(start, end, visitTransitionSet(excludeTypes))
-        }
+        return this.conn.getVisitInfos(start, end, visitTransitionSet(excludeTypes))
     }
 
     override fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType>): List<HistoryVisitInfo> {
@@ -200,42 +198,30 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     }
 
     override suspend fun getLatestHistoryMetadataForUrl(url: Url): HistoryMetadata? {
-        return readQueryCounters.measure {
-            this.conn.getLatestHistoryMetadataForUrl(url)
-        }
+        return this.conn.getLatestHistoryMetadataForUrl(url)
     }
 
     override suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.conn.getHistoryMetadataSince(since)
-        }
+        return this.conn.getHistoryMetadataSince(since)
     }
 
     override suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.conn.getHistoryMetadataBetween(start, end)
-        }
+        return this.conn.getHistoryMetadataBetween(start, end)
     }
 
     override suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.conn.queryHistoryMetadata(query, limit)
-        }
+        return this.conn.queryHistoryMetadata(query, limit)
     }
 
     override suspend fun getHighlights(
         weights: HistoryHighlightWeights,
         limit: Int,
     ): List<HistoryHighlight> {
-        return readQueryCounters.measure {
-            this.conn.getHistoryHighlights(weights, limit)
-        }
+        return this.conn.getHistoryHighlights(weights, limit)
     }
 
     override fun getBookmark(guid: Guid): BookmarkItem? {
-        return readQueryCounters.measure {
-            this.conn.bookmarksGetByGuid(guid, false)
-        }
+        return this.conn.bookmarksGetByGuid(guid, false)
     }
 
     override fun getBookmarksTree(rootGUID: Guid, recursive: Boolean): BookmarkItem? {
@@ -247,9 +233,7 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     }
 
     override fun getBookmarksWithURL(url: Url): List<BookmarkItem> {
-        return readQueryCounters.measure {
-            this.conn.bookmarksGetAllWithUrl(url)
-        }
+        return this.conn.bookmarksGetAllWithUrl(url)
     }
 
     override fun getBookmarkUrlForKeyword(keyword: String): Url? {
@@ -257,28 +241,15 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
     }
 
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
-        return readQueryCounters.measure {
-            this.conn.bookmarksSearch(query, limit)
-        }
+        return this.conn.bookmarksSearch(query, limit)
     }
 
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
-        return readQueryCounters.measure {
-            this.conn.bookmarksGetRecent(limit)
-        }
+        return this.conn.bookmarksGetRecent(limit)
     }
 
     override fun countBookmarksInTrees(guids: List<Guid>): UInt {
-        return readQueryCounters.measure {
-            this.conn.bookmarksCountBookmarksInTrees(guids)
-        }
-    }
-
-    private val readQueryCounters: PlacesManagerCounterMetrics by lazy {
-        PlacesManagerCounterMetrics(
-            PlacesManagerMetrics.readQueryCount,
-            PlacesManagerMetrics.readQueryErrorCount,
-        )
+        return this.conn.bookmarksCountBookmarksInTrees(guids)
     }
 }
 
@@ -320,21 +291,15 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
-        return writeQueryCounters.measure {
-            this.conn.applyObservation(data)
-        }
+        this.conn.applyObservation(data)
     }
 
     override fun deleteVisitsFor(url: String) {
-        return writeQueryCounters.measure {
-            this.conn.deleteVisitsFor(url)
-        }
+        return this.conn.deleteVisitsFor(url)
     }
 
     override fun deleteVisit(url: String, visitTimestamp: Long) {
-        return writeQueryCounters.measure {
-            this.conn.deleteVisit(url, visitTimestamp)
-        }
+        return this.conn.deleteVisit(url, visitTimestamp)
     }
 
     override fun deleteVisitsSince(since: Long) {
@@ -342,9 +307,7 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     }
 
     override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
-        return writeQueryCounters.measure {
-            this.conn.deleteVisitsBetween(startTime, endTime)
-        }
+        return this.conn.deleteVisitsBetween(startTime, endTime)
     }
 
     @Suppress("MagicNumber")
@@ -371,21 +334,15 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
     }
 
     override fun deleteEverything() {
-        return writeQueryCounters.measure {
-            this.conn.deleteEverythingHistory()
-        }
+        return this.conn.deleteEverythingHistory()
     }
 
     override fun deleteAllBookmarks() {
-        return writeQueryCounters.measure {
-            this.conn.bookmarksDeleteEverything()
-        }
+        return this.conn.bookmarksDeleteEverything()
     }
 
     override fun deleteBookmarkNode(guid: Guid): Boolean {
-        return writeQueryCounters.measure {
-            this.conn.bookmarksDelete(guid)
-        }
+        return this.conn.bookmarksDelete(guid)
     }
 
     override suspend fun noteHistoryMetadataObservation(
@@ -397,32 +354,24 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         // passing them along here.
         // NB: Even though `MsgTypes.HistoryMetadataObservation` has an optional title field, we ignore it here.
         // That's used by consumers which aren't already using the history observation APIs.
-        return writeQueryCounters.measure {
-            this.conn.noteHistoryMetadataObservation(observation, options)
-        }
+        return this.conn.noteHistoryMetadataObservation(observation, options)
     }
 
     override suspend fun deleteHistoryMetadataOlderThan(olderThan: Long) {
-        return writeQueryCounters.measure {
-            this.conn.metadataDeleteOlderThan(olderThan)
-        }
+        this.conn.metadataDeleteOlderThan(olderThan)
     }
 
     override suspend fun deleteHistoryMetadata(key: HistoryMetadataKey) {
-        return writeQueryCounters.measure {
-            this.conn.metadataDelete(
-                key.url,
-                key.referrerUrl,
-                key.searchTerm,
-            )
-        }
+        this.conn.metadataDelete(
+            key.url,
+            key.referrerUrl,
+            key.searchTerm,
+        )
     }
 
     // Does the shared insert work.
     private fun doInsert(item: InsertableBookmarkItem): Guid {
-        return writeQueryCounters.measure {
-            this.conn.bookmarksInsert(item)
-        }
+        return this.conn.bookmarksInsert(item)
     }
 
     override fun createFolder(parentGUID: Guid, title: String, position: UInt?): Guid {
@@ -466,10 +415,8 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
         } else {
             position
         }
-        return writeQueryCounters.measure {
-            val info = BookmarkUpdateInfo(guid = guid, title = title, url = url, parentGuid = parentGuid, position = p)
-            return this.conn.bookmarksUpdate(info)
-        }
+        val info = BookmarkUpdateInfo(guid = guid, title = title, url = url, parentGuid = parentGuid, position = p)
+        return this.conn.bookmarksUpdate(info)
     }
 
     override fun acceptResult(searchString: String, url: String) {
@@ -484,13 +431,6 @@ class PlacesWriterConnection internal constructor(conn: UniffiPlacesConnection, 
             // So we go through the non-writer connection destructor.
             destroy()
         }
-    }
-
-    private val writeQueryCounters: PlacesManagerCounterMetrics by lazy {
-        PlacesManagerCounterMetrics(
-            PlacesManagerMetrics.writeQueryCount,
-            PlacesManagerMetrics.writeQueryErrorCount,
-        )
     }
 }
 
