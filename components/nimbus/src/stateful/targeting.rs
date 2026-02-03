@@ -7,6 +7,7 @@ use crate::{
     enrollment::ExperimentEnrollment,
     error::{warn, BehaviorError},
     json::JsonObject,
+    metrics::EnrollmentStatusExtraDef,
     stateful::behavior::{EventQueryType, EventStore},
     NimbusError, NimbusTargetingHelper, Result, TargetingAttributes,
 };
@@ -60,7 +61,17 @@ pub trait RecordedContext: Send + Sync {
     /// Records the context object to Glean
     ///
     /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
-    fn record(&self);
+    fn record_context(&self);
+
+    /// Records the enrollment statuses to Glean
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
+
+    /// Submits the ping for context and enrollment statuses to Glean
+    ///
+    /// This method will be implemented in foreign code, i.e: Kotlin, Swift, Python, etc...
+    fn submit(&self);
 }
 
 impl dyn RecordedContext {

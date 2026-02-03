@@ -96,10 +96,7 @@ fn main() -> Result<()> {
     const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 
     use nimbus::{
-        metrics::{
-            EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-            MetricsHandler,
-        },
+        metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler},
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper,
     };
@@ -110,10 +107,6 @@ fn main() -> Result<()> {
     pub struct NoopMetricsHandler;
 
     impl MetricsHandler for NoopMetricsHandler {
-        fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
-            // do nothing
-        }
-
         fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
             // do nothing
         }
