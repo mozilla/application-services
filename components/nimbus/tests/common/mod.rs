@@ -10,18 +10,13 @@ use rkv::StoreOptions;
 
 use nimbus::{
     error::{debug, Result},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
+    metrics::MetricsHandler,
     AppContext, NimbusClient, RemoteSettingsServer,
 };
 
 pub struct NoopMetricsHandler;
 
 impl MetricsHandler for NoopMetricsHandler {
-    #[cfg(feature = "stateful")]
-    fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
-        // do nothing
-    }
-
     #[cfg(not(feature = "stateful"))]
     fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
         // do nothing

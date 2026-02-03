@@ -67,7 +67,9 @@ impl Default for NimbusTargetingHelper {
 #[derive(Default)]
 struct RecordedContextState {
     context: Map<String, Value>,
-    record_calls: u64,
+    record_context_calls: u64,
+    enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
+    submit_calls: u64,
     event_queries: HashMap<String, String>,
     event_query_values: HashMap<String, f64>,
 }
@@ -86,11 +88,26 @@ impl TestRecordedContext {
         }
     }
 
-    pub fn get_record_calls(&self) -> u64 {
+    pub fn get_record_context_calls(&self) -> u64 {
         self.state
             .lock()
             .expect("could not lock state mutex")
-            .record_calls
+            .record_context_calls
+    }
+
+    pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .enrollment_statuses
+            .clone()
+    }
+
+    pub fn get_submit_calls(&self) -> u64 {
+        self.state
+            .lock()
+            .expect("could not lock state mutex")
+            .submit_calls
     }
 
     pub fn set_context(&self, context: Value) {
@@ -141,14 +158,26 @@ impl RecordedContext for TestRecordedContext {
             .insert("events".into(), json!(event_query_values));
     }
 
-    fn record(&self) {
+    fn record_context(&self) {
         let mut state = self.state.lock().expect("could not lock state mutex");
-        state.record_calls += 1;
+        state.record_context_calls += 1;
+    }
+
+    #[cfg(feature = "stateful")]
+    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>) {
+        let mut state = self.state.lock().unwrap();
+        state.enrollment_statuses.extend(enrollment_status_extras);
+    }
+
+    fn submit(&self) {
+        let mut state = self.state.lock().expect("could not lock state mutex");
+        state.submit_calls += 1;
     }
 }
 
 #[derive(Default)]
 struct MetricState {
+    #[cfg(not(feature = "stateful"))]
     enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
     #[cfg(feature = "stateful")]
     activations: Vec<FeatureExposureExtraDef>,
@@ -176,6 +205,7 @@ impl TestMetrics {
         }
     }
 
+    #[cfg(not(feature = "stateful"))]
     pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
         self.state.lock().unwrap().enrollment_statuses.clone()
     }
@@ -191,7 +221,6 @@ impl TestMetrics {
     pub fn clear(&self) {
         let mut state = self.state.lock().unwrap();
         state.activations.clear();
-        state.enrollment_statuses.clear();
         state.malformeds.clear();
     }
 
@@ -205,12 +234,6 @@ impl TestMetrics {
 }
 
 impl MetricsHandler for TestMetrics {
-    #[cfg(feature = "stateful")]
-    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>) {
-        let mut state = self.state.lock().unwrap();
-        state.enrollment_statuses.extend(enrollment_status_extras);
-    }
-
     #[cfg(not(feature = "stateful"))]
     fn record_enrollment_statuses_v2(
         &self,

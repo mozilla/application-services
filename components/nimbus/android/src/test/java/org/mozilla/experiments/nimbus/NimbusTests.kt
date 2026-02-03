@@ -38,6 +38,7 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.GeckoPref
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
@@ -757,7 +758,9 @@ class NimbusTests {
         private val eventQueries: Map<String, String>? = null,
         private var eventQueryValues: Map<String, Double>? = null,
     ) : RecordedContext {
-        var recorded = mutableListOf<JSONObject>()
+        var recordedContext = mutableListOf<JSONObject>()
+        var recordedStatus = mutableListOf<List<EnrollmentStatusExtraDef>>()
+        var submitted = 0
 
         override fun getEventQueries(): Map<String, String> {
             return eventQueries?.toMap() ?: mapOf()
@@ -767,8 +770,16 @@ class NimbusTests {
             this.eventQueryValues = eventQueryValues
         }
 
-        override fun record() {
-            recorded.add(this.toJson())
+        override fun recordContext() {
+            recordedContext.add(this.toJson())
+        }
+
+        override fun recordEnrollmentStatuses(enrollmentStatusExtras: List<EnrollmentStatusExtraDef>) {
+            recordedStatus.add(enrollmentStatusExtras)
+        }
+
+        override fun submit() {
+            submitted++
         }
 
         override fun toJson(): JsonObject {
@@ -793,7 +804,9 @@ class NimbusTests {
             job.join()
         }
 
-        assertEquals(context.recorded.size, 1)
+        assertEquals(context.recordedContext.size, 1)
+        assertEquals(context.recordedStatus.size, 1)
+        assertEquals(context.submitted, 1)
     }
 
     @Test
@@ -816,8 +829,8 @@ class NimbusTests {
             job.join()
         }
 
-        assertEquals(context.recorded.size, 1)
-        assertEquals(context.recorded[0].getJSONObject("events").getDouble("TEST_QUERY"), 1.0, 0.0)
+        assertEquals(context.recordedContext.size, 1)
+        assertEquals(context.recordedContext[0].getJSONObject("events").getDouble("TEST_QUERY"), 1.0, 0.0)
     }
 
     @Test

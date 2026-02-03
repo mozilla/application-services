@@ -1285,7 +1285,24 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let ro_1 = get_bucketed_rollout(slug_3, 10_000);
 
     let metrics = TestMetrics::new();
-    let client = with_metrics(&metrics, "coenrolling-feature")?;
+    let temp_dir = tempfile::tempdir()?;
+    let app_context = AppContext {
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
+        ..Default::default()
+    };
+    let client = NimbusClient::new(
+        app_context.clone(),
+        Some(Arc::new(TestRecordedContext::new())),
+        vec!["coenrolling-feature".to_string()],
+        temp_dir.path(),
+        Box::new(metrics.clone()),
+        None,
+        None,
+        None,
+    )?;
+
     // force the nimbus_id to ensure we end up in the right branch.
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
     client.set_experiments_locally(to_local_experiments_string(&[
@@ -1296,7 +1313,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    let metric_records = client.get_recorded_context().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
     assert_eq!(metric_records[0].slug(), slug_1);
@@ -1325,7 +1342,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    let metric_records = client.get_recorded_context().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
 
     assert_eq!(metric_records[3].slug(), slug_2);
@@ -1363,7 +1380,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     let mut client = NimbusClient::new(
         app_context.clone(),
-        Default::default(),
+        Some(Arc::new(TestRecordedContext::new())),
         Default::default(),
         temp_dir.path(),
         Box::new(metrics.clone()),
@@ -1386,7 +1403,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    let metric_records = client.get_recorded_context().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
 
     Ok(())
@@ -1406,7 +1423,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     let mut client = NimbusClient::new(
         app_context.clone(),
-        Default::default(),
+        Some(Arc::new(TestRecordedContext::new())),
         Default::default(),
         temp_dir.path(),
         Box::new(metrics.clone()),
@@ -1429,7 +1446,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    let metric_records = client.get_recorded_context().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
     Ok(())
 }
@@ -1722,7 +1739,18 @@ fn test_recorded_context_recorded() -> Result<()> {
 
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(
+        client.get_recorded_context().get_record_context_calls(),
+        1u64
+    );
+    assert_eq!(
+        client
+            .get_recorded_context()
+            .get_enrollment_statuses()
+            .len(),
+        1
+    );
+    assert_eq!(client.get_recorded_context().get_submit_calls(), 1u64);
 
     Ok(())
 }
@@ -1780,7 +1808,18 @@ fn test_recorded_context_event_queries() -> Result<()> {
         0.0
     );
     assert_eq!(active_experiments.len(), 1);
-    assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(
+        client.get_recorded_context().get_record_context_calls(),
+        1u64
+    );
+    assert_eq!(
+        client
+            .get_recorded_context()
+            .get_enrollment_statuses()
+            .len(),
+        1
+    );
+    assert_eq!(client.get_recorded_context().get_submit_calls(), 1u64);
 
     Ok(())
 }

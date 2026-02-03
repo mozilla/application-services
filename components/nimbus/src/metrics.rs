@@ -9,9 +9,6 @@ use crate::{enrollment::ExperimentEnrollment, EnrolledFeature, EnrollmentStatus}
 use serde_derive::{Deserialize, Serialize};
 
 pub trait MetricsHandler: Send + Sync {
-    #[cfg(feature = "stateful")]
-    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);
-
     #[cfg(not(feature = "stateful"))]
     fn record_enrollment_statuses_v2(
         &self,

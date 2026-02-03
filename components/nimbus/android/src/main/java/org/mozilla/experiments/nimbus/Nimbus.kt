@@ -34,7 +34,6 @@ import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
-import org.mozilla.experiments.nimbus.internal.EnrollmentStatusExtraDef
 import org.mozilla.experiments.nimbus.internal.FeatureExposureExtraDef
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
 import org.mozilla.experiments.nimbus.internal.GeckoPrefState
@@ -92,21 +91,6 @@ open class Nimbus(
     private val logger = delegate.logger
 
     private val metricsHandler = object : MetricsHandler {
-        override fun recordEnrollmentStatuses(enrollmentStatusExtras: List<EnrollmentStatusExtraDef>) {
-            for (extra in enrollmentStatusExtras) {
-                NimbusEvents.enrollmentStatus.record(
-                    NimbusEvents.EnrollmentStatusExtra(
-                        branch = extra.branch,
-                        slug = extra.slug,
-                        status = extra.status,
-                        reason = extra.reason,
-                        errorString = extra.errorString,
-                        conflictSlug = extra.conflictSlug,
-                    ),
-                )
-            }
-        }
-
         override fun recordFeatureActivation(event: FeatureExposureExtraDef) {
             NimbusEvents.activation.record(
                 NimbusEvents.ActivationExtra(
