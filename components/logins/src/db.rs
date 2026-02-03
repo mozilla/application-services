@@ -316,12 +316,6 @@ impl LoginDb {
             Some(e) => e.decrypt(encdec)?,
             None => return Err(Error::NoSuchRecord(guid.to_owned())),
         };
-        let encrypted_password_bytes = encdec
-            .encrypt(existing.password.as_bytes().into())
-            .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting password)")))?;
-        let encrypted_password = std::str::from_utf8(&encrypted_password_bytes).map_err(|e| {
-            Error::EncryptionFailed(format!("{e} (encrypting password: data not utf8)"))
-        })?;
         let is_potentially_vulnerable_password =
             self.is_potentially_vulnerable_password(guid, encdec)?;
 
@@ -338,6 +332,13 @@ impl LoginDb {
             },
         )?;
         if !is_potentially_vulnerable_password {
+            let encrypted_password_bytes = encdec
+                .encrypt(existing.password.as_bytes().into())
+                .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting password)")))?;
+            let encrypted_password =
+                std::str::from_utf8(&encrypted_password_bytes).map_err(|e| {
+                    Error::EncryptionFailed(format!("{e} (encrypting password: data not utf8)"))
+                })?;
             self.execute_cached(
                 "INSERT INTO breachesL (encryptedPassword) VALUES (:encrypted_password)",
                 named_params! {
@@ -346,6 +347,83 @@ impl LoginDb {
             )?;
         }
         tx.commit()?;
+        Ok(())
+    }
+
+    /// Records passwords in the breachesL table for password reuse detection.
+    ///
+    /// Encrypts and stores passwords, automatically filtering out duplicates.
+    /// Used by `add_many_with_meta()` to populate the breach database during import.
+    pub fn record_potentially_vulnerable_passwords(
+        &self,
+        passwords: Vec<String>,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
+        self.insert_potentially_vulnerable_passwords(passwords, encdec)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn insert_potentially_vulnerable_passwords(
+        &self,
+        passwords: Vec<String>,
+        encdec: &dyn EncryptorDecryptor,
+    ) -> Result<()> {
+        let encrypted_existing_potentially_vulnerable_passwords: Vec<String> = self
+            .db
+            .query_rows_and_then_cached("SELECT encryptedPassword FROM breachesL", [], |row| {
+                row.get(0)
+            })?;
+        let existing_potentially_vulnerable_passwords: Result<Vec<String>> =
+            encrypted_existing_potentially_vulnerable_passwords
+                .iter()
+                .map(|ciphertext| {
+                    let decrypted_bytes =
+                        encdec.decrypt(ciphertext.as_bytes().into()).map_err(|e| {
+                            Error::DecryptionFailed(format!(
+                                "Failed to decrypt password from breachesL: {}",
+                                e
+                            ))
+                        })?;
+
+                    let password = std::str::from_utf8(&decrypted_bytes).map_err(|e| {
+                        Error::DecryptionFailed(format!(
+                            "Decrypted password from breachesL is not valid UTF-8: {}",
+                            e
+                        ))
+                    })?;
+
+                    Ok(password.into())
+                })
+                .collect();
+
+        let existing: std::collections::HashSet<String> =
+            existing_potentially_vulnerable_passwords?
+                .into_iter()
+                .collect();
+        let difference: Vec<_> = passwords
+            .iter()
+            .filter(|item| !existing.contains(item.as_str()))
+            .collect();
+
+        for password in difference {
+            let encrypted_password_bytes = encdec
+                .encrypt(password.as_bytes().into())
+                .map_err(|e| Error::EncryptionFailed(format!("{e} (encrypting password)")))?;
+            let encrypted_password =
+                std::str::from_utf8(&encrypted_password_bytes).map_err(|e| {
+                    Error::EncryptionFailed(format!("{e} (encrypting password: data not utf8)"))
+                })?;
+
+            self.execute_cached(
+                "INSERT INTO breachesL (encryptedPassword) VALUES (:encrypted_password)",
+                named_params! {
+                    ":encrypted_password": encrypted_password,
+                },
+            )?;
+        }
+
         Ok(())
     }
 
@@ -613,6 +691,13 @@ impl LoginDb {
     /// Adds multiple logins **including metadata** within a single transaction and returns the successfully saved logins.
     /// Normally, you will use `add_many` instead, and AS Logins will take care of the metadata (setting timestamps, generating an ID) itself.
     /// However, in some cases, this method is necessary, for example when migrating data from another store that already contains the metadata.
+    ///
+    /// # Breach Password Collection
+    ///
+    /// This method automatically collects passwords from logins with known breaches and records them
+    /// in the breachesL table for password reuse detection. A password is collected if:
+    /// - `time_of_last_breach` is set (login has a known breach)
+    /// - `time_password_changed <= time_of_last_breach` (password hasn't been changed since breach)
     pub fn add_many_with_meta(
         &self,
         entries_with_meta: Vec<LoginEntryWithMeta>,
@@ -620,10 +705,16 @@ impl LoginDb {
     ) -> Result<Vec<Result<EncryptedLogin>>> {
         let tx = self.unchecked_transaction()?;
         let mut results = vec![];
+        let mut potentially_vulnerable_passwords = vec![];
         for entry_with_meta in entries_with_meta {
             let guid = Guid::from_string(entry_with_meta.meta.id.clone());
             match self.fixup_and_check_for_dupes(&guid, entry_with_meta.entry, encdec) {
                 Ok(new_entry) => {
+                    if let Some(time_of_last_breach) = entry_with_meta.meta.time_of_last_breach {
+                        if entry_with_meta.meta.time_password_changed <= time_of_last_breach {
+                            potentially_vulnerable_passwords.push(new_entry.password.clone());
+                        }
+                    }
                     let sec_fields = SecureLoginFields {
                         username: new_entry.username,
                         password: new_entry.password,
@@ -649,7 +740,13 @@ impl LoginDb {
                 Err(error) => results.push(Err(error)),
             }
         }
+
+        if !potentially_vulnerable_passwords.is_empty() {
+            self.insert_potentially_vulnerable_passwords(potentially_vulnerable_passwords, encdec)?;
+        }
+
         tx.commit()?;
+
         Ok(results)
     }
 
@@ -1569,6 +1666,120 @@ mod tests {
             .expect("should get a record");
 
         assert_eq!(fetched.meta, meta);
+    }
+
+    #[test]
+    fn test_add_with_meta_breach_password_collection() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+
+        // Login with breach after password change - should be collected
+        let guid1 = Guid::random();
+        let login1 = LoginEntryWithMeta {
+            entry: LoginEntry {
+                origin: "https://example1.com".into(),
+                http_realm: Some("https://example1.com".into()),
+                username: "user1".into(),
+                password: "breached-password".into(),
+                ..Default::default()
+            },
+            meta: LoginMeta {
+                id: guid1.to_string(),
+                time_created: now_ms,
+                time_password_changed: now_ms + 50,
+                time_last_used: now_ms,
+                times_used: 1,
+                time_of_last_breach: Some(now_ms + 100), // breach after password change
+                time_last_breach_alert_dismissed: None,
+            },
+        };
+
+        // Login with breach before password change - should NOT be collected
+        let guid2 = Guid::random();
+        let login2 = LoginEntryWithMeta {
+            entry: LoginEntry {
+                origin: "https://example2.com".into(),
+                http_realm: Some("https://example2.com".into()),
+                username: "user2".into(),
+                password: "safe-password".into(),
+                ..Default::default()
+            },
+            meta: LoginMeta {
+                id: guid2.to_string(),
+                time_created: now_ms,
+                time_password_changed: now_ms + 200,
+                time_last_used: now_ms,
+                times_used: 1,
+                time_of_last_breach: Some(now_ms + 100), // breach before password change
+                time_last_breach_alert_dismissed: None,
+            },
+        };
+
+        db.add_many_with_meta(vec![login1, login2], &*TEST_ENCDEC)
+            .expect("should add logins");
+
+        // Verify that only breached-password is in breachesL
+        assert!(db
+            .is_potentially_vulnerable_password(guid1.as_ref(), &*TEST_ENCDEC)
+            .unwrap());
+        assert!(!db
+            .is_potentially_vulnerable_password(guid2.as_ref(), &*TEST_ENCDEC)
+            .unwrap());
+    }
+
+    #[test]
+    fn test_record_potentially_vulnerable_passwords() {
+        ensure_initialized();
+        let db = LoginDb::open_in_memory();
+
+        // Initially breachesL should be empty
+        let count: i64 = db
+            .db
+            .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+
+        // Record some passwords
+        db.record_potentially_vulnerable_passwords(
+            vec!["password1".into(), "password2".into(), "password3".into()],
+            &*TEST_ENCDEC,
+        )
+        .unwrap();
+
+        // Verify they were inserted
+        let count: i64 = db
+            .db
+            .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 3);
+
+        // Try to insert duplicates - should be filtered out
+        db.record_potentially_vulnerable_passwords(
+            vec!["password1".into(), "password4".into()],
+            &*TEST_ENCDEC,
+        )
+        .unwrap();
+
+        // Only password4 should have been added
+        let count: i64 = db
+            .db
+            .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 4);
+
+        // Try to insert only duplicates - should be a no-op
+        db.record_potentially_vulnerable_passwords(
+            vec!["password1".into(), "password2".into()],
+            &*TEST_ENCDEC,
+        )
+        .unwrap();
+
+        let count: i64 = db
+            .db
+            .query_row("SELECT COUNT(*) FROM breachesL", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 4);
     }
 
     #[test]

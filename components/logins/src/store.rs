@@ -198,6 +198,12 @@ impl LoginStore {
     }
 
     #[handle_error(Error)]
+    pub fn record_potentially_vulnerable_passwords(&self, passwords: Vec<String>) -> ApiResult<()> {
+        let db = self.lock_db()?;
+        db.record_potentially_vulnerable_passwords(passwords, db.encdec.as_ref())
+    }
+
+    #[handle_error(Error)]
     pub fn record_breach(&self, id: &str, timestamp: i64) -> ApiResult<()> {
         let db = self.lock_db()?;
         db.record_breach(id, timestamp, db.encdec.as_ref())

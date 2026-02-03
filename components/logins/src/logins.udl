@@ -254,6 +254,14 @@ interface LoginStore {
     [Throws=LoginsApiError]
     boolean is_potentially_vulnerable_password([ByRef] string id);
 
+    /// Records a list of potentially vulnerable passwords in the breach database.
+    ///
+    /// This is used to bulk-populate the breachesL table with known breached passwords,
+    /// typically during import operations or when syncing breach data.
+    /// Passwords are encrypted before storage and duplicates are automatically filtered out.
+    [Throws=LoginsApiError]
+    void record_potentially_vulnerable_passwords(sequence<string> passwords);
+
     /// Stores a known breach date for a login.
     /// In Firefox Desktop this is updated once per session from Remote Settings.
     [Throws=LoginsApiError]

@@ -54,6 +54,7 @@
 ### Logins
 - Added `runMaintenance` API to `DatabaseLoginsStorage`
 - Add password reuse detection for breach alerts: Database schema upgraded to version 4 with new `breachesL` table storing encrypted breached passwords. New APIs `are_potentially_vulnerable_passwords()` (batch check) and `is_potentially_vulnerable_password()` (single check) enable cross-domain password reuse detection.
+- Add `record_potentially_vulnerable_passwords()` API for bulk-inserting breached passwords into the breach database. This is used during import operations (`add_many_with_meta()`) to automatically populate the breach database with passwords from logins with known breaches.
 - Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
 
 ### Ads-Client
