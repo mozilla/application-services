@@ -384,9 +384,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
-version = "1.4.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
+checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "bzip2"
@@ -4892,8 +4892,7 @@ checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
 [[package]]
 name = "uniffi"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8c6dec3fc6645f71a16a3fa9ff57991028153bd194ca97f4b55e610c73ce66a"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "camino",
@@ -4921,8 +4920,7 @@ dependencies = [
 [[package]]
 name = "uniffi_bindgen"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ed0150801958d4825da56a41c71f000a457ac3a4613fa9647df78ac4b6b6881"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "askama",
@@ -4947,8 +4945,7 @@ dependencies = [
 [[package]]
 name = "uniffi_build"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78fd9271a4c2e85bd2c266c5a9ede1fac676eb39fd77f636c27eaf67426fd5f"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "camino",
@@ -4958,8 +4955,7 @@ dependencies = [
 [[package]]
 name = "uniffi_core"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0ef62e69762fbb9386dcb6c87cd3dd05d525fa8a3a579a290892e60ddbda47e"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4970,8 +4966,7 @@ dependencies = [
 [[package]]
 name = "uniffi_internal_macros"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98f51ebca0d9a4b2aa6c644d5ede45c56f73906b96403c08a1985e75ccb64a01"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "indexmap 2.5.0",
@@ -4983,8 +4978,7 @@ dependencies = [
 [[package]]
 name = "uniffi_macros"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db9d12529f1223d014fd501e5f29ca0884d15d6ed5ddddd9f506e55350327dc3"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "camino",
  "fs-err",
@@ -5000,8 +4994,7 @@ dependencies = [
 [[package]]
 name = "uniffi_meta"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9df6d413db2827c68588f8149d30d49b71d540d46539e435b23a7f7dbd4d4f86"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "siphasher",
@@ -5012,8 +5005,7 @@ dependencies = [
 [[package]]
 name = "uniffi_pipeline"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a806dddc8208f22efd7e95a5cdf88ed43d0f3271e8f63b47e757a8bbdb43b63a"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "heck",
@@ -5025,8 +5017,7 @@ dependencies = [
 [[package]]
 name = "uniffi_udl"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d1a7339539bf6f6fa3e9b534dece13f778bda2d54b1a6d4e40b4d6090ac26e7"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "anyhow",
  "textwrap",
@@ -5389,8 +5380,7 @@ dependencies = [
 [[package]]
 name = "weedle2"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "998d2c24ec099a87daf9467808859f9d82b61f1d9c9701251aea037f514eae0e"
+source = "git+https://github.com/mozilla/uniffi-rs.git?rev=106e12ae2a0474a1880667ed3a4b050fcf1c6666#106e12ae2a0474a1880667ed3a4b050fcf1c6666"
 dependencies = [
  "nom",
 ]
