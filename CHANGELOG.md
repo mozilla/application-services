@@ -51,6 +51,15 @@
 * Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
 ([#7173](https://github.com/mozilla/application-services/pull/7173))
 
+### Logins
+- Added `runMaintenance` API to `DatabaseLoginsStorage`
+- Add password reuse detection for breach alerts: Database schema upgraded to version 4 with new `breachesL` table storing encrypted breached passwords. New APIs `are_potentially_vulnerable_passwords()` (batch check) and `is_potentially_vulnerable_password()` (single check) enable cross-domain password reuse detection.
+- Add `record_potentially_vulnerable_passwords()` API for bulk-inserting breached passwords into the breach database. This is used during import operations (`add_many_with_meta()`) to automatically populate the breach database with passwords from logins with known breaches.
+- Move breach alert fields (`time_of_last_breach`, `time_last_breach_alert_dismissed`) from `LoginFields` to `LoginMeta` to group internally managed fields that are not directly updateable via the `update()` API.
+
+### Ads-Client
+* Adds new Kotlin `AdsClientTelemetry.kt` wrapper for Glean callbacks.
+
 ### Relay
 
 * Added `X-Relay-Client` header to all Relay API requests with automatic platform detection (`appservices-ios`, `appservices-android`, etc.) to help the backend distinguish mobile vs desktop requests for telemetry.

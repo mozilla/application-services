@@ -49,14 +49,17 @@ dictionary LoginEntry {
     string username;
 };
 
-/// Login data specific to database records.
-/// The add_with_record API inputs this.
+/// Metadata fields managed internally by the library.
+/// These are automatically set on `add()` and updated on operations like `touch()` and `update()`.
+/// Not included in LoginEntry; use `add_with_meta()` when importing records with existing metadata.
 dictionary LoginMeta {
     string id;
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+    i64? time_of_last_breach;
+    i64? time_last_breach_alert_dismissed;
 };
 
 /// A login together with record fields, handed over to the store API; ie a login persisted
@@ -81,6 +84,9 @@ dictionary Login {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+    // breach fields
+    i64? time_of_last_breach;
+    i64? time_last_breach_alert_dismissed;
 
     // login fields
     string origin;
@@ -92,15 +98,6 @@ dictionary Login {
     // secure login fields
     string password;
     string username;
-
-    // breach alert fields
-    /// These fields can be synced from Desktop and are NOT included in LoginEntry,
-    /// so update() will not modify them. Use the dedicated API methods to manipulate:
-    /// record_breach(), reset_all_breaches(), is_potentially_breached(),
-    /// record_breach_alert_dismissal(), record_breach_alert_dismissal_time(),
-    /// and is_breach_alert_dismissed().
-    i64? time_of_last_breach;
-    i64? time_last_breach_alert_dismissed;
 };
 
 /// Metrics tracking deletion of logins that cannot be decrypted, see `delete_undecryptable_records_for_remote_replacement`
@@ -240,6 +237,30 @@ interface LoginStore {
     /// Determines whether a login’s password is potentially breached, based on the breach date and the time of the last password change.
     [Throws=LoginsApiError]
     boolean is_potentially_breached([ByRef] string id);
+
+    /// Checks multiple logins for password reuse in a single batch operation.
+    ///
+    /// Returns the GUIDs of logins whose passwords match any password in the breach database.
+    /// This is more efficient than calling `is_potentially_vulnerable_password()` repeatedly,
+    /// as it decrypts the breach database only once.
+    [Throws=LoginsApiError]
+    sequence<string> are_potentially_vulnerable_passwords(sequence<string> ids);
+
+    /// Checks if a login's password matches any password in the local breach database.
+    ///
+    /// Returns true if this login's password appears in the breachesL table, indicating
+    /// that the same password has been breached on a different domain (password reuse).
+    /// This is independent of whether this specific login has been marked as breached.
+    [Throws=LoginsApiError]
+    boolean is_potentially_vulnerable_password([ByRef] string id);
+
+    /// Records a list of potentially vulnerable passwords in the breach database.
+    ///
+    /// This is used to bulk-populate the breachesL table with known breached passwords,
+    /// typically during import operations or when syncing breach data.
+    /// Passwords are encrypted before storage and duplicates are automatically filtered out.
+    [Throws=LoginsApiError]
+    void record_potentially_vulnerable_passwords(sequence<string> passwords);
 
     /// Stores a known breach date for a login.
     /// In Firefox Desktop this is updated once per session from Remote Settings.

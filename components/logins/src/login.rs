@@ -292,8 +292,6 @@ pub struct LoginFields {
     pub http_realm: Option<String>,
     pub username_field: String,
     pub password_field: String,
-    pub time_of_last_breach: Option<i64>,
-    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 /// LoginEntry fields that are stored encrypted
@@ -347,6 +345,8 @@ pub struct LoginMeta {
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
+    pub time_of_last_breach: Option<i64>,
+    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 /// A login together with meta fields, handed over to the store API; ie a login persisted
@@ -459,6 +459,9 @@ pub struct Login {
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
+    // breach alerts
+    pub time_of_last_breach: Option<i64>,
+    pub time_last_breach_alert_dismissed: Option<i64>,
 
     // login fields
     pub origin: String,
@@ -470,10 +473,6 @@ pub struct Login {
     // secure fields
     pub username: String,
     pub password: String,
-
-    // breach alerts
-    pub time_of_last_breach: Option<i64>,
-    pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
 impl Login {
@@ -484,6 +483,8 @@ impl Login {
             time_password_changed: meta.time_password_changed,
             time_last_used: meta.time_last_used,
             times_used: meta.times_used,
+            time_of_last_breach: meta.time_of_last_breach,
+            time_last_breach_alert_dismissed: meta.time_last_breach_alert_dismissed,
 
             origin: fields.origin,
             form_action_origin: fields.form_action_origin,
@@ -493,9 +494,6 @@ impl Login {
 
             username: sec_fields.username,
             password: sec_fields.password,
-
-            time_of_last_breach: fields.time_last_breach_alert_dismissed,
-            time_last_breach_alert_dismissed: fields.time_last_breach_alert_dismissed,
         }
     }
 
@@ -530,6 +528,8 @@ impl Login {
                 time_password_changed: self.time_password_changed,
                 time_last_used: self.time_last_used,
                 times_used: self.times_used,
+                time_of_last_breach: self.time_of_last_breach,
+                time_last_breach_alert_dismissed: self.time_last_breach_alert_dismissed,
             },
             fields: LoginFields {
                 origin: self.origin,
@@ -537,8 +537,6 @@ impl Login {
                 http_realm: self.http_realm,
                 username_field: self.username_field,
                 password_field: self.password_field,
-                time_of_last_breach: self.time_last_breach_alert_dismissed,
-                time_last_breach_alert_dismissed: self.time_last_breach_alert_dismissed,
             },
             sec_fields,
         })
@@ -586,6 +584,10 @@ impl EncryptedLogin {
 
                 time_password_changed: row.get("timePasswordChanged")?,
                 times_used: row.get("timesUsed")?,
+
+                time_of_last_breach: row.get::<_, Option<i64>>("timeOfLastBreach")?,
+                time_last_breach_alert_dismissed: row
+                    .get::<_, Option<i64>>("timeLastBreachAlertDismissed")?,
             },
             fields: LoginFields {
                 origin: row.get("origin")?,
@@ -595,10 +597,6 @@ impl EncryptedLogin {
 
                 username_field: string_or_default(row, "usernameField")?,
                 password_field: string_or_default(row, "passwordField")?,
-
-                time_of_last_breach: row.get::<_, Option<i64>>("timeOfLastBreach")?,
-                time_last_breach_alert_dismissed: row
-                    .get::<_, Option<i64>>("timeLastBreachAlertDismissed")?,
             },
             sec_fields: row.get("secFields")?,
         };
