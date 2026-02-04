@@ -68,6 +68,9 @@ impl RemoteSettingsService {
     }
 
     /// Sync collections for all active clients
+    ///
+    /// The returned list is the list of collections for which updates were seen
+    /// and then synced.
     #[handle_error(Error)]
     pub fn sync(&self) -> ApiResult<Vec<String>> {
         self.internal.sync()
