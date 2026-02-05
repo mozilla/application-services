@@ -59,7 +59,7 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "2"
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
 url = { version = "2", optional = true }
 viaduct = { path = "../viaduct", optional = true }
 
@@ -68,4 +68,4 @@ error-support = { path = "../support/error", features = ["testing"] }
 nss = { path = "../support/rc_crypto/nss" }
 
 [build-dependencies]
-uniffi = { version = "0.31", features=["build"]}
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666", features=["build"]}

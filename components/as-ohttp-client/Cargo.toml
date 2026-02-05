@@ -10,7 +10,7 @@ exclude = ["/ios"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-uniffi = { version = "0.31" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
 thiserror = "2"
 parking_lot = "0.12"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
@@ -18,4 +18,4 @@ bhttp = "0.7.2"
 ohttp = { version = "0.7.2", default-features = false, features = ["client", "server", "app-svc", "external-sqlite"] }
 
 [build-dependencies]
-uniffi = { version = "0.31", features=["build"]}
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666", features=["build"]}
