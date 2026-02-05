@@ -12,19 +12,19 @@ protobuf = "4.33.2"
 protobuf-plugin = "0.9.6"
 
 # Kotlin
-kotlin = "2.3.0"
+kotlin = "2.3.10"
 coroutines = "1.10.2"
 kotlinx-serialization = "1.10.0"
 
 # Mozilla
-android-components = "146.0.1"
+android-components = "147.0.3"
 glean = "67.0.0"
 rust-android-gradle = "0.9.6"
 
 # AndroidX
 annotation = "1.9.1"
 core = "1.17.0"
-work = "2.11.0"
+work = "2.11.1"
 
 # JNA
 jna = "5.18.1"
@@ -46,7 +46,7 @@ mockito = "5.21.0"
 robolectric = "4.16"
 
 # Miscellaneous Gradle plugins
-gradle-download-task = "5.6.0"
+gradle-download-task = "5.7.0"
 python-envs-plugin = "0.0.31"
 
 [libraries]
