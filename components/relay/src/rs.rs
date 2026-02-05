@@ -298,11 +298,11 @@ impl RelayRemoteSettingsClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer};
+    use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer};
 
     // Helper to create a RemoteSettingsService for testing
     fn create_test_remote_settings_service() -> Arc<RemoteSettingsService> {
-        let config = RemoteSettingsConfig2 {
+        let config = RemoteSettingsConfig {
             server: Some(RemoteSettingsServer::Custom {
                 url: "http://localhost".to_string(),
             }),

@@ -220,7 +220,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 is_preview,
             } => {
                 use remote_settings::{
-                    RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService,
+                    RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService,
                 };
                 let collection_name = if *is_preview {
                     "nimbus-preview".to_string()
@@ -241,7 +241,7 @@ impl TryFrom<&ExperimentListSource> for Value {
                 let server = RemoteSettingsServer::Custom {
                     url: endpoint.clone(),
                 };
-                let config = RemoteSettingsConfig2 {
+                let config = RemoteSettingsConfig {
                     server: Some(server),
                     ..Default::default()
                 };
