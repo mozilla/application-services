@@ -46,14 +46,14 @@ dependencies {
     api project(':sync15')
 
     implementation project(':init_rust_components')
-
+    implementation libs.kotlinx.coroutines
     implementation libs.mozilla.glean
 
     testImplementation project(":syncmanager")
-
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.work.testing
     testImplementation libs.mozilla.glean.forUnitTests
+    testImplementation libs.kotlinx.coroutines.test
 }
 
 ext.configureUniFFIBindgen("logins")
