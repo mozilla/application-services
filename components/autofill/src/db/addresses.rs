@@ -115,6 +115,15 @@ pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress
     Ok(addresses)
 }
 
+pub(crate) fn count_all_addresses(conn: &Connection) -> Result<i64> {
+    let sql = "SELECT COUNT(*)
+        FROM addresses_data";
+
+    let mut stmt = conn.prepare(sql)?;
+    let count: i64 = stmt.query_row([], |row| row.get(0))?;
+    Ok(count)
+}
+
 /// Updates just the "updatable" columns - suitable for exposure as a public
 /// API.
 pub(crate) fn update_address(
@@ -403,6 +412,9 @@ mod tests {
         assert!(!retrieved_addresses.is_empty());
         let expected_number_of_addresses = 2;
         assert_eq!(expected_number_of_addresses, retrieved_addresses.len());
+
+        let address_count = count_all_addresses(&db).expect("Should count all saved addresses");
+        assert_eq!(expected_number_of_addresses, address_count as usize);
 
         let retrieved_address_guids = [
             retrieved_addresses[0].guid.as_str(),

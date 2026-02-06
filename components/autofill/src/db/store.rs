@@ -95,6 +95,12 @@ impl Store {
     }
 
     #[handle_error(Error)]
+    pub fn count_all_credit_cards(&self) -> ApiResult<i64> {
+        let count = credit_cards::count_all_credit_cards(&self.db.lock().unwrap().writer)?;
+        Ok(count)
+    }
+
+    #[handle_error(Error)]
     pub fn update_credit_card(
         &self,
         guid: String,
@@ -134,6 +140,12 @@ impl Store {
             .map(|x| x.into())
             .collect();
         Ok(addresses)
+    }
+
+    #[handle_error(Error)]
+    pub fn count_all_addresses(&self) -> ApiResult<i64> {
+        let count = addresses::count_all_addresses(&self.db.lock().unwrap().writer)?;
+        Ok(count)
     }
 
     #[handle_error(Error)]

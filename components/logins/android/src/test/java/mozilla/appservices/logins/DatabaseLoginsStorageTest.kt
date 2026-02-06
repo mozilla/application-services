@@ -110,6 +110,14 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
+    fun testCount() {
+        val store = getTestStore()
+        val count = store.count()
+        assertEquals(2, count)
+        finishAndClose(store)
+    }
+
+    @Test
     fun testWipeLocal() {
         val test = getTestStore()
         val logins = test.list()

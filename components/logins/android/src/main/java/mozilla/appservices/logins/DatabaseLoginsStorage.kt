@@ -65,6 +65,16 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
         return store.list()
     }
 
+    /**
+     * Counts the amount of logins.
+     *
+     * @return The number of logins.
+     */
+    @Throws(LoginsApiException::class)
+    fun count(): Long {
+        return store.count()
+    }
+
     @Throws(LoginsApiException::class)
     fun hasLoginsByBaseDomain(baseDomain: String): Boolean {
         return store.hasLoginsByBaseDomain(baseDomain)

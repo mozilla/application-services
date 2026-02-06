@@ -22,6 +22,12 @@
   `tracing-logging` feature and were either also using `tracing-reporting` or not handling error
   reporting at all.
 
+### Logins
+* Opened count method on logins for Android. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
+
+### Autofill
+* Added count methods for credit cards and addresses. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
+
 ## ✨ What's New ✨
 
 ### Ads Client
