@@ -30,6 +30,7 @@
 * Reset cache on context ID rotation.
 * Enable staging environment support for all platforms (previously feature-gated)
 * Temporarily disable cache invalidation on click and impression recording (will be re-enabled behind Nimbus experiment)
+* Enable automatic context_id rotation every 3 days
 
 ### Android
 * Upgraded Kotlin compiler from 2.2.21 to 2.3.0 ([#7183](https://github.com/mozilla/application-services/pull/7183))
