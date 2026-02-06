@@ -21,6 +21,9 @@
   We don't believe this should affect any consumers, since they're were already using the
   `tracing-logging` feature and were either also using `tracing-reporting` or not handling error
   reporting at all.
+* Renamed `register_event_sink` to `register_target_event_sink`
+* Added `EventSinkId` and `unregister_target_event_sink` to unregister event sinks.
+  These replace the old unregister functions.
 
 ## ✨ What's New ✨
 
@@ -66,6 +69,9 @@
 
 ### Viaduct
 * Support setting default user-agent headers.
+
+### Error support
+* Added new `register_event_sink` function that can register an event sink for muliple targets at once.
 
 [Full Changelog](In progress)
 
