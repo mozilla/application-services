@@ -2,6 +2,7 @@
 name = "relay"
 version = "0.1.0"
 edition = "2021"
+exclude = ["/android"]
 
 [dependencies]
 error-support = { path = "../support/error" }
