@@ -154,7 +154,8 @@ opt-level = "s"
 debug = true
 lto = "thin"
 
-# We import some git submodules which in turn may depend on appservices crates.
-# We always want to use the local version of our own crates in that case.
-[patch."https://github.com/mozilla/application-services"]
-viaduct = { path = "components/viaduct" }
+[patch.crates-io]
+# uniffi is using an experimental ffi based on 0.31.
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
+uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
