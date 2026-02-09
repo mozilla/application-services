@@ -1983,7 +1983,6 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
         Box::new(metrics),
         Some(Box::new(handler)),
         None,
-        None,
     )?;
     client.set_nimbus_id(&Uuid::from_str("00000000-0000-0000-0000-000000000004")?)?;
     client.initialize()?;
