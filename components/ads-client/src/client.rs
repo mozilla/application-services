@@ -202,7 +202,7 @@ where
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(0)
+        self.context_id_component.request(3)
     }
 
     pub fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
