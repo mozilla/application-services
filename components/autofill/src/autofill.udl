@@ -104,6 +104,9 @@ interface Store {
     sequence<CreditCard> get_all_credit_cards();
 
     [Throws=AutofillApiError]
+    i64 count_all_credit_cards();
+
+    [Throws=AutofillApiError]
     void update_credit_card(string guid, UpdatableCreditCardFields cc);
 
     [Throws=AutofillApiError]
@@ -120,6 +123,9 @@ interface Store {
 
     [Throws=AutofillApiError]
     sequence<Address> get_all_addresses();
+
+    [Throws=AutofillApiError]
+    i64 count_all_addresses();
 
     [Throws=AutofillApiError]
     void update_address(string guid, UpdatableAddressFields a);
