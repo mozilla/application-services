@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use nimbus::error::Result;
+use nimbus::{error::Result, stateful::client::NimbusServerSettings};
 use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
 
 mod common;
@@ -44,8 +44,10 @@ fn test_simple() -> Result<()> {
         tmp_dir.path(),
         Box::new(NoopMetricsHandler),
         None,
-        Some(Arc::new(remote_settings_service)),
-        Some("collection_name".to_string()),
+        Some(NimbusServerSettings {
+            rs_service: Arc::new(remote_settings_service),
+            collection_name: "collection_name".to_string(),
+        }),
     )?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;

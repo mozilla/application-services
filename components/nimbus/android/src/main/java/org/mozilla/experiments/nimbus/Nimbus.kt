@@ -43,6 +43,7 @@ import org.mozilla.experiments.nimbus.internal.MetricsHandler
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.NimbusException
+import org.mozilla.experiments.nimbus.internal.NimbusServerSettings
 import org.mozilla.experiments.nimbus.internal.PrefUnenrollReason
 import org.mozilla.experiments.nimbus.internal.PreviousGeckoPrefState
 import org.mozilla.experiments.nimbus.internal.RecordedContext
@@ -50,18 +51,7 @@ import java.io.File
 import java.io.IOException
 import kotlin.system.measureTimeMillis
 
-private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 const val NIMBUS_DATA_DIR: String = "nimbus_data"
-
-/**
- * This class allows client apps to configure Nimbus to point to your own server.
- * Client app developers should set up their own Nimbus infrastructure, to avoid different
- * organizations running conflicting experiments or hitting servers with extra network traffic.
- */
-class NimbusServerSettings(
-    val remoteSettingsService: RemoteSettingsService?,
-    val collection: String = EXPERIMENT_COLLECTION_NAME,
-)
 
 /**
  * A implementation of the [NimbusInterface] interface backed by the Nimbus SDK.
@@ -174,9 +164,6 @@ open class Nimbus(
         // Build Nimbus AppContext object to pass into initialize
         val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
-        val remoteSettingsService = server?.remoteSettingsService
-        val collectionName = server?.collection
-
         nimbusClient = NimbusClient(
             experimentContext,
             recordedContext,
@@ -184,8 +171,7 @@ open class Nimbus(
             dataDir.path,
             metricsHandler,
             geckoPrefHandler,
-            remoteSettingsService,
-            collectionName,
+            server,
         )
     }
 
