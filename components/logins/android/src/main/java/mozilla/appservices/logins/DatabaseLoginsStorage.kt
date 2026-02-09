@@ -12,9 +12,11 @@ package mozilla.appservices.logins
  * instantiate anything from these classes, and it's on us to fix any bustage
  * on version updates.
  */
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mozilla.telemetry.glean.private.CounterMetricType
 import mozilla.telemetry.glean.private.LabeledMetricType
+import kotlin.coroutines.CoroutineContext
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
@@ -22,7 +24,11 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  * LoginStore.
  */
 
-class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoCloseable {
+class DatabaseLoginsStorage(
+    dbPath: String,
+    keyManager: KeyManager,
+    private val coroutineContext: CoroutineContext = Dispatchers.IO,
+) : AutoCloseable {
     private var store: LoginStore
 
     init {
@@ -31,68 +37,68 @@ class DatabaseLoginsStorage(dbPath: String, keyManager: KeyManager) : AutoClosea
     }
 
     @Throws(LoginsApiException::class)
-    fun reset() {
-        this.store.reset()
+    suspend fun reset(): Unit = withContext(coroutineContext) {
+        store.reset()
     }
 
     @Throws(LoginsApiException::class)
-    fun wipeLocal() {
-        this.store.wipeLocal()
+    suspend fun wipeLocal(): Unit = withContext(coroutineContext) {
+        store.wipeLocal()
     }
 
     @Throws(LoginsApiException::class)
-    fun delete(id: String): Boolean {
-        return store.delete(id)
+    suspend fun delete(id: String): Boolean = withContext(coroutineContext) {
+        store.delete(id)
     }
 
     @Throws(LoginsApiException::class)
-    fun get(id: String): Login? {
-        return store.get(id)
+    suspend fun get(id: String): Login? = withContext(coroutineContext) {
+        store.get(id)
     }
 
     @Throws(LoginsApiException::class)
-    fun touch(id: String) {
+    suspend fun touch(id: String): Unit = withContext(coroutineContext) {
         store.touch(id)
     }
 
     @Throws(LoginsApiException::class)
-    fun isEmpty(): Boolean {
-        return store.isEmpty()
+    suspend fun isEmpty(): Boolean = withContext(coroutineContext) {
+        store.isEmpty()
     }
 
     @Throws(LoginsApiException::class)
-    fun list(): List<Login> {
-        return store.list()
+    suspend fun list(): List<Login> = withContext(coroutineContext) {
+        store.list()
     }
 
     @Throws(LoginsApiException::class)
-    fun hasLoginsByBaseDomain(baseDomain: String): Boolean {
-        return store.hasLoginsByBaseDomain(baseDomain)
+    suspend fun hasLoginsByBaseDomain(baseDomain: String): Boolean = withContext(coroutineContext) {
+        store.hasLoginsByBaseDomain(baseDomain)
     }
 
     @Throws(LoginsApiException::class)
-    fun getByBaseDomain(baseDomain: String): List<Login> {
-        return store.getByBaseDomain(baseDomain)
+    suspend fun getByBaseDomain(baseDomain: String): List<Login> = withContext(coroutineContext) {
+        store.getByBaseDomain(baseDomain)
     }
 
     @Throws(LoginsApiException::class)
-    fun findLoginToUpdate(look: LoginEntry): Login? {
-        return store.findLoginToUpdate(look)
+    suspend fun findLoginToUpdate(look: LoginEntry): Login? = withContext(coroutineContext) {
+        store.findLoginToUpdate(look)
     }
 
     @Throws(LoginsApiException::class)
-    fun add(entry: LoginEntry): Login {
-        return store.add(entry)
+    suspend fun add(entry: LoginEntry): Login = withContext(coroutineContext) {
+        store.add(entry)
     }
 
     @Throws(LoginsApiException::class)
-    fun update(id: String, entry: LoginEntry): Login {
-        return store.update(id, entry)
+    suspend fun update(id: String, entry: LoginEntry): Login = withContext(coroutineContext) {
+        store.update(id, entry)
     }
 
     @Throws(LoginsApiException::class)
-    fun addOrUpdate(entry: LoginEntry): Login {
-        return store.addOrUpdate(entry)
+    suspend fun addOrUpdate(entry: LoginEntry): Login = withContext(coroutineContext) {
+        store.addOrUpdate(entry)
     }
 
     fun registerWithSyncManager() {
