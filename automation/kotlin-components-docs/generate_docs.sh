@@ -31,6 +31,7 @@ echo "Generating Kotlin bindings with uniffi-bindgen..."
 
 cd "$REPO_ROOT"
 
+$CARGO build -p megazord
 $CARGO uniffi-bindgen generate --language kotlin --no-format --out-dir "$KOTLIN_DIR" "target/debug/${DLL_PREFIX}megazord${DLL_SUFFIX}"
 
 # Generate documentation with increased memory

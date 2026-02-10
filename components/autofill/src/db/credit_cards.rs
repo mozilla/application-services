@@ -119,6 +119,15 @@ pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCred
     Ok(credit_cards)
 }
 
+pub(crate) fn count_all_credit_cards(conn: &Connection) -> Result<i64> {
+    let sql = "SELECT COUNT(*)
+        FROM credit_cards_data";
+
+    let mut stmt = conn.prepare(sql)?;
+    let count: i64 = stmt.query_row([], |row| row.get(0))?;
+    Ok(count)
+}
+
 pub fn update_credit_card(
     conn: &Connection,
     guid: &Guid,
@@ -465,6 +474,9 @@ pub(crate) mod tests {
             expected_number_of_credit_cards,
             retrieved_credit_cards.len()
         );
+
+        let credit_card_count = count_all_credit_cards(&db)?;
+        assert_eq!(expected_number_of_credit_cards, credit_card_count as usize);
 
         let retrieved_credit_card_guids = [
             retrieved_credit_cards[0].guid.as_str(),

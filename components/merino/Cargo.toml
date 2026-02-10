@@ -2,6 +2,7 @@
 name = "merino"
 version = "0.1.0"
 edition = "2021"
+exclude = ["/android"]
 
 [dependencies]
 uniffi = { version = "0.31" }

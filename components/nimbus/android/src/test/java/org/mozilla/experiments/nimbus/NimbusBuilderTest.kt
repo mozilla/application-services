@@ -15,6 +15,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mozilla.experiments.nimbus.internal.NimbusServerSettings
 import org.robolectric.RobolectricTestRunner
 import kotlin.random.Random
 
@@ -34,8 +35,8 @@ class NimbusBuilderTest {
         }.build(
             appInfo,
             NimbusServerSettings(
-                remoteSettingsService = RemoteSettingsService(storageDir = "dummy", config = RemoteSettingsConfig2()),
-                collection = "nimbus-preview",
+                rsService = RemoteSettingsService(storageDir = "dummy", config = RemoteSettingsConfig2()),
+                collectionName = "nimbus-preview",
             ),
         ) as DummyNimbus
         assertTrue(n1.usePreviewCollection)
@@ -143,7 +144,7 @@ class DummyNimbus(
     var initialExperiments: Int? = null
 
     val usePreviewCollection: Boolean
-        get() = serverSettings?.collection == "nimbus-preview"
+        get() = serverSettings?.collectionName == "nimbus-preview"
 
     override fun applyLocalExperiments(file: Int): Job {
         initialExperiments = file

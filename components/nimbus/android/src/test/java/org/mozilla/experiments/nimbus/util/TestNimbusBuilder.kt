@@ -11,7 +11,7 @@ import org.mozilla.experiments.nimbus.NimbusAppInfo
 import org.mozilla.experiments.nimbus.NimbusDelegate
 import org.mozilla.experiments.nimbus.NimbusDeviceInfo
 import org.mozilla.experiments.nimbus.NimbusInterface
-import org.mozilla.experiments.nimbus.NimbusServerSettings
+import org.mozilla.experiments.nimbus.internal.NimbusServerSettings
 import org.mozilla.experiments.nimbus.uninitialized
 
 class TestNimbusBuilder(context: Context) : AbstractNimbusBuilder<NimbusInterface>(context) {

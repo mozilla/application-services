@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import mozilla.appservices.remotesettings.RemoteSettingsService
 import org.mozilla.experiments.nimbus.internal.FeatureManifestInterface
 import org.mozilla.experiments.nimbus.internal.GeckoPrefHandler
+import org.mozilla.experiments.nimbus.internal.NimbusServerSettings
 import org.mozilla.experiments.nimbus.internal.RecordedContext
 
 private const val TIME_OUT_LOADING_EXPERIMENT_FROM_DISK_MS = 200L
