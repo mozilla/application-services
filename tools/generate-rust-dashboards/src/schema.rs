@@ -265,6 +265,7 @@ pub struct QueryVariable {
     pub multi: bool,
     pub allow_custom_value: bool,
     pub query: QueryVariableQuery,
+    pub sort: Option<VariableSortOrder>,
     pub hide: VariableHide,
 }
 
@@ -324,6 +325,17 @@ pub enum VariableHide {
 pub enum CustomVariableSelection {
     Single(String),
     Multiple { value: Vec<String> },
+}
+
+pub enum VariableSortOrder {
+    AlphabeticalAscending,
+    AlphabeticalDescending,
+    NumericalAscending,
+    NumericalDescending,
+    AlphabeticalCaseInsensitiveAscending,
+    AlphabeticalCaseInsensitiveDescending,
+    NaturalAscending,
+    NaturalDescending,
 }
 
 impl Default for Dashboard {
@@ -520,6 +532,24 @@ impl Serialize for SortOrder {
         match self {
             Self::Descending => serializer.serialize_str("Descending"),
             Self::Ascending => serializer.serialize_str("Ascending"),
+        }
+    }
+}
+
+impl Serialize for VariableSortOrder {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::AlphabeticalAscending => serializer.serialize_u32(1),
+            Self::AlphabeticalDescending => serializer.serialize_u32(2),
+            Self::NumericalAscending => serializer.serialize_u32(3),
+            Self::NumericalDescending => serializer.serialize_u32(4),
+            Self::AlphabeticalCaseInsensitiveAscending => serializer.serialize_u32(5),
+            Self::AlphabeticalCaseInsensitiveDescending => serializer.serialize_u32(6),
+            Self::NaturalAscending => serializer.serialize_u32(7),
+            Self::NaturalDescending => serializer.serialize_u32(8),
         }
     }
 }
