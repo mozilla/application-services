@@ -205,13 +205,6 @@ where
         self.context_id_component.request(3)
     }
 
-    pub fn cycle_context_id(&mut self) -> context_id::ApiResult<String> {
-        let old_context_id = self.get_context_id()?;
-        self.context_id_component.force_rotation()?;
-        let _ = self.client.clear_cache();
-        Ok(old_context_id)
-    }
-
     pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
         self.client.clear_cache()
     }
@@ -265,21 +258,6 @@ mod tests {
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
         assert!(!context_id.is_empty());
-    }
-
-    #[test]
-    fn test_cycle_context_id() {
-        let config = AdsClientConfig {
-            environment: Environment::Test,
-            cache_config: None,
-            telemetry: MozAdsTelemetryWrapper::noop(),
-        };
-        let mut client = AdsClient::new(config);
-        let old_id = client.get_context_id().unwrap();
-        let previous_id = client.cycle_context_id().unwrap();
-        assert_eq!(previous_id, old_id);
-        let new_id = client.get_context_id().unwrap();
-        assert_ne!(new_id, old_id);
     }
 
     #[test]
