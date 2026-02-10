@@ -23,7 +23,7 @@ name = "nimbus_fml"
 name = "nimbus-fml"
 
 [build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666", features = ["build"], optional = true }
+uniffi = { version = "0.31", features = ["build"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -44,7 +44,7 @@ heck = "0.5"
 icu_segmenter = "2"
 url = { version = "2", features = ["serde"] }
 glob = "0.3.0"
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666", optional = true }
+uniffi = { version = "0.31", optional = true }
 cfg-if = "1.0.0"
 lazy_static = "1.4"
 sha2 = "^0.10"
