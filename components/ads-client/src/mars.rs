@@ -7,7 +7,6 @@ use crate::{
     client::{
         ad_request::AdRequest,
         ad_response::{AdResponse, AdResponseValue},
-        config::Environment,
     },
     error::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
@@ -24,8 +23,7 @@ pub struct MARSClient<T>
 where
     T: Telemetry,
 {
-    endpoint: Url,
-    http_cache: Option<HttpCache>,
+    http_cache: Option<HttpCache<AdRequest>>,
     telemetry: T,
 }
 
@@ -33,11 +31,8 @@ impl<T> MARSClient<T>
 where
     T: Telemetry,
 {
-    pub fn new(environment: Environment, http_cache: Option<HttpCache>, telemetry: T) -> Self {
-        let endpoint = environment.into_mars_url().clone();
-
+    pub fn new(http_cache: Option<HttpCache<AdRequest>>, telemetry: T) -> Self {
         Self {
-            endpoint,
             http_cache,
             telemetry,
         }
@@ -49,29 +44,23 @@ where
         check_http_status_for_error(&response).map_err(Into::into)
     }
 
-    pub fn get_mars_endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
     pub fn fetch_ads<A>(
         &self,
-        ad_request: &AdRequest,
+        ad_request: AdRequest,
         cache_policy: &RequestCachePolicy,
     ) -> Result<(AdResponse<A>, RequestHash), FetchAdsError>
     where
         A: AdResponseValue,
     {
-        let base = self.get_mars_endpoint();
-        let url = base.join("ads")?;
-        let request = Request::post(url).json(ad_request);
-        let request_hash = RequestHash::from(&request);
+        let request_hash = RequestHash::new(&ad_request);
 
         let response: AdResponse<A> = if let Some(cache) = self.http_cache.as_ref() {
-            let outcome = cache.send_with_policy(&request, cache_policy)?;
+            let outcome = cache.send_with_policy(ad_request, cache_policy)?;
             self.telemetry.record(&outcome.cache_outcome);
             check_http_status_for_error(&outcome.response)?;
             AdResponse::<A>::parse(outcome.response.json()?, &self.telemetry)?
         } else {
+            let request: Request = ad_request.into();
             let response = request.send()?;
             check_http_status_for_error(&response)?;
             AdResponse::<A>::parse(response.json()?, &self.telemetry)?
@@ -126,7 +115,7 @@ mod tests {
         let _m = mock("GET", "/impression_callback_url")
             .with_status(200)
             .create();
-        let client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let client = MARSClient::new(None, MozAdsTelemetryWrapper::noop());
         let url = Url::parse(&format!(
             "{}/impression_callback_url",
             &mockito::server_url()
@@ -141,7 +130,7 @@ mod tests {
         viaduct_dev::init_backend_dev();
         let _m = mock("GET", "/click_callback_url").with_status(200).create();
 
-        let client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let client = MARSClient::new(None, MozAdsTelemetryWrapper::noop());
         let url = Url::parse(&format!("{}/click_callback_url", &mockito::server_url())).unwrap();
         let result = client.record_click(url);
         assert!(result.is_ok());
@@ -154,7 +143,7 @@ mod tests {
             .with_status(200)
             .create();
 
-        let client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let client = MARSClient::new(None, MozAdsTelemetryWrapper::noop());
         let url = Url::parse(&format!(
             "{}/report_ad_callback_url",
             &mockito::server_url()
@@ -176,11 +165,11 @@ mod tests {
             .with_body(serde_json::to_string(&expected_response.data).unwrap())
             .create();
 
-        let client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
+        let client = MARSClient::new(None, MozAdsTelemetryWrapper::noop());
 
         let ad_request = make_happy_ad_request();
 
-        let result = client.fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default());
+        let result = client.fetch_ads::<AdImage>(ad_request, &RequestCachePolicy::default());
         assert!(result.is_ok());
         let (response, _request_hash) = result.unwrap();
         assert_eq!(expected_response, response);
@@ -197,29 +186,19 @@ mod tests {
             .expect(1) // only first request goes to network
             .create();
 
-        let client = MARSClient::new(Environment::Test, None, MozAdsTelemetryWrapper::noop());
-        let ad_request = make_happy_ad_request();
+        let client = MARSClient::new(None, MozAdsTelemetryWrapper::noop());
 
         // First call should be a miss then warm the cache
         let (response1, _request_hash1) = client
-            .fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default())
+            .fetch_ads::<AdImage>(make_happy_ad_request(), &RequestCachePolicy::default())
             .unwrap();
         assert_eq!(response1, expected);
 
         // Second call should be a hit
         let (response2, _request_hash2) = client
-            .fetch_ads::<AdImage>(&ad_request, &RequestCachePolicy::default())
+            .fetch_ads::<AdImage>(make_happy_ad_request(), &RequestCachePolicy::default())
             .unwrap();
         assert_eq!(response2, expected);
-    }
-
-    #[test]
-    fn default_client_uses_prod_url() {
-        let client = MARSClient::new(Environment::Prod, None, MozAdsTelemetryWrapper::noop());
-        assert_eq!(
-            client.get_mars_endpoint().as_str(),
-            "https://ads.mozilla.org/v1/"
-        );
     }
 
     #[test]
@@ -231,11 +210,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let client = MARSClient::new(
-            Environment::Test,
-            Some(cache),
-            MozAdsTelemetryWrapper::noop(),
-        );
+        let client = MARSClient::new(Some(cache), MozAdsTelemetryWrapper::noop());
 
         let callback_url = Url::parse(&format!("{}/click", mockito::server_url())).unwrap();
 
@@ -254,11 +229,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let client = MARSClient::new(
-            Environment::Test,
-            Some(cache),
-            MozAdsTelemetryWrapper::noop(),
-        );
+        let client = MARSClient::new(Some(cache), MozAdsTelemetryWrapper::noop());
 
         let callback_url = Url::parse(&format!("{}/impression", mockito::server_url())).unwrap();
 

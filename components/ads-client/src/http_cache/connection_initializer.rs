@@ -10,7 +10,7 @@ pub struct HttpCacheConnectionInitializer {}
 
 impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
     const NAME: &'static str = "http_cache";
-    const END_VERSION: u32 = 1;
+    const END_VERSION: u32 = 2;
 
     fn prepare(&self, conn: &Connection, _db_empty: bool) -> open_database::Result<()> {
         conn.execute_batch("PRAGMA journal_mode=wal;")?;
@@ -24,6 +24,8 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
                 cached_at INTEGER NOT NULL,
                 expires_at INTEGER NOT NULL,
                 request_hash TEXT NOT NULL,
+                request_method TEXT NOT NULL,
+                request_url TEXT NOT NULL,
                 response_body BLOB NOT NULL,
                 response_headers BLOB,
                 response_status INTEGER NOT NULL,
@@ -49,9 +51,13 @@ impl open_database::ConnectionInitializer for HttpCacheConnectionInitializer {
         version: u32,
     ) -> open_database::Result<()> {
         match version {
-            0 => {
-                // Version 0 means we need to create the initial schema
-                self.init(conn)
+            0 => self.init(conn),
+            1 => {
+                conn.execute_batch(
+                    "ALTER TABLE http_cache ADD COLUMN request_method TEXT NOT NULL DEFAULT 'GET';
+                     ALTER TABLE http_cache ADD COLUMN request_url TEXT NOT NULL DEFAULT 'https://unknown';",
+                )?;
+                Ok(())
             }
             _ => Err(open_database::Error::IncompatibleVersion(version)),
         }

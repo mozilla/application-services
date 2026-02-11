@@ -33,13 +33,24 @@ pub enum Environment {
 }
 
 impl Environment {
-    pub fn into_mars_url(self) -> Url {
+    fn base_url(self) -> Url {
         match self {
             Environment::Prod => MARS_API_ENDPOINT_PROD.clone(),
             Environment::Staging => MARS_API_ENDPOINT_STAGING.clone(),
             #[cfg(test)]
             Environment::Test => Url::parse(&mockito::server_url()).unwrap(),
         }
+    }
+
+    pub fn into_url(self, path: &str) -> Url {
+        let mut base = self.base_url();
+        // Ensure the path has a trailing slash so that `join` appends
+        // rather than replacing the last segment.
+        if !base.path().ends_with('/') {
+            base.set_path(&format!("{}/", base.path()));
+        }
+        base.join(path)
+            .expect("joining a path to a valid base URL must succeed")
     }
 }
 
@@ -58,15 +69,12 @@ mod tests {
 
     #[test]
     fn prod_endpoint_parses_and_is_expected() {
-        let url = Environment::Prod.into_mars_url();
+        let url = Environment::Prod.into_url("ads");
 
-        assert_eq!(url.as_str(), "https://ads.mozilla.org/v1/");
+        assert_eq!(url.as_str(), "https://ads.mozilla.org/v1/ads");
 
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.host(), Some(Host::Domain("ads.mozilla.org")));
-        assert_eq!(url.path(), "/v1/");
-
-        let url2 = Environment::Prod.into_mars_url();
-        assert!(url == url2);
+        assert_eq!(url.path(), "/v1/ads");
     }
 }
