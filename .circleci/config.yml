@@ -212,6 +212,7 @@ jobs:
       - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -230,7 +231,7 @@ jobs:
   Rust tests:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: large
+    resource_class: xlarge
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -240,7 +241,7 @@ jobs:
   Rust tests - min supported rust version:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: large
+    resource_class: xlarge
     steps:
       - full-checkout
       - restore-sccache-cache
