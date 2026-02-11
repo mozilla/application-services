@@ -118,12 +118,6 @@ impl MozAdsClient {
         inner.report_ad(url).map_err(ComponentError::ReportAd)
     }
 
-    pub fn cycle_context_id(&self) -> AdsClientApiResult<String> {
-        let mut inner = self.inner.lock();
-        let previous_context_id = inner.cycle_context_id()?;
-        Ok(previous_context_id)
-    }
-
     pub fn clear_cache(&self) -> AdsClientApiResult<()> {
         let inner = self.inner.lock();
         inner

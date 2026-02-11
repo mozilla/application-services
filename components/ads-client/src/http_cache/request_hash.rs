@@ -22,7 +22,22 @@ impl From<&Request> for RequestHash {
             header.value.hash(&mut hasher);
         }
 
-        request.body.hash(&mut hasher);
+        // Strip context_id before hashing — it rotates on client re-instantiation
+        // and should not invalidate cached responses.
+        // NOTE: This couples ads-client domain logic to the cache. When the cache
+        // is extracted into its own module, this should move to the caller side.
+        let body_for_hash = request.body.as_deref().and_then(|bytes| {
+            serde_json::from_slice::<serde_json::Value>(bytes)
+                .ok()
+                .map(|mut value| {
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.remove("context_id");
+                    }
+                    serde_json::to_vec(&value).unwrap_or_else(|_| bytes.to_vec())
+                })
+        });
+        body_for_hash.hash(&mut hasher);
+
         RequestHash(format!("{:x}", hasher.finish()))
     }
 }
@@ -116,6 +131,66 @@ mod tests {
 
         assert_eq!(h_req1.to_string(), h_req2.to_string());
         assert_eq!(h_req1.to_string(), h_req3.to_string());
+    }
+
+    #[test]
+    fn test_context_id_ignored_in_hash() {
+        let url = "https://example.com/ads";
+        let body1 = serde_json::to_vec(&serde_json::json!({
+            "context_id": "aaaa-bbbb-cccc",
+            "placements": [{"placement": "tile_1", "count": 1}]
+        }))
+        .unwrap();
+        let body2 = serde_json::to_vec(&serde_json::json!({
+            "context_id": "dddd-eeee-ffff",
+            "placements": [{"placement": "tile_1", "count": 1}]
+        }))
+        .unwrap();
+
+        let req1 = Request {
+            method: Method::Post,
+            url: url.parse().unwrap(),
+            headers: Headers::new(),
+            body: Some(body1),
+        };
+        let req2 = Request {
+            method: Method::Post,
+            url: url.parse().unwrap(),
+            headers: Headers::new(),
+            body: Some(body2),
+        };
+
+        assert_eq!(RequestHash::from(&req1), RequestHash::from(&req2));
+    }
+
+    #[test]
+    fn test_different_placements_produce_different_hash() {
+        let url = "https://example.com/ads";
+        let body1 = serde_json::to_vec(&serde_json::json!({
+            "context_id": "same-id",
+            "placements": [{"placement": "tile_1", "count": 1}]
+        }))
+        .unwrap();
+        let body2 = serde_json::to_vec(&serde_json::json!({
+            "context_id": "same-id",
+            "placements": [{"placement": "tile_2", "count": 3}]
+        }))
+        .unwrap();
+
+        let req1 = Request {
+            method: Method::Post,
+            url: url.parse().unwrap(),
+            headers: Headers::new(),
+            body: Some(body1),
+        };
+        let req2 = Request {
+            method: Method::Post,
+            url: url.parse().unwrap(),
+            headers: Headers::new(),
+            body: Some(body2),
+        };
+
+        assert_ne!(RequestHash::from(&req1), RequestHash::from(&req2));
     }
 
     #[test]
