@@ -2,72 +2,79 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use parking_lot::RwLock;
-use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, LazyLock};
+use parking_lot::{const_rwlock, RwLock};
+use std::collections::BTreeMap;
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 use tracing::{subscriber::Interest, Metadata};
 use tracing_subscriber::{
     layer::{Context, Filter},
     Layer,
 };
 
-use crate::EventSink;
+use crate::{EventSink, Level};
 use tracing::field::{Field, Visit};
 
-struct LogEntry {
-    level: tracing::Level,
+static SINKS: RwLock<Vec<RegisteredEventSink>> = const_rwlock(Vec::new());
+static EVENT_SINK_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct EventSinkId(u32);
+
+uniffi::custom_type!(EventSinkId, u32, {
+    try_lift: |raw_id| Ok(EventSinkId(raw_id)),
+    lower: |sink_id| sink_id.0,
+});
+
+/// Register an event sink using an [EventSinkSpecification]
+///
+/// Returns an [EventSinkId] that can be used to unregister the sink.
+pub fn register_event_sink(spec: EventSinkSpecification, sink: Arc<dyn EventSink>) -> EventSinkId {
+    let id = EventSinkId(EVENT_SINK_COUNTER.fetch_add(1, Ordering::Relaxed));
+    SINKS.write().push(RegisteredEventSink { id, spec, sink });
+    id
+}
+
+struct RegisteredEventSink {
+    // ID that can be used to unregister this sink
+    id: EventSinkId,
+    spec: EventSinkSpecification,
     sink: Arc<dyn EventSink>,
 }
 
-static SINKS_BY_TARGET: LazyLock<RwLock<HashMap<String, LogEntry>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
-
-static MIN_LEVEL_SINK: RwLock<Option<LogEntry>> = RwLock::new(None);
-
-pub fn register_event_sink(target: &str, level: crate::Level, sink: Arc<dyn EventSink>) {
-    SINKS_BY_TARGET.write().insert(
-        target.to_string(),
-        LogEntry {
-            level: level.into(),
-            sink,
-        },
-    );
+#[derive(uniffi::Record)]
+/// Describes which events to an EventSink
+pub struct EventSinkSpecification {
+    // Send events that match these targets/levels
+    #[uniffi(default)]
+    pub targets: Vec<EventTarget>,
+    // Send events have a `min_level` or above.
+    #[uniffi(default)]
+    pub min_level: Option<Level>,
 }
 
-/// Register an event sink that will receive events based on a minimum level
-///
-/// If an event's level is at least `level`, then the event will be sent to this sink.
-/// If so, sinks registered with `register_event_sink` will still be processed.
-///
-/// There can only be 1 min-level sink registered at once.
-pub fn register_min_level_event_sink(level: crate::Level, sink: Arc<dyn EventSink>) {
-    *MIN_LEVEL_SINK.write() = Some(LogEntry {
-        level: level.into(),
-        sink,
-    });
+#[derive(uniffi::Record, Debug)]
+pub struct EventTarget {
+    pub target: String,
+    pub level: Level,
 }
 
 #[uniffi::export]
-pub fn unregister_event_sink(target: &str) {
-    SINKS_BY_TARGET.write().remove(target);
-}
-
-/// Remove the sink registered with [register_min_level_event_sink], if any.
-#[uniffi::export]
-pub fn unregister_min_level_event_sink() {
-    *MIN_LEVEL_SINK.write() = None;
+pub fn unregister_event_sink(id: EventSinkId) {
+    SINKS.write().retain(|info| info.id != id);
 }
 
 // UniFFI versions of the registration functions.  This input a Box to be compatible with callback
 // interfaces
-#[uniffi::export(name = "register_event_sink")]
-pub fn register_event_sink_box(target: &str, level: crate::Level, sink: Box<dyn EventSink>) {
-    register_event_sink(target, level, sink.into())
-}
 
-#[uniffi::export(name = "register_min_level_event_sink")]
-pub fn register_min_level_event_sink_box(level: crate::Level, sink: Box<dyn EventSink>) {
-    register_min_level_event_sink(level, sink.into())
+#[uniffi::export(name = "register_event_sink")]
+pub fn register_event_sink_box(
+    targets: EventSinkSpecification,
+    sink: Box<dyn EventSink>,
+) -> EventSinkId {
+    register_event_sink(targets, sink.into())
 }
 
 pub fn simple_event_layer<S>() -> impl Layer<S>
@@ -88,41 +95,57 @@ where
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        let target = event.metadata().target();
-        let prefix = match target.find(':') {
-            Some(index) => &target[..index],
-            None => target,
-        };
-        if let Some(entry) = &*MIN_LEVEL_SINK.read() {
-            if entry.level >= *event.metadata().level() {
-                entry.send_event(event);
-            }
+        let sinks = find_sinks_for_event(event);
+        if sinks.is_empty() {
+            // return early to skip the conversion below
+            return;
         }
-
-        if let Some(entry) = SINKS_BY_TARGET.read().get(prefix) {
-            let level = *event.metadata().level();
-            if level <= entry.level {
-                entry.send_event(event);
-            }
-        }
-    }
-}
-
-impl LogEntry {
-    fn send_event(&self, event: &tracing::Event<'_>) {
         let mut fields = BTreeMap::new();
         let mut message = String::default();
         let mut visitor = JsonVisitor(&mut message, &mut fields);
         event.record(&mut visitor);
-        let event = crate::Event {
+        let tracing_event = crate::Event {
             level: (*event.metadata().level()).into(),
             target: event.metadata().target().to_string(),
             name: event.metadata().name().to_string(),
             message,
             fields: serde_json::to_value(&fields).unwrap_or_default(),
         };
-        self.sink.on_event(event);
+        for sink in sinks {
+            sink.on_event(tracing_event.clone());
+        }
     }
+}
+
+/// Find event sinks that match an event.
+fn find_sinks_for_event(event: &tracing::Event<'_>) -> Vec<Arc<dyn EventSink>> {
+    let target = event.metadata().target();
+    let prefix = match target.find(':') {
+        Some(index) => &target[..index],
+        None => target,
+    };
+    let level = Level::from(*event.metadata().level());
+
+    // This requires a iterating through the entire SINKS vec, which could have performance impacts
+    // if we have many sinks registered.  In practice, there should only be a handful of these so
+    // this should be fine.
+    SINKS
+        .read()
+        .iter()
+        .filter_map(|info| {
+            if let Some(min_level) = &info.spec.min_level {
+                if *min_level >= level {
+                    return Some(info.sink.clone());
+                }
+            }
+            for target in info.spec.targets.iter() {
+                if target.target == prefix && target.level >= level {
+                    return Some(info.sink.clone());
+                }
+            }
+            None
+        })
+        .collect()
 }
 
 struct SimpleEventFilter;

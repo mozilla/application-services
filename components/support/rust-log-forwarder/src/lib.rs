@@ -4,6 +4,11 @@
 
 use std::sync::{Arc, Once, OnceLock};
 
+use tracing_support::{
+    register_event_sink, unregister_event_sink, EventSinkId, EventSinkSpecification,
+};
+
+static EVENT_SINK_ID: OnceLock<EventSinkId> = OnceLock::new();
 static MAX_LEVEL: OnceLock<Level> = OnceLock::new();
 static FOREIGN_LOGGER: OnceLock<Box<dyn AppServicesLogger>> = OnceLock::new();
 static GLOBAL_SUBSCRIBER: Once = Once::new();
@@ -73,11 +78,19 @@ pub fn set_logger(logger: Option<Box<dyn AppServicesLogger>>) {
     let sink = Arc::new(ForwarderEventSink {});
     if let Some(logger) = logger {
         // Set up a tracing subscriber for crates which use tracing and forward to the foreign log forwarder.
-        tracing_support::register_min_level_event_sink((*level).into(), sink.clone());
-        // Set the `FOREIGN_LOGGER` global.  If this was called before we just ignore the error.
+        let event_sink_id = register_event_sink(
+            EventSinkSpecification {
+                targets: vec![],
+                min_level: Some((*level).into()),
+            },
+            sink.clone(),
+        );
+        // Set the `FOREIGN_LOGGER` and `EVENT_SINK_ID` globals.
+        // If either was called before we just ignore the error.
         FOREIGN_LOGGER.set(logger).ok();
-    } else {
-        tracing_support::unregister_min_level_event_sink();
+        EVENT_SINK_ID.set(event_sink_id).ok();
+    } else if let Some(event_sink_id) = EVENT_SINK_ID.get() {
+        unregister_event_sink(*event_sink_id);
     }
 }
 

@@ -21,6 +21,10 @@
   We don't believe this should affect any consumers, since they're were already using the
   `tracing-logging` feature and were either also using `tracing-reporting` or not handling error
   reporting at all.
+* Reworked `register_event_sink` signature to allow it to register an event sink for muliple targets at once.
+* Reworked `unregister_event_sink`.  It now inputs the return value from `register_event_sink`.
+* Removed `register_min_level_event_sink` and `unregister_min_level_event_sink`.
+  Use the new `register_event_sink` instead.
 
 ### Logins
 * Opened count method on logins for Android. ([#7207](https://github.com/mozilla/application-services/pull/7207/))
