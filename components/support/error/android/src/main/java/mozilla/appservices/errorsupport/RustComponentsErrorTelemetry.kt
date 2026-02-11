@@ -30,6 +30,19 @@ public object RustComponentsErrorTelemetry {
         Glean.registerPings(Pings)
         registerEventSink("app-services-error-reporter", TracingLevel.DEBUG, ErrorEventSink())
     }
+
+    /**
+     * Submit an error ping.
+     *
+     * This is intended to be used for corner cases where we can't record the error in Rust directly.
+     * For example, `UniffiInternalError` which happens in the generated bindings.
+     */
+    fun submitErrorPing(typeName: String, message: String) {
+        RustComponentErrors.errorType.set(typeName)
+        RustComponentErrors.details.set(message)
+        // Unfortunately, there's no easy way to support breadcrumbs in this case.
+        Pings.rustComponentErrors.submit()
+    }
 }
 
 @Serializable

@@ -74,6 +74,9 @@
 ### Viaduct
 * Support setting default user-agent headers.
 
+### Error support
+* Added the `RustComponentsErrorTelemetry.submitErrorPing` method to allow Android consumers to submit rust components error pings.
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)
