@@ -110,8 +110,6 @@ pub struct DistributionMetric {
     // * Memory distributions are always stored in bytes, regardless of the unit listed in
     //   `metrics.yaml`
     pub value_divisor: Option<u64>,
-    // Filter out values lower than this amount (takes effect before the divisor)
-    pub value_filter: Option<u64>,
     // Link to an extra dashboard, the inner value is the name of the dashboard
     pub link_to: Option<&'static str>,
 }
@@ -142,8 +140,6 @@ pub struct LabeledDistributionMetric {
     // * Memory distributions are always stored in bytes, regardless of the unit listed in
     //   `metrics.yaml`
     pub value_divisor: Option<u64>,
-    // Filter out values lower than this amount (takes effect before the divisor)
-    pub value_filter: Option<u64>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -184,9 +180,9 @@ impl TeamConfig {
 impl Application {
     pub fn slug(&self) -> &'static str {
         match self {
-            Self::Android => "android",
-            Self::Ios => "ios",
-            Self::Desktop => "desktop",
+            Self::Android => "firefox_android",
+            Self::Ios => "firefox_ios",
+            Self::Desktop => "firefox_desktop",
         }
     }
 
