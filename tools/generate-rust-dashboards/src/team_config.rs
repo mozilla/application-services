@@ -28,7 +28,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                 metric: "run_maintenance_time",
                 axis_label: "time (ms)",
                 value_divisor: Some(1_000_000),
-                value_filter: None,
                 applications: vec![Android],
                 link_to: Some("Sync Maintenance Times"),
             }
@@ -44,7 +43,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         metric: "run_maintenance_chk_pnt_time",
                         axis_label: "time (ms)",
                         value_divisor: Some(1_000_000),
-                        value_filter: None,
                         applications: vec![Android],
                         link_to: None,
                     }
@@ -57,7 +55,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         metric: "run_maintenance_optimize_time",
                         axis_label: "time (ms)",
                         value_divisor: Some(1_000_000),
-                        value_filter: None,
                         applications: vec![Android],
                         link_to: None,
                     }
@@ -70,7 +67,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         metric: "run_maintenance_prune_time",
                         axis_label: "time (ms)",
                         value_divisor: Some(1_000_000),
-                        value_filter: None,
                         applications: vec![Android],
                         link_to: None,
                     }
@@ -83,7 +79,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                         metric: "run_maintenance_vacuum_time",
                         axis_label: "time (ms)",
                         value_divisor: Some(1_000_000),
-                        value_filter: None,
                         applications: vec![Android],
                         link_to: None,
                     }
@@ -105,7 +100,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                     metric: "ingest_time",
                     axis_label: "time (ms)",
                     value_divisor: Some(1_000_000),
-                    value_filter: Some(100_000),
                     applications: vec![Desktop],
                 }
                 .into(),
@@ -117,7 +111,6 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                     metric: "ingest_download_time",
                     axis_label: "time (ms)",
                     value_divisor: Some(1_000_000),
-                    value_filter: None,
                     applications: vec![Desktop],
                 }
                 .into(),
@@ -126,10 +119,9 @@ pub fn all_dashboards() -> Vec<TeamConfig> {
                     display_name: "Suggest query time",
                     ping: "metrics",
                     category: "suggest",
-                    metric: "ingest_query_time",
+                    metric: "query_time",
                     axis_label: "time (us)",
                     value_divisor: Some(1_000),
-                    value_filter: None,
                     applications: vec![Desktop],
                 }
                 .into(),
