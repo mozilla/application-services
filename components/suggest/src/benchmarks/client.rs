@@ -38,23 +38,19 @@ impl RemoteSettingsBenchmarkClient {
             },
         );
         let client = service.make_client(collection.name().to_string());
-        let records = client.get_records(true);
-        if let Some(records) = records {
-            for r in &records {
-                if let Some(a) = &r.attachment {
-                    self.attachments
-                        .insert(a.location.clone(), client.get_attachment(r)?);
-                }
+        let records = client.get_records(true).unwrap();
+        for r in &records {
+            if let Some(a) = &r.attachment {
+                self.attachments
+                    .insert(a.location.clone(), client.get_attachment(r)?);
             }
-            self.records.extend(
-                records
-                    .into_iter()
-                    .filter_map(|r| rs::Record::new(r, collection).ok()),
-            );
-            Ok(())
-        } else {
-            Err(Error::MissingRecords)
         }
+        self.records.extend(
+            records
+                .into_iter()
+                .filter_map(|r| rs::Record::new(r, collection).ok()),
+        );
+        Ok(())
     }
 
     pub fn attachment_size_by_record_type(&self) -> Vec<(rs::SuggestRecordType, usize)> {
