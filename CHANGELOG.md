@@ -83,6 +83,11 @@
 ### Error support
 * Added the `RustComponentsErrorTelemetry.submitErrorPing` method to allow Android consumers to submit rust components error pings.
 
+## 🔧 What's Fixed 🔧
+
+### Remote Settings
+* Removed potential deadlock (https://bugzilla.mozilla.org/show_bug.cgi?id=2012955)
+
 [Full Changelog](In progress)
 
 # v148.0 (_2026-01-12_)
