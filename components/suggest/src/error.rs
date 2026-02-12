@@ -26,9 +26,6 @@ pub enum Error {
     #[error("Error from Remote Settings: {0}")]
     RemoteSettings(#[from] RemoteSettingsError),
 
-    #[error("Remote settings has no records for this collection")]
-    MissingRecords,
-
     #[error("Remote settings record is missing an attachment (id: u64)")]
     MissingAttachment(String),
 
