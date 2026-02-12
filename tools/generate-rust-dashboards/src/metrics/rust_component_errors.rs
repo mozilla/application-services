@@ -9,7 +9,7 @@ use crate::{
     schema::{
         Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
         FieldConfigDefaults, GridPos, LogPanel, Panel, QueryVariable, QueryVariableQuery, Target,
-        TimeSeriesPanel, Transformation,
+        TextBoxVariable, TimeSeriesPanel, Transformation,
     },
     sql::Query,
     util::UrlBuilder,
@@ -100,6 +100,11 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
     );
     builder.add_application_variable(config)?;
     builder.add_channel_variable();
+    builder.add_variable(TextBoxVariable {
+        label: "Search details".into(),
+        name: "details".into(),
+        ..TextBoxVariable::default()
+    });
     builder.add_variable(error_type_variable());
     builder.add_filter_sql_variable();
 
@@ -136,6 +141,7 @@ fn error_list_count_panel() -> Panel {
             "error_type='${error_type}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
+            "('${details}' = '' OR details LIKE '%${details}%')".into(),
             "${filter_sql}".into(),
         ],
         from: error_subquery().as_subquery(),
@@ -177,6 +183,7 @@ fn error_list_log_panel() -> Panel {
             "error_type='${error_type}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
+            "('${details}' = '' OR details LIKE '%${details}%')".into(),
             "${filter_sql}".into(),
         ],
         from: error_subquery().as_subquery(),
