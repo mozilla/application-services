@@ -6,8 +6,8 @@ use crate::{
     config::{Application, ReleaseChannel, TeamConfig},
     schema::{
         CustomVariable, Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig,
-        FieldConfigCustom, FieldConfigDefaults, GridPos, LogPanel, Panel, PieChartPanel, Target,
-        TimeSeriesPanel, Transformation,
+        FieldConfigCustom, FieldConfigDefaults, GridPos, LogOptions, LogPanel, Panel,
+        PieChartPanel, Target, TimeSeriesPanel, Transformation,
     },
     sql::Query,
     util::{Join, UrlBuilder},
@@ -43,7 +43,6 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
             .join(","),
         ..CustomVariable::default()
     });
-    builder.add_filter_sql_variable();
 
     builder.add_panel_full(error_list_count_panel(config));
     builder.add_panel_full(error_list_log_panel(config));
@@ -226,6 +225,10 @@ fn error_list_log_panel(config: &TeamConfig) -> Panel {
         grid_pos: GridPos::height(20),
         datasource: Datasource::bigquery(),
         targets: vec![Target::table(query.sql())],
+        options: LogOptions {
+            enable_log_details: false,
+            ..LogOptions::default()
+        },
         ..LogPanel::default()
     }
     .into()
