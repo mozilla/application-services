@@ -63,6 +63,7 @@
 ([#7163](https://github.com/mozilla/application-services/pull/7163))
 * Fixed nimbus-cli eval-jexl command to work reliably on Android by removing logcat filters, clearing logs before evaluation, and increasing retry timing for better device compatibility.
 ([#7173](https://github.com/mozilla/application-services/pull/7173))
+* Added `recordEventOrThrow()` method to Nimbus Android SDK, allowing callers to catch database errors when recording events. Unlike `recordEvent()`, this method does not suppress exceptions, enabling error handling in consumers like Fenix.
 
 ### Logins
 - Added `runMaintenance` API to `DatabaseLoginsStorage`
