@@ -4,27 +4,20 @@
 */
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use crate::client::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-use crate::client::config::AdsClientConfig;
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
-use crate::http_cache::{HttpCache, RequestCachePolicy};
+use crate::http_cache::{HttpCacheError, RequestCachePolicy};
 use crate::mars::MARSClient;
 use crate::telemetry::Telemetry;
 use ad_request::{AdPlacementRequest, AdRequest};
-use context_id::{ContextIDComponent, DefaultContextIdCallback};
+use context_id::ContextIDComponent;
 use url::Url;
-use uuid::Uuid;
-
-use crate::http_cache::{ByteSize, HttpCacheError};
 
 pub mod ad_request;
 pub mod ad_response;
+pub mod builder;
 pub mod config;
-
-const DEFAULT_TTL_SECONDS: u64 = 300;
-const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
 
 pub struct AdsClient<T>
 where
@@ -39,57 +32,17 @@ impl<T> AdsClient<T>
 where
     T: Clone + Telemetry,
 {
-    pub fn new(client_config: AdsClientConfig<T>) -> Self {
-        let context_id = Uuid::new_v4().to_string();
-        let context_id_component = ContextIDComponent::new(
-            &context_id,
-            0,
-            cfg!(test),
-            Box::new(DefaultContextIdCallback),
-        );
-        let telemetry = client_config.telemetry;
-
-        // Configure the cache if a path is provided.
-        // Defaults for ttl and cache size are also set if unspecified.
-        if let Some(cache_cfg) = client_config.cache_config {
-            let default_cache_ttl = Duration::from_secs(
-                cache_cfg
-                    .default_cache_ttl_seconds
-                    .unwrap_or(DEFAULT_TTL_SECONDS),
-            );
-            let max_cache_size =
-                ByteSize::mib(cache_cfg.max_size_mib.unwrap_or(DEFAULT_MAX_CACHE_SIZE_MIB));
-
-            let http_cache = match HttpCache::builder(cache_cfg.db_path)
-                .max_size(max_cache_size)
-                .default_ttl(default_cache_ttl)
-                .build()
-            {
-                Ok(cache) => Some(cache),
-                Err(e) => {
-                    telemetry.record(&e);
-                    None
-                }
-            };
-
-            let client = MARSClient::new(client_config.environment, http_cache, telemetry.clone());
-            let client = Self {
-                context_id_component,
-                client,
-                telemetry: telemetry.clone(),
-            };
-            telemetry.record(&ClientOperationEvent::New);
-            return client;
-        }
-
-        let client = MARSClient::new(client_config.environment, None, telemetry.clone());
-        let client = Self {
-            context_id_component,
-            client,
-            telemetry: telemetry.clone(),
-        };
+    pub fn new(
+        client: MARSClient<T>,
+        context_id_component: ContextIDComponent,
+        telemetry: T,
+    ) -> Self {
         telemetry.record(&ClientOperationEvent::New);
-        client
+        Self {
+            client,
+            context_id_component,
+            telemetry,
+        }
     }
 
     fn request_ads<A>(
@@ -221,6 +174,8 @@ pub enum ClientOperationEvent {
 
 #[cfg(test)]
 mod tests {
+    use context_id::DefaultContextIdCallback;
+
     use crate::{
         client::config::Environment,
         ffi::telemetry::MozAdsTelemetryWrapper,
@@ -241,21 +196,20 @@ mod tests {
             false,
             Box::new(DefaultContextIdCallback),
         );
-        AdsClient {
-            context_id_component,
-            client,
-            telemetry: MozAdsTelemetryWrapper::noop(),
-        }
+        AdsClient::new(client, context_id_component, MozAdsTelemetryWrapper::noop())
     }
 
     #[test]
     fn test_get_context_id() {
-        let config = AdsClientConfig {
-            environment: Environment::Test,
-            cache_config: None,
-            telemetry: MozAdsTelemetryWrapper::noop(),
-        };
-        let client = AdsClient::new(config);
+        let telemetry = MozAdsTelemetryWrapper::noop();
+        let mars_client = MARSClient::new(Environment::Test, None, telemetry.clone());
+        let context_id_component = ContextIDComponent::new(
+            &uuid::Uuid::new_v4().to_string(),
+            0,
+            false,
+            Box::new(DefaultContextIdCallback),
+        );
+        let client = AdsClient::new(mars_client, context_id_component, telemetry);
         let context_id = client.get_context_id().unwrap();
         assert!(!context_id.is_empty());
     }
@@ -329,6 +283,8 @@ mod tests {
     #[test]
     #[ignore = "Cache invalidation temporarily disabled - will be re-enabled behind Nimbus experiment"]
     fn test_record_click_invalidates_cache() {
+        use crate::http_cache::HttpCache;
+
         viaduct_dev::init_backend_dev();
         let cache = HttpCache::builder("test_record_click_invalidates_cache")
             .build()

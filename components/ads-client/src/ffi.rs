@@ -11,13 +11,13 @@ use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABConten
 use crate::client::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
-use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
-use crate::client::AdsClient;
+use crate::client::builder::AdsClientBuilder;
+use crate::client::config::Environment;
 use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
 use crate::MozAdsClient;
-use error_support::{ErrorHandling, GetErrorHandling};
+use error_support::{handle_error, ErrorHandling, GetErrorHandling};
 use parking_lot::Mutex;
 use url::Url;
 
@@ -96,6 +96,7 @@ pub struct MozAdsClientBuilder(Mutex<MozAdsClientBuilderInner>);
 
 #[derive(Default)]
 struct MozAdsClientBuilderInner {
+    data_dir: Option<String>,
     environment: Option<MozAdsEnvironment>,
     cache_config: Option<MozAdsCacheConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
@@ -114,6 +115,11 @@ impl MozAdsClientBuilder {
         Self::default()
     }
 
+    pub fn data_dir(self: Arc<Self>, data_dir: String) -> Arc<Self> {
+        self.0.lock().data_dir = Some(data_dir);
+        self
+    }
+
     pub fn environment(self: Arc<Self>, environment: MozAdsEnvironment) -> Arc<Self> {
         self.0.lock().environment = Some(environment);
         self
@@ -129,21 +135,42 @@ impl MozAdsClientBuilder {
         self
     }
 
-    pub fn build(&self) -> MozAdsClient {
+    #[handle_error(ComponentError)]
+    pub fn try_build(&self) -> AdsClientApiResult<MozAdsClient> {
         let inner = self.0.lock();
-        let client_config = AdsClientConfig {
-            environment: inner.environment.unwrap_or_default().into(),
-            cache_config: inner.cache_config.clone().map(Into::into),
-            telemetry: inner
-                .telemetry
-                .clone()
-                .map(MozAdsTelemetryWrapper::new)
-                .unwrap_or_else(MozAdsTelemetryWrapper::noop),
-        };
-        let client = AdsClient::new(client_config);
-        MozAdsClient {
-            inner: Mutex::new(client),
+        let telemetry = inner
+            .telemetry
+            .clone()
+            .map(MozAdsTelemetryWrapper::new)
+            .unwrap_or_else(MozAdsTelemetryWrapper::noop);
+
+        let mut builder = AdsClientBuilder::new(telemetry)
+            .environment(inner.environment.unwrap_or_default().into());
+
+        if let Some(ref dir) = inner.data_dir {
+            builder = builder.data_dir(dir.clone());
         }
+        if let Some(ref cfg) = inner.cache_config {
+            builder = builder.legacy_cache_db_path(cfg.db_path.clone());
+            if let Some(ttl) = cfg.default_cache_ttl_seconds {
+                builder = builder.cache_ttl_seconds(ttl);
+            }
+            if let Some(size) = cfg.max_size_mib {
+                builder = builder.cache_max_size_mib(size);
+            }
+        }
+
+        let client = builder.build()?;
+        Ok(MozAdsClient {
+            inner: Mutex::new(client),
+        })
+    }
+
+    /// Deprecated: Use `try_build()` instead, which returns a Result with
+    /// proper error handling.
+    pub fn build(&self) -> MozAdsClient {
+        self.try_build()
+            .expect("AdsClient build failed. Use try_build() for proper error handling.")
     }
 }
 
@@ -415,16 +442,6 @@ impl From<MozAdsRequestOptions> for RequestCachePolicy {
 impl From<Option<MozAdsRequestOptions>> for RequestCachePolicy {
     fn from(options: Option<MozAdsRequestOptions>) -> Self {
         options.map(Into::into).unwrap_or_default()
-    }
-}
-
-impl From<MozAdsCacheConfig> for AdsCacheConfig {
-    fn from(config: MozAdsCacheConfig) -> Self {
-        Self {
-            db_path: config.db_path,
-            default_cache_ttl_seconds: config.default_cache_ttl_seconds,
-            max_size_mib: config.max_size_mib,
-        }
     }
 }
 
