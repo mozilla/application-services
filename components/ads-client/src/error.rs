@@ -8,6 +8,9 @@ use viaduct::Response;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
+    #[error("Error building ads client: {0}")]
+    Build(#[from] BuildError),
+
     #[error("Error requesting ads: {0}")]
     RequestAds(#[from] RequestAdsError),
 
@@ -19,6 +22,17 @@ pub enum ComponentError {
 
     #[error("Error reporting an ad: {0}")]
     ReportAd(#[from] ReportAdError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BuildError {
+    #[error(
+        "Could not resolve a data directory. Provide a data_dir or cache_config with db_path."
+    )]
+    NoDataDir,
+
+    #[error("Failed to create data directory at {path}: {reason}")]
+    CreateDataDir { path: String, reason: String },
 }
 
 #[derive(Debug, thiserror::Error)]
