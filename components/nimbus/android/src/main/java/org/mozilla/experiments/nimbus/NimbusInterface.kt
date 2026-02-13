@@ -291,6 +291,11 @@ interface NimbusEventStore {
     fun recordEventSync(count: Long = 1, eventId: String) = Unit
 
     /**
+     * Records an event, returning a Job that allows the caller to catch any errors.
+     */
+    fun recordEventOrThrow(count: Long = 1, eventId: String) = Job()
+
+    /**
      * Records an event as if it were emitted in the past.
      *
      * This method is only likely useful during testing, and so is by design synchronous.
