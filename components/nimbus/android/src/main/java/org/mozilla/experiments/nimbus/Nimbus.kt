@@ -487,7 +487,7 @@ open class Nimbus(
     override fun recordEventOrThrow(count: Long, eventId: String): CompletableJob =
         dbScope.launch {
             nimbusClient.recordEvent(eventId, count)
-        }
+        } as CompletableJob
 
     override fun recordEventSync(count: Long, eventId: String) =
         nimbusClient.recordEvent(eventId, count)
