@@ -2,7 +2,7 @@
 
 UniFFI supports [interface objects](https://mozilla.github.io/uniffi-rs/udl/interfaces.htm), which are implemented by Boxing a Rust object and sending the raw pointer to the foreign code.  Once the objects are no longer in use, the foreign code needs to destroy the object and free the underlying resources.
 
-This is slightly tricky on Kotlin.  [The prevailing Java wisdom is to use explicit destructors and avoid using finalizers for destruction](https://www.informit.com/articles/article.aspx?p=1216151&seqNum=7), which means we can't simply rely on the garbage collector to free the pointer.  The wisdom seems simple to follow, but in practice it can be difficult to know how to apply it to specific situations.  This document examines provides guidelines for handling UniFFI objects.
+This is slightly tricky on Kotlin.  [The prevailing Java wisdom is to use explicit destructors and avoid using finalizers for destruction](https://web.archive.org/web/20230211201050/https://www.informit.com/articles/article.aspx?p=1216151&seqNum=7), which means we can't simply rely on the garbage collector to free the pointer.  The wisdom seems simple to follow, but in practice it can be difficult to know how to apply it to specific situations.  This document examines provides guidelines for handling UniFFI objects.
 
 ## You can create objects in a function if you also destroy them there
 
