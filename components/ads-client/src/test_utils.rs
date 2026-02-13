@@ -38,9 +38,10 @@ pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {
 }
 
 pub fn make_happy_ad_request() -> AdRequest {
-    AdRequest {
-        context_id: TEST_CONTEXT_ID.to_string(),
-        placements: vec![
+    let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
+    AdRequest::try_new(
+        TEST_CONTEXT_ID.to_string(),
+        vec![
             AdPlacementRequest {
                 placement: "example_placement_1".to_string(),
                 count: 1,
@@ -52,7 +53,9 @@ pub fn make_happy_ad_request() -> AdRequest {
                 content: None,
             },
         ],
-    }
+        url,
+    )
+    .unwrap()
 }
 
 pub fn get_example_happy_image_response() -> AdResponse<AdImage> {

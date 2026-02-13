@@ -4,8 +4,11 @@
 */
 
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
+use url::Url;
+use viaduct::Request;
 
 use crate::error::BuildRequestError;
 
@@ -13,18 +16,39 @@ use crate::error::BuildRequestError;
 pub struct AdRequest {
     pub context_id: String,
     pub placements: Vec<AdPlacementRequest>,
+    /// Skipped to exclude from the request body
+    #[serde(skip)]
+    pub url: Url,
+}
+
+/// Hash implementation intentionally excludes `context_id` as it rotates
+/// on client re-instantiation and should not invalidate cached responses.
+impl Hash for AdRequest {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.url.as_str().hash(state);
+        self.placements.hash(state);
+    }
+}
+
+impl From<AdRequest> for Request {
+    fn from(ad_request: AdRequest) -> Self {
+        let url = ad_request.url.clone();
+        Request::post(url).json(&ad_request)
+    }
 }
 
 impl AdRequest {
-    pub fn build(
+    pub fn try_new(
         context_id: String,
         placements: Vec<AdPlacementRequest>,
+        url: Url,
     ) -> Result<Self, BuildRequestError> {
         if placements.is_empty() {
             return Err(BuildRequestError::EmptyConfig);
         };
 
         let mut request = AdRequest {
+            url,
             placements: vec![],
             context_id,
         };
@@ -56,20 +80,20 @@ impl AdRequest {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, Hash, PartialEq, Serialize)]
 pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
     pub content: Option<AdContentCategory>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
 pub struct AdContentCategory {
     pub taxonomy: IABContentTaxonomy,
     pub categories: Vec<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Hash, PartialEq, Serialize)]
 pub enum IABContentTaxonomy {
     #[serde(rename = "IAB-1.0")]
     IAB1_0,
@@ -142,7 +166,8 @@ mod tests {
 
     #[test]
     fn test_build_ad_request_happy() {
-        let request = AdRequest::build(
+        let url: Url = "https://example.com/ads".parse().unwrap();
+        let request = AdRequest::try_new(
             TEST_CONTEXT_ID.to_string(),
             vec![
                 AdPlacementRequest {
@@ -162,10 +187,12 @@ mod tests {
                     }),
                 },
             ],
+            url.clone(),
         )
         .unwrap();
 
         let expected_request = AdRequest {
+            url,
             context_id: TEST_CONTEXT_ID.to_string(),
             placements: vec![
                 AdPlacementRequest {
@@ -192,7 +219,8 @@ mod tests {
 
     #[test]
     fn test_build_ad_request_fails_on_duplicate_placement_id() {
-        let request = AdRequest::build(
+        let url: Url = "https://example.com/ads".parse().unwrap();
+        let request = AdRequest::try_new(
             TEST_CONTEXT_ID.to_string(),
             vec![
                 AdPlacementRequest {
@@ -212,13 +240,68 @@ mod tests {
                     }),
                 },
             ],
+            url,
         );
         assert!(request.is_err());
     }
 
     #[test]
     fn test_build_ad_request_fails_on_empty_request() {
-        let request = AdRequest::build(TEST_CONTEXT_ID.to_string(), vec![]);
+        let url: Url = "https://example.com/ads".parse().unwrap();
+        let request = AdRequest::try_new(TEST_CONTEXT_ID.to_string(), vec![], url);
         assert!(request.is_err());
+    }
+
+    #[test]
+    fn test_context_id_ignored_in_hash() {
+        use crate::http_cache::RequestHash;
+
+        let url: Url = "https://example.com/ads".parse().unwrap();
+        let make_placements = || {
+            vec![AdPlacementRequest {
+                placement: "tile_1".to_string(),
+                count: 1,
+                content: None,
+            }]
+        };
+
+        let context_id_a = "aaaa-bbbb-cccc".to_string();
+        let context_id_b = "dddd-eeee-ffff".to_string();
+
+        let req1 = AdRequest::try_new(context_id_a, make_placements(), url.clone()).unwrap();
+        let req2 = AdRequest::try_new(context_id_b, make_placements(), url).unwrap();
+
+        assert_eq!(RequestHash::new(&req1), RequestHash::new(&req2));
+    }
+
+    #[test]
+    fn test_different_placements_produce_different_hash() {
+        use crate::http_cache::RequestHash;
+
+        let url: Url = "https://example.com/ads".parse().unwrap();
+
+        let req1 = AdRequest::try_new(
+            "same-id".to_string(),
+            vec![AdPlacementRequest {
+                placement: "tile_1".to_string(),
+                count: 1,
+                content: None,
+            }],
+            url.clone(),
+        )
+        .unwrap();
+
+        let req2 = AdRequest::try_new(
+            "same-id".to_string(),
+            vec![AdPlacementRequest {
+                placement: "tile_2".to_string(),
+                count: 3,
+                content: None,
+            }],
+            url,
+        )
+        .unwrap();
+
+        assert_ne!(RequestHash::new(&req1), RequestHash::new(&req2));
     }
 }
