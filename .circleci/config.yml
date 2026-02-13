@@ -212,6 +212,7 @@ jobs:
       - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
