@@ -70,6 +70,10 @@ mod detail {
 
     #[uniffi::trait_interface]
     pub trait MetricsHandler: Send + Sync {
+        fn record_database_load(&self, event: DatabaseLoadExtraDef);
+
+        fn record_database_migration(&self, event: DatabaseMigrationExtraDef);
+
         fn record_enrollment_statuses(
             &self,
             enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
@@ -101,8 +105,8 @@ mod detail {
         }
     }
 
-    #[derive(Clone, Default)]
-    #[cfg_attr(test, derive(Debug, Eq, PartialEq))]
+    #[derive(Default)]
+    #[cfg_attr(test, derive(Clone, Debug, Eq, PartialEq))]
     pub struct MalformedFeatureConfigExtraDef {
         pub slug: Option<String>,
         pub branch: Option<String>,
@@ -127,6 +131,24 @@ mod detail {
                 ..Default::default()
             }
         }
+    }
+
+    #[derive(Default)]
+    #[cfg_attr(test, derive(Clone, Debug, Eq, PartialEq))]
+    pub struct DatabaseLoadExtraDef {
+        pub corrupt: Option<bool>,
+        pub error: Option<String>,
+        pub initial_version: Option<u16>,
+        pub migrated_version: Option<u16>,
+        pub migration_error: Option<String>,
+    }
+
+    #[cfg_attr(test, derive(Clone, Debug, Eq, PartialEq))]
+    pub struct DatabaseMigrationExtraDef {
+        pub reason: String,
+        pub from_version: u16,
+        pub to_version: u16,
+        pub error: Option<String>,
     }
 }
 

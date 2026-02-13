@@ -9,6 +9,7 @@ use crate::Experiment;
 use crate::error::Result;
 use crate::stateful::persistence::Database;
 use crate::stateful::updating::*;
+use crate::tests::helpers::TestMetrics;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
@@ -16,7 +17,7 @@ use crate::stateful::updating::*;
 #[test]
 fn test_reading_writing_and_removing_experiments() -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
 
     error_support::init_for_tests();

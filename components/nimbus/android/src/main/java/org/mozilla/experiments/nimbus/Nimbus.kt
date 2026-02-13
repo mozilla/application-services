@@ -32,6 +32,8 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
 import org.mozilla.experiments.nimbus.GleanMetrics.Pings
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
+import org.mozilla.experiments.nimbus.internal.DatabaseLoadExtraDef
+import org.mozilla.experiments.nimbus.internal.DatabaseMigrationExtraDef
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
@@ -83,6 +85,27 @@ open class Nimbus(
     private val logger = delegate.logger
 
     private val metricsHandler = object : MetricsHandler {
+        override fun recordDatabaseLoad(event: DatabaseLoadExtraDef) {
+            NimbusEvents.databaseLoad.record(
+                NimbusEvents.DatabaseLoadExtra(
+                    corrupt = event.corrupt,
+                    initialVersion = event.initialVersion?.toInt(),
+                    error = event.error,
+                    migratedVersion = event.migratedVersion?.toInt(),
+                    migrationError = event.migrationError,
+                ),
+            )
+        }
+        override fun recordDatabaseMigration(event: DatabaseMigrationExtraDef) {
+            NimbusEvents.databaseMigration.record(
+                NimbusEvents.DatabaseMigrationExtra(
+                    reason = event.reason,
+                    fromVersion = event.fromVersion.toInt(),
+                    toVersion = event.toVersion.toInt(),
+                    error = event.error,
+                ),
+            )
+        }
         override fun recordEnrollmentStatuses(enrollmentStatusExtras: List<EnrollmentStatusExtraDef>) {
             for (extra in enrollmentStatusExtras) {
                 NimbusEvents.enrollmentStatus.record(

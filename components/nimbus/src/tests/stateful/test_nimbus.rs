@@ -691,7 +691,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
 fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
 
-    let db = Database::new(temp_dir.path())?;
+    let db = Database::new(temp_dir.path(), TestMetrics::new())?;
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
         data: IntervalData {
             bucket_count: 3,
@@ -811,7 +811,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
 fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
 
-    let db = Database::new(temp_dir.path())?;
+    let db = Database::new(temp_dir.path(), TestMetrics::new())?;
     let counter = MultiIntervalCounter::new(vec![SingleIntervalCounter {
         data: IntervalData {
             bucket_count: 5,

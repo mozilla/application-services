@@ -708,13 +708,15 @@ pub(crate) fn get_experiment_with_published_date(
 mod detail {
     use super::TestMetrics;
     use crate::metrics::{
-        EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-        MetricsHandler,
+        DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+        FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
     };
 
     #[derive(Clone, Default)]
     pub struct MetricState {
         pub activations: Vec<FeatureExposureExtraDef>,
+        pub database_load_events: Vec<DatabaseLoadExtraDef>,
+        pub database_migration_events: Vec<DatabaseMigrationExtraDef>,
         pub enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
         pub exposures: Vec<FeatureExposureExtraDef>,
         pub malformeds: Vec<MalformedFeatureConfigExtraDef>,
@@ -722,6 +724,14 @@ mod detail {
     }
 
     impl TestMetrics {
+        pub fn get_database_load_events(&self) -> Vec<DatabaseLoadExtraDef> {
+            self.state.lock().unwrap().database_load_events.clone()
+        }
+
+        pub fn get_database_migration_events(&self) -> Vec<DatabaseMigrationExtraDef> {
+            self.state.lock().unwrap().database_migration_events.clone()
+        }
+
         pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {
             self.state.lock().unwrap().activations.clone()
         }
@@ -740,6 +750,16 @@ mod detail {
     }
 
     impl MetricsHandler for TestMetrics {
+        fn record_database_load(&self, event: DatabaseLoadExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.database_load_events.push(event);
+        }
+
+        fn record_database_migration(&self, event: DatabaseMigrationExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.database_migration_events.push(event);
+        }
+
         fn record_enrollment_statuses(
             &self,
             enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,

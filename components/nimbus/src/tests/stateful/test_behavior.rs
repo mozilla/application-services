@@ -14,6 +14,7 @@ use crate::stateful::behavior::{
     SingleIntervalCounter,
 };
 use crate::stateful::persistence::Database;
+use crate::tests::helpers::TestMetrics;
 
 #[cfg(test)]
 mod interval_tests {
@@ -834,7 +835,7 @@ mod event_store_tests {
         ]);
 
         let tmp_dir = tempfile::tempdir()?;
-        let db = Database::new(&tmp_dir)?;
+        let db = Database::new(&tmp_dir, TestMetrics::new())?;
 
         store.record_event(1, "event-1", Some(Utc::now() + Duration::days(2)))?;
         store.persist_data(&db)?;

@@ -1,5 +1,10 @@
 # v150.0 (In progress)
 
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus
+* The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
+
 [Full Changelog](In progress)
 
 # v149.0 (_2026-02-23_)
