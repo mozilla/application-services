@@ -20,7 +20,7 @@ use std::{
 use tempfile::TempDir;
 
 use crate::{SuggestIngestionConstraints, SuggestStore};
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsService};
 
 use std::sync::Arc;
 
@@ -88,7 +88,7 @@ fn new_store() -> SuggestStore {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join(unique_db_filename());
         let remote_settings_dir = temp_dir.path().join(unique_remote_settings_dir());
-        let rs_config = RemoteSettingsConfig2 {
+        let rs_config = RemoteSettingsConfig {
             bucket_name: None,
             server: None,
             app_context: Some(RemoteSettingsContext::default()),
@@ -106,7 +106,7 @@ fn new_store() -> SuggestStore {
     });
 
     let db_path = starter_dir.path().join(unique_db_filename());
-    let rs_config = RemoteSettingsConfig2 {
+    let rs_config = RemoteSettingsConfig {
         bucket_name: None,
         server: None,
         app_context: Some(RemoteSettingsContext::default()),

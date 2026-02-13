@@ -16,6 +16,10 @@
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
 * Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
 
+### Remote-Settings
+ * Removed old remote-settings client code that is no longer used.
+ * Started renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, leaving an alias for the prior struct
+
 ### Error support
 * Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
   We don't believe this should affect any consumers, since they're were already using the
