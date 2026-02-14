@@ -9,7 +9,6 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.AnyThread
 import androidx.annotation.RawRes
-import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.Job
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
