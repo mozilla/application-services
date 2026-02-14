@@ -294,7 +294,7 @@ interface NimbusEventStore {
     /**
      * Records an event, returning a Job that allows the caller to catch any errors.
      */
-    fun recordEventOrThrow(count: Long = 1, eventId: String): CompletableJob = Job()
+    fun recordEventOrThrow(count: Long = 1, eventId: String): Job = Job()
 
     /**
      * Records an event as if it were emitted in the past.
