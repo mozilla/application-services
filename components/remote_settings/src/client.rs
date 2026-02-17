@@ -174,6 +174,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             "a06dc3fd-4bdb-41f3-2ebc-4cbed06a9bd3",
             "a2c7d4e9-f770-51e1-0963-3c2c8401631d",
             "a83f24e4-602c-47bd-930c-ad0947ee1adf",
+            "b50c3e3d-7bd0-4118-856f-19b26b21d01f",
             "b64f09fd-52d1-c48e-af23-4ce918e7bf3b",
             "b882b24d-1776-4ef9-9016-0bdbd935eda3",
             "b8ca5a94-8fff-27ad-6e00-96e244a32e21",
