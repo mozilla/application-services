@@ -249,6 +249,7 @@ nimbus_events:
     bugs:
       - https://mozilla-hub.atlassian.net/browse/EXP-3827
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1996105
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1996120
     data_reviews:
       - https://github.com/mozilla/application-services/pull/5857#issuecomment-1749722071
     data_sensitivity:
@@ -258,6 +259,8 @@ nimbus_events:
       - project-nimbus@mozilla.com
     expires: never
     disabled: true
+    send_in_pings:
+      - nimbus-targeting-context
   is_ready:
     type: event
     description: >

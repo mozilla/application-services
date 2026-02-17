@@ -19,6 +19,7 @@ import mozilla.telemetry.glean.Glean
 import mozilla.telemetry.glean.config.Configuration
 import mozilla.telemetry.glean.net.HttpStatus
 import mozilla.telemetry.glean.net.PingUploader
+import mozilla.telemetry.glean.private.RecordedEvent
 import mozilla.telemetry.glean.testing.GleanTestRule
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -36,6 +37,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
+import org.mozilla.experiments.nimbus.GleanMetrics.Pings
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.GeckoPref
@@ -723,17 +725,21 @@ class NimbusTests {
             return testExperimentsJsonString(appInfo, packageName)
         }
 
+        var enrollmentStatusEvents: List<RecordedEvent>? = null
+        val gleanJob = Pings.nimbusTargetingContext.testBeforeNextSubmit {
+            enrollmentStatusEvents = NimbusEvents.enrollmentStatus.testGetValue()
+        }
+
         val job = nimbus.applyLocalExperiments(::getString)
         runBlocking {
             job.join()
+            gleanJob.join()
         }
 
         assertEquals(1, nimbus.getAvailableExperiments().size)
-        assertNotNull("Event must have a value", NimbusEvents.enrollmentStatus.testGetValue())
-        val enrollmentStatusEvents = NimbusEvents.enrollmentStatus.testGetValue()!!
-        assertEquals("Event count must match", enrollmentStatusEvents.count(), 1)
+        assertEquals("Event count must match", 1, enrollmentStatusEvents?.size)
 
-        val enrolledExtra = enrollmentStatusEvents[0].extra!!
+        val enrolledExtra = enrollmentStatusEvents!!.single().extra!!
         assertEquals("branch must match", "test-branch", enrolledExtra["branch"])
         assertEquals("slug must match", "test-experiment", enrolledExtra["slug"])
         assertEquals("status must match", "Enrolled", enrolledExtra["status"])

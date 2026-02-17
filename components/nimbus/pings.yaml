@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+---
+$schema: moz://mozilla.org/schemas/glean/pings/2-0-0
+
+nimbus-targeting-context:
+  description: |
+    This ping is submitted by Nimbus each time the enrollment workflow has completed.
+  include_client_id: true
+  send_if_empty: true
+  bugs:
+    - https://mozilla-hub.atlassian.net/browse/EXP-6084
+  data_reviews:
+    - https://github.com/mozilla/application-services/pull/7225
+  notification_emails:
+    - beth@mozilla.com
+    - dthorn@mozilla.com
+    - project-nimbus@mozilla.com

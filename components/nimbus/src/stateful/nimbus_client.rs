@@ -229,7 +229,6 @@ impl NimbusClient {
             &coenrolling_ids,
             self.gecko_prefs.clone(),
         )?;
-        self.record_enrollment_status_telemetry(state)?;
         Ok(())
     }
 
@@ -288,7 +287,9 @@ impl NimbusClient {
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
         Ok(events)
     }
 
@@ -304,7 +305,9 @@ impl NimbusClient {
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
         Ok(events)
     }
 
@@ -475,6 +478,7 @@ impl NimbusClient {
         let mut state = self.mutable_state.lock().unwrap();
         self.begin_initialize(db, &mut writer, &mut state)?;
 
+        let should_record_enrollment_status = pending_updates.is_some();
         let res = match pending_updates {
             Some(new_experiments) => {
                 self.update_ta_active_experiments(db, &writer, &mut state)?;
@@ -485,7 +489,11 @@ impl NimbusClient {
         };
 
         // Finish up any cleanup, e.g. copying from database in to memory.
-        self.end_initialize(db, writer, &mut state)?;
+        let end_init_res = self.end_initialize(db, writer, &mut state);
+        if should_record_enrollment_status {
+            self.record_enrollment_status_telemetry(&mut state)?;
+        }
+        end_init_res?;
         Ok(res)
     }
 
@@ -1013,6 +1021,7 @@ impl NimbusClient {
                 })
                 .collect(),
         );
+        self.metrics_handler.submit_targeting_context();
         Ok(())
     }
 }

@@ -29,6 +29,7 @@ import mozilla.telemetry.glean.Glean
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusHealth
+import org.mozilla.experiments.nimbus.GleanMetrics.Pings
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
@@ -136,6 +137,10 @@ open class Nimbus(
                     partId = event.part,
                 ),
             )
+        }
+
+        override fun submitTargetingContext() {
+            Pings.nimbusTargetingContext.submit()
         }
     }
 
