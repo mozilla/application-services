@@ -92,6 +92,8 @@ callback interface MetricsHandler {
     void record_feature_exposure(FeatureExposureExtraDef event);
 
     void record_malformed_feature_config(MalformedFeatureConfigExtraDef event);
+
+    void submit_targeting_context();
 };
 
 dictionary EnrollmentStatusExtraDef {

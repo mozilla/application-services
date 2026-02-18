@@ -42,6 +42,11 @@ impl MetricsHandler for NoopMetricsHandler {
     fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
         // do nothing
     }
+
+    #[cfg(feature = "stateful")]
+    fn submit_targeting_context(&self) {
+        // do nothing
+    }
 }
 
 #[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379

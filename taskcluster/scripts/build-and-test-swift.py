@@ -101,12 +101,19 @@ def generate_glean_metrics(args):
     )
     out_dir = args.out_dir / "all" / "Generated" / "Metrics"
     focus_out_dir = args.out_dir / "focus" / "Generated" / "Metrics"
-    focus_glean_files = map(str, [ROOT_DIR / "components/nimbus/metrics.yaml"])
+    focus_glean_files = map(
+        str,
+        [
+            ROOT_DIR / "components/nimbus/metrics.yaml",
+            ROOT_DIR / "components/nimbus/pings.yaml",
+        ]
+    )
     firefox_glean_files = map(
         str,
         [
             ROOT_DIR / "components/ads-client/metrics.yaml",
             ROOT_DIR / "components/nimbus/metrics.yaml",
+            ROOT_DIR / "components/nimbus/pings.yaml",
             ROOT_DIR / "components/logins/metrics.yaml",
             ROOT_DIR / "components/sync_manager/metrics.yaml",
             ROOT_DIR / "components/sync_manager/pings.yaml",

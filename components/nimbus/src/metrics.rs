@@ -27,6 +27,9 @@ pub trait MetricsHandler: Send + Sync {
 
     #[cfg(feature = "stateful")]
     fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef);
+
+    #[cfg(feature = "stateful")]
+    fn submit_targeting_context(&self);
 }
 
 #[derive(Serialize, Deserialize, Clone)]

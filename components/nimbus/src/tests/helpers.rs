@@ -156,6 +156,8 @@ struct MetricState {
     exposures: Vec<FeatureExposureExtraDef>,
     #[cfg(feature = "stateful")]
     malformeds: Vec<MalformedFeatureConfigExtraDef>,
+    #[cfg(feature = "stateful")]
+    submit_targeting_context_calls: u64,
     #[cfg(not(feature = "stateful"))]
     nimbus_user_id: Option<String>,
 }
@@ -202,6 +204,10 @@ impl TestMetrics {
     pub fn get_malformeds(&self) -> Vec<MalformedFeatureConfigExtraDef> {
         self.state.lock().unwrap().malformeds.clone()
     }
+
+    pub fn get_submit_targeting_context_calls(&self) -> u64 {
+        self.state.lock().unwrap().submit_targeting_context_calls
+    }
 }
 
 impl MetricsHandler for TestMetrics {
@@ -238,6 +244,12 @@ impl MetricsHandler for TestMetrics {
     fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
         let mut state = self.state.lock().unwrap();
         state.malformeds.push(event);
+    }
+
+    #[cfg(feature = "stateful")]
+    fn submit_targeting_context(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.submit_targeting_context_calls += 1;
     }
 }
 

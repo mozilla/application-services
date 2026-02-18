@@ -1273,6 +1273,13 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     client.apply_pending_experiments()?;
 
+    assert_eq!(
+        client
+            .get_metrics_handler()
+            .get_submit_targeting_context_calls(),
+        1u64
+    );
+
     let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
@@ -1301,6 +1308,13 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
         exp_4,
     ])?)?;
     client.apply_pending_experiments()?;
+
+    assert_eq!(
+        client
+            .get_metrics_handler()
+            .get_submit_targeting_context_calls(),
+        2u64
+    );
 
     let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
@@ -1362,6 +1376,12 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     client.apply_pending_experiments()?;
 
+    assert_eq!(
+        client
+            .get_metrics_handler()
+            .get_submit_targeting_context_calls(),
+        1u64
+    );
     let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
 
@@ -1404,6 +1424,12 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     client.apply_pending_experiments()?;
 
+    assert_eq!(
+        client
+            .get_metrics_handler()
+            .get_submit_targeting_context_calls(),
+        1u64
+    );
     let metric_records = client.get_metrics_handler().get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
     Ok(())
@@ -1695,6 +1721,12 @@ fn test_recorded_context_recorded() -> Result<()> {
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
     assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(
+        client
+            .get_metrics_handler()
+            .get_submit_targeting_context_calls(),
+        1u64
+    );
 
     Ok(())
 }

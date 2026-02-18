@@ -128,6 +128,10 @@ fn main() -> Result<()> {
         fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
             // do nothing
         }
+
+        fn submit_targeting_context(&self) {
+            // do nothing
+        }
     }
 
     // We set the logging level to be `warn` here, meaning that only
