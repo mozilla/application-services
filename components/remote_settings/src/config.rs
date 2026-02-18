@@ -27,9 +27,6 @@ pub struct RemoteSettingsConfig {
     pub app_context: Option<RemoteSettingsContext>,
 }
 
-// temporary alias for compatability
-pub type RemoteSettingsConfig2 = RemoteSettingsConfig;
-
 /// The Remote Settings server that the client should use.
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum RemoteSettingsServer {

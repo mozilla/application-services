@@ -18,7 +18,7 @@
 
 ### Remote-Settings
  * Removed old remote-settings client code that is no longer used.
- * Started renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, leaving an alias for the prior struct
+ * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
 
 ### Error support
 * Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
