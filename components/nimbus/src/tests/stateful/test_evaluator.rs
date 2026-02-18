@@ -388,13 +388,7 @@ fn test_targeting_is_already_enrolled() {
         custom_targeting_attributes: None,
         ..Default::default()
     };
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "stateful")] {
-            let mut targeting_attributes = TargetingAttributes::from(ac);
-        } else {
-            let mut targeting_attributes = TargetingAttributes::new(ac, Default::default());
-        }
-    }
+    let mut targeting_attributes = TargetingAttributes::from(ac);
     targeting_attributes.is_already_enrolled = true;
 
     // The targeting should pass!

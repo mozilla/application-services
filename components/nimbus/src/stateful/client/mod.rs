@@ -5,14 +5,16 @@
 mod fs_client;
 pub(crate) mod http_client;
 pub(crate) mod null_client;
+
 use std::sync::Arc;
+
+use remote_settings::RemoteSettingsService;
+use url::Url;
 
 use crate::Experiment;
 use crate::error::{NimbusError, Result};
-use fs_client::FileSystemClient;
-use null_client::NullClient;
-use remote_settings::RemoteSettingsService;
-use url::Url;
+use crate::stateful::client::fs_client::FileSystemClient;
+use crate::stateful::client::null_client::NullClient;
 
 pub struct NimbusServerSettings {
     pub rs_service: Arc<RemoteSettingsService>,

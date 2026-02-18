@@ -2,16 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::stateful::gecko_prefs::GeckoPrefStore;
-use crate::{
-    NimbusError, NimbusTargetingHelper, Result, TargetingAttributes,
-    enrollment::ExperimentEnrollment,
-    error::{BehaviorError, warn},
-    json::JsonObject,
-    stateful::behavior::{EventQueryType, EventStore},
-};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use crate::enrollment::ExperimentEnrollment;
+use crate::error::{BehaviorError, warn};
+use crate::json::JsonObject;
+use crate::stateful::behavior::{EventQueryType, EventStore};
+use crate::stateful::gecko_prefs::GeckoPrefStore;
+use crate::{NimbusError, NimbusTargetingHelper, Result, TargetingAttributes};
 
 impl NimbusTargetingHelper {
     pub(crate) fn with_targeting_attributes(

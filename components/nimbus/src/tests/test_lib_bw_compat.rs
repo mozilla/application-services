@@ -3,6 +3,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{Branch, Experiment, FeatureConfig};
+
 /// A suite of tests for b/w compat of data storage schema.
 ///
 /// We use the `Serialize/`Deserialize` impls on various structs in order to persist them

@@ -2,20 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    EnrolledExperiment, Experiment,
-    enrollment::{
-        EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment, map_features_by_feature_id,
-    },
-    error::{NimbusError, Result, warn},
-    stateful::{
-        enrollment::get_enrollments,
-        gecko_prefs::GeckoPrefStore,
-        persistence::{Database, StoreId, Writer},
-    },
-};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
+
+use crate::enrollment::{
+    EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment, map_features_by_feature_id,
+};
+use crate::error::{NimbusError, Result, warn};
+use crate::stateful::enrollment::get_enrollments;
+use crate::stateful::gecko_prefs::GeckoPrefStore;
+use crate::stateful::persistence::{Database, StoreId, Writer};
+use crate::{EnrolledExperiment, Experiment};
 
 // This module manages an in-memory cache of the database, so that some
 // functions exposed by nimbus can return results without blocking on any
