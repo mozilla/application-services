@@ -41,8 +41,7 @@ CREATE TEMP TABLE applyNewLocalStructureOps(
     mergedGuid TEXT PRIMARY KEY,
     mergedParentGuid TEXT NOT NULL,
     position INTEGER NOT NULL,
-    level INTEGER NOT NULL,
-    lastModified INTEGER NOT NULL -- In milliseconds.
+    level INTEGER NOT NULL
 ) WITHOUT ROWID;
 
 -- Stores locally changed items staged for upload.

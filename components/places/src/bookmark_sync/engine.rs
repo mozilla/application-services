@@ -163,7 +163,7 @@ fn update_local_items_in_places(
                  SELECT n.mergedGuid, b.id, v.id,
                         v.guid, n.level, n.remoteType,
                         b.dateAdded, v.dateAdded,
-                        MAX(v.dateAdded, {now}), b.title, v.title,
+                        v.serverModified, b.title, v.title,
                         b.fk, v.placeId,
                         v.keyword
                  FROM ops n
@@ -178,7 +178,6 @@ fn update_local_items_in_places(
                         op.level
                     )
                 }),
-                now = now,
             );
 
             // We can't avoid allocating here, since we're binding four
@@ -264,13 +263,12 @@ fn update_local_items_in_places(
         |chunk, _| -> Result<()> {
             let sql = format!(
                 "INSERT INTO applyNewLocalStructureOps(
-                     mergedGuid, mergedParentGuid, position, level,
-                     lastModified
+                     mergedGuid, mergedParentGuid, position, level
                  )
                  VALUES {}",
                 sql_support::repeat_display(chunk.len(), ",", |index, f| {
                     let op = &chunk[index];
-                    write!(f, "(?, ?, {}, {}, {})", op.position, op.level, now)
+                    write!(f, "(?, ?, {}, {})", op.position, op.level)
                 }),
             );
 
@@ -3933,6 +3931,110 @@ mod tests {
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(0));
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_incoming_timestamps() -> anyhow::Result<()> {
+        let api = new_mem_api();
+        let reader = api.open_connection(ConnectionType::ReadOnly)?;
+
+        // The timestamp of each record on the server. We expect this to be our "last modified".
+        let remote_modified = ServerTimestamp::from_millis(1770000000000);
+
+        let records = vec![
+            json!({
+                "id": "toolbar",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "toolbar",
+                "children": ["folderAAAAAA"],
+            }),
+            json!({
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "toolbar",
+                "parentName": "toolbar",
+                "dateAdded": 0,
+                "title": "A",
+                "children": ["bookmarkBBBB"],
+            }),
+            json!({
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "folderAAAAAA",
+                "parentName": "A",
+                "dateAdded": 0,
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+            }),
+        ];
+
+        let engine = create_sync_engine(&api);
+
+        let incoming = records
+            .clone()
+            .into_iter()
+            .map(|json| IncomingBso::from_test_content_ts(json, remote_modified))
+            .collect();
+
+        engine_apply_incoming(&engine, incoming);
+
+        // This was the first creation of the bookmark, the lastModified should be the server timestamp.
+        let bm = get_raw_bookmark(&reader, &SyncGuid::new("bookmarkBBBB"))
+            .expect("must work")
+            .expect("must exist");
+
+        assert_eq!(
+            bm.date_modified.as_millis_i64(),
+            remote_modified.as_millis()
+        );
+
+        // Now reset the engine and do it again.
+        engine.reset(&EngineSyncAssociation::Disconnected)?;
+
+        let incoming = records
+            .into_iter()
+            .map(|json| IncomingBso::from_test_content_ts(json, remote_modified))
+            .collect();
+
+        // applying the same again should not adjust date_modified.
+        engine_apply_incoming(&engine, incoming);
+        let bm = get_raw_bookmark(&reader, &SyncGuid::new("bookmarkBBBB"))
+            .expect("must work")
+            .expect("must exist");
+
+        assert_eq!(
+            bm.date_modified.as_millis_i64(),
+            remote_modified.as_millis()
+        );
+
+        // applying a change to the bookmark should update it.
+        let new_records = vec![json!({
+            "id": "bookmarkBBBB",
+            "type": "bookmark",
+            "parentid": "folderAAAAAA",
+            "parentName": "A",
+            "dateAdded": 0,
+            "title": "A",
+            "bmkUri": "http://example.com/a",
+        })];
+        let new_remote_modified = ServerTimestamp::from_millis(1780000000000);
+        let new_incoming = new_records
+            .into_iter()
+            .map(|json| IncomingBso::from_test_content_ts(json, new_remote_modified))
+            .collect();
+        engine_apply_incoming(&engine, new_incoming);
+        let bm = get_raw_bookmark(&reader, &SyncGuid::new("bookmarkBBBB"))
+            .expect("must work")
+            .expect("must exist");
+
+        assert_eq!(
+            bm.date_modified.as_millis_i64(),
+            new_remote_modified.as_millis()
+        );
         Ok(())
     }
 
