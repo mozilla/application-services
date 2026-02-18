@@ -5,9 +5,9 @@
 //! This module implements the primitive functions to implement
 //! safe updating from the server.
 
+use crate::Experiment;
 use crate::error::Result;
 use crate::stateful::persistence::{Database, StoreId, Writer};
-use crate::Experiment;
 
 const KEY_PENDING_UPDATES: &str = "pending-experiment-updates";
 

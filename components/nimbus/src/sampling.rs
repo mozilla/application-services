@@ -105,7 +105,7 @@ pub(crate) fn truncated_hash<T: serde::Serialize>(data: T) -> Result<[u8; 6]> {
             return Err(NimbusError::JSONError(
                 "data_str = nimbus::sampling::truncated_hash::serde_json::to_string".into(),
                 e.to_string(),
-            ))
+            ));
         }
     };
     hasher.update(data_str.as_bytes());

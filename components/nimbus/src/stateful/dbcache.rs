@@ -3,16 +3,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    EnrolledExperiment, Experiment,
     enrollment::{
-        map_features_by_feature_id, EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment,
+        EnrolledFeature, EnrolledFeatureConfig, ExperimentEnrollment, map_features_by_feature_id,
     },
-    error::{warn, NimbusError, Result},
+    error::{NimbusError, Result, warn},
     stateful::{
         enrollment::get_enrollments,
         gecko_prefs::GeckoPrefStore,
         persistence::{Database, StoreId, Writer},
     },
-    EnrolledExperiment, Experiment,
 };
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};

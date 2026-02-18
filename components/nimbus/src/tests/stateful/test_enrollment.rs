@@ -6,6 +6,7 @@
 // XXX: make them less complicated (since the transitions are covered in crate::tests::test_enrollment), just see if we write to the DB properly.
 
 use crate::{
+    AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
     enrollment::{
         DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
         EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
@@ -20,7 +21,6 @@ use crate::{
         persistence::{Database, Readable, StoreId},
     },
     tests::helpers::{get_test_experiments, no_coenrolling_features},
-    AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
 };
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;

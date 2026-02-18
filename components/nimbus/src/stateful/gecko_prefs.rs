@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 use crate::{
+    EnrolledExperiment, Experiment, NimbusError,
     enrollment::{EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState},
     error::Result,
     json::PrefValue,
-    EnrolledExperiment, Experiment, NimbusError,
 };
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;

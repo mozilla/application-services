@@ -8,16 +8,16 @@ use crate::stateful::persistence::{
     DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
 };
 use crate::{
+    EnrolledExperiment, EnrollmentStatus, Experiment,
     enrollment::{
-        map_enrollments, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-        ExperimentEnrollment,
+        EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
+        map_enrollments,
     },
-    error::{debug, warn, Result},
+    error::{Result, debug, warn},
     stateful::{
         gecko_prefs::PrefUnenrollReason,
         persistence::{Database, Readable, StoreId, Writer},
     },
-    EnrolledExperiment, EnrollmentStatus, Experiment,
 };
 
 impl EnrollmentsEvolver<'_> {
@@ -61,7 +61,11 @@ impl EnrollmentsEvolver<'_> {
         for experiment in next_experiments {
             // Sanity check.
             if !next_enrollments.contains_key(&experiment.slug) {
-                error_support::report_error!("nimbus-evolve-enrollments", "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
+                error_support::report_error!(
+                    "nimbus-evolve-enrollments",
+                    "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent",
+                    &experiment.slug
+                );
                 continue;
             }
             experiments_store.put(writer, &experiment.slug, experiment)?;
