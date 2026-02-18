@@ -824,19 +824,20 @@
     },
     {
       "attachment": {
-        "filename": "ddg-16-firefox.ico",
-        "hash": "d994f806b1e4225b50be5ab681b2cecf845cc216a19a432d878cea3cb815bafd",
-        "location": "main-workspace/search-config-icons/c6ae7df5-0396-4892-b76a-b35a00044a13.ico",
-        "mimetype": "image/x-icon",
-        "size": 2799
+        "filename": "duckduckgo.svg",
+        "hash": "6df9691adea0a28299e4392ae2eeb9816182f3bcb2e1820700ab918a3b98bc0c",
+        "location": "main-workspace/search-config-icons/e668474b-ca25-49f8-b555-d32f7b57c0b7.svg",
+        "mimetype": "image/svg+xml",
+        "size": 3197
       },
       "engineIdentifiers": [
         "ddg"
       ],
+      "filter_expression": "env.appinfo.OS != \"iOS\"",
       "id": "a06dc3fd-4bdb-41f3-2ebc-4cbed06a9bd3",
       "imageSize": 16,
-      "last_modified": 1744118264845,
-      "schema": 1743687735700
+      "last_modified": 1771343611635,
+      "schema": 1771200005877
     },
     {
       "attachment": {
@@ -870,6 +871,23 @@
       "imageSize": 96,
       "last_modified": 1744118264948,
       "schema": 1743687921559
+    },
+    {
+      "attachment": {
+        "filename": "duckduckgo.pdf",
+        "hash": "1658dba5cc1e8acdee34d58496f90e7473375a2012f3a6147bb16777add1c581",
+        "location": "main-workspace/search-config-icons/b9f8a8d5-3086-4b98-90f5-a29f577e3014.pdf",
+        "mimetype": "application/pdf",
+        "size": 6478
+      },
+      "engineIdentifiers": [
+        "ddg"
+      ],
+      "filter_expression": "env.appinfo.OS == \"iOS\"",
+      "id": "b50c3e3d-7bd0-4118-856f-19b26b21d01f",
+      "imageSize": 16,
+      "last_modified": 1771343611639,
+      "schema": 1771342005440
     },
     {
       "attachment": {
@@ -1172,5 +1190,5 @@
       "schema": 1743687832067
     }
   ],
-  "timestamp": 1765918784979
+  "timestamp": 1771343611639
 }
