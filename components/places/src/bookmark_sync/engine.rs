@@ -136,7 +136,10 @@ fn update_local_items_in_places(
     ops: &CompletionOps<'_>,
 ) -> Result<()> {
     // Build a table of new and updated items.
-    debug!("Staging apply remote item ops");
+    debug!(
+        "Staging apply {} remote item ops",
+        ops.apply_remote_items.len()
+    );
     sql_support::each_sized_chunk(
         &ops.apply_remote_items,
         sql_support::default_max_variable_number() / 3,
@@ -205,7 +208,7 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Staging change GUID ops");
+    debug!("Staging {} change GUID ops", ops.change_guids.len());
     sql_support::each_sized_chunk(
         &ops.change_guids,
         sql_support::default_max_variable_number() / 2,
@@ -251,7 +254,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Staging apply new local structure ops");
+    debug!(
+        "Staging apply {} new local structure ops",
+        ops.apply_new_local_structure.len()
+    );
     sql_support::each_sized_chunk(
         &ops.apply_new_local_structure,
         sql_support::default_max_variable_number() / 2,
@@ -284,7 +290,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Removing tombstones for revived items");
+    debug!(
+        "Removing {} tombstones for revived items",
+        ops.delete_local_tombstones.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.delete_local_tombstones,
         |op| op.guid().as_str(),
@@ -302,7 +311,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Inserting new tombstones for non-syncable and invalid items");
+    debug!(
+        "Inserting {} new tombstones for non-syncable and invalid items",
+        ops.insert_local_tombstones.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.insert_local_tombstones,
         |op| op.remote_node().guid.as_str().to_owned(),
@@ -320,7 +332,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Flag frecencies for removed bookmark URLs as stale");
+    debug!(
+        "Flag frecencies for {} removed bookmark URLs as stale",
+        ops.delete_local_items.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -344,7 +359,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Removing deleted items from Places");
+    debug!(
+        "Removing {} deleted items from Places",
+        ops.delete_local_items.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.delete_local_items,
         |op| op.local_node().guid.as_str().to_owned(),
@@ -403,7 +421,10 @@ fn update_local_items_in_places(
         );
     }
 
-    debug!("Resetting change counters for items that shouldn't be uploaded");
+    debug!(
+        "Resetting change counters for {} items that shouldn't be uploaded",
+        ops.set_local_merged.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.set_local_merged,
         |op| op.merged_node.guid.as_str(),
@@ -422,7 +443,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Bumping change counters for items that should be uploaded");
+    debug!(
+        "Bumping change counters for {} items that should be uploaded",
+        ops.set_local_unmerged.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.set_local_unmerged,
         |op| op.merged_node.guid.as_str(),
@@ -441,7 +465,10 @@ fn update_local_items_in_places(
         },
     )?;
 
-    debug!("Flagging applied remote items as merged");
+    debug!(
+        "Flagging applied {} remote items as merged",
+        ops.set_remote_merged.len()
+    );
     sql_support::each_chunk_mapped(
         &ops.set_remote_merged,
         |op| op.guid().as_str(),
@@ -703,7 +730,10 @@ fn stage_items_to_upload(
         UploadItemsFragment("b")
     ))?;
 
-    debug!("Staging remaining locally changed items for upload");
+    debug!(
+        "Staging {} remaining locally changed items for upload",
+        upload_items.len()
+    );
     sql_support::each_chunk_mapped(
         upload_items,
         |op| op.merged_node.guid.as_str(),
@@ -748,7 +778,7 @@ fn stage_items_to_upload(
     )?;
 
     // Finally, stage tombstones for deleted items.
-    debug!("Staging tombstones to upload");
+    debug!("Staging {} tombstones to upload", upload_tombstones.len());
     sql_support::each_chunk_mapped(
         upload_tombstones,
         |op| op.guid().as_str(),
@@ -1662,7 +1692,11 @@ impl dogear::Store for Merger<'_> {
         debug!("Updating local items in Places");
         update_local_items_in_places(self.db, self.scope, self.local_time, &ops)?;
 
-        debug!("Staging items to upload");
+        debug!(
+            "Staging {} items and {} tombstones to upload",
+            ops.upload_items.len(),
+            ops.upload_tombstones.len()
+        );
         stage_items_to_upload(
             self.db,
             self.scope,
