@@ -180,15 +180,8 @@ cp "$THIS_DIR/Sources/MozillaRustComponentsWrapper/Viaduct/RustViaductFFI.h" "$C
 
 # Next, generate files with uniffi-bindgen (forward --generate-swift-sources if present)
 # You generally want to generate the swift sources if you want to see/test the generated uniffi code
-if (( ${#GENERATE_ARGS[@]:-0} )); then
-  # we have at least one flag in the array
-  "$THIS_DIR/generate-files.sh" "${GENERATE_ARGS[@]}" \
-    "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
-else
-  # no extra flags
-  "$THIS_DIR/generate-files.sh" \
-    "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
-fi
+"$THIS_DIR/generate-files.sh" "${GENERATE_ARGS[@]}" \
+  "$UNIFFI_BINDGEN_LIBRARY" "$COMMON"
 
 # Flesh out the framework for each architecture based on the common files.
 # It's a little fiddly, because we apparently need to put all the simulator targets
