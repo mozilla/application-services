@@ -2,8 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{FeatureConfig, error::Result};
 use serde_json::json;
+
+use crate::{FeatureConfig, error::Result};
 
 #[test]
 fn test_deserialize_untyped_json() -> Result<()> {

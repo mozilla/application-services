@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{evaluator::split_locale, stateless::matcher::AppContext};
-use serde_derive::*;
-use serde_json::Map;
-use serde_json::Value;
+use serde_derive::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+
+use crate::evaluator::split_locale;
+use crate::stateless::matcher::AppContext;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {

@@ -1,21 +1,22 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use std::collections::{HashMap, HashSet};
+use std::fmt::{self, Display};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use serde_derive::{Deserialize, Serialize};
+
+use crate::defaults::Defaults;
+use crate::error::{NimbusError, Result, debug, warn};
+use crate::evaluator::evaluate_enrollment;
+use crate::json;
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::{GeckoPrefStore, OriginalGeckoPref, PrefUnenrollReason};
 use crate::{
     AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
     SLUG_REPLACEMENT_PATTERN,
-    defaults::Defaults,
-    error::{NimbusError, Result, debug, warn},
-    evaluator::evaluate_enrollment,
-    json,
-};
-use serde_derive::*;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::{Display, Formatter, Result as FmtResult},
-    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 pub(crate) const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(365 * 24 * 3600);
@@ -32,7 +33,7 @@ pub enum EnrolledReason {
 }
 
 impl Display for EnrolledReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(
             match self {
                 EnrolledReason::Qualified => "Qualified",
@@ -66,7 +67,7 @@ pub enum NotEnrolledReason {
 }
 
 impl Display for NotEnrolledReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(
             match self {
                 NotEnrolledReason::DifferentAppName => "DifferentAppName",
@@ -117,7 +118,7 @@ pub enum DisqualifiedReason {
 }
 
 impl Display for DisqualifiedReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(
             match self {
                 DisqualifiedReason::Error => "Error",

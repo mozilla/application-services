@@ -5,30 +5,37 @@
 #![allow(unexpected_cfgs)]
 
 #[cfg(feature = "stateful")]
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+
+use serde::Serialize;
+#[cfg(feature = "stateful")]
+use serde_json::Map;
+use serde_json::{Value, json};
+
+use crate::enrollment::{
+    EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+};
+#[cfg(feature = "stateful")]
+use crate::json::JsonObject;
+use crate::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+#[cfg(feature = "stateful")]
+use crate::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
+#[cfg(feature = "stateful")]
+use crate::stateful::behavior::EventStore;
+#[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::OriginalGeckoPref;
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{
+    GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState,
+};
+#[cfg(feature = "stateful")]
+use crate::stateful::targeting::RecordedContext;
 use crate::{
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
-    enrollment::{EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
 };
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use crate::{
-            metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
-            json::JsonObject,
-            stateful::{behavior::EventStore, gecko_prefs::{GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState}, targeting::RecordedContext}
-        };
-        use std::collections::HashMap;
-        use serde_json::Map;
-    }
-}
-
-use serde::Serialize;
-use serde_json::{Value, json};
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 
 #[ctor::ctor]
 fn init() {

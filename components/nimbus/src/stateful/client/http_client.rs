@@ -15,12 +15,13 @@
 
 use std::sync::Arc;
 
+use remote_settings::{RemoteSettingsClient, RemoteSettingsError};
+use serde_json::json;
+
 use crate::NimbusError;
 use crate::error::Result;
 use crate::schema::parse_experiments;
 use crate::stateful::client::{Experiment, SettingsClient};
-use remote_settings::{RemoteSettingsClient, RemoteSettingsError};
-use serde_json::json;
 
 impl SettingsClient for Arc<RemoteSettingsClient> {
     fn get_experiments_metadata(&self) -> Result<String> {

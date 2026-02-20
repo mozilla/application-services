@@ -3,22 +3,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::{
-    AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper,
-    enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason},
-    error::{NimbusError, Result, debug, info},
-    sampling,
-};
 use serde_derive::*;
 use serde_json::Value;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        pub use crate::stateful::evaluator::*;
-    } else {
-        pub use crate::stateless::evaluator::*;
-    }
-}
+use crate::enrollment::{
+    EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
+};
+use crate::error::{NimbusError, Result, debug, info};
+use crate::sampling;
+#[cfg(feature = "stateful")]
+pub use crate::stateful::evaluator::*;
+#[cfg(not(feature = "stateful"))]
+pub use crate::stateless::evaluator::*;
+use crate::{AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
