@@ -101,6 +101,7 @@ cp -p -L "${BUILD_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libgcm.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
@@ -115,12 +116,12 @@ cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # HW specific.
 if [[ "${ARCH}" == "x86_64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-x86_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 elif [[ "${ARCH}" == "arm64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
 fi
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"
