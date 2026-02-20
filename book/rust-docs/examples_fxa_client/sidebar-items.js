@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Command","Server"],"fn":["credentials_path","load_account","main","persist_fxa_state"],"mod":["devices","send_tab"],"static":["CLIENT_ID","CREDENTIALS_FILENAME"],"struct":["Cli"]};

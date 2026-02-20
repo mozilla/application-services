@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_synced_bookmark_roots"]};

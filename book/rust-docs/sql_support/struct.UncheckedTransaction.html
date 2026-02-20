@@ -1,0 +1,656 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="rusqlite, in an attempt to save us from ourselves, needs a mutable ref to a connection to start a transaction. That is a bit of a PITA in some cases, so we offer this as an alternative - but the responsibility of ensuring there are no concurrent transactions is on our head."><title>UncheckedTransaction in sql_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sql_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">UncheckedTransaction</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sql_support/index.html">sql_<wbr>support</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Unchecked<wbr>Transaction</a></h2><h3><a href="#fields">Fields</a></h3><ul class="block structfield"><li><a href="#structfield.conn" title="conn">conn</a></li><li><a href="#structfield.finished" title="finished">finished</a></li><li><a href="#structfield.started_at" title="started_at">started_at</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.commit" title="commit">commit</a></li><li><a href="#method.new" title="new">new</a></li><li><a href="#method.rollback" title="rollback">rollback</a></li></ul><h3><a href="#deref-methods-Connection">Methods from Deref&lt;<wbr>Target=<wbr>Connection&gt;</a></h3><ul class="block deref-methods"><li><a href="#method.busy_handler" title="busy_handler">busy_handler</a></li><li><a href="#method.busy_timeout" title="busy_timeout">busy_timeout</a></li><li><a href="#method.cache_flush" title="cache_flush">cache_flush</a></li><li><a href="#method.changes" title="changes">changes</a></li><li><a href="#method.collation_needed" title="collation_needed">collation_needed</a></li><li><a href="#method.column_exists" title="column_exists">column_exists</a></li><li><a href="#method.column_metadata" title="column_metadata">column_metadata</a></li><li><a href="#method.create_aggregate_function" title="create_aggregate_function">create_aggregate_function</a></li><li><a href="#method.create_collation" title="create_collation">create_collation</a></li><li><a href="#method.create_scalar_function" title="create_scalar_function">create_scalar_function</a></li><li><a href="#method.create_window_function" title="create_window_function">create_window_function</a></li><li><a href="#method.db_config" title="db_config">db_config</a></li><li><a href="#method.db_name" title="db_name">db_name</a></li><li><a href="#method.execute" title="execute">execute</a></li><li><a href="#method.execute_batch" title="execute_batch">execute_batch</a></li><li><a href="#method.flush_prepared_statement_cache" title="flush_prepared_statement_cache">flush_prepared_statement_cache</a></li><li><a href="#method.get_interrupt_handle" title="get_interrupt_handle">get_interrupt_handle</a></li><li><a href="#method.handle" title="handle">handle</a></li><li><a href="#method.is_autocommit" title="is_autocommit">is_autocommit</a></li><li><a href="#method.is_busy" title="is_busy">is_busy</a></li><li><a href="#method.is_interrupted" title="is_interrupted">is_interrupted</a></li><li><a href="#method.is_readonly" title="is_readonly">is_readonly</a></li><li><a href="#method.last_insert_rowid" title="last_insert_rowid">last_insert_rowid</a></li><li><a href="#method.limit" title="limit">limit</a></li><li><a href="#method.load_extension" title="load_extension">load_extension</a></li><li><a href="#method.load_extension_disable" title="load_extension_disable">load_extension_disable</a></li><li><a href="#method.load_extension_enable" title="load_extension_enable">load_extension_enable</a></li><li><a href="#method.path" title="path">path</a></li><li><a href="#method.pragma" title="pragma">pragma</a></li><li><a href="#method.pragma_query" title="pragma_query">pragma_query</a></li><li><a href="#method.pragma_query_value" title="pragma_query_value">pragma_query_value</a></li><li><a href="#method.pragma_update" title="pragma_update">pragma_update</a></li><li><a href="#method.pragma_update_and_check" title="pragma_update_and_check">pragma_update_and_check</a></li><li><a href="#method.prepare" title="prepare">prepare</a></li><li><a href="#method.prepare_cached" title="prepare_cached">prepare_cached</a></li><li><a href="#method.prepare_with_flags" title="prepare_with_flags">prepare_with_flags</a></li><li><a href="#method.query_one" title="query_one">query_one</a></li><li><a href="#method.query_row" title="query_row">query_row</a></li><li><a href="#method.query_row_and_then" title="query_row_and_then">query_row_and_then</a></li><li><a href="#method.release_memory" title="release_memory">release_memory</a></li><li><a href="#method.remove_collation" title="remove_collation">remove_collation</a></li><li><a href="#method.remove_function" title="remove_function">remove_function</a></li><li><a href="#method.set_db_config" title="set_db_config">set_db_config</a></li><li><a href="#method.set_limit" title="set_limit">set_limit</a></li><li><a href="#method.set_prepared_statement_cache_capacity" title="set_prepared_statement_cache_capacity">set_prepared_statement_cache_capacity</a></li><li><a href="#method.table_exists" title="table_exists">table_exists</a></li><li><a href="#method.total_changes" title="total_changes">total_changes</a></li><li><a href="#method.transaction_state" title="transaction_state">transaction_state</a></li><li><a href="#method.unchecked_transaction" title="unchecked_transaction">unchecked_transaction</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-ConnExt-for-UncheckedTransaction%3C'_%3E" title="ConnExt">ConnExt</a></li><li><a href="#impl-__Deref-for-UncheckedTransaction%3C'_%3E" title="Deref">Deref</a></li><li><a href="#impl-Drop-for-UncheckedTransaction%3C'_%3E" title="Drop">Drop</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-RefUnwindSafe-for-UncheckedTransaction%3C'conn%3E" title="!RefUnwindSafe">!RefUnwindSafe</a></li><li><a href="#impl-Send-for-UncheckedTransaction%3C'conn%3E" title="!Send">!Send</a></li><li><a href="#impl-Sync-for-UncheckedTransaction%3C'conn%3E" title="!Sync">!Sync</a></li><li><a href="#impl-UnwindSafe-for-UncheckedTransaction%3C'conn%3E" title="!UnwindSafe">!UnwindSafe</a></li><li><a href="#impl-Freeze-for-UncheckedTransaction%3C'conn%3E" title="Freeze">Freeze</a></li><li><a href="#impl-Unpin-for-UncheckedTransaction%3C'conn%3E" title="Unpin">Unpin</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T" title="Any">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T" title="Borrow&#60;T&#62;">Borrow&#60;T&#62;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T" title="BorrowMut&#60;T&#62;">BorrowMut&#60;T&#62;</a></li><li><a href="#impl-From%3CT%3E-for-T" title="From&#60;T&#62;">From&#60;T&#62;</a></li><li><a href="#impl-Instrument-for-T" title="Instrument">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-T" title="Into&#60;U&#62;">Into&#60;U&#62;</a></li><li><a href="#impl-Receiver-for-P" title="Receiver">Receiver</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T" title="TryFrom&#60;U&#62;">TryFrom&#60;U&#62;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T" title="TryInto&#60;U&#62;">TryInto&#60;U&#62;</a></li><li><a href="#impl-WithSubscriber-for-T" title="WithSubscriber">WithSubscriber</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate sql_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">sql_support</a></div><h1>Struct <span class="struct">Unchecked<wbr>Transaction</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sql_support/conn_ext.rs.html#310-316">Source</a> </span></div><pre class="rust item-decl"><code>pub struct UncheckedTransaction&lt;'conn&gt; {
+    pub conn: &amp;'conn Connection,
+    pub started_at: <a class="struct" href="https://doc.rust-lang.org/1.91.0/std/time/struct.Instant.html" title="struct std::time::Instant">Instant</a>,
+    pub finished: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>rusqlite, in an attempt to save us from ourselves, needs a mutable ref to a
+connection to start a transaction. That is a bit of a PITA in some cases, so
+we offer this as an alternative - but the responsibility of ensuring there
+are no concurrent transactions is on our head.</p>
+<p>This is very similar to the rusqlite <code>Transaction</code> - it doesn’t prevent
+against nested transactions but does allow you to use an immutable
+<code>Connection</code>.</p>
+<p>FIXME: This currently won’t actually be used most of the time, because
+<code>rusqlite</code> added [<code>Connection::unchecked_transaction</code>] (and
+<code>Transaction::new_unchecked</code>, which can be used to reimplement
+<code>unchecked_transaction_imm</code>), which will be preferred in a call to
+<code>c.unchecked_transaction()</code>, because inherent methods have precedence over
+methods on extension traits. The exception here is that this will still be
+used by code which takes <code>&amp;impl ConnExt</code> (I believe it would also be used if
+you attempted to call <code>unchecked_transaction()</code> on a non-Connection that
+implements ConnExt, such as a <code>Safepoint</code>, <code>UncheckedTransaction</code>, or
+<code>Transaction</code> itself, but such code is clearly broken, so is not worth
+considering).</p>
+<p>The difference is that <code>rusqlite</code>’s version returns a normal
+<code>rusqlite::Transaction</code>, rather than the <code>UncheckedTransaction</code> from this
+crate. Aside from type’s name and location (and the fact that <code>rusqlite</code>’s
+detects slightly more misuse at compile time, and has more features), the
+main difference is: <code>rusqlite</code>’s does not track when a transaction began,
+which unfortunately seems to be used by the coop-transaction management in
+places in some fashion.</p>
+<p>There are at least two options for how to fix this:</p>
+<ol>
+<li>Decide we don’t need this version, and delete it, and moving the
+transaction timing into the coop-transaction code directly (or something
+like this).</li>
+<li>Decide this difference <em>is</em> important, and rename
+<code>ConnExt::unchecked_transaction</code> to something like
+<code>ConnExt::transaction_unchecked</code>.</li>
+</ol>
+</div></details><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.conn" class="structfield section-header"><a href="#structfield.conn" class="anchor field">§</a><code>conn: &amp;'conn Connection</code></span><span id="structfield.started_at" class="structfield section-header"><a href="#structfield.started_at" class="anchor field">§</a><code>started_at: <a class="struct" href="https://doc.rust-lang.org/1.91.0/std/time/struct.Instant.html" title="struct std::time::Instant">Instant</a></code></span><span id="structfield.finished" class="structfield section-header"><a href="#structfield.finished" class="anchor field">§</a><code>finished: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a></code></span><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-UncheckedTransaction%3C'conn%3E" class="impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#318-371">Source</a><a href="#impl-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#322-335">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(
+    conn: &amp;'conn Connection,
+    behavior: TransactionBehavior,
+) -&gt; SqlResult&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Begin a new unchecked transaction. Cannot be nested, but this is not
+enforced by Rust (hence ‘unchecked’) - however, it is enforced by
+SQLite; use a rusqlite <code>savepoint</code> for nested transactions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.commit" class="method"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#338-347">Source</a><h4 class="code-header">pub fn <a href="#method.commit" class="fn">commit</a>(self) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Consumes and commits an unchecked transaction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.rollback" class="method"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#350-356">Source</a><h4 class="code-header">pub fn <a href="#method.rollback" class="fn">rollback</a>(self) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Consumes and rolls back an unchecked transaction.</p>
+</div></details></div></details></div><details class="toggle big-toggle" open><summary><h2 id="deref-methods-Connection" class="section-header"><span>Methods from <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a>&lt;Target = Connection&gt;</span><a href="#deref-methods-Connection" class="anchor">§</a></h2></summary><div id="deref-methods-Connection-1" class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.busy_timeout" class="method"><h4 class="code-header">pub fn <a href="#method.busy_timeout" class="fn">busy_timeout</a>(&amp;self, timeout: <a class="struct" href="https://doc.rust-lang.org/1.91.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Set a busy handler that sleeps for a specified amount of time when a
+table is locked. The handler will sleep multiple times until at
+least “ms” milliseconds of sleeping have accumulated.</p>
+<p>Calling this routine with an argument equal to zero turns off all busy
+handlers.</p>
+<p>There can only be a single busy handler for a particular database
+connection at any given moment. If another busy handler was defined
+(using <a href="Connection::busy_handler"><code>busy_handler</code></a>) prior to calling this
+routine, that other busy handler is cleared.</p>
+<p>Newly created connections currently have a default busy timeout of
+5000ms, but this may be subject to change.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.busy_handler" class="method"><h4 class="code-header">pub fn <a href="#method.busy_handler" class="fn">busy_handler</a>(
+    &amp;self,
+    callback: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.fn.html">fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Register a callback to handle <code>SQLITE_BUSY</code> errors.</p>
+<p>If the busy callback is <code>None</code>, then <code>SQLITE_BUSY</code> is returned
+immediately upon encountering the lock. The argument to the busy
+handler callback is the number of times that the
+busy handler has been invoked previously for the
+same locking event. If the busy callback returns <code>false</code>, then no
+additional attempts are made to access the
+database and <code>SQLITE_BUSY</code> is returned to the
+application. If the callback returns <code>true</code>, then another attempt
+is made to access the database and the cycle repeats.</p>
+<p>There can only be a single busy handler defined for each database
+connection. Setting a new busy handler clears any previously set
+handler. Note that calling <a href="Connection::busy_timeout"><code>busy_timeout()</code></a>
+or evaluating <code>PRAGMA busy_timeout=N</code> will change the busy handler
+and thus clear any previously set busy handler.</p>
+<p>Newly created connections default to a
+<a href="Connection::busy_timeout"><code>busy_timeout()</code></a> handler with a timeout
+of 5000ms, although this is subject to change.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.prepare_cached" class="method"><h4 class="code-header">pub fn <a href="#method.prepare_cached" class="fn">prepare_cached</a>(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;CachedStatement&lt;'_&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Prepare a SQL statement for execution, returning a previously prepared
+(but not currently in-use) statement if one is available. The
+returned statement will be cached for reuse by future calls to
+<a href="Connection::prepare_cached"><code>prepare_cached</code></a> once it is dropped.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>insert_new_people(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare_cached(<span class="string">"INSERT INTO People (name) VALUES (?1)"</span>)<span class="question-mark">?</span>;
+        stmt.execute([<span class="string">"Joe Smith"</span>])<span class="question-mark">?</span>;
+    }
+    {
+        <span class="comment">// This will return the same underlying SQLite statement handle without
+        // having to prepare it again.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare_cached(<span class="string">"INSERT INTO People (name) VALUES (?1)"</span>)<span class="question-mark">?</span>;
+        stmt.execute([<span class="string">"Bob Jones"</span>])<span class="question-mark">?</span>;
+    }
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h5 id="failure"><a class="doc-anchor" href="#failure">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_prepared_statement_cache_capacity" class="method"><h4 class="code-header">pub fn <a href="#method.set_prepared_statement_cache_capacity" class="fn">set_prepared_statement_cache_capacity</a>(&amp;self, capacity: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>)</h4></section></summary><div class="docblock"><p>Set the maximum number of cached prepared statements this connection
+will hold. By default, a connection will hold a relatively small
+number of cached statements. If you need more, or know that you
+will not use cached statements, you
+can set the capacity manually using this method.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.flush_prepared_statement_cache" class="method"><h4 class="code-header">pub fn <a href="#method.flush_prepared_statement_cache" class="fn">flush_prepared_statement_cache</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Remove/finalize all prepared statements currently in the cache.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_collation" class="method"><h4 class="code-header">pub fn <a href="#method.create_collation" class="fn">create_collation</a>&lt;C, N&gt;(
+    &amp;self,
+    collation_name: N,
+    x_compare: C,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,
+    C: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/cmp/enum.Ordering.html" title="enum core::cmp::Ordering">Ordering</a> + <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,</div></h4></section></summary><div class="docblock"><p>Add or modify a collation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.collation_needed" class="method"><h4 class="code-header">pub fn <a href="#method.collation_needed" class="fn">collation_needed</a>(
+    &amp;self,
+    x_coll_needed: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.fn.html">fn</a>(&amp;Connection, &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Collation needed callback</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_collation" class="method"><h4 class="code-header">pub fn <a href="#method.remove_collation" class="fn">remove_collation</a>&lt;N&gt;(&amp;self, collation_name: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Remove collation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.column_exists" class="method"><h4 class="code-header">pub fn <a href="#method.column_exists" class="fn">column_exists</a>&lt;N&gt;(
+    &amp;self,
+    db_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;,
+    table_name: N,
+    column_name: N,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Check if <code>table_name</code>.<code>column_name</code> exists.</p>
+<p><code>db_name</code> is main, temp, the name in ATTACH, or <code>None</code> to search all databases.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.table_exists" class="method"><h4 class="code-header">pub fn <a href="#method.table_exists" class="fn">table_exists</a>&lt;N&gt;(
+    &amp;self,
+    db_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;,
+    table_name: N,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Check if <code>table_name</code> exists.</p>
+<p><code>db_name</code> is main, temp, the name in ATTACH, or <code>None</code> to search all databases.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.column_metadata" class="method"><h4 class="code-header">pub fn <a href="#method.column_metadata" class="fn">column_metadata</a>&lt;N&gt;(
+    &amp;self,
+    db_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;,
+    table_name: N,
+    column_name: N,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="https://doc.rust-lang.org/1.91.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr">CStr</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="https://doc.rust-lang.org/1.91.0/core/ffi/c_str/struct.CStr.html" title="struct core::ffi::c_str::CStr">CStr</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>), Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Extract metadata of column at specified index</p>
+<p>Returns:</p>
+<ul>
+<li>declared data type</li>
+<li>name of default collation sequence</li>
+<li>True if column has a NOT NULL constraint</li>
+<li>True if column is part of the PRIMARY KEY</li>
+<li>True if column is AUTOINCREMENT</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.db_config" class="method"><h4 class="code-header">pub fn <a href="#method.db_config" class="fn">db_config</a>(&amp;self, config: DbConfig) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Returns the current value of a <code>config</code>.</p>
+<ul>
+<li><code>SQLITE_DBCONFIG_ENABLE_FKEY</code>: return <code>false</code> or <code>true</code> to indicate
+whether FK enforcement is off or on</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_TRIGGER</code>: return <code>false</code> or <code>true</code> to indicate
+whether triggers are disabled or enabled</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_FTS3_TOKENIZER</code>: return <code>false</code> or <code>true</code> to
+indicate whether <code>fts3_tokenizer</code> are disabled or enabled</li>
+<li><code>SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE</code>: return <code>false</code> to indicate
+checkpoints-on-close are not disabled or <code>true</code> if they are</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_QPSG</code>: return <code>false</code> or <code>true</code> to indicate
+whether the QPSG is disabled or enabled</li>
+<li><code>SQLITE_DBCONFIG_TRIGGER_EQP</code>: return <code>false</code> to indicate
+output-for-trigger are not disabled or <code>true</code> if it is</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_db_config" class="method"><h4 class="code-header">pub fn <a href="#method.set_db_config" class="fn">set_db_config</a>(
+    &amp;self,
+    config: DbConfig,
+    new_val: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Make configuration changes to a database connection</p>
+<ul>
+<li><code>SQLITE_DBCONFIG_ENABLE_FKEY</code>: <code>false</code> to disable FK enforcement,
+<code>true</code> to enable FK enforcement</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_TRIGGER</code>: <code>false</code> to disable triggers, <code>true</code>
+to enable triggers</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_FTS3_TOKENIZER</code>: <code>false</code> to disable
+<code>fts3_tokenizer()</code>, <code>true</code> to enable <code>fts3_tokenizer()</code></li>
+<li><code>SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE</code>: <code>false</code> (the default) to enable
+checkpoints-on-close, <code>true</code> to disable them</li>
+<li><code>SQLITE_DBCONFIG_ENABLE_QPSG</code>: <code>false</code> to disable the QPSG, <code>true</code> to
+enable QPSG</li>
+<li><code>SQLITE_DBCONFIG_TRIGGER_EQP</code>: <code>false</code> to disable output for trigger
+programs, <code>true</code> to enable it</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_scalar_function" class="method"><h4 class="code-header">pub fn <a href="#method.create_scalar_function" class="fn">create_scalar_function</a>&lt;F, N, T&gt;(
+    &amp;self,
+    fn_name: N,
+    n_arg: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>,
+    flags: FunctionFlags,
+    x_func: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;Context&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    T: SqlFnOutput,</div></h4></section></summary><div class="docblock"><p>Attach a user-defined scalar function to
+this database connection.</p>
+<p><code>fn_name</code> is the name the function will be accessible from SQL.
+<code>n_arg</code> is the number of arguments to the function. Use <code>-1</code> for a
+variable number. If the function always returns the same value
+given the same input, <code>deterministic</code> should be <code>true</code>.</p>
+<p>The function will remain available until the connection is closed or
+until it is explicitly removed via
+<a href="Connection::remove_function"><code>remove_function</code></a>.</p>
+<h5 id="example"><a class="doc-anchor" href="#example">§</a>Example</h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>scalar_function_example(db: Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    db.create_scalar_function(
+        <span class="string">"halve"</span>,
+        <span class="number">1</span>,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            <span class="kw">let </span>value = ctx.get::&lt;f64&gt;(<span class="number">0</span>)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(value / <span class="number">2f64</span>)
+        },
+    )<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>six_halved: f64 = db.query_row(<span class="string">"SELECT halve(6)"</span>, [], |r| r.get(<span class="number">0</span>))<span class="question-mark">?</span>;
+    <span class="macro">assert_eq!</span>(six_halved, <span class="number">3f64</span>);
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h5 id="failure-1"><a class="doc-anchor" href="#failure-1">§</a>Failure</h5>
+<p>Will return Err if the function could not be attached to the connection.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_aggregate_function" class="method"><h4 class="code-header">pub fn <a href="#method.create_aggregate_function" class="fn">create_aggregate_function</a>&lt;A, D, N, T&gt;(
+    &amp;self,
+    fn_name: N,
+    n_arg: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>,
+    flags: FunctionFlags,
+    aggr: D,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,
+    A: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> + <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a>,
+    D: Aggregate&lt;A, T&gt; + 'static,
+    T: SqlFnOutput,</div></h4></section></summary><div class="docblock"><p>Attach a user-defined aggregate function to this
+database connection.</p>
+<h5 id="failure-2"><a class="doc-anchor" href="#failure-2">§</a>Failure</h5>
+<p>Will return Err if the function could not be attached to the connection.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_window_function" class="method"><h4 class="code-header">pub fn <a href="#method.create_window_function" class="fn">create_window_function</a>&lt;A, N, W, T&gt;(
+    &amp;self,
+    fn_name: N,
+    n_arg: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>,
+    flags: FunctionFlags,
+    aggr: W,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,
+    A: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> + <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a>,
+    W: WindowAggregate&lt;A, T&gt; + 'static,
+    T: SqlFnOutput,</div></h4></section></summary><div class="docblock"><p>Attach a user-defined aggregate window function to
+this database connection.</p>
+<p>See <code>https://sqlite.org/windowfunctions.html#udfwinfunc</code> for more
+information.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_function" class="method"><h4 class="code-header">pub fn <a href="#method.remove_function" class="fn">remove_function</a>&lt;N&gt;(&amp;self, fn_name: N, n_arg: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Removes a user-defined function from this
+database connection.</p>
+<p><code>fn_name</code> and <code>n_arg</code> should match the name and number of arguments
+given to <a href="Connection::create_scalar_function"><code>create_scalar_function</code></a>
+or <a href="Connection::create_aggregate_function"><code>create_aggregate_function</code></a>.</p>
+<h5 id="failure-3"><a class="doc-anchor" href="#failure-3">§</a>Failure</h5>
+<p>Will return Err if the function could not be removed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.limit" class="method"><h4 class="code-header">pub fn <a href="#method.limit" class="fn">limit</a>(&amp;self, limit: Limit) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Returns the current value of a [<code>Limit</code>].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_limit" class="method"><h4 class="code-header">pub fn <a href="#method.set_limit" class="fn">set_limit</a>(&amp;self, limit: Limit, new_val: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i32.html">i32</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Changes the [<code>Limit</code>] to <code>new_val</code>, returning the prior
+value of the limit.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pragma_query_value" class="method"><h4 class="code-header">pub fn <a href="#method.pragma_query_value" class="fn">pragma_query_value</a>&lt;T, F&gt;(
+    &amp;self,
+    schema_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;,
+    pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;,</div></h4></section></summary><div class="docblock"><p>Query the current value of <code>pragma_name</code>.</p>
+<p>Some pragmas will return multiple rows/values which cannot be retrieved
+with this method.</p>
+<p>Prefer <a href="https://sqlite.org/pragma.html#pragfunc">PRAGMA function</a> introduced in SQLite 3.20:
+<code>SELECT user_version FROM pragma_user_version;</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pragma_query" class="method"><h4 class="code-header">pub fn <a href="#method.pragma_query" class="fn">pragma_query</a>&lt;F&gt;(
+    &amp;self,
+    schema_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;,
+    pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;,</div></h4></section></summary><div class="docblock"><p>Query the current rows/values of <code>pragma_name</code>.</p>
+<p>Prefer <a href="https://sqlite.org/pragma.html#pragfunc">PRAGMA function</a> introduced in SQLite 3.20:
+<code>SELECT * FROM pragma_collation_list;</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pragma" class="method"><h4 class="code-header">pub fn <a href="#method.pragma" class="fn">pragma</a>&lt;F, V&gt;(
+    &amp;self,
+    schema_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;,
+    pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    pragma_value: V,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;,
+    V: ToSql,</div></h4></section></summary><div class="docblock"><p>Query the current value(s) of <code>pragma_name</code> associated to
+<code>pragma_value</code>.</p>
+<p>This method can be used with query-only pragmas which need an argument
+(e.g. <code>table_info('one_tbl')</code>) or pragmas which returns value(s)
+(e.g. <code>integrity_check</code>).</p>
+<p>Prefer <a href="https://sqlite.org/pragma.html#pragfunc">PRAGMA function</a> introduced in SQLite 3.20:
+<code>SELECT * FROM pragma_table_info(?1);</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pragma_update" class="method"><h4 class="code-header">pub fn <a href="#method.pragma_update" class="fn">pragma_update</a>&lt;V&gt;(
+    &amp;self,
+    schema_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;,
+    pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    pragma_value: V,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    V: ToSql,</div></h4></section></summary><div class="docblock"><p>Set a new value to <code>pragma_name</code>.</p>
+<p>Some pragmas will return the updated value which cannot be retrieved
+with this method.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pragma_update_and_check" class="method"><h4 class="code-header">pub fn <a href="#method.pragma_update_and_check" class="fn">pragma_update_and_check</a>&lt;F, T, V&gt;(
+    &amp;self,
+    schema_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;,
+    pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    pragma_value: V,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;,
+    V: ToSql,</div></h4></section></summary><div class="docblock"><p>Set a new value to <code>pragma_name</code> and return the updated value.</p>
+<p>Only few pragmas automatically return the updated value.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unchecked_transaction" class="method"><h4 class="code-header">pub fn <a href="#method.unchecked_transaction" class="fn">unchecked_transaction</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Transaction&lt;'_&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Begin a new transaction with the default behavior (DEFERRED).</p>
+<p>Attempt to open a nested transaction will result in a SQLite error.
+<code>Connection::transaction</code> prevents this at compile time by taking <code>&amp;mut self</code>, but <code>Connection::unchecked_transaction()</code> may be used to defer
+the checking until runtime.</p>
+<p>See [<code>Connection::transaction</code>] and [<code>Transaction::new_unchecked</code>]
+(which can be used if the default transaction behavior is undesirable).</p>
+<h6 id="example-1"><a class="doc-anchor" href="#example-1">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>perform_queries(conn: Rc&lt;Connection&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>tx = conn.unchecked_transaction()<span class="question-mark">?</span>;
+
+    do_queries_part_1(<span class="kw-2">&amp;</span>tx)<span class="question-mark">?</span>; <span class="comment">// tx causes rollback if this fails
+    </span>do_queries_part_2(<span class="kw-2">&amp;</span>tx)<span class="question-mark">?</span>; <span class="comment">// tx causes rollback if this fails
+
+    </span>tx.commit()
+}</code></pre></div><h5 id="failure-4"><a class="doc-anchor" href="#failure-4">§</a>Failure</h5>
+<p>Will return <code>Err</code> if the underlying SQLite call fails. The specific
+error returned if transactions are nested is currently unspecified.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transaction_state" class="method"><h4 class="code-header">pub fn <a href="#method.transaction_state" class="fn">transaction_state</a>&lt;N&gt;(
+    &amp;self,
+    db_name: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;TransactionState, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Determine the transaction state of a database</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.execute_batch" class="method"><h4 class="code-header">pub fn <a href="#method.execute_batch" class="fn">execute_batch</a>(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Convenience method to run multiple SQL statements (that cannot take any
+parameters).</p>
+<h6 id="example-2"><a class="doc-anchor" href="#example-2">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>create_tables(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    conn.execute_batch(
+        <span class="string">"BEGIN;
+         CREATE TABLE foo(x INTEGER);
+         CREATE TABLE bar(y TEXT);
+         COMMIT;"</span>,
+    )
+}</code></pre></div><h5 id="failure-5"><a class="doc-anchor" href="#failure-5">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.execute" class="method"><h4 class="code-header">pub fn <a href="#method.execute" class="fn">execute</a>&lt;P&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, params: P) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>, Error&gt;<div class="where">where
+    P: Params,</div></h4></section></summary><div class="docblock"><p>Convenience method to prepare and execute a single SQL statement.</p>
+<p>On success, returns the number of rows that were changed or inserted or
+deleted (via <code>sqlite3_changes</code>).</p>
+<h6 id="example-3"><a class="doc-anchor" href="#example-3">§</a>Example</h6><h6 id="with-positional-params"><a class="doc-anchor" href="#with-positional-params">§</a>With positional params</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>update_rows(conn: <span class="kw-2">&amp;</span>Connection) {
+    <span class="kw">match </span>conn.execute(<span class="string">"UPDATE foo SET bar = 'baz' WHERE qux = ?1"</span>, [<span class="number">1i32</span>]) {
+        <span class="prelude-val">Ok</span>(updated) =&gt; <span class="macro">println!</span>(<span class="string">"{} rows were updated"</span>, updated),
+        <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">println!</span>(<span class="string">"update failed: {}"</span>, err),
+    }
+}</code></pre></div><h6 id="with-positional-params-of-varying-types"><a class="doc-anchor" href="#with-positional-params-of-varying-types">§</a>With positional params of varying types</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>update_rows(conn: <span class="kw-2">&amp;</span>Connection) {
+    <span class="kw">match </span>conn.execute(
+        <span class="string">"UPDATE foo SET bar = 'baz' WHERE qux = ?1 AND quux = ?2"</span>,
+        <span class="macro">params!</span>[<span class="number">1i32</span>, <span class="number">1.5f64</span>],
+    ) {
+        <span class="prelude-val">Ok</span>(updated) =&gt; <span class="macro">println!</span>(<span class="string">"{} rows were updated"</span>, updated),
+        <span class="prelude-val">Err</span>(err) =&gt; <span class="macro">println!</span>(<span class="string">"update failed: {}"</span>, err),
+    }
+}</code></pre></div><h6 id="with-named-params"><a class="doc-anchor" href="#with-named-params">§</a>With named params</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>insert(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    conn.execute(
+        <span class="string">"INSERT INTO test (name) VALUES (:name)"</span>,
+        <span class="kw-2">&amp;</span>[(<span class="string">":name"</span>, <span class="string">"one"</span>)],
+    )
+}</code></pre></div><h5 id="failure-6"><a class="doc-anchor" href="#failure-6">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.path" class="method"><h4 class="code-header">pub fn <a href="#method.path" class="fn">path</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the path to the database file, if one exists and is known.</p>
+<p>Returns <code>Some("")</code> for a temporary or in-memory database.</p>
+<p>Note that in some cases <a href="https://sqlite.org/pragma.html#pragma_database_list">PRAGMA
+database_list</a> is
+likely to be more robust.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.release_memory" class="method"><h4 class="code-header">pub fn <a href="#method.release_memory" class="fn">release_memory</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Attempts to free as much heap memory as possible from the database
+connection.</p>
+<p>This calls <a href="https://www.sqlite.org/c3ref/db_release_memory.html"><code>sqlite3_db_release_memory</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.last_insert_rowid" class="method"><h4 class="code-header">pub fn <a href="#method.last_insert_rowid" class="fn">last_insert_rowid</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.i64.html">i64</a></h4></section></summary><div class="docblock"><p>Get the SQLite rowid of the most recent successful INSERT.</p>
+<p>Uses <a href="https://www.sqlite.org/c3ref/last_insert_rowid.html">sqlite3_last_insert_rowid</a> under
+the hood.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.query_row" class="method"><h4 class="code-header">pub fn <a href="#method.query_row" class="fn">query_row</a>&lt;T, P, F&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, params: P, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;<div class="where">where
+    P: Params,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;,</div></h4></section></summary><div class="docblock"><p>Convenience method to execute a query that is expected to return a
+single row.</p>
+<h6 id="example-4"><a class="doc-anchor" href="#example-4">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>preferred_locale(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+    conn.query_row(
+        <span class="string">"SELECT value FROM preferences WHERE name='locale'"</span>,
+        [],
+        |row| row.get(<span class="number">0</span>),
+    )
+}</code></pre></div>
+<p>If the query returns more than one row, all rows except the first are
+ignored.</p>
+<p>Returns <code>Err(QueryReturnedNoRows)</code> if no results are returned. If the
+query truly is optional, you can call <code>.optional()</code> on the result of
+this to get a <code>Result&lt;Option&lt;T&gt;&gt;</code>.</p>
+<h5 id="failure-7"><a class="doc-anchor" href="#failure-7">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.query_one" class="method"><h4 class="code-header">pub fn <a href="#method.query_one" class="fn">query_one</a>&lt;T, P, F&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, params: P, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;<div class="where">where
+    P: Params,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;,</div></h4></section></summary><div class="docblock"><p>Convenience method to execute a query that is expected to return exactly
+one row.</p>
+<p>Returns <code>Err(QueryReturnedMoreThanOneRow)</code> if the query returns more than one row.</p>
+<p>Returns <code>Err(QueryReturnedNoRows)</code> if no results are returned. If the
+query truly is optional, you can call
+<a href="crate::OptionalExtension::optional"><code>.optional()</code></a> on the result of
+this to get a <code>Result&lt;Option&lt;T&gt;&gt;</code> (requires that the trait
+<code>rusqlite::OptionalExtension</code> is imported).</p>
+<h5 id="failure-8"><a class="doc-anchor" href="#failure-8">§</a>Failure</h5>
+<p>Will return <code>Err</code> if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.query_row_and_then" class="method"><h4 class="code-header">pub fn <a href="#method.query_row_and_then" class="fn">query_row_and_then</a>&lt;T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;<div class="where">where
+    P: Params,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,</div></h4></section></summary><div class="docblock"><p>Convenience method to execute a query that is expected to return a
+single row, and execute a mapping via <code>f</code> on that returned row with
+the possibility of failure. The <code>Result</code> type of <code>f</code> must implement
+<code>std::convert::From&lt;Error&gt;</code>.</p>
+<h6 id="example-5"><a class="doc-anchor" href="#example-5">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>preferred_locale(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+    conn.query_row_and_then(
+        <span class="string">"SELECT value FROM preferences WHERE name='locale'"</span>,
+        [],
+        |row| row.get(<span class="number">0</span>),
+    )
+}</code></pre></div>
+<p>If the query returns more than one row, all rows except the first are
+ignored.</p>
+<h5 id="failure-9"><a class="doc-anchor" href="#failure-9">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.prepare" class="method"><h4 class="code-header">pub fn <a href="#method.prepare" class="fn">prepare</a>(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Statement&lt;'_&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Prepare a SQL statement for execution.</p>
+<h6 id="example-6"><a class="doc-anchor" href="#example-6">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>insert_new_people(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(<span class="string">"INSERT INTO People (name) VALUES (?1)"</span>)<span class="question-mark">?</span>;
+    stmt.execute([<span class="string">"Joe Smith"</span>])<span class="question-mark">?</span>;
+    stmt.execute([<span class="string">"Bob Jones"</span>])<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h5 id="failure-10"><a class="doc-anchor" href="#failure-10">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.prepare_with_flags" class="method"><h4 class="code-header">pub fn <a href="#method.prepare_with_flags" class="fn">prepare_with_flags</a>(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    flags: PrepFlags,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Statement&lt;'_&gt;, Error&gt;</h4></section></summary><div class="docblock"><p>Prepare a SQL statement for execution.</p>
+<h5 id="failure-11"><a class="doc-anchor" href="#failure-11">§</a>Failure</h5>
+<p>Will return <code>Err</code> if <code>sql</code> cannot be converted to a C-compatible string
+or if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.load_extension_enable" class="method"><h4 class="code-header">pub unsafe fn <a href="#method.load_extension_enable" class="fn">load_extension_enable</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Enable loading of SQLite extensions from both SQL queries and Rust.</p>
+<p>You must call [<code>Connection::load_extension_disable</code>] when you’re
+finished loading extensions (failure to call it can lead to bad things,
+see “Safety”), so you should strongly consider using
+[<code>LoadExtensionGuard</code>] instead of this function, automatically disables
+extension loading when it goes out of scope.</p>
+<h5 id="example-7"><a class="doc-anchor" href="#example-7">§</a>Example</h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>load_my_extension(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="comment">// Safety: We fully trust the loaded extension and execute no untrusted SQL
+    // while extension loading is enabled.
+    </span><span class="kw">unsafe </span>{
+        conn.load_extension_enable()<span class="question-mark">?</span>;
+        <span class="kw">let </span>r = conn.load_extension(<span class="string">"my/trusted/extension"</span>, <span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>str&gt;);
+        conn.load_extension_disable()<span class="question-mark">?</span>;
+        r
+    }
+}</code></pre></div><h5 id="failure-12"><a class="doc-anchor" href="#failure-12">§</a>Failure</h5>
+<p>Will return <code>Err</code> if the underlying SQLite call fails.</p>
+<h5 id="safety"><a class="doc-anchor" href="#safety">§</a>Safety</h5>
+<p>TLDR: Don’t execute any untrusted queries between this call and
+[<code>Connection::load_extension_disable</code>].</p>
+<p>Perhaps surprisingly, this function does not only allow the use of
+[<code>Connection::load_extension</code>] from Rust, but it also allows SQL queries
+to perform <a href="https://www.sqlite.org/lang_corefunc.html#load_extension">the same operation</a>. For example, in the period
+between <code>load_extension_enable</code> and <code>load_extension_disable</code>, the
+following operation will load and call some function in some dynamic
+library:</p>
+<div class="example-wrap"><pre class="language-sql"><code>SELECT load_extension(&#39;why_is_this_possible.dll&#39;, &#39;dubious_func&#39;);</code></pre></div>
+<p>This means that while this is enabled a carefully crafted SQL query can
+be used to escalate a SQL injection attack into code execution.</p>
+<p>Safely using this function requires that you trust all SQL queries run
+between when it is called, and when loading is disabled (by
+[<code>Connection::load_extension_disable</code>]).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.load_extension_disable" class="method"><h4 class="code-header">pub fn <a href="#method.load_extension_disable" class="fn">load_extension_disable</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Disable loading of SQLite extensions.</p>
+<p>See [<code>Connection::load_extension_enable</code>] for an example.</p>
+<h5 id="failure-13"><a class="doc-anchor" href="#failure-13">§</a>Failure</h5>
+<p>Will return <code>Err</code> if the underlying SQLite call fails.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.load_extension" class="method"><h4 class="code-header">pub unsafe fn <a href="#method.load_extension" class="fn">load_extension</a>&lt;P, N&gt;(
+    &amp;self,
+    dylib_path: P,
+    entry_point: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;<div class="where">where
+    P: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;,
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Load the SQLite extension at <code>dylib_path</code>. <code>dylib_path</code> is passed
+through to <code>sqlite3_load_extension</code>, which may attempt OS-specific
+modifications if the file cannot be loaded directly (for example
+converting <code>"some/ext"</code> to <code>"some/ext.so"</code>, <code>"some\\ext.dll"</code>, …).</p>
+<p>If <code>entry_point</code> is <code>None</code>, SQLite will attempt to find the entry point.
+If it is not <code>None</code>, the entry point will be passed through to
+<code>sqlite3_load_extension</code>.</p>
+<h6 id="example-8"><a class="doc-anchor" href="#example-8">§</a>Example</h6>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>load_my_extension(conn: <span class="kw-2">&amp;</span>Connection) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="comment">// Safety: we don't execute any SQL statements while
+    // extension loading is enabled.
+    </span><span class="kw">let </span>_guard = <span class="kw">unsafe </span>{ LoadExtensionGuard::new(conn)<span class="question-mark">? </span>};
+    <span class="comment">// Safety: `my_sqlite_extension` is highly trustworthy.
+    </span><span class="kw">unsafe </span>{ conn.load_extension(<span class="string">"my_sqlite_extension"</span>, <span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>str&gt;) }
+}</code></pre></div><h5 id="failure-14"><a class="doc-anchor" href="#failure-14">§</a>Failure</h5>
+<p>Will return <code>Err</code> if the underlying SQLite call fails.</p>
+<h5 id="safety-1"><a class="doc-anchor" href="#safety-1">§</a>Safety</h5>
+<p>This is equivalent to performing a <code>dlopen</code>/<code>LoadLibrary</code> on a shared
+library, and calling a function inside, and thus requires that you trust
+the library that you’re loading.</p>
+<p>That is to say: to safely use this, the code in the extension must be
+sound, trusted, correctly use the SQLite APIs, and not contain any
+memory or thread safety errors.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.handle" class="method"><h4 class="code-header">pub unsafe fn <a href="#method.handle" class="fn">handle</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.pointer.html">*mut </a>sqlite3</h4></section></summary><div class="docblock"><p>Get access to the underlying SQLite database connection handle.</p>
+<h5 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h5>
+<p>You should not need to use this function. If you do need to, please
+<a href="https://github.com/rusqlite/rusqlite/issues">open an issue on the rusqlite repository</a> and describe
+your use case.</p>
+<h5 id="safety-2"><a class="doc-anchor" href="#safety-2">§</a>Safety</h5>
+<p>This function is unsafe because it gives you raw access
+to the SQLite connection, and what you do with it could impact the
+safety of this <code>Connection</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_interrupt_handle" class="method"><h4 class="code-header">pub fn <a href="#method.get_interrupt_handle" class="fn">get_interrupt_handle</a>(&amp;self) -&gt; InterruptHandle</h4></section></summary><div class="docblock"><p>Get access to a handle that can be used to interrupt long-running
+queries from another thread.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.changes" class="method"><h4 class="code-header">pub fn <a href="#method.changes" class="fn">changes</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.u64.html">u64</a></h4></section></summary><div class="docblock"><p>Return the number of rows modified, inserted or deleted by the most
+recently completed INSERT, UPDATE or DELETE statement on the database
+connection.</p>
+<p>See <a href="https://www.sqlite.org/c3ref/changes.html">https://www.sqlite.org/c3ref/changes.html</a></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.total_changes" class="method"><h4 class="code-header">pub fn <a href="#method.total_changes" class="fn">total_changes</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.u64.html">u64</a></h4></section></summary><div class="docblock"><p>Return the total number of rows modified, inserted or deleted by all
+completed INSERT, UPDATE or DELETE statements since the database
+connection was opened, including those executed as part of trigger programs.</p>
+<p>See <a href="https://www.sqlite.org/c3ref/total_changes.html">https://www.sqlite.org/c3ref/total_changes.html</a></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_autocommit" class="method"><h4 class="code-header">pub fn <a href="#method.is_autocommit" class="fn">is_autocommit</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Test for auto-commit mode.
+Autocommit mode is on by default.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_busy" class="method"><h4 class="code-header">pub fn <a href="#method.is_busy" class="fn">is_busy</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Determine if all associated prepared statements have been reset.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cache_flush" class="method"><h4 class="code-header">pub fn <a href="#method.cache_flush" class="fn">cache_flush</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Flush caches to disk mid-transaction</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_readonly" class="method"><h4 class="code-header">pub fn <a href="#method.is_readonly" class="fn">is_readonly</a>&lt;N&gt;(&amp;self, db_name: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>, Error&gt;<div class="where">where
+    N: Name,</div></h4></section></summary><div class="docblock"><p>Determine if a database is read-only</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.db_name" class="method"><h4 class="code-header">pub fn <a href="#method.db_name" class="fn">db_name</a>(&amp;self, index: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, Error&gt;</h4></section></summary><div class="docblock"><p>Return the schema name for a database connection</p>
+<h6 id="failure-15"><a class="doc-anchor" href="#failure-15">§</a>Failure</h6>
+<p>Return an <code>Error::InvalidDatabaseIndex</code> if <code>index</code> is out of range.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_interrupted" class="method"><h4 class="code-header">pub fn <a href="#method.is_interrupted" class="fn">is_interrupted</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Determine whether an interrupt is currently in effect</p>
+</div></details></div></details><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-ConnExt-for-UncheckedTransaction%3C'_%3E" class="impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#390-395">Source</a><a href="#impl-ConnExt-for-UncheckedTransaction%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ConnExt.html" title="trait sql_support::ConnExt">ConnExt</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'_&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.conn" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#392-394">Source</a><a href="#method.conn" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#tymethod.conn" class="fn">conn</a>(&amp;self) -&gt; &amp;Connection</h4></section></summary><div class='docblock'>The method you need to implement to opt in to all of this.</div></details><details class="toggle method-toggle" open><summary><section id="method.set_pragma" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#24-33">Source</a><a href="#method.set_pragma" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.set_pragma" class="fn">set_pragma</a>&lt;T&gt;(&amp;self, pragma_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, pragma_value: T) -&gt; SqlResult&lt;&amp;Self&gt;<div class="where">where
+    T: ToSql,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class='docblock'>Set the value of the pragma on the main database. Returns the same object, for chaining.</div></details><details class="toggle method-toggle" open><summary><section id="method.prepare_maybe_cached" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#36-42">Source</a><a href="#method.prepare_maybe_cached" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.prepare_maybe_cached" class="fn">prepare_maybe_cached</a>&lt;'conn&gt;(
+    &amp;'conn self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    cache: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+) -&gt; SqlResult&lt;<a class="enum" href="enum.MaybeCached.html" title="enum sql_support::MaybeCached">MaybeCached</a>&lt;'conn&gt;&gt;</h4></section></summary><div class='docblock'>Get a cached or uncached statement based on a flag.</div></details><details class="toggle method-toggle" open><summary><section id="method.execute_all" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#45-58">Source</a><a href="#method.execute_all" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.execute_all" class="fn">execute_all</a>(&amp;self, stmts: &amp;[&amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>]) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class='docblock'>Execute all the provided statements.</div></details><details class="toggle method-toggle" open><summary><section id="method.execute_one" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#61-63">Source</a><a href="#method.execute_one" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.execute_one" class="fn">execute_one</a>(&amp;self, stmt: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class='docblock'>Execute a single statement.</div></details><details class="toggle method-toggle" open><summary><section id="method.execute_cached" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#67-70">Source</a><a href="#method.execute_cached" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.execute_cached" class="fn">execute_cached</a>&lt;P: Params&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, params: P) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class='docblock'>Equivalent to <code>Connection::execute</code> but caches the statement so that subsequent
+calls to <code>execute_cached</code> will have improved performance.</div></details><details class="toggle method-toggle" open><summary><section id="method.conn_ext_query_one" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#76-79">Source</a><a href="#method.conn_ext_query_one" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.conn_ext_query_one" class="fn">conn_ext_query_one</a>&lt;T: FromSql&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; SqlResult&lt;T&gt;</h4></section></summary><div class='docblock'>Execute a query that returns a single result column, and return that result.
+NOTE: rusqlite now has a builtin <code>query_one</code> (with not quite these semantics)
+and a <code>one_column</code> (with these semantics but subtly different args) which should
+generally be preferred. We’ve kept this to make upgrading easier.</div></details><details class="toggle method-toggle" open><summary><section id="method.exists" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#82-87">Source</a><a href="#method.exists" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.exists" class="fn">exists</a>&lt;P: Params&gt;(&amp;self, sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>, params: P) -&gt; SqlResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>&gt;</h4></section></summary><div class='docblock'>Return true if a query returns any rows</div></details><details class="toggle method-toggle" open><summary><section id="method.try_query_one" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#91-109">Source</a><a href="#method.try_query_one" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.try_query_one" class="fn">try_query_one</a>&lt;T: FromSql, P: Params&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    cache: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+) -&gt; SqlResult&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class='docblock'>Execute a query that returns 0 or 1 result columns, returning None
+if there were no rows, or if the only result was NULL.</div></details><details class="toggle method-toggle" open><summary><section id="method.query_row_and_then_cachable" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#113-129">Source</a><a href="#method.query_row_and_then_cachable" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.query_row_and_then_cachable" class="fn">query_row_and_then_cachable</a>&lt;T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+    cache: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: Params,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,</div></h4></section></summary><div class='docblock'>Equivalent to <code>rusqlite::Connection::query_row_and_then</code> but allows
+passing a flag to indicate that it’s cached.</div></details><details class="toggle method-toggle" open><summary><section id="method.query_rows_and_then" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#134-142">Source</a><a href="#method.query_rows_and_then" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.query_rows_and_then" class="fn">query_rows_and_then</a>&lt;T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T&gt;, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: Params,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,</div></h4></section></summary><div class='docblock'>Helper for when you’d like to get a <code>Vec&lt;T&gt;</code> of all the rows returned by a
+query that takes named arguments. See also
+<code>query_rows_and_then_cached</code>.</div></details><details class="toggle method-toggle" open><summary><section id="method.query_rows_and_then_cached" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#146-159">Source</a><a href="#method.query_rows_and_then_cached" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.query_rows_and_then_cached" class="fn">query_rows_and_then_cached</a>&lt;T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;T&gt;, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: Params,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,</div></h4></section></summary><div class='docblock'>Helper for when you’d like to get a <code>Vec&lt;T&gt;</code> of all the rows returned by a
+query that takes named arguments.</div></details><details class="toggle method-toggle" open><summary><section id="method.query_rows_into" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#177-186">Source</a><a href="#method.query_rows_into" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.query_rows_into" class="fn">query_rows_into</a>&lt;Coll, T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Coll, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,
+    Coll: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/iter/traits/collect/trait.FromIterator.html" title="trait core::iter::traits::collect::FromIterator">FromIterator</a>&lt;T&gt;,
+    P: Params,</div></h4></section></summary><div class='docblock'>Like <code>query_rows_and_then_cachable</code>, but works if you want a non-Vec as a result. <a href="trait.ConnExt.html#method.query_rows_into">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.query_rows_into_cached" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#189-203">Source</a><a href="#method.query_rows_into_cached" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.query_rows_into_cached" class="fn">query_rows_into_cached</a>&lt;Coll, T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Coll, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: Params,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,
+    Coll: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/iter/traits/collect/trait.FromIterator.html" title="trait core::iter::traits::collect::FromIterator">FromIterator</a>&lt;T&gt;,</div></h4></section></summary><div class='docblock'>Same as <code>query_rows_into</code>, but caches the stmt if possible.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_query_row" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#208-225">Source</a><a href="#method.try_query_row" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.try_query_row" class="fn">try_query_row</a>&lt;T, E, P, F&gt;(
+    &amp;self,
+    sql: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>,
+    params: P,
+    mapper: F,
+    cache: <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.bool.html">bool</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;, E&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: Params,
+    E: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;Row&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,</div></h4></section></summary><div class='docblock'>Like <code>query_row_and_then_cacheable</code> but returns None instead of erroring
+if no such row exists.</div></details><details class="toggle method-toggle" open><summary><section id="method.unchecked_transaction-1" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#231-233">Source</a><a href="#method.unchecked_transaction-1" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.unchecked_transaction" class="fn">unchecked_transaction</a>(&amp;self) -&gt; SqlResult&lt;<a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'_&gt;&gt;</h4></section></summary><div class='docblock'>Caveat: This won’t actually get used most of the time, and calls will
+usually invoke rusqlite’s method with the same name. See comment on
+<code>UncheckedTransaction</code> for details (generally you probably don’t need to
+care)</div></details><details class="toggle method-toggle" open><summary><section id="method.unchecked_transaction_imm" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#238-240">Source</a><a href="#method.unchecked_transaction_imm" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.unchecked_transaction_imm" class="fn">unchecked_transaction_imm</a>(&amp;self) -&gt; SqlResult&lt;<a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'_&gt;&gt;</h4></section></summary><div class='docblock'>Begin <code>unchecked_transaction</code> with <code>TransactionBehavior::Immediate</code>. Use
+when the first operation will be a read operation, that further writes
+depend on for correctness.</div></details><details class="toggle method-toggle" open><summary><section id="method.get_db_size" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#243-250">Source</a><a href="#method.get_db_size" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ConnExt.html#method.get_db_size" class="fn">get_db_size</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.u32.html">u32</a>, Error&gt;</h4></section></summary><div class='docblock'>Get the DB size in bytes</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Drop-for-UncheckedTransaction%3C'_%3E" class="impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#382-388">Source</a><a href="#impl-Drop-for-UncheckedTransaction%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html" title="trait core::ops::drop::Drop">Drop</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'_&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.drop" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#383-387">Source</a><a href="#method.drop" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html#tymethod.drop" class="fn">drop</a>(&amp;mut self)</h4></section></summary><div class='docblock'>Executes the destructor for this type. <a href="https://doc.rust-lang.org/1.91.0/core/ops/drop/trait.Drop.html#tymethod.drop">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-__Deref-for-UncheckedTransaction%3C'_%3E" class="impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#373-380">Source</a><a href="#impl-__Deref-for-UncheckedTransaction%3C'_%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'_&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Target" class="associatedtype trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#374">Source</a><a href="#associatedtype.Target" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Deref.html#associatedtype.Target" class="associatedtype">Target</a> = Connection</h4></section></summary><div class='docblock'>The resulting type after dereferencing.</div></details><details class="toggle method-toggle" open><summary><section id="method.deref" class="method trait-impl"><a class="src rightside" href="../src/sql_support/conn_ext.rs.html#377-379">Source</a><a href="#method.deref" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Deref.html#tymethod.deref" class="fn">deref</a>(&amp;self) -&gt; &amp;Connection</h4></section></summary><div class='docblock'>Dereferences the value.</div></details></div></details></div><h2 id="synthetic-implementations" class="section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-Freeze-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-Freeze-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Freeze.html" title="trait core::marker::Freeze">Freeze</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section><section id="impl-RefUnwindSafe-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-RefUnwindSafe-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; !<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section><section id="impl-Send-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-Send-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; !<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section><section id="impl-Sync-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-Sync-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; !<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section><section id="impl-Unpin-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-Unpin-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section><section id="impl-UnwindSafe-for-UncheckedTransaction%3C'conn%3E" class="impl"><a href="#impl-UnwindSafe-for-UncheckedTransaction%3C'conn%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'conn&gt; !<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a> for <a class="struct" href="struct.UncheckedTransaction.html" title="struct sql_support::UncheckedTransaction">UncheckedTransaction</a>&lt;'conn&gt;</h3></section></div><h2 id="blanket-implementations" class="section-header">Blanket Implementations<a href="#blanket-implementations" class="anchor">§</a></h2><div id="blanket-implementations-list"><details class="toggle implementors-toggle"><summary><section id="impl-Any-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/any.rs.html#138">Source</a><a href="#impl-Any-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T<div class="where">where
+    T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.type_id" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/any.rs.html#139">Source</a><a href="#method.type_id" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/any/trait.Any.html#tymethod.type_id" class="fn">type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.91.0/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></h4></section></summary><div class='docblock'>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/1.91.0/core/any/trait.Any.html#tymethod.type_id">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Borrow%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/borrow.rs.html#212">Source</a><a href="#impl-Borrow%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/borrow.rs.html#214">Source</a><a href="#method.borrow" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.Borrow.html#tymethod.borrow" class="fn">borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.reference.html">&amp;T</a></h4></section></summary><div class='docblock'>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BorrowMut%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/borrow.rs.html#221">Source</a><a href="#impl-BorrowMut%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow_mut" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/borrow.rs.html#222">Source</a><a href="#method.borrow_mut" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut" class="fn">borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.reference.html">&amp;mut T</a></h4></section></summary><div class='docblock'>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.91.0/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-From%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#785">Source</a><a href="#impl-From%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#788">Source</a><a href="#method.from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html#tymethod.from" class="fn">from</a>(t: T) -&gt; T</h4></section></summary><div class="docblock"><p>Returns the argument unchanged.</p>
+</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Instrument-for-T" class="impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#276">Source</a><a href="#impl-Instrument-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html" title="trait tracing::instrument::Instrument">Instrument</a> for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.instrument" class="method trait-impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#82">Source</a><a href="#method.instrument" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.instrument" class="fn">instrument</a>(self, span: <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html" title="struct tracing::span::Span">Span</a>) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.Instrumented.html" title="struct tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Instruments this type with the provided <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html" title="struct tracing::span::Span"><code>Span</code></a>, returning an
+<code>Instrumented</code> wrapper. <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.instrument">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.in_current_span" class="method trait-impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#121">Source</a><a href="#method.in_current_span" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.in_current_span" class="fn">in_current_span</a>(self) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.Instrumented.html" title="struct tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Instruments this type with the <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html#method.current" title="associated function tracing::span::Span::current">current</a> <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html" title="struct tracing::span::Span"><code>Span</code></a>, returning an
+<code>Instrumented</code> wrapper. <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.in_current_span">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Into%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#767-769">Source</a><a href="#impl-Into%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#777">Source</a><a href="#method.into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.Into.html#tymethod.into" class="fn">into</a>(self) -&gt; U</h4></section></summary><div class="docblock"><p>Calls <code>U::from(self)</code>.</p>
+<p>That is, this conversion is whatever the implementation of
+<code><a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for U</code> chooses to do.</p>
+</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Receiver-for-P" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/ops/deref.rs.html#378-380">Source</a><a href="#impl-Receiver-for-P" class="anchor">§</a><h3 class="code-header">impl&lt;P, T&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Receiver.html" title="trait core::ops::deref::Receiver">Receiver</a> for P<div class="where">where
+    P: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a>&lt;Target = T&gt; + ?<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.91.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Target-1" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/ops/deref.rs.html#382">Source</a><a href="#associatedtype.Target-1" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.91.0/core/ops/deref/trait.Receiver.html#associatedtype.Target" class="associatedtype">Target</a> = T</h4></section></summary><span class="item-info"><div class="stab unstable"><span class="emoji">🔬</span><span>This is a nightly-only experimental API. (<code>arbitrary_self_types</code>)</span></div></span><div class='docblock'>The target type on which the method may be called.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryFrom%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#827-829">Source</a><a href="#impl-TryFrom%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#831">Source</a><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#834">Source</a><a href="#method.try_from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html#tymethod.try_from" class="fn">try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryInto%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#811-813">Source</a><a href="#impl-TryInto%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#815">Source</a><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryInto.html#associatedtype.Error" class="associatedtype">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.91.0/src/core/convert/mod.rs.html#818">Source</a><a href="#method.try_into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryInto.html#tymethod.try_into" class="fn">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-WithSubscriber-for-T" class="impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#334">Source</a><a href="#impl-WithSubscriber-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.WithSubscriber.html" title="trait tracing::instrument::WithSubscriber">WithSubscriber</a> for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.with_subscriber" class="method trait-impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#169-171">Source</a><a href="#method.with_subscriber" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.WithSubscriber.html#method.with_subscriber" class="fn">with_subscriber</a>&lt;S&gt;(self, subscriber: S) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.WithDispatch.html" title="struct tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt;<div class="where">where
+    S: <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;Dispatch&gt;,</div></h4></section></summary><div class='docblock'>Attaches the provided <a href="super::Subscriber"><code>Subscriber</code></a> to this type, returning a
+<a href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.WithDispatch.html" title="struct tracing::instrument::WithDispatch"><code>WithDispatch</code></a> wrapper. <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.WithSubscriber.html#method.with_subscriber">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.with_current_subscriber" class="method trait-impl"><a class="src rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#221">Source</a><a href="#method.with_current_subscriber" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.WithSubscriber.html#method.with_current_subscriber" class="fn">with_current_subscriber</a>(self) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.WithDispatch.html" title="struct tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Attaches the current <a href="https://docs.rs/tracing/0.1.37/tracing/dispatcher/index.html#setting-the-default-subscriber" title="mod tracing::dispatcher">default</a> <a href="super::Subscriber"><code>Subscriber</code></a> to this type, returning a
+<a href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.WithDispatch.html" title="struct tracing::instrument::WithDispatch"><code>WithDispatch</code></a> wrapper. <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.WithSubscriber.html#method.with_current_subscriber">Read more</a></div></details></div></details></div></section></div></main></body></html>

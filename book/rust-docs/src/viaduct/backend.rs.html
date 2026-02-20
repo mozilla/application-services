@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/viaduct/src/backend.rs`."><title>backend.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="viaduct" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">viaduct/</div>backend.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+<a href=#2 id=2 data-nosnippet>2</a> * License, v. 2.0. If a copy of the MPL was not distributed with this
+<a href=#3 id=3 data-nosnippet>3</a> * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use crate</span>::{info, settings::validate_request, trace};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>ffi::FfiBackend;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>once_cell::sync::OnceCell;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>ffi;
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub fn </span>note_backend(which: <span class="kw-2">&amp;</span>str) {
+<a href=#11 id=11 data-nosnippet>11</a>    <span class="comment">// If trace logs are enabled: log on every request. Otherwise, just log on
+<a href=#12 id=12 data-nosnippet>12</a>    // the first request at `info` level. We remember if the Once was triggered
+<a href=#13 id=13 data-nosnippet>13</a>    // to avoid logging twice in the first case.
+<a href=#14 id=14 data-nosnippet>14</a>    </span><span class="kw">static </span>NOTE_BACKEND_ONCE: std::sync::Once = std::sync::Once::new();
+<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">let </span><span class="kw-2">mut </span>called = <span class="bool-val">false</span>;
+<a href=#16 id=16 data-nosnippet>16</a>    NOTE_BACKEND_ONCE.call_once(|| {
+<a href=#17 id=17 data-nosnippet>17</a>        <span class="macro">info!</span>(<span class="string">"Using HTTP backend {}"</span>, which);
+<a href=#18 id=18 data-nosnippet>18</a>        called = <span class="bool-val">true</span>;
+<a href=#19 id=19 data-nosnippet>19</a>    });
+<a href=#20 id=20 data-nosnippet>20</a>    <span class="kw">if </span>!called {
+<a href=#21 id=21 data-nosnippet>21</a>        <span class="macro">trace!</span>(<span class="string">"Using HTTP backend {}"</span>, which);
+<a href=#22 id=22 data-nosnippet>22</a>    }
+<a href=#23 id=23 data-nosnippet>23</a>}
+<a href=#24 id=24 data-nosnippet>24</a>
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">pub trait </span>Backend: Send + Sync + <span class="lifetime">'static </span>{
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="kw">fn </span>send(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw">crate</span>::Request) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Response, <span class="kw">crate</span>::ViaductError&gt;;
+<a href=#27 id=27 data-nosnippet>27</a>}
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">static </span>BACKEND: OnceCell&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Backend&gt; = OnceCell::new();
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">pub fn </span>set_backend(b: <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Backend) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw">crate</span>::ViaductError&gt; {
+<a href=#32 id=32 data-nosnippet>32</a>    BACKEND
+<a href=#33 id=33 data-nosnippet>33</a>        .set(b)
+<a href=#34 id=34 data-nosnippet>34</a>        .map_err(|<span class="kw">_</span>| <span class="kw">crate</span>::error::ViaductError::SetBackendError)
+<a href=#35 id=35 data-nosnippet>35</a>}
+<a href=#36 id=36 data-nosnippet>36</a>
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_backend() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Backend {
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw-2">*</span>BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend)))
+<a href=#39 id=39 data-nosnippet>39</a>}
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">pub fn </span>send(request: <span class="kw">crate</span>::Request) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Response, <span class="kw">crate</span>::ViaductError&gt; {
+<a href=#42 id=42 data-nosnippet>42</a>    validate_request(<span class="kw-2">&amp;</span>request)<span class="question-mark">?</span>;
+<a href=#43 id=43 data-nosnippet>43</a>    get_backend().send(request)
+<a href=#44 id=44 data-nosnippet>44</a>}</code></pre></div></section></main></body></html>

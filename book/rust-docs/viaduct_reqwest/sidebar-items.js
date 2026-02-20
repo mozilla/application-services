@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["use_reqwest_backend"],"struct":["ReqwestBackend"]};

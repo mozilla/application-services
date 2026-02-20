@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["places",[["impl <a class=\"trait\" href=\"https://docs.rs/lazy_static/1.4.0/lazy_static/trait.LazyStatic.html\" title=\"trait lazy_static::LazyStatic\">LazyStatic</a> for <a class=\"struct\" href=\"places/db/db/struct.GLOBAL_BOOKMARK_CHANGE_COUNTERS.html\" title=\"struct places::db::db::GLOBAL_BOOKMARK_CHANGE_COUNTERS\">GLOBAL_BOOKMARK_CHANGE_COUNTERS</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/lazy_static/1.4.0/lazy_static/trait.LazyStatic.html\" title=\"trait lazy_static::LazyStatic\">LazyStatic</a> for <a class=\"struct\" href=\"places/import/common/struct.NOW.html\" title=\"struct places::import::common::NOW\">NOW</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/lazy_static/1.4.0/lazy_static/trait.LazyStatic.html\" title=\"trait lazy_static::LazyStatic\">LazyStatic</a> for <a class=\"struct\" href=\"places/storage/bookmarks/fetch/struct.RECENT_BOOKMARKS_QUERY.html\" title=\"struct places::storage::bookmarks::fetch::RECENT_BOOKMARKS_QUERY\">RECENT_BOOKMARKS_QUERY</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/lazy_static/1.4.0/lazy_static/trait.LazyStatic.html\" title=\"trait lazy_static::LazyStatic\">LazyStatic</a> for <a class=\"struct\" href=\"places/storage/bookmarks/fetch/struct.SEARCH_QUERY.html\" title=\"struct places::storage::bookmarks::fetch::SEARCH_QUERY\">SEARCH_QUERY</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1338]}

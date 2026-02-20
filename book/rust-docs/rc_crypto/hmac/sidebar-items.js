@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["sign","verify","verify_with_own_key"],"struct":["Signature","SigningKey","VerificationKey"]};

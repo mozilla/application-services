@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","Interest","RelevancyApiError"],"fn":["score"],"macro":["debug","error","info","trace","warn"],"mod":["url_hash"],"struct":["BanditCache","InterestMetrics","InterestVector","RelevancyDb","RelevancyStore"],"type":["ApiResult","Result"]};

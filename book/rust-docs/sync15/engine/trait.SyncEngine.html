@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A “sync engine” is a thing that knows how to sync. It’s often implemented by a “store” (which is the generic term responsible for all storage associated with a component, including storage required for sync.)"><title>SyncEngine in sync15::engine - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sync15" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SyncEngine</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sync15/index.html">sync15</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Sync<wbr>Engine</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.apply" title="apply">apply</a></li><li><a href="#tymethod.collection_name" title="collection_name">collection_name</a></li><li><a href="#tymethod.get_collection_request" title="get_collection_request">get_collection_request</a></li><li><a href="#tymethod.get_sync_assoc" title="get_sync_assoc">get_sync_assoc</a></li><li><a href="#tymethod.reset" title="reset">reset</a></li><li><a href="#tymethod.set_uploaded" title="set_uploaded">set_uploaded</a></li><li><a href="#tymethod.stage_incoming" title="stage_incoming">stage_incoming</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.prepare_for_sync" title="prepare_for_sync">prepare_for_sync</a></li><li><a href="#method.set_local_encryption_key" title="set_local_encryption_key">set_local_encryption_key</a></li><li><a href="#method.sync_finished" title="sync_finished">sync_finished</a></li><li><a href="#method.wipe" title="wipe">wipe</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In sync15::<wbr>engine</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">sync15</a>::<wbr><a href="index.html">engine</a></div><h1>Trait <span class="trait">Sync<wbr>Engine</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sync15/engine/sync_engine.rs.html#123-235">Source</a> </span></div><pre class="rust item-decl"><code>pub trait SyncEngine {
+    // Required methods
+    fn <a href="#tymethod.collection_name" class="fn">collection_name</a>(&amp;self) -&gt; <a class="type" href="../type.CollectionName.html" title="type sync15::CollectionName">CollectionName</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.stage_incoming" class="fn">stage_incoming</a>(
+        &amp;self,
+        inbound: <a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bso/struct.IncomingBso.html" title="struct sync15::bso::IncomingBso">IncomingBso</a>&gt;,
+        telem: &amp;mut <a class="struct" href="../telemetry/struct.Engine.html" title="struct sync15::telemetry::Engine">Engine</a>,
+    ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.apply" class="fn">apply</a>(
+        &amp;self,
+        timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+        telem: &amp;mut <a class="struct" href="../telemetry/struct.Engine.html" title="struct sync15::telemetry::Engine">Engine</a>,
+    ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bso/struct.OutgoingBso.html" title="struct sync15::bso::OutgoingBso">OutgoingBso</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_uploaded" class="fn">set_uploaded</a>(
+        &amp;self,
+        new_timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+        ids: <a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.Guid.html" title="struct sync15::Guid">Guid</a>&gt;,
+    ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_collection_request" class="fn">get_collection_request</a>(
+        &amp;self,
+        server_timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+    ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.CollectionRequest.html" title="struct sync15::engine::CollectionRequest">CollectionRequest</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_sync_assoc" class="fn">get_sync_assoc</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="enum" href="enum.EngineSyncAssociation.html" title="enum sync15::engine::EngineSyncAssociation">EngineSyncAssociation</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reset" class="fn">reset</a>(&amp;self, assoc: &amp;<a class="enum" href="enum.EngineSyncAssociation.html" title="enum sync15::engine::EngineSyncAssociation">EngineSyncAssociation</a>) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.prepare_for_sync" class="fn">prepare_for_sync</a>(
+        &amp;self,
+        _get_client_data: &amp;dyn <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>() -&gt; <a class="struct" href="../struct.ClientData.html" title="struct sync15::ClientData">ClientData</a>,
+    ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_local_encryption_key" class="fn">set_local_encryption_key</a>(&amp;mut self, _key: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.sync_finished" class="fn">sync_finished</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.wipe" class="fn">wipe</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A “sync engine” is a thing that knows how to sync. It’s often implemented
+by a “store” (which is the generic term responsible for all storage
+associated with a component, including storage required for sync.)</p>
+<p>The model described by this trait is that engines first “stage” sets of incoming records,
+then apply them returning outgoing records, then handle the success (or otherwise) of each
+batch as it’s uploaded.</p>
+<p>Staging incoming records is (or should be ;) done in batches - eg, 1000 record chunks.
+Some engines will “stage” these into a database temp table, while ones expecting less records
+might just store them in memory.</p>
+<p>For outgoing records, a single vec is supplied by the engine. The sync client will use the
+batch facilities of the server to make multiple POST requests and commit them.
+Sadly it’s not truly atomic (there’s a batch size limit) - so the model reflects that in that
+the engine gets told each time a batch is committed, which might happen more than once for the
+supplied vec. We should upgrade this model so the engine can avoid reading every outgoing
+record into memory at once (ie, we should try and better reflect the upload batch model at
+this level)</p>
+<p>Sync Engines should not assume they live for exactly one sync, so <code>prepare_for_sync()</code> should
+clean up any state, including staged records, from previous syncs.</p>
+<p>Different engines will produce errors of different types.  To accommodate
+this, we force them all to return anyhow::Error.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.collection_name" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#124">Source</a><h4 class="code-header">fn <a href="#tymethod.collection_name" class="fn">collection_name</a>(&amp;self) -&gt; <a class="type" href="../type.CollectionName.html" title="type sync15::CollectionName">CollectionName</a></h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.stage_incoming" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#177-181">Source</a><h4 class="code-header">fn <a href="#tymethod.stage_incoming" class="fn">stage_incoming</a>(
+    &amp;self,
+    inbound: <a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bso/struct.IncomingBso.html" title="struct sync15::bso::IncomingBso">IncomingBso</a>&gt;,
+    telem: &amp;mut <a class="struct" href="../telemetry/struct.Engine.html" title="struct sync15::telemetry::Engine">Engine</a>,
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Stage some incoming records. This might be called multiple times in the same sync
+if we fetch the incoming records in batches.</p>
+<p>Note there is no timestamp provided here, because the procedure for fetching in batches
+means that the timestamp advancing during a batch means we must abort and start again.
+The final collection timestamp after staging all records is supplied to <code>apply()</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.apply" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#186-190">Source</a><h4 class="code-header">fn <a href="#tymethod.apply" class="fn">apply</a>(
+    &amp;self,
+    timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+    telem: &amp;mut <a class="struct" href="../telemetry/struct.Engine.html" title="struct sync15::telemetry::Engine">Engine</a>,
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../bso/struct.OutgoingBso.html" title="struct sync15::bso::OutgoingBso">OutgoingBso</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Apply the staged records, returning outgoing records.
+Ideally we would adjust this model to better support batching of outgoing records
+without needing to keep them all in memory (ie, an iterator or similar?)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_uploaded" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#195">Source</a><h4 class="code-header">fn <a href="#tymethod.set_uploaded" class="fn">set_uploaded</a>(
+    &amp;self,
+    new_timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+    ids: <a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.Guid.html" title="struct sync15::Guid">Guid</a>&gt;,
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Indicates that the given record IDs were uploaded successfully to the server.
+This may be called multiple times per sync, once for each batch. Batching is determined
+dynamically based on payload sizes and counts via the server’s advertised limits.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_collection_request" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#212-215">Source</a><h4 class="code-header">fn <a href="#tymethod.get_collection_request" class="fn">get_collection_request</a>(
+    &amp;self,
+    server_timestamp: <a class="struct" href="../struct.ServerTimestamp.html" title="struct sync15::ServerTimestamp">ServerTimestamp</a>,
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.CollectionRequest.html" title="struct sync15::engine::CollectionRequest">CollectionRequest</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>The engine is responsible for building a single collection request. Engines
+typically will store a lastModified timestamp and use that to build a
+request saying “give me full records since that date” - however, other
+engines might do something fancier. It can return None if the server timestamp
+has not advanced since the last sync.
+This could even later be extended to handle “backfills”, and we might end up
+wanting one engine to use multiple collections (eg, as a “foreign key” via guid), etc.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_sync_assoc" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#219">Source</a><h4 class="code-header">fn <a href="#tymethod.get_sync_assoc" class="fn">get_sync_assoc</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="enum" href="enum.EngineSyncAssociation.html" title="enum sync15::engine::EngineSyncAssociation">EngineSyncAssociation</a>&gt;</h4></section></summary><div class="docblock"><p>Get persisted sync IDs. If they don’t match the global state we’ll be
+<code>reset()</code> with the new IDs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reset" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#224">Source</a><h4 class="code-header">fn <a href="#tymethod.reset" class="fn">reset</a>(&amp;self, assoc: &amp;<a class="enum" href="enum.EngineSyncAssociation.html" title="enum sync15::engine::EngineSyncAssociation">EngineSyncAssociation</a>) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Reset the engine (and associated store) without wiping local data,
+ready for a “first sync”.
+<code>assoc</code> defines how this store is to be associated with sync.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.prepare_for_sync" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#139-141">Source</a><h4 class="code-header">fn <a href="#method.prepare_for_sync" class="fn">prepare_for_sync</a>(
+    &amp;self,
+    _get_client_data: &amp;dyn <a class="trait" href="https://doc.rust-lang.org/1.91.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>() -&gt; <a class="struct" href="../struct.ClientData.html" title="struct sync15::ClientData">ClientData</a>,
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Prepares the engine for syncing. The tabs engine currently uses this to
+store the current list of clients, which it uses to look up device names
+and types.</p>
+<p>Note that this method is only called by <code>sync_multiple</code>, and only if a
+command processor is registered. In particular, <code>prepare_for_sync</code> will
+not be called if the store is synced using <code>sync::synchronize</code> or
+<code>sync_multiple::sync_multiple</code>. It <em>will</em> be called if the store is
+synced via the Sync Manager.</p>
+<p>TODO(issue #2590): This is pretty cludgey and will be hard to extend for
+any case other than the tabs case. We should find another way to support
+tabs…</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_local_encryption_key" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#167-169">Source</a><h4 class="code-header">fn <a href="#method.set_local_encryption_key" class="fn">set_local_encryption_key</a>(&amp;mut self, _key: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.str.html">str</a>) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Tells the engine what the local encryption key is for the data managed
+by the engine. This is only used by collections that store data
+encrypted locally and is unrelated to the encryption used by Sync.
+The intent is that for such collections, this key can be used to
+decrypt local data before it is re-encrypted by Sync and sent to the
+storage servers, and similarly, data from the storage servers will be
+decrypted by Sync, then encrypted by the local encryption key before
+being added to the local database.</p>
+<p>The expectation is that the key value is being maintained by the
+embedding application in some secure way suitable for the environment
+in which the app is running - eg, the OS “keychain”. The value of the
+key is implementation dependent - it is expected that the engine and
+embedding application already have some external agreement about how
+to generate keys and in what form they are exchanged. Finally, there’s
+an assumption that sync engines are short-lived and only live for a
+single sync - this means that sync doesn’t hold on to the key for an
+extended period. In practice, all sync engines which aren’t a “bridged
+engine” are short lived - we might need to rethink this later if we need
+engines with local encryption keys to be used on desktop.</p>
+<p>This will panic if called by an engine that doesn’t have explicit
+support for local encryption keys as that implies a degree of confusion
+which shouldn’t be possible to ignore.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.sync_finished" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#201-203">Source</a><h4 class="code-header">fn <a href="#method.sync_finished" class="fn">sync_finished</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Called once the sync is finished. Not currently called if uploads fail (which
+seems sad, but the other batching confusion there needs sorting out first).
+Many engines will have nothing to do here, as most “post upload” work should be
+done in <code>set_uploaded()</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.wipe" class="method"><a class="src rightside" href="../../src/sync15/engine/sync_engine.rs.html#232-234">Source</a><h4 class="code-header">fn <a href="#method.wipe" class="fn">wipe</a>(&amp;self) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.58/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.91.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Wipes the engine’s data
+This is typically triggered by a client command, which at the time of writing, only
+supported wiping bookmarks.</p>
+<p>This panics if triggered on a sync engine that does not explicitly implement wipe, because
+that implies a confustion that shouldn’t occur.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sync15/engine/sync_engine/trait.SyncEngine.js" async></script></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_enrollments","get_experiment_participation","get_rollout_participation","opt_in_with_branch","opt_out","reset_telemetry_identifiers","set_experiment_participation","set_rollout_participation","unenroll_for_pref"]};

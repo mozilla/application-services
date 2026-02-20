@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["open","seal"],"static":["AES_128_GCM","AES_256_GCM","LEGACY_SYNC_AES_256_CBC_HMAC_SHA256"],"struct":["Aad","Algorithm","Nonce","OpeningKey","SealingKey"]};

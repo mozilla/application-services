@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["main","sync_places"],"static":["CREDENTIALS_PATH"],"struct":["Cli"]};

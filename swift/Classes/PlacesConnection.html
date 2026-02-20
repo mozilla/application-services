@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>PlacesConnection Class Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset='utf-8'>
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
+  </head>
+  <body>
+    <a name="//apple_ref/swift/Class/PlacesConnection" class="dashAnchor"></a>
+    <a title="PlacesConnection Class Reference"></a>
+    <header>
+      <div class="content-wrapper">
+        <p><a href="../index.html"> Docs</a> (100% documented)</p>
+        <div class="header-right">
+          <form role="search" action="../search.json">
+            <input type="text" placeholder="Search documentation" data-typeahead>
+          </form>
+        </div>
+      </div>
+    </header>
+    <div class="content-wrapper">
+      <p id="breadcrumbs">
+        <a href="../index.html">Index</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        <a href="../Classes.html">Classes</a>
+        <img id="carat" src="../img/carat.png" alt=""/>
+        SwiftComponents.PlacesConnection Class Reference
+      </p>
+    </div>
+    <div class="content-wrapper">
+      <nav class="sidebar">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Classes/BackendImpl.html">BackendImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/ContextIdComponent.html">ContextIdComponent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/CuratedRecommendationsClient.html">CuratedRecommendationsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/EncryptorDecryptorImpl.html">EncryptorDecryptorImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FirefoxAccount.html">FirefoxAccount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/KeyManagerImpl.html">KeyManagerImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/LoginStore.html">LoginStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/ManagedEncryptorDecryptor.html">ManagedEncryptorDecryptor</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/MozAdsClient.html">MozAdsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/MozAdsClientBuilder.html">MozAdsClientBuilder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/MozAdsTelemetryImpl.html">MozAdsTelemetryImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusClient.html">NimbusClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusStringHelper.html">NimbusStringHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/NimbusTargetingHelper.html">NimbusTargetingHelper</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpSession.html">OhttpSession</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OhttpTestServer.html">OhttpTestServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesApi.html">PlacesApi</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PlacesConnection.html">PlacesConnection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/PushManager.html">PushManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RecordedContextImpl.html">RecordedContextImpl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RelayClient.html">RelayClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RelayRemoteSettingsClient.html">RelayRemoteSettingsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteCommandStore.html">RemoteCommandStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettings.html">RemoteSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettingsClient.html">RemoteSettingsClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/RemoteSettingsService.html">RemoteSettingsService</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SearchEngineSelector.html">SearchEngineSelector</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SqlInterruptHandle.html">SqlInterruptHandle</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/StaticKeyManager.html">StaticKeyManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/Store.html">Store</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStore.html">SuggestStore</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SuggestStoreBuilder.html">SuggestStoreBuilder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SyncManager.html">SyncManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsBridgedEngine.html">TabsBridgedEngine</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/TabsStore.html">TabsStore</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Enums/AccountEvent.html">AccountEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/AmpMatchingStrategy.html">AmpMatchingStrategy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ApiError.html">ApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/AutofillApiError.html">AutofillApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkItem.html">BookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BookmarkPosition.html">BookmarkPosition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BridgeType.html">BridgeType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/BulkResultEntry.html">BulkResultEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CloseTabsResult.html">CloseTabsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ConnectionType.html">ConnectionType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CrashTestError.html">CrashTestError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CuratedRecommendationLocale.html">CuratedRecommendationLocale</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/CuratedRecommendationsApiError.html">CuratedRecommendationsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceCapability.html">DeviceCapability</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DeviceType.html">DeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/DocumentType.html">DocumentType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/EnrollmentChangeEventType.html">EnrollmentChangeEventType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FrecencyThresholdOption.html">FrecencyThresholdOption</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaError.html">FxaError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaEvent.html">FxaEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaRustAuthState.html">FxaRustAuthState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaServer.html">FxaServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/FxaState.html">FxaState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/GeonameMatchType.html">GeonameMatchType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/GeonameType.html">GeonameType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/HistoryMetadataPageMissingBehavior.html">HistoryMetadataPageMissingBehavior</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/IncomingDeviceCommand.html">IncomingDeviceCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InsertableBookmarkItem.html">InsertableBookmarkItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/InterruptKind.html">InterruptKind</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/JsonEngineMethod.html">JsonEngineMethod</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Level.html">Level</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/LoginOrErrorMessage.html">LoginOrErrorMessage</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/LoginsApiError.html">LoginsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Method.html">Method</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/MozAdsCacheMode.html">MozAdsCacheMode</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/MozAdsClientApiError.html">MozAdsClientApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/MozAdsEnvironment.html">MozAdsEnvironment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/MozAdsIabContentTaxonomy.html">MozAdsIabContentTaxonomy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/NimbusError.html">NimbusError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/OhttpError.html">OhttpError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PlacesApiError.html">PlacesApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PrefBranch.html">PrefBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PrefUnenrollReason.html">PrefUnenrollReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushApiError.html">PushApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/PushHttpProtocol.html">PushHttpProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RelayApiError.html">RelayApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteCommand.html">RemoteCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsError.html">RemoteSettingsError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/RemoteSettingsServer.html">RemoteSettingsServer</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchApiError.html">SearchApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchApplicationName.html">SearchApplicationName</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchDeviceType.html">SearchDeviceType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchEngineClassification.html">SearchEngineClassification</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SearchUpdateChannel.html">SearchUpdateChannel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ServiceStatus.html">ServiceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestApiError.html">SuggestApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestProviderConfig.html">SuggestProviderConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/Suggestion.html">Suggestion</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SuggestionProvider.html">SuggestionProvider</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncEngineSelection.html">SyncEngineSelection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncManagerError.html">SyncManagerError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/SyncReason.html">SyncReason</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/TabsApiError.html">TabsApiError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/TracingLevel.html">TracingLevel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/ViaductError.html">ViaductError</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/VisitType.html">VisitType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/WindowType.html">WindowType</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Enums/YelpSubjectType.html">YelpSubjectType</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Functions.html">Functions</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31allCuratedRecommendationLocalesSaySSGyF">allCuratedRecommendationLocales()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28allowAndroidEmulatorLoopbackyyF">allowAndroidEmulatorLoopback()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11checkCanary6canary4text13encryptionKeySbSS_S2StKF">checkCanary(canary:text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents18clearOhttpChannelsyyF">clearOhttpChannels()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29configureDefaultOhttpChannelsyyKF">configureDefaultOhttpChannels()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents21configureOhttpChannel7channel6configySS_AA0D6ConfigVtKF">configureOhttpChannel(channel:config:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17createAutofillKeySSyKF">createAutofillKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12createCanary4text13encryptionKeyS2S_SStKF">createCanary(text:encryptionKey:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9createKeySSyKF">createKey()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36createLoginStoreWithStaticKeyManager4path3keyAA0dE0CSS_SStF">createLoginStoreWithStaticKeyManager(path:key:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents19createManagedEncdec10keyManagerAA18EncryptorDecryptor_pAA03KeyG0_p_tF">createManagedEncdec(keyManager:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents22createStaticKeyManager3keyAA0eF0_pSS_tF">createStaticKeyManager(key:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37curatedRecommendationLocaleFromString6localeAA07CurateddE0OSgSS_tF">curatedRecommendationLocaleFromString(locale:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13decryptString3key10ciphertextS2S_SStKF">decryptString(key:ciphertext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents13encryptString3key9cleartextS2S_SStKF">encryptString(key:cleartext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23getCalculatedAttributes16installationDate6dbPath6localeAA0dE0Vs5Int64VSg_S2StKF">getCalculatedAttributes(installationDate:dbPath:locale:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11initBackend7backendyAA0D0_p_tKF">initBackend(backend:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents10initializeyyF">initialize()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17listOhttpChannelsSaySSGyF">listOhttpChannels()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents12placesApiNew6dbPathAA06PlacesD0CSS_tKF">placesApiNew(dbPath:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23rawSuggestionUrlMatches0cE006cookedE0SbSS_SStF">rawSuggestionUrlMatches(rawUrl:cookedUrl:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents17registerEventSink7targets4sinks6UInt32VAA0dE13SpecificationV_AA0dE0_ptF">registerEventSink(targets:sink:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16sendOhttpRequest7request7channelAA8ResponseVAA0E0V_SStYaKF">sendOhttpRequest(request:channel:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents25setGlobalDefaultUserAgent04userG0ySS_tF">setGlobalDefaultUserAgent(userAgent:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents9setLogger6loggeryAA011AppServicesD0_pSg_tF">setLogger(logger:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents11setMaxLevel5levelyAA0E0O_tF">setMaxLevel(level:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustAbortyyF">triggerRustAbort()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustErroryyKF">triggerRustError()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents16triggerRustPanicyyF">triggerRustPanic()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureAdsClientInitializedyyF">uniffiEnsureAdsClientInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents36uniffiEnsureAsOhttpClientInitializedyyF">uniffiEnsureAsOhttpClientInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents31uniffiEnsureAutofillInitializedyyF">uniffiEnsureAutofillInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureContextIdInitializedyyF">uniffiEnsureContextIdInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureCrashtestInitializedyyF">uniffiEnsureCrashtestInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35uniffiEnsureErrorSupportInitializedyyF">uniffiEnsureErrorSupportInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents32uniffiEnsureFxaClientInitializedyyF">uniffiEnsureFxaClientInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents020uniffiEnsureInitRustB11InitializedyyF">uniffiEnsureInitRustComponentsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureLoginsInitializedyyF">uniffiEnsureLoginsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureMerinoInitializedyyF">uniffiEnsureMerinoInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureNimbusInitializedyyF">uniffiEnsureNimbusInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsurePlacesInitializedyyF">uniffiEnsurePlacesInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27uniffiEnsurePushInitializedyyF">uniffiEnsurePushInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents28uniffiEnsureRelayInitializedyyF">uniffiEnsureRelayInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37uniffiEnsureRemoteSettingsInitializedyyF">uniffiEnsureRemoteSettingsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents39uniffiEnsureRustLogForwarderInitializedyyF">uniffiEnsureRustLogForwarderInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureSearchInitializedyyF">uniffiEnsureSearchInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30uniffiEnsureSuggestInitializedyyF">uniffiEnsureSuggestInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents29uniffiEnsureSync15InitializedyyF">uniffiEnsureSync15Initialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents34uniffiEnsureSyncManagerInitializedyyF">uniffiEnsureSyncManagerInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents27uniffiEnsureTabsInitializedyyF">uniffiEnsureTabsInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37uniffiEnsureTracingSupportInitializedyyF">uniffiEnsureTracingSupportInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents35uniffiEnsureViaductHyperInitializedyyF">uniffiEnsureViaductHyperInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents30uniffiEnsureViaductInitializedyyF">uniffiEnsureViaductInitialized()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents37uniffiForeignFutureHandleCountViaductSiyF">uniffiForeignFutureHandleCountViaduct()</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents19unregisterEventSink2idys6UInt32V_tF">unregisterEventSink(id:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents20validateEventQueries15recordedContextyAA08RecordedG0_p_tKF">validateEventQueries(recordedContext:)</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Functions.html#/s:15SwiftComponents23viaductInitBackendHyperyyKF">viaductInitBackendHyper()</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Protocols.html">Protocols</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Protocols/AppServicesLogger.html">AppServicesLogger</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/Backend.html">Backend</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ContextIdCallback.html">ContextIdCallback</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/ContextIdComponentProtocol.html">ContextIdComponentProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/CuratedRecommendationsClientProtocol.html">CuratedRecommendationsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/EncryptorDecryptor.html">EncryptorDecryptor</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/EventSink.html">EventSink</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/FirefoxAccountProtocol.html">FirefoxAccountProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/GeckoPrefHandler.html">GeckoPrefHandler</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/KeyManager.html">KeyManager</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/LoginStoreProtocol.html">LoginStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols.html#/s:15SwiftComponents33ManagedEncryptorDecryptorProtocolP">ManagedEncryptorDecryptorProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MetricsHandler.html">MetricsHandler</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MozAdsClientBuilderProtocol.html">MozAdsClientBuilderProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MozAdsClientProtocol.html">MozAdsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/MozAdsTelemetry.html">MozAdsTelemetry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusClientProtocol.html">NimbusClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusStringHelperProtocol.html">NimbusStringHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/NimbusTargetingHelperProtocol.html">NimbusTargetingHelperProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/OhttpSessionProtocol.html">OhttpSessionProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/OhttpTestServerProtocol.html">OhttpTestServerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesApiProtocol.html">PlacesApiProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PlacesConnectionProtocol.html">PlacesConnectionProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/PushManagerProtocol.html">PushManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RecordedContext.html">RecordedContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RelayClientProtocol.html">RelayClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RelayRemoteSettingsClientProtocol.html">RelayRemoteSettingsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteCommandStoreProtocol.html">RemoteCommandStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsClientProtocol.html">RemoteSettingsClientProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsProtocol.html">RemoteSettingsProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/RemoteSettingsServiceProtocol.html">RemoteSettingsServiceProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SearchEngineSelectorProtocol.html">SearchEngineSelectorProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SqlInterruptHandleProtocol.html">SqlInterruptHandleProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols.html#/s:15SwiftComponents24StaticKeyManagerProtocolP">StaticKeyManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/StoreProtocol.html">StoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreBuilderProtocol.html">SuggestStoreBuilderProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SuggestStoreProtocol.html">SuggestStoreProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/SyncManagerProtocol.html">SyncManagerProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsBridgedEngineProtocol.html">TabsBridgedEngineProtocol</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Protocols/TabsStoreProtocol.html">TabsStoreProtocol</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Structs.html">Structures</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Structs/AccessTokenInfo.html">AccessTokenInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Address.html">Address</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AlternateNames.html">AlternateNames</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AppContext.html">AppContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AttachedClient.html">AttachedClient</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Attachment.html">Attachment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationInfo.html">AuthorizationInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AuthorizationParameters.html">AuthorizationParameters</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/AvailableExperiment.html">AvailableExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkData.html">BookmarkData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkFolder.html">BookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkSeparator.html">BookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BookmarkUpdateInfo.html">BookmarkUpdateInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/BounceStatus.html">BounceStatus</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CalculatedAttributes.html">CalculatedAttributes</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ClientRemoteTabs.html">ClientRemoteTabs</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ClientSettings.html">ClientSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CloseTabsPayload.html">CloseTabsPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CreditCard.html">CreditCard</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CreditCardsDeletionMetrics.html">CreditCardsDeletionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsBucket.html">CuratedRecommendationsBucket</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsConfig.html">CuratedRecommendationsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsRequest.html">CuratedRecommendationsRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/CuratedRecommendationsResponse.html">CuratedRecommendationsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DecryptResponse.html">DecryptResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Device.html">Device</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceConfig.html">DeviceConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DevicePushSubscription.html">DevicePushSubscription</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/DeviceSettings.html">DeviceSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Dummy.html">Dummy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrolledExperiment.html">EnrolledExperiment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentChangeEvent.html">EnrollmentChangeEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EnrollmentStatusExtraDef.html">EnrollmentStatusExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EventSinkSpecification.html">EventSinkSpecification</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/EventTarget.html">EventTarget</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ExperimentBranch.html">ExperimentBranch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotCta.html">FakespotCta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotFeed.html">FakespotFeed</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FakespotProduct.html">FakespotProduct</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FeatureExposureExtraDef.html">FeatureExposureExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FeedSection.html">FeedSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Feeds.html">Feeds</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FtsMatchInfo.html">FtsMatchInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/FxaConfig.html">FxaConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeckoPref.html">GeckoPref</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeckoPrefState.html">GeckoPrefState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Geoname.html">Geoname</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeonameAlternates.html">GeonameAlternates</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/GeonameMatch.html">GeonameMatch</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlight.html">HistoryHighlight</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryHighlightWeights.html">HistoryHighlightWeights</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadata.html">HistoryMetadata</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMetadataObservation.html">HistoryMetadataObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryMigrationResult.html">HistoryMigrationResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfo.html">HistoryVisitInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/HistoryVisitInfosWithBound.html">HistoryVisitInfosWithBound</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmark.html">InsertableBookmark</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkFolder.html">InsertableBookmarkFolder</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InsertableBookmarkSeparator.html">InsertableBookmarkSeparator</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InterestPicker.html">InterestPicker</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/InterestPickerSection.html">InterestPickerSection</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/JsonEngineUrl.html">JsonEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/JsonEngineUrls.html">JsonEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/KeyInfo.html">KeyInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LabeledTimingSample.html">LabeledTimingSample</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Layout.html">Layout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LocalDevice.html">LocalDevice</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LocalTabsInfo.html">LocalTabsInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Login.html">Login</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginEntry.html">LoginEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginEntryWithMeta.html">LoginEntryWithMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginMeta.html">LoginMeta</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/LoginsDeletionMetrics.html">LoginsDeletionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MalformedFeatureConfigExtraDef.html">MalformedFeatureConfigExtraDef</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsCacheConfig.html">MozAdsCacheConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsCallbacks.html">MozAdsCallbacks</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsContentCategory.html">MozAdsContentCategory</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsIabContent.html">MozAdsIabContent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsImage.html">MozAdsImage</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsPlacementRequest.html">MozAdsPlacementRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsPlacementRequestWithCount.html">MozAdsPlacementRequestWithCount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsRequestCachePolicy.html">MozAdsRequestCachePolicy</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsRequestOptions.html">MozAdsRequestOptions</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsSpoc.html">MozAdsSpoc</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsSpocFrequencyCaps.html">MozAdsSpocFrequencyCaps</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsSpocRanking.html">MozAdsSpocRanking</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MozAdsTile.html">MozAdsTile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/NimbusServerSettings.html">NimbusServerSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/NoteHistoryMetadataObservationOptions.html">NoteHistoryMetadataObservationOptions</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/OhttpConfig.html">OhttpConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/OhttpResponse.html">OhttpResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/OriginalGeckoPref.html">OriginalGeckoPref</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PendingCommand.html">PendingCommand</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PrefEnrollmentData.html">PrefEnrollmentData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PreviousGeckoPrefState.html">PreviousGeckoPrefState</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Profile.html">Profile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushConfiguration.html">PushConfiguration</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/PushSubscriptionChanged.html">PushSubscriptionChanged</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/QueryWithMetricsResult.html">QueryWithMetricsResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RecommendationDataItem.html">RecommendationDataItem</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Record.html">Record</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RefinedSearchConfig.html">RefinedSearchConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RelayAddress.html">RelayAddress</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RelayProfile.html">RelayProfile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsConfig.html">RemoteSettingsConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsConfig2.html">RemoteSettingsConfig2</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsContext.html">RemoteSettingsContext</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsRecord.html">RemoteSettingsRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteSettingsResponse.html">RemoteSettingsResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RemoteTabRecord.html">RemoteTabRecord</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Request.html">Request</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Response.html">Response</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ResponsiveLayout.html">ResponsiveLayout</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/RunMaintenanceMetrics.html">RunMaintenanceMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/ScopedKey.html">ScopedKey</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineDefinition.html">SearchEngineDefinition</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineUrl.html">SearchEngineUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchEngineUrls.html">SearchEngineUrls</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchResult.html">SearchResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchUrlParam.html">SearchUrlParam</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SearchUserEnvironment.html">SearchUserEnvironment</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SectionSettings.html">SectionSettings</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SendTabPayload.html">SendTabPayload</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionInfo.html">SubscriptionInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SubscriptionResponse.html">SubscriptionResponse</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestGlobalConfig.html">SuggestGlobalConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionConstraints.html">SuggestIngestionConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestIngestionMetrics.html">SuggestIngestionMetrics</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionProviderConstraints.html">SuggestionProviderConstraints</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SuggestionQuery.html">SuggestionQuery</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncAuthInfo.html">SyncAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncParams.html">SyncParams</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/SyncResult.html">SyncResult</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TabGroup.html">TabGroup</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TabHistoryEntry.html">TabHistoryEntry</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TestServerRequest.html">TestServerRequest</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Tile.html">Tile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TopFrecentSiteInfo.html">TopFrecentSiteInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/TracingEvent.html">TracingEvent</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableAddressFields.html">UpdatableAddressFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UpdatableCreditCardFields.html">UpdatableCreditCardFields</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/UserData.html">UserData</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/VisitObservation.html">VisitObservation</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/Window.html">Window</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Typealiases.html">Type Aliases</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents12AdsClientUrla">AdsClientUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents11EventSinkIda">EventSinkId</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents7Headersa">Headers</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents10JsonObjecta">JsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9JsonValuea">JsonValue</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9PrefValuea">PrefValue</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents12RsJsonObjecta">RsJsonObject</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents8TabsGuida">TabsGuid</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents9Timestampa">Timestamp</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents16TracingJsonValuea">TracingJsonValue</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents10ViaductUrla">ViaductUrl</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+        <section>
+          <section class="section">
+            <h1>PlacesConnection</h1>
+              <div class="declaration">
+                <div class="language">
+                  
+                  <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">class</span> <span class="kt">PlacesConnection</span> <span class="p">:</span> <span class="kt"><a href="../Protocols/PlacesConnectionProtocol.html">PlacesConnectionProtocol</a></span><span class="p">,</span> <span class="kd">@unchecked</span> <span class="kt">Sendable</span></code></pre>
+
+                </div>
+              </div>
+            
+          </section>
+          <section class="section task-group-section">
+            <div class="task-group">
+              <ul>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC12acceptResult12searchString3urlySS_SStKF"></a>
+                    <a name="//apple_ref/swift/Method/acceptResult(searchString:url:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC12acceptResult12searchString3urlySS_SStKF">acceptResult(searchString:<wbr>url:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p><code>url</code> is a <code>string</code> and not a <code>URL</code> because <code>accept_result</code>
+handles malformed urls</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">acceptResult</span><span class="p">(</span><span class="nv">searchString</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">url</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC16applyObservation5visityAA05VisitF0V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/applyObservation(visit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC16applyObservation5visityAA05VisitF0V_tKF">applyObservation(visit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">applyObservation</span><span class="p">(</span><span class="nv">visit</span><span class="p">:</span> <span class="kt"><a href="../Structs/VisitObservation.html">VisitObservation</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC30bookmarksCountBookmarksInTrees11folderGuidss6UInt32VSaySSG_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksCountBookmarksInTrees(folderGuids:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC30bookmarksCountBookmarksInTrees11folderGuidss6UInt32VSaySSG_tKF">bookmarksCountBookmarksInTrees(folderGuids:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Counts the number of bookmarks in the bookmark tree under the specified GUID. Does not count
+the passed item, so an empty folder will return zero, as will a non-existing GUID or the
+guid of a non-folder item.
+Counts only bookmark items - ie, sub-folders and separators are not counted.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksCountBookmarksInTrees</span><span class="p">(</span><span class="nv">folderGuids</span><span class="p">:</span> <span class="p">[</span><span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a></span><span class="p">])</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">UInt32</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC15bookmarksDelete2idSbSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksDelete(id:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC15bookmarksDelete2idSbSS_tKF">bookmarksDelete(id:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksDelete</span><span class="p">(</span><span class="nv">id</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Bool</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC25bookmarksDeleteEverythingyyKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksDeleteEverything()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC25bookmarksDeleteEverythingyyKF">bookmarksDeleteEverything()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksDeleteEverything</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC22bookmarksGetAllWithUrl3urlSayAA12BookmarkItemOGSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksGetAllWithUrl(url:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC22bookmarksGetAllWithUrl3urlSayAA12BookmarkItemOGSS_tKF">bookmarksGetAllWithUrl(url:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksGetAllWithUrl</span><span class="p">(</span><span class="nv">url</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Enums/BookmarkItem.html">BookmarkItem</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC18bookmarksGetByGuid4guid17getDirectChildrenAA12BookmarkItemOSgSS_SbtKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksGetByGuid(guid:getDirectChildren:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC18bookmarksGetByGuid4guid17getDirectChildrenAA12BookmarkItemOSgSS_SbtKF">bookmarksGetByGuid(guid:<wbr>getDirectChildren:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksGetByGuid</span><span class="p">(</span><span class="nv">guid</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a></span><span class="p">,</span> <span class="nv">getDirectChildren</span><span class="p">:</span> <span class="kt">Bool</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Enums/BookmarkItem.html">BookmarkItem</a></span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC18bookmarksGetRecent5limitSayAA12BookmarkItemOGs5Int32V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksGetRecent(limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC18bookmarksGetRecent5limitSayAA12BookmarkItemOGs5Int32V_tKF">bookmarksGetRecent(limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksGetRecent</span><span class="p">(</span><span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Enums/BookmarkItem.html">BookmarkItem</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC16bookmarksGetTree8itemGuidAA12BookmarkItemOSgSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksGetTree(itemGuid:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC16bookmarksGetTree8itemGuidAA12BookmarkItemOSgSS_tKF">bookmarksGetTree(itemGuid:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksGetTree</span><span class="p">(</span><span class="nv">itemGuid</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Enums/BookmarkItem.html">BookmarkItem</a></span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC25bookmarksGetUrlForKeyword7keywordSSSgSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksGetUrlForKeyword(keyword:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC25bookmarksGetUrlForKeyword7keywordSSSgSS_tKF">bookmarksGetUrlForKeyword(keyword:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksGetUrlForKeyword</span><span class="p">(</span><span class="nv">keyword</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC15bookmarksInsert8bookmarkSSAA22InsertableBookmarkItemO_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksInsert(bookmark:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC15bookmarksInsert8bookmarkSSAA22InsertableBookmarkItemO_tKF">bookmarksInsert(bookmark:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksInsert</span><span class="p">(</span><span class="nv">bookmark</span><span class="p">:</span> <span class="kt"><a href="../Enums/InsertableBookmarkItem.html">InsertableBookmarkItem</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents4Guida">Guid</a></span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC15bookmarksSearch5query5limitSayAA12BookmarkItemOGSS_s5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksSearch(query:limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC15bookmarksSearch5query5limitSayAA12BookmarkItemOGSS_s5Int32VtKF">bookmarksSearch(query:<wbr>limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksSearch</span><span class="p">(</span><span class="nv">query</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Enums/BookmarkItem.html">BookmarkItem</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC15bookmarksUpdate4datayAA08BookmarkF4InfoV_tKF"></a>
+                    <a name="//apple_ref/swift/Method/bookmarksUpdate(data:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC15bookmarksUpdate4datayAA08BookmarkF4InfoV_tKF">bookmarksUpdate(data:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">bookmarksUpdate</span><span class="p">(</span><span class="nv">data</span><span class="p">:</span> <span class="kt"><a href="../Structs/BookmarkUpdateInfo.html">BookmarkUpdateInfo</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC23deleteEverythingHistoryyyKF"></a>
+                    <a name="//apple_ref/swift/Method/deleteEverythingHistory()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC23deleteEverythingHistoryyyKF">deleteEverythingHistory()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">deleteEverythingHistory</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC11deleteVisit3url9timestampySS_s5Int64VtKF"></a>
+                    <a name="//apple_ref/swift/Method/deleteVisit(url:timestamp:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC11deleteVisit3url9timestampySS_s5Int64VtKF">deleteVisit(url:<wbr>timestamp:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">deleteVisit</span><span class="p">(</span><span class="nv">url</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">timestamp</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC19deleteVisitsBetween5start3endys5Int64V_AHtKF"></a>
+                    <a name="//apple_ref/swift/Method/deleteVisitsBetween(start:end:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC19deleteVisitsBetween5start3endys5Int64V_AHtKF">deleteVisitsBetween(start:<wbr>end:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">deleteVisitsBetween</span><span class="p">(</span><span class="nv">start</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">end</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC15deleteVisitsFor3urlySS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/deleteVisitsFor(url:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC15deleteVisitsFor3urlySS_tKF">deleteVisitsFor(url:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">deleteVisitsFor</span><span class="p">(</span><span class="nv">url</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC20getHistoryHighlights7weights5limitSayAA0F9HighlightVGAA0fJ7WeightsV_s5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/getHistoryHighlights(weights:limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC20getHistoryHighlights7weights5limitSayAA0F9HighlightVGAA0fJ7WeightsV_s5Int32VtKF">getHistoryHighlights(weights:<wbr>limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getHistoryHighlights</span><span class="p">(</span><span class="nv">weights</span><span class="p">:</span> <span class="kt"><a href="../Structs/HistoryHighlightWeights.html">HistoryHighlightWeights</a></span><span class="p">,</span> <span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryHighlight.html">HistoryHighlight</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC25getHistoryMetadataBetween5start3endSayAA0fG0VGs5Int64V_AKtKF"></a>
+                    <a name="//apple_ref/swift/Method/getHistoryMetadataBetween(start:end:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC25getHistoryMetadataBetween5start3endSayAA0fG0VGs5Int64V_AKtKF">getHistoryMetadataBetween(start:<wbr>end:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getHistoryMetadataBetween</span><span class="p">(</span><span class="nv">start</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">end</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC23getHistoryMetadataSince5sinceSayAA0fG0VGs5Int64V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getHistoryMetadataSince(since:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC23getHistoryMetadataSince5sinceSayAA0fG0VGs5Int64V_tKF">getHistoryMetadataSince(since:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getHistoryMetadataSince</span><span class="p">(</span><span class="nv">since</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC30getLatestHistoryMetadataForUrl3urlAA0gH0VSgSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getLatestHistoryMetadataForUrl(url:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC30getLatestHistoryMetadataForUrl3urlAA0gH0VSgSS_tKF">getLatestHistoryMetadataForUrl(url:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getLatestHistoryMetadataForUrl</span><span class="p">(</span><span class="nv">url</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC28getMostRecentHistoryMetadata5limitSayAA0hI0VGs5Int32V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getMostRecentHistoryMetadata(limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC28getMostRecentHistoryMetadata5limitSayAA0hI0VGs5Int32V_tKF">getMostRecentHistoryMetadata(limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getMostRecentHistoryMetadata</span><span class="p">(</span><span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC43getMostRecentSearchEntriesInHistoryMetadata5limitSayAA0kL0VGs5Int32V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getMostRecentSearchEntriesInHistoryMetadata(limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC43getMostRecentSearchEntriesInHistoryMetadata5limitSayAA0kL0VGs5Int32V_tKF">getMostRecentSearchEntriesInHistoryMetadata(limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getMostRecentSearchEntriesInHistoryMetadata</span><span class="p">(</span><span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC22getTopFrecentSiteInfos8numItems15thresholdOptionSayAA0fgH4InfoVGs5Int32V_AA017FrecencyThresholdM0OtKF"></a>
+                    <a name="//apple_ref/swift/Method/getTopFrecentSiteInfos(numItems:thresholdOption:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC22getTopFrecentSiteInfos8numItems15thresholdOptionSayAA0fgH4InfoVGs5Int32V_AA017FrecencyThresholdM0OtKF">getTopFrecentSiteInfos(numItems:<wbr>thresholdOption:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getTopFrecentSiteInfos</span><span class="p">(</span><span class="nv">numItems</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">,</span> <span class="nv">thresholdOption</span><span class="p">:</span> <span class="kt"><a href="../Enums/FrecencyThresholdOption.html">FrecencyThresholdOption</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/TopFrecentSiteInfo.html">TopFrecentSiteInfo</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC13getVisitCount12excludeTypess5Int64Vs5Int32V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitCount(excludeTypes:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC13getVisitCount12excludeTypess5Int64Vs5Int32V_tKF">getVisitCount(excludeTypes:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitCount</span><span class="p">(</span><span class="nv">excludeTypes</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Int64</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC20getVisitCountForHost4host6before12excludeTypess5Int64VSS_AIs5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitCountForHost(host:before:excludeTypes:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC20getVisitCountForHost4host6before12excludeTypess5Int64VSS_AIs5Int32VtKF">getVisitCountForHost(host:<wbr>before:<wbr>excludeTypes:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitCountForHost</span><span class="p">(</span><span class="nv">host</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">before</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">excludeTypes</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt">Int64</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC13getVisitInfos9startDate03endI012excludeTypesSayAA07HistoryF4InfoVGs5Int64V_ALs5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitInfos(startDate:endDate:excludeTypes:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC13getVisitInfos9startDate03endI012excludeTypesSayAA07HistoryF4InfoVGs5Int64V_ALs5Int32VtKF">getVisitInfos(startDate:<wbr>endDate:<wbr>excludeTypes:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitInfos</span><span class="p">(</span><span class="nv">startDate</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">endDate</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">excludeTypes</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryVisitInfo.html">HistoryVisitInfo</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC12getVisitPage6offset5count12excludeTypesSayAA07HistoryF4InfoVGs5Int64V_ALs5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitPage(offset:count:excludeTypes:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC12getVisitPage6offset5count12excludeTypesSayAA07HistoryF4InfoVGs5Int64V_ALs5Int32VtKF">getVisitPage(offset:<wbr>count:<wbr>excludeTypes:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitPage</span><span class="p">(</span><span class="nv">offset</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">count</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">excludeTypes</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryVisitInfo.html">HistoryVisitInfo</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC21getVisitPageWithBound5bound6offset5count12excludeTypesAA07Historyf5InfoshI0Vs5Int64V_A2Ls5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitPageWithBound(bound:offset:count:excludeTypes:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC21getVisitPageWithBound5bound6offset5count12excludeTypesAA07Historyf5InfoshI0Vs5Int64V_A2Ls5Int32VtKF">getVisitPageWithBound(bound:<wbr>offset:<wbr>count:<wbr>excludeTypes:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitPageWithBound</span><span class="p">(</span><span class="nv">bound</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">offset</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">count</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">,</span> <span class="nv">excludeTypes</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents18VisitTransitionSeta">VisitTransitionSet</a></span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Structs/HistoryVisitInfosWithBound.html">HistoryVisitInfosWithBound</a></span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC10getVisited4urlsSaySbGSaySSG_tKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisited(urls:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC10getVisited4urlsSaySbGSaySSG_tKF">getVisited(urls:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisited</span><span class="p">(</span><span class="nv">urls</span><span class="p">:</span> <span class="p">[</span><span class="kt">String</span><span class="p">])</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt">Bool</span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC21getVisitedUrlsInRange5start3end13includeRemoteSaySSGs5Int64V_AJSbtKF"></a>
+                    <a name="//apple_ref/swift/Method/getVisitedUrlsInRange(start:end:includeRemote:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC21getVisitedUrlsInRange5start3end13includeRemoteSaySSGs5Int64V_AJSbtKF">getVisitedUrlsInRange(start:<wbr>end:<wbr>includeRemote:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">getVisitedUrlsInRange</span><span class="p">(</span><span class="nv">start</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">end</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">,</span> <span class="nv">includeRemote</span><span class="p">:</span> <span class="kt">Bool</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC8matchUrl5querySSSgSS_tKF"></a>
+                    <a name="//apple_ref/swift/Method/matchUrl(query:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC8matchUrl5querySSSgSS_tKF">matchUrl(query:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">matchUrl</span><span class="p">(</span><span class="nv">query</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">?</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC14metadataDelete3url11referrerUrl10searchTermySS_SSSgAHtKF"></a>
+                    <a name="//apple_ref/swift/Method/metadataDelete(url:referrerUrl:searchTerm:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC14metadataDelete3url11referrerUrl10searchTermySS_SSSgAHtKF">metadataDelete(url:<wbr>referrerUrl:<wbr>searchTerm:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">metadataDelete</span><span class="p">(</span><span class="nv">url</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">,</span> <span class="nv">referrerUrl</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents3Urla">Url</a></span><span class="p">?,</span> <span class="nv">searchTerm</span><span class="p">:</span> <span class="kt">String</span><span class="p">?)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC23metadataDeleteOlderThan05olderH0ys5Int64V_tKF"></a>
+                    <a name="//apple_ref/swift/Method/metadataDeleteOlderThan(olderThan:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC23metadataDeleteOlderThan05olderH0ys5Int64V_tKF">metadataDeleteOlderThan(olderThan:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">metadataDeleteOlderThan</span><span class="p">(</span><span class="nv">olderThan</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:15SwiftComponents15PlacesTimestampa">PlacesTimestamp</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC25metadataDeleteSearchTermsyyKF"></a>
+                    <a name="//apple_ref/swift/Method/metadataDeleteSearchTerms()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC25metadataDeleteSearchTermsyyKF">metadataDeleteSearchTerms()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">metadataDeleteSearchTerms</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC18newInterruptHandleAA03SqlfG0CyF"></a>
+                    <a name="//apple_ref/swift/Method/newInterruptHandle()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC18newInterruptHandleAA03SqlfG0CyF">newInterruptHandle()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">newInterruptHandle</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Classes/SqlInterruptHandle.html">SqlInterruptHandle</a></span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC30noteHistoryMetadataObservation4data7optionsyAA0fgH0V_AA04NotefgH7OptionsVtKF"></a>
+                    <a name="//apple_ref/swift/Method/noteHistoryMetadataObservation(data:options:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC30noteHistoryMetadataObservation4data7optionsyAA0fgH0V_AA04NotefgH7OptionsVtKF">noteHistoryMetadataObservation(data:<wbr>options:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">noteHistoryMetadataObservation</span><span class="p">(</span><span class="nv">data</span><span class="p">:</span> <span class="kt"><a href="../Structs/HistoryMetadataObservation.html">HistoryMetadataObservation</a></span><span class="p">,</span> <span class="nv">options</span><span class="p">:</span> <span class="kt"><a href="../Structs/NoteHistoryMetadataObservationOptions.html">NoteHistoryMetadataObservationOptions</a></span><span class="p">)</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC26placesHistoryImportFromIos6dbPath17lastSyncTimestampAA0F15MigrationResultVSS_s5Int64VtKF"></a>
+                    <a name="//apple_ref/swift/Method/placesHistoryImportFromIos(dbPath:lastSyncTimestamp:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC26placesHistoryImportFromIos6dbPath17lastSyncTimestampAA0F15MigrationResultVSS_s5Int64VtKF">placesHistoryImportFromIos(dbPath:<wbr>lastSyncTimestamp:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">placesHistoryImportFromIos</span><span class="p">(</span><span class="nv">dbPath</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">lastSyncTimestamp</span><span class="p">:</span> <span class="kt">Int64</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Structs/HistoryMigrationResult.html">HistoryMigrationResult</a></span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC17queryAutocomplete6search5limitSayAA12SearchResultVGSS_s5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/queryAutocomplete(search:limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC17queryAutocomplete6search5limitSayAA12SearchResultVGSS_s5Int32VtKF">queryAutocomplete(search:<wbr>limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">queryAutocomplete</span><span class="p">(</span><span class="nv">search</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/SearchResult.html">SearchResult</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC20queryHistoryMetadata0E05limitSayAA0fG0VGSS_s5Int32VtKF"></a>
+                    <a name="//apple_ref/swift/Method/queryHistoryMetadata(query:limit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC20queryHistoryMetadata0E05limitSayAA0fG0VGSS_s5Int32VtKF">queryHistoryMetadata(query:<wbr>limit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">queryHistoryMetadata</span><span class="p">(</span><span class="nv">query</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">limit</span><span class="p">:</span> <span class="kt">Int32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt"><a href="../Structs/HistoryMetadata.html">HistoryMetadata</a></span><span class="p">]</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC24runMaintenanceCheckpointyyKF"></a>
+                    <a name="//apple_ref/swift/Method/runMaintenanceCheckpoint()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC24runMaintenanceCheckpointyyKF">runMaintenanceCheckpoint()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Run maintenance on the places DB (checkpoint step)</p>
+
+<p>The <code>run_maintenance_*()</code> functions are intended to be run during idle time and will take steps
+ to clean up / shrink the database.  They&rsquo;re split up so that we can time each one in the
+ Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+ it supports a stop-watch style API, not recording specific values).</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">runMaintenanceCheckpoint</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC22runMaintenanceOptimizeyyKF"></a>
+                    <a name="//apple_ref/swift/Method/runMaintenanceOptimize()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC22runMaintenanceOptimizeyyKF">runMaintenanceOptimize()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Run maintenance on the places DB (optimize step)</p>
+
+<p>The <code>run_maintenance_*()</code> functions are intended to be run during idle time and will take steps
+ to clean up / shrink the database.  They&rsquo;re split up so that we can time each one in the
+ Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+ it supports a stop-watch style API, not recording specific values).</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">runMaintenanceOptimize</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC19runMaintenancePrune11dbSizeLimit05pruneJ0AA03RunF7MetricsVs6UInt32V_AJtKF"></a>
+                    <a name="//apple_ref/swift/Method/runMaintenancePrune(dbSizeLimit:pruneLimit:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC19runMaintenancePrune11dbSizeLimit05pruneJ0AA03RunF7MetricsVs6UInt32V_AJtKF">runMaintenancePrune(dbSizeLimit:<wbr>pruneLimit:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Run maintenance on the places DB (prune step)</p>
+
+<p>The <code>run_maintenance_*()</code> functions are intended to be run during idle time and will take steps
+ to clean up / shrink the database.  They&rsquo;re split up so that we can time each one in the
+ Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+ it supports a stop-watch style API, not recording specific values).</p>
+
+<p>db_size_limit is the approximate storage limit in bytes.  If the database is using more space
+ than this, some older visits will be deleted to free up space.  Pass in a 0 to skip this.</p>
+
+<p>prune_limit is the maximum number of visits to prune if the database is over db_size_limit</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">runMaintenancePrune</span><span class="p">(</span><span class="nv">dbSizeLimit</span><span class="p">:</span> <span class="kt">UInt32</span><span class="p">,</span> <span class="nv">pruneLimit</span><span class="p">:</span> <span class="kt">UInt32</span><span class="p">)</span> <span class="k">throws</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Structs/RunMaintenanceMetrics.html">RunMaintenanceMetrics</a></span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:15SwiftComponents16PlacesConnectionC20runMaintenanceVacuumyyKF"></a>
+                    <a name="//apple_ref/swift/Method/runMaintenanceVacuum()" class="dashAnchor"></a>
+                    <a class="token" href="#/s:15SwiftComponents16PlacesConnectionC20runMaintenanceVacuumyyKF">runMaintenanceVacuum()</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Run maintenance on the places DB (vacuum step)</p>
+
+<p>The <code>run_maintenance_*()</code> functions are intended to be run during idle time and will take steps
+ to clean up / shrink the database.  They&rsquo;re split up so that we can time each one in the
+ Kotlin wrapper code (This is needed because we only have access to the Glean API in Kotlin and
+ it supports a stop-watch style API, not recording specific values).</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">func</span> <span class="nf">runMaintenanceVacuum</span><span class="p">()</span> <span class="k">throws</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </section>
+        <section id="footer">
+          <p>&copy; 2026 <a class="link" href="" target="_blank" rel="external noopener"></a>. All rights reserved. (Last updated: 2026-02-20)</p>
+          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external noopener">jazzy ♪♫ v0.15.4</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external noopener">Realm</a> project.</p>
+        </section>
+      </article>
+    </div>
+  </body>
+</html>

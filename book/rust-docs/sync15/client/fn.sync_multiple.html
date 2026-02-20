@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Sync multiple engines"><title>sync_multiple in sync15::client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sync15" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.0 (f8297e351 2025-10-28)" data-channel="1.91.0" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">sync_multiple</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sync15/index.html">sync15</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In sync15::<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">sync15</a>::<wbr><a href="index.html">client</a></div><h1>Function <span class="fn">sync_<wbr>multiple</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sync15/client/sync_multiple.rs.html#93-112">Source</a> </span></div><pre class="rust item-decl"><code>pub fn sync_multiple(
+    engines: &amp;[&amp;dyn <a class="trait" href="../engine/trait.SyncEngine.html" title="trait sync15::engine::SyncEngine">SyncEngine</a>],
+    persisted_global_state: &amp;mut <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.91.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
+    mem_cached_state: &amp;mut <a class="struct" href="struct.MemoryCachedState.html" title="struct sync15::client::MemoryCachedState">MemoryCachedState</a>,
+    storage_init: &amp;<a class="struct" href="struct.Sync15StorageClientInit.html" title="struct sync15::client::Sync15StorageClientInit">Sync15StorageClientInit</a>,
+    root_sync_key: &amp;<a class="struct" href="../struct.KeyBundle.html" title="struct sync15::KeyBundle">KeyBundle</a>,
+    interruptee: &amp;dyn Interruptee,
+    req_info: <a class="enum" href="https://doc.rust-lang.org/1.91.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.SyncRequestInfo.html" title="struct sync15::client::SyncRequestInfo">SyncRequestInfo</a>&lt;'_&gt;&gt;,
+) -&gt; <a class="struct" href="struct.SyncResult.html" title="struct sync15::client::SyncResult">SyncResult</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Sync multiple engines</p>
+<ul>
+<li><code>engines</code> - The engines to sync</li>
+<li><code>persisted_global_state</code> - The global state to use, or None if never
+before provided. At the end of the sync, and even when the sync fails,
+the value in this cell should be persisted to permanent storage and
+provided next time the sync is called.</li>
+<li><code>last_client_info</code> - The client state to use, or None if never before
+provided. At the end of the sync, the value should be persisted
+<em>in memory only</em> - it should not be persisted to disk.</li>
+<li><code>storage_init</code> - Information about how the sync http client should be
+configured.</li>
+<li><code>root_sync_key</code> - The KeyBundle used for encryption.</li>
+</ul>
+<p>Returns a map, keyed by name and holding an error value - if any engine
+fails, the sync will continue on to other engines, but the error will be
+places in this map. The absence of a name in the map implies the engine
+succeeded.</p>
+</div></details></section></div></main></body></html>

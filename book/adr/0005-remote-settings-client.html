@@ -1,0 +1,434 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ADR-0005 - Cross-platform Rust Components</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-2459343d.css">
+        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-8a137ef6.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-5592c39f.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="a-remote-settings-client-for-our-mobile-browsers"><a class="header" href="#a-remote-settings-client-for-our-mobile-browsers">A remote-settings client for our mobile browsers.</a></h1>
+<ul>
+<li>
+<p>Status: proposed</p>
+</li>
+<li>
+<p>Discussion: https://github.com/mozilla/application-services/pull/5302</p>
+</li>
+<li>
+<p>Deciders:</p>
+<ul>
+<li>csadilek for the mobile teams ✔️</li>
+<li>leplatrem for the remote-settings team ✔️</li>
+<li>mhammond for the application-services team ✔️</li>
+</ul>
+</li>
+<li>
+<p>Date: 2022-12-16</p>
+</li>
+</ul>
+<h2 id="context-and-problem-statement"><a class="header" href="#context-and-problem-statement">Context and Problem Statement</a></h2>
+<p>Mozilla’s mobile browsers have a requirement to access the remote settings service, but currently lack any libraries or tools which are suitable without some work.
+A concrete use case is the management of search engine configurations, which are stored in Remote Settings for Firefox Desktop, but shipped as individual files on our mobile browsers, requiring application releases for all changes.</p>
+<p>A constraint on any proposed solutions is that this work will be performed by Mozilla’s mobile team, who have limited experience with Rust, and that it is required to be completed in Q1 2023.</p>
+<p>This document identifies the requirements, then identifies tools which already exist and are close to being suitable, then identifies all available options we can take, and outlines our decision.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<p>The requirements are for a library which is able to access Mozilla’s Remote Settings service and return the results to our mobile browsers.
+This list of requirements is not exhaustive, but instead focuses on the requirements which will drive our decision making process.
+As such, it identifies the non-requirements first.</p>
+<h3 id="non-requirements"><a class="header" href="#non-requirements">Non-requirements</a></h3>
+<p>The following items all may have some degree of desirability, but they are not hard requirements for the initial version</p>
+<ul>
+<li>While the https connection to the server must be validated, there is no requirement to verify the content received by the server - ie, there’s no requirement to check the signature of the body itself.</li>
+<li>There’s no requirement to validate the result of the server conforms to a pre-defined schema - we trust the server data.</li>
+<li>There’s no requirement to return strongly-typed data to the applications - returning a JSON string/object is suitable.</li>
+<li>There’s no requirement to cache server responses to the file-system - if the app requests content, it’s fine for the library to always hit the server.</li>
+<li>There’s no requirement for any kind of scheduling or awareness of network state - when we are requested for content, we do it immediately and return an appropriate error if it can not be fetched.</li>
+<li>There’s no requirement to support publishing records, requesting reviews or providing approvals via this new library.</li>
+<li>There’s no requirement that push be used to communicate changes to the application (eg, to enable rapid-enrolment type features)</li>
+<li>There’s no requirement to manage buckets, groups and collections via this new library.</li>
+</ul>
+<h3 id="initial-requirements"><a class="header" href="#initial-requirements">Initial Requirements</a></h3>
+<p>The requirements we do have for the initial version are:</p>
+<ul>
+<li>The library should allow fetching records from Mozilla’s Remote Settings servers. This includes support for attachments, and fetching <a href="https://docs.kinto-storage.org/en/latest/api/1.x/filtering.html#polling-for-changes">incremental changes</a>.</li>
+<li>The library should not create threads or run any event loops - the mobile apps themselves are responsible for all threading requirements. While this might change in the future, considering this kind of change to our mobile applications is out of scope for this project.</li>
+<li>We must use Necko for all networking on Android, must enforce all connections are via valid https hosts (although some test-only exceptions might be helpful for QA, such as allowing localhost connections to be http)</li>
+<li>The library should be the only remote-settings library used in the browser. Specifically, this means that Nimbus must also be capable of using the library, and the work to move Nimbus to the library must be considered as part of the project.</li>
+</ul>
+<h2 id="existing-libraries"><a class="header" href="#existing-libraries">Existing Libraries</a></h2>
+<p>We have identified the following libraries which may be suitable for this project.</p>
+<h3 id="remote-settings-on-desktop"><a class="header" href="#remote-settings-on-desktop">Remote-settings on desktop</a></h3>
+<p>There is a version of the <a href="https://searchfox.org/mozilla-central/source/services/settings/RemoteSettingsClient.jsm">remote settings client in desktop</a>, written in Javascript.
+It has been used and been relatively stable since at least 2018, so can be considered very capable, but the roadblock to it being suitable for use by our mobile browsers is that it is written in Javascript, so while it might be possible to expose it to Android via geckoview, there’s no reasonable path to have it made available to iOS.</p>
+<h3 id="rust-remote-settings-client"><a class="header" href="#rust-remote-settings-client">Rust Remote Settings Client</a></h3>
+<p>There is an existing <a href="https://github.com/mozilla-services/remote-settings-client">remote settings client on github</a>.
+This client is written in Rust and has evolved over a number of years.
+The most recent changes were made to support being used in <a href="https://github.com/mozilla-services/merino">Merino</a>, which was re-written in Python, so there are no known consumers of this library left.</p>
+<p>The main attributes of this library relevant to this discussion are:</p>
+<ul>
+<li>It’s written in Rust, but has no FFI - ie, it’s currently only consumable by other Rust code.</li>
+<li>It has recently been updated to use async rust, so requires an internal event loop.</li>
+<li>It includes the capability to verify the signatures of the content.</li>
+</ul>
+<h3 id="the-nimbus-sdk-client"><a class="header" href="#the-nimbus-sdk-client">The Nimbus-sdk Client</a></h3>
+<p>The <a href="https://github.com/mozilla/application-services/tree/main/components/nimbus">nimbus-sdk is a component in the application-services repository</a> written in Rust. It has client code which talks to the remote-settings server and while this has only actually been used with the “Nimbus” collection there’s no reason to believe it can’t be used in the more general case.
+The main attributes of this library relevant to this discussion are:</p>
+<ul>
+<li>It’s consumed by a component which is already consumed by our mobile browsers via UniFFI.</li>
+<li>It does not verify the signatures of the content - while this could be done, there hasn’t been sufficient justification made for this (ie, there are no realistic threat models which would be solved by this capability.)</li>
+<li>The client itself does not persist a local cache of remote resources, but instead delegates this responsibility to the consuming application (in this case, nimbus itself, which does persist them via the <a href="https://github.com/mozilla/rkv">rkv library</a>)</li>
+<li>It does not use async Rust, but instead everything is blocking and run on threads exclusively created by the app itself.</li>
+<li>It has good test support, which run against a docker image.</li>
+</ul>
+<h2 id="considered-options"><a class="header" href="#considered-options">Considered Options</a></h2>
+<h3 id="option-1-writing-a-new-library"><a class="header" href="#option-1-writing-a-new-library">Option 1: Writing a new library</a></h3>
+<p>The requirements of this client are such that writing new libraries in Kotlin and Swift is currently a realistic option.
+However, we are rejecting this option because we don’t want to duplicate the effort required to write and maintain two libraries - inevitably, the features and capabilities will diverge.
+Future requirements such as supporting content signature verification would lead to significant duplication.</p>
+<p>Writing a new library from scratch in Rust and exposing it via UniFFI so it can be used by both platforms is also a possibility.
+However, we are rejecting this option because existing Rust libraries already exist, so we would be better served by modifying or forking one of the existing libraries.</p>
+<h3 id="option-2-use-the-existing-remote-settings-client"><a class="header" href="#option-2-use-the-existing-remote-settings-client">Option 2: Use the existing remote settings client</a></h3>
+<p>Modifying or forking the existing client is an attractive option.
+It would require a number of changes - the async capabilities would probably need to be removed (using a Rust event loop in our mobile browsers is something we are trying to avoid until we better understand the implications given these browsers already have an event loop and their own threading model).</p>
+<p>The persistence model used by this library is something that is not a requirement for the new library, which isn’t itself a problem, but it probably would preclude being able to use this library by Nimbus - so the end result is that we would effectively have two remote-settings clients written in Rust and used by our browsers.</p>
+<p>Some API changes would probably be required to make it suitable for use by UniFFI would also be necessary, but these would be tractable.</p>
+<p>We would need to update nimbus to use this client, which would almost certainly require moving this client into the application-services repository to avoid the following issues:</p>
+<ul>
+<li>Marrying the persistence model of this client with the existing rkv-based persistence used by nimbus would be required.</li>
+<li>Ensuring the upstream version changes continued to work for us.</li>
+<li>Managing the circular dependency which exists due to this library needing to use viaduct.</li>
+<li>Complication of our build process because the library needs to end up in our “megazord”.
+These are the exact reasons why Nimbus itself is in the application-services repo.</li>
+</ul>
+<h3 id="option-3-use-the-existing-nimbus-client"><a class="header" href="#option-3-use-the-existing-nimbus-client">Option 3: Use the existing nimbus client</a></h3>
+<p>Splitting the <a href="https://github.com/mozilla/application-services/blob/6069bd26d742f9597ab7e62d8df23ad634c7bd98/components/nimbus/src/client/http_client.rs#L9">existing client</a> out from Nimbus in a way that allows Nimbus to continue to use it, while also making it available for stand-alone use is also an attractive option.</p>
+<p>In particular, the feature set of that client overlaps with the requirements of the new library - no local persistence is necessary and no signature verification is required. It is already used by a component which is exposed via UniFFI.</p>
+<p>Note that this option does not preclude both Nimbus and this new crate from moving to the existing remote settings client at some point in the future.
+A key benefit of this decision is that it keeps nimbus and the new crate using the same client, so updating both to use a different client in the future will always remain an option.</p>
+<h2 id="chosen-option"><a class="header" href="#chosen-option">Chosen Option</a></h2>
+<p>We have chosen Option 3 because it allows us to reuse the new client in Nimbus, as well as on iOS and on Android with minimal initial development effort.
+If the new library ends up growing requirements that are already in the existing remote settings client, we remain able to copy that functionality from that library into this.</p>
+<h2 id="specific-plans"><a class="header" href="#specific-plans">Specific Plans</a></h2>
+<p>This section is non-normative - ie, is not strictly part of the ADR, but exists
+for context.</p>
+<p>This is a very high-level view of the tasks required here.</p>
+<ul>
+<li>
+<p>Create a new top-level component in the application-services repository, identify the exact API we wish to expose for this new library, describe this API using UniFFI, then implement the API with “stubs” (eg, using rust <code>todo!()</code>or similar). This is depicted as <code>RemoteSettings</code> in the diagram.</p>
+</li>
+<li>
+<p>Identify which parts of Nimbus should be factored out into a shared component (depicted as <code>rs-client</code> in the diagram below) and move that functionality to the new shared component. Of note:</p>
+<ul>
+<li>This component probably will not have a UniFFI .udl file, but is just for consumption by the new component above and the existing nimbus component.</li>
+<li>There is still some uncertainty here - if it is a requirement that nimbus and the new component share some configuration or initialization code, we might need to do something more complex here. This seems unlikely, but possible, so is included here for completeness.</li>
+</ul>
+</li>
+<li>
+<p>Identify which of the nimbus tests should move to the new client and move them.</p>
+</li>
+<li>
+<p>Update Nimbus to take a dependency on the new component and use it, including tests.</p>
+</li>
+<li>
+<p>Flesh out the API of the new top-level component using the new shared component (ie, replace the <code>todo!()</code> macros with real code.)</p>
+</li>
+<li>
+<p>Identify any impact on the Nimbus android/swift code - in particular, any shared configuration and initialization code identified above in the application-services repo.</p>
+</li>
+<li>
+<p>Implement the Android and iOS code in the application-services repo desired to make this an ergonomic library for the mobile platforms.</p>
+</li>
+<li>
+<p>Update the mobile code for the UniFFI changes made to Nimbus, if any.</p>
+</li>
+<li>
+<p>Implement the mobile code which consumes the new library, including tests.</p>
+</li>
+<li>
+<p>Profit?</p>
+</li>
+</ul>
+<p>This diagram attempts to depict this final layout. Note:</p>
+<ul>
+<li><code>rs-client</code> and <code>RemoteSettings</code> are both new components, everything else already exists. <strong>Please do not consider these names as suggestions!</strong> Names are hard, I’m sure we can do better.</li>
+<li>Dashed lines are normal Rust dependencies (ie, dependencies listed in <code>Cargo.toml</code>)</li>
+<li>Solid lines are where the component uses UniFFI</li>
+<li>Viaduct is a little odd in that it is consumed by the mobile applications indirectly (eg, via Glean), hence it’s not in <code>support</code>, but please ignore that anomaly.</li>
+</ul>
+<pre class="mermaid">flowchart RL
+    subgraph app-services-support[Shared components in application-services/components/support]
+    rs-client
+    other-support-components
+    end
+    subgraph app-services-components[Top-level application-services components, in application-services/components]
+    Nimbus
+    RemoteSettings
+    Viaduct
+    end
+    subgraph mobile [Code in the mobile repositories]
+        Fenix
+        Firefox-iOS
+    end
+
+    Nimbus -- nimbus.udl --&gt; mobile
+    RemoteSettings -- remote_settings.udl --&gt; mobile
+
+    rs-client -.-&gt; Nimbus
+    other-support-components -.-&gt; Nimbus
+    rs-client -.-&gt; RemoteSettings
+    other-support-components -.-&gt; RemoteSettings
+    Viaduct -.-&gt; rs-client
+    other-support-components -.-&gt; rs-client
+</pre>
+
+<h2 id="content-signatures"><a class="header" href="#content-signatures">Content Signatures</a></h2>
+<p>This section is non-normative - ie, is not strictly part of the ADR, but exists
+for context.</p>
+<p>Content Signatures have been explicitly called out as a non-requirement. Because this capability was a sticking point in the desktop version of the remote settings client, and because significant effort was spent on it, it’s worth expanding on this here.</p>
+<p>Because https will be enforced for all network requests, the consumers of this library can have a high degree of confidence that:</p>
+<ul>
+<li>The servers hit by this client are the servers we expect to hit (ie, no man-in-the-middle attacks will be able to redirect to a different server).</li>
+<li>The response from the server is exactly what was sent by the Mozilla controlled server (ie, no man-in-the-middle attacks will be able to change the content in-flight)</li>
+<li>Therefore, the content received must be exactly as sent by the Mozilla controlled servers.</li>
+</ul>
+<p>Content signatures offer an additional capability of checking the <em>content</em> of a remote settings response matches the signature generated with a secret key owned by Mozilla, independenty of the https certificates used for the request itself.</p>
+<p>This capability was added to the desktop version primarily to protect the integrity of the data at rest.
+Because the Desktop client cached the responses on disk, there was a risk that this data could be tampered with - so it was effectively impossible to guarantee that the data finally presented to the application is what was initially sent.</p>
+<p>The main threat-model that required this capability was 3rd party applications installed on the same system where Firefox was installed.
+Because of the security model enforced by Desktop operating systems (most notably Windows), there was evidence that these 3rd-party applications  would locate and modify the cache of remote-settings responses and modify them in a way that benefited them and caused revenue harm to Mozilla - the most obvious example is changing the search provider settings.</p>
+<p>The reason we are declaring this capability a non-requirement in the initial version is two-fold:</p>
+<ul>
+<li>
+<p>We have also declared caching of responses a non-requirement, meaning there’s no data at rest managed by this library which is vulnerable to this kind of attack.</p>
+</li>
+<li>
+<p>The mobile operating systems have far stronger application isolation - in the general case, a 3rd party mobile application is prevented from touching any of the files used by other applications.</p>
+</li>
+</ul>
+<p>Obviously though, things may change in the future - for example, we might add response caching, so we must be sure to reevaluate this requirement as other requirements change.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/adr/0005-remote-settings-client.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../adr/0004-early-startup-experiments.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../adr/0007-limit-visits-migration-to-10000.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../adr/0004-early-startup-experiments.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../adr/0007-limit-visits-migration-to-10000.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-c2a407aa.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

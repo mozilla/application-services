@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Commands","ItemsCommands","ListsCommands"],"fn":["build_example_component","clamp_string","handle_lists","handle_todos","init_logging","main"],"struct":["Cli"]};

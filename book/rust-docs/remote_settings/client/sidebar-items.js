@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SortOrder"],"struct":["Attachment","ChangesetResponse","Client","CollectionMetadata","CollectionSignature","GetItemsOptions","RemoteSettingsClient","RemoteSettingsRecord","RemoteSettingsResponse","ViaductApiClient"],"trait":["ApiClient"],"type":["RsJsonObject"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["prompt_char","prompt_password","prompt_string","prompt_usize"]};

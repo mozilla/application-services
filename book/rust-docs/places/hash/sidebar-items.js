@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PrefixMode"],"fn":["hash_string","hash_url","hash_url_prefix"]};

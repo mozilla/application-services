@@ -1,0 +1,21 @@
+[book]
+title = "Cross-platform Rust Components"
+authors = ["Firefox SACI Team"]
+src = "."
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+additional-css = ["shared/a-s.css", "shared/mermaid.css"]
+additional-js = ["shared/tabs.js", "shared/mermaid.min.js", "shared/mermaid-init.js"]
+git-repository-url = "https://github.com/mozilla/application-services"
+git-branch = "main"
+mathjax-support = true
+
+[preprocessor.open-on-gh]
+command = "mdbook-open-on-gh"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"

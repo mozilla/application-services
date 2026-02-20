@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["all_benchmarks","print_debug_ingestion_sizes"],"struct":["IngestBenchmark","InputType"]};

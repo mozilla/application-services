@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["packaged_attachments","packaged_collections","trace"],"mod":["cache","client","config","context","error","schema","service","storage"],"struct":["RemoteSettings","RemoteSettingsClient","RemoteSettingsService"]};

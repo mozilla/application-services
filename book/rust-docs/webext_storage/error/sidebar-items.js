@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","QuotaReason","WebExtStorageApiError"],"macro":["debug","error","info","trace","warn"],"type":["Result"]};
