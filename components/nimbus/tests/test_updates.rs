@@ -17,8 +17,8 @@ mod test {
     };
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::{
-        error::{debug, Result},
         NimbusClient,
+        error::{Result, debug},
     };
 
     fn startup(client: &NimbusClient, first_run: bool) -> Result<()> {

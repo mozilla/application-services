@@ -8,7 +8,7 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;

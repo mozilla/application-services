@@ -4,11 +4,12 @@
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::{GeckoPrefStore, OriginalGeckoPref, PrefUnenrollReason};
 use crate::{
-    defaults::Defaults,
-    error::{debug, warn, NimbusError, Result},
-    evaluator::evaluate_enrollment,
-    json, AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
+    AvailableRandomizationUnits, Experiment, FeatureConfig, NimbusTargetingHelper,
     SLUG_REPLACEMENT_PATTERN,
+    defaults::Defaults,
+    error::{NimbusError, Result, debug, warn},
+    evaluator::evaluate_enrollment,
+    json,
 };
 use serde_derive::*;
 use std::{
@@ -291,11 +292,7 @@ impl ExperimentEnrollment {
                 }
             }
 
-            EnrollmentStatus::Enrolled {
-                ref branch,
-                ref reason,
-                ..
-            } => {
+            EnrollmentStatus::Enrolled { branch, reason, .. } => {
                 if !is_user_participating {
                     debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
@@ -331,15 +328,13 @@ impl ExperimentEnrollment {
                         prev_gecko_pref_states: Some(prev_gecko_pref_states),
                         ..
                     } = &self.status
-                    {
-                        if self
+                        && self
                             .will_pref_experiment_change(updated_experiment, &evaluated_enrollment)
-                        {
-                            PreviousGeckoPrefState::on_revert_all_to_prev_gecko_pref_states(
-                                prev_gecko_pref_states,
-                                gecko_pref_store,
-                            );
-                        }
+                    {
+                        PreviousGeckoPrefState::on_revert_all_to_prev_gecko_pref_states(
+                            prev_gecko_pref_states,
+                            gecko_pref_store,
+                        );
                     }
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
@@ -357,7 +352,10 @@ impl ExperimentEnrollment {
                         | EnrollmentStatus::NotEnrolled {
                             reason: NotEnrolledReason::NotTargeted,
                         } => {
-                            debug!("Existing experiment enrollment '{}' is now disqualified (targeting change)", &self.slug);
+                            debug!(
+                                "Existing experiment enrollment '{}' is now disqualified (targeting change)",
+                                &self.slug
+                            );
                             let updated_enrollment =
                                 self.disqualify_from_enrolled(DisqualifiedReason::NotTargeted);
                             out_enrollment_events.push(updated_enrollment.get_change_event());
@@ -380,9 +378,7 @@ impl ExperimentEnrollment {
                     }
                 }
             }
-            EnrollmentStatus::Disqualified {
-                ref branch, reason, ..
-            } => {
+            EnrollmentStatus::Disqualified { branch, reason, .. } => {
                 if !is_user_participating {
                     debug!(
                         "Disqualified experiment enrollment '{}' has been reset to not-enrolled (global opt-out)",
@@ -931,7 +927,10 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // place in this function where enrollments could be
                     // dropped.  We could then send those errors to
                     // telemetry so that they could be monitored (SDK-309)
-                    warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
+                    warn!(
+                        "{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ",
+                        e, slug, prev_enrollment
+                    );
                     None
                 }
             };
@@ -1034,7 +1033,10 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // place in this function where enrollments could be
                         // dropped.  We could then send those errors to
                         // telemetry so that they could be monitored (SDK-309)
-                        warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
+                        warn!(
+                            "{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ",
+                            e, slug, prev_enrollment
+                        );
                         None
                     }
                 };
@@ -1169,17 +1171,17 @@ impl<'a> EnrollmentsEvolver<'a> {
             (None, Some(_), Some(_)) => {
                 return Err(NimbusError::InternalError(
                     "New experiment but enrollment already exists.",
-                ))
+                ));
             }
             (Some(_), None, None) | (Some(_), Some(_), None) => {
                 return Err(NimbusError::InternalError(
                     "Experiment in the db did not have an associated enrollment record.",
-                ))
+                ));
             }
             (None, None, None) => {
                 return Err(NimbusError::InternalError(
                     "evolve_experiment called with nothing that could evolve or be evolved",
-                ))
+                ));
             }
         })
     }

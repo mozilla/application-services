@@ -4,12 +4,12 @@
 
 use crate::stateful::persistence::{Database, StoreId};
 use crate::{
+    DB_KEY_UPDATE_DATE,
     enrollment::{EnrollmentStatus, ExperimentEnrollment},
-    error::{warn, Result},
+    error::{Result, warn},
     evaluator::split_locale,
     json::JsonObject,
     stateful::matcher::AppContext,
-    DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde_derive::*;

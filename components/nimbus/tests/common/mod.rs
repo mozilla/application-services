@@ -9,10 +9,10 @@ use rkv::StoreOptions;
 // utilities shared between tests
 
 use nimbus::{
-    error::{debug, Result},
+    AppContext, NimbusClient, RemoteSettingsServer,
+    error::{Result, debug},
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     stateful::client::NimbusServerSettings,
-    AppContext, NimbusClient, RemoteSettingsServer,
 };
 
 pub struct NoopMetricsHandler;

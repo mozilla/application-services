@@ -4,11 +4,11 @@
 
 use crate::stateful::gecko_prefs::GeckoPrefStore;
 use crate::{
+    NimbusError, NimbusTargetingHelper, Result, TargetingAttributes,
     enrollment::ExperimentEnrollment,
-    error::{warn, BehaviorError},
+    error::{BehaviorError, warn},
     json::JsonObject,
     stateful::behavior::{EventQueryType, EventStore},
-    NimbusError, NimbusTargetingHelper, Result, TargetingAttributes,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

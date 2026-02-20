@@ -4,14 +4,14 @@
 
 //! Our storage abstraction, currently backed by Rkv.
 
-use crate::error::{debug, info, warn, NimbusError, Result};
+use crate::error::{NimbusError, Result, debug, info, warn};
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
-use crate::enrollment::ExperimentEnrollment;
 use crate::Experiment;
+use crate::enrollment::ExperimentEnrollment;
 use core::iter::Iterator;
 use rkv::{StoreError, StoreOptions};
 use std::collections::HashSet;
@@ -84,10 +84,8 @@ mod backend {
         rkv::Readable<'r, Database = SafeModeDatabase, RoCursor = SafeModeRoCursor<'r>>
     {
     }
-    impl<
-            'r,
-            T: rkv::Readable<'r, Database = SafeModeDatabase, RoCursor = SafeModeRoCursor<'r>>,
-        > Readable<'r> for T
+    impl<'r, T: rkv::Readable<'r, Database = SafeModeDatabase, RoCursor = SafeModeRoCursor<'r>>>
+        Readable<'r> for T
     {
     }
 

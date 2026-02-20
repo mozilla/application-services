@@ -3,11 +3,11 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    Experiment,
     enrollment::ExperimentEnrollment,
-    error::{debug, Result},
+    error::{Result, debug},
     stateful::enrollment::{get_experiment_participation, get_rollout_participation},
     stateful::persistence::*,
-    Experiment,
 };
 use rkv::StoreOptions;
 use serde_json::json;
