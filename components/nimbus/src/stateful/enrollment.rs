@@ -1,24 +1,21 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 use crate::enrollment::Participation;
+use crate::enrollment::{
+    EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
+    map_enrollments,
+};
+use crate::error::{Result, debug, warn};
 use crate::stateful::gecko_prefs::GeckoPrefStore;
+use crate::stateful::gecko_prefs::PrefUnenrollReason;
 use crate::stateful::persistence::{
     DB_KEY_EXPERIMENT_PARTICIPATION, DB_KEY_ROLLOUT_PARTICIPATION,
     DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
 };
-use crate::{
-    EnrolledExperiment, EnrollmentStatus, Experiment,
-    enrollment::{
-        EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
-        map_enrollments,
-    },
-    error::{Result, debug, warn},
-    stateful::{
-        gecko_prefs::PrefUnenrollReason,
-        persistence::{Database, Readable, StoreId, Writer},
-    },
-};
+use crate::stateful::persistence::{Database, Readable, StoreId, Writer};
+use crate::{EnrolledExperiment, EnrollmentStatus, Experiment};
 
 impl EnrollmentsEvolver<'_> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,

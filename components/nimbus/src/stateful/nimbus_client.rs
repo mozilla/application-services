@@ -2,56 +2,56 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-#[cfg(test)]
-use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
-use crate::{
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
-    Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
-    defaults::Defaults,
-    enrollment::{
-        EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-        ExperimentEnrollment, PreviousGeckoPrefState,
-    },
-    error::{BehaviorError, info},
-    evaluator::{
-        CalculatedAttributes, ExperimentAvailable, TargetingAttributes, get_calculated_attributes,
-        is_experiment_available,
-    },
-    json::{JsonObject, PrefValue},
-    metrics::{
-        EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-        MetricsHandler,
-    },
-    schema::parse_experiments,
-    stateful::{
-        behavior::EventStore,
-        client::{NimbusServerSettings, SettingsClient, create_client},
-        dbcache::DatabaseCache,
-        enrollment::{
-            get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
-            reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
-            unenroll_for_pref,
-        },
-        gecko_prefs::{
-            GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref,
-            PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
-        },
-        matcher::AppContext,
-        persistence::{Database, StoreId, Writer},
-        targeting::{RecordedContext, validate_event_queries},
-        updating::{read_and_remove_pending_experiments, write_pending_experiments},
-    },
-    strings::fmt_with_map,
-};
-use chrono::{DateTime, NaiveDateTime, Utc};
-use once_cell::sync::OnceCell;
-use remote_settings::RemoteSettingsService;
-use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
+
+use chrono::{DateTime, NaiveDateTime, Utc};
+use once_cell::sync::OnceCell;
+use remote_settings::RemoteSettingsService;
+use serde_json::Value;
 use uuid::Uuid;
+
+use crate::defaults::Defaults;
+use crate::enrollment::{
+    EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
+    ExperimentEnrollment, PreviousGeckoPrefState,
+};
+use crate::error::{BehaviorError, info};
+use crate::evaluator::{
+    CalculatedAttributes, ExperimentAvailable, TargetingAttributes, get_calculated_attributes,
+    is_experiment_available,
+};
+use crate::json::{JsonObject, PrefValue};
+use crate::metrics::{
+    EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
+    MetricsHandler,
+};
+use crate::schema::parse_experiments;
+use crate::stateful::behavior::EventStore;
+use crate::stateful::client::{NimbusServerSettings, SettingsClient, create_client};
+use crate::stateful::dbcache::DatabaseCache;
+use crate::stateful::enrollment::{
+    get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
+    reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
+    unenroll_for_pref,
+};
+use crate::stateful::gecko_prefs::{
+    GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
+    PrefEnrollmentData, PrefUnenrollReason,
+};
+use crate::stateful::matcher::AppContext;
+use crate::stateful::persistence::{Database, StoreId, Writer};
+use crate::stateful::targeting::{RecordedContext, validate_event_queries};
+use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
+use crate::strings::fmt_with_map;
+#[cfg(test)]
+use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
+use crate::{
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
+};
+use crate::{Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result};
 
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";

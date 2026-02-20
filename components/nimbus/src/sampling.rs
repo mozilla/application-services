@@ -5,8 +5,9 @@
 //! This module implements the sampling logic required to hash,
 //! randomize and pick branches using pre-set ratios.
 
-use crate::error::{NimbusError, Result};
 use sha2::{Digest, Sha256};
+
+use crate::error::{NimbusError, Result};
 
 const HASH_BITS: u32 = 48;
 const HASH_LENGTH: u32 = HASH_BITS / 4;

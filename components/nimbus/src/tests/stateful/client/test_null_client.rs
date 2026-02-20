@@ -5,14 +5,13 @@
 // Allow this to run in "safe mode"
 #![allow(unused_imports)]
 
+use crate::NimbusClient;
 use crate::error::Result;
 use crate::tests::helpers::TestMetrics;
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_null_client() -> Result<()> {
-    use crate::NimbusClient;
-
     let metrics = TestMetrics::new();
     error_support::init_for_tests();
 

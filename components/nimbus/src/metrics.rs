@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use serde_derive::{Deserialize, Serialize};
+
+use crate::enrollment::ExperimentEnrollment;
+use crate::{EnrolledFeature, EnrollmentStatus};
+
 #[cfg(feature = "stateful")]
 use crate::enrollment::PreviousGeckoPrefState;
-
-use crate::{EnrolledFeature, EnrollmentStatus, enrollment::ExperimentEnrollment};
-use serde_derive::{Deserialize, Serialize};
 
 pub trait MetricsHandler: Send + Sync {
     #[cfg(feature = "stateful")]

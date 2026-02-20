@@ -4,19 +4,20 @@
 
 //! Our storage abstraction, currently backed by Rkv.
 
+use rkv::{StoreError, StoreOptions};
+use std::collections::HashSet;
+use std::fs;
+use std::path::Path;
+
+use crate::Experiment;
+use crate::enrollment::ExperimentEnrollment;
 use crate::error::{NimbusError, Result, debug, info, warn};
+
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
-use crate::Experiment;
-use crate::enrollment::ExperimentEnrollment;
-use core::iter::Iterator;
-use rkv::{StoreError, StoreOptions};
-use std::collections::HashSet;
-use std::fs;
-use std::path::Path;
 
 // We use an incrementing integer to manage database migrations.
 // If you need to make a backwards-incompatible change to the data schema,

@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{NimbusError, Result};
 use icu_segmenter::GraphemeClusterSegmenter;
 use serde_json::{Map, value::Value};
+
+use crate::{NimbusError, Result};
 
 #[allow(dead_code)]
 pub fn fmt<T: serde::Serialize>(template: &str, context: &T) -> Result<String> {

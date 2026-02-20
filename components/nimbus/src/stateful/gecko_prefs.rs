@@ -1,18 +1,18 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-use crate::{
-    EnrolledExperiment, Experiment, NimbusError,
-    enrollment::{EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState},
-    error::Result,
-    json::PrefValue,
-};
-use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex, MutexGuard};
+
+use serde_derive::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::enrollment::{EnrollmentStatus, ExperimentEnrollment, PreviousGeckoPrefState};
+use crate::error::Result;
+use crate::json::PrefValue;
+use crate::{EnrolledExperiment, Experiment, NimbusError};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq, Copy)]
 #[serde(rename_all = "lowercase")]

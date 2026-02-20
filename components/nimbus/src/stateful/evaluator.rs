@@ -2,18 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::stateful::persistence::{Database, StoreId};
-use crate::{
-    DB_KEY_UPDATE_DATE,
-    enrollment::{EnrollmentStatus, ExperimentEnrollment},
-    error::{Result, warn},
-    evaluator::split_locale,
-    json::JsonObject,
-    stateful::matcher::AppContext,
-};
+use std::collections::{HashMap, HashSet};
+
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde_derive::*;
-use std::collections::{HashMap, HashSet};
+
+use crate::DB_KEY_UPDATE_DATE;
+use crate::enrollment::{EnrollmentStatus, ExperimentEnrollment};
+use crate::error::{Result, warn};
+use crate::evaluator::split_locale;
+use crate::json::JsonObject;
+use crate::stateful::matcher::AppContext;
+use crate::stateful::persistence::{Database, StoreId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TargetingAttributes {

@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use std::collections::HashMap;
+
+use serde_json::{Map, Value};
+
 use crate::error::Result;
 
 /// Simple trait to allow merging of similar objects.
@@ -34,7 +38,6 @@ impl<T: Defaults + Clone> Defaults for Option<T> {
     }
 }
 
-use serde_json::{Map, Value};
 /// We implement https://datatracker.ietf.org/doc/html/rfc7396
 /// such that self is patching the fallback.
 /// The result is the patched object.
@@ -76,7 +79,6 @@ impl Defaults for Map<String, Value> {
     }
 }
 
-use std::collections::HashMap;
 /// Merge the two `HashMap`s, with self acting as the dominant
 /// of the two.
 ///

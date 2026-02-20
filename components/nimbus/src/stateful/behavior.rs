@@ -2,19 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    error::{BehaviorError, NimbusError, Result},
-    stateful::persistence::{Database, StoreId},
-};
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+use crate::error::{BehaviorError, NimbusError, Result};
+use crate::stateful::persistence::{Database, StoreId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Interval {

@@ -1,16 +1,17 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 #![cfg_attr(not(feature = "stateful"), allow(clippy::needless_update))]
 
+use serde_json::{Map, Value, json};
+
+use crate::enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason};
+use crate::evaluator::{ExperimentAvailable, choose_branch, is_experiment_available, targeting};
 use crate::{
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
-    Result, TargetingAttributes,
-    enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
-    evaluate_enrollment,
-    evaluator::{ExperimentAvailable, choose_branch, is_experiment_available, targeting},
+    Result, TargetingAttributes, evaluate_enrollment,
 };
-use serde_json::{Map, Value, json};
 
 pub fn ta_with_locale(locale: String) -> TargetingAttributes {
     let app_ctx = AppContext {
