@@ -6,22 +6,11 @@
 use once_cell::sync::Lazy;
 use url::Url;
 
-use crate::telemetry::Telemetry;
-
 static MARS_API_ENDPOINT_PROD: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.mozilla.org/v1/").expect("hardcoded URL must be valid"));
 
 static MARS_API_ENDPOINT_STAGING: Lazy<Url> =
     Lazy::new(|| Url::parse("https://ads.allizom.org/v1/").expect("hardcoded URL must be valid"));
-
-pub struct AdsClientConfig<T>
-where
-    T: Telemetry,
-{
-    pub environment: Environment,
-    pub cache_config: Option<AdsCacheConfig>,
-    pub telemetry: T,
-}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Environment {
@@ -41,13 +30,6 @@ impl Environment {
             Environment::Test => Url::parse(&mockito::server_url()).unwrap(),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct AdsCacheConfig {
-    pub db_path: String,
-    pub default_cache_ttl_seconds: Option<u64>,
-    pub max_size_mib: Option<u64>,
 }
 
 #[cfg(test)]
