@@ -58,9 +58,6 @@ pub enum Error {
     #[error("The store is corrupt: {0}")]
     Corruption(#[from] Corruption),
 
-    #[error("Error synchronizing: {0}")]
-    SyncAdapterError(#[from] sync15::Error),
-
     #[error("Error merging: {0}")]
     MergeError(#[from] dogear::Error),
 
@@ -261,27 +258,6 @@ impl GetErrorHandling for Error {
                     reason: e.to_string(),
                 })
                 .report_error("places-bookmarks-corruption")
-            }
-            Error::SyncAdapterError(e) => {
-                match e {
-                    sync15::Error::StoreError(store_error) => {
-                        // If it's a type-erased version of one of our errors, try
-                        // and resolve it.
-                        if let Some(places_err) = store_error.downcast_ref::<Error>() {
-                            info!("Recursing to resolve places error");
-                            places_err.get_error_handling()
-                        } else {
-                            ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
-                                reason: self.to_string(),
-                            })
-                            .report_error("places-unexpected-sync-error")
-                        }
-                    }
-                    _ => ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {
-                        reason: self.to_string(),
-                    })
-                    .report_error("places-unexpected-sync-error"),
-                }
             }
             Error::InvalidMetadataObservation(InvalidMetadataObservation::ViewTimeTooLong) => {
                 ErrorHandling::convert(PlacesApiError::UnexpectedPlacesException {

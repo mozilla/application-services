@@ -143,10 +143,6 @@ interface LoginsApiError {
     /// An operation was interrupted at the request of the consuming app.
     Interrupted(string reason);
 
-    /// Sync reported that authentication failed and the user should re-enter their FxA password.
-    // TODO: remove this at the same time as remove the sync() method in favour of the SyncManager.
-    SyncAuthInvalid(string reason);
-
     /// something internal went wrong which doesn't have a public error value
     /// because the consuming app can not reasonably take any action to resolve it.
     /// The underlying error will have been logged and reported.

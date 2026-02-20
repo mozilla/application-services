@@ -30,7 +30,6 @@ use interrupt_support::register_interrupt;
 pub use interrupt_support::SqlInterruptHandle;
 use parking_lot::Mutex;
 use std::sync::{Arc, Weak};
-use sync15::client::Sync15StorageClientInit;
 pub use sync_guid::Guid;
 pub use types::Timestamp as PlacesTimestamp;
 pub use url::Url;
@@ -102,55 +101,6 @@ impl PlacesApi {
         let connection = Arc::new(PlacesConnection::new(db));
         register_interrupt(Arc::<PlacesConnection>::downgrade(&connection));
         Ok(connection)
-    }
-
-    // NOTE: These methods are unused on Android but will remain needed for
-    // iOS until we can move them to the sync manager and replace their existing
-    // sync engines with ours
-    #[handle_error(crate::Error)]
-    pub fn history_sync(
-        &self,
-        key_id: String,
-        access_token: String,
-        sync_key: String,
-        tokenserver_url: Url,
-    ) -> ApiResult<String> {
-        let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
-        let ping = self.sync_history(
-            &Sync15StorageClientInit {
-                key_id,
-                access_token,
-                tokenserver_url,
-            },
-            &root_sync_key,
-        )?;
-        Ok(serde_json::to_string(&ping).unwrap())
-    }
-
-    #[handle_error(crate::Error)]
-    pub fn bookmarks_sync(
-        &self,
-        key_id: String,
-        access_token: String,
-        sync_key: String,
-        tokenserver_url: Url,
-    ) -> ApiResult<String> {
-        let root_sync_key = sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
-        let ping = self.sync_bookmarks(
-            &Sync15StorageClientInit {
-                key_id,
-                access_token,
-                tokenserver_url,
-            },
-            &root_sync_key,
-        )?;
-        Ok(serde_json::to_string(&ping).unwrap())
-    }
-
-    #[handle_error(crate::Error)]
-    pub fn bookmarks_reset(&self) -> ApiResult<()> {
-        self.reset_bookmarks()?;
-        Ok(())
     }
 }
 

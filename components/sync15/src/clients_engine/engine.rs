@@ -11,14 +11,14 @@ use crate::client::{
 };
 use crate::client_types::{ClientData, RemoteClient};
 use crate::engine::CollectionRequest;
-use crate::error::{debug, info, warn, Result};
+use crate::error::{Result, debug, info, warn};
 use crate::{Guid, KeyBundle};
 use interrupt_support::Interruptee;
 
 use super::{
+    CLIENTS_TTL, Command, CommandProcessor, CommandStatus,
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, CLIENTS_TTL,
 };
 
 const COLLECTION_NAME: &str = "clients";
@@ -362,7 +362,7 @@ mod tests {
     use crate::bso::IncomingBso;
     use anyhow::Result;
     use interrupt_support::NeverInterrupts;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::iter::zip;
 
     struct TestProcessor {

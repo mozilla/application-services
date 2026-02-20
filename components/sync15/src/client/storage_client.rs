@@ -8,7 +8,7 @@ use super::request::{
 use super::token;
 use crate::bso::{IncomingBso, IncomingEncryptedBso, OutgoingBso, OutgoingEncryptedBso};
 use crate::engine::{CollectionPost, CollectionRequest};
-use crate::error::{self, debug, info, trace, warn, Error, ErrorResponse};
+use crate::error::{self, Error, ErrorResponse, debug, info, trace, warn};
 use crate::record_types::MetaGlobalRecord;
 use crate::{CollectionName, Guid, ServerTimestamp};
 use serde_json::Value;
@@ -16,8 +16,8 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use url::Url;
 use viaduct::{
-    header_names::{self, AUTHORIZATION},
     Method, Request, Response,
+    header_names::{self, AUTHORIZATION},
 };
 
 /// A response from a GET request on a Sync15StorageClient, encapsulating all
@@ -565,8 +565,10 @@ mod test {
                 .newer_than(ServerTimestamp(1_234_560)),
         )
         .unwrap();
-        assert_eq!(complex.as_str(),
-            "https://example.com/sync/storage/specific?full=1&older=9876.54&newer=1234.56&sort=oldest&limit=10");
+        assert_eq!(
+            complex.as_str(),
+            "https://example.com/sync/storage/specific?full=1&older=9876.54&newer=1234.56&sort=oldest&limit=10"
+        );
     }
 
     #[cfg(feature = "sync-client")]

@@ -85,34 +85,6 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     override fun close() {
         this.writeConn.apiRef.clear()
     }
-
-    override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = this.api.historySync(
-            syncInfo.kid,
-            syncInfo.fxaAccessToken,
-            syncInfo.syncKey,
-            syncInfo.tokenserverURL,
-        )
-        return SyncTelemetryPing.fromJSONString(pingJSONString)
-    }
-
-    override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = this.api.bookmarksSync(
-            syncInfo.kid,
-            syncInfo.fxaAccessToken,
-            syncInfo.syncKey,
-            syncInfo.tokenserverURL,
-        )
-        return SyncTelemetryPing.fromJSONString(pingJSONString)
-    }
-
-    override fun resetHistorySyncMetadata() {
-        this.api.resetHistory()
-    }
-
-    override fun resetBookmarkSyncMetadata() {
-        return this.api.bookmarksReset()
-    }
 }
 
 @Suppress("TooGenericExceptionCaught")
@@ -470,50 +442,6 @@ interface PlacesManager {
      * This should always return the same object.
      */
     fun getWriter(): WritableHistoryConnection
-
-    /**
-     * Syncs the places history store, returning a telemetry ping.
-     *
-     * Note that this function blocks until the sync is complete, which may
-     * take some time due to the network etc. Because only 1 thread can be
-     * using a PlacesAPI at a time, it is recommended, but not enforced, that
-     * you have all connections you intend using open before calling this.
-     */
-    fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing
-
-    /**
-     * Syncs the places bookmarks store, returning a telemetry ping.
-     *
-     * Note that this function blocks until the sync is complete, which may
-     * take some time due to the network etc. Because only 1 thread can be
-     * using a PlacesAPI at a time, it is recommended, but not enforced, that
-     * you have all connections you intend using open before calling this.
-     */
-    fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
-
-    /**
-     * Resets all sync metadata for history, including change flags,
-     * sync statuses, and last sync time. The next sync after reset
-     * will behave the same way as a first sync when connecting a new
-     * device.
-     *
-     * This method only needs to be called when the user disconnects
-     * from Sync. There are other times when Places resets sync metadata,
-     * but those are handled internally in the Rust code.
-     */
-    fun resetHistorySyncMetadata()
-
-    /**
-     * Resets all sync metadata for bookmarks, including change flags,
-     * sync statuses, and last sync time. The next sync after reset
-     * will behave the same way as a first sync when connecting a new
-     * device.
-     *
-     * This method only needs to be called when the user disconnects
-     * from Sync. There are other times when Places resets sync metadata,
-     * but those are handled internally in the Rust code.
-     */
-    fun resetBookmarkSyncMetadata()
 }
 
 interface InterruptibleConnection : AutoCloseable {

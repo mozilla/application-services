@@ -48,4 +48,4 @@ fn skip_if_default<T: PartialEq + Default>(v: &T) -> bool {
     *v == T::default()
 }
 
-uniffi::include_scaffolding!("sync15");
+uniffi::setup_scaffolding!("sync15");

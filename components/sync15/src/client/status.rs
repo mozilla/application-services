@@ -44,7 +44,7 @@ impl ServiceStatus {
             }
             // BackoffError is also from the tokenserver.
             Error::BackoffError(_) => ServiceStatus::ServiceError,
-            Error::StorageHttpError(ref e) => match e {
+            Error::StorageHttpError(e) => match e {
                 ErrorResponse::Unauthorized { .. } => ServiceStatus::AuthenticationError,
                 _ => ServiceStatus::ServiceError,
             },
@@ -84,10 +84,10 @@ pub struct SyncResult {
 
 // If `r` has a BackoffError, then returns the later backoff value.
 fn advance_backoff(cur_best: SystemTime, r: &Result<(), Error>) -> SystemTime {
-    if let Err(e) = r {
-        if let Some(time) = e.get_backoff() {
-            return std::cmp::max(time, cur_best);
-        }
+    if let Err(e) = r
+        && let Some(time) = e.get_backoff()
+    {
+        return std::cmp::max(time, cur_best);
     }
     cur_best
 }
