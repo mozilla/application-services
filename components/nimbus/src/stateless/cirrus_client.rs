@@ -3,14 +3,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    AppContext, AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper,
+    Result, TargetingAttributes,
     enrollment::{
-        map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
-        EnrollmentsEvolver, ExperimentEnrollment,
+        EnrolledFeatureConfig, EnrollmentChangeEvent, EnrollmentsEvolver, ExperimentEnrollment,
+        map_features_by_feature_id,
     },
     error::CirrusClientError,
     metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    parse_experiments, AppContext, AvailableRandomizationUnits, Experiment, NimbusError,
-    NimbusTargetingHelper, Result, TargetingAttributes,
+    parse_experiments,
 };
 use serde_derive::*;
 use serde_json::{Map, Value};

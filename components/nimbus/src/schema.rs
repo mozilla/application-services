@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::error::{trace, warn};
-use crate::{defaults::Defaults, enrollment::ExperimentMetadata, NimbusError, Result};
+use crate::{NimbusError, Result, defaults::Defaults, enrollment::ExperimentMetadata};
 use serde_derive::*;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -113,7 +113,7 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
             return Err(NimbusError::JSONError(
                 "value = nimbus::schema::parse_experiments::serde_json::from_str".into(),
                 e.to_string(),
-            ))
+            ));
         }
     };
     let data = value

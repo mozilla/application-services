@@ -54,16 +54,20 @@ mod message_tests {
         )?;
 
         // Check the versionCompare function, just to prove to ourselves that it's the same JEXL evaluator.
-        assert!(helper.eval_jexl(
-            "(version|versionCompare('95.!') >= 0) && (version|versionCompare('96.!') < 0)"
-                .to_string(),
-        )?);
+        assert!(
+            helper.eval_jexl(
+                "(version|versionCompare('95.!') >= 0) && (version|versionCompare('96.!') < 0)"
+                    .to_string(),
+            )?
+        );
 
         // Check the versionCompare function, just to prove to ourselves that it's the same JEXL evaluator.
-        assert!(!helper.eval_jexl(
-            "(version|versionCompare('96.!') >= 0) && (version|versionCompare('97.!') < 0)"
-                .to_string(),
-        )?);
+        assert!(
+            !helper.eval_jexl(
+                "(version|versionCompare('96.!') >= 0) && (version|versionCompare('97.!') < 0)"
+                    .to_string(),
+            )?
+        );
 
         Ok(())
     }

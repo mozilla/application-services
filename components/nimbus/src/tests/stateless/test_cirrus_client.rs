@@ -4,14 +4,14 @@
 
 use crate::metrics::EnrollmentStatusExtraDef;
 use crate::{
+    AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
     enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason},
     tests::{
         helpers::TestMetrics,
         stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches,
     },
-    AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
 };
-use serde_json::{from_str, to_string, to_value, Map, Value};
+use serde_json::{Map, Value, from_str, to_string, to_value};
 use std::{collections::HashMap, slice};
 
 fn create_client() -> Result<CirrusClient> {

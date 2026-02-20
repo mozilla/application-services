@@ -4,13 +4,13 @@
 #![cfg_attr(not(feature = "stateful"), allow(clippy::needless_update))]
 
 use crate::{
-    enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
-    evaluate_enrollment,
-    evaluator::{choose_branch, is_experiment_available, targeting, ExperimentAvailable},
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, RandomizationUnit,
     Result, TargetingAttributes,
+    enrollment::{EnrolledReason, EnrollmentStatus, NotEnrolledReason},
+    evaluate_enrollment,
+    evaluator::{ExperimentAvailable, choose_branch, is_experiment_available, targeting},
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 pub fn ta_with_locale(locale: String) -> TargetingAttributes {
     let app_ctx = AppContext {
@@ -280,8 +280,7 @@ fn test_targeting() {
 #[test]
 fn test_targeting_custom_targeting_attributes() {
     // Here's our valid jexl statement
-    let expression_statement =
-        "app_id == '1010' && (app_version == '4.4' || app_build == \"1234\") && is_first_run == true && ios_version == '8.8'";
+    let expression_statement = "app_id == '1010' && (app_version == '4.4' || app_build == \"1234\") && is_first_run == true && ios_version == '8.8'";
 
     let mut custom_targeting_attributes = Map::<String, Value>::new();
     custom_targeting_attributes.insert("is_first_run".into(), json!(true));

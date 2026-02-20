@@ -7,20 +7,20 @@
 use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefBranch};
 use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_date};
 use crate::{
+    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
+    NimbusTargetingHelper, TargetingAttributes,
     defaults::Defaults,
     enrollment::*,
-    error::{debug, Result},
+    error::{Result, debug},
     tests::helpers::{
         get_multi_feature_experiment, get_single_feature_experiment, get_test_experiments,
         no_coenrolling_features,
     },
-    AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
-    NimbusTargetingHelper, TargetingAttributes,
 };
 #[cfg(feature = "stateful")]
 use crate::{
     stateful::gecko_prefs::{
-        create_feature_prop_pref_map, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore,
+        GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, create_feature_prop_pref_map,
     },
     tests::helpers::TestGeckoPrefHandler,
 };
@@ -33,7 +33,7 @@ cfg_if::cfg_if! {
 
     }
 }
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 

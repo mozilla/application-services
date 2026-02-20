@@ -15,10 +15,10 @@
 
 use std::sync::Arc;
 
+use crate::NimbusError;
 use crate::error::Result;
 use crate::schema::parse_experiments;
 use crate::stateful::client::{Experiment, SettingsClient};
-use crate::NimbusError;
 use remote_settings::{RemoteSettingsClient, RemoteSettingsError};
 use serde_json::json;
 

@@ -4,9 +4,10 @@
  */
 
 use crate::{
+    AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper,
     enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason},
-    error::{debug, info, NimbusError, Result},
-    sampling, AvailableRandomizationUnits, Branch, Experiment, NimbusTargetingHelper,
+    error::{NimbusError, Result, debug, info},
+    sampling,
 };
 use serde_derive::*;
 use serde_json::Value;
@@ -81,13 +82,13 @@ pub fn evaluate_enrollment(
 
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
-    if let Some(expr) = &exp.targeting {
-        if let Some(status) = targeting(expr, th) {
-            return Ok(ExperimentEnrollment {
-                slug: exp.slug.clone(),
-                status,
-            });
-        }
+    if let Some(expr) = &exp.targeting
+        && let Some(status) = targeting(expr, th)
+    {
+        return Ok(ExperimentEnrollment {
+            slug: exp.slug.clone(),
+            status,
+        });
     }
     Ok(ExperimentEnrollment {
         slug: exp.slug.clone(),

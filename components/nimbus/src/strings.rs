@@ -4,7 +4,7 @@
 
 use crate::{NimbusError, Result};
 use icu_segmenter::GraphemeClusterSegmenter;
-use serde_json::{value::Value, Map};
+use serde_json::{Map, value::Value};
 
 #[allow(dead_code)]
 pub fn fmt<T: serde::Serialize>(template: &str, context: &T) -> Result<String> {
@@ -14,7 +14,7 @@ pub fn fmt<T: serde::Serialize>(template: &str, context: &T) -> Result<String> {
             return Err(NimbusError::JSONError(
                 "obj = nimbus::strings::fmt::serde_json::to_value".into(),
                 e.to_string(),
-            ))
+            ));
         }
     };
 

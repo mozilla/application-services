@@ -3,6 +3,7 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    AppContext, EnrollmentStatus, TargetingAttributes,
     enrollment::NotEnrolledReason,
     evaluator::targeting,
     stateful::{
@@ -13,7 +14,6 @@ use crate::{
         targeting::RecordedContext,
     },
     tests::helpers::TestRecordedContext,
-    AppContext, EnrollmentStatus, TargetingAttributes,
 };
 use chrono::Utc;
 use serde_json::json;

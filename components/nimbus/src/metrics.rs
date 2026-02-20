@@ -5,7 +5,7 @@
 #[cfg(feature = "stateful")]
 use crate::enrollment::PreviousGeckoPrefState;
 
-use crate::{enrollment::ExperimentEnrollment, EnrolledFeature, EnrollmentStatus};
+use crate::{EnrolledFeature, EnrollmentStatus, enrollment::ExperimentEnrollment};
 use serde_derive::{Deserialize, Serialize};
 
 pub trait MetricsHandler: Send + Sync {

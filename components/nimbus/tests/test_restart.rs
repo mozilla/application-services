@@ -11,9 +11,9 @@ mod test {
     use std::collections::HashSet;
 
     use super::common::new_test_client_with_db;
+    use nimbus::NimbusError;
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::error::Result;
-    use nimbus::NimbusError;
     use serde_json::json;
 
     fn experiment_target_false() -> serde_json::Value {

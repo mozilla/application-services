@@ -7,10 +7,10 @@
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::OriginalGeckoPref;
 use crate::{
-    enrollment::{EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
+    enrollment::{EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason},
+    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
 };
 
 cfg_if::cfg_if! {
@@ -26,7 +26,7 @@ cfg_if::cfg_if! {
 }
 
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 

@@ -5,9 +5,9 @@
 // Allow this to run in "safe mode"
 #![allow(unused_imports)]
 
+use crate::Experiment;
 use crate::error::Result;
 use crate::stateful::{persistence::Database, updating::*};
-use crate::Experiment;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.

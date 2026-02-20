@@ -3,11 +3,13 @@
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
+    AppContext, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE, Experiment, NimbusClient,
+    TargetingAttributes,
     enrollment::{
         DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
         PreviousGeckoPrefState,
     },
-    error::{info, Result},
+    error::{Result, info},
     json::PrefValue,
     metrics::MalformedFeatureConfigExtraDef,
     stateful::{
@@ -16,19 +18,17 @@ use crate::{
             SingleIntervalCounter,
         },
         gecko_prefs::{
-            create_feature_prop_pref_map, GeckoPrefState, OriginalGeckoPref, PrefBranch,
-            PrefEnrollmentData, PrefUnenrollReason,
+            GeckoPrefState, OriginalGeckoPref, PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
+            create_feature_prop_pref_map,
         },
         persistence::{Database, StoreId},
         targeting::RecordedContext,
     },
     tests::helpers::{
-        get_bucketed_rollout, get_ios_rollout_experiment, get_multi_feature_experiment,
-        get_single_feature_experiment, get_single_feature_rollout, get_targeted_experiment,
-        to_local_experiments_string, TestGeckoPrefHandler, TestMetrics, TestRecordedContext,
+        TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
+        get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
+        get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
     },
-    AppContext, Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION,
-    DB_KEY_UPDATE_DATE,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
