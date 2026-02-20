@@ -14,12 +14,8 @@ use crate::error::warn;
 use crate::{ApiResult, Error, RemoteSettingsContext, Result};
 
 /// Remote settings configuration
-///
-/// This is the version used in the new API, hence the `2` at the end.  The plan is to move
-/// consumers to the new API, remove the RemoteSettingsConfig struct, then remove the `2` from this
-/// name.
 #[derive(Debug, Default, Clone, uniffi::Record)]
-pub struct RemoteSettingsConfig2 {
+pub struct RemoteSettingsConfig {
     /// The Remote Settings server to use. Defaults to [RemoteSettingsServer::Prod],
     #[uniffi(default = None)]
     pub server: Option<RemoteSettingsServer>,
@@ -29,23 +25,6 @@ pub struct RemoteSettingsConfig2 {
     /// App context to use for JEXL filtering (when the `jexl` feature is present).
     #[uniffi(default = None)]
     pub app_context: Option<RemoteSettingsContext>,
-}
-
-/// Custom configuration for the client.
-/// Currently includes the following:
-/// - `server`: The Remote Settings server to use. If not specified, defaults to the production server (`RemoteSettingsServer::Prod`).
-/// - `server_url`: An optional custom Remote Settings server URL. Deprecated; please use `server` instead.
-/// - `bucket_name`: The optional name of the bucket containing the collection on the server. If not specified, the standard bucket will be used.
-/// - `collection_name`: The name of the collection for the settings server.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct RemoteSettingsConfig {
-    pub collection_name: String,
-    #[uniffi(default = None)]
-    pub bucket_name: Option<String>,
-    #[uniffi(default = None)]
-    pub server_url: Option<String>,
-    #[uniffi(default = None)]
-    pub server: Option<RemoteSettingsServer>,
 }
 
 /// The Remote Settings server that the client should use.

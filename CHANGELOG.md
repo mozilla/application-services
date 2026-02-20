@@ -17,6 +17,10 @@
 * Move `nimbus_events.enrollment_status` to new `nimbus-targeting-context` ping, and add Nimbus `MetricsHandler` interface method `submit_targeting_context` to submit the ping. Consumers implementing this interface must add the new method. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
 * Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
 
+### Remote-Settings
+ * Removed old remote-settings client code that is no longer used.
+ * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
+
 ### Error support
 * Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
   We don't believe this should affect any consumers, since they're were already using the

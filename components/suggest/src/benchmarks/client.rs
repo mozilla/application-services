@@ -6,6 +6,8 @@ use std::collections::HashMap;
 
 use crate::{error::Error, rs, Result};
 
+use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsService};
+
 /// Remotes settings client for benchmarking
 ///
 /// This fetches all data in `new`, then implements [rs::Client] by returning the local data.
@@ -20,51 +22,31 @@ pub struct RemoteSettingsBenchmarkClient {
 impl RemoteSettingsBenchmarkClient {
     pub fn new() -> Result<Self> {
         let mut new_benchmark_client = Self::default();
-        new_benchmark_client.fetch_data_with_client(
-            remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
-                server: None,
-                bucket_name: None,
-                collection_name: rs::Collection::Amp.name().to_owned(),
-                server_url: None,
-            })?,
-            rs::Collection::Amp,
-        )?;
-        new_benchmark_client.fetch_data_with_client(
-            remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
-                server: None,
-                bucket_name: None,
-                collection_name: rs::Collection::Other.name().to_owned(),
-                server_url: None,
-            })?,
-            rs::Collection::Other,
-        )?;
-        new_benchmark_client.fetch_data_with_client(
-            remote_settings::RemoteSettings::new(remote_settings::RemoteSettingsConfig {
-                server: None,
-                bucket_name: None,
-                collection_name: rs::Collection::Fakespot.name().to_owned(),
-                server_url: None,
-            })?,
-            rs::Collection::Fakespot,
-        )?;
+        new_benchmark_client.fetch_data(rs::Collection::Amp)?;
+        new_benchmark_client.fetch_data(rs::Collection::Other)?;
+        new_benchmark_client.fetch_data(rs::Collection::Fakespot)?;
         Ok(new_benchmark_client)
     }
 
-    fn fetch_data_with_client(
-        &mut self,
-        client: remote_settings::RemoteSettings,
-        collection: rs::Collection,
-    ) -> Result<()> {
-        let response = client.get_records()?;
-        for r in &response.records {
+    fn fetch_data(&mut self, collection: rs::Collection) -> Result<()> {
+        let service = RemoteSettingsService::new(
+            String::from(":memory:"),
+            RemoteSettingsConfig {
+                server: None,
+                bucket_name: None,
+                app_context: Some(RemoteSettingsContext::default()),
+            },
+        );
+        let client = service.make_client(collection.name().to_string());
+        let records = client.get_records(true).unwrap();
+        for r in &records {
             if let Some(a) = &r.attachment {
                 self.attachments
-                    .insert(a.location.clone(), client.get_attachment(&a.location)?);
+                    .insert(a.location.clone(), client.get_attachment(r)?);
             }
         }
         self.records.extend(
-            response
-                .records
+            records
                 .into_iter()
                 .filter_map(|r| rs::Record::new(r, collection).ok()),
         );

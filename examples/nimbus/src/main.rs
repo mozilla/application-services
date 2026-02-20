@@ -106,7 +106,7 @@ fn main() -> Result<()> {
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper,
     };
-    use remote_settings::{RemoteSettingsConfig2, RemoteSettingsService};
+    use remote_settings::{RemoteSettingsConfig, RemoteSettingsService};
     use std::io::prelude::*;
     use std::{collections::HashMap, sync::Arc};
 
@@ -190,7 +190,7 @@ fn main() -> Result<()> {
     info!("Database directory is {}", db_path);
 
     // initiate the optional config
-    let config = RemoteSettingsConfig2 {
+    let config = RemoteSettingsConfig {
         server: None,
         bucket_name: None,
         app_context: None,
