@@ -26,12 +26,10 @@ fi
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
-  TARGET_OS="macos"
 elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-  TARGET_OS="macos"
   # We need to set this variable for switching libs based on different macos archs (M1 vs Intel)
   if [[ "$(uname -m)" == "arm64" ]]; then
     DIST_DIR=$(abspath "desktop/darwin-aarch64/nss")
@@ -43,7 +41,6 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/nss")
-  TARGET_OS="linux"
 else
    echo "Cannot build NSS on unrecognized host OS $(uname -s)"
    exit 1
@@ -63,7 +60,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   else
     # From https://firefox-ci-tc.services.mozilla.com/tasks/index/app-services.cache.level-3.content.v1.nss-artifact/latest
     curl -sfSL --retry 5 --retry-delay 10 -O "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/app-services.cache.level-3.content.v1.nss-artifact.latest/artifacts/public%2Fdist.tar.bz2"
-    SHA256="7468906d4dfadc449b5665f7fd3eeada1929fd6fab51ea75efb50b3c355f7a8a"
+    SHA256="ed6fcf71c774a7aa67a85b6348e2d52ca418d486acfef5d231e085004175a97a"
     echo "${SHA256}  dist.tar.bz2" | shasum -a 256 -c - || exit 2
     tar xvjf dist.tar.bz2 && rm -rf dist.tar.bz2
     NSS_DIST_DIR=$(abspath "dist")
@@ -93,6 +90,7 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
@@ -109,19 +107,14 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # Apple M1 need HW specific libs copied over to successfully build
 if [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libghash-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
 else
   # HW specific.
-  # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libghash-aes-x86_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
-fi
-# https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#43-47
-if [[ "${TARGET_OS}" == "linux" ]]; then
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
 fi
 
 cp -p -L -R "${NSS_DIST_DIR}/public/nss/"* "${DIST_DIR}/include/nss"

@@ -86,6 +86,7 @@ cp -p -L "${BUILD_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libgcm.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
@@ -99,13 +100,9 @@ cp -p -L "${BUILD_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # HW specific.
-# https://searchfox.org/nss/rev/0d5696b3edce5124353f03159d2aa15549db8306/lib/freebl/freebl.gyp#508-542
-# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#315-324
-# https://searchfox.org/nss/rev/08c4d05078d00089f8d7540651b0717a9d66f87e/lib/freebl/freebl.gyp#43-47
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-x86_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
-  cp -p -L "${BUILD_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
@@ -114,10 +111,10 @@ if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]] || [[ "${TOOLCHAIN}" == "arm-
   cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
 fi
 if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
 fi
 if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-arm32-neon_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-arm32-neon_c_lib.a" "${DIST_DIR}/lib"
 fi
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.a" "${DIST_DIR}/lib"
