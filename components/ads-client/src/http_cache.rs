@@ -12,6 +12,7 @@ mod store;
 
 use self::{builder::HttpCacheBuilder, cache_control::CacheControl, store::HttpCacheStore};
 
+use std::hash::Hash;
 use viaduct::{Request, Response};
 
 pub use self::builder::HttpCacheBuilderError;
@@ -29,56 +30,11 @@ pub struct RequestCachePolicy {
     pub ttl_seconds: Option<u64>, // optional client-defined ttl override
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CacheMode {
     #[default]
     CacheFirst,
     NetworkFirst,
-}
-
-impl CacheMode {
-    pub fn execute(
-        &self,
-        cache: &HttpCache,
-        request: &Request,
-        ttl: &Duration,
-    ) -> HttpCacheSendResult<SendOutcome> {
-        match self {
-            CacheMode::CacheFirst => self.exec_cache_first(cache, request, ttl),
-            CacheMode::NetworkFirst => self.exec_network_first(cache, request, ttl),
-        }
-    }
-
-    fn exec_cache_first(
-        &self,
-        cache: &HttpCache,
-        request: &Request,
-        ttl: &Duration,
-    ) -> HttpCacheSendResult<SendOutcome> {
-        match cache.store.lookup(request) {
-            Ok(Some((resp, _))) => Ok(SendOutcome {
-                response: resp,
-                cache_outcome: CacheOutcome::Hit,
-            }),
-            Ok(None) => cache.request_from_network_then_cache(request, ttl),
-            Err(e) => {
-                let response = request.clone().send()?;
-                Ok(SendOutcome {
-                    response,
-                    cache_outcome: CacheOutcome::LookupFailed(e),
-                })
-            }
-        }
-    }
-
-    fn exec_network_first(
-        &self,
-        cache: &HttpCache,
-        request: &Request,
-        ttl: &Duration,
-    ) -> HttpCacheSendResult<SendOutcome> {
-        cache.request_from_network_then_cache(request, ttl)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -106,14 +62,15 @@ pub struct SendOutcome {
     pub cache_outcome: CacheOutcome,
 }
 
-pub struct HttpCache {
+pub struct HttpCache<T: Hash + Into<Request>> {
     max_size: ByteSize,
     store: HttpCacheStore,
     default_ttl: Duration,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl HttpCache {
-    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder {
+impl<T: Hash + Into<Request>> HttpCache<T> {
+    pub fn builder<P: AsRef<Path>>(db_path: P) -> HttpCacheBuilder<T> {
         HttpCacheBuilder::new(db_path.as_ref())
     }
 
@@ -131,22 +88,41 @@ impl HttpCache {
 
     pub fn send_with_policy(
         &self,
-        request: &Request,
+        item: T,
         request_policy: &RequestCachePolicy,
     ) -> HttpCacheSendResult<SendOutcome> {
+        let request_hash = RequestHash::new(&item);
+        let request: Request = item.into();
         let request_policy_ttl = match request_policy.ttl_seconds {
             Some(s) => Duration::new(s, 0),
             None => self.default_ttl,
         };
 
-        request_policy
-            .mode
-            .execute(self, request, &request_policy_ttl)
+        if request_policy.mode == CacheMode::CacheFirst {
+            match self.store.lookup(&request_hash) {
+                Ok(Some(response)) => {
+                    return Ok(SendOutcome {
+                        response,
+                        cache_outcome: CacheOutcome::Hit,
+                    });
+                }
+                Err(e) => {
+                    let mut outcome =
+                        self.fetch_and_cache(&request, &request_hash, &request_policy_ttl)?;
+                    outcome.cache_outcome = CacheOutcome::LookupFailed(e);
+                    return Ok(outcome);
+                }
+                Ok(None) => {}
+            }
+        }
+
+        self.fetch_and_cache(&request, &request_hash, &request_policy_ttl)
     }
 
-    fn request_from_network_then_cache(
+    fn fetch_and_cache(
         &self,
         request: &Request,
+        request_hash: &RequestHash,
         request_policy_ttl: &Duration,
     ) -> HttpCacheSendResult<SendOutcome> {
         let response = request.clone().send()?;
@@ -176,7 +152,7 @@ impl HttpCache {
                 });
             }
 
-            match self.cache_object(request, &response, &final_ttl) {
+            match self.cache_object(request_hash, &response, &final_ttl) {
                 Ok(()) => CacheOutcome::MissStored,
                 Err(e) => CacheOutcome::StoreFailed(e),
             }
@@ -192,11 +168,11 @@ impl HttpCache {
 
     fn cache_object(
         &self,
-        request: &Request,
+        request_hash: &RequestHash,
         response: &Response,
         ttl: &Duration,
     ) -> Result<(), HttpCacheError> {
-        self.store.store_with_ttl(request, response, ttl)?;
+        self.store.store_with_ttl(request_hash, response, ttl)?;
         self.store.trim_to_max_size(self.max_size.as_u64() as i64)?;
         Ok(())
     }
@@ -205,15 +181,34 @@ impl HttpCache {
 #[cfg(test)]
 mod tests {
     use mockito::mock;
+    use std::hash::{Hash, Hasher};
 
     use super::*;
 
-    fn make_post_request() -> Request {
-        let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
-        Request::post(url).json(&serde_json::json!({"fake":"data"}))
+    /// Test-only hashable wrapper around Request.
+    /// Hashes method + url for cache key purposes.
+    #[derive(Clone)]
+    struct TestRequest(Request);
+
+    impl Hash for TestRequest {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.0.method.as_str().hash(state);
+            self.0.url.as_str().hash(state);
+        }
     }
 
-    fn make_cache() -> HttpCache {
+    impl From<TestRequest> for Request {
+        fn from(t: TestRequest) -> Self {
+            t.0
+        }
+    }
+
+    fn make_post_request() -> TestRequest {
+        let url = format!("{}/ads", mockito::server_url()).parse().unwrap();
+        TestRequest(Request::post(url).json(&serde_json::json!({"fake":"data"})))
+    }
+
+    fn make_cache() -> HttpCache<TestRequest> {
         // Our store opens an in-memory cache for tests. So the name is irrelevant.
         HttpCache::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(60))
@@ -222,7 +217,7 @@ mod tests {
             .expect("cache build should succeed")
     }
 
-    fn make_cache_with_ttl(secs: u64) -> HttpCache {
+    fn make_cache_with_ttl(secs: u64) -> HttpCache<TestRequest> {
         // In tests our store uses an in-memory DB; filename is irrelevant.
         HttpCache::builder("ignored_in_tests.db")
             .default_ttl(Duration::from_secs(secs))
@@ -234,28 +229,24 @@ mod tests {
     #[test]
     fn test_http_cache_creation() {
         // Test that HttpCache can be created successfully with test config
-        let cache = HttpCache::builder("test_cache.db").build();
+        let cache: Result<HttpCache<TestRequest>, _> = HttpCache::builder("test_cache.db").build();
         assert!(cache.is_ok());
 
         // Test with custom config
-        let cache_with_config = HttpCache::builder("custom_test.db")
-            .max_size(ByteSize::mib(1))
-            .default_ttl(Duration::from_secs(60))
-            .build();
+        let cache_with_config: Result<HttpCache<TestRequest>, _> =
+            HttpCache::builder("custom_test.db")
+                .max_size(ByteSize::mib(1))
+                .default_ttl(Duration::from_secs(60))
+                .build();
         assert!(cache_with_config.is_ok());
     }
 
     #[test]
     fn test_clear_cache() {
-        let cache = HttpCache::builder("test_clear.db").build().unwrap();
+        let cache: HttpCache<TestRequest> = HttpCache::builder("test_clear.db").build().unwrap();
 
         // Create a test request and response
-        let request = viaduct::Request {
-            method: viaduct::Method::Get,
-            url: "https://example.com/test".parse().unwrap(),
-            headers: viaduct::Headers::new(),
-            body: None,
-        };
+        let hash = RequestHash::new(&("Get", "https://example.com/test"));
 
         let response = viaduct::Response {
             request_method: viaduct::Method::Get,
@@ -265,21 +256,20 @@ mod tests {
             body: b"test response".to_vec(),
         };
 
-        // Store something in the cache
         cache
             .store
-            .store_with_ttl(&request, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash, &response, &Duration::new(300, 0))
             .unwrap();
 
         // Verify it's cached
-        let retrieved = cache.store.lookup(&request).unwrap();
+        let retrieved = cache.store.lookup(&hash).unwrap();
         assert!(retrieved.is_some());
 
         // Clear the cache
         cache.clear().unwrap();
 
         // Verify it's cleared
-        let retrieved_after_clear = cache.store.lookup(&request).unwrap();
+        let retrieved_after_clear = cache.store.lookup(&hash).unwrap();
         assert!(retrieved_after_clear.is_none());
     }
 
@@ -300,13 +290,13 @@ mod tests {
 
         // First call: miss -> store
         let o1 = cache
-            .send_with_policy(&req.clone(), &RequestCachePolicy::default())
+            .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
         matches!(o1.cache_outcome, CacheOutcome::MissStored);
 
         // Second call: hit (no extra HTTP request due to expect(1))
         let o2 = cache
-            .send_with_policy(&req, &RequestCachePolicy::default())
+            .send_with_policy(req, &RequestCachePolicy::default())
             .unwrap();
         matches!(o2.cache_outcome, CacheOutcome::Hit);
         assert_eq!(o2.response.status, 200);
@@ -336,7 +326,7 @@ mod tests {
         // First refresh: live -> MissStored
         let o1 = cache
             .send_with_policy(
-                &req.clone(),
+                req.clone(),
                 &RequestCachePolicy {
                     mode: CacheMode::NetworkFirst,
                     ttl_seconds: None,
@@ -348,7 +338,7 @@ mod tests {
         // Second refresh: live again (different body), still MissStored
         let o2 = cache
             .send_with_policy(
-                &req,
+                req,
                 &RequestCachePolicy {
                     mode: CacheMode::NetworkFirst,
                     ttl_seconds: None,
@@ -375,7 +365,7 @@ mod tests {
         let req = make_post_request();
 
         let o = cache
-            .send_with_policy(&req.clone(), &RequestCachePolicy::default())
+            .send_with_policy(req.clone(), &RequestCachePolicy::default())
             .unwrap();
         matches!(o.cache_outcome, CacheOutcome::MissNotCacheable);
 
@@ -387,7 +377,7 @@ mod tests {
             .expect(1)
             .create();
         let o2 = cache
-            .send_with_policy(&req, &RequestCachePolicy::default())
+            .send_with_policy(req, &RequestCachePolicy::default())
             .unwrap();
         // Either MissStored (if headers differ) or MissNotCacheable if still no-store
         assert!(matches!(
@@ -410,21 +400,21 @@ mod tests {
 
         let cache = make_cache_with_ttl(300);
         let req = make_post_request();
+        let hash = RequestHash::new(&req);
         let policy = RequestCachePolicy {
             mode: CacheMode::CacheFirst,
             ttl_seconds: Some(20), // 20 second ttl specified vs the cache's default of 300s
         };
 
         // Store ttl should resolve to 1s as specified by response headers
-        let out = cache.send_with_policy(&req, &policy).unwrap();
+        let out = cache.send_with_policy(req, &policy).unwrap();
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // After ~>1s, cleanup should remove it
         cache.store.get_clock().advance(2);
-
         cache.store.delete_expired_entries().unwrap();
 
-        assert!(cache.store.lookup(&req).unwrap().is_none());
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
     }
 
     #[test]
@@ -440,24 +430,25 @@ mod tests {
 
         let cache = make_cache_with_ttl(60);
         let req = make_post_request();
+        let hash = RequestHash::new(&req);
         let policy = RequestCachePolicy {
             mode: CacheMode::CacheFirst,
             ttl_seconds: Some(2),
         };
 
         // Store with effective TTL = 2s
-        let out = cache.send_with_policy(&req, &policy).unwrap();
+        let out = cache.send_with_policy(req, &policy).unwrap();
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // Not expired yet at ~1s
         cache.store.get_clock().advance(1);
         cache.store.delete_expired_entries().unwrap();
-        assert!(cache.store.lookup(&req).unwrap().is_some());
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~2s
         cache.store.get_clock().advance(2);
         cache.store.delete_expired_entries().unwrap();
-        assert!(cache.store.lookup(&req).unwrap().is_none());
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
     }
 
     #[test]
@@ -466,49 +457,40 @@ mod tests {
 
         let _m = mockito::mock("POST", "/ads")
             .with_status(200)
-            .with_header("content-type", "application/json") // No response policy ttl
+            // No response policy ttl
+            .with_header("content-type", "application/json")
             .with_body(r#"{"ok":true}"#)
             .expect(1)
             .create();
 
         let cache = make_cache_with_ttl(2);
         let req = make_post_request();
-        let policy = RequestCachePolicy::default(); // No request polity ttl
+        let hash = RequestHash::new(&req);
+        // No request policy ttl
+        let policy = RequestCachePolicy::default();
 
-        // Store with effective TTL = 1s from client
-        let out = cache.send_with_policy(&req, &policy).unwrap();
+        // Store with effective TTL = 2s from client default
+        let out = cache.send_with_policy(req, &policy).unwrap();
         assert!(matches!(out.cache_outcome, CacheOutcome::MissStored));
 
         // Not expired at ~1s
         cache.store.get_clock().advance(1);
         cache.store.delete_expired_entries().unwrap();
-        assert!(cache.store.lookup(&req).unwrap().is_some());
+        assert!(cache.store.lookup(&hash).unwrap().is_some());
 
         // Expired after ~3s
         cache.store.get_clock().advance(3);
         cache.store.delete_expired_entries().unwrap();
-        assert!(cache.store.lookup(&req).unwrap().is_none());
+        assert!(cache.store.lookup(&hash).unwrap().is_none());
     }
 
     #[test]
     fn test_invalidate_by_hash() {
-        use crate::http_cache::request_hash::RequestHash;
+        let cache: HttpCache<TestRequest> =
+            HttpCache::builder("test_invalidate.db").build().unwrap();
 
-        let cache = HttpCache::builder("test_invalidate.db").build().unwrap();
-
-        let request1 = viaduct::Request {
-            method: viaduct::Method::Post,
-            url: "https://example.com/api1".parse().unwrap(),
-            headers: viaduct::Headers::new(),
-            body: Some(b"body1".to_vec()),
-        };
-
-        let request2 = viaduct::Request {
-            method: viaduct::Method::Post,
-            url: "https://example.com/api2".parse().unwrap(),
-            headers: viaduct::Headers::new(),
-            body: Some(b"body2".to_vec()),
-        };
+        let hash1 = RequestHash::new(&("Post", "https://example.com/api1"));
+        let hash2 = RequestHash::new(&("Post", "https://example.com/api2"));
 
         let response = viaduct::Response {
             request_method: viaduct::Method::Post,
@@ -520,21 +502,20 @@ mod tests {
 
         cache
             .store
-            .store_with_ttl(&request1, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash1, &response, &Duration::new(300, 0))
             .unwrap();
 
         cache
             .store
-            .store_with_ttl(&request2, &response, &Duration::new(300, 0))
+            .store_with_ttl(&hash2, &response, &Duration::new(300, 0))
             .unwrap();
 
-        assert!(cache.store.lookup(&request1).unwrap().is_some());
-        assert!(cache.store.lookup(&request2).unwrap().is_some());
+        assert!(cache.store.lookup(&hash1).unwrap().is_some());
+        assert!(cache.store.lookup(&hash2).unwrap().is_some());
 
-        let hash1 = RequestHash::from(&request1);
         cache.invalidate_by_hash(&hash1).unwrap();
 
-        assert!(cache.store.lookup(&request1).unwrap().is_none());
-        assert!(cache.store.lookup(&request2).unwrap().is_some());
+        assert!(cache.store.lookup(&hash1).unwrap().is_none());
+        assert!(cache.store.lookup(&hash2).unwrap().is_some());
     }
 }
