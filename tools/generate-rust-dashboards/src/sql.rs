@@ -98,12 +98,12 @@ impl Query {
         // TODO: Add UNIONs once we are enable the glean pipeline for iOS and/or Desktop
         //     let from = format!("
         // (
-        //     SELECT * FROM mozdata.fenix.{table_name} WHERE '${{application}}' = 'android'
-        //     UNION ALL SELECT * FROM mozdata.firefox_ios.{table_name} WHERE '${{application}}' = 'ios'
-        //     UNION ALL SELECT * FROM mozdata.firefox_desktop.{table_name} WHERE '${{application}}' = 'desktop'
+        //     SELECT * FROM mozdata.fenix.{table_name} WHERE '${{application}}' = 'firefox_android'
+        //     UNION ALL SELECT * FROM mozdata.firefox_ios.{table_name} WHERE '${{application}}' = 'firefox_ios'
+        //     UNION ALL SELECT * FROM mozdata.firefox_desktop.{table_name} WHERE '${{application}}' = 'firefox_desktop'
         // )");
         self.from = format!(
-            "(SELECT * FROM mozdata.fenix.{table_name} WHERE '${{application}}' = 'android')"
+            "(SELECT * FROM mozdata.fenix.{table_name} WHERE '${{application}}' = 'firefox_android')"
         );
     }
 }
