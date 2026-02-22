@@ -1988,27 +1988,10 @@ mod tests {
         let incoming = match records_json {
             Value::Array(records) => records
                 .into_iter()
-                .map(|record| {
-                    let timestamp = record
-                        .as_object()
-                        .and_then(|r| r.get("modified"))
-                        .map(|v| {
-                            serde_json::from_value(v.clone())
-                                .expect("Should deserialize server modified")
-                        })
-                        .unwrap_or(remote_time);
-                    IncomingBso::from_test_content_ts(record, timestamp)
-                })
+                .map(|record| IncomingBso::from_test_content_ts(record, remote_time))
                 .collect(),
-            Value::Object(ref r) => {
-                let timestamp = r
-                    .get("modified")
-                    .map(|v| {
-                        serde_json::from_value(v.clone())
-                            .expect("Should deserialize server modified")
-                    })
-                    .unwrap_or(remote_time);
-                vec![IncomingBso::from_test_content_ts(records_json, timestamp)]
+            Value::Object(_) => {
+                vec![IncomingBso::from_test_content_ts(records_json, remote_time)]
             }
             _ => panic!("unexpected json value"),
         };
@@ -3955,7 +3938,6 @@ mod tests {
                 "parentName": "",
                 "title": "menu",
                 "children": ["bookmarkAAA5"],
-                "modified": remote_modified,
             }, {
                 "id": "bookmarkAAA5",
                 "type": "bookmark",
@@ -3963,7 +3945,6 @@ mod tests {
                 "parentName": "menu",
                 "title": "A",
                 "bmkUri": "http://example.com/a",
-                "modified": remote_modified,
             }]),
         );
 
@@ -4012,7 +3993,6 @@ mod tests {
                 "parentName": "menu",
                 "title": "A",
                 "bmkUri": "http://example.com/a",
-                "modified": remote_modified,
             }, {
                 "id": "bookmarkAAA4",
                 "type": "bookmark",
@@ -4020,7 +4000,6 @@ mod tests {
                 "parentName": "menu",
                 "title": "A",
                 "bmkUri": "http://example.com/a",
-                "modified": remote_modified,
             }]),
         );
 
@@ -4071,7 +4050,6 @@ mod tests {
                 "parentName": "",
                 "title": "menu",
                 "children": ["folderAAAAAA"],
-                "modified": remote_modified,
             }, {
                 // Shouldn't dedupe to `folderA11111` because it's been applied.
                 "id": "folderAAAAAA",
@@ -4080,7 +4058,6 @@ mod tests {
                 "parentName": "menu",
                 "title": "A",
                 "children": ["bookmarkGGGG"],
-                "modified": remote_modified,
             }, {
                 // Shouldn't dedupe to `bookmarkG111`.
                 "id": "bookmarkGGGG",
@@ -4089,7 +4066,6 @@ mod tests {
                 "parentName": "A",
                 "title": "G",
                 "bmkUri": "http://example.com/g",
-                "modified": remote_modified,
             }]),
         );
 
@@ -4169,7 +4145,6 @@ mod tests {
                 "title": "menu",
                 "children": ["folderAAAAAA", "folderB11111", "folderA11111", "separatorE11", "queryD111111"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "folderB11111",
                 "type": "folder",
@@ -4178,7 +4153,6 @@ mod tests {
                 "title": "B",
                 "children": ["bookmarkC222", "separatorF11"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "bookmarkC222",
                 "type": "bookmark",
@@ -4187,14 +4161,12 @@ mod tests {
                 "title": "C",
                 "bmkUri": "http://example.com/c",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "separatorF11",
                 "type": "separator",
                 "parentid": "folderB11111",
                 "parentName": "B",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "folderA11111",
                 "type": "folder",
@@ -4203,7 +4175,6 @@ mod tests {
                 "title": "A",
                 "children": ["bookmarkG111"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "bookmarkG111",
                 "type": "bookmark",
@@ -4212,14 +4183,12 @@ mod tests {
                 "title": "G",
                 "bmkUri": "http://example.com/g",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "separatorE11",
                 "type": "separator",
                 "parentid": "folderB11111",
                 "parentName": "B",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }, {
                 "id": "queryD111111",
                 "type": "query",
@@ -4228,7 +4197,6 @@ mod tests {
                 "title": "Most Visited",
                 "bmkUri": "place:maxResults=10&sort=8",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             }]),
         );
 
@@ -4349,7 +4317,6 @@ mod tests {
                 "title": "menu",
                 "children": ["folderAAAAAA", "folderCCCCCC", "bookmarkFFFF"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified,
             }, {
                 "id": "folderAAAAAA",
                 "type": "folder",
@@ -4358,7 +4325,6 @@ mod tests {
                 "title": "A",
                 "children": ["bookmarkBBBB"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified,
             }, {
                 "id": "bookmarkBBBB",
                 "type": "bookmark",
@@ -4367,7 +4333,6 @@ mod tests {
                 "title": "B",
                 "bmkUri": "http://example.com/b",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified,
             }, {
                 "id": "folderCCCCCC",
                 "type": "folder",
@@ -4376,7 +4341,6 @@ mod tests {
                 "title": "C",
                 "children": ["bookmarkDDDD"],
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified,
             }, {
                 "id": "bookmarkDDDD",
                 "type": "bookmark",
@@ -4385,7 +4349,6 @@ mod tests {
                 "title": "D",
                 "bmkUri": "http://example.com/d",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified,
             }, {
                 "id": "bookmarkFFFF",
                 "type": "bookmark",
@@ -4394,7 +4357,6 @@ mod tests {
                 "title": "F",
                 "bmkUri": "http://example.com/f",
                 "dateAdded": local_modified.as_millis(),
-                "modified": remote_modified + 5f64,
             },]),
         );
 
