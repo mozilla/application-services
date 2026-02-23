@@ -7,17 +7,12 @@
 
 mod common;
 
-#[allow(unused_imports)]
-#[allow(unused_attributes)]
-#[macro_use]
-use nimbus::error::Result;
+use nimbus::error::{NimbusError, Result};
 
 #[test]
 fn test_before_open() -> Result<()> {
-    use nimbus::error::NimbusError;
-
     error_support::init_for_tests();
-    let client = common::new_test_client("test_before_open")?;
+    let client = crate::common::new_test_client("test_before_open")?;
     assert!(matches!(
         client.get_experiment_branch("foo".to_string()),
         Err(NimbusError::DatabaseNotReady)
@@ -31,9 +26,9 @@ fn test_before_open() -> Result<()> {
 #[test]
 fn test_enrolled() -> Result<()> {
     error_support::init_for_tests();
-    let client = common::new_test_client("test_enrolled")?;
+    let client = crate::common::new_test_client("test_enrolled")?;
     client.initialize()?;
-    client.set_experiments_locally(common::experiments_testing_feature_ids())?;
+    client.set_experiments_locally(crate::common::experiments_testing_feature_ids())?;
 
     let experiment_slugs = vec!["secure-gold", "no-features"];
     for experiment_slug in &experiment_slugs {
