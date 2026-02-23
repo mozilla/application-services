@@ -9,7 +9,7 @@ use crate::{
     schema::{
         Dashboard, DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
         FieldConfigDefaults, GridPos, LogPanel, Panel, QueryVariable, QueryVariableQuery, Target,
-        TextBoxVariable, TimeSeriesPanel, Transformation,
+        TextBoxVariable, TimeSeriesPanel, Transformation, VariableSortOrder,
     },
     sql::Query,
     util::UrlBuilder,
@@ -100,12 +100,14 @@ pub fn extra_dashboard(config: &TeamConfig) -> Result<Dashboard> {
     );
     builder.add_application_variable(config)?;
     builder.add_channel_variable();
+    builder.add_variable(error_type_variable());
+    builder.add_variable(version_variable());
+    builder.add_variable(build_date_variable());
     builder.add_variable(TextBoxVariable {
         label: "Search details".into(),
         name: "details".into(),
         ..TextBoxVariable::default()
     });
-    builder.add_variable(error_type_variable());
     builder.add_filter_sql_variable();
 
     builder.add_panel_full(error_list_count_panel());
@@ -134,19 +136,72 @@ ORDER BY metrics.string.rust_component_errors_error_type",
     }
 }
 
+pub fn version_variable() -> QueryVariable {
+    let query = QueryVariableQuery::from_sql(
+        "\
+SELECT 'All' as text, '' as value
+UNION ALL
+SELECT version as text, version as value
+FROM (
+    SELECT DISTINCT CAST(mozfun.norm.extract_version(client_info.app_display_version, 'major') AS STRING) as version
+    FROM mozdata.fenix.rust_component_errors
+    WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 14 day)
+        AND mozfun.norm.extract_version(client_info.app_display_version, 'major') IS NOT NULL
+    ORDER BY 1 DESC
+)",
+    );
+
+    QueryVariable {
+        label: "Version".into(),
+        name: "version".into(),
+        datasource: Datasource::bigquery(),
+        query,
+        sort: Some(VariableSortOrder::AlphabeticalDescending),
+        ..QueryVariable::default()
+    }
+}
+
+pub fn build_date_variable() -> QueryVariable {
+    let query = QueryVariableQuery::from_sql(
+        "\
+SELECT 'None' as text, '' as value
+UNION ALL
+SELECT build_date as text, build_date as value
+FROM (
+    SELECT DISTINCT SUBSTR(client_info.build_date, 0, 10) as build_date
+    FROM mozdata.fenix.rust_component_errors
+    WHERE submission_timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 14 day)
+    ORDER BY 1 DESC
+)",
+    );
+
+    QueryVariable {
+        label: "Group by build date".into(),
+        name: "build_date".into(),
+        datasource: Datasource::bigquery(),
+        sort: Some(VariableSortOrder::AlphabeticalDescending),
+        query,
+        ..QueryVariable::default()
+    }
+}
+
 fn error_list_count_panel() -> Panel {
     let mut query = Query {
-        select: vec!["$__timeGroup(submission_timestamp, $__interval) as time".into()],
+        select: vec![
+            "$__timeGroup(submission_timestamp, $__interval) as time".into(),
+            "IF('${build_date}' = '', '', IF(build_date < '${build_date}', '< ${build_date}', '>= ${build_date}')) as build_date".into(),
+        ],
         where_: vec![
             "error_type='${error_type}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
-            "('${details}' = '' OR details LIKE '%${details}%')".into(),
+            "'${version}' = '' OR version = CAST('${version}' AS NUMERIC)".into(),
+            "'${details}' = '' OR details LIKE '%${details}%'".into(),
             "${filter_sql}".into(),
         ],
         from: error_subquery().as_subquery(),
-        group_by: Some("1".into()),
-        order_by: Some("time DESC".into()),
+        group_by: Some("1, 2".into()),
+        order_by: Some("1 ASC, 2 ASC".into()),
         ..Query::default()
     };
     query.add_count_per_day_column("COUNT(*)", "errors");
@@ -183,6 +238,7 @@ fn error_list_log_panel() -> Panel {
             "error_type='${error_type}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
+            "'${version}' = '' OR version = CAST('${version}' AS NUMERIC)".into(),
             "('${details}' = '' OR details LIKE '%${details}%')".into(),
             "${filter_sql}".into(),
         ],
@@ -210,6 +266,9 @@ fn error_list_log_panel() -> Panel {
 fn error_subquery() -> Query {
     let mut subquery = Query {
         select: vec![
+            "SUBSTR(client_info.build_date, 0, 10) as build_date".into(),
+            "mozfun.norm.extract_version(client_info.app_display_version, 'major') as version"
+                .into(),
             "metrics.string.rust_component_errors_error_type as error_type".into(),
             "metrics.string.rust_component_errors_details as details".into(),
             "metrics.string_list.rust_component_errors_breadcrumbs as breadcrumbs".into(),
