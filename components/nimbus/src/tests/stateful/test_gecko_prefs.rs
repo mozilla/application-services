@@ -2,20 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    EnrolledExperiment,
-    enrollment::{ExperimentEnrollment, PreviousGeckoPrefState},
-    error::Result,
-    json::PrefValue,
-    stateful::gecko_prefs::{
-        GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, GeckoPrefStoreState, OriginalGeckoPref,
-        PrefBranch, PrefEnrollmentData, create_feature_prop_pref_map,
-    },
-    tests::helpers::{TestGeckoPrefHandler, get_multi_feature_experiment},
-};
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use serde_json::json;
+
+use crate::EnrolledExperiment;
+use crate::enrollment::{ExperimentEnrollment, PreviousGeckoPrefState};
+use crate::error::Result;
+use crate::json::PrefValue;
+use crate::stateful::gecko_prefs::{
+    GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, GeckoPrefStoreState, OriginalGeckoPref,
+    PrefBranch, PrefEnrollmentData, create_feature_prop_pref_map,
+};
+use crate::tests::helpers::{TestGeckoPrefHandler, get_multi_feature_experiment};
 
 #[test]
 fn test_gecko_pref_store_map_gecko_prefs_to_enrollment_slugs_and_update_store() -> Result<()> {

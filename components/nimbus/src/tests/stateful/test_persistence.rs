@@ -2,16 +2,16 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    Experiment,
-    enrollment::ExperimentEnrollment,
-    error::{Result, debug},
-    stateful::enrollment::{get_experiment_participation, get_rollout_participation},
-    stateful::persistence::*,
-};
+use std::fs;
+
 use rkv::StoreOptions;
 use serde_json::json;
-use std::fs;
+
+use crate::Experiment;
+use crate::enrollment::ExperimentEnrollment;
+use crate::error::{Result, debug};
+use crate::stateful::enrollment::{get_experiment_participation, get_rollout_participation};
+use crate::stateful::persistence::*;
 
 #[test]
 fn test_db_upgrade_no_version() -> Result<()> {
