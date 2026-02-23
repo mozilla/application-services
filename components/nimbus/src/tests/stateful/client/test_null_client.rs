@@ -12,7 +12,6 @@ use crate::tests::helpers::TestMetrics;
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_null_client() -> Result<()> {
-    let metrics = TestMetrics::new();
     error_support::init_for_tests();
 
     let tmp_dir = tempfile::tempdir()?;
@@ -22,7 +21,7 @@ fn test_null_client() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;

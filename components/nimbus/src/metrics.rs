@@ -10,6 +10,7 @@ use crate::{EnrolledFeature, EnrollmentStatus};
 #[cfg(feature = "stateful")]
 use crate::enrollment::PreviousGeckoPrefState;
 
+#[uniffi::trait_interface]
 pub trait MetricsHandler: Send + Sync {
     #[cfg(feature = "stateful")]
     fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>);

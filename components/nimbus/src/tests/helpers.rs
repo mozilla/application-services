@@ -154,7 +154,9 @@ impl RecordedContext for TestRecordedContext {
     }
 }
 
-#[derive(Default)]
+/// A Rust implementation of the MetricsHandler trait
+/// Used to test recording of Glean metrics across the FFI within Rust
+#[derive(Clone, Default)]
 struct MetricState {
     enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
     #[cfg(feature = "stateful")]
@@ -173,16 +175,15 @@ struct MetricState {
 /// Used to test recording of Glean metrics across the FFI within Rust
 ///
 /// *NOTE: Use this struct's `new` method when instantiating it to lock the Glean store*
-#[derive(Clone, Default)]
 pub struct TestMetrics {
-    state: Arc<Mutex<MetricState>>,
+    state: Mutex<MetricState>,
 }
 
 impl TestMetrics {
-    pub fn new() -> Self {
-        TestMetrics {
+    pub fn new() -> Arc<Self> {
+        Arc::new(TestMetrics {
             state: Default::default(),
-        }
+        })
     }
 
     pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
@@ -198,10 +199,7 @@ impl TestMetrics {
 #[cfg(feature = "stateful")]
 impl TestMetrics {
     pub fn clear(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.activations.clear();
-        state.enrollment_statuses.clear();
-        state.malformeds.clear();
+        std::mem::take(&mut *self.state.lock().unwrap());
     }
 
     pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {

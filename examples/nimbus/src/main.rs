@@ -204,7 +204,7 @@ fn main() -> Result<()> {
         Default::default(),
         Default::default(),
         db_path,
-        Box::new(NoopMetricsHandler),
+        Arc::new(NoopMetricsHandler),
         None,
         Some(NimbusServerSettings {
             rs_service: Arc::new(remote_settings_services),
