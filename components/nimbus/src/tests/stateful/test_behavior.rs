@@ -4,14 +4,16 @@
 
 // cargo test --package nimbus-sdk --lib --all-features -- tests::test_behavior --nocapture
 
+use std::collections::VecDeque;
+
+use chrono::{DateTime, Utc};
+
 use crate::error::Result;
 use crate::stateful::behavior::{
     EventQueryType, EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
     SingleIntervalCounter,
 };
 use crate::stateful::persistence::Database;
-use chrono::{DateTime, Utc};
-use std::collections::VecDeque;
 
 #[cfg(test)]
 mod interval_tests {

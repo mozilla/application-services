@@ -2,17 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::{collections::HashMap, slice};
+
+use serde_json::{Map, Value, from_str, to_string, to_value};
+
+use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
 use crate::metrics::EnrollmentStatusExtraDef;
+use crate::tests::helpers::TestMetrics;
+use crate::tests::stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches;
 use crate::{
     AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
-    enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason},
-    tests::{
-        helpers::TestMetrics,
-        stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches,
-    },
 };
-use serde_json::{Map, Value, from_str, to_string, to_value};
-use std::{collections::HashMap, slice};
 
 fn create_client() -> Result<CirrusClient> {
     let metrics_handler = TestMetrics::new();

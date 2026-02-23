@@ -5,25 +5,22 @@
 // Older tests that also use the DB.
 // XXX: make them less complicated (since the transitions are covered in crate::tests::test_enrollment), just see if we write to the DB properly.
 
-use crate::{
-    AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
-    enrollment::{
-        DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
-        EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
-    },
-    stateful::{
-        behavior::EventStore,
-        enrollment::{
-            get_enrollments, get_experiment_participation, get_rollout_participation,
-            opt_in_with_branch, opt_out, reset_telemetry_identifiers, set_experiment_participation,
-            set_rollout_participation,
-        },
-        persistence::{Database, Readable, StoreId},
-    },
-    tests::helpers::{get_test_experiments, no_coenrolling_features},
-};
 use std::sync::{Arc, Mutex};
+
 use uuid::Uuid;
+
+use crate::enrollment::{
+    DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
+};
+use crate::stateful::behavior::EventStore;
+use crate::stateful::enrollment::{
+    get_enrollments, get_experiment_participation, get_rollout_participation, opt_in_with_branch,
+    opt_out, reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
+};
+use crate::stateful::persistence::{Database, Readable, StoreId};
+use crate::tests::helpers::{get_test_experiments, no_coenrolling_features};
+use crate::{AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result};
 
 fn get_experiment_enrollments<'r>(
     db: &Database,

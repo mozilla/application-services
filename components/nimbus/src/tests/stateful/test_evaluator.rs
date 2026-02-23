@@ -2,23 +2,20 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    AppContext, EnrollmentStatus, TargetingAttributes,
-    enrollment::NotEnrolledReason,
-    evaluator::targeting,
-    stateful::{
-        behavior::{
-            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
-            SingleIntervalCounter,
-        },
-        targeting::RecordedContext,
-    },
-    tests::helpers::TestRecordedContext,
-};
-use chrono::Utc;
-use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use chrono::Utc;
+use serde_json::json;
+
+use crate::enrollment::NotEnrolledReason;
+use crate::evaluator::targeting;
+use crate::stateful::behavior::{
+    EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use crate::stateful::targeting::RecordedContext;
+use crate::tests::helpers::TestRecordedContext;
+use crate::{AppContext, EnrollmentStatus, TargetingAttributes};
 
 #[test]
 fn test_event_sum_transform() {
