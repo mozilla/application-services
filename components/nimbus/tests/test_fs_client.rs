@@ -5,22 +5,24 @@
 
 // Simple tests for our file-system client
 
+mod common;
+
+use std::path::PathBuf;
 use std::sync::Arc;
 
-use nimbus::{error::Result, stateful::client::NimbusServerSettings};
+use url::Url;
+
+use nimbus::error::Result;
+use nimbus::stateful::client::NimbusServerSettings;
+use nimbus::{NimbusClient, RemoteSettingsServer};
 use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
 
-mod common;
+use crate::common::NoopMetricsHandler;
 
 // This test crashes lmdb for reasons that make no sense, so only run it
 // in the "safe mode" backend.
 #[test]
 fn test_simple() -> Result<()> {
-    use common::NoopMetricsHandler;
-    use nimbus::{NimbusClient, RemoteSettingsServer};
-    use std::path::PathBuf;
-    use url::Url;
-
     error_support::init_for_tests();
 
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

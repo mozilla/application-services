@@ -3,17 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #![cfg(feature = "rkv-safe-mode")]
 
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
-use rkv::StoreOptions;
-
 // utilities shared between tests
 
-use nimbus::{
-    AppContext, NimbusClient, RemoteSettingsServer,
-    error::{Result, debug},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    stateful::client::NimbusServerSettings,
-};
+use nimbus::error::{Result, debug};
+use nimbus::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+use nimbus::stateful::client::NimbusServerSettings;
+use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use rkv::StoreOptions;
 
 pub struct NoopMetricsHandler;
 
