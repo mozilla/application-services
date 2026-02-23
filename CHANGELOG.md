@@ -1,4 +1,4 @@
-# v149.0 (In progress)
+# v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -90,7 +90,7 @@
 ### Remote Settings
 * Removed potential deadlock (https://bugzilla.mozilla.org/show_bug.cgi?id=2012955)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v148.0...v149.0)
 
 # v148.0 (_2026-01-12_)
 
