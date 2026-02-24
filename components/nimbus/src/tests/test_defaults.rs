@@ -4,15 +4,18 @@
 
 // cargo test --package nimbus-sdk --lib --all-features -- tests::test_defaults --nocapture
 
-use crate::{defaults::Defaults, error::Result, NimbusError::InternalError};
-use serde_json::{json, Value};
 use std::collections::HashMap;
+
+use serde_json::{Value, json};
+
+use crate::defaults::Defaults;
+use crate::error::{NimbusError, Result};
 
 #[cfg(test)]
 impl Defaults for &str {
     fn defaults(&self, fb: &Self) -> Result<Self> {
         if self.starts_with("err") || fb.starts_with("err") {
-            Err(InternalError("OMG Error"))
+            Err(NimbusError::InternalError("OMG Error"))
         } else {
             Ok(self)
         }

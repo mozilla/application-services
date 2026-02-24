@@ -2,56 +2,56 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-#[cfg(test)]
-use crate::tests::helpers::{TestGeckoPrefHandler, TestMetrics, TestRecordedContext};
-use crate::{
-    defaults::Defaults,
-    enrollment::{
-        EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-        ExperimentEnrollment, PreviousGeckoPrefState,
-    },
-    error::{info, BehaviorError},
-    evaluator::{
-        get_calculated_attributes, is_experiment_available, CalculatedAttributes,
-        ExperimentAvailable, TargetingAttributes,
-    },
-    json::{JsonObject, PrefValue},
-    metrics::{
-        EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-        MetricsHandler,
-    },
-    schema::parse_experiments,
-    stateful::{
-        behavior::EventStore,
-        client::{create_client, NimbusServerSettings, SettingsClient},
-        dbcache::DatabaseCache,
-        enrollment::{
-            get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
-            reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
-            unenroll_for_pref,
-        },
-        gecko_prefs::{
-            GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref,
-            PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
-        },
-        matcher::AppContext,
-        persistence::{Database, StoreId, Writer},
-        targeting::{validate_event_queries, RecordedContext},
-        updating::{read_and_remove_pending_experiments, write_pending_experiments},
-    },
-    strings::fmt_with_map,
-    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
-    Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result,
-};
-use chrono::{DateTime, NaiveDateTime, Utc};
-use once_cell::sync::OnceCell;
-use remote_settings::RemoteSettingsService;
-use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
+
+use chrono::{DateTime, NaiveDateTime, Utc};
+use once_cell::sync::OnceCell;
+use remote_settings::RemoteSettingsService;
+use serde_json::Value;
 use uuid::Uuid;
+
+use crate::defaults::Defaults;
+use crate::enrollment::{
+    EnrolledFeature, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
+    ExperimentEnrollment, PreviousGeckoPrefState,
+};
+use crate::error::{BehaviorError, info};
+use crate::evaluator::{
+    CalculatedAttributes, ExperimentAvailable, TargetingAttributes, get_calculated_attributes,
+    is_experiment_available,
+};
+use crate::json::{JsonObject, PrefValue};
+use crate::metrics::{
+    EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
+    MetricsHandler,
+};
+use crate::schema::parse_experiments;
+use crate::stateful::behavior::EventStore;
+use crate::stateful::client::{NimbusServerSettings, SettingsClient, create_client};
+use crate::stateful::dbcache::DatabaseCache;
+use crate::stateful::enrollment::{
+    get_experiment_participation, get_rollout_participation, opt_in_with_branch, opt_out,
+    reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
+    unenroll_for_pref,
+};
+use crate::stateful::gecko_prefs::{
+    GeckoPref, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
+    PrefEnrollmentData, PrefUnenrollReason,
+};
+use crate::stateful::matcher::AppContext;
+use crate::stateful::persistence::{Database, StoreId, Writer};
+use crate::stateful::targeting::{RecordedContext, validate_event_queries};
+use crate::stateful::updating::{read_and_remove_pending_experiments, write_pending_experiments};
+use crate::strings::fmt_with_map;
+#[cfg(test)]
+use crate::tests::helpers::{TestGeckoPrefHandler, TestRecordedContext};
+use crate::{
+    AvailableExperiment, AvailableRandomizationUnits, EnrolledExperiment, EnrollmentStatus,
+};
+use crate::{Experiment, ExperimentBranch, NimbusError, NimbusTargetingHelper, Result};
 
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 pub const DB_KEY_INSTALLATION_DATE: &str = "installation-date";
@@ -95,7 +95,7 @@ pub struct NimbusClient {
     event_store: Arc<Mutex<EventStore>>,
     recorded_context: Option<Arc<dyn RecordedContext>>,
     pub(crate) gecko_prefs: Option<Arc<GeckoPrefStore>>,
-    metrics_handler: Arc<Box<dyn MetricsHandler>>,
+    metrics_handler: Arc<dyn MetricsHandler>,
 }
 
 impl NimbusClient {
@@ -107,7 +107,7 @@ impl NimbusClient {
         recorded_context: Option<Arc<dyn RecordedContext>>,
         coenrolling_feature_ids: Vec<String>,
         db_path: P,
-        metrics_handler: Box<dyn MetricsHandler>,
+        metrics_handler: Arc<dyn MetricsHandler>,
         gecko_pref_handler: Option<Box<dyn GeckoPrefHandler>>,
         remote_settings_info: Option<NimbusServerSettings>,
     ) -> Result<Self> {
@@ -146,7 +146,7 @@ impl NimbusClient {
             event_store: Arc::default(),
             recorded_context,
             gecko_prefs: prefs,
-            metrics_handler: Arc::new(metrics_handler),
+            metrics_handler,
         })
     }
 
@@ -228,7 +228,6 @@ impl NimbusClient {
             &coenrolling_ids,
             self.gecko_prefs.clone(),
         )?;
-        self.record_enrollment_status_telemetry(state)?;
         Ok(())
     }
 
@@ -287,7 +286,9 @@ impl NimbusClient {
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
         Ok(events)
     }
 
@@ -303,7 +304,9 @@ impl NimbusClient {
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         let events = self.evolve_experiments(db, &mut writer, &mut state, &existing_experiments)?;
-        self.end_initialize(db, writer, &mut state)?;
+        let res = self.end_initialize(db, writer, &mut state);
+        self.record_enrollment_status_telemetry(&mut state)?;
+        res?;
         Ok(events)
     }
 
@@ -474,6 +477,7 @@ impl NimbusClient {
         let mut state = self.mutable_state.lock().unwrap();
         self.begin_initialize(db, &mut writer, &mut state)?;
 
+        let should_record_enrollment_status = pending_updates.is_some();
         let res = match pending_updates {
             Some(new_experiments) => {
                 self.update_ta_active_experiments(db, &writer, &mut state)?;
@@ -484,7 +488,11 @@ impl NimbusClient {
         };
 
         // Finish up any cleanup, e.g. copying from database in to memory.
-        self.end_initialize(db, writer, &mut state)?;
+        let end_init_res = self.end_initialize(db, writer, &mut state);
+        if should_record_enrollment_status {
+            self.record_enrollment_status_telemetry(&mut state)?;
+        }
+        end_init_res?;
         Ok(res)
     }
 
@@ -880,15 +888,6 @@ impl NimbusClient {
     }
 
     #[cfg(test)]
-    pub fn get_metrics_handler(&self) -> &&TestMetrics {
-        let metrics = &**self.metrics_handler;
-        // SAFETY: The cast to TestMetrics is safe because the Rust instance is guaranteed to be
-        // a TestMetrics instance. TestMetrics is the only Rust-implemented version of
-        // MetricsHandler, and, like this method, is only used in tests.
-        unsafe { std::mem::transmute::<&&dyn MetricsHandler, &&TestMetrics>(&metrics) }
-    }
-
-    #[cfg(test)]
     pub fn get_recorded_context(&self) -> &&TestRecordedContext {
         self.recorded_context
             .clone()
@@ -941,10 +940,11 @@ impl NimbusClient {
     /// This is only called from `get_feature_config_variables` which is itself is cached with
     /// thread safety in the FeatureHolder.kt and FeatureHolder.swift
     fn record_feature_activation_if_needed(&self, feature_id: &str) {
-        if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(feature_id) {
-            if f.branch.is_some() && !self.coenrolling_feature_ids.contains(&f.feature_id) {
-                self.metrics_handler.record_feature_activation(f.into());
-            }
+        if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(feature_id)
+            && f.branch.is_some()
+            && !self.coenrolling_feature_ids.contains(&f.feature_id)
+        {
+            self.metrics_handler.record_feature_activation(f.into());
         }
     }
 
@@ -977,7 +977,7 @@ impl NimbusClient {
     pub fn record_malformed_feature_config(&self, feature_id: String, part_id: String) {
         let event = if let Ok(Some(f)) = self.database_cache.get_enrollment_by_feature(&feature_id)
         {
-            MalformedFeatureConfigExtraDef::from(f, part_id)
+            MalformedFeatureConfigExtraDef::from_feature_and_part(f, part_id)
         } else {
             MalformedFeatureConfigExtraDef::new(feature_id, part_id)
         };
@@ -1012,6 +1012,7 @@ impl NimbusClient {
                 })
                 .collect(),
         );
+        self.metrics_handler.submit_targeting_context();
         Ok(())
     }
 }

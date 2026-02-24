@@ -2,14 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{
-    stateful::{behavior::EventStore, targeting::RecordedContext},
-    tests::helpers::TestRecordedContext,
-    NimbusTargetingHelper, Result,
-};
-use serde_json::Map;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use serde_json::Map;
+
+use crate::stateful::{behavior::EventStore, targeting::RecordedContext};
+use crate::tests::helpers::TestRecordedContext;
+use crate::{NimbusTargetingHelper, Result};
 
 #[test]
 fn test_recorded_context_execute_queries() -> Result<()> {
@@ -46,9 +46,11 @@ fn test_recorded_context_execute_queries() -> Result<()> {
         test_recorded_context.get_event_query_values()["TEST_QUERY_SUCCESS"],
         1.0
     );
-    assert!(!test_recorded_context
-        .get_event_query_values()
-        .contains_key("TEST_QUERY_FAIL_NOT_VALID_QUERY"));
+    assert!(
+        !test_recorded_context
+            .get_event_query_values()
+            .contains_key("TEST_QUERY_FAIL_NOT_VALID_QUERY")
+    );
 
     Ok(())
 }
