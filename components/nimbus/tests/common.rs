@@ -14,34 +14,33 @@ use rkv::StoreOptions;
 
 pub struct NoopMetricsHandler;
 
+#[cfg(feature = "stateful")]
 impl MetricsHandler for NoopMetricsHandler {
-    #[cfg(feature = "stateful")]
     fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
         // do nothing
     }
 
-    #[cfg(not(feature = "stateful"))]
-    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
-        // do nothing
-    }
-
-    #[cfg(feature = "stateful")]
     fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_feature_exposure(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
         // do nothing
     }
 
     #[cfg(feature = "stateful")]
     fn submit_targeting_context(&self) {
+        // do nothing
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+impl MetricsHandler for NoopMetricsHandler {
+    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
         // do nothing
     }
 }
