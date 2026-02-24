@@ -10,9 +10,7 @@ exclude = ["/android", "/ios"]
 default = []
 
 [dependencies]
-# TODO: we've enabled the "standalone-sync" feature - see the description
-# of this feature in sync15's Cargo.toml for what we should do instead.
-sync15 = { path = "../sync15", features=["standalone-sync"] }
+sync15 = { path = "../sync15" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
