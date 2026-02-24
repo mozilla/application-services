@@ -78,7 +78,7 @@ rm -rf "${NSS_SRC_DIR}/nss/out"
 # simulator because 'target_arch=="x64" and OS!="win"' matches iOS.
 # `intel-gcm-wrap` is not built for iOS and no lib provides 
 # platform_gcm_support for this target, causing a linker error. 
-# Patch the condition to exclude iOS until this is fixed upstream in NSS.
+# Until Bug 2019090 is fixed upstream, this will patch `gcm.gyp` to exclude iOS.
 sed -i '' \
   's/target_arch=="x64" and OS!="win"/target_arch=="x64" and OS!="win" and OS!="ios"/g' \
   "${NSS_SRC_DIR}/nss/lib/freebl/gcm.gyp"
