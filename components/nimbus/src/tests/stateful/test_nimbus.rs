@@ -2,41 +2,40 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    enrollment::{
-        DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
-        PreviousGeckoPrefState,
-    },
-    error::{info, Result},
-    json::PrefValue,
-    metrics::MalformedFeatureConfigExtraDef,
-    stateful::{
-        behavior::{
-            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
-            SingleIntervalCounter,
-        },
-        gecko_prefs::{
-            create_feature_prop_pref_map, GeckoPrefState, OriginalGeckoPref, PrefBranch,
-            PrefEnrollmentData, PrefUnenrollReason,
-        },
-        persistence::{Database, StoreId},
-        targeting::RecordedContext,
-    },
-    tests::helpers::{
-        get_bucketed_rollout, get_ios_rollout_experiment, get_multi_feature_experiment,
-        get_single_feature_experiment, get_single_feature_rollout, get_targeted_experiment,
-        to_local_experiments_string, TestGeckoPrefHandler, TestMetrics, TestRecordedContext,
-    },
-    AppContext, Experiment, NimbusClient, TargetingAttributes, DB_KEY_APP_VERSION,
-    DB_KEY_UPDATE_DATE,
-};
-use chrono::{DateTime, Duration, Utc};
-use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
+
+use chrono::{DateTime, Duration, Utc};
+use serde_json::json;
 use tempfile::TempDir;
 use uuid::Uuid;
+
+use crate::enrollment::{
+    DisqualifiedReason, EnrolledReason, EnrollmentStatus, ExperimentEnrollment,
+    PreviousGeckoPrefState,
+};
+use crate::error::{Result, info};
+use crate::json::PrefValue;
+use crate::metrics::MalformedFeatureConfigExtraDef;
+use crate::stateful::behavior::{
+    EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use crate::stateful::gecko_prefs::{
+    GeckoPrefState, OriginalGeckoPref, PrefBranch, PrefEnrollmentData, PrefUnenrollReason,
+    create_feature_prop_pref_map,
+};
+use crate::stateful::persistence::{Database, StoreId};
+use crate::stateful::targeting::RecordedContext;
+use crate::tests::helpers::{
+    TestGeckoPrefHandler, TestMetrics, TestRecordedContext, get_bucketed_rollout,
+    get_ios_rollout_experiment, get_multi_feature_experiment, get_single_feature_experiment,
+    get_single_feature_rollout, get_targeted_experiment, to_local_experiments_string,
+};
+use crate::{
+    AppContext, DB_KEY_APP_VERSION, DB_KEY_UPDATE_DATE, Experiment, NimbusClient,
+    TargetingAttributes,
+};
 
 #[test]
 fn test_telemetry_reset() -> Result<()> {
@@ -50,7 +49,7 @@ fn test_telemetry_reset() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        metrics.clone(),
         None,
         None,
     )?;
@@ -128,7 +127,6 @@ fn test_telemetry_reset() -> Result<()> {
 
 #[test]
 fn test_installation_date() -> Result<()> {
-    let metrics = TestMetrics::new();
     let tmp_dir = tempfile::tempdir()?;
     // Step 1: We first test that the SDK will default to using the
     // value in the app context if it exists
@@ -143,7 +141,7 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -178,7 +176,7 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -200,7 +198,7 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -230,7 +228,7 @@ fn test_installation_date() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -243,7 +241,6 @@ fn test_installation_date() -> Result<()> {
 
 #[test]
 fn test_days_since_calculation_happens_at_startup() -> Result<()> {
-    let metrics = TestMetrics::new();
     // Set up a client with an install date.
     // We'll need two of these, to test the two scenarios.
     let tmp_dir = tempfile::tempdir()?;
@@ -259,7 +256,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -287,7 +284,7 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -301,14 +298,13 @@ fn test_days_since_calculation_happens_at_startup() -> Result<()> {
 
 #[test]
 fn test_days_since_update_changes_with_context() -> Result<()> {
-    let metrics = TestMetrics::new();
     let tmp_dir = tempfile::tempdir()?;
     let client = NimbusClient::new(
         AppContext::default(),
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -329,7 +325,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -357,7 +353,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -391,7 +387,7 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -419,8 +415,6 @@ fn test_days_since_update_changes_with_context() -> Result<()> {
 
 #[test]
 fn test_days_since_install() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -433,7 +427,7 @@ fn test_days_since_install() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -490,8 +484,6 @@ fn test_days_since_install() -> Result<()> {
 
 #[test]
 fn test_days_since_install_failed_targeting() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -504,7 +496,7 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -560,8 +552,6 @@ fn test_days_since_install_failed_targeting() -> Result<()> {
 
 #[test]
 fn test_days_since_update() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -574,7 +564,7 @@ fn test_days_since_update() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -631,8 +621,6 @@ fn test_days_since_update() -> Result<()> {
 
 #[test]
 fn test_days_since_update_failed_targeting() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
     let app_context = AppContext {
         app_name: "fenix".to_string(),
@@ -645,7 +633,7 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -701,8 +689,6 @@ fn test_days_since_update_failed_targeting() -> Result<()> {
 
 #[test]
 fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let db = Database::new(temp_dir.path())?;
@@ -728,7 +714,7 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -823,8 +809,6 @@ fn event_store_exists_for_apply_pending_experiments() -> Result<()> {
 
 #[test]
 fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let db = Database::new(temp_dir.path())?;
@@ -850,7 +834,7 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -918,7 +902,6 @@ fn event_store_on_targeting_attributes_is_updated_after_an_event_is_recorded() -
 #[cfg(feature = "stateful")]
 #[test]
 fn test_ios_rollout() -> Result<()> {
-    let metrics = TestMetrics::new();
     let ctx = AppContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
@@ -932,7 +915,7 @@ fn test_ios_rollout() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -954,7 +937,6 @@ fn test_ios_rollout() -> Result<()> {
 
 #[test]
 fn test_fetch_enabled() -> Result<()> {
-    let metrics = TestMetrics::new();
     let ctx = AppContext {
         app_name: "firefox_ios".to_string(),
         channel: "release".to_string(),
@@ -968,7 +950,7 @@ fn test_fetch_enabled() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics.clone()),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -982,7 +964,7 @@ fn test_fetch_enabled() -> Result<()> {
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -992,8 +974,6 @@ fn test_fetch_enabled() -> Result<()> {
 
 #[test]
 fn test_active_enrollment_in_targeting() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1007,7 +987,7 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -1051,8 +1031,6 @@ fn test_active_enrollment_in_targeting() -> Result<()> {
 
 #[test]
 fn test_previous_enrollments_in_targeting() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let slug_1 = "experiment-1-was-enrolled";
@@ -1072,7 +1050,7 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -1198,8 +1176,6 @@ fn test_previous_enrollments_in_targeting() -> Result<()> {
 
 #[test]
 fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let slug_1 = "experiment-1";
@@ -1216,7 +1192,7 @@ fn test_opt_out_multiple_experiments_same_feature_does_not_re_enroll() -> Result
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -1262,7 +1238,7 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     let ro_1 = get_bucketed_rollout(slug_3, 10_000);
 
     let metrics = TestMetrics::new();
-    let client = with_metrics(&metrics, "coenrolling-feature")?;
+    let client = with_metrics(metrics.clone(), "coenrolling-feature")?;
     // force the nimbus_id to ensure we end up in the right branch.
     client.set_nimbus_id(&Uuid::from_str("53baafb3-b800-42ac-878c-c3451e250928")?)?;
     client.set_experiments_locally(to_local_experiments_string(&[
@@ -1273,23 +1249,25 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
+
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 3);
 
-    assert_eq!(metric_records[0].slug(), slug_1);
-    assert_eq!(metric_records[0].status(), "Enrolled");
-    assert_eq!(metric_records[0].reason(), "Qualified");
-    assert_eq!(metric_records[0].branch(), "treatment");
+    assert_eq!(metric_records[0].slug.as_ref().unwrap(), slug_1);
+    assert_eq!(metric_records[0].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[0].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[0].branch.as_ref().unwrap(), "treatment");
 
-    assert_eq!(metric_records[1].slug(), slug_2);
-    assert_eq!(metric_records[1].status(), "Enrolled");
-    assert_eq!(metric_records[1].reason(), "Qualified");
-    assert_eq!(metric_records[1].branch(), "control");
+    assert_eq!(metric_records[1].slug.as_ref().unwrap(), slug_2);
+    assert_eq!(metric_records[1].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[1].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[1].branch.as_ref().unwrap(), "control");
 
-    assert_eq!(metric_records[2].slug(), slug_3);
-    assert_eq!(metric_records[2].status(), "Enrolled");
-    assert_eq!(metric_records[2].reason(), "Qualified");
-    assert_eq!(metric_records[2].branch(), "control");
+    assert_eq!(metric_records[2].slug.as_ref().unwrap(), slug_3);
+    assert_eq!(metric_records[2].status.as_ref().unwrap(), "Enrolled");
+    assert_eq!(metric_records[2].reason.as_ref().unwrap(), "Qualified");
+    assert_eq!(metric_records[2].branch.as_ref().unwrap(), "control");
 
     let slug_4 = "experiment-3";
     let exp_2 = get_targeted_experiment(slug_2, "false");
@@ -1302,25 +1280,27 @@ fn test_enrollment_status_metrics_recorded() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    assert_eq!(metrics.get_submit_targeting_context_calls(), 2u64);
+
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 6);
 
-    assert_eq!(metric_records[3].slug(), slug_2);
-    assert_eq!(metric_records[3].status(), "Disqualified");
-    assert_eq!(metric_records[3].reason(), "NotTargeted");
-    assert_eq!(metric_records[3].branch(), "control");
+    assert_eq!(metric_records[3].slug.as_ref().unwrap(), slug_2);
+    assert_eq!(metric_records[3].status.as_ref().unwrap(), "Disqualified");
+    assert_eq!(metric_records[3].reason.as_ref().unwrap(), "NotTargeted");
+    assert_eq!(metric_records[3].branch.as_ref().unwrap(), "control");
 
-    assert_eq!(metric_records[4].slug(), slug_4);
-    assert_eq!(metric_records[4].status(), "Error");
+    assert_eq!(metric_records[4].slug.as_ref().unwrap(), slug_4);
+    assert_eq!(metric_records[4].status.as_ref().unwrap(), "Error");
     assert_eq!(
-        metric_records[4].error_string(),
+        metric_records[4].error_string.as_ref().unwrap(),
         "EvaluationError: Identifier 'blah' is undefined"
     );
 
-    assert_eq!(metric_records[5].slug(), slug_3);
-    assert_eq!(metric_records[5].status(), "Disqualified");
-    assert_eq!(metric_records[5].reason(), "NotSelected");
-    assert_eq!(metric_records[5].branch(), "control");
+    assert_eq!(metric_records[5].slug.as_ref().unwrap(), slug_3);
+    assert_eq!(metric_records[5].status.as_ref().unwrap(), "Disqualified");
+    assert_eq!(metric_records[5].reason.as_ref().unwrap(), "NotSelected");
+    assert_eq!(metric_records[5].branch.as_ref().unwrap(), "control");
 
     Ok(())
 }
@@ -1343,7 +1323,7 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics.clone()),
+        metrics.clone(),
         None,
         None,
     )?;
@@ -1362,7 +1342,9 @@ fn test_enrollment_status_metrics_not_recorded_app_name_mismatch() -> Result<()>
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
+
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
 
     Ok(())
@@ -1385,7 +1367,7 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics.clone()),
+        metrics.clone(),
         None,
         None,
     )?;
@@ -1404,12 +1386,14 @@ fn test_enrollment_status_metrics_not_recorded_channel_mismatch() -> Result<()> 
 
     client.apply_pending_experiments()?;
 
-    let metric_records = client.get_metrics_handler().get_enrollment_statuses();
+    assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
+
+    let metric_records = metrics.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 0);
     Ok(())
 }
 
-fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<NimbusClient> {
+fn with_metrics(metrics: Arc<TestMetrics>, coenrolling_feature: &str) -> Result<NimbusClient> {
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1424,7 +1408,7 @@ fn with_metrics(metrics: &TestMetrics, coenrolling_feature: &str) -> Result<Nimb
         Default::default(),
         vec![coenrolling_feature.to_string()],
         temp_dir.path(),
-        Box::new(metrics.clone()),
+        metrics,
         None,
         None,
     )
@@ -1445,11 +1429,11 @@ fn test_feature_activation_events() -> Result<()> {
     let rec_coenr = get_single_feature_experiment(slug_coenr, feature_coenr, json!({}));
 
     let metrics = TestMetrics::new();
-    let client = with_metrics(&metrics, feature_coenr)?;
+    let client = with_metrics(metrics.clone(), feature_coenr)?;
     client.set_experiments_locally(to_local_experiments_string(&[rec_exp, rec_coenr, rec_ro])?)?;
     client.apply_pending_experiments()?;
 
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(activations.is_empty());
 
     // Assert that all the experiments are active.
@@ -1468,17 +1452,17 @@ fn test_feature_activation_events() -> Result<()> {
 
     // A feature involved in a rollout doesn't fire activation events.
     let _ = client.get_feature_config_variables(feature_ro.to_string());
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(activations.is_empty());
 
     // Coenrolled features don't fire activation events.
     let _ = client.get_feature_config_variables(feature_coenr.to_string());
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(activations.is_empty());
 
     // But features involved in a experiment does!
     let _ = client.get_feature_config_variables(feature_exp.to_string());
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(!activations.is_empty());
     assert_eq!(1, activations.len());
     let ev = &activations[0];
@@ -1501,12 +1485,12 @@ fn test_feature_activation_events() -> Result<()> {
 
     // Prove to ourselves that activations haven't been sent until feature_config_variables is
     // called.
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(activations.is_empty());
 
     // Now ask for this feature. Recall it's used in both an experiment and a rollout.
     let _ = client.get_feature_config_variables(feature_exp.to_string());
-    let activations = client.get_metrics_handler().get_activations();
+    let activations = metrics.get_activations();
     assert!(!activations.is_empty());
     assert_eq!(1, activations.len());
     let ev = &activations[0];
@@ -1535,7 +1519,7 @@ fn test_malformed_feature_events() -> Result<()> {
     let rec_coenr_2 = get_single_feature_experiment(slug_coenr_2, feature_coenr, json!({}));
 
     let metrics = TestMetrics::new();
-    let client = with_metrics(&metrics, feature_coenr)?;
+    let client = with_metrics(metrics.clone(), feature_coenr)?;
     client.set_experiments_locally(to_local_experiments_string(&[
         rec_exp,
         rec_coenr_1,
@@ -1544,14 +1528,14 @@ fn test_malformed_feature_events() -> Result<()> {
     ])?)?;
     client.apply_pending_experiments()?;
 
-    assert!(client.get_metrics_handler().get_malformeds().is_empty());
+    assert!(metrics.get_malformeds().is_empty());
 
     let part = "my-part";
 
     // Experiments!
     client.record_malformed_feature_config(feature_exp.to_string(), part.to_string());
 
-    let events = client.get_metrics_handler().get_malformeds();
+    let events = metrics.get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1568,7 +1552,7 @@ fn test_malformed_feature_events() -> Result<()> {
 
     // Rollouts!
     client.record_malformed_feature_config(feature_ro.to_string(), part.to_string());
-    let events = client.get_metrics_handler().get_malformeds();
+    let events = metrics.get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1585,7 +1569,7 @@ fn test_malformed_feature_events() -> Result<()> {
 
     // Coenrolling features!
     client.record_malformed_feature_config(feature_coenr.to_string(), part.to_string());
-    let events = client.get_metrics_handler().get_malformeds();
+    let events = metrics.get_malformeds();
     assert_eq!(1, events.len());
 
     assert_eq!(
@@ -1605,8 +1589,6 @@ fn test_malformed_feature_events() -> Result<()> {
 
 #[test]
 fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1620,7 +1602,7 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
         Default::default(),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -1657,8 +1639,6 @@ fn test_new_enrollment_in_targeting_mid_run() -> Result<()> {
 #[cfg(feature = "stateful")]
 #[test]
 fn test_recorded_context_recorded() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1673,12 +1653,13 @@ fn test_recorded_context_recorded() -> Result<()> {
         "app_version": "125.0.0",
         "other": "stuff",
     }));
+    let metrics = TestMetrics::new();
     let client = NimbusClient::new(
         app_context.clone(),
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        metrics.clone(),
         None,
         None,
     )?;
@@ -1695,14 +1676,13 @@ fn test_recorded_context_recorded() -> Result<()> {
     let active_experiments = client.get_active_experiments()?;
     assert_eq!(active_experiments.len(), 1);
     assert_eq!(client.get_recorded_context().get_record_calls(), 1u64);
+    assert_eq!(metrics.get_submit_targeting_context_calls(), 1u64);
 
     Ok(())
 }
 
 #[test]
 fn test_recorded_context_event_queries() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1726,7 +1706,7 @@ fn test_recorded_context_event_queries() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         None,
         None,
     )?;
@@ -1758,8 +1738,6 @@ fn test_recorded_context_event_queries() -> Result<()> {
 
 #[test]
 fn test_gecko_pref_enrollment() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1785,7 +1763,7 @@ fn test_gecko_pref_enrollment() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         Some(Box::new(handler)),
         None,
     )?;
@@ -1838,8 +1816,6 @@ fn test_gecko_pref_enrollment() -> Result<()> {
 
 #[test]
 fn test_gecko_pref_unenrollment() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1863,7 +1839,7 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         Some(Box::new(handler)),
         None,
     )?;
@@ -1955,8 +1931,6 @@ fn test_gecko_pref_unenrollment() -> Result<()> {
 
 #[test]
 fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
-    let metrics = TestMetrics::new();
-
     let temp_dir = tempfile::tempdir()?;
 
     let app_context = AppContext {
@@ -1980,7 +1954,7 @@ fn test_gecko_pref_unenrollment_reverts() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics),
+        TestMetrics::new(),
         Some(Box::new(handler)),
         None,
     )?;
@@ -2106,7 +2080,7 @@ fn register_previous_gecko_pref_states() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics.clone()),
+        metrics.clone(),
         Some(Box::new(handler)),
         None,
     )?;
@@ -2286,7 +2260,7 @@ fn test_add_prev_gecko_pref_states_for_experiment() -> Result<()> {
         Some(recorded_context),
         Default::default(),
         temp_dir.path(),
-        Box::new(metrics.clone()),
+        metrics.clone(),
         Some(Box::new(handler)),
         None,
     )?;

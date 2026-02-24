@@ -37,32 +37,29 @@ fn count_panel(
         metric,
         ..
     } = *metric;
-    let dataset = application.bigquery_dataset();
 
-    let mut query = Query {
+    let query = Query {
         select: vec![
-            "$__timeGroup(submission_timestamp, $__interval) as time".into(),
-            "counter.key as label".into(),
+            "TIMESTAMP(submission_date) as time".into(),
+            "label".into(),
+            "count".into(),
         ],
-        from: format!("`mozdata.{dataset}.{ping}`"),
-        joins: vec![format!(
-            "CROSS JOIN UNNEST(metrics.labeled_counter.{category}_{metric}) as counter"
-        )],
+        from: format!("`mozdata.rust_components.{ping}_{category}_{metric}`"),
         where_: vec![
-            "$__timeFilter(submission_timestamp)".into(),
-            format!("normalized_channel = '{channel}'"),
+            "$__timeFilter(TIMESTAMP(submission_date))".into(),
+            format!("application = `{}`", application.slug()),
+            format!("channel = '{channel}'"),
+            "label IS NOT NULL".into(),
         ],
-        group_by: Some("1, 2".into()),
-        order_by: Some("time asc, label asc".into()),
+        order_by: Some("submission_date asc".into()),
         ..Query::default()
     };
-    query.add_count_per_day_column("SUM(counter.value)", metric);
 
     TimeSeriesPanel {
         title: application.display_name(channel),
         grid_pos: GridPos::height(8),
         datasource: Datasource::bigquery(),
-        interval: "1h".into(),
+        interval: "1d".into(),
         targets: vec![Target::table(query.sql())],
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {

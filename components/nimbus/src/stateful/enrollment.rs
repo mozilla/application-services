@@ -1,24 +1,21 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
 use crate::enrollment::Participation;
+use crate::enrollment::{
+    EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver, ExperimentEnrollment,
+    map_enrollments,
+};
+use crate::error::{Result, debug, warn};
 use crate::stateful::gecko_prefs::GeckoPrefStore;
+use crate::stateful::gecko_prefs::PrefUnenrollReason;
 use crate::stateful::persistence::{
     DB_KEY_EXPERIMENT_PARTICIPATION, DB_KEY_ROLLOUT_PARTICIPATION,
     DEFAULT_EXPERIMENT_PARTICIPATION, DEFAULT_ROLLOUT_PARTICIPATION,
 };
-use crate::{
-    enrollment::{
-        map_enrollments, EnrollmentChangeEvent, EnrollmentChangeEventType, EnrollmentsEvolver,
-        ExperimentEnrollment,
-    },
-    error::{debug, warn, Result},
-    stateful::{
-        gecko_prefs::PrefUnenrollReason,
-        persistence::{Database, Readable, StoreId, Writer},
-    },
-    EnrolledExperiment, EnrollmentStatus, Experiment,
-};
+use crate::stateful::persistence::{Database, Readable, StoreId, Writer};
+use crate::{EnrolledExperiment, EnrollmentStatus, Experiment};
 
 impl EnrollmentsEvolver<'_> {
     /// Convenient wrapper around `evolve_enrollments` that fetches the current state of experiments,
@@ -61,7 +58,11 @@ impl EnrollmentsEvolver<'_> {
         for experiment in next_experiments {
             // Sanity check.
             if !next_enrollments.contains_key(&experiment.slug) {
-                error_support::report_error!("nimbus-evolve-enrollments", "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent", &experiment.slug);
+                error_support::report_error!(
+                    "nimbus-evolve-enrollments",
+                    "evolve_enrollments_in_db: experiment '{}' has no enrollment, dropping to keep database consistent",
+                    &experiment.slug
+                );
                 continue;
             }
             experiments_store.put(writer, &experiment.slug, experiment)?;

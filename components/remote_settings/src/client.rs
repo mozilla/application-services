@@ -10,7 +10,7 @@ use crate::signatures;
 use crate::storage::Storage;
 use crate::RemoteSettingsContext;
 use crate::{packaged_attachments, packaged_collections, RemoteSettingsServer};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -71,12 +71,21 @@ pub struct RemoteSettingsClient<C = ViaductApiClient> {
     // This is immutable, so it can be outside the mutex
     collection_name: String,
     inner: Mutex<RemoteSettingsClientInner<C>>,
+    // Config that we got from `update_config`.  This should be applied to
+    // `RemoteSettingsClientInner` the next time it's used.
+    pending_config: Mutex<Option<RemoteSettingsClientConfig>>,
 }
 
 struct RemoteSettingsClientInner<C> {
     storage: Storage,
     api_client: C,
     jexl_filter: JexlFilter,
+}
+
+struct RemoteSettingsClientConfig {
+    server_url: BaseUrl,
+    bucket_name: String,
+    context: Option<RemoteSettingsContext>,
 }
 
 // To initially download the dump (and attachments, if any), run:
@@ -165,6 +174,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             "a06dc3fd-4bdb-41f3-2ebc-4cbed06a9bd3",
             "a2c7d4e9-f770-51e1-0963-3c2c8401631d",
             "a83f24e4-602c-47bd-930c-ad0947ee1adf",
+            "b50c3e3d-7bd0-4118-856f-19b26b21d01f",
             "b64f09fd-52d1-c48e-af23-4ce918e7bf3b",
             "b882b24d-1776-4ef9-9016-0bdbd935eda3",
             "b8ca5a94-8fff-27ad-6e00-96e244a32e21",
@@ -204,7 +214,27 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
                 api_client,
                 jexl_filter,
             }),
+            pending_config: Mutex::new(None),
         }
+    }
+
+    /// Lock the `RemoteSettingsClientInner` field
+    ///
+    /// This also applies the pending config if set.
+    fn lock_inner(&self) -> Result<MutexGuard<'_, RemoteSettingsClientInner<C>>> {
+        let pending_config = self.get_pending_config();
+        let mut inner = self.inner.lock();
+        if let Some(config) = pending_config {
+            inner.api_client =
+                C::create(config.server_url, config.bucket_name, &self.collection_name);
+            inner.jexl_filter = JexlFilter::new(config.context);
+            inner.storage.empty()?;
+        }
+        Ok(inner)
+    }
+
+    fn get_pending_config(&self) -> Option<RemoteSettingsClientConfig> {
+        self.pending_config.lock().take()
     }
 
     pub fn collection_name(&self) -> &str {
@@ -273,7 +303,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     /// If records are not present in storage this will normally return None.  Use `sync_if_empty =
     /// true` to change this behavior and perform a network request in this case.
     pub fn get_records(&self, sync_if_empty: bool) -> Result<Option<Vec<RemoteSettingsRecord>>> {
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
 
         // Case 1: The packaged data is more recent than the cache
@@ -322,7 +352,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     }
 
     pub fn get_last_modified_timestamp(&self) -> Result<Option<u64>> {
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
         inner.storage.get_last_modified_timestamp(&collection_url)
     }
@@ -332,7 +362,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
     /// 2. Fetches the changeset from the remote server based on the last modified timestamp.
     /// 3. Inserts the fetched changeset into local storage.
     fn perform_sync_operation(&self) -> Result<()> {
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
         let timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let changeset = inner.api_client.fetch_changeset(timestamp)?;
@@ -374,7 +404,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
     fn reset_storage(&self) -> Result<()> {
         trace!("{0}: reset local storage.", self.collection_name);
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
         // Clear existing storage
         inner.storage.empty()?;
@@ -405,7 +435,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
 
     #[cfg(feature = "signatures")]
     fn verify_signature(&self) -> Result<()> {
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
         let timestamp = inner.storage.get_last_modified_timestamp(&collection_url)?;
         let records = inner.storage.get_records(&collection_url)?;
@@ -471,7 +501,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             .as_ref()
             .ok_or_else(|| Error::RecordAttachmentMismatchError("No attachment metadata".into()))?;
 
-        let mut inner = self.inner.lock();
+        let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
 
         // First try storage - it will only return data that matches our metadata
@@ -521,6 +551,20 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
             .set_attachment(&collection_url, &metadata.location, &attachment)?;
         Ok(attachment)
     }
+
+    pub fn update_config(
+        &self,
+        server_url: BaseUrl,
+        bucket_name: String,
+        context: Option<RemoteSettingsContext>,
+    ) {
+        let mut pending_config = self.pending_config.lock();
+        *pending_config = Some(RemoteSettingsClientConfig {
+            server_url,
+            bucket_name,
+            context,
+        })
+    }
 }
 
 impl RemoteSettingsClient<ViaductApiClient> {
@@ -536,22 +580,13 @@ impl RemoteSettingsClient<ViaductApiClient> {
 
         Self::new_from_parts(collection_name, storage, jexl_filter, api_client)
     }
-
-    pub fn update_config(
-        &self,
-        server_url: BaseUrl,
-        bucket_name: String,
-        context: Option<RemoteSettingsContext>,
-    ) -> Result<()> {
-        let mut inner = self.inner.lock();
-        inner.api_client = ViaductApiClient::new(server_url, &bucket_name, &self.collection_name);
-        inner.jexl_filter = JexlFilter::new(context);
-        inner.storage.empty()
-    }
 }
 
 #[cfg_attr(test, mockall::automock)]
 pub trait ApiClient {
+    /// Create a new instance of the client
+    fn create(server_url: BaseUrl, bucket_name: String, collection_name: &str) -> Self;
+
     /// Get the Bucket URL for this client.
     ///
     /// This is a URL that includes the server URL, bucket name, and collection name.  This is used
@@ -609,6 +644,10 @@ impl ViaductApiClient {
 }
 
 impl ApiClient for ViaductApiClient {
+    fn create(server_url: BaseUrl, bucket_name: String, collection_name: &str) -> Self {
+        Self::new(server_url, &bucket_name, collection_name)
+    }
+
     fn collection_url(&self) -> String {
         self.endpoints.collection_url.to_string()
     }
@@ -1882,6 +1921,7 @@ mod test_new_client {
 #[cfg(test)]
 mod jexl_tests {
     use super::*;
+    use std::sync::{Arc, Weak};
 
     #[test]
     fn test_get_records_filtered_app_version_pass() {
@@ -2066,6 +2106,59 @@ mod jexl_tests {
         assert_eq!(
             rs_client.get_records(false).expect("Error getting records"),
             Some(vec![])
+        );
+    }
+
+    // Test that we can't hit the deadlock described in
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=2012955
+    #[test]
+    fn test_update_config_deadlock() {
+        let mut api_client = MockApiClient::new();
+        let rs_client_ref: Arc<Mutex<Weak<RemoteSettingsClient<MockApiClient>>>> =
+            Arc::new(Mutex::new(Weak::new()));
+        let rs_client_ref2 = rs_client_ref.clone();
+
+        api_client.expect_collection_url().returning(move || {
+            // While we're in the middle of `get_records()` and have the `RemoteSettingsClientInner`
+            // locked, call `update_config` to try to trigger the deadlock.
+            //
+            // Note: this code path is impossible in practice, since the client never calls
+            // `update_config` in the middle of `get_records()`. What happens on desktop is that
+            // `get_records()` needs to execute some Necko code in the main thread, while
+            // `update_config` is also running in the main thread and blocked getting the lock.
+            //
+            // The two scenarios are different, but if this one doesn't deadlock then the real-life
+            // Desktop scenario won't either.
+            rs_client_ref2
+                .lock()
+                .upgrade()
+                .expect("rs_client_ref not set")
+                .update_config(
+                    BaseUrl::parse("https://example.com/").unwrap(),
+                    "test-collection".to_string(),
+                    None,
+                );
+            "http://rs.example.com/v1/buckets/main/collections/test-collection".into()
+        });
+        api_client.expect_is_prod_server().returning(|| Ok(false));
+
+        let context = RemoteSettingsContext {
+            app_version: Some("129.0.0".to_string()),
+            ..Default::default()
+        };
+        let storage = Storage::new(":memory:".into());
+
+        let rs_client = Arc::new(RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(Some(context)),
+            api_client,
+        ));
+        *rs_client_ref.lock() = Arc::downgrade(&rs_client);
+
+        assert_eq!(
+            rs_client.get_records(false).expect("Error getting records"),
+            None,
         );
     }
 }

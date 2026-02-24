@@ -3,43 +3,44 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #![cfg(feature = "rkv-safe-mode")]
 
+// utilities shared between tests
+
+use nimbus::error::{Result, debug};
+use nimbus::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+use nimbus::stateful::client::NimbusServerSettings;
+use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
 use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
 use rkv::StoreOptions;
 
-// utilities shared between tests
-
-use nimbus::{
-    error::{debug, Result},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    stateful::client::NimbusServerSettings,
-    AppContext, NimbusClient, RemoteSettingsServer,
-};
-
 pub struct NoopMetricsHandler;
 
+#[cfg(feature = "stateful")]
 impl MetricsHandler for NoopMetricsHandler {
-    #[cfg(feature = "stateful")]
     fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
         // do nothing
     }
 
-    #[cfg(not(feature = "stateful"))]
-    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
-        // do nothing
-    }
-
-    #[cfg(feature = "stateful")]
     fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_feature_exposure(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
+        // do nothing
+    }
+
+    #[cfg(feature = "stateful")]
+    fn submit_targeting_context(&self) {
+        // do nothing
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+impl MetricsHandler for NoopMetricsHandler {
+    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
         // do nothing
     }
 }
@@ -98,7 +99,7 @@ fn new_test_client_internal(
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(NoopMetricsHandler),
+        Arc::new(NoopMetricsHandler),
         None,
         Some(NimbusServerSettings {
             rs_service: Arc::new(remote_settings_service),

@@ -2,21 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    enrollment::{
-        map_features_by_feature_id, EnrolledFeatureConfig, EnrollmentChangeEvent,
-        EnrollmentsEvolver, ExperimentEnrollment,
-    },
-    error::CirrusClientError,
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    parse_experiments, AppContext, AvailableRandomizationUnits, Experiment, NimbusError,
-    NimbusTargetingHelper, Result, TargetingAttributes,
-};
-use serde_derive::*;
-use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+
+use serde_derive::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+
+use crate::enrollment::{
+    EnrolledFeatureConfig, EnrollmentChangeEvent, EnrollmentsEvolver, ExperimentEnrollment,
+    map_features_by_feature_id,
+};
+use crate::error::CirrusClientError;
+use crate::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+use crate::{
+    AppContext, AvailableRandomizationUnits, Experiment, NimbusError, NimbusTargetingHelper,
+    Result, TargetingAttributes, parse_experiments,
+};
 
 /// EnrollmentResponse is a DTO for the response from handling enrollment for a given client.
 ///
@@ -63,13 +65,13 @@ pub struct CirrusClient {
     app_context: AppContext,
     coenrolling_feature_ids: Vec<String>,
     state: Mutex<CirrusMutableState>,
-    metrics_handler: Arc<Box<dyn MetricsHandler>>,
+    metrics_handler: Arc<dyn MetricsHandler>,
 }
 
 impl CirrusClient {
     pub fn new(
         app_context: String,
-        metrics_handler: Box<dyn MetricsHandler>,
+        metrics_handler: Arc<dyn MetricsHandler>,
         coenrolling_feature_ids: Vec<String>,
     ) -> Result<Self> {
         let app_context: AppContext = match serde_json::from_str(&app_context) {
@@ -80,7 +82,7 @@ impl CirrusClient {
             app_context,
             coenrolling_feature_ids,
             state: Default::default(),
-            metrics_handler: Arc::new(metrics_handler),
+            metrics_handler,
         })
     }
 
