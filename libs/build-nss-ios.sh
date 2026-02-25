@@ -73,6 +73,16 @@ popd
 # Build NSS
 BUILD_DIR=$(mktemp -d)
 rm -rf "${NSS_SRC_DIR}/nss/out"
+
+# NSS 3.121 gcm.gyp sets HAVE_PLATFORM_GCM for x86_64 iOS
+# simulator because 'target_arch=="x64" and OS!="win"' matches iOS.
+# `intel-gcm-wrap` is not built for iOS and no lib provides 
+# platform_gcm_support for this target, causing a linker error. 
+# Until Bug 2019090 is fixed upstream, this will patch `gcm.gyp` to exclude iOS.
+sed -i '' \
+  's/target_arch=="x64" and OS!="win"/target_arch=="x64" and OS!="win" and OS!="ios"/g' \
+  "${NSS_SRC_DIR}/nss/lib/freebl/gcm.gyp"
+
 gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   --depth "${NSS_SRC_DIR}/nss/" \
   --generator-output=. \
