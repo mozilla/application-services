@@ -24,6 +24,7 @@ struct DevBackend {
 }
 
 /// Event sent to the mpsc channel
+#[allow(clippy::large_enum_variant)]
 enum Event {
     /// Send a request using `minreq`, then return the response using a oneshot channel.
     SendRequest {

@@ -285,32 +285,59 @@ def calc_non_workspace_rust_items(branch_changes=None, default_features_only=Fal
                 yield p, RustFeatures.NONE
 
 
-# Define a couple functions to avoid this clippy issue:
-# https://github.com/rust-lang/rust-clippy/issues/4612h
-#
-# The safest way to avoid the issue is running cargo clean.  For changes mode
-# we use the faster method of touching the changed files so only they get
-# rebuilt.
+def rust_test_steps(items):
+    default_features = [package for (package, features) in items if features == RustFeatures.DEFAULT]
+    all_features = [package for (package, features) in items if features == RustFeatures.ALL]
+    no_features = [package for (package, features) in items if features == RustFeatures.NONE]
 
+    if default_features:
+        yield Step(
+            f"tests ({RustFeatures.DEFAULT.label()})",
+            run_rust_tests,
+            default_features,
+            RustFeatures.DEFAULT,
+        )
+    if all_features:
+        yield Step(
+            f"tests ({RustFeatures.ALL.label()})",
+            run_rust_tests,
+            all_features,
+            RustFeatures.ALL,
+        )
+    if no_features:
+        yield Step(
+            f"tests ({RustFeatures.NONE.label()})",
+            run_rust_tests,
+            no_features,
+            RustFeatures.NONE,
+        )
 
-def cargo_clean():
-    """
-    Force cargo to rebuild rust files
-    """
-    run_command(["cargo", "clean"])
+def rust_clippy_steps(items):
+    default_features = [package for (package, features) in items if features == RustFeatures.DEFAULT]
+    all_features = [package for (package, features) in items if features == RustFeatures.ALL]
+    no_features = [package for (package, features) in items if features == RustFeatures.NONE]
 
-
-def touch_changed_paths(branch_changes):
-    """
-    Quick version of force_rebuild() for change mode
-
-    This version just touches any changed paths, which causes them to be
-    rebuilt, but leaves the rest of the files alone.
-    """
-    for path in branch_changes.paths:
-        if path.exists():
-            path.touch()
-
+    if default_features:
+        yield Step(
+            f"clippy ({RustFeatures.DEFAULT.label()})",
+            run_clippy,
+            default_features,
+            RustFeatures.DEFAULT,
+        )
+    if all_features:
+        yield Step(
+            f"clippy ({RustFeatures.ALL.label()})",
+            run_clippy,
+            all_features,
+            RustFeatures.ALL,
+        )
+    if no_features:
+        yield Step(
+            f"clippy ({RustFeatures.NONE.label()})",
+            run_clippy,
+            no_features,
+            RustFeatures.NONE,
+        )
 
 def print_rust_environment():
     print(f"platform: {platform.uname()}")
@@ -321,7 +348,7 @@ def print_rust_environment():
     print()
 
 
-def calc_rust_env(package, features):
+def calc_rust_env(features):
     if features == RustFeatures.ALL:
         # nss-sys's --features handling is broken.  Workaround it by using a
         # custom --cfg.  This shouldn't be this way!
@@ -330,33 +357,20 @@ def calc_rust_env(package, features):
         return None
 
 
-def run_rust_test(package, features):
-    run_command(
-        [
-            "cargo",
-            "test",
-            "--manifest-path",
-            package.manifest_path,
-        ]
-        + features.cmdline_args(),
-        env=calc_rust_env(package, features),
-    )
+def run_rust_tests(packages, features):
+    cmdline = [ "cargo", "test" ]
+    for p in packages:
+        cmdline.extend(["-p", p.name])
+    cmdline.extend(features.cmdline_args())
+    run_command(cmdline, env=calc_rust_env(features))
 
-
-def run_clippy(package, features):
-    run_command(
-        [
-            "cargo",
-            "clippy",
-            "--all-targets",
-            "--manifest-path",
-            package.manifest_path,
-        ]
-        + features.cmdline_args()
-        + ["--", "-D", "warnings"],
-        env=calc_rust_env(package, features),
-    )
-
+def run_clippy(packages, features):
+    cmdline = [ "cargo", "clippy", "--all-targets" ]
+    for p in packages:
+        cmdline.extend(["-p", p.name])
+    cmdline.extend(features.cmdline_args())
+    cmdline.extend(["--", "-D", "warnings"])
+    run_command(cmdline, env=calc_rust_env(features))
 
 def run_ktlint():
     run_command([GRADLE, "ktlint", "detekt"])
@@ -448,45 +462,30 @@ def calc_steps(args):
         yield from calc_steps_change_mode(args)
     elif args.mode == "rust-tests":
         print_rust_environment()
-        yield Step("cargo clean", cargo_clean)
-        for package, features in calc_rust_items():
-            if should_run_rust_tests(package, False):
-                yield Step(
-                    f"tests for {package.name} ({features.label()})",
-                    run_rust_test,
-                    package,
-                    features,
-                )
+        items = [
+            (package, features)
+            for package, features in calc_rust_items()
+            if should_run_rust_tests(package, False)
+        ]
+        for step in rust_test_steps(items):
+            yield step
     elif args.mode == "rust-min-version-tests":
         print_rust_environment()
-        yield Step("cargo clean", cargo_clean)
-        for package, features in calc_rust_items():
-            if should_run_rust_tests(package, True):
-                yield Step(
-                    f"tests for {package.name} ({features.label()})",
-                    run_rust_test,
-                    package,
-                    features,
-                )
+        items = [
+            (package, features)
+            for package, features in calc_rust_items()
+            if should_run_rust_tests(package, True)
+        ]
+        for step in rust_test_steps(items):
+            yield step
     elif args.mode == "rust-clippy":
         print_rust_environment()
-        yield Step("cargo clean", cargo_clean)
-        for package, features in calc_rust_items():
-            yield Step(
-                f"clippy for {package.name} ({features.label()})",
-                run_clippy,
-                package,
-                features,
-            )
+        for step in rust_clippy_steps(calc_rust_items()):
+            yield step
         # non-workspace items aren't tested, but we do run clippy on them to
         # make sure they don't go stale.
-        for package, features in calc_non_workspace_rust_items():
-            yield Step(
-                f"clippy for {package.name} ({features.label()})",
-                run_clippy,
-                package,
-                features,
-            )
+        for step in rust_clippy_steps(calc_non_workspace_rust_items()):
+            yield step
     elif args.mode == "rust-fmt":
         print_rust_environment()
         yield Step("cargo fmt", cargo_fmt)
@@ -528,21 +527,10 @@ def calc_steps_change_mode(args):
         if input().lower() != "y":
             sys.exit(0)
 
-    yield Step("touch changed paths", touch_changed_paths, branch_changes)
-    for package, features in rust_items:
-        yield Step(
-            f"tests for {package.name} ({features.label()})",
-            run_rust_test,
-            package,
-            features,
-        )
-    for package, features in rust_items:
-        yield Step(
-            f"clippy for {package.name} ({features.label()})",
-            run_clippy,
-            package,
-            features,
-        )
+    for step in rust_test_steps(rust_items):
+        yield step
+    for step in rust_clippy_steps(rust_items):
+        yield step
     for package in rust_packages:
         yield Step(f"rustfmt for {package.name}", cargo_fmt, package, fix_issues=True)
     yield Step("Check for changes", check_for_fmt_changes, branch_changes)

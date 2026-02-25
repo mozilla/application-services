@@ -246,8 +246,6 @@ jobs:
       - restore-sccache-cache
       - test-setup
       - setup-rust-min-version
-      # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
-      # It's not in the default workspace members, so just `cargo test` is OK.
       - run: ./automation/tests.py rust-min-version-tests
       - save-sccache-cache
 
