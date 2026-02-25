@@ -97,7 +97,8 @@ use sql_support::ConnExt;
 /// Version 2: addition of `loginsM.enc_unknown_fields`.
 /// Version 3: addition of `timeOfLastBreach` and `timeLastBreachAlertDismissed`.
 /// Version 4: addition of `breachesL` table
-pub(super) const VERSION: i64 = 4;
+/// Version 5: removal of `timeOfLastBreach`.
+pub(super) const VERSION: i64 = 5;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -128,7 +129,6 @@ pub const COMMON_COLS: &str = "
     timeLastUsed,
     timePasswordChanged,
     timesUsed,
-    timeOfLastBreach,
     timeLastBreachAlertDismissed
 ";
 
@@ -144,7 +144,6 @@ const COMMON_SQL: &str = "
     timeCreated                                 INTEGER NOT NULL,
     timeLastUsed                                INTEGER,
     timePasswordChanged                         INTEGER NOT NULL,
-    timeOfLastBreach                            INTEGER,
     timeLastBreachAlertDismissed                INTEGER,
     secFields                                   TEXT,
     guid                                        TEXT NOT NULL UNIQUE
@@ -275,6 +274,11 @@ fn upgrade_from(db: &Connection, from: i64) -> Result<()> {
         )?),
 
         3 => Ok(db.execute_batch(CREATE_LOCAL_BREACHES_TABLE_SQL)?),
+
+        4 => Ok(db.execute_batch(
+            "ALTER TABLE loginsL DROP COLUMN timeOfLastBreach;
+        ALTER TABLE loginsM DROP COLUMN timeOfLastBreach;",
+        )?),
 
         // next migration, add here
         _ => Err(Error::IncompatibleVersion(from)),
