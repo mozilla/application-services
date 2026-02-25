@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::client::ad_response::{AdImage, AdResponse, AdResponseValue, AdSpoc, AdTile};
-use crate::client::config::AdsClientConfig;
+use crate::client::config::{AdsClientConfig, Environment};
 use crate::error::{RecordClickError, RecordImpressionError, ReportAdError, RequestAdsError};
 use crate::http_cache::{HttpCache, RequestCachePolicy};
 use crate::mars::MARSClient;
@@ -32,6 +32,7 @@ where
 {
     client: MARSClient<T>,
     context_id_component: ContextIDComponent,
+    environment: Environment,
     telemetry: T,
 }
 
@@ -48,6 +49,7 @@ where
             Box::new(DefaultContextIdCallback),
         );
         let telemetry = client_config.telemetry;
+        let environment = client_config.environment;
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
@@ -72,8 +74,9 @@ where
                 }
             };
 
-            let client = MARSClient::new(client_config.environment, http_cache, telemetry.clone());
+            let client = MARSClient::new(http_cache, telemetry.clone());
             let client = Self {
+                environment,
                 context_id_component,
                 client,
                 telemetry: telemetry.clone(),
@@ -82,8 +85,9 @@ where
             return client;
         }
 
-        let client = MARSClient::new(client_config.environment, None, telemetry.clone());
+        let client = MARSClient::new(None, telemetry.clone());
         let client = Self {
+            environment,
             context_id_component,
             client,
             telemetry: telemetry.clone(),
@@ -101,10 +105,10 @@ where
         A: AdResponseValue,
     {
         let context_id = self.get_context_id()?;
-        let ad_request = AdRequest::build(context_id, ad_placement_requests)?;
+        let url = self.environment.into_url("ads");
+        let ad_request = AdRequest::try_new(context_id, ad_placement_requests, url)?;
         let cache_policy = options.unwrap_or_default();
-        let (mut response, request_hash) =
-            self.client.fetch_ads::<A>(&ad_request, &cache_policy)?;
+        let (mut response, request_hash) = self.client.fetch_ads::<A>(ad_request, &cache_policy)?;
         response.add_request_hash_to_callbacks(&request_hash);
         Ok(response)
     }
@@ -222,7 +226,6 @@ pub enum ClientOperationEvent {
 #[cfg(test)]
 mod tests {
     use crate::{
-        client::config::Environment,
         ffi::telemetry::MozAdsTelemetryWrapper,
         test_utils::{
             get_example_happy_image_response, get_example_happy_spoc_response,
@@ -242,6 +245,7 @@ mod tests {
             Box::new(DefaultContextIdCallback),
         );
         AdsClient {
+            environment: Environment::Test,
             context_id_component,
             client,
             telemetry: MozAdsTelemetryWrapper::noop(),
@@ -272,7 +276,7 @@ mod tests {
             .create();
 
         let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(Environment::Test, None, telemetry);
+        let mars_client = MARSClient::new(None, telemetry);
         let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
@@ -294,7 +298,7 @@ mod tests {
             .create();
 
         let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(Environment::Test, None, telemetry);
+        let mars_client = MARSClient::new(None, telemetry);
         let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
@@ -316,7 +320,7 @@ mod tests {
             .create();
 
         let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(Environment::Test, None, telemetry.clone());
+        let mars_client = MARSClient::new(None, telemetry.clone());
         let ads_client = new_with_mars_client(mars_client);
 
         let ad_placement_requests = make_happy_placement_requests();
@@ -334,7 +338,7 @@ mod tests {
             .build()
             .unwrap();
         let telemetry = MozAdsTelemetryWrapper::noop();
-        let mars_client = MARSClient::new(Environment::Test, Some(cache), telemetry.clone());
+        let mars_client = MARSClient::new(Some(cache), telemetry.clone());
         let ads_client = new_with_mars_client(mars_client);
 
         let response = get_example_happy_image_response();
