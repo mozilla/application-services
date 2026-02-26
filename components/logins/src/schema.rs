@@ -223,7 +223,6 @@ pub(crate) static CHECKPOINT_KEY: &str = "checkpoint";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.conn_ext_query_one::<i64>("PRAGMA user_version")?;
-    warn!("user_version: {}", user_version);
     if user_version == 0 {
         return create(db);
     }
