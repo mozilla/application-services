@@ -121,7 +121,7 @@ ext.configureUniFFIBindgen = { crateName ->
 
             workingDir project.rootDir
             commandLine bindgen
-            args 'generate', '--library', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
+            args 'generate', "--crate", crateName, '--language', 'kotlin', '--out-dir', uniffiOutDir.get(), '--no-format', libraryPath
 
             outputs.dir uniffiOutDir
             // Re-generate when the native megazord library is rebuilt
