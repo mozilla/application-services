@@ -156,6 +156,6 @@ lto = "thin"
 
 [patch.crates-io]
 # uniffi is using an experimental ffi based on 0.31.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
-uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "106e12ae2a0474a1880667ed3a4b050fcf1c6666" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
+uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
