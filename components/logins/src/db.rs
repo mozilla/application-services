@@ -1935,6 +1935,7 @@ mod tests {
 
     #[test]
     fn test_get_by_base_domain_invalid() {
+        ensure_initialized();
         check_good_bad(
             vec!["https://example.com"],
             vec![],
@@ -1945,6 +1946,7 @@ mod tests {
 
     #[test]
     fn test_get_by_base_domain() {
+        ensure_initialized();
         check_good_bad(
             vec![
                 "https://example.com",
@@ -1968,6 +1970,7 @@ mod tests {
 
     #[test]
     fn test_get_by_base_domain_punicode() {
+        ensure_initialized();
         // punycode! This is likely to need adjusting once we normalize
         // on insert.
         check_good_bad(
@@ -1982,6 +1985,7 @@ mod tests {
 
     #[test]
     fn test_get_by_base_domain_ipv4() {
+        ensure_initialized();
         check_good_bad(
             vec!["http://127.0.0.1", "https://127.0.0.1:8000"],
             vec!["https://127.0.0.0", "https://example.com"],
@@ -1992,6 +1996,7 @@ mod tests {
 
     #[test]
     fn test_get_by_base_domain_ipv6() {
+        ensure_initialized();
         check_good_bad(
             vec!["http://[::1]", "https://[::1]:8000"],
             vec!["https://[0:0:0:0:0:0:1:1]", "https://example.com"],
