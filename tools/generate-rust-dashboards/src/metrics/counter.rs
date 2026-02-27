@@ -59,6 +59,7 @@ fn count_panel(application: Application, channel: ReleaseChannel, metric: &Count
                     axis_label: "count / day".into(),
                     ..FieldConfigCustom::default()
                 },
+                unit: None,
             },
         },
         transformations: vec![],

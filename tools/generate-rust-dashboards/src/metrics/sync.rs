@@ -87,6 +87,7 @@ fn overview_count_panel(
                     axis_soft_max: 100,
                     ..FieldConfigCustom::default()
                 },
+                unit: None,
             },
         },
         transformations: vec![
