@@ -25,8 +25,8 @@ use crate::evaluator::{
 };
 use crate::json::{JsonObject, PrefValue};
 use crate::metrics::{
-    EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-    MetricsHandler,
+    DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+    FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
 };
 use crate::schema::parse_experiments;
 use crate::stateful::behavior::EventStore;
@@ -663,7 +663,8 @@ impl NimbusClient {
     }
 
     pub(crate) fn db(&self) -> Result<&Database> {
-        self.db.get_or_try_init(|| Database::new(&self.db_path))
+        self.db
+            .get_or_try_init(|| Database::new(&self.db_path, self.metrics_handler.clone()))
     }
 
     fn merge_additional_context(&self, context: Option<JsonObject>) -> Result<Value> {

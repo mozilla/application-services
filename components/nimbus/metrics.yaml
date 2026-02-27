@@ -167,6 +167,100 @@ nimbus_events:
     expires: never
     # Disabled by default. This needs a server-knobs rollout to ensure the volume is not overwhelming.
     disabled: true
+
+  database_load:
+    type: event
+    description: >
+      An event recorded when the Nimbus database is loaded.
+
+    extra_keys:
+      corrupt:
+        type: boolean
+        description: >
+          Whether or not the database was corrupted when we tried to load it.
+
+          This field may be empty, e.g., if the database could not be loaded.
+
+      initial_version:
+        type: quantity
+        description: >
+          The version of the database on disk at load time.
+
+          This field may be empty, e.g., if we cannot create a database.
+
+      error:
+        type: string
+        description: >
+          If an error occured during the initial load of the database this field
+          will contain the relevant error code.
+
+      migrated_version:
+        type: quantity
+        description: >
+          The version of the database that was migrated to.
+
+          This field will be empty if no migration(s) occurred.
+
+      migration_error:
+        type: string
+        description: >
+          If an error occurred during the initial load of the database this
+          field will contain the relevant error code.
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1997631
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1997631
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
+  database_migration:
+    type: event
+    description: >
+      An event recorded when a database migration occurs.
+
+    extra_keys:
+      reason:
+        type: string
+        description: >
+          The reason the migration occurred.
+
+          This is one of:
+
+          - "upgrade"
+          - "invalid_version"
+
+      from_version:
+        type: quantity
+        description: >
+          The original version of the database. A value of 0 indicates that
+          the db_version was not set in the meta store.
+
+      to_version:
+        type: quantity
+        description: >
+          The target version of the migration that was performed.
+
+      error:
+        type: string
+        description: >
+          If an error occurred during the migration, the relevant error code.
+
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1997631
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1997631
+    data_sensitivity:
+      - technical
+    notification_emails:
+      - beth@mozilla.com
+      - project-nimbus@mozilla.com
+    expires: never
+
   exposure:
     type: event
     description: >

@@ -5,10 +5,13 @@
 //! Our storage abstraction, currently backed by Rkv.
 
 use rkv::{StoreError, StoreOptions};
+use std::fmt;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
-use crate::error::{NimbusError, Result, debug, info, warn};
+use crate::error::{ErrorCode, NimbusError, Result, debug, info, warn};
+use crate::metrics::{DatabaseLoadExtraDef, DatabaseMigrationExtraDef, MetricsHandler};
 
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
@@ -25,6 +28,8 @@ pub(crate) const DB_KEY_DB_VERSION: &str = "db_version";
 
 /// The current database version.
 pub(crate) const DB_VERSION: u16 = 3;
+
+pub(crate) const DB_KEY_DB_WAS_CORRUPT: &str = "db-was-corrupt";
 
 /// The minimum database version that will be migrated.
 ///
@@ -128,6 +133,8 @@ pub enum StoreId {
     /// include:
     ///   * "db_version":   u16, the version number of the most revent migration
     ///     applied to this database.
+    ///   * "db_was_corrupt":   boolean, whether or not a corrupt database was
+    ///     replaced with a new one in Database::open_single
     ///   * "nimbus-id":    String, the randomly-generated identifier for the
     ///     current client instance.
     ///   * "user-opt-in-experiments":  bool, whether the user has explicitly opted in or out
@@ -298,6 +305,52 @@ impl SingleStoreDatabase {
     }
 }
 
+/// Metadata about opening an RKV database.
+#[derive(Default)]
+pub struct OpenRkvMetadata {
+    /// Was the database corrupt? If so, it has been replaced by a new, blank
+    /// database.
+    pub corrupt: bool,
+}
+
+/// Metadata about opening an RKV database and its stores.
+///
+/// This has more information than [`OpenRkvMetadata`] because the former does
+/// not attempt to open any stores.
+pub struct OpenMetadata {
+    /// Was the database corrupt? If so, it has been replaced by a new, blank
+    /// database.
+    pub corrupt: bool,
+
+    /// The database version recorded at load time.
+    ///
+    /// A value of `0` may indicate that no version was recorded, as there was
+    /// never a v0 database.
+    pub initial_version: u16,
+}
+
+#[derive(Default)]
+pub struct MigrationMetadata {
+    pub initial_version: Option<u16>,
+    pub migrated_version: Option<u16>,
+    pub mirgation_error: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+pub enum DatabaseMigrationReason {
+    Upgrade,
+    InvalidVersion,
+}
+
+impl fmt::Display for DatabaseMigrationReason {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(match self {
+            Self::Upgrade => "upgrade",
+            Self::InvalidVersion => "invalid_version",
+        })
+    }
+}
+
 /// Database used to access persisted data
 /// This an abstraction around an Rkv database
 /// An instance on this database is created each time the component is loaded
@@ -309,6 +362,8 @@ pub struct Database {
     enrollment_store: SingleStore,
     updates_store: SingleStore,
     event_count_store: SingleStore,
+
+    metrics_handler: Arc<dyn MetricsHandler>,
 }
 
 impl Database {
@@ -316,8 +371,41 @@ impl Database {
     /// Initiates the Rkv database to be used to retrieve persisted data
     /// # Arguments
     /// - `path`: A path to the persisted data, this is provided by the consuming application
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let rkv = Self::open_rkv(path)?;
+    pub fn new<P: AsRef<Path>>(path: P, metrics_handler: Arc<dyn MetricsHandler>) -> Result<Self> {
+        let mut event = DatabaseLoadExtraDef::default();
+
+        let (db, open_metadata) = match Self::open(path, metrics_handler.clone()) {
+            Ok(db) => db,
+            Err(e) => {
+                event.error = Some(e.error_code().to_string());
+                metrics_handler.record_database_load(event);
+                return Err(e);
+            }
+        };
+
+        event.initial_version = Some(open_metadata.initial_version);
+        event.corrupt = Some(open_metadata.corrupt);
+
+        let migrate_result = db.maybe_upgrade(open_metadata.initial_version);
+        match migrate_result {
+            Ok(migrated_version) => event.migrated_version = migrated_version,
+            Err(ref e) => event.migration_error = Some(e.error_code().to_string()),
+        }
+
+        metrics_handler.record_database_load(event);
+
+        migrate_result?;
+
+        Ok(db)
+    }
+
+    /// Open a database, creating it if it does not exist.
+    fn open<P: AsRef<Path>>(
+        path: P,
+        metrics_handler: Arc<dyn MetricsHandler>,
+    ) -> Result<(Self, OpenMetadata)> {
+        let (rkv, open_metadata) = Self::open_rkv(path)?;
+
         let meta_store = rkv.open_single("meta", StoreOptions::create())?;
         let experiment_store = rkv.open_single("experiments", StoreOptions::create())?;
         let enrollment_store = rkv.open_single("enrollments", StoreOptions::create())?;
@@ -330,13 +418,58 @@ impl Database {
             enrollment_store: SingleStore::new(enrollment_store),
             updates_store: SingleStore::new(updates_store),
             event_count_store: SingleStore::new(event_count_store),
+            metrics_handler,
         };
-        db.maybe_upgrade()?;
-        Ok(db)
+
+        let mut writer = db.rkv.write()?;
+
+        let mut open_metadata = OpenMetadata {
+            corrupt: open_metadata.corrupt,
+            initial_version: db.meta_store.get(&writer, DB_KEY_DB_VERSION)?.unwrap_or(0),
+        };
+
+        if !open_metadata.corrupt {
+            open_metadata.corrupt = db
+                .meta_store
+                .get(&writer, DB_KEY_DB_WAS_CORRUPT)?
+                .unwrap_or(false);
+
+            if open_metadata.corrupt {
+                db.meta_store.delete(&mut writer, DB_KEY_DB_WAS_CORRUPT)?;
+                writer.commit()?;
+            }
+        }
+
+        Ok((db, open_metadata))
     }
 
-    pub fn open_single<P: AsRef<Path>>(path: P, store_id: StoreId) -> Result<SingleStoreDatabase> {
-        let rkv = Self::open_rkv(path)?;
+    pub(crate) fn open_single<P: AsRef<Path>>(
+        path: P,
+        store_id: StoreId,
+    ) -> Result<SingleStoreDatabase> {
+        // `Database::open_single` is used by `get_calculated_attributes` to
+        // compute `days_since_update` before the Nimbus SDK has loaded the
+        // database. The following `open_rkv` call *will* wipe the database upon
+        // encountering corruption, which means when we call `Database::new()`
+        // from the client we will not be able to determine that corruption occured.
+        //
+        // Record the corrupted state into the meta store so that the client
+        // will be able to report whether or not the database was actually
+        // corrupted at startup, regardless if we already clobbered it.
+        let (rkv, open_metadata) = Self::open_rkv(path)?;
+
+        if open_metadata.corrupt {
+            let meta = rkv.open_single("meta", StoreOptions::create())?;
+
+            let mut writer = rkv.write()?;
+            meta.put(
+                &mut writer,
+                DB_KEY_DB_WAS_CORRUPT,
+                &rkv::Value::Json("true"),
+            )?;
+            writer.commit()?;
+        }
+
         let store = SingleStore::new(match store_id {
             StoreId::Experiments => rkv.open_single("experiments", StoreOptions::create())?,
             StoreId::Enrollments => rkv.open_single("enrollments", StoreOptions::create())?,
@@ -347,51 +480,136 @@ impl Database {
         Ok(SingleStoreDatabase { rkv, store })
     }
 
-    fn maybe_upgrade(&self) -> Result<()> {
+    /// Attempt to upgrade the database.
+    ///
+    /// If the database is already up-to-date, no operations will be performed.
+    /// Otherwise migrations will be applied in order until the database is at
+    /// [`DB_VERSION`].
+    ///
+    /// If an error occurs during migration, the experiments, enrollments, and
+    /// meta stores will be cleared.
+    fn maybe_upgrade(&self, current_version: u16) -> Result<Option<u16>> {
         debug!("entered maybe upgrade");
-        let mut writer = self.rkv.write()?;
-        let mut current_version = self
-            .meta_store
-            .get::<u16, _>(&writer, DB_KEY_DB_VERSION)?
-            .unwrap_or(0);
+
+        println!("maybe_upgrade from {current_version}");
 
         if current_version == DB_VERSION {
-            info!("Already at version {}, no upgrade needed", DB_VERSION);
+            return Ok(None);
+        }
+
+        let mut writer = self.write()?;
+
+        // An `Err` here means either:
+        //
+        // - an individual migration failed, in which case the machinery in
+        //   [`force_apply_migration`] will have wiped the database in an attempt
+        //   to recover; or
+        //
+        // - the database wipe resulting from a failed migration *also* failed,
+        //   in which case there is not really anything we can do.
+        let _ = self.apply_migrations(&mut writer, current_version);
+
+        // It is safe to clear the update store (i.e. the pending experiments)
+        // on all schema upgrades as it will be re-filled from the server on the
+        // next `fetch_experiments()`. The current contents of the update store
+        // may cause experiments to not load, or worse, accidentally unenroll.
+        self.updates_store.clear(&mut writer)?;
+        self.meta_store
+            .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
+        writer.commit()?;
+        debug!("maybe_upgrade: transaction committed");
+
+        Ok(Some(DB_VERSION))
+    }
+
+    /// Apply all pending migrations.
+    ///
+    /// If all migrations apply successfully, the database will have version
+    /// [`DB_VERSION`].
+    fn apply_migrations(&self, writer: &mut Writer, initial_version: u16) -> Result<()> {
+        let mut current_version = initial_version;
+
+        if !(DB_MIN_VERSION..=DB_VERSION).contains(&current_version) {
+            let reason = if current_version < DB_MIN_VERSION {
+                DatabaseMigrationReason::Upgrade
+            } else {
+                DatabaseMigrationReason::InvalidVersion
+            };
+
+            // We need to force-apply this migration because current_version may be > 2.
+            self.force_apply_migration(
+                writer,
+                |writer| self.migrate_reset_to_v2(writer),
+                &mut current_version,
+                2,
+                reason,
+            )?;
+        };
+
+        self.apply_migration(
+            writer,
+            |writer| self.migrate_v2_to_v3(writer),
+            &mut current_version,
+            3,
+            DatabaseMigrationReason::Upgrade,
+        )?;
+
+        Ok(())
+    }
+
+    /// Apply a single migration, if it is applicable.
+    ///
+    /// The result of the migration will be reported via telemetry.
+    fn apply_migration(
+        &self,
+        writer: &mut Writer,
+        migration: impl FnOnce(&mut Writer) -> Result<()>,
+        from_version: &mut u16,
+        to_version: u16,
+        reason: DatabaseMigrationReason,
+    ) -> Result<()> {
+        if *from_version >= to_version {
             return Ok(());
         }
 
-        if !(DB_MIN_VERSION..=DB_VERSION).contains(&current_version) {
-            info!(
-                "maybe_upgrade: current_version: {}, DB_VERSION: {}; wiping most stores",
-                current_version, DB_VERSION
+        self.force_apply_migration(writer, migration, from_version, to_version, reason)
+    }
+
+    /// Forcibly apply a migration, without taking version constraints into
+    /// account.
+    fn force_apply_migration(
+        &self,
+        writer: &mut Writer,
+        migration: impl FnOnce(&mut Writer) -> Result<()>,
+        from_version: &mut u16,
+        to_version: u16,
+        reason: DatabaseMigrationReason,
+    ) -> Result<()> {
+        let mut event = DatabaseMigrationExtraDef {
+            from_version: *from_version,
+            to_version,
+            reason: reason.to_string(),
+            error: None,
+        };
+
+        if let Err(e) = migration(writer) {
+            event.error = Some(e.error_code().to_string());
+            self.metrics_handler.record_database_migration(event);
+
+            error_support::report_error!(
+                "nimbus-database-migration",
+                "Error migrating database from v{} to v{}: {:?}. Wiping experiments and enrollments",
+                from_version,
+                to_version,
+                e
             );
-            self.migrate_reset_to_v2(&mut writer)?;
-            current_version = 2;
+
+            self.clear_experiments_and_enrollments(writer)?;
+            return Err(e);
         }
 
-        if current_version == 2 {
-            info!("Migrating database from v2 to v3");
-            if let Err(e) = self.migrate_v2_to_v3(&mut writer) {
-                error_support::report_error!(
-                    "nimbus-database-migration",
-                    "Error migrating database v2 to v3: {:?}. Wiping experiments and enrollments",
-                    e
-                );
-                self.clear_experiments_and_enrollments(&mut writer)?;
-            }
-
-            current_version = 3;
-        }
-
-        // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
-        // as it will be re-filled from the server on the next `fetch_experiments()`.
-        // The current contents of the update store may cause experiments to not load, or worse,
-        // accidentally unenroll.
-        self.updates_store.clear(&mut writer)?;
-        self.meta_store
-            .put(&mut writer, DB_KEY_DB_VERSION, &current_version)?;
-        writer.commit()?;
-        debug!("maybe_upgrade: transaction committed");
+        self.metrics_handler.record_database_migration(event);
+        *from_version = to_version;
         Ok(())
     }
 
@@ -411,7 +629,6 @@ impl Database {
 
     pub fn migrate_reset_to_v2(&self, writer: &mut Writer) -> Result<()> {
         self.clear_experiments_and_enrollments(writer)?;
-        self.updates_store.clear(writer)?;
 
         Ok(())
     }
@@ -472,7 +689,9 @@ impl Database {
         }
     }
 
-    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
+    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<(Rkv, OpenRkvMetadata)> {
+        let mut metadata = OpenRkvMetadata::default();
+
         let path = std::path::Path::new(path.as_ref()).join("db");
         debug!("open_rkv: path =  {:?}", path.display());
         fs::create_dir_all(&path)?;
@@ -492,8 +711,9 @@ impl Database {
                         );
                         fs::remove_dir_all(&path)?;
                         fs::create_dir_all(&path)?;
-                        // TODO: Once we have glean integration we want to
-                        // record telemetry here.
+
+                        metadata.corrupt = true;
+
                         rkv_new(&path)
                     }
                     // All other errors are fatal.
@@ -502,7 +722,7 @@ impl Database {
             }
         }?;
         debug!("Database initialized");
-        Ok(rkv)
+        Ok((rkv, metadata))
     }
 
     /// Function used to obtain a "reader" which is used for read-only transactions.

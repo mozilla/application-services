@@ -100,8 +100,8 @@ fn main() -> Result<()> {
 
     use nimbus::{
         metrics::{
-            EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-            MetricsHandler,
+            DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+            FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
         },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper,
@@ -113,6 +113,14 @@ fn main() -> Result<()> {
     pub struct NoopMetricsHandler;
 
     impl MetricsHandler for NoopMetricsHandler {
+        fn record_database_load(&self, _: DatabaseLoadExtraDef) {
+            // do nothing
+        }
+
+        fn record_database_migration(&self, _: DatabaseMigrationExtraDef) {
+            // do nothing
+        }
+
         fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
             // do nothing
         }

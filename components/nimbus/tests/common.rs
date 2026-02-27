@@ -6,16 +6,29 @@
 // utilities shared between tests
 
 use nimbus::error::{Result, debug};
-use nimbus::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+use nimbus::metrics::{
+    DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+    FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
+};
 use nimbus::stateful::client::NimbusServerSettings;
+use nimbus::stateful::persistence::{Database, SingleStore};
 use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
 use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
 use rkv::StoreOptions;
+use std::{path::Path, sync::Arc};
 
 pub struct NoopMetricsHandler;
 
 #[cfg(feature = "stateful")]
 impl MetricsHandler for NoopMetricsHandler {
+    fn record_database_load(&self, _: DatabaseLoadExtraDef) {
+        // do nothing
+    }
+
+    fn record_database_migration(&self, _: DatabaseMigrationExtraDef) {
+        // do nothing
+    }
+
     fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
         // do nothing
     }
@@ -108,10 +121,6 @@ fn new_test_client_internal(
     )
 }
 
-use nimbus::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
-use nimbus::stateful::persistence::{Database, SingleStore};
-use std::{path::Path, sync::Arc};
-
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn create_database<P: AsRef<Path>>(
     path: P,
@@ -122,7 +131,7 @@ pub fn create_database<P: AsRef<Path>>(
     error_support::init_for_tests();
     debug!("create_database(): old_version = {:?}", old_version);
     debug!("create_database(): path = {:?}", path.as_ref());
-    let rkv = Database::open_rkv(path)?;
+    let rkv = Database::open_rkv(path)?.0;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =
         SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
