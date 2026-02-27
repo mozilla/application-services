@@ -153,7 +153,7 @@ open class Nimbus(
         }
 
         override fun submitTargetingContext() {
-            Pings.nimbusTargetingContext.submit()
+            org.mozilla.experiments.nimbus.GleanMetrics.Pings.nimbusTargetingContext.submit()
         }
     }
 
@@ -662,5 +662,12 @@ open class Nimbus(
             installationDate = packageInfo?.firstInstallTime,
             customTargetingAttributes = appInfo.customTargetingAttributes,
         )
+    }
+
+    /**
+    * Glean pings exposed for use in Fenix tests outside this package.
+    */
+    public object Pings {
+        public val nimbusTargetingContext = org.mozilla.experiments.nimbus.GleanMetrics.Pings.nimbusTargetingContext
     }
 }

@@ -4,6 +4,7 @@
 
 ### Nimbus
 * The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
+* In Kotlin expose `GleanMetrics.Pings.nimbusTargetingContext` as `Nimbus.Pings.nimbusTargetingContext` for downstream tests. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
 
 [Full Changelog](In progress)
 
