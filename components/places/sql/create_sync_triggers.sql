@@ -63,7 +63,6 @@ BEGIN
   UPDATE moz_bookmarks SET
     parent = (SELECT id FROM moz_bookmarks
               WHERE guid = OLD.mergedParentGuid),
-    position = OLD.position,
-    lastModified = OLD.lastModified
+    position = OLD.position
   WHERE guid = OLD.mergedGuid;
 END;
