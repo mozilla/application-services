@@ -402,7 +402,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         Ok(())
     }
 
-    fn reset_storage(&self) -> Result<()> {
+    pub fn reset_storage(&self) -> Result<()> {
         trace!("{0}: reset local storage.", self.collection_name);
         let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
