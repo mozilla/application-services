@@ -16,8 +16,6 @@ use nimbus::metrics::{
 use nimbus::stateful::client::NimbusServerSettings;
 use nimbus::stateful::persistence::{Database, SingleStore};
 use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
-use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
-use rkv::StoreOptions;
 use std::{path::Path, sync::Arc};
 
 pub struct NoopMetricsHandler;
