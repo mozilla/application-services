@@ -608,11 +608,11 @@
     },
     {
       "attachment": {
-        "filename": "google_mobile.png",
-        "hash": "27541cb376bdda829a6cf9cefd13da112728881e3daa4ac3c1178d4ce15f1e8b",
-        "location": "main-workspace/search-config-icons/d9917c97-4593-4596-8ef0-cf0635e8aa36.png",
+        "filename": "logo_googleg_gradient_round_color_1x_web_96dp.png",
+        "hash": "04dc1979cf7b962c95ca5c2b009208035017f1fb4128eabd7c775f6f49fb96ca",
+        "location": "main-workspace/search-config-icons/32165abf-ea41-426e-be93-d5e408f06aae.png",
         "mimetype": "image/png",
-        "size": 1571
+        "size": 4488
       },
       "engineIdentifiers": [
         "google"
@@ -620,8 +620,8 @@
       "filter_expression": "env.appinfo.OS == \"iOS\" || env.appinfo.OS == \"Android\"",
       "id": "7edaf4fe-a8a0-432b-86d2-bf75ebe80851",
       "imageSize": 96,
-      "last_modified": 1744118264918,
-      "schema": 1743687930970
+      "last_modified": 1772466505212,
+      "schema": 1771977606099
     },
     {
       "attachment": {
@@ -1190,5 +1190,5 @@
       "schema": 1743687832067
     }
   ],
-  "timestamp": 1771343611639
+  "timestamp": 1772466505212
 }
