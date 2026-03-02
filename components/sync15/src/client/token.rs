@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{self, debug, trace, warn, Error as ErrorKind, Result};
+use crate::error::{self, debug, info, trace, warn, Error as ErrorKind, Result};
 use crate::ServerTimestamp;
 use rc_crypto::hawk;
 use serde_derive::*;
@@ -100,13 +100,23 @@ impl TokenServerFetcher {
 impl TokenFetcher for TokenServerFetcher {
     fn fetch_token(&self) -> Result<TokenFetchResult> {
         debug!("Fetching token from {}", self.server_url);
-        let resp = Request::get(self.server_url.clone())
+        let resp = match Request::get(self.server_url.clone())
             .header(
                 header_names::AUTHORIZATION,
                 format!("Bearer {}", self.access_token),
             )?
             .header(header_names::X_KEYID, self.key_id.clone())?
-            .send()?;
+            .send()
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                warn!(
+                    "Failed to setup a request for the tokenserver token: {:?}",
+                    e
+                );
+                return Err(e.into());
+            }
+        };
 
         if !resp.is_success() {
             warn!("Non-success status when fetching token: {}", resp.status);
@@ -125,6 +135,7 @@ impl TokenFetcher for TokenServerFetcher {
             return Err(ErrorKind::TokenserverHttpError(status));
         }
 
+        info!("Successful fetch of tokenserver token");
         let token: TokenserverToken = resp.json()?;
         let server_timestamp = resp
             .headers

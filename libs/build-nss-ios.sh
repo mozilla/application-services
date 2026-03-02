@@ -73,6 +73,16 @@ popd
 # Build NSS
 BUILD_DIR=$(mktemp -d)
 rm -rf "${NSS_SRC_DIR}/nss/out"
+
+# NSS 3.121 gcm.gyp sets HAVE_PLATFORM_GCM for x86_64 iOS
+# simulator because 'target_arch=="x64" and OS!="win"' matches iOS.
+# `intel-gcm-wrap` is not built for iOS and no lib provides 
+# platform_gcm_support for this target, causing a linker error. 
+# Until Bug 2019090 is fixed upstream, this will patch `gcm.gyp` to exclude iOS.
+sed -i '' \
+  's/target_arch=="x64" and OS!="win"/target_arch=="x64" and OS!="win" and OS!="ios"/g' \
+  "${NSS_SRC_DIR}/nss/lib/freebl/gcm.gyp"
+
 gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
   --depth "${NSS_SRC_DIR}/nss/" \
   --generator-output=. \
@@ -101,6 +111,7 @@ cp -p -L "${BUILD_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libgcm.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libmozpkix.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
@@ -115,12 +126,12 @@ cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 # HW specific.
 if [[ "${ARCH}" == "x86_64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-x86_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libsha-x86_c_lib.a" "${DIST_DIR}/lib"
 elif [[ "${ARCH}" == "arm64" ]]; then
-  cp -p -L "${BUILD_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libghash-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
 fi
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"

@@ -13,7 +13,7 @@ commands:
   # Our minimum supported rust version is specified here.
   setup-rust-min-version:
     steps:
-      - run: rustup override set 1.87.0
+      - run: rustup override set 1.90.0
 
   full-checkout:
     steps:
@@ -212,6 +212,7 @@ jobs:
       - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
     executor: docker
+    resource_class: large
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -230,7 +231,7 @@ jobs:
   Rust tests:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: large
+    resource_class: xlarge
     steps:
       - full-checkout
       - restore-sccache-cache
@@ -240,14 +241,12 @@ jobs:
   Rust tests - min supported rust version:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: large
+    resource_class: xlarge
     steps:
       - full-checkout
       - restore-sccache-cache
       - test-setup
       - setup-rust-min-version
-      # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
-      # It's not in the default workspace members, so just `cargo test` is OK.
       - run: ./automation/tests.py rust-min-version-tests
       - save-sccache-cache
 

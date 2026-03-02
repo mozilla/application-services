@@ -8,38 +8,55 @@ use rkv::StoreOptions;
 
 // utilities shared between tests
 
-use nimbus::{
-    error::{debug, Result},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
-    stateful::client::NimbusServerSettings,
-    AppContext, NimbusClient, RemoteSettingsServer,
+use nimbus::error::{Result, debug};
+use nimbus::metrics::{
+    DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+    FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
 };
+use nimbus::stateful::client::NimbusServerSettings;
+use nimbus::stateful::persistence::{Database, SingleStore};
+use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use rkv::StoreOptions;
+use std::{path::Path, sync::Arc};
 
 pub struct NoopMetricsHandler;
 
+#[cfg(feature = "stateful")]
 impl MetricsHandler for NoopMetricsHandler {
-    #[cfg(feature = "stateful")]
+    fn record_database_load(&self, _: DatabaseLoadExtraDef) {
+        // do nothing
+    }
+
+    fn record_database_migration(&self, _: DatabaseMigrationExtraDef) {
+        // do nothing
+    }
+
     fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
         // do nothing
     }
 
-    #[cfg(not(feature = "stateful"))]
-    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
-        // do nothing
-    }
-
-    #[cfg(feature = "stateful")]
     fn record_feature_activation(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_feature_exposure(&self, _activation_event: FeatureExposureExtraDef) {
         // do nothing
     }
 
-    #[cfg(feature = "stateful")]
     fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
+        // do nothing
+    }
+
+    #[cfg(feature = "stateful")]
+    fn submit_targeting_context(&self) {
+        // do nothing
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+impl MetricsHandler for NoopMetricsHandler {
+    fn record_enrollment_statuses_v2(&self, _: Vec<EnrollmentStatusExtraDef>, _: Option<String>) {
         // do nothing
     }
 }
@@ -98,7 +115,7 @@ fn new_test_client_internal(
         Default::default(),
         Default::default(),
         tmp_dir.path(),
-        Box::new(NoopMetricsHandler),
+        Arc::new(NoopMetricsHandler),
         None,
         Some(NimbusServerSettings {
             rs_service: Arc::new(remote_settings_service),
@@ -106,10 +123,6 @@ fn new_test_client_internal(
         }),
     )
 }
-
-use nimbus::metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef};
-use nimbus::stateful::persistence::{Database, SingleStore};
-use std::{path::Path, sync::Arc};
 
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn create_database<P: AsRef<Path>>(
@@ -121,7 +134,7 @@ pub fn create_database<P: AsRef<Path>>(
     error_support::init_for_tests();
     debug!("create_database(): old_version = {:?}", old_version);
     debug!("create_database(): path = {:?}", path.as_ref());
-    let rkv = Database::open_rkv(path)?;
+    let rkv = Database::open_rkv(path)?.0;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =
         SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);

@@ -2,20 +2,24 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{NimbusError, Result};
+#[cfg(feature = "stateful")]
+use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "stateful")]
+use anyhow::anyhow;
+#[cfg(feature = "stateful")]
+use firefox_versioning::compare::version_compare;
 use jexl_eval::Evaluator;
 use serde::Serialize;
 use serde_json::Value;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use anyhow::anyhow;
-        use crate::{TargetingAttributes, stateful::{behavior::{EventStore, EventQueryType, query_event_store}, gecko_prefs::{GeckoPrefStore, query_gecko_pref_store}}};
-        use std::sync::{Arc, Mutex};
-        use firefox_versioning::compare::version_compare;
-    }
-}
+#[cfg(feature = "stateful")]
+use crate::TargetingAttributes;
+#[cfg(feature = "stateful")]
+use crate::stateful::behavior::{EventQueryType, EventStore, query_event_store};
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{GeckoPrefStore, query_gecko_pref_store};
+use crate::{NimbusError, Result};
 
 #[derive(Clone)]
 pub struct NimbusTargetingHelper {

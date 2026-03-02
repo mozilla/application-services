@@ -4,38 +4,30 @@
 
 // Testing enrollment.rs
 #[cfg(feature = "stateful")]
-use crate::stateful::gecko_prefs::{OriginalGeckoPref, PrefBranch};
-use crate::tests::helpers::{get_bucketed_rollout, get_experiment_with_published_date};
+use std::sync::Arc;
+
+use serde_json::{Value, json};
+use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
+
+use crate::defaults::Defaults;
+use crate::enrollment::*;
+use crate::error::{Result, debug};
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{
+    GeckoPrefHandler, GeckoPrefState, GeckoPrefStore, OriginalGeckoPref, PrefBranch,
+    create_feature_prop_pref_map,
+};
+#[cfg(feature = "stateful")]
+use crate::tests::helpers::{TestGeckoPrefHandler, get_ios_rollout_experiment};
+use crate::tests::helpers::{
+    get_bucketed_rollout, get_experiment_with_published_date, get_multi_feature_experiment,
+    get_single_feature_experiment, get_test_experiments, no_coenrolling_features,
+};
 use crate::{
-    defaults::Defaults,
-    enrollment::*,
-    error::{debug, Result},
-    tests::helpers::{
-        get_multi_feature_experiment, get_single_feature_experiment, get_test_experiments,
-        no_coenrolling_features,
-    },
     AppContext, AvailableRandomizationUnits, Branch, BucketConfig, Experiment, FeatureConfig,
     NimbusTargetingHelper, TargetingAttributes,
 };
-#[cfg(feature = "stateful")]
-use crate::{
-    stateful::gecko_prefs::{
-        create_feature_prop_pref_map, GeckoPrefHandler, GeckoPrefState, GeckoPrefStore,
-    },
-    tests::helpers::TestGeckoPrefHandler,
-};
-#[cfg(feature = "stateful")]
-use std::sync::Arc;
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use crate::tests::helpers::get_ios_rollout_experiment;
-
-    }
-}
-use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
-use uuid::Uuid;
 
 impl From<AppContext> for NimbusTargetingHelper {
     fn from(context: AppContext) -> Self {

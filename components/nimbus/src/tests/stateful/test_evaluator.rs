@@ -2,23 +2,20 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    enrollment::NotEnrolledReason,
-    evaluator::targeting,
-    stateful::{
-        behavior::{
-            EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter,
-            SingleIntervalCounter,
-        },
-        targeting::RecordedContext,
-    },
-    tests::helpers::TestRecordedContext,
-    AppContext, EnrollmentStatus, TargetingAttributes,
-};
-use chrono::Utc;
-use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use chrono::Utc;
+use serde_json::json;
+
+use crate::enrollment::NotEnrolledReason;
+use crate::evaluator::targeting;
+use crate::stateful::behavior::{
+    EventStore, Interval, IntervalConfig, IntervalData, MultiIntervalCounter, SingleIntervalCounter,
+};
+use crate::stateful::targeting::RecordedContext;
+use crate::tests::helpers::TestRecordedContext;
+use crate::{AppContext, EnrollmentStatus, TargetingAttributes};
 
 #[test]
 fn test_event_sum_transform() {
@@ -388,13 +385,7 @@ fn test_targeting_is_already_enrolled() {
         custom_targeting_attributes: None,
         ..Default::default()
     };
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "stateful")] {
-            let mut targeting_attributes = TargetingAttributes::from(ac);
-        } else {
-            let mut targeting_attributes = TargetingAttributes::new(ac, Default::default());
-        }
-    }
+    let mut targeting_attributes = TargetingAttributes::from(ac);
     targeting_attributes.is_already_enrolled = true;
 
     // The targeting should pass!

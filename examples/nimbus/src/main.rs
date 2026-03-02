@@ -100,8 +100,8 @@ fn main() -> Result<()> {
 
     use nimbus::{
         metrics::{
-            EnrollmentStatusExtraDef, FeatureExposureExtraDef, MalformedFeatureConfigExtraDef,
-            MetricsHandler,
+            DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+            FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
         },
         AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
         NimbusTargetingHelper,
@@ -113,6 +113,14 @@ fn main() -> Result<()> {
     pub struct NoopMetricsHandler;
 
     impl MetricsHandler for NoopMetricsHandler {
+        fn record_database_load(&self, _: DatabaseLoadExtraDef) {
+            // do nothing
+        }
+
+        fn record_database_migration(&self, _: DatabaseMigrationExtraDef) {
+            // do nothing
+        }
+
         fn record_enrollment_statuses(&self, _: Vec<EnrollmentStatusExtraDef>) {
             // do nothing
         }
@@ -126,6 +134,10 @@ fn main() -> Result<()> {
         }
 
         fn record_malformed_feature_config(&self, _event: MalformedFeatureConfigExtraDef) {
+            // do nothing
+        }
+
+        fn submit_targeting_context(&self) {
             // do nothing
         }
     }
@@ -200,7 +212,7 @@ fn main() -> Result<()> {
         Default::default(),
         Default::default(),
         db_path,
-        Box::new(NoopMetricsHandler),
+        Arc::new(NoopMetricsHandler),
         None,
         Some(NimbusServerSettings {
             rs_service: Arc::new(remote_settings_services),

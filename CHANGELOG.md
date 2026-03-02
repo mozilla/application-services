@@ -1,4 +1,18 @@
-# v149.0 (In progress)
+# v150.0 (In progress)
+
+## ⚠️ Breaking Changes ⚠️
+
+### Nimbus
+* The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
+* In Kotlin expose `GleanMetrics.Pings.nimbusTargetingContext` as `Nimbus.Pings.nimbusTargetingContext` for downstream tests. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
+
+### Remote-Settings
+ * Removed old remote-settings client code that is no longer used.
+ * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
+
+[Full Changelog](In progress)
+
+# v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️
 
@@ -12,13 +26,10 @@
 * Added `eval_jexl_debug()` method to `NimbusTargetingHelper` interface for CLI testing and debugging. Evaluates JEXL expressions and returns debug results as JSON. Consumers implementing this interface must add the new method.
 ([#7156](https://github.com/mozilla/application-services/pull/7156))
 ([#31607](https://github.com/mozilla-mobile/firefox-ios/pull/31607))
-* Update Cirrus metrics handler interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
+* Update Cirrus `MetricsHandler` interface for recording enrollment status to specify nimbus user id as separate metric and change method name from `record_enrollment_statuses` to `record_enrollment_statuses_v2`. Consumers implementing this interface must add the new method.
 ([#14280](https://github.com/mozilla/experimenter/pull/14280))
+* Move `nimbus_events.enrollment_status` to new `nimbus-targeting-context` ping, and add Nimbus `MetricsHandler` interface method `submit_targeting_context` to submit the ping. Consumers implementing this interface must add the new method. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
 * Enable using `PreviousGeckoPrefState` to revert Gecko pref experiments when applicable ([#7157](https://github.com/mozilla/application-services/pull/7157))
-
-### Remote-Settings
- * Removed old remote-settings client code that is no longer used.
- * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
 
 ### Error support
 * Removed the `tracing-logging` and `tracing-reporting` features, these are now always enabled.
@@ -93,7 +104,7 @@
 ### Remote Settings
 * Removed potential deadlock (https://bugzilla.mozilla.org/show_bug.cgi?id=2012955)
 
-[Full Changelog](In progress)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v148.0...v149.0)
 
 # v148.0 (_2026-01-12_)
 

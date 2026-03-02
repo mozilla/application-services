@@ -9,8 +9,10 @@ use super::connection_initializer::HttpCacheConnectionInitializer;
 use super::store::HttpCacheStore;
 use rusqlite::Connection;
 use sql_support::open_database;
+use std::hash::Hash;
 use std::path::PathBuf;
 use std::time::Duration;
+use viaduct::Request;
 
 const DEFAULT_MAX_SIZE: ByteSize = ByteSize::mib(10);
 const DEFAULT_TTL: Duration = Duration::from_secs(300);
@@ -42,28 +44,20 @@ pub enum HttpCacheBuilderError {
     },
 }
 
-#[derive(Debug)]
-pub struct HttpCacheBuilder {
+pub struct HttpCacheBuilder<T: Hash + Into<Request>> {
     db_path: PathBuf,
     max_size: Option<ByteSize>,
     default_ttl: Option<Duration>,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl HttpCacheBuilder {
+impl<T: Hash + Into<Request>> HttpCacheBuilder<T> {
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
             max_size: None,
             default_ttl: None,
-        }
-    }
-
-    #[cfg(test)]
-    pub fn new_for_tests(db_path: impl Into<PathBuf>) -> Self {
-        Self {
-            db_path: db_path.into(),
-            max_size: None,
-            default_ttl: None,
+            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -115,7 +109,7 @@ impl HttpCacheBuilder {
         Ok(conn)
     }
 
-    pub fn build(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    pub fn build(&self) -> Result<HttpCache<T>, HttpCacheBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
@@ -127,11 +121,12 @@ impl HttpCacheBuilder {
             max_size,
             store,
             default_ttl,
+            _phantom: std::marker::PhantomData,
         })
     }
 
     #[cfg(test)]
-    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache, HttpCacheBuilderError> {
+    pub fn build_for_time_dependent_tests(&self) -> Result<HttpCache<T>, HttpCacheBuilderError> {
         self.validate()?;
 
         let conn = self.open_connection()?;
@@ -143,6 +138,7 @@ impl HttpCacheBuilder {
             max_size,
             store,
             default_ttl,
+            _phantom: std::marker::PhantomData,
         })
     }
 }
@@ -151,9 +147,24 @@ impl HttpCacheBuilder {
 mod tests {
     use super::*;
 
+    // Test-only type that satisfies Hash + Into<Request>
+    #[derive(Hash, Clone)]
+    struct TestItem(String);
+
+    impl From<TestItem> for Request {
+        fn from(_t: TestItem) -> Self {
+            Request::get("https://example.com".parse().unwrap())
+        }
+    }
+
+    // Helper to avoid repeating the generic type annotation on every test.
+    fn make_test_builder(path: &str) -> HttpCacheBuilder<TestItem> {
+        HttpCacheBuilder::new(path)
+    }
+
     #[test]
     fn test_cache_builder_with_defaults() {
-        let builder = HttpCacheBuilder::new("test.db".to_string());
+        let builder = make_test_builder("test.db");
         assert_eq!(builder.db_path, PathBuf::from("test.db"));
         assert_eq!(builder.max_size, None);
         assert_eq!(builder.default_ttl, None);
@@ -162,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_cache_builder_valid_custom() {
-        let builder = HttpCacheBuilder::new("custom.db".to_string())
+        let builder = make_test_builder("custom.db")
             .max_size(ByteSize::b(1024))
             .default_ttl(Duration::from_secs(60));
 
@@ -174,17 +185,15 @@ mod tests {
 
     #[test]
     fn test_validation_empty_db_path() {
-        let builder = HttpCacheBuilder::new("   ".to_string());
-
-        let result = builder.build();
+        let result = make_test_builder("   ").build();
         assert!(matches!(result, Err(HttpCacheBuilderError::EmptyDbPath)));
     }
 
     #[test]
     fn test_validation_max_size_too_small() {
-        let builder = HttpCacheBuilder::new("test.db".to_string()).max_size(ByteSize::b(512));
-
-        let result = builder.build();
+        let result = make_test_builder("test.db")
+            .max_size(ByteSize::b(512))
+            .build();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidMaxSize {
@@ -197,10 +206,9 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_too_large() {
-        let builder = HttpCacheBuilder::new("test.db".to_string())
-            .max_size(ByteSize::b(2 * 1024 * 1024 * 1024));
-
-        let result = builder.build();
+        let result = make_test_builder("test.db")
+            .max_size(ByteSize::b(2 * 1024 * 1024 * 1024))
+            .build();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidMaxSize {
@@ -213,19 +221,18 @@ mod tests {
 
     #[test]
     fn test_validation_max_size_boundaries() {
-        let builder_min = HttpCacheBuilder::new("test.db".to_string()).max_size(MIN_CACHE_SIZE);
+        let builder_min = make_test_builder("test.db").max_size(MIN_CACHE_SIZE);
         assert!(builder_min.build().is_ok());
 
-        let builder_max = HttpCacheBuilder::new("test.db".to_string()).max_size(MAX_CACHE_SIZE);
+        let builder_max = make_test_builder("test.db").max_size(MAX_CACHE_SIZE);
         assert!(builder_max.build().is_ok());
     }
 
     #[test]
     fn test_validation_ttl_too_small() {
-        let builder =
-            HttpCacheBuilder::new("test.db".to_string()).default_ttl(Duration::from_secs(0));
-
-        let result = builder.build();
+        let result = make_test_builder("test.db")
+            .default_ttl(Duration::from_secs(0))
+            .build();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidTtl {
@@ -238,10 +245,9 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_too_large() {
-        let builder = HttpCacheBuilder::new("test.db".to_string())
-            .default_ttl(Duration::from_secs(8 * 24 * 60 * 60));
-
-        let result = builder.build();
+        let result = make_test_builder("test.db")
+            .default_ttl(Duration::from_secs(8 * 24 * 60 * 60))
+            .build();
         assert!(matches!(
             result,
             Err(HttpCacheBuilderError::InvalidTtl {
@@ -254,10 +260,10 @@ mod tests {
 
     #[test]
     fn test_validation_ttl_boundaries() {
-        let builder_min = HttpCacheBuilder::new("test.db".to_string()).default_ttl(MIN_TTL);
+        let builder_min = make_test_builder("test.db").default_ttl(MIN_TTL);
         assert!(builder_min.build().is_ok());
 
-        let builder_max = HttpCacheBuilder::new("test.db".to_string()).default_ttl(MAX_TTL);
+        let builder_max = make_test_builder("test.db").default_ttl(MAX_TTL);
         assert!(builder_max.build().is_ok());
     }
 }

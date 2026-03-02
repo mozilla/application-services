@@ -5,25 +5,22 @@
 // Older tests that also use the DB.
 // XXX: make them less complicated (since the transitions are covered in crate::tests::test_enrollment), just see if we write to the DB properly.
 
-use crate::{
-    enrollment::{
-        DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
-        EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
-    },
-    stateful::{
-        behavior::EventStore,
-        enrollment::{
-            get_enrollments, get_experiment_participation, get_rollout_participation,
-            opt_in_with_branch, opt_out, reset_telemetry_identifiers, set_experiment_participation,
-            set_rollout_participation,
-        },
-        persistence::{Database, Readable, StoreId},
-    },
-    tests::helpers::{get_test_experiments, no_coenrolling_features},
-    AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result,
-};
 use std::sync::{Arc, Mutex};
+
 use uuid::Uuid;
+
+use crate::enrollment::{
+    DisqualifiedReason, EnrolledReason, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentStatus, EnrollmentsEvolver, ExperimentEnrollment, NotEnrolledReason,
+};
+use crate::stateful::behavior::EventStore;
+use crate::stateful::enrollment::{
+    get_enrollments, get_experiment_participation, get_rollout_participation, opt_in_with_branch,
+    opt_out, reset_telemetry_identifiers, set_experiment_participation, set_rollout_participation,
+};
+use crate::stateful::persistence::{Database, Readable, StoreId};
+use crate::tests::helpers::{TestMetrics, get_test_experiments, no_coenrolling_features};
+use crate::{AppContext, AvailableRandomizationUnits, NimbusTargetingHelper, Result};
 
 fn get_experiment_enrollments<'r>(
     db: &Database,
@@ -43,7 +40,7 @@ impl From<EventStore> for NimbusTargetingHelper {
 fn test_enrollments() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let exp1 = get_test_experiments()[0].clone();
     let nimbus_id = Uuid::new_v4();
@@ -126,7 +123,7 @@ fn test_enrollments() -> Result<()> {
 fn test_updates() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
     let aru = AvailableRandomizationUnits::with_nimbus_id(&nimbus_id);
@@ -173,7 +170,7 @@ fn test_updates() -> Result<()> {
 fn test_global_opt_out() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
     let mut th = NimbusTargetingHelper::from(AppContext {
@@ -293,7 +290,7 @@ fn test_global_opt_out() -> Result<()> {
 fn test_telemetry_reset() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
 
     let mock_exp1_slug = "exp-1".to_string();
@@ -391,7 +388,7 @@ fn test_telemetry_reset() -> Result<()> {
 fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
     let mut th = NimbusTargetingHelper::from(AppContext {
@@ -467,7 +464,7 @@ fn test_experiments_opt_out_with_rollouts_opt_in() -> Result<()> {
 fn test_rollouts_opt_out_with_experiments_opt_in() -> Result<()> {
     error_support::init_for_tests();
     let tmp_dir = tempfile::tempdir()?;
-    let db = Database::new(&tmp_dir)?;
+    let db = Database::new(&tmp_dir, TestMetrics::new())?;
     let mut writer = db.write()?;
     let nimbus_id = Uuid::new_v4();
     let mut th = NimbusTargetingHelper::from(AppContext {

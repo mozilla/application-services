@@ -63,6 +63,7 @@ pub struct LogPanel {
 #[serde(rename_all = "camelCase")]
 pub struct LogOptions {
     pub dedup_strategy: String,
+    pub details_mode: String,
     pub enable_infinite_scrolling: bool,
     pub enable_log_details: bool,
     pub prettify_log_message: bool,
@@ -265,7 +266,10 @@ pub struct QueryVariable {
     pub multi: bool,
     pub allow_custom_value: bool,
     pub query: QueryVariableQuery,
+    pub sort: Option<VariableSortOrder>,
     pub hide: VariableHide,
+    pub include_all: bool,
+    pub all_value: String,
 }
 
 #[derive(Serialize)]
@@ -324,6 +328,17 @@ pub enum VariableHide {
 pub enum CustomVariableSelection {
     Single(String),
     Multiple { value: Vec<String> },
+}
+
+pub enum VariableSortOrder {
+    AlphabeticalAscending,
+    AlphabeticalDescending,
+    NumericalAscending,
+    NumericalDescending,
+    AlphabeticalCaseInsensitiveAscending,
+    AlphabeticalCaseInsensitiveDescending,
+    NaturalAscending,
+    NaturalDescending,
 }
 
 impl Default for Dashboard {
@@ -398,6 +413,7 @@ impl Default for LogOptions {
     fn default() -> Self {
         Self {
             dedup_strategy: "none".into(),
+            details_mode: "inline".into(),
             enable_infinite_scrolling: false,
             enable_log_details: true,
             prettify_log_message: false,
@@ -524,6 +540,24 @@ impl Serialize for SortOrder {
     }
 }
 
+impl Serialize for VariableSortOrder {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::AlphabeticalAscending => serializer.serialize_u32(1),
+            Self::AlphabeticalDescending => serializer.serialize_u32(2),
+            Self::NumericalAscending => serializer.serialize_u32(3),
+            Self::NumericalDescending => serializer.serialize_u32(4),
+            Self::AlphabeticalCaseInsensitiveAscending => serializer.serialize_u32(5),
+            Self::AlphabeticalCaseInsensitiveDescending => serializer.serialize_u32(6),
+            Self::NaturalAscending => serializer.serialize_u32(7),
+            Self::NaturalDescending => serializer.serialize_u32(8),
+        }
+    }
+}
+
 impl GridPos {
     /// Create a GridPos from a height only
     ///
@@ -642,39 +676,6 @@ impl DashboardBuilder {
             query: "nightly,beta,release".into(),
             ..CustomVariable::default()
         });
-    }
-
-    // Add a `filter_sql` variable
-    //
-    // This is a WHERE condition to filter queries on, based on the LogPanel's `Filters` variable.
-    //
-    // This converts the "ad-hoc filter" syntax to SQL.  It's pretty gross, but mostly works.
-    pub fn add_filter_sql_variable(&mut self) {
-        self.add_variable(
-            QueryVariable {
-                name: "filter_sql".into(),
-                hide: VariableHide::Variable,
-                datasource: Datasource::bigquery(),
-                // Convert a Grafana Ad-hoc query into a SQL expression.
-                //
-                // This is extremely hacky and in a regular website would open us up to an SQL
-                // injection attack.  However, it seems okay for this specific scenario since:
-                //
-                // * Users can only see a dashboard if they're authorized as a Mozilla employee
-                // * If they're authorized, then they can create dashboards/queries themselves, so
-                //   there's no point in an injection attack.
-                //
-                // The only attack vector we can think of is if an outside user sent a Mozilla
-                // employee a yardstick link with the `Filters` param set to some nasty SQL.  Maybe
-                // somehow they figure out how to create an expression that emails the data to the
-                // attacker.  However, this seems so hard to pull off in practice and that we feel
-                // like the risk is negligible.
-                query: QueryVariableQuery::from_sql(
-                    r#"SELECT IF(STRPOS('${Filters}', '=') <> 0, REPLACE(REPLACE('${Filters}', '",', '" AND '), '\n', '\\n'), 'true')"#,
-                ),
-                ..QueryVariable::default()
-            }
-        );
     }
 
     pub fn add_panel_title(&mut self, title: impl Into<String>) {

@@ -2,20 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::metrics::EnrollmentStatusExtraDef;
-use crate::{
-    enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason},
-    tests::{
-        helpers::TestMetrics,
-        stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches,
-    },
-    AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
-};
-use serde_json::{from_str, to_string, to_value, Map, Value};
 use std::{collections::HashMap, slice};
 
+use serde_json::{Map, Value, from_str, to_string, to_value};
+
+use crate::enrollment::{EnrollmentChangeEventType, ExperimentEnrollment, NotEnrolledReason};
+use crate::metrics::EnrollmentStatusExtraDef;
+use crate::tests::helpers::TestMetrics;
+use crate::tests::stateless::test_cirrus_client::helpers::get_experiment_with_newtab_feature_branches;
+use crate::{
+    AppContext, CirrusClient, EnrollmentRequest, EnrollmentResponse, EnrollmentStatus, Result,
+};
+
 fn create_client() -> Result<CirrusClient> {
-    let metrics_handler = TestMetrics::new();
     CirrusClient::new(
         to_string(&AppContext {
             app_id: "test app id".to_string(),
@@ -26,7 +25,7 @@ fn create_client() -> Result<CirrusClient> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
-        Box::new(metrics_handler),
+        TestMetrics::new(),
         Default::default(),
     )
 }
@@ -188,7 +187,7 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
             custom_targeting_attributes: None,
         })
         .unwrap(),
-        Box::new(metrics_handler.clone()),
+        metrics_handler.clone(),
         Default::default(),
     )?;
     let exp = helpers::get_experiment_with_newtab_feature_branches();
@@ -199,14 +198,13 @@ fn test_sends_metrics_on_enrollment() -> Result<()> {
 
     let metric_records: Vec<EnrollmentStatusExtraDef> = metrics_handler.get_enrollment_statuses();
     assert_eq!(metric_records.len(), 1);
-    assert_eq!(metric_records[0].slug(), exp.slug);
-    assert_eq!(metric_records[0].status(), "Enrolled");
-    assert_eq!(metric_records[0].reason(), "Qualified");
-    assert_eq!(metric_records[0].branch(), "treatment");
-    assert_eq!(metric_records[0].user_id(), "test");
+    assert_eq!(metric_records[0].slug, Some(exp.slug));
+    assert_eq!(metric_records[0].status.as_deref(), Some("Enrolled"));
+    assert_eq!(metric_records[0].reason.as_deref(), Some("Qualified"));
+    assert_eq!(metric_records[0].branch.as_deref(), Some("treatment"));
+    assert_eq!(metric_records[0].user_id.as_deref(), Some("test"));
 
-    let nimbus_user_id: Option<String> = metrics_handler.get_nimbus_user_id();
-    assert_eq!(nimbus_user_id, Some("test".into()));
+    assert_eq!(metrics_handler.get_nimbus_user_id(), Some("test".into()));
 
     Ok(())
 }

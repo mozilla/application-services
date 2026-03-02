@@ -4,31 +4,37 @@
 
 #![allow(unexpected_cfgs)]
 
+pub use self::detail::*;
+use crate::metrics::EnrollmentStatusExtraDef;
+#[cfg(feature = "stateful")]
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+
+use serde::Serialize;
+#[cfg(feature = "stateful")]
+use serde_json::Map;
+use serde_json::{Value, json};
+
+use crate::enrollment::{
+    EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason,
+};
+#[cfg(feature = "stateful")]
+use crate::json::JsonObject;
+#[cfg(feature = "stateful")]
+use crate::stateful::behavior::EventStore;
 #[cfg(feature = "stateful")]
 use crate::stateful::gecko_prefs::OriginalGeckoPref;
+#[cfg(feature = "stateful")]
+use crate::stateful::gecko_prefs::{
+    GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState,
+};
+#[cfg(feature = "stateful")]
+use crate::stateful::targeting::RecordedContext;
 use crate::{
-    enrollment::{EnrolledFeatureConfig, EnrolledReason, ExperimentEnrollment, NotEnrolledReason},
-    metrics::{EnrollmentStatusExtraDef, MetricsHandler},
     AppContext, EnrollmentStatus, Experiment, FeatureConfig, NimbusTargetingHelper,
     TargetingAttributes,
 };
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "stateful")] {
-        use crate::{
-            metrics::{FeatureExposureExtraDef, MalformedFeatureConfigExtraDef},
-            json::JsonObject,
-            stateful::{behavior::EventStore, gecko_prefs::{GeckoPrefHandler, GeckoPrefState, MapOfFeatureIdToPropertyNameToGeckoPrefState}, targeting::RecordedContext}
-        };
-        use std::collections::HashMap;
-        use serde_json::Map;
-    }
-}
-
-use serde::Serialize;
-use serde_json::{json, Value};
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 
 #[ctor::ctor]
 fn init() {
@@ -147,97 +153,23 @@ impl RecordedContext for TestRecordedContext {
     }
 }
 
-#[derive(Default)]
-struct MetricState {
-    enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
-    #[cfg(feature = "stateful")]
-    activations: Vec<FeatureExposureExtraDef>,
-    #[cfg(feature = "stateful")]
-    exposures: Vec<FeatureExposureExtraDef>,
-    #[cfg(feature = "stateful")]
-    malformeds: Vec<MalformedFeatureConfigExtraDef>,
-    #[cfg(not(feature = "stateful"))]
-    nimbus_user_id: Option<String>,
-}
-
 /// A Rust implementation of the MetricsHandler trait
 /// Used to test recording of Glean metrics across the FFI within Rust
 ///
 /// *NOTE: Use this struct's `new` method when instantiating it to lock the Glean store*
-#[derive(Clone, Default)]
 pub struct TestMetrics {
-    state: Arc<Mutex<MetricState>>,
+    state: Mutex<MetricState>,
 }
 
 impl TestMetrics {
-    pub fn new() -> Self {
-        TestMetrics {
+    pub fn new() -> Arc<Self> {
+        Arc::new(TestMetrics {
             state: Default::default(),
-        }
+        })
     }
 
     pub fn get_enrollment_statuses(&self) -> Vec<EnrollmentStatusExtraDef> {
         self.state.lock().unwrap().enrollment_statuses.clone()
-    }
-
-    #[cfg(not(feature = "stateful"))]
-    pub fn get_nimbus_user_id(&self) -> Option<String> {
-        self.state.lock().unwrap().nimbus_user_id.clone()
-    }
-}
-
-#[cfg(feature = "stateful")]
-impl TestMetrics {
-    pub fn clear(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.activations.clear();
-        state.enrollment_statuses.clear();
-        state.malformeds.clear();
-    }
-
-    pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {
-        self.state.lock().unwrap().activations.clone()
-    }
-
-    pub fn get_malformeds(&self) -> Vec<MalformedFeatureConfigExtraDef> {
-        self.state.lock().unwrap().malformeds.clone()
-    }
-}
-
-impl MetricsHandler for TestMetrics {
-    #[cfg(feature = "stateful")]
-    fn record_enrollment_statuses(&self, enrollment_status_extras: Vec<EnrollmentStatusExtraDef>) {
-        let mut state = self.state.lock().unwrap();
-        state.enrollment_statuses.extend(enrollment_status_extras);
-    }
-
-    #[cfg(not(feature = "stateful"))]
-    fn record_enrollment_statuses_v2(
-        &self,
-        enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
-        nimbus_user_id: Option<String>,
-    ) {
-        let mut state = self.state.lock().unwrap();
-        state.enrollment_statuses.extend(enrollment_status_extras);
-        state.nimbus_user_id = nimbus_user_id;
-    }
-
-    #[cfg(feature = "stateful")]
-    fn record_feature_activation(&self, event: FeatureExposureExtraDef) {
-        let mut state = self.state.lock().unwrap();
-        state.activations.push(event);
-    }
-
-    #[cfg(feature = "stateful")]
-    fn record_feature_exposure(&self, event: FeatureExposureExtraDef) {
-        let mut state = self.state.lock().unwrap();
-        state.exposures.push(event);
-    }
-
-    #[cfg(feature = "stateful")]
-    fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
-        let mut state = self.state.lock().unwrap();
-        state.malformeds.push(event);
     }
 }
 
@@ -770,4 +702,120 @@ pub(crate) fn get_experiment_with_published_date(
         "publishedDate": published_date
     }))
     .unwrap()
+}
+
+#[cfg(feature = "stateful")]
+mod detail {
+    use super::TestMetrics;
+    use crate::metrics::{
+        DatabaseLoadExtraDef, DatabaseMigrationExtraDef, EnrollmentStatusExtraDef,
+        FeatureExposureExtraDef, MalformedFeatureConfigExtraDef, MetricsHandler,
+    };
+
+    #[derive(Clone, Default)]
+    pub struct MetricState {
+        pub activations: Vec<FeatureExposureExtraDef>,
+        pub database_load_events: Vec<DatabaseLoadExtraDef>,
+        pub database_migration_events: Vec<DatabaseMigrationExtraDef>,
+        pub enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
+        pub exposures: Vec<FeatureExposureExtraDef>,
+        pub malformeds: Vec<MalformedFeatureConfigExtraDef>,
+        pub submit_targeting_context_calls: u64,
+    }
+
+    impl TestMetrics {
+        pub fn get_database_load_events(&self) -> Vec<DatabaseLoadExtraDef> {
+            self.state.lock().unwrap().database_load_events.clone()
+        }
+
+        pub fn get_database_migration_events(&self) -> Vec<DatabaseMigrationExtraDef> {
+            self.state.lock().unwrap().database_migration_events.clone()
+        }
+
+        pub fn get_activations(&self) -> Vec<FeatureExposureExtraDef> {
+            self.state.lock().unwrap().activations.clone()
+        }
+
+        pub fn get_malformeds(&self) -> Vec<MalformedFeatureConfigExtraDef> {
+            self.state.lock().unwrap().malformeds.clone()
+        }
+
+        pub fn get_submit_targeting_context_calls(&self) -> u64 {
+            self.state.lock().unwrap().submit_targeting_context_calls
+        }
+
+        pub fn clear(&self) {
+            std::mem::take(&mut *self.state.lock().unwrap());
+        }
+    }
+
+    impl MetricsHandler for TestMetrics {
+        fn record_database_load(&self, event: DatabaseLoadExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.database_load_events.push(event);
+        }
+
+        fn record_database_migration(&self, event: DatabaseMigrationExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.database_migration_events.push(event);
+        }
+
+        fn record_enrollment_statuses(
+            &self,
+            enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
+        ) {
+            let mut state = self.state.lock().unwrap();
+            state.enrollment_statuses.extend(enrollment_status_extras);
+        }
+
+        fn record_feature_activation(&self, event: FeatureExposureExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.activations.push(event);
+        }
+
+        fn record_feature_exposure(&self, event: FeatureExposureExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.exposures.push(event);
+        }
+
+        fn record_malformed_feature_config(&self, event: MalformedFeatureConfigExtraDef) {
+            let mut state = self.state.lock().unwrap();
+            state.malformeds.push(event);
+        }
+
+        fn submit_targeting_context(&self) {
+            let mut state = self.state.lock().unwrap();
+            state.submit_targeting_context_calls += 1;
+        }
+    }
+}
+
+#[cfg(not(feature = "stateful"))]
+mod detail {
+    use super::TestMetrics;
+    use crate::metrics::{EnrollmentStatusExtraDef, MetricsHandler};
+
+    #[derive(Clone, Default)]
+    pub struct MetricState {
+        pub enrollment_statuses: Vec<EnrollmentStatusExtraDef>,
+        pub nimbus_user_id: Option<String>,
+    }
+
+    impl TestMetrics {
+        pub fn get_nimbus_user_id(&self) -> Option<String> {
+            self.state.lock().unwrap().nimbus_user_id.clone()
+        }
+    }
+
+    impl MetricsHandler for TestMetrics {
+        fn record_enrollment_statuses_v2(
+            &self,
+            enrollment_status_extras: Vec<EnrollmentStatusExtraDef>,
+            nimbus_user_id: Option<String>,
+        ) {
+            let mut state = self.state.lock().unwrap();
+            state.enrollment_statuses.extend(enrollment_status_extras);
+            state.nimbus_user_id = nimbus_user_id;
+        }
+    }
 }
