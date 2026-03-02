@@ -2482,3 +2482,75 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
         Ok(())
     }
 }
+
+#[cfg(not(feature = "signatures"))]
+#[cfg(test)]
+mod test_reset_storage {
+    use super::*;
+
+    #[test]
+    fn test_reset_storage_deletes_records_and_attachments() {
+        let collection_url = "http://rs.example.com/v1/buckets/main/collections/test-collection";
+
+        let mut api_client = MockApiClient::new();
+        api_client
+            .expect_collection_url()
+            .returning(|| collection_url.into());
+        api_client.expect_is_prod_server().returning(|| Ok(false));
+
+        let records = vec![RemoteSettingsRecord {
+            id: "record-0001".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(Attachment {
+                filename: "test-file.bin".into(),
+                mimetype: "application/octet-stream".into(),
+                location: "attachments/test-file.bin".into(),
+                hash: "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7".into(),
+                size: 4,
+            }),
+            fields: serde_json::Map::new(),
+        }];
+
+        let mut storage = Storage::new(":memory:".into());
+        storage
+            .insert_collection_content(collection_url, &records, 100, CollectionMetadata::default())
+            .expect("Failed to insert records");
+
+        storage
+            .set_attachment(collection_url, "attachments/test-file.bin", b"data")
+            .expect("Failed to insert attachment");
+
+        // Verify data is present before reset
+        assert!(storage.get_records(collection_url).unwrap().is_some());
+        assert!(storage
+            .get_attachment(collection_url, records[0].attachment.clone().unwrap())
+            .unwrap()
+            .is_some());
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
+
+        rs_client.reset_storage().expect("Failed to reset storage");
+
+        // After reset, both records and attachments should be gone
+        let mut inner = rs_client.inner.lock();
+        assert_eq!(
+            inner.storage.get_records(collection_url).unwrap(),
+            None,
+            "Records should be deleted after reset_storage"
+        );
+        assert_eq!(
+            inner
+                .storage
+                .get_attachment(collection_url, records[0].attachment.clone().unwrap(),)
+                .unwrap(),
+            None,
+            "Attachments should be deleted after reset_storage"
+        );
+    }
+}
