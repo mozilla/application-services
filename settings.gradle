@@ -5,7 +5,7 @@ import org.yaml.snakeyaml.Yaml
 
 // We prefer `appServicesRootDir` over `rootDir` to help us on the path to the monorepo.
 // (They are the same in app-services but different in moz-central)
-def appServicesRootDir = gradle.root.hasProperty("mozconfig") ? new File(ext.topsrcdir, "services/app-services/") : rootDir
+def appServicesRootDir = gradle.root.hasProperty("mozconfig") ? new File(ext.topsrcdir, "third_party/application-services/") : rootDir
 
 buildscript {
     dependencies {

@@ -34,7 +34,7 @@ if [[ -n $IS_FOCUS ]]; then
 else
   WORKING_DIR=$THIS_DIR
 fi
-if [[ "$THIS_DIR" == *"services/app-services"* ]]; then
+if [[ "$THIS_DIR" == *"third_party/application-services"* ]]; then
   IS_MONOREPO=true
 else
   IS_MONOREPO=false
@@ -74,7 +74,7 @@ LIB_NAME="lib${CRATE_NAME}.a"
 
 CARGO="$HOME/.cargo/bin/cargo"
 if [[ "$IS_MONOREPO" == "true" ]]; then
-LIBS_ROOT_DIR=$REPO_ROOT/services/app-services
+LIBS_ROOT_DIR=$REPO_ROOT/third_party/application-services
 else
 LIBS_ROOT_DIR=$REPO_ROOT
 fi
