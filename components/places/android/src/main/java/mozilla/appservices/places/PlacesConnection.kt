@@ -4,6 +4,7 @@
 
 package mozilla.appservices.places
 
+import mozilla.appservices.places.uniffi.BookmarkFolder
 import mozilla.appservices.places.uniffi.BookmarkItem
 import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
@@ -242,6 +243,12 @@ open class PlacesReaderConnection internal constructor(conn: UniffiPlacesConnect
 
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
         return this.conn.bookmarksSearch(query, limit)
+    }
+
+    override fun searchFolders(query: String, limit: Int): List<BookmarkFolder> {
+        return readQueryCounters.measure {
+            this.conn.foldersSearch(query, limit)
+        }
     }
 
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
