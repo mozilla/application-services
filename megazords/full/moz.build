@@ -14,7 +14,8 @@ UNIFIED_SOURCES += [
 ]
 
 # This is the name of the .a file created.
-RustLibrary("megazord")
+# is_megazord=True builds with panic=unwind for parity with app-services.
+RustLibrary("megazord", is_megazord=True)
 
 # XXX - this doesn't really work - the tests fail due to missing `nss3`?
 RUST_TESTS = [

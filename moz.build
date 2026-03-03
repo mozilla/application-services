@@ -9,6 +9,12 @@ UNIFIED_SOURCES += [
     "megazord_stub.c",
 ]
 
+if CONFIG["MOZ_APPSERVICES_IN_TREE"]:
+    DIRS += [
+        "megazords/full",
+        "megazords/fenix-dylib",
+    ]
+
 # This name confusion is a reflection of some of the above. It should be
 # fixed, but may be easier/better to fix once in m-c.
 SharedLibrary("megazord-so")
