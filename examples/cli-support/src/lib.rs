@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 
-use remote_settings::{RemoteSettingsConfig, RemoteSettingsServer, RemoteSettingsService};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsServer, RemoteSettingsService};
 
 pub mod fxa_creds;
 pub mod prompt;
@@ -73,11 +73,11 @@ pub fn remote_settings_service(
     rs_server: Option<RemoteSettingsServer>,
 ) -> Arc<RemoteSettingsService> {
     let config = match rs_server {
-        Some(rs_server) => RemoteSettingsConfig {
+        Some(rs_server) => RemoteSettingsConfig2 {
             server: Some(rs_server),
             ..Default::default()
         },
-        None => RemoteSettingsConfig::default(),
+        None => RemoteSettingsConfig2::default(),
     };
 
     Arc::new(RemoteSettingsService::new(
