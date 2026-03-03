@@ -6,10 +6,6 @@
 * The `MetricsHandler` interface now requires two additional methods: `record_database_load()` and `record_database_migration()`
 * In Kotlin expose `GleanMetrics.Pings.nimbusTargetingContext` as `Nimbus.Pings.nimbusTargetingContext` for downstream tests. ([#14542](https://github.com/mozilla/experimenter/issues/14542))
 
-### Remote-Settings
- * Removed old remote-settings client code that is no longer used.
- * Renaming `RemoteSettingsConfig2` to `RemoteSettingsConfig`, which will require client updates.
-
 [Full Changelog](In progress)
 
 # v149.0 (_2026-02-23_)

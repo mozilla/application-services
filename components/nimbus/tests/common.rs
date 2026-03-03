@@ -3,9 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #![cfg(feature = "rkv-safe-mode")]
 
-use remote_settings::{RemoteSettingsConfig, RemoteSettingsContext, RemoteSettingsService};
-use rkv::StoreOptions;
-
 // utilities shared between tests
 
 use nimbus::error::{Result, debug};
@@ -16,6 +13,8 @@ use nimbus::metrics::{
 use nimbus::stateful::client::NimbusServerSettings;
 use nimbus::stateful::persistence::{Database, SingleStore};
 use nimbus::{AppContext, NimbusClient, RemoteSettingsServer};
+use remote_settings::{RemoteSettingsConfig2, RemoteSettingsContext, RemoteSettingsService};
+use rkv::StoreOptions;
 use std::{path::Path, sync::Arc};
 
 pub struct NoopMetricsHandler;
@@ -94,7 +93,7 @@ fn new_test_client_internal(
         ..Default::default()
     };
 
-    let config = RemoteSettingsConfig {
+    let config = RemoteSettingsConfig2 {
         server: Some(RemoteSettingsServer::Custom {
             url: url.as_str().to_string(),
         }),
