@@ -73,6 +73,14 @@ impl FirefoxAccount {
         self.internal.lock().get_session_token()
     }
 
+    /// Non-throwing version of `get_session_token`
+    ///
+    /// This version returns `null` instead of throwing an error when there's no session token
+    /// available.  See `get_session_token` for details on session token usage.
+    pub fn get_session_token_if_present(&self) -> Option<String> {
+        self.internal.lock().get_session_token_if_present()
+    }
+
     /// Update the stored session token for the user's account.
     ///
     /// **💾 This method alters the persisted account state.**

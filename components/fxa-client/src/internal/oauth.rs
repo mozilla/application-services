@@ -130,6 +130,10 @@ impl FirefoxAccount {
         }
     }
 
+    pub fn get_session_token_if_present(&self) -> Option<String> {
+        self.state.session_token().map(str::to_string)
+    }
+
     /// Check whether user is authorized using our refresh token.
     pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
         let resp = match self.state.refresh_token() {

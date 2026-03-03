@@ -650,8 +650,6 @@ interface FirefoxAccount {
 
   /// Get the session token for the user's account, if one is available.
   ///
-  /// **💾 This method alters the persisted account state.**
-  ///
   /// Applications that function as a web browser may need to hold on to a session token
   /// on behalf of Firefox Accounts web content. This method exists so that they can retrieve
   /// it an pass it back to said web content when required.
@@ -665,7 +663,14 @@ interface FirefoxAccount {
   ///      `https:///identity.mozilla.com/tokens/session` scope.
   ///
   [Throws=FxaError]
+
   string get_session_token();
+
+  /// Non-throwing version of `get_session_token`
+  ///
+  /// This version returns `null` instead of throwing an error when there's no session token
+  /// available.  See `get_session_token` for details on session token usage.
+  string? get_session_token_if_present();
   
 
   /// Update the stored session token for the user's account.
