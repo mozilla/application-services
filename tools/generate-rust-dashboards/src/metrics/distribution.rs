@@ -6,7 +6,8 @@ use crate::{
     config::{Application, DistributionMetric, TeamConfig},
     schema::{
         DashboardBuilder, DataLink, Datasource, FieldConfig, FieldConfigCustom,
-        FieldConfigDefaults, GridPos, Panel, Target, TimeSeriesPanel, Transformation,
+        FieldConfigDefaults, GridPos, Panel, ScaleDistribution, Target, TimeSeriesPanel,
+        Transformation,
     },
     sql::Query,
     util::{slug, UrlBuilder},
@@ -40,6 +41,7 @@ fn count_panel(
         value_divisor,
         axis_label,
         link_to,
+        unit,
         ..
     } = *metric;
 
@@ -84,8 +86,13 @@ fn count_panel(
                 links,
                 custom: FieldConfigCustom {
                     axis_label: axis_label.into(),
+                    scale_distribution: ScaleDistribution {
+                        type_: "log".into(),
+                        log: Some(10),
+                    },
                     ..FieldConfigCustom::default()
                 },
+                unit,
             },
         },
         transformations: vec![

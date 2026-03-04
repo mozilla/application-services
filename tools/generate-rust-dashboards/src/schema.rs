@@ -104,6 +104,21 @@ pub struct FieldConfigDefaults {
     // Grafana defines lots more, but this is all we need so far
     pub links: Vec<DataLink>,
     pub custom: FieldConfigCustom,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<Unit>,
+}
+
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Unit {
+    #[serde(rename = "s")]
+    Seconds,
+    #[serde(rename = "ms")]
+    Milliseconds,
+    #[serde(rename = "µs")]
+    Microseconds,
+    #[serde(rename = "ns")]
+    Nanoseconds,
 }
 
 #[derive(Default, Serialize)]
@@ -116,6 +131,16 @@ pub struct FieldConfigCustom {
     pub axis_label: String,
     pub axis_soft_min: u32,
     pub axis_soft_max: u32,
+    pub scale_distribution: ScaleDistribution,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScaleDistribution {
+    #[serde(rename = "type")]
+    pub type_: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub log: Option<u32>,
 }
 
 #[derive(Default, Serialize)]
@@ -422,6 +447,15 @@ impl Default for LogOptions {
             show_time: true,
             sort_order: SortOrder::Descending,
             wrap_log_message: true,
+        }
+    }
+}
+
+impl Default for ScaleDistribution {
+    fn default() -> Self {
+        Self {
+            type_: "linear".into(),
+            log: None,
         }
     }
 }

@@ -75,6 +75,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
                     axis_label: "errors / day".into(),
                     ..FieldConfigCustom::default()
                 },
+                unit: None,
             },
         },
         transformations: vec![

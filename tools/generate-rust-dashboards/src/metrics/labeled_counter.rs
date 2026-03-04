@@ -68,6 +68,7 @@ fn count_panel(
                     axis_label: "count / day".into(),
                     ..FieldConfigCustom::default()
                 },
+                unit: None,
             },
         },
         transformations: vec![Transformation::PartitionByValues {

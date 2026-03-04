@@ -5,6 +5,7 @@
 use std::{collections::BTreeSet, fmt};
 
 pub use crate::component_config::Component;
+pub use crate::schema::Unit;
 use crate::util::slug;
 
 /// Dashboard configuration for a team
@@ -92,8 +93,10 @@ pub struct DistributionMetric {
     pub kind: DistributionMetricKind,
     /// Name to display on the dashboard
     pub display_name: &'static str,
-    /// Label describing what we're measure, including units
+    /// Label describing what we're measure
     pub axis_label: &'static str,
+    /// Unit label
+    pub unit: Option<Unit>,
     /// Name of the ping ("metrics" by default)
     pub ping: &'static str,
     /// Category name (top-level key in metrics.yaml)
@@ -122,8 +125,10 @@ pub struct LabeledDistributionMetric {
     pub kind: DistributionMetricKind,
     /// Name to display on the dashboard
     pub display_name: &'static str,
-    /// Label describing what we're measure, including units
+    /// Label describing what we're measure
     pub axis_label: &'static str,
+    /// Unit label
+    pub unit: Option<Unit>,
     /// Name of the ping ("metrics" by default)
     pub ping: &'static str,
     /// Category name (top-level key in metrics.yaml)
@@ -198,6 +203,20 @@ impl Application {
 
     pub fn display_name(&self, channel: ReleaseChannel) -> String {
         format!("{self} ({channel})")
+    }
+}
+
+impl ReleaseChannel {
+    pub fn all() -> impl Iterator<Item = Self> {
+        [Self::Nightly, Self::Beta, Self::Release].into_iter()
+    }
+
+    pub fn slug(&self) -> &'static str {
+        match self {
+            Self::Nightly => "nightly",
+            Self::Beta => "beta",
+            Self::Release => "release",
+        }
     }
 }
 
