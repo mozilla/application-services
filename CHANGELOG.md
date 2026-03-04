@@ -8,6 +8,14 @@
 
 [Full Changelog](In progress)
 
+### Logins
+- **BREAKING**: Removed `time_of_last_breach` field from `LoginMeta` and `Login`. This can be derived from Remote Settings during runtime instead.
+- **BREAKING**: Removed `record_breach(id, timestamp)` API method.
+- **BREAKING**: Removed `is_potentially_breached(id)` API method.
+- **BREAKING**: Removed `is_breach_alert_dismissed(id)` API method.
+- **BREAKING**: `reset_all_breaches()` now clears the `breachesL` password table instead of resetting `time_of_last_breach` timestamps.
+- Schema migrated to version 5: `timeOfLastBreach` column dropped from `loginsL` and `loginsM`.
+
 # v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️

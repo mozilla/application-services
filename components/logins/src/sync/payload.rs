@@ -111,7 +111,6 @@ impl IncomingLogin {
                     time_password_changed: p.time_password_changed,
                     time_last_used: p.time_last_used,
                     times_used: p.times_used,
-                    time_of_last_breach: p.time_of_last_breach,
                     time_last_breach_alert_dismissed: p.time_last_breach_alert_dismissed,
                 },
                 fields,
@@ -170,10 +169,6 @@ pub struct LoginPayload {
 
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_optional_timestamp")]
-    pub time_of_last_breach: Option<i64>,
-
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_optional_timestamp")]
     pub time_last_breach_alert_dismissed: Option<i64>,
 
     // Additional "unknown" round-tripped fields.
@@ -207,7 +202,6 @@ impl EncryptedLogin {
                 time_password_changed: self.meta.time_password_changed,
                 time_last_used: self.meta.time_last_used,
                 times_used: self.meta.times_used,
-                time_of_last_breach: self.meta.time_of_last_breach,
                 time_last_breach_alert_dismissed: self.meta.time_last_breach_alert_dismissed,
                 unknown_fields,
             },

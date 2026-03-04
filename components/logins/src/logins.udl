@@ -58,7 +58,6 @@ dictionary LoginMeta {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-    i64? time_of_last_breach;
     i64? time_last_breach_alert_dismissed;
 };
 
@@ -85,7 +84,6 @@ dictionary Login {
     i64 time_last_used;
     i64 time_password_changed;
     // breach fields
-    i64? time_of_last_breach;
     i64? time_last_breach_alert_dismissed;
 
     // login fields
@@ -234,10 +232,6 @@ interface LoginStore {
     [Throws=LoginsApiError]
     void touch([ByRef] string id);
 
-    /// Determines whether a login’s password is potentially breached, based on the breach date and the time of the last password change.
-    [Throws=LoginsApiError]
-    boolean is_potentially_breached([ByRef] string id);
-
     /// Checks multiple logins for password reuse in a single batch operation.
     ///
     /// Returns the GUIDs of logins whose passwords match any password in the breach database.
@@ -262,18 +256,9 @@ interface LoginStore {
     [Throws=LoginsApiError]
     void record_potentially_vulnerable_passwords(sequence<string> passwords);
 
-    /// Stores a known breach date for a login.
-    /// In Firefox Desktop this is updated once per session from Remote Settings.
-    [Throws=LoginsApiError]
-    void record_breach([ByRef] string id, i64 timestamp);
-
-    /// Removes all recorded breaches for all logins (i.e. sets time_of_last_breach to null).
+    /// Removes all recorded breaches.
     [Throws=LoginsApiError]
     void reset_all_breaches();
-
-    /// Determines whether a breach alert has been dismissed, based on the breach date and the alert dismissal timestamp.
-    [Throws=LoginsApiError]
-    boolean is_breach_alert_dismissed([ByRef] string id);
 
     /// Stores that the user dismissed the breach alert for a login.
     [Throws=LoginsApiError]

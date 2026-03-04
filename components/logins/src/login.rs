@@ -345,7 +345,6 @@ pub struct LoginMeta {
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
-    pub time_of_last_breach: Option<i64>,
     pub time_last_breach_alert_dismissed: Option<i64>,
 }
 
@@ -460,7 +459,6 @@ pub struct Login {
     pub time_last_used: i64,
     pub times_used: i64,
     // breach alerts
-    pub time_of_last_breach: Option<i64>,
     pub time_last_breach_alert_dismissed: Option<i64>,
 
     // login fields
@@ -483,7 +481,6 @@ impl Login {
             time_password_changed: meta.time_password_changed,
             time_last_used: meta.time_last_used,
             times_used: meta.times_used,
-            time_of_last_breach: meta.time_of_last_breach,
             time_last_breach_alert_dismissed: meta.time_last_breach_alert_dismissed,
 
             origin: fields.origin,
@@ -528,7 +525,6 @@ impl Login {
                 time_password_changed: self.time_password_changed,
                 time_last_used: self.time_last_used,
                 times_used: self.times_used,
-                time_of_last_breach: self.time_of_last_breach,
                 time_last_breach_alert_dismissed: self.time_last_breach_alert_dismissed,
             },
             fields: LoginFields {
@@ -585,7 +581,6 @@ impl EncryptedLogin {
                 time_password_changed: row.get("timePasswordChanged")?,
                 times_used: row.get("timesUsed")?,
 
-                time_of_last_breach: row.get::<_, Option<i64>>("timeOfLastBreach")?,
                 time_last_breach_alert_dismissed: row
                     .get::<_, Option<i64>>("timeLastBreachAlertDismissed")?,
             },
