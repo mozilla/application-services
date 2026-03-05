@@ -5,9 +5,6 @@ authors = ["Sync Team <sync-team@mozilla.com>"]
 edition = "2021"
 license = "MPL-2.0"
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(__appsvc_ci_hack)'] }
-
 [lib]
 crate-type = ["lib"]
 
@@ -19,4 +16,3 @@ nss_build_common = { path = "../nss_build_common" }
 
 [features]
 default = []
-gecko = []
