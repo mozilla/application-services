@@ -172,6 +172,11 @@ impl RemoteSettingsClient {
         self.internal.sync()
     }
 
+    #[handle_error(Error)]
+    pub fn reset_storage(&self) -> ApiResult<()> {
+        self.internal.reset_storage()
+    }
+
     /// Shutdown the client, releasing the SQLite connection used to cache records.
     pub fn shutdown(&self) {
         self.internal.shutdown()
