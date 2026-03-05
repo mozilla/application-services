@@ -841,8 +841,7 @@ impl NimbusClient {
             )?;
         }
 
-        let mut state = self.mutable_state.lock().unwrap();
-        self.end_initialize(db, writer, &mut state)?;
+        writer.commit()?;
         Ok(())
     }
 
