@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DatabaseLoadExtraDef","DatabaseMigrationExtraDef","EnrollmentStatusExtraDef","FeatureExposureExtraDef","MalformedFeatureConfigExtraDef"],"trait":["MetricsHandler"]};

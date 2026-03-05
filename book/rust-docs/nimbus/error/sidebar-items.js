@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BehaviorError","NimbusError"],"macro":["debug","error","info","trace","warn"],"trait":["ErrorCode"],"type":["Result"]};
