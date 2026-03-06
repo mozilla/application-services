@@ -26,5 +26,4 @@ features = ["serializable-keys", "backend-test-helper"]
 
 [features]
 default = []
-gecko = ["nss/gecko"]
 backtrace = ["error-support/backtrace"]

@@ -349,12 +349,8 @@ def print_rust_environment():
 
 
 def calc_rust_env(features):
-    if features == RustFeatures.ALL:
-        # nss-sys's --features handling is broken.  Workaround it by using a
-        # custom --cfg.  This shouldn't be this way!
-        return {**os.environ, "RUSTFLAGS": "--cfg __appsvc_ci_hack"}
-    else:
-        return None
+    # We used to have some features hacks here, but no longer need them.
+    return None
 
 
 def run_rust_tests(packages, features):
