@@ -31,8 +31,10 @@ impl From<TestRequest> for Request {
     }
 }
 
-/// Contract tests against the MARS staging server (ads.allizom.org).
-/// Run with: cargo test -p ads-client --test integration_test -- --ignored
+fn init_backend() {
+    let _ = viaduct_hyper::viaduct_init_backend_hyper();
+}
+
 fn staging_client() -> ads_client::MozAdsClient {
     Arc::new(MozAdsClientBuilder::new())
         .environment(MozAdsEnvironment::Staging)
@@ -40,36 +42,37 @@ fn staging_client() -> ads_client::MozAdsClient {
 }
 
 #[test]
-#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+#[ignore = "contract test: hits MARS staging"]
 fn test_contract_image_staging() {
-    viaduct_dev::init_backend_dev();
+    init_backend();
 
     let client = staging_client();
     let result = client.request_image_ads(
         vec![MozAdsPlacementRequest {
-            placement_id: "mock_pocket_billboard_1".to_string(),
+            placement_id: "mock_billboard_1".to_string(),
             iab_content: None,
         }],
         None,
     );
 
-    assert!(result.is_ok(), "Image ad request failed: {:?}", result.err());
-    let placements = result.unwrap();
     assert!(
-        placements.contains_key("mock_pocket_billboard_1"),
-        "Response missing expected placement key"
+        result.is_ok(),
+        "Image ad request failed: {:?}",
+        result.err()
     );
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_billboard_1"));
 }
 
 #[test]
-#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+#[ignore = "contract test: hits MARS staging"]
 fn test_contract_spoc_staging() {
-    viaduct_dev::init_backend_dev();
+    init_backend();
 
     let client = staging_client();
     let result = client.request_spoc_ads(
         vec![MozAdsPlacementRequestWithCount {
-            placement_id: "newtab_spocs".to_string(),
+            placement_id: "mock_spoc_1".to_string(),
             count: 1,
             iab_content: None,
         }],
@@ -78,21 +81,18 @@ fn test_contract_spoc_staging() {
 
     assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
     let placements = result.unwrap();
-    assert!(
-        placements.contains_key("newtab_spocs"),
-        "Response missing expected placement key"
-    );
+    assert!(placements.contains_key("mock_spoc_1"));
 }
 
 #[test]
-#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+#[ignore = "contract test: hits MARS staging"]
 fn test_contract_tile_staging() {
-    viaduct_dev::init_backend_dev();
+    init_backend();
 
     let client = staging_client();
     let result = client.request_tile_ads(
         vec![MozAdsPlacementRequest {
-            placement_id: "newtab_tile_1".to_string(),
+            placement_id: "mock_tile_1".to_string(),
             iab_content: None,
         }],
         None,
@@ -100,16 +100,13 @@ fn test_contract_tile_staging() {
 
     assert!(result.is_ok(), "Tile ad request failed: {:?}", result.err());
     let placements = result.unwrap();
-    assert!(
-        placements.contains_key("newtab_tile_1"),
-        "Response missing expected placement key"
-    );
+    assert!(placements.contains_key("mock_tile_1"));
 }
 
 #[test]
 #[ignore]
 fn test_cache_works_using_real_timeouts() {
-    viaduct_dev::init_backend_dev();
+    init_backend();
 
     let cache: HttpCache<TestRequest> = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
@@ -122,7 +119,7 @@ fn test_cache_works_using_real_timeouts() {
         "context_id": "12347fff-00b0-aaaa-0978-189231239808",
         "placements": [
             {
-            "placement": "mock_pocket_billboard_1",
+            "placement": "mock_billboard_1",
             "count": 1,
             }
         ],
