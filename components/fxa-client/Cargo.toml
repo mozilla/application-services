@@ -39,4 +39,3 @@ mockito = { version = "0.31", default-features = false}
 
 [features]
 default = []
-gecko = [ "rc_crypto/gecko" ]
