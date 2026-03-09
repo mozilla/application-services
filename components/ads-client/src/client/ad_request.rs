@@ -275,10 +275,7 @@ mod tests {
         assert_eq!(RequestHash::new(&req1), RequestHash::new(&req2));
     }
 
-    /// Contract tests: validate our serialized requests against the MARS OpenAPI
-    /// JSON Schema loaded from `components/ads-client/openapi.json`.
-    ///
-    /// Spec: https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
+    /// Validate serialized requests against the MARS OpenAPI spec.
     mod contract {
         use super::*;
         use crate::test_utils::{mars_schema, validate_against_mars_schema};
