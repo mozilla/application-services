@@ -21,6 +21,7 @@ where
     pub environment: Environment,
     pub cache_config: Option<AdsCacheConfig>,
     pub telemetry: T,
+    pub rotation_days: Option<u8>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
