@@ -14,6 +14,63 @@ use crate::client::{
     },
 };
 
+// ── MARS OpenAPI schema helpers ─────────────────────────────────────────────
+
+/// The MARS OpenAPI spec, embedded at compile time.
+const OPENAPI_JSON: &str = include_str!("../openapi.json");
+
+/// Load a named schema from `components/schemas/<name>` in the MARS OpenAPI
+/// spec, with all `$ref` pointers recursively resolved inline.
+pub fn mars_schema(name: &str) -> serde_json::Value {
+    let root: serde_json::Value =
+        serde_json::from_str(OPENAPI_JSON).expect("openapi.json should parse");
+    let schema = root["components"]["schemas"][name].clone();
+    assert!(
+        !schema.is_null(),
+        "Schema '{name}' not found in openapi.json"
+    );
+    resolve_refs(&schema, &root)
+}
+
+/// Validate a JSON instance against a MARS OpenAPI schema. Panics with a
+/// descriptive message on validation failure.
+pub fn validate_against_mars_schema(schema: &serde_json::Value, instance: &serde_json::Value) {
+    let validator = jsonschema::validator_for(schema).expect("schema should compile");
+    if let Err(e) = validator.validate(instance) {
+        panic!(
+            "JSON Schema validation failed:\n  {e}\nInstance:\n{}",
+            serde_json::to_string_pretty(instance).unwrap()
+        );
+    }
+}
+
+/// Recursively resolve `$ref` JSON pointers within a JSON Schema value,
+/// using `root` (the full OpenAPI document) as the resolution base.
+fn resolve_refs(value: &serde_json::Value, root: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            if let Some(serde_json::Value::String(ref_path)) = map.get("$ref") {
+                // Follow the JSON Pointer (e.g. "#/components/schemas/AdContent")
+                let pointer = ref_path.trim_start_matches('#');
+                let resolved = root
+                    .pointer(pointer)
+                    .unwrap_or_else(|| panic!("$ref '{ref_path}' not found in openapi.json"));
+                resolve_refs(resolved, root)
+            } else {
+                let new_map: serde_json::Map<String, serde_json::Value> = map
+                    .iter()
+                    .map(|(k, v)| (k.clone(), resolve_refs(v, root)))
+                    .collect();
+                serde_json::Value::Object(new_map)
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(|v| resolve_refs(v, root)).collect())
+        }
+        other => other.clone(),
+    }
+}
+
 pub const TEST_CONTEXT_ID: &str = "00000000-0000-4000-8000-000000000001";
 
 pub fn make_happy_placement_requests() -> Vec<AdPlacementRequest> {

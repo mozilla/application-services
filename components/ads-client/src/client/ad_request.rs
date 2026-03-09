@@ -84,6 +84,7 @@ impl AdRequest {
 pub struct AdPlacementRequest {
     pub placement: String,
     pub count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<AdContentCategory>,
 }
 
@@ -274,73 +275,21 @@ mod tests {
         assert_eq!(RequestHash::new(&req1), RequestHash::new(&req2));
     }
 
-    /// Contract tests: validate our request serialization against the MARS OpenAPI spec.
+    /// Contract tests: validate our serialized requests against the MARS OpenAPI
+    /// JSON Schema loaded from `components/ads-client/openapi.json`.
     ///
-    /// The spec lives at:
-    /// https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
+    /// Spec: https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
     mod contract {
         use super::*;
-        use serde_json::{json, to_value};
+        use crate::test_utils::{mars_schema, validate_against_mars_schema};
+        use serde_json::to_value;
 
-        #[test]
-        fn test_request_serializes_to_spec_shape() {
-            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
-            let request = AdRequest::try_new(
-                "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
-                vec![AdPlacementRequest {
-                    placement: "newtab_tile_1".to_string(),
-                    count: 2,
-                    content: Some(AdContentCategory {
-                        taxonomy: IABContentTaxonomy::IAB2_1,
-                        categories: vec!["technology".to_string()],
-                    }),
-                }],
-                url,
-            )
-            .unwrap();
-
-            let json = to_value(&request).unwrap();
-
-            // Spec requires: context_id (UUID string), placements (non-empty array)
-            assert_eq!(json["context_id"], "decafbad-0cd1-0cd2-0cd3-decafbad1000");
-            assert!(json["placements"].is_array());
-            assert_eq!(json["placements"][0]["placement"], "newtab_tile_1");
-            assert_eq!(json["placements"][0]["count"], 2);
-            assert_eq!(json["placements"][0]["content"]["taxonomy"], "IAB-2.1");
-            assert_eq!(
-                json["placements"][0]["content"]["categories"][0],
-                "technology"
-            );
-            // url must NOT appear in the body (it is sent as the HTTP endpoint)
-            assert!(json.get("url").is_none());
+        fn ad_request_schema() -> serde_json::Value {
+            mars_schema("AdRequest")
         }
 
         #[test]
-        fn test_taxonomy_values_match_spec_strings() {
-            // Spec enum: "IAB-1.0" | "IAB-2.0" | "IAB-2.1" | "IAB-2.2" | "IAB-3.0"
-            let cases = [
-                (IABContentTaxonomy::IAB1_0, "IAB-1.0"),
-                (IABContentTaxonomy::IAB2_0, "IAB-2.0"),
-                (IABContentTaxonomy::IAB2_1, "IAB-2.1"),
-                (IABContentTaxonomy::IAB2_2, "IAB-2.2"),
-                (IABContentTaxonomy::IAB3_0, "IAB-3.0"),
-            ];
-            for (variant, expected) in cases {
-                let json = to_value(&variant).unwrap();
-                assert_eq!(
-                    json,
-                    json!(expected),
-                    "IABContentTaxonomy variant should serialize to {expected}"
-                );
-            }
-        }
-
-        // INTENTIONAL OMISSION: The MARS spec supports optional `blocks` (array
-        // of block_key strings) and `consent` (object with gpp string) fields on
-        // the request body. These are not yet modelled because no current embedder
-        // needs them. Adding them is additive and non-breaking when needed.
-        #[test]
-        fn test_optional_spec_fields_not_present_in_serialized_request() {
+        fn test_minimal_request_validates_against_spec() {
             let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
             let request = AdRequest::try_new(
                 "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
@@ -353,10 +302,63 @@ mod tests {
             )
             .unwrap();
 
-            let json = to_value(&request).unwrap();
-            // blocks and consent are not modelled — confirm they are absent
-            assert!(json.get("blocks").is_none(), "blocks field should not be serialized");
-            assert!(json.get("consent").is_none(), "consent field should not be serialized");
+            validate_against_mars_schema(&ad_request_schema(), &to_value(&request).unwrap());
+        }
+
+        #[test]
+        fn test_full_request_with_content_validates_against_spec() {
+            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
+            let request = AdRequest::try_new(
+                "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
+                vec![
+                    AdPlacementRequest {
+                        placement: "newtab_tile_1".to_string(),
+                        count: 2,
+                        content: Some(AdContentCategory {
+                            taxonomy: IABContentTaxonomy::IAB2_1,
+                            categories: vec!["technology".to_string()],
+                        }),
+                    },
+                    AdPlacementRequest {
+                        placement: "pocket_billboard".to_string(),
+                        count: 1,
+                        content: None,
+                    },
+                ],
+                url,
+            )
+            .unwrap();
+
+            validate_against_mars_schema(&ad_request_schema(), &to_value(&request).unwrap());
+        }
+
+        #[test]
+        fn test_all_taxonomy_variants_validate_against_spec() {
+            let schema = ad_request_schema();
+            let url: Url = "https://ads.mozilla.org/v1/ads".parse().unwrap();
+
+            for taxonomy in [
+                IABContentTaxonomy::IAB1_0,
+                IABContentTaxonomy::IAB2_0,
+                IABContentTaxonomy::IAB2_1,
+                IABContentTaxonomy::IAB2_2,
+                IABContentTaxonomy::IAB3_0,
+            ] {
+                let request = AdRequest::try_new(
+                    "decafbad-0cd1-0cd2-0cd3-decafbad1000".to_string(),
+                    vec![AdPlacementRequest {
+                        placement: "test".to_string(),
+                        count: 1,
+                        content: Some(AdContentCategory {
+                            taxonomy,
+                            categories: vec!["cat".to_string()],
+                        }),
+                    }],
+                    url.clone(),
+                )
+                .unwrap();
+                validate_against_mars_schema(&schema, &to_value(&request).unwrap());
+            }
         }
     }
 

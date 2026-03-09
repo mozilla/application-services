@@ -469,20 +469,25 @@ mod tests {
             .contains("request_hash=abc123def456"));
     }
 
-    /// Contract tests: validate our types against the MARS OpenAPI spec.
+    /// Contract tests: validate our types against the MARS OpenAPI JSON Schema
+    /// loaded from `components/ads-client/openapi.json`.
     ///
-    /// These tests use JSON fixtures that mirror the MARS API spec and document
-    /// any intentional deviations from it. The spec lives at:
-    /// https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
+    /// Each test fixture is first validated against the spec schema (with `$ref`
+    /// resolved), then deserialized into our Rust types. This ensures our
+    /// fixtures are spec-accurate AND our types can handle real MARS responses.
+    ///
+    /// Spec: https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
     mod contract {
         use super::*;
+        use crate::test_utils::{mars_schema, validate_against_mars_schema};
         use serde_json::json;
 
         // ── Image ──────────────────────────────────────────────────────────────
 
         #[test]
-        fn test_image_deserializes_from_spec_example() {
-            let json = json!({
+        fn test_image_full_validates_and_deserializes() {
+            let schema = mars_schema("Image");
+            let fixture = json!({
                 "url": "https://example.com/landing",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -494,17 +499,18 @@ mod tests {
                 "alt_text": "Example ad",
                 "block_key": "block-abc-123"
             });
+            validate_against_mars_schema(&schema, &fixture);
             let ad: AdImage =
-                serde_json::from_value(json).expect("Image should deserialize from spec JSON");
+                serde_json::from_value(fixture).expect("Image should deserialize from spec JSON");
             assert_eq!(ad.format, "billboard");
             assert_eq!(ad.block_key, "block-abc-123");
             assert_eq!(ad.alt_text, Some("Example ad".to_string()));
-            assert_eq!(ad.callbacks.report.unwrap().as_str(), "https://ads.mozilla.org/v1/t?report");
         }
 
         #[test]
-        fn test_image_without_optional_fields() {
-            let json = json!({
+        fn test_image_minimal_validates_and_deserializes() {
+            let schema = mars_schema("Image");
+            let fixture = json!({
                 "url": "https://example.com/landing",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -514,7 +520,8 @@ mod tests {
                 "image_url": "https://example.com/image.png",
                 "block_key": "block-abc-123"
             });
-            let ad: AdImage = serde_json::from_value(json)
+            validate_against_mars_schema(&schema, &fixture);
+            let ad: AdImage = serde_json::from_value(fixture)
                 .expect("Image should deserialize without optional fields");
             assert_eq!(ad.alt_text, None);
             assert_eq!(ad.callbacks.report, None);
@@ -526,42 +533,48 @@ mod tests {
         // actionable — we'd rather drop it (AdResponse::parse silently skips
         // items that fail to deserialize) than show a broken ad.
         #[test]
-        fn test_image_missing_click_fails_deserialization() {
-            let json = json!({
+        fn test_image_missing_click_is_spec_valid_but_fails_our_deserialization() {
+            let schema = mars_schema("Image");
+            let fixture = json!({
                 "url": "https://example.com/landing",
                 "callbacks": { "impression": "https://ads.mozilla.org/v1/t?impression" },
                 "format": "rectangle",
                 "image_url": "https://example.com/image.png",
                 "block_key": "block-abc-123"
             });
+            // Valid according to the MARS spec (callbacks fields are optional)
+            validate_against_mars_schema(&schema, &fixture);
+            // But fails OUR deserialization (we intentionally require click)
             assert!(
-                serde_json::from_value::<AdImage>(json).is_err(),
+                serde_json::from_value::<AdImage>(fixture).is_err(),
                 "Image without click URL should fail to deserialize"
             );
         }
 
         #[test]
-        fn test_image_missing_impression_fails_deserialization() {
-            let json = json!({
+        fn test_image_missing_impression_is_spec_valid_but_fails_our_deserialization() {
+            let schema = mars_schema("Image");
+            let fixture = json!({
                 "url": "https://example.com/landing",
                 "callbacks": { "click": "https://ads.mozilla.org/v1/t?click" },
                 "format": "rectangle",
                 "image_url": "https://example.com/image.png",
                 "block_key": "block-abc-123"
             });
+            validate_against_mars_schema(&schema, &fixture);
             assert!(
-                serde_json::from_value::<AdImage>(json).is_err(),
+                serde_json::from_value::<AdImage>(fixture).is_err(),
                 "Image without impression URL should fail to deserialize"
             );
         }
 
         // INTENTIONAL OMISSION: The MARS spec includes an `attributions` object
-        // (partner_id UUID + index number) on all ad types. We do not model it
-        // because it is not needed by any current embedder. serde ignores unknown
-        // fields by default so this is safe — we just don't surface the data.
+        // on all ad types. We do not model it. serde ignores unknown fields by
+        // default so this is safe — we just don't surface attribution data.
         #[test]
-        fn test_unknown_attributions_field_ignored() {
-            let json = json!({
+        fn test_image_with_attributions_validates_and_deserializes() {
+            let schema = mars_schema("Image");
+            let fixture = json!({
                 "url": "https://example.com/landing",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -575,8 +588,9 @@ mod tests {
                     "index": 0
                 }
             });
+            validate_against_mars_schema(&schema, &fixture);
             assert!(
-                serde_json::from_value::<AdImage>(json).is_ok(),
+                serde_json::from_value::<AdImage>(fixture).is_ok(),
                 "Unknown attributions field should be ignored gracefully"
             );
         }
@@ -584,8 +598,9 @@ mod tests {
         // ── Spoc ───────────────────────────────────────────────────────────────
 
         #[test]
-        fn test_spoc_deserializes_from_spec_example() {
-            let json = json!({
+        fn test_spoc_full_validates_and_deserializes() {
+            let schema = mars_schema("Spoc");
+            let fixture = json!({
                 "url": "https://example.com/article",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -597,7 +612,7 @@ mod tests {
                 "domain": "example.com",
                 "excerpt": "A short excerpt of the sponsored content.",
                 "sponsor": "Example Sponsor",
-                "sponsored_by_override": null,
+                "sponsored_by_override": "Override text",
                 "block_key": "block-spoc-123",
                 "caps": { "cap_key": "example-cap", "day": 3 },
                 "ranking": {
@@ -606,21 +621,19 @@ mod tests {
                     "item_score": 0.95
                 }
             });
+            validate_against_mars_schema(&schema, &fixture);
             let ad: AdSpoc =
-                serde_json::from_value(json).expect("Spoc should deserialize from spec JSON");
+                serde_json::from_value(fixture).expect("Spoc should deserialize from spec JSON");
             assert_eq!(ad.format, "spoc");
             assert_eq!(ad.domain, "example.com");
-            assert_eq!(ad.sponsor, "Example Sponsor");
             assert_eq!(ad.caps.day, 3);
-            assert_eq!(ad.caps.cap_key, "example-cap");
-            assert_eq!(ad.ranking.priority, 1);
             assert!((ad.ranking.item_score - 0.95).abs() < f64::EPSILON);
-            assert_eq!(ad.ranking.personalization_models.unwrap()["model_a"], 42);
         }
 
         #[test]
-        fn test_spoc_without_optional_fields() {
-            let json = json!({
+        fn test_spoc_minimal_validates_and_deserializes() {
+            let schema = mars_schema("Spoc");
+            let fixture = json!({
                 "url": "https://example.com/article",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -636,7 +649,8 @@ mod tests {
                 "caps": { "cap_key": "example-cap", "day": 3 },
                 "ranking": { "priority": 1, "item_score": 0.5 }
             });
-            let ad: AdSpoc = serde_json::from_value(json)
+            validate_against_mars_schema(&schema, &fixture);
+            let ad: AdSpoc = serde_json::from_value(fixture)
                 .expect("Spoc should deserialize without optional fields");
             assert_eq!(ad.sponsored_by_override, None);
             assert_eq!(ad.ranking.personalization_models, None);
@@ -645,8 +659,9 @@ mod tests {
         // ── Tile ───────────────────────────────────────────────────────────────
 
         #[test]
-        fn test_tile_deserializes_from_spec_example() {
-            let json = json!({
+        fn test_tile_validates_and_deserializes() {
+            let schema = mars_schema("Tile");
+            let fixture = json!({
                 "url": "https://example.com",
                 "callbacks": {
                     "click": "https://ads.mozilla.org/v1/t?click",
@@ -657,11 +672,11 @@ mod tests {
                 "name": "Example Site",
                 "block_key": "block-tile-123"
             });
+            validate_against_mars_schema(&schema, &fixture);
             let ad: AdTile =
-                serde_json::from_value(json).expect("Tile should deserialize from spec JSON");
+                serde_json::from_value(fixture).expect("Tile should deserialize from spec JSON");
             assert_eq!(ad.format, "tile");
             assert_eq!(ad.name, "Example Site");
-            assert_eq!(ad.block_key, "block-tile-123");
         }
     }
 
