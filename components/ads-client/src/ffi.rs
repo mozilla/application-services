@@ -99,6 +99,7 @@ struct MozAdsClientBuilderInner {
     environment: Option<MozAdsEnvironment>,
     cache_config: Option<MozAdsCacheConfig>,
     telemetry: Option<Arc<dyn MozAdsTelemetry>>,
+    rotation_days: Option<u8>,
 }
 
 impl Default for MozAdsClientBuilder {
@@ -129,6 +130,11 @@ impl MozAdsClientBuilder {
         self
     }
 
+    pub fn rotation_days(self: Arc<Self>, rotation_days: u8) -> Arc<Self> {
+        self.0.lock().rotation_days = Some(rotation_days);
+        self
+    }
+
     pub fn build(&self) -> MozAdsClient {
         let inner = self.0.lock();
         let client_config = AdsClientConfig {
@@ -139,6 +145,7 @@ impl MozAdsClientBuilder {
                 .clone()
                 .map(MozAdsTelemetryWrapper::new)
                 .unwrap_or_else(MozAdsTelemetryWrapper::noop),
+            rotation_days: inner.rotation_days,
         };
         let client = AdsClient::new(client_config);
         MozAdsClient {
