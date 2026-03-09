@@ -469,6 +469,202 @@ mod tests {
             .contains("request_hash=abc123def456"));
     }
 
+    /// Contract tests: validate our types against the MARS OpenAPI spec.
+    ///
+    /// These tests use JSON fixtures that mirror the MARS API spec and document
+    /// any intentional deviations from it. The spec lives at:
+    /// https://ads.mozilla.org/assets/docs/openapi/mars-api.html#operation/getAds
+    mod contract {
+        use super::*;
+        use serde_json::json;
+
+        // ── Image ──────────────────────────────────────────────────────────────
+
+        #[test]
+        fn test_image_deserializes_from_spec_example() {
+            let json = json!({
+                "url": "https://example.com/landing",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression",
+                    "report": "https://ads.mozilla.org/v1/t?report"
+                },
+                "format": "billboard",
+                "image_url": "https://example.com/image.png",
+                "alt_text": "Example ad",
+                "block_key": "block-abc-123"
+            });
+            let ad: AdImage =
+                serde_json::from_value(json).expect("Image should deserialize from spec JSON");
+            assert_eq!(ad.format, "billboard");
+            assert_eq!(ad.block_key, "block-abc-123");
+            assert_eq!(ad.alt_text, Some("Example ad".to_string()));
+            assert_eq!(ad.callbacks.report.unwrap().as_str(), "https://ads.mozilla.org/v1/t?report");
+        }
+
+        #[test]
+        fn test_image_without_optional_fields() {
+            let json = json!({
+                "url": "https://example.com/landing",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression"
+                },
+                "format": "rectangle",
+                "image_url": "https://example.com/image.png",
+                "block_key": "block-abc-123"
+            });
+            let ad: AdImage = serde_json::from_value(json)
+                .expect("Image should deserialize without optional fields");
+            assert_eq!(ad.alt_text, None);
+            assert_eq!(ad.callbacks.report, None);
+        }
+
+        // INTENTIONAL DEVIATION: The MARS spec marks `click` and `impression`
+        // inside AdCallbacks as optional strings. We require them as non-optional
+        // `Url` fields because an ad without tracking callbacks is not
+        // actionable — we'd rather drop it (AdResponse::parse silently skips
+        // items that fail to deserialize) than show a broken ad.
+        #[test]
+        fn test_image_missing_click_fails_deserialization() {
+            let json = json!({
+                "url": "https://example.com/landing",
+                "callbacks": { "impression": "https://ads.mozilla.org/v1/t?impression" },
+                "format": "rectangle",
+                "image_url": "https://example.com/image.png",
+                "block_key": "block-abc-123"
+            });
+            assert!(
+                serde_json::from_value::<AdImage>(json).is_err(),
+                "Image without click URL should fail to deserialize"
+            );
+        }
+
+        #[test]
+        fn test_image_missing_impression_fails_deserialization() {
+            let json = json!({
+                "url": "https://example.com/landing",
+                "callbacks": { "click": "https://ads.mozilla.org/v1/t?click" },
+                "format": "rectangle",
+                "image_url": "https://example.com/image.png",
+                "block_key": "block-abc-123"
+            });
+            assert!(
+                serde_json::from_value::<AdImage>(json).is_err(),
+                "Image without impression URL should fail to deserialize"
+            );
+        }
+
+        // INTENTIONAL OMISSION: The MARS spec includes an `attributions` object
+        // (partner_id UUID + index number) on all ad types. We do not model it
+        // because it is not needed by any current embedder. serde ignores unknown
+        // fields by default so this is safe — we just don't surface the data.
+        #[test]
+        fn test_unknown_attributions_field_ignored() {
+            let json = json!({
+                "url": "https://example.com/landing",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression"
+                },
+                "format": "billboard",
+                "image_url": "https://example.com/image.png",
+                "block_key": "block-abc-123",
+                "attributions": {
+                    "partner_id": "00000000-0000-0000-0000-000000000001",
+                    "index": 0
+                }
+            });
+            assert!(
+                serde_json::from_value::<AdImage>(json).is_ok(),
+                "Unknown attributions field should be ignored gracefully"
+            );
+        }
+
+        // ── Spoc ───────────────────────────────────────────────────────────────
+
+        #[test]
+        fn test_spoc_deserializes_from_spec_example() {
+            let json = json!({
+                "url": "https://example.com/article",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression"
+                },
+                "format": "spoc",
+                "image_url": "https://example.com/image.png",
+                "title": "Sponsored article title",
+                "domain": "example.com",
+                "excerpt": "A short excerpt of the sponsored content.",
+                "sponsor": "Example Sponsor",
+                "sponsored_by_override": null,
+                "block_key": "block-spoc-123",
+                "caps": { "cap_key": "example-cap", "day": 3 },
+                "ranking": {
+                    "priority": 1,
+                    "personalization_models": { "model_a": 42 },
+                    "item_score": 0.95
+                }
+            });
+            let ad: AdSpoc =
+                serde_json::from_value(json).expect("Spoc should deserialize from spec JSON");
+            assert_eq!(ad.format, "spoc");
+            assert_eq!(ad.domain, "example.com");
+            assert_eq!(ad.sponsor, "Example Sponsor");
+            assert_eq!(ad.caps.day, 3);
+            assert_eq!(ad.caps.cap_key, "example-cap");
+            assert_eq!(ad.ranking.priority, 1);
+            assert!((ad.ranking.item_score - 0.95).abs() < f64::EPSILON);
+            assert_eq!(ad.ranking.personalization_models.unwrap()["model_a"], 42);
+        }
+
+        #[test]
+        fn test_spoc_without_optional_fields() {
+            let json = json!({
+                "url": "https://example.com/article",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression"
+                },
+                "format": "spoc",
+                "image_url": "https://example.com/image.png",
+                "title": "Sponsored article title",
+                "domain": "example.com",
+                "excerpt": "A short excerpt.",
+                "sponsor": "Example Sponsor",
+                "block_key": "block-spoc-123",
+                "caps": { "cap_key": "example-cap", "day": 3 },
+                "ranking": { "priority": 1, "item_score": 0.5 }
+            });
+            let ad: AdSpoc = serde_json::from_value(json)
+                .expect("Spoc should deserialize without optional fields");
+            assert_eq!(ad.sponsored_by_override, None);
+            assert_eq!(ad.ranking.personalization_models, None);
+        }
+
+        // ── Tile ───────────────────────────────────────────────────────────────
+
+        #[test]
+        fn test_tile_deserializes_from_spec_example() {
+            let json = json!({
+                "url": "https://example.com",
+                "callbacks": {
+                    "click": "https://ads.mozilla.org/v1/t?click",
+                    "impression": "https://ads.mozilla.org/v1/t?impression"
+                },
+                "format": "tile",
+                "image_url": "https://example.com/logo.png",
+                "name": "Example Site",
+                "block_key": "block-tile-123"
+            });
+            let ad: AdTile =
+                serde_json::from_value(json).expect("Tile should deserialize from spec JSON");
+            assert_eq!(ad.format, "tile");
+            assert_eq!(ad.name, "Example Site");
+            assert_eq!(ad.block_key, "block-tile-123");
+        }
+    }
+
     #[test]
     fn test_pop_request_hash_from_url() {
         let mut url_with_hash =

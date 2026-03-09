@@ -8,8 +8,9 @@ use std::time::Duration;
 
 use ads_client::{
     http_cache::{ByteSize, CacheOutcome, HttpCache, RequestCachePolicy},
-    MozAdsClientBuilder, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
+use std::sync::Arc;
 use url::Url;
 use viaduct::Request;
 
@@ -29,6 +30,151 @@ impl From<TestRequest> for Request {
         t.0
     }
 }
+
+// ── Contract tests against the MARS staging server ────────────────────────────
+//
+// These tests validate that our Rust types can round-trip real responses from
+// the MARS staging environment (ads.allizom.org). They are #[ignore] by default
+// and should be run:
+//   - manually:  cargo test -p ads-client --test integration_test -- --ignored
+//   - in CI:     a dedicated Taskcluster task gated on components/ads-client/** changes
+//
+// If a test fails it means either our types have drifted from the MARS schema
+// or the staging server is returning unexpected data — both are worth investigating.
+
+/// Build a client pointed at the MARS staging server.
+fn staging_client() -> ads_client::MozAdsClient {
+    Arc::new(MozAdsClientBuilder::new())
+        .environment(MozAdsEnvironment::Staging)
+        .build()
+}
+
+#[test]
+#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+fn test_contract_image_staging() {
+    viaduct_dev::init_backend_dev();
+
+    let client = staging_client();
+    let result = client.request_image_ads(
+        vec![MozAdsPlacementRequest {
+            placement_id: "mock_pocket_billboard_1".to_string(),
+            iab_content: None,
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Image ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(
+        placements.contains_key("mock_pocket_billboard_1"),
+        "Response missing expected placement key"
+    );
+
+    let ad = placements
+        .get("mock_pocket_billboard_1")
+        .expect("Placement should exist");
+
+    // Assert all required spec fields are present and non-empty
+    assert!(!ad.block_key.is_empty(), "block_key should be non-empty");
+    assert!(!ad.format.is_empty(), "format should be non-empty");
+    assert!(!ad.image_url.is_empty(), "image_url should be non-empty");
+    assert!(!ad.url.is_empty(), "url should be non-empty");
+    assert!(
+        !ad.callbacks.click.as_str().is_empty(),
+        "callbacks.click should be non-empty"
+    );
+    assert!(
+        !ad.callbacks.impression.as_str().is_empty(),
+        "callbacks.impression should be non-empty"
+    );
+}
+
+#[test]
+#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+fn test_contract_spoc_staging() {
+    viaduct_dev::init_backend_dev();
+
+    let client = staging_client();
+    let result = client.request_spoc_ads(
+        vec![MozAdsPlacementRequestWithCount {
+            placement_id: "newtab_spocs".to_string(),
+            count: 1,
+            iab_content: None,
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(
+        placements.contains_key("newtab_spocs"),
+        "Response missing expected placement key"
+    );
+
+    let spocs = placements.get("newtab_spocs").expect("Placement should exist");
+    assert!(!spocs.is_empty(), "Should have received at least one spoc");
+
+    let ad = &spocs[0];
+    assert!(!ad.block_key.is_empty(), "block_key should be non-empty");
+    assert!(!ad.format.is_empty(), "format should be non-empty");
+    assert!(!ad.image_url.is_empty(), "image_url should be non-empty");
+    assert!(!ad.url.is_empty(), "url should be non-empty");
+    assert!(!ad.title.is_empty(), "title should be non-empty");
+    assert!(!ad.domain.is_empty(), "domain should be non-empty");
+    assert!(!ad.excerpt.is_empty(), "excerpt should be non-empty");
+    assert!(!ad.sponsor.is_empty(), "sponsor should be non-empty");
+    assert!(!ad.caps.cap_key.is_empty(), "caps.cap_key should be non-empty");
+    assert!(
+        !ad.callbacks.click.as_str().is_empty(),
+        "callbacks.click should be non-empty"
+    );
+    assert!(
+        !ad.callbacks.impression.as_str().is_empty(),
+        "callbacks.impression should be non-empty"
+    );
+}
+
+#[test]
+#[ignore = "contract test: run manually or in dedicated CI against ads.allizom.org"]
+fn test_contract_tile_staging() {
+    viaduct_dev::init_backend_dev();
+
+    let client = staging_client();
+    let result = client.request_tile_ads(
+        vec![MozAdsPlacementRequest {
+            placement_id: "newtab_tile_1".to_string(),
+            iab_content: None,
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Tile ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(
+        placements.contains_key("newtab_tile_1"),
+        "Response missing expected placement key"
+    );
+
+    let ad = placements
+        .get("newtab_tile_1")
+        .expect("Placement should exist");
+
+    assert!(!ad.block_key.is_empty(), "block_key should be non-empty");
+    assert!(!ad.format.is_empty(), "format should be non-empty");
+    assert!(!ad.image_url.is_empty(), "image_url should be non-empty");
+    assert!(!ad.url.is_empty(), "url should be non-empty");
+    assert!(!ad.name.is_empty(), "name should be non-empty");
+    assert!(
+        !ad.callbacks.click.as_str().is_empty(),
+        "callbacks.click should be non-empty"
+    );
+    assert!(
+        !ad.callbacks.impression.as_str().is_empty(),
+        "callbacks.impression should be non-empty"
+    );
+}
+
+// ── Prod tests (existing) ──────────────────────────────────────────────────────
 
 #[test]
 #[ignore]
