@@ -2483,7 +2483,6 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
     }
 }
 
-#[cfg(not(feature = "signatures"))]
 #[cfg(test)]
 mod test_reset_storage {
     use super::*;
@@ -2551,6 +2550,68 @@ mod test_reset_storage {
                 .unwrap(),
             None,
             "Attachments should be deleted after reset_storage"
+        );
+    }
+
+    #[test]
+    fn test_reset_storage_reverts_to_packaged_data() {
+        let collection_url = "http://rs.example.com/v1/buckets/main/collections/regions";
+
+        let mut api_client = MockApiClient::new();
+        api_client
+            .expect_collection_url()
+            .returning(|| collection_url.into());
+        // Must be prod for reset_storage to restore packaged data
+        api_client.expect_is_prod_server().returning(|| Ok(true));
+
+        let synced_records = vec![RemoteSettingsRecord {
+            id: "custom-synced-record".into(),
+            last_modified: 99999,
+            deleted: false,
+            attachment: None,
+            fields: serde_json::json!({"key": "synced-value"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        let mut storage = Storage::new(":memory:".into());
+        storage
+            .insert_collection_content(
+                collection_url,
+                &synced_records,
+                99999,
+                CollectionMetadata::default(),
+            )
+            .expect("Failed to insert synced records");
+
+        // Verify synced data is present
+        let records_before = storage.get_records(collection_url).unwrap().unwrap();
+        assert_eq!(records_before[0].id, "custom-synced-record");
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "regions".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
+
+        rs_client.reset_storage().expect("Failed to reset storage");
+
+        let mut inner = rs_client.inner.lock();
+        let records = inner.storage.get_records(collection_url).unwrap();
+        assert!(
+            records.is_some(),
+            "Packaged data should be restored after reset_storage on prod"
+        );
+        let records = records.unwrap();
+        assert!(
+            !records.is_empty(),
+            "Packaged regions data should not be empty"
+        );
+        assert!(
+            !records.iter().any(|r| r.id == "custom-synced-record"),
+            "Synced data should be replaced by packaged data after reset"
         );
     }
 }
