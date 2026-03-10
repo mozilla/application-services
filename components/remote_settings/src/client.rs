@@ -402,7 +402,7 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         Ok(())
     }
 
-    fn reset_storage(&self) -> Result<()> {
+    pub fn reset_storage(&self) -> Result<()> {
         trace!("{0}: reset local storage.", self.collection_name);
         let mut inner = self.lock_inner()?;
         let collection_url = inner.api_client.collection_url();
@@ -2480,5 +2480,138 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
         );
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_reset_storage {
+    use super::*;
+
+    #[test]
+    fn test_reset_storage_deletes_records_and_attachments() {
+        let collection_url = "http://rs.example.com/v1/buckets/main/collections/test-collection";
+
+        let mut api_client = MockApiClient::new();
+        api_client
+            .expect_collection_url()
+            .returning(|| collection_url.into());
+        api_client.expect_is_prod_server().returning(|| Ok(false));
+
+        let records = vec![RemoteSettingsRecord {
+            id: "record-0001".into(),
+            last_modified: 100,
+            deleted: false,
+            attachment: Some(Attachment {
+                filename: "test-file.bin".into(),
+                mimetype: "application/octet-stream".into(),
+                location: "attachments/test-file.bin".into(),
+                hash: "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7".into(),
+                size: 4,
+            }),
+            fields: serde_json::Map::new(),
+        }];
+
+        let mut storage = Storage::new(":memory:".into());
+        storage
+            .insert_collection_content(collection_url, &records, 100, CollectionMetadata::default())
+            .expect("Failed to insert records");
+
+        storage
+            .set_attachment(collection_url, "attachments/test-file.bin", b"data")
+            .expect("Failed to insert attachment");
+
+        // Verify data is present before reset
+        assert!(storage.get_records(collection_url).unwrap().is_some());
+        assert!(storage
+            .get_attachment(collection_url, records[0].attachment.clone().unwrap())
+            .unwrap()
+            .is_some());
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "test-collection".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
+
+        rs_client.reset_storage().expect("Failed to reset storage");
+
+        // After reset, both records and attachments should be gone
+        let mut inner = rs_client.inner.lock();
+        assert_eq!(
+            inner.storage.get_records(collection_url).unwrap(),
+            None,
+            "Records should be deleted after reset_storage"
+        );
+        assert_eq!(
+            inner
+                .storage
+                .get_attachment(collection_url, records[0].attachment.clone().unwrap(),)
+                .unwrap(),
+            None,
+            "Attachments should be deleted after reset_storage"
+        );
+    }
+
+    #[test]
+    fn test_reset_storage_reverts_to_packaged_data() {
+        let collection_url = "http://rs.example.com/v1/buckets/main/collections/regions";
+
+        let mut api_client = MockApiClient::new();
+        api_client
+            .expect_collection_url()
+            .returning(|| collection_url.into());
+        // Must be prod for reset_storage to restore packaged data
+        api_client.expect_is_prod_server().returning(|| Ok(true));
+
+        let synced_records = vec![RemoteSettingsRecord {
+            id: "custom-synced-record".into(),
+            last_modified: 99999,
+            deleted: false,
+            attachment: None,
+            fields: serde_json::json!({"key": "synced-value"})
+                .as_object()
+                .unwrap()
+                .clone(),
+        }];
+
+        let mut storage = Storage::new(":memory:".into());
+        storage
+            .insert_collection_content(
+                collection_url,
+                &synced_records,
+                99999,
+                CollectionMetadata::default(),
+            )
+            .expect("Failed to insert synced records");
+
+        // Verify synced data is present
+        let records_before = storage.get_records(collection_url).unwrap().unwrap();
+        assert_eq!(records_before[0].id, "custom-synced-record");
+
+        let rs_client = RemoteSettingsClient::new_from_parts(
+            "regions".into(),
+            storage,
+            JexlFilter::new(None),
+            api_client,
+        );
+
+        rs_client.reset_storage().expect("Failed to reset storage");
+
+        let mut inner = rs_client.inner.lock();
+        let records = inner.storage.get_records(collection_url).unwrap();
+        assert!(
+            records.is_some(),
+            "Packaged data should be restored after reset_storage on prod"
+        );
+        let records = records.unwrap();
+        assert!(
+            !records.is_empty(),
+            "Packaged regions data should not be empty"
+        );
+        assert!(
+            !records.iter().any(|r| r.id == "custom-synced-record"),
+            "Synced data should be replaced by packaged data after reset"
+        );
     }
 }
