@@ -50,7 +50,7 @@ fn count_panel(config: &TeamConfig, application: Application, channel: ReleaseCh
         order_by: Some("error_type, time".into()),
         ..Query::default()
     };
-    query.add_count_per_day_column("COUNT(*)", "errors");
+    query.add_count_per_day_column("COUNT(*)", "error_count");
 
     TimeSeriesPanel {
         title: application.display_name(channel),
@@ -261,13 +261,14 @@ fn error_list_count_panel() -> Panel {
         order_by: Some("1 ASC, 2 ASC".into()),
         ..Query::default()
     };
-    query.add_count_per_day_column("COUNT(*)", "errors");
+    query.add_count_per_day_column("COUNT(*)", "error_count");
+    query.add_count_per_day_column("COUNT(DISTINCT client_id)", "client_count");
 
     TimeSeriesPanel {
         title: "".into(),
         grid_pos: GridPos::height(10),
         datasource: Datasource::bigquery(),
-        interval: "30m".into(),
+        interval: "2h".into(),
         targets: vec![Target::timeseries(query.sql())],
         field_config: FieldConfig {
             defaults: FieldConfigDefaults {
@@ -334,6 +335,7 @@ fn error_subquery() -> Query {
             "metrics.string.rust_component_errors_error_type as error_type".into(),
             "metrics.string.rust_component_errors_details as details".into(),
             "metrics.string_list.rust_component_errors_breadcrumbs as breadcrumbs".into(),
+            "client_info.client_id as client_id".into(),
             "normalized_channel".into(),
         ],
         ..Query::default()
