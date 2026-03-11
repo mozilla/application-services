@@ -1,0 +1,17 @@
+[package]
+name = "mozilla-central-workspace-hack"
+version = "0.1.0"
+license = "MPL-2.0"
+description = "Workspace hack for mozilla-central"
+edition = "2024"
+
+# This is a copy of the workspace hack in mozilla-central - https://searchfox.org/firefox-main/source/build/workspace-hack
+# It exists only so that the crates in this repo which need the "workspace hack" once in mozilla-central
+# automagically get it.
+# It serves no purpose in application-services other than to allow our
+# crates to be build in mozilla-central without modification.
+
+[features]
+megazord = []
+embedded-uniffi-bindgen = []
+nimbus-fml = []
