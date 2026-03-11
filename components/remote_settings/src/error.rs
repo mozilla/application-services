@@ -45,8 +45,8 @@ pub enum Error {
     #[error("Server asked the client to back off ({0} seconds remaining)")]
     BackoffError(u64),
     /// The server returned an error code or the response was unexpected.
-    #[error("Error in network response: {0}")]
-    ResponseError(String),
+    #[error("Error in network response: {message} ({url})")]
+    ResponseError { url: String, message: String },
     #[error("This server doesn't support attachments")]
     AttachmentsUnsupportedError,
     #[error("Error configuring client: {0}")]
@@ -65,6 +65,15 @@ pub enum Error {
     #[cfg(feature = "signatures")]
     #[error("Signature could not be verified: {0}")]
     SignatureError(#[from] rc_crypto::Error),
+}
+
+impl Error {
+    pub fn response_error(url: &url::Url, message: impl Into<String>) -> Self {
+        Self::ResponseError {
+            url: url.to_string(),
+            message: message.into(),
+        }
+    }
 }
 
 // Define how our internal errors are handled and converted to external errors
