@@ -635,10 +635,10 @@ impl ViaductApiClient {
         if resp.is_success() {
             Ok(resp)
         } else {
-            Err(Error::ResponseError(format!(
-                "status code: {}",
-                resp.status
-            )))
+            Err(Error::response_error(
+                &resp.url,
+                format!("status code: {}", resp.status),
+            ))
         }
     }
 }
@@ -670,10 +670,10 @@ impl ApiClient for ViaductApiClient {
         if resp.is_success() {
             Ok(resp.json::<ChangesetResponse>()?)
         } else {
-            Err(Error::ResponseError(format!(
-                "status code: {}",
-                resp.status
-            )))
+            Err(Error::response_error(
+                &resp.url,
+                format!("status code: {}", resp.status),
+            ))
         }
     }
 
@@ -777,15 +777,15 @@ impl Client {
         let etag = resp
             .headers
             .get(HEADER_ETAG)
-            .ok_or_else(|| Error::ResponseError("no etag header".into()))?;
+            .ok_or_else(|| Error::response_error(&resp.url, "no etag header"))?;
         // Per https://docs.kinto-storage.org/en/stable/api/1.x/timestamps.html,
         // the `ETag` header value is a quoted integer. Trim the quotes before
         // parsing.
         let last_modified = etag.trim_matches('"').parse().map_err(|_| {
-            Error::ResponseError(format!(
-                "expected quoted integer in etag header; got `{}`",
-                etag
-            ))
+            Error::response_error(
+                &resp.url,
+                format!("expected quoted integer in etag header; got `{}`", etag),
+            )
         })?;
         Ok(RemoteSettingsResponse {
             records,
@@ -850,10 +850,10 @@ impl Client {
         if resp.is_success() {
             Ok(resp)
         } else {
-            Err(Error::ResponseError(format!(
-                "status code: {}",
-                resp.status
-            )))
+            Err(Error::response_error(
+                &resp.url,
+                format!("status code: {}", resp.status),
+            ))
         }
     }
 }
@@ -1749,7 +1749,7 @@ mod test {
 
         let err = client.get_records().unwrap_err();
         assert!(
-            matches!(err, Error::ResponseError(_)),
+            matches!(err, Error::ResponseError { .. }),
             "Want response error for missing `ETag`; got {}",
             err
         );
@@ -1781,7 +1781,7 @@ mod test {
 
         let err = client.get_records().unwrap_err();
         assert!(
-            matches!(err, Error::ResponseError(_)),
+            matches!(err, Error::ResponseError { .. }),
             "Want response error for invalid `ETag`; got {}",
             err
         );

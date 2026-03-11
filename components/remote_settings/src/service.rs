@@ -190,10 +190,10 @@ impl RemoteSettingsServiceInner {
         if resp.is_success() {
             Ok(resp.json()?)
         } else {
-            Err(Error::ResponseError(format!(
-                "status code: {}",
-                resp.status
-            )))
+            Err(Error::response_error(
+                &resp.url,
+                format!("status code: {}", resp.status),
+            ))
         }
     }
 }
