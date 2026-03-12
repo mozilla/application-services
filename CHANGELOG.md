@@ -2,6 +2,9 @@
 
 [Full Changelog](In progress)
 
+### Ads Client
+- Added `reason` parameter to `report_ad` to comply with the MARS `/v1/t` tracking endpoint spec. Accepted values: `inappropriate`, `not_interested`, `seen_too_many_times`.
+
 # v149.0 (_2026-02-23_)
 
 ## ⚠️ Breaking Changes ⚠️

@@ -8,6 +8,7 @@ use crate::{
         ad_request::AdRequest,
         ad_response::{AdResponse, AdResponseValue},
         config::Environment,
+        ReportReason,
     },
     error::{
         check_http_status_for_error, CallbackRequestError, FetchAdsError, RecordClickError,
@@ -99,7 +100,10 @@ where
         Ok(())
     }
 
-    pub fn report_ad(&self, callback: Url) -> Result<(), ReportAdError> {
+    pub fn report_ad(&self, mut callback: Url, reason: ReportReason) -> Result<(), ReportAdError> {
+        callback
+            .query_pairs_mut()
+            .append_pair("reason", reason.as_str());
         Ok(self.make_callback_request(callback)?)
     }
 
@@ -151,6 +155,10 @@ mod tests {
     fn test_report_ad_with_valid_url_should_succeed() {
         viaduct_dev::init_backend_dev();
         let _m = mock("GET", "/report_ad_callback_url")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "reason".into(),
+                "not_interested".into(),
+            ))
             .with_status(200)
             .create();
 
@@ -160,7 +168,7 @@ mod tests {
             &mockito::server_url()
         ))
         .unwrap();
-        let result = client.report_ad(url);
+        let result = client.report_ad(url, ReportReason::NotInterested);
         assert!(result.is_ok());
     }
 
