@@ -10,7 +10,8 @@ mod bindings;
 pub use bindings::*;
 
 // So we link against the SQLite lib imported by parent crates
-// such as places and logins.
+// such as places and logins. For finer control over how that is
+// chosen, you can enable features on that crate (eg, `bundled and `in_gecko`
+// in particular are likely to be useful.)
 #[allow(unused_extern_crates)]
-#[cfg(any(not(feature = "gecko"), __appsvc_ci_hack))]
 extern crate libsqlite3_sys;

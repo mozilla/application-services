@@ -4195,6 +4195,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sql-support",
+ "tempfile",
  "thiserror 2.0.3",
  "uniffi",
  "url",
