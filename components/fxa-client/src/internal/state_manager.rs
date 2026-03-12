@@ -177,6 +177,12 @@ impl StateManager {
         self.persisted_state.refresh_token = Some(refresh_token);
         // We prioritize the existing session token if we already have one, because we might have
         // acquired a session token before the oauth flow
+        if self.session_token().is_none() && new_session_token.is_none() {
+            error_support::report_error!(
+                "fxaclient-complete-oauth-without-session-token",
+                "complete_oauth_flow called without a session token"
+            );
+        }
         if let (None, Some(new_session_token)) = (self.session_token(), new_session_token) {
             self.set_session_token(new_session_token)
         }
