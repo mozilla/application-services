@@ -111,11 +111,17 @@ impl MozAdsClient {
     }
 
     #[handle_error(ComponentError)]
-    pub fn report_ad(&self, report_url: String) -> AdsClientApiResult<()> {
+    pub fn report_ad(
+        &self,
+        report_url: String,
+        reason: MozAdsReportReason,
+    ) -> AdsClientApiResult<()> {
         let url = AdsClientUrl::parse(&report_url)
             .map_err(|e| ComponentError::ReportAd(CallbackRequestError::InvalidUrl(e).into()))?;
         let inner = self.inner.lock();
-        inner.report_ad(url).map_err(ComponentError::ReportAd)
+        inner
+            .report_ad(url, reason.into())
+            .map_err(ComponentError::ReportAd)
     }
 
     pub fn clear_cache(&self) -> AdsClientApiResult<()> {
