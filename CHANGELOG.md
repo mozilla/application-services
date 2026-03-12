@@ -8,6 +8,9 @@
 
 [Full Changelog](In progress)
 
+### Ads Client
+- Added `rotation_days` parameter to `MozAdsClientBuilder` to allow embedders to configure the context ID rotation period. ([#7262](https://github.com/mozilla/application-services/pull/7262))
+
 ### Logins
 - **BREAKING**: Removed `time_of_last_breach` field from `LoginMeta` and `Login`. This can be derived from Remote Settings during runtime instead.
 - **BREAKING**: Removed `record_breach(id, timestamp)` API method.
