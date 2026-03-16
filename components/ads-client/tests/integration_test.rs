@@ -8,12 +8,13 @@ use std::time::Duration;
 
 use ads_client::{
     http_cache::{ByteSize, CacheOutcome, HttpCache, RequestCachePolicy},
-    MozAdsClientBuilder, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest,
+    MozAdsPlacementRequestWithCount,
 };
+use std::sync::Arc;
 use url::Url;
 use viaduct::Request;
 
-/// Test-only hashable wrapper around Request.
 #[derive(Clone)]
 struct TestRequest(Request);
 
@@ -30,102 +31,82 @@ impl From<TestRequest> for Request {
     }
 }
 
-#[test]
-#[ignore]
-fn test_mock_pocket_billboard_1_placement() {
-    viaduct_dev::init_backend_dev();
+fn init_backend() {
+    let _ = viaduct_hyper::viaduct_init_backend_hyper();
+}
 
-    let client = MozAdsClientBuilder::new().build();
-
-    let placement_request = MozAdsPlacementRequest {
-        placement_id: "mock_pocket_billboard_1".to_string(),
-        iab_content: None,
-    };
-
-    let result = client.request_image_ads(vec![placement_request], None);
-
-    assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
-
-    let placements = result.unwrap();
-
-    assert!(
-        placements.contains_key("mock_pocket_billboard_1"),
-        "Response should contain placement_id 'mock_pocket_billboard_1'"
-    );
-
-    placements
-        .get("mock_pocket_billboard_1")
-        .expect("Placement should exist");
+fn staging_client() -> ads_client::MozAdsClient {
+    Arc::new(MozAdsClientBuilder::new())
+        .environment(MozAdsEnvironment::Staging)
+        .build()
 }
 
 #[test]
-#[ignore]
-fn test_newtab_spocs_placement() {
-    viaduct_dev::init_backend_dev();
+#[ignore = "contract test: hits MARS staging"]
+fn test_contract_image_staging() {
+    init_backend();
 
-    let client = MozAdsClientBuilder::new().build();
-
-    let count = 3;
-    let placement_request = MozAdsPlacementRequestWithCount {
-        placement_id: "newtab_spocs".to_string(),
-        count,
-        iab_content: None,
-    };
-
-    let result = client.request_spoc_ads(vec![placement_request], None);
-
-    assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
-
-    let placements = result.unwrap();
+    let client = staging_client();
+    let result = client.request_image_ads(
+        vec![MozAdsPlacementRequest {
+            placement_id: "mock_billboard_1".to_string(),
+            iab_content: None,
+        }],
+        None,
+    );
 
     assert!(
-        placements.contains_key("newtab_spocs"),
-        "Response should contain placement_id 'newtab_spocs'"
+        result.is_ok(),
+        "Image ad request failed: {:?}",
+        result.err()
     );
-
-    let spocs = placements
-        .get("newtab_spocs")
-        .expect("Placement should exist");
-
-    assert_eq!(
-        spocs.len(),
-        count as usize,
-        "Number of spocs should equal count parameter"
-    );
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_billboard_1"));
 }
 
 #[test]
-#[ignore]
-fn test_newtab_tile_1_placement() {
-    viaduct_dev::init_backend_dev();
+#[ignore = "contract test: hits MARS staging"]
+fn test_contract_spoc_staging() {
+    init_backend();
 
-    let client = MozAdsClientBuilder::new().build();
-
-    let placement_request = MozAdsPlacementRequest {
-        placement_id: "newtab_tile_1".to_string(),
-        iab_content: None,
-    };
-
-    let result = client.request_tile_ads(vec![placement_request], None);
-
-    assert!(result.is_ok(), "Failed to request ads: {:?}", result.err());
-
-    let placements = result.unwrap();
-
-    assert!(
-        placements.contains_key("newtab_tile_1"),
-        "Response should contain placement_id 'newtab_tile_1'"
+    let client = staging_client();
+    let result = client.request_spoc_ads(
+        vec![MozAdsPlacementRequestWithCount {
+            placement_id: "mock_spoc_1".to_string(),
+            count: 1,
+            iab_content: None,
+        }],
+        None,
     );
 
-    placements
-        .get("newtab_tile_1")
-        .expect("Placement should exist");
+    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_spoc_1"));
+}
+
+#[test]
+#[ignore = "contract test: hits MARS staging"]
+fn test_contract_tile_staging() {
+    init_backend();
+
+    let client = staging_client();
+    let result = client.request_tile_ads(
+        vec![MozAdsPlacementRequest {
+            placement_id: "mock_tile_1".to_string(),
+            iab_content: None,
+        }],
+        None,
+    );
+
+    assert!(result.is_ok(), "Tile ad request failed: {:?}", result.err());
+    let placements = result.unwrap();
+    assert!(placements.contains_key("mock_tile_1"));
 }
 
 #[test]
 #[ignore]
 fn test_cache_works_using_real_timeouts() {
-    viaduct_dev::init_backend_dev();
+    init_backend();
 
     let cache: HttpCache<TestRequest> = HttpCache::builder("integration_tests.db")
         .default_ttl(Duration::from_secs(60))
@@ -138,7 +119,7 @@ fn test_cache_works_using_real_timeouts() {
         "context_id": "12347fff-00b0-aaaa-0978-189231239808",
         "placements": [
             {
-            "placement": "mock_pocket_billboard_1",
+            "placement": "mock_billboard_1",
             "count": 1,
             }
         ],
