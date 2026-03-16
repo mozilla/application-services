@@ -6,7 +6,8 @@ edition = "2021"
 license = "MPL-2.0"
 
 [lib]
-crate-type = ["cdylib"]
+# "staticlib" needed for the m-c build environment, "cdylib" needed while in the application-services repo.
+crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 fxa-client = { path = "../../components/fxa-client" }
