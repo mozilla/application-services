@@ -19,8 +19,10 @@ import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -511,8 +513,8 @@ open class Nimbus(
     }
 
     @AnyThread
-    override fun recordEventOrThrow(count: Long, eventId: String): Job =
-        dbScope.launch {
+    override fun recordEventOrThrow(count: Long, eventId: String): Deferred<Unit> =
+        dbScope.async {
             nimbusClient.recordEvent(eventId, count)
         }
 
