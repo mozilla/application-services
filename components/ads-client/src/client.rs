@@ -25,6 +25,7 @@ pub mod config;
 
 const DEFAULT_TTL_SECONDS: u64 = 300;
 const DEFAULT_MAX_CACHE_SIZE_MIB: u64 = 10;
+const DEFAULT_ROTATION_DAYS: u8 = 3;
 
 pub struct AdsClient<T>
 where
@@ -34,6 +35,7 @@ where
     context_id_component: ContextIDComponent,
     environment: Environment,
     telemetry: T,
+    rotation_days: u8,
 }
 
 impl<T> AdsClient<T>
@@ -50,6 +52,7 @@ where
         );
         let telemetry = client_config.telemetry;
         let environment = client_config.environment;
+        let rotation_days = client_config.rotation_days.unwrap_or(DEFAULT_ROTATION_DAYS);
 
         // Configure the cache if a path is provided.
         // Defaults for ttl and cache size are also set if unspecified.
@@ -80,6 +83,7 @@ where
                 context_id_component,
                 client,
                 telemetry: telemetry.clone(),
+                rotation_days,
             };
             telemetry.record(&ClientOperationEvent::New);
             return client;
@@ -91,6 +95,7 @@ where
             context_id_component,
             client,
             telemetry: telemetry.clone(),
+            rotation_days,
         };
         telemetry.record(&ClientOperationEvent::New);
         client
@@ -206,7 +211,7 @@ where
     }
 
     pub fn get_context_id(&self) -> context_id::ApiResult<String> {
-        self.context_id_component.request(3)
+        self.context_id_component.request(self.rotation_days)
     }
 
     pub fn clear_cache(&self) -> Result<(), HttpCacheError> {
@@ -249,6 +254,7 @@ mod tests {
             context_id_component,
             client,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            rotation_days: DEFAULT_ROTATION_DAYS,
         }
     }
 
@@ -258,6 +264,7 @@ mod tests {
             environment: Environment::Test,
             cache_config: None,
             telemetry: MozAdsTelemetryWrapper::noop(),
+            rotation_days: None,
         };
         let client = AdsClient::new(config);
         let context_id = client.get_context_id().unwrap();
