@@ -69,6 +69,9 @@ members = [
     "examples/*/",
     "testing/separated/*/",
     "testing/sync-test",
+
+    "monorepo-hacks/workspace-hack",
+    "monorepo-hacks/mozbuild",
 ]
 
 exclude = [
@@ -159,3 +162,8 @@ lto = "thin"
 uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
 uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
 uniffi_pipeline = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "59b035078322fbc0a605cc3c784cc38214113450" }
+# dummy crates for m-c integration hacks.
+mozilla-central-workspace-hack = { path = "monorepo-hacks/workspace-hack" }
+mozbuild = { path = "monorepo-hacks/mozbuild" }
+# temporary ohttp override enabling the above hacks while we wait for a new version.
+ohttp = { git = "https://github.com/martinthomson/ohttp", revision = "324f876e79394c9b815dcacda3fd4f48f105fdf2" }
