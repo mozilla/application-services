@@ -135,26 +135,27 @@ impl Storage {
         collection_url: &str,
     ) -> Result<Option<CollectionMetadata>> {
         let tx = self.transaction()?;
+        // signatures is a JSON array of objects with "signature" and "x5u" fields,
+        // so we need to iterate through the rows and construct the list of signatures.
         let mut stmt_metadata = tx.prepare(
-            "SELECT bucket, signature, x5u FROM collection_metadata WHERE collection_url = ?",
+            "SELECT bucket, signatures FROM collection_metadata WHERE collection_url = ?",
         )?;
-
-        if let Some(metadata) = stmt_metadata
+        let result = stmt_metadata
             .query_row(params![collection_url], |row| {
-                Ok(CollectionMetadata {
-                    bucket: row.get(0).unwrap_or_default(),
-                    signature: CollectionSignature {
-                        signature: row.get(1).unwrap_or_default(),
-                        x5u: row.get(2).unwrap_or_default(),
-                    },
-                })
+                let bucket: String = row.get(0)?;
+                let signatures_json: String = row.get(1)?;
+                let signatures: Vec<CollectionSignature> = serde_json::from_str(&signatures_json)
+                    .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1, // column index
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?;
+                Ok(CollectionMetadata { bucket, signatures })
             })
-            .optional()?
-        {
-            Ok(Some(metadata))
-        } else {
-            Ok(None)
-        }
+            .optional()?;
+        Ok(result)
     }
 
     /// Get cached attachment data
@@ -256,19 +257,21 @@ impl Storage {
         last_modified: u64,
         metadata: CollectionMetadata,
     ) -> Result<()> {
-        // Update the metadata
-        tx.execute(
-            "INSERT OR REPLACE INTO collection_metadata \
-            (collection_url, last_modified, bucket, signature, x5u) \
-            VALUES (?, ?, ?, ?, ?)",
-            (
-                collection_url,
-                last_modified,
-                metadata.bucket,
-                metadata.signature.signature,
-                metadata.signature.x5u,
-            ),
+        let signatures_json = serde_json::to_string(&metadata.signatures)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+        let mut stmt = tx.prepare(
+            "INSERT OR REPLACE INTO collection_metadata
+            (collection_url, last_modified, bucket, signatures)
+            VALUES (?, ?, ?, ?)",
         )?;
+
+        stmt.execute((
+            collection_url,
+            last_modified,
+            &metadata.bucket,
+            &signatures_json,
+        ))?;
         Ok(())
     }
 
@@ -899,17 +902,25 @@ mod tests {
             1337,
             CollectionMetadata {
                 bucket: "main".into(),
-                signature: CollectionSignature {
-                    signature: "b64encodedsig".into(),
-                    x5u: "http://15u/".into(),
-                },
+                signatures: vec![
+                    CollectionSignature {
+                        signature: "b64encodedsig".into(),
+                        x5u: "http://15u/".into(),
+                    },
+                    CollectionSignature {
+                        signature: "b64encodedsig2".into(),
+                        x5u: "http://15u2/".into(),
+                    },
+                ],
             },
         )?;
 
         let metadata = storage.get_collection_metadata(collection_url)?.unwrap();
 
-        assert_eq!(metadata.signature.signature, "b64encodedsig");
-        assert_eq!(metadata.signature.x5u, "http://15u/");
+        assert_eq!(metadata.signatures[0].signature, "b64encodedsig");
+        assert_eq!(metadata.signatures[0].x5u, "http://15u/");
+        assert_eq!(metadata.signatures[1].signature, "b64encodedsig2");
+        assert_eq!(metadata.signatures[1].x5u, "http://15u2/");
 
         Ok(())
     }

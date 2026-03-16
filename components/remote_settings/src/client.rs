@@ -442,43 +442,56 @@ impl<C: ApiClient> RemoteSettingsClient<C> {
         let metadata = inner.storage.get_collection_metadata(&collection_url)?;
         match (timestamp, &records, metadata) {
             (Some(timestamp), Some(records), Some(metadata)) => {
-                let cert_chain_bytes = inner.api_client.fetch_cert(&metadata.signature.x5u)?;
                 // rc_crypto verifies that the provided certificates chain leads to our root certificate.
                 let expected_root_hash = if inner.api_client.is_prod_server()? {
                     ROOT_CERT_SHA256_HASH_PROD
                 } else {
                     ROOT_CERT_SHA256_HASH_NONPROD
                 };
+                // Iterate through the list of signatures, and verify that at least one of them is valid.
+                // This allows for key rotation without breaking clients that have an old certificate chain cached.
+                let mut result = Err(Error::IncompleteSignatureDataError(
+                    "No valid signatures found".into(),
+                ));
+                for signature in &metadata.signatures {
+                    let cert_chain_bytes = inner.api_client.fetch_cert(&signature.x5u)?;
 
-                // The signer name is hard-coded. This would have to be modified in the very (very)
-                // unlikely situation where we would add a new collection signer.
-                // And clients code would have to be modified to handle this new collection anyway.
-                // https://searchfox.org/mozilla-central/rev/df850fa290fe962c2c5ae8b63d0943ce768e3cc4/services/settings/remote-settings.sys.mjs#40-48
-                let expected_leaf_cname = format!(
-                    "{}.content-signature.mozilla.org",
-                    if metadata.bucket.contains("security-state") {
-                        "onecrl"
-                    } else {
-                        "remote-settings"
-                    }
-                );
-                signatures::verify_signature(
-                    timestamp,
-                    records,
-                    metadata.signature.signature.as_bytes(),
-                    &cert_chain_bytes,
-                    epoch_seconds(),
-                    expected_root_hash,
-                    &expected_leaf_cname,
-                )
-                .inspect_err(|err| {
-                    debug!(
-                        "{0}: bad signature ({1:?}) using certificate {2} and signer '{3}'",
-                        self.collection_name, err, &metadata.signature.x5u, expected_leaf_cname
+                    // The signer name is hard-coded. This would have to be modified in the very (very)
+                    // unlikely situation where we would add a new collection signer.
+                    // And clients code would have to be modified to handle this new collection anyway.
+                    // https://searchfox.org/mozilla-central/rev/df850fa290fe962c2c5ae8b63d0943ce768e3cc4/services/settings/remote-settings.sys.mjs#40-48
+                    let expected_leaf_cname = format!(
+                        "{}.content-signature.mozilla.org",
+                        if metadata.bucket.contains("security-state") {
+                            "onecrl"
+                        } else {
+                            "remote-settings"
+                        }
                     );
-                })?;
-                trace!("{0}: signature verification success.", self.collection_name);
-                Ok(())
+
+                    result = signatures::verify_signature(
+                        timestamp,
+                        records,
+                        signature.signature.as_bytes(),
+                        &cert_chain_bytes,
+                        epoch_seconds(),
+                        expected_root_hash,
+                        &expected_leaf_cname,
+                    )
+                    .inspect_err(|err| {
+                        debug!(
+                            "{0}: bad signature ({1:?}) using certificate {2} and signer '{3}'",
+                            self.collection_name, err, &signature.x5u, expected_leaf_cname
+                        );
+                    });
+                    // If verification succeeds, then we exit!
+                    if result.is_ok() {
+                        trace!("{0}: signature verification success.", self.collection_name);
+                        return Ok(());
+                    }
+                }
+                // If we tried all signatures and none worked, then we return an error.
+                result
             }
             _ => {
                 let missing_field = if timestamp.is_none() {
@@ -947,7 +960,7 @@ pub struct ChangesetResponse {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 pub struct CollectionMetadata {
     pub bucket: String,
-    pub signature: CollectionSignature,
+    pub signatures: Vec<CollectionSignature>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
@@ -2276,7 +2289,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
         diff_records: &[RemoteSettingsRecord],
         full_records: &[RemoteSettingsRecord],
         certificate: &str,
-        signature: &str,
+        signatures: &[CollectionSignature],
         epoch_secs: u64,
         bucket: &str,
     ) -> Result<()> {
@@ -2286,10 +2299,7 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 
         let some_metadata = CollectionMetadata {
             bucket: bucket.into(),
-            signature: CollectionSignature {
-                signature: signature.to_string(),
-                x5u: "http://mocked".into(),
-            },
+            signatures: signatures.to_vec(),
         };
         // Changeset for when client fetches diff.
         let diff_changeset = ChangesetResponse {
@@ -2341,7 +2351,34 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[],
             &[],
             VALID_CERTIFICATE,
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
+            VALID_CERT_EPOCH_SECONDS,
+            "main",
+        )
+        .expect("Valid signature");
+        Ok(())
+    }
+
+    #[test]
+    fn test_second_signature_is_valid() -> Result<()> {
+        ensure_initialized();
+        run_client_sync(
+            &[],
+            &[],
+            VALID_CERTIFICATE,
+            &[
+                CollectionSignature {
+                    signature: "invalid signature".to_string(),
+                    x5u: "http://mocked".into(),
+                },
+                CollectionSignature {
+                    signature: VALID_SIGNATURE.to_string(),
+                    x5u: "http://mocked".into(),
+                },
+            ],
             VALID_CERT_EPOCH_SECONDS,
             "main",
         )
@@ -2362,7 +2399,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             }],
             &[],
             VALID_CERTIFICATE,
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
         )
@@ -2377,7 +2417,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[],
             &[],
             VALID_CERTIFICATE,
-            "invalid signature",
+            &[CollectionSignature {
+                signature: "invalid signature".to_string(),
+                x5u: "http://mocked".into(),
+            }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
         )
@@ -2395,7 +2438,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[],
             &[],
             "some bad PEM content",
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
         )
@@ -2419,7 +2465,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[],
             &[],
             VALID_CERTIFICATE,
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
             december_20_2024,
             "main",
         )
@@ -2449,7 +2498,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &records,
             &records,
             VALID_CERTIFICATE,
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
             VALID_CERT_EPOCH_SECONDS,
             "main",
         )
@@ -2468,7 +2520,10 @@ IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
             &[],
             &[],
             VALID_CERTIFICATE,
-            VALID_SIGNATURE,
+            &[CollectionSignature {
+                signature: VALID_SIGNATURE.to_string(),
+                x5u: "http://mocked".into(),
+            }],
             VALID_CERT_EPOCH_SECONDS,
             "security-state",
         )
