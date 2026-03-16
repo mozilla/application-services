@@ -9,6 +9,8 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.AnyThread
 import androidx.annotation.RawRes
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
@@ -291,9 +293,9 @@ interface NimbusEventStore {
     fun recordEventSync(count: Long = 1, eventId: String) = Unit
 
     /**
-     * Records an event, returning a Job that allows the caller to catch any errors.
+     * Records an event, returning a Deferred that allows the caller to catch any errors via await().
      */
-    fun recordEventOrThrow(count: Long = 1, eventId: String): Job = Job()
+    fun recordEventOrThrow(count: Long = 1, eventId: String): Deferred<Unit> = CompletableDeferred(Unit)
 
     /**
      * Records an event as if it were emitted in the past.
