@@ -8,7 +8,7 @@
 android-gradle-plugin = "8.13.2"
 
 # Google
-protobuf = "4.33.2"
+protobuf = "4.34.1"
 protobuf-plugin = "0.9.6"
 
 # Kotlin
@@ -17,7 +17,7 @@ coroutines = "1.10.2"
 kotlinx-serialization = "1.10.0"
 
 # Mozilla
-android-components = "147.0.3"
+android-components = "148.0.2"
 glean = "67.0.0"
 rust-android-gradle = "0.9.6"
 
@@ -41,9 +41,9 @@ androidx-test-runner = "1.7.0"
 
 # Third Party Testing
 junit4 = "4.13.2"
-junit6 = "6.0.2"
-mockito = "5.21.0"
-robolectric = "4.16"
+junit6 = "6.0.3"
+mockito = "5.23.0"
+robolectric = "4.16.1"
 
 # Miscellaneous Gradle plugins
 gradle-download-task = "5.7.0"
