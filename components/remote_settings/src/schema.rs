@@ -137,4 +137,35 @@ PRAGMA user_version=0;
         db_file.run_all_upgrades();
         db_file.assert_schema_matches_new_database();
     }
+
+    #[test]
+    fn test_2_to_3_signatures() {
+        let db_file = MigratedDatabaseFile::new(RemoteSettingsConnectionInitializer, V0_SCHEMA);
+        db_file.upgrade_to(2);
+        let mut conn = db_file.open();
+        let tx = conn.transaction().unwrap();
+        tx.execute(
+            "INSERT INTO collection_metadata (collection_url, last_modified, bucket, signature, x5u) VALUES (?, ?, ?, ?, ?)",
+            ("a", 123, "main", "sig1", "uri1"),
+        ).unwrap();
+        tx.execute(
+            "INSERT INTO collection_metadata (collection_url, last_modified, bucket, signature, x5u) VALUES (?, ?, ?, ?, ?)",
+            ("b", 456, "main", "sig2", "uri2"),
+        ).unwrap();
+        tx.commit().unwrap();
+
+        db_file.upgrade_to(3);
+
+        let mut stmt = conn
+            .prepare("SELECT signatures FROM collection_metadata WHERE collection_url = 'a'")
+            .unwrap();
+        let signatures1: String = stmt.query_row([], |row| row.get(0)).unwrap();
+        assert_eq!(signatures1, r#"[{"signature":"sig1","x5u":"uri1"}]"#);
+
+        stmt = conn
+            .prepare("SELECT signatures FROM collection_metadata WHERE collection_url = 'b'")
+            .unwrap();
+        let signatures2: String = stmt.query_row([], |row| row.get(0)).unwrap();
+        assert_eq!(signatures2, r#"[{"signature":"sig2","x5u":"uri2"}]"#)
+    }
 }
