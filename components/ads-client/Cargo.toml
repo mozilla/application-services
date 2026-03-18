@@ -31,6 +31,7 @@ viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
 
 [dev-dependencies]
+jsonschema = "0.43"
 mockall = "0.12"
 mockito = { version = "0.31", default-features = false }
 viaduct-dev = { path = "../support/viaduct-dev" }
