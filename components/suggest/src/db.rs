@@ -17,14 +17,13 @@ use sql_support::{open_database, repeat_sql_vars, ConnExt};
 use crate::{
     config::{SuggestGlobalConfig, SuggestProviderConfig},
     error::RusqliteResultExt,
-    fakespot,
     geoname::GeonameCache,
     provider::{AmpMatchingStrategy, SuggestionProvider},
     query::{full_keywords_to_fts_content, FtsQuery},
     rs::{
         DownloadedAmoSuggestion, DownloadedAmpSuggestion, DownloadedDynamicRecord,
-        DownloadedDynamicSuggestion, DownloadedFakespotSuggestion, DownloadedMdnSuggestion,
-        DownloadedWikipediaSuggestion, Record, SuggestRecordId, SuggestRecordType,
+        DownloadedDynamicSuggestion, DownloadedMdnSuggestion, DownloadedWikipediaSuggestion,
+        Record, SuggestRecordId, SuggestRecordType,
     },
     schema::{clear_database, SuggestConnectionInitializer},
     suggestion::{cook_raw_suggestion_url, FtsMatchInfo, Suggestion},
@@ -762,113 +761,6 @@ impl<'a> SuggestDao<'a> {
         Ok(suggestions)
     }
 
-    /// Fetches Fakespot suggestions
-    pub fn fetch_fakespot_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
-        let fts_query = query.fts_query();
-        let sql = r#"
-            SELECT
-                s.id,
-                s.title,
-                s.url,
-                s.score,
-                f.fakespot_grade,
-                f.product_id,
-                f.rating,
-                f.total_reviews,
-                i.data,
-                i.mimetype,
-                f.keywords,
-                f.product_type
-            FROM
-                suggestions s
-            JOIN
-                fakespot_fts fts
-                ON fts.rowid = s.id
-            JOIN
-                fakespot_custom_details f
-                ON f.suggestion_id = s.id
-            LEFT JOIN
-                icons i
-                ON i.id = f.icon_id
-            WHERE
-                fakespot_fts MATCH ?
-            ORDER BY
-                s.score DESC
-            "#
-        .to_string();
-
-        // Store the list of results plus the suggestion id for calculating the FTS match info
-        let mut results =
-            self.conn
-                .query_rows_and_then_cached(&sql, (&fts_query.match_arg,), |row| {
-                    let id: usize = row.get(0)?;
-                    let score = fakespot::FakespotScore::new(
-                        &query.keyword,
-                        row.get(10)?,
-                        row.get(11)?,
-                        row.get(3)?,
-                    )
-                    .as_suggest_score();
-                    Result::Ok((
-                        Suggestion::Fakespot {
-                            title: row.get(1)?,
-                            url: row.get(2)?,
-                            score,
-                            fakespot_grade: row.get(4)?,
-                            product_id: row.get(5)?,
-                            rating: row.get(6)?,
-                            total_reviews: row.get(7)?,
-                            icon: row.get(8)?,
-                            icon_mimetype: row.get(9)?,
-                            match_info: None,
-                        },
-                        id,
-                    ))
-                })?;
-        // Sort the results, then add the FTS match info to the first one
-        // For performance reasons, this is only calculated for the result with the highest score.
-        // We assume that only one that will be shown to the user and therefore the only one we'll
-        // collect metrics for.
-        results.sort();
-        if let Some((suggestion, id)) = results.first_mut() {
-            match suggestion {
-                Suggestion::Fakespot {
-                    match_info, title, ..
-                } => {
-                    *match_info = Some(self.fetch_fakespot_fts_match_info(&fts_query, *id, title)?);
-                }
-                _ => unreachable!(),
-            }
-        }
-        Ok(results
-            .into_iter()
-            .map(|(suggestion, _)| suggestion)
-            .collect())
-    }
-
-    fn fetch_fakespot_fts_match_info(
-        &self,
-        fts_query: &FtsQuery<'_>,
-        suggestion_id: usize,
-        title: &str,
-    ) -> Result<FtsMatchInfo> {
-        let prefix = if fts_query.is_prefix_query {
-            // If the query was a prefix match query then test if the query without the prefix
-            // match would have also matched.  If not, then this counts as a prefix match.
-            let sql = "SELECT 1 FROM fakespot_fts WHERE rowid = ? AND fakespot_fts MATCH ?";
-            let params = (&suggestion_id, &fts_query.match_arg_without_prefix_match);
-            !self.conn.exists(sql, params)?
-        } else {
-            // If not, then it definitely wasn't a prefix match
-            false
-        };
-
-        Ok(FtsMatchInfo {
-            prefix,
-            stemming: fts_query.match_required_stemming(title),
-        })
-    }
-
     /// Fetches dynamic suggestions
     pub fn fetch_dynamic_suggestions(&self, query: &SuggestionQuery) -> Result<Vec<Suggestion>> {
         let Some(suggestion_types) = query
@@ -1114,27 +1006,6 @@ impl<'a> SuggestDao<'a> {
         Ok(())
     }
 
-    /// Inserts all suggestions from a downloaded Fakespot attachment into the database.
-    pub fn insert_fakespot_suggestions(
-        &mut self,
-        record_id: &SuggestRecordId,
-        suggestions: &[DownloadedFakespotSuggestion],
-    ) -> Result<()> {
-        let mut suggestion_insert = SuggestionInsertStatement::new(self.conn)?;
-        let mut fakespot_insert = FakespotInsertStatement::new(self.conn)?;
-        for suggestion in suggestions {
-            let suggestion_id = suggestion_insert.execute(
-                record_id,
-                &suggestion.title,
-                &suggestion.url,
-                suggestion.score,
-                SuggestionProvider::Fakespot,
-            )?;
-            fakespot_insert.execute(suggestion_id, suggestion)?;
-        }
-        Ok(())
-    }
-
     /// Inserts dynamic suggestion records data into the database.
     pub fn insert_dynamic_suggestions(
         &mut self,
@@ -1292,14 +1163,6 @@ impl<'a> SuggestDao<'a> {
         self.scope.err_if_interrupted()?;
         self.conn.execute_cached(
             "DELETE FROM keywords_metrics WHERE record_id = :record_id",
-            named_params! { ":record_id": record_id.as_str() },
-        )?;
-        self.scope.err_if_interrupted()?;
-        self.conn.execute_cached(
-            "
-            DELETE FROM fakespot_fts
-            WHERE rowid IN (SELECT id from suggestions WHERE record_id = :record_id)
-            ",
             named_params! { ":record_id": record_id.as_str() },
         )?;
         self.scope.err_if_interrupted()?;
@@ -1673,51 +1536,6 @@ impl<'conn> MdnInsertStatement<'conn> {
         self.0
             .execute((suggestion_id, &mdn.description))
             .with_context("mdn insert")?;
-        Ok(())
-    }
-}
-
-struct FakespotInsertStatement<'conn>(rusqlite::Statement<'conn>);
-
-impl<'conn> FakespotInsertStatement<'conn> {
-    fn new(conn: &'conn Connection) -> Result<Self> {
-        Ok(Self(conn.prepare(
-            "INSERT INTO fakespot_custom_details(
-                 suggestion_id,
-                 fakespot_grade,
-                 product_id,
-                 keywords,
-                 product_type,
-                 rating,
-                 total_reviews,
-                 icon_id
-             )
-             VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-             ",
-        )?))
-    }
-
-    fn execute(
-        &mut self,
-        suggestion_id: i64,
-        fakespot: &DownloadedFakespotSuggestion,
-    ) -> Result<()> {
-        let icon_id = fakespot
-            .product_id
-            .split_once('-')
-            .map(|(vendor, _)| format!("fakespot-{vendor}"));
-        self.0
-            .execute((
-                suggestion_id,
-                &fakespot.fakespot_grade,
-                &fakespot.product_id,
-                &fakespot.keywords.to_lowercase(),
-                &fakespot.product_type.to_lowercase(),
-                fakespot.rating,
-                fakespot.total_reviews,
-                icon_id,
-            ))
-            .with_context("fakespot insert")?;
         Ok(())
     }
 }

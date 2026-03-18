@@ -8,7 +8,6 @@ pub mod benchmarks;
 mod config;
 mod db;
 mod error;
-mod fakespot;
 mod geoname;
 mod metrics;
 mod provider;

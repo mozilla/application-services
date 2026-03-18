@@ -43,7 +43,7 @@ pub enum SuggestionProvider {
     Yelp = 5,
     Mdn = 6,
     Weather = 7,
-    Fakespot = 8,
+    // Fakespot = 8,
     Dynamic = 9,
 }
 
@@ -56,7 +56,6 @@ impl fmt::Display for SuggestionProvider {
             Self::Yelp => write!(f, "yelp"),
             Self::Mdn => write!(f, "mdn"),
             Self::Weather => write!(f, "weather"),
-            Self::Fakespot => write!(f, "fakespot"),
             Self::Dynamic => write!(f, "dynamic"),
         }
     }
@@ -73,7 +72,7 @@ impl FromSql for SuggestionProvider {
 }
 
 impl SuggestionProvider {
-    pub fn all() -> [Self; 8] {
+    pub fn all() -> [Self; 7] {
         [
             Self::Amp,
             Self::Wikipedia,
@@ -81,7 +80,6 @@ impl SuggestionProvider {
             Self::Yelp,
             Self::Mdn,
             Self::Weather,
-            Self::Fakespot,
             Self::Dynamic,
         ]
     }
@@ -95,7 +93,7 @@ impl SuggestionProvider {
             5 => Some(Self::Yelp),
             6 => Some(Self::Mdn),
             7 => Some(Self::Weather),
-            8 => Some(Self::Fakespot),
+            // 8 => Some(Self::Fakespot), removed
             9 => Some(Self::Dynamic),
             _ => None,
         }
@@ -105,7 +103,6 @@ impl SuggestionProvider {
     pub(crate) fn primary_collection(&self) -> Collection {
         match self {
             Self::Amp => Collection::Amp,
-            Self::Fakespot => Collection::Fakespot,
             _ => Collection::Other,
         }
     }
@@ -119,7 +116,6 @@ impl SuggestionProvider {
             Self::Yelp => SuggestRecordType::Yelp,
             Self::Mdn => SuggestRecordType::Mdn,
             Self::Weather => SuggestRecordType::Weather,
-            Self::Fakespot => SuggestRecordType::Fakespot,
             Self::Dynamic => SuggestRecordType::Dynamic,
         }
     }
@@ -149,10 +145,6 @@ impl SuggestionProvider {
                     SuggestRecordType::Geonames,
                     SuggestRecordType::GeonamesAlternates,
                 ]),
-            )])),
-            Self::Fakespot => Some(HashMap::from([(
-                Collection::Fakespot,
-                HashSet::from([SuggestRecordType::Icon]),
             )])),
             _ => None,
         }

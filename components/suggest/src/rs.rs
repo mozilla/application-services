@@ -46,7 +46,6 @@ use rusqlite::{types::ToSqlOutput, ToSql};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Collection {
     Amp,
-    Fakespot,
     Other,
 }
 
@@ -54,7 +53,6 @@ impl Collection {
     pub fn name(&self) -> &'static str {
         match self {
             Self::Amp => "quicksuggest-amp",
-            Self::Fakespot => "fakespot-suggest-products",
             Self::Other => "quicksuggest-other",
         }
     }
@@ -83,7 +81,6 @@ pub struct SuggestRemoteSettingsClient {
     // Create a separate client for each collection name
     amp_client: Arc<RemoteSettingsClient>,
     other_client: Arc<RemoteSettingsClient>,
-    fakespot_client: Arc<RemoteSettingsClient>,
 }
 
 impl SuggestRemoteSettingsClient {
@@ -91,7 +88,6 @@ impl SuggestRemoteSettingsClient {
         Self {
             amp_client: rs_service.make_client(Collection::Amp.name().to_owned()),
             other_client: rs_service.make_client(Collection::Other.name().to_owned()),
-            fakespot_client: rs_service.make_client(Collection::Fakespot.name().to_owned()),
         }
     }
 
@@ -99,7 +95,6 @@ impl SuggestRemoteSettingsClient {
         match collection {
             Collection::Amp => &self.amp_client,
             Collection::Other => &self.other_client,
-            Collection::Fakespot => &self.fakespot_client,
         }
     }
 }
@@ -194,8 +189,6 @@ pub(crate) enum SuggestRecord {
     Weather,
     #[serde(rename = "configuration")]
     GlobalConfig(DownloadedGlobalConfig),
-    #[serde(rename = "fakespot-suggestions")]
-    Fakespot,
     #[serde(rename = "dynamic-suggestions")]
     Dynamic(DownloadedDynamicRecord),
     #[serde(rename = "geonames-2")] // version 2
@@ -226,7 +219,6 @@ pub enum SuggestRecordType {
     Mdn,
     Weather,
     GlobalConfig,
-    Fakespot,
     Dynamic,
     Geonames,
     GeonamesAlternates,
@@ -243,7 +235,6 @@ impl From<&SuggestRecord> for SuggestRecordType {
             SuggestRecord::Weather => Self::Weather,
             SuggestRecord::Yelp => Self::Yelp,
             SuggestRecord::GlobalConfig(_) => Self::GlobalConfig,
-            SuggestRecord::Fakespot => Self::Fakespot,
             SuggestRecord::Dynamic(_) => Self::Dynamic,
             SuggestRecord::Geonames => Self::Geonames,
             SuggestRecord::GeonamesAlternates => Self::GeonamesAlternates,
@@ -278,7 +269,6 @@ impl SuggestRecordType {
             Self::Mdn,
             Self::Weather,
             Self::GlobalConfig,
-            Self::Fakespot,
             Self::Dynamic,
             Self::Geonames,
             Self::GeonamesAlternates,
@@ -295,7 +285,6 @@ impl SuggestRecordType {
             Self::Mdn => "mdn-suggestions",
             Self::Weather => "weather",
             Self::GlobalConfig => "configuration",
-            Self::Fakespot => "fakespot-suggestions",
             Self::Dynamic => "dynamic-suggestions",
             Self::Geonames => "geonames-2",
             Self::GeonamesAlternates => "geonames-alternates",
@@ -493,20 +482,6 @@ pub(crate) struct DownloadedMdnSuggestion {
     pub description: String,
     pub keywords: Vec<String>,
     pub score: f64,
-}
-
-/// A Fakespot suggestion to ingest from an attachment
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct DownloadedFakespotSuggestion {
-    pub fakespot_grade: String,
-    pub product_id: String,
-    pub keywords: String,
-    pub product_type: String,
-    pub rating: f64,
-    pub score: f64,
-    pub title: String,
-    pub total_reviews: i64,
-    pub url: String,
 }
 
 /// A dynamic suggestion record's inline data

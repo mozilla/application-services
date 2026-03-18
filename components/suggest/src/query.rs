@@ -93,14 +93,6 @@ impl SuggestionQuery {
         }
     }
 
-    pub fn fakespot(keyword: &str) -> Self {
-        Self {
-            keyword: keyword.into(),
-            providers: vec![SuggestionProvider::Fakespot],
-            ..Self::default()
-        }
-    }
-
     pub fn weather(keyword: &str) -> Self {
         Self {
             keyword: keyword.into(),

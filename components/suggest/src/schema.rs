@@ -23,7 +23,7 @@ use sql_support::{
 ///     `clear_database()` by adding their names to `conditional_tables`, unless
 ///     they are cleared via a deletion trigger or there's some other good
 ///     reason not to do so.
-pub const VERSION: u32 = 44;
+pub const VERSION: u32 = 45;
 
 /// The current Suggest database schema.
 pub const SQL: &str = "
@@ -126,31 +126,6 @@ CREATE TABLE amo_custom_details(
     FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
 );
 
-CREATE TABLE fakespot_custom_details(
-    suggestion_id INTEGER PRIMARY KEY,
-    fakespot_grade TEXT NOT NULL,
-    product_id TEXT NOT NULL,
-    keywords TEXT NOT NULL,
-    product_type TEXT NOT NULL,
-    rating REAL NOT NULL,
-    total_reviews INTEGER NOT NULL,
-    icon_id TEXT,
-    FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS fakespot_fts USING FTS5(
-  title,
-  content='',
-  contentless_delete=1,
-  tokenize=\"porter unicode61 remove_diacritics 2 tokenchars '''-'\"
-);
-
-CREATE TRIGGER fakespot_ai AFTER INSERT ON fakespot_custom_details BEGIN
-  INSERT INTO fakespot_fts(rowid, title)
-    SELECT id, title
-    FROM suggestions
-    WHERE id = new.suggestion_id;
-END;
 
 CREATE VIRTUAL TABLE IF NOT EXISTS amp_fts USING FTS5(
   full_keywords,
@@ -844,6 +819,19 @@ impl ConnectionInitializer for SuggestConnectionInitializer<'_> {
                     INSERT INTO dismissed_dynamic_suggestions
                     SELECT "vpn", url FROM dismissed_suggestions WHERE url = "vpn-suggestions";
                     "#,
+                )?;
+                Ok(())
+            }
+            44 => {
+                // Remove Fakespot entirely and force re-ingestion
+                clear_database(tx)?;
+
+                tx.execute_batch(
+                    "
+                    DROP TRIGGER IF EXISTS fakespot_ai;
+                    DROP TABLE IF EXISTS fakespot_custom_details;
+                    DROP TABLE IF EXISTS fakespot_fts;
+                    ",
                 )?;
                 Ok(())
             }
