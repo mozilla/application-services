@@ -5,7 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 
-// Locales supported by Merino Curated Recommendations
+/// Locales supported by Merino curated recommendations.
+///
+/// Each variant maps to a BCP 47 locale string (e.g. `"en-US"`, `"fr"`) used when
+/// requesting recommendations from the Merino API.
 #[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
 pub enum CuratedRecommendationLocale {
     #[serde(rename = "fr")]

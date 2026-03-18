@@ -3,6 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+//! Client for fetching curated recommendations from the Merino service.
+//!
+//! This module provides [`CuratedRecommendationsClient`], which makes HTTP requests to the
+//! Merino backend API to retrieve curated content recommendations. The client is configured
+//! with a [`CuratedRecommendationsConfig`] and returns [`CuratedRecommendationsResponse`]
+//! containing recommended articles, feeds, and layout information.
+
 mod error;
 mod http;
 mod models;
@@ -17,8 +24,15 @@ pub use models::{
 };
 use url::Url;
 
+/// Default base host for the Merino curated recommendations API.
 const DEFAULT_BASE_HOST: &str = "https://merino.services.mozilla.com";
 
+/// Client for fetching curated recommendations from the Merino service.
+///
+/// Construct using [`CuratedRecommendationsClient::new`] with a
+/// [`CuratedRecommendationsConfig`], then call
+/// [`get_curated_recommendations`](CuratedRecommendationsClient::get_curated_recommendations)
+/// to fetch recommendations.
 #[derive(uniffi::Object)]
 pub struct CuratedRecommendationsClient {
     inner: CuratedRecommendationsClientInner<http::HttpClient>,
@@ -26,10 +40,16 @@ pub struct CuratedRecommendationsClient {
     user_agent_header: String,
 }
 
+/// Internal client wrapper that is generic over the HTTP implementation,
+/// enabling dependency injection of fake HTTP clients in tests.
 struct CuratedRecommendationsClientInner<T: http::HttpClientTrait> {
     http_client: T,
 }
 
+/// Builder for constructing a [`CuratedRecommendationsClient`] with optional configuration.
+///
+/// If no `base_host` is provided, the client defaults to the production Merino service.
+/// A `user_agent_header` is required.
 #[derive(Default)]
 pub struct CuratedRecommendationsClientBuilder {
     base_host: Option<String>,
@@ -37,6 +57,7 @@ pub struct CuratedRecommendationsClientBuilder {
 }
 
 impl CuratedRecommendationsClientBuilder {
+    /// Creates a new builder with no configuration set.
     pub fn new() -> Self {
         Self {
             base_host: None,
@@ -44,16 +65,21 @@ impl CuratedRecommendationsClientBuilder {
         }
     }
 
+    /// Sets a custom base host URL for the Merino API (e.g. for staging environments).
     pub fn base_host(mut self, base_host: impl Into<String>) -> Self {
         self.base_host = Some(base_host.into());
         self
     }
 
+    /// Sets the `User-Agent` header to include in API requests.
     pub fn user_agent_header(mut self, user_agent_header: impl Into<String>) -> Self {
         self.user_agent_header = Some(user_agent_header.into());
         self
     }
 
+    /// Builds the [`CuratedRecommendationsClient`].
+    ///
+    /// Returns an error if `user_agent_header` was not set or if the resulting URL is invalid.
     pub fn build(self) -> Result<CuratedRecommendationsClient> {
         let user_agent_header = self.user_agent_header.ok_or_else(|| Error::Unexpected {
             code: 0,
@@ -77,6 +103,7 @@ impl CuratedRecommendationsClientBuilder {
 
 #[uniffi::export]
 impl CuratedRecommendationsClient {
+    /// Creates a new client from the given configuration.
     #[uniffi::constructor]
     #[handle_error(Error)]
     pub fn new(config: CuratedRecommendationsConfig) -> ApiResult<Self> {
@@ -90,6 +117,7 @@ impl CuratedRecommendationsClient {
         builder.build()
     }
 
+    /// Fetches curated recommendations from the Merino API.
     #[handle_error(Error)]
     pub fn get_curated_recommendations(
         &self,

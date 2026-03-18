@@ -5,29 +5,37 @@
 
 use serde::{Deserialize, Serialize};
 
-// Representation of a responsive layout configuration with multiple column layouts
+/// A named layout configuration containing one or more responsive layout breakpoints.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Layout {
+    /// Name identifier for this layout (e.g. `"4-large"`, `"3-medium"`).
     pub name: String,
+    /// Responsive layout variants for different screen widths.
     #[serde(rename = "responsiveLayouts")]
     pub responsive_layouts: Vec<ResponsiveLayout>,
 }
 
-// Layout configurations within a column
+/// A layout variant for a specific column count, defining how tiles are arranged.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct ResponsiveLayout {
+    /// Number of columns in this layout variant.
     #[serde(rename = "columnCount")]
     pub column_count: i32,
+    /// Tile configurations for this layout.
     pub tiles: Vec<Tile>,
 }
 
-// Properties for a single tile in a responsive layout
+/// Properties for a single tile within a responsive layout.
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Tile {
+    /// Display size of the tile (e.g. `"large"`, `"medium"`, `"small"`).
     pub size: String,
+    /// Zero-based position index of this tile within the layout.
     pub position: i32,
+    /// Whether this tile position may contain an advertisement.
     #[serde(rename = "hasAd")]
     pub has_ad: bool,
+    /// Whether this tile should display an article excerpt.
     #[serde(rename = "hasExcerpt")]
     pub has_excerpt: bool,
 }

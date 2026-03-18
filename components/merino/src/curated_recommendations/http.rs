@@ -7,9 +7,11 @@ use super::models::{CuratedRecommendationsRequest, CuratedRecommendationsRespons
 use url::Url;
 use viaduct::{header_names, Request, Response};
 
+/// HTTP client that sends requests to the Merino curated recommendations API via `viaduct`.
 pub struct HttpClient;
 
 impl HttpClient {
+    /// Sends a POST request to the curated recommendations endpoint and parses the response.
     pub fn make_curated_recommendation_request(
         &self,
         request: &CuratedRecommendationsRequest,
@@ -53,7 +55,11 @@ impl HttpClient {
     }
 }
 
+/// Trait abstracting HTTP requests for curated recommendations.
+///
+/// This enables injecting fake HTTP clients in tests.
 pub trait HttpClientTrait {
+    /// Sends a curated recommendation request and returns the parsed response.
     fn make_curated_recommendation_request(
         &self,
         request: &CuratedRecommendationsRequest,
