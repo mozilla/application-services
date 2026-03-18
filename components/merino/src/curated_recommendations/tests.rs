@@ -334,10 +334,9 @@ fn test_client_builder_with_default_base_host() {
 #[test]
 fn test_builder_uses_default_base_host_if_none_provided() {
     let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
-    let client_inner =
-        CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
-            captured_url: captured_url.clone(),
-        });
+    let client_inner = CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
+        captured_url: captured_url.clone(),
+    });
 
     let config = CuratedRecommendationsConfig {
         base_host: None,
@@ -375,10 +374,9 @@ fn test_builder_uses_default_base_host_if_none_provided() {
 #[test]
 fn test_builder_uses_custom_base_host_if_provided() {
     let captured_url = std::sync::Arc::new(std::sync::Mutex::new(None));
-    let client_inner =
-        CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
-            captured_url: captured_url.clone(),
-        });
+    let client_inner = CuratedRecommendationsClientInner::new_with_client(FakeCapturingClient {
+        captured_url: captured_url.clone(),
+    });
 
     let base_host = "https://my.custom.host";
     let config = CuratedRecommendationsConfig {
@@ -415,60 +413,118 @@ fn test_builder_uses_custom_base_host_if_provided() {
     );
 }
 
+// --- Request serialization tests (#3) ---
+
 #[test]
-fn test_from_string_valid_locales() {
-    assert_eq!(
-        curated_recommendation_locale_from_string("en-US".to_string()),
-        Some(CuratedRecommendationLocale::EnUs)
-    );
+fn test_request_serialization_camel_case_fields() {
+    let request = CuratedRecommendationsRequest {
+        locale: CuratedRecommendationLocale::EnUs,
+        region: Some("US".to_string()),
+        count: Some(10),
+        topics: Some(vec!["business".into()]),
+        feeds: None,
+        sections: None,
+        experiment_name: Some("test-experiment".to_string()),
+        experiment_branch: Some("control".to_string()),
+        enable_interest_picker: true,
+    };
 
-    assert_eq!(
-        curated_recommendation_locale_from_string("fr".to_string()),
-        Some(CuratedRecommendationLocale::Fr)
-    );
+    let json = serde_json::to_value(&request).unwrap();
 
-    assert_eq!(
-        curated_recommendation_locale_from_string("de-CH".to_string()),
-        Some(CuratedRecommendationLocale::DeCh)
-    );
+    // Verify camelCase renames are applied
+    assert_eq!(json["experimentName"], "test-experiment");
+    assert_eq!(json["experimentBranch"], "control");
+    assert_eq!(json["enableInterestPicker"], true);
+
+    // Verify these snake_case keys do NOT appear
+    assert!(json.get("experiment_name").is_none());
+    assert!(json.get("experiment_branch").is_none());
+    assert!(json.get("enable_interest_picker").is_none());
 }
 
 #[test]
-fn test_from_string_invalid_locale() {
-    // not serde-valid — should return None
-    assert_eq!(
-        curated_recommendation_locale_from_string("en_US".to_string()),
-        None
-    );
+fn test_request_serialization_locale_value() {
+    let request = CuratedRecommendationsRequest {
+        locale: CuratedRecommendationLocale::FrFr,
+        region: None,
+        count: None,
+        topics: None,
+        feeds: None,
+        sections: None,
+        experiment_name: None,
+        experiment_branch: None,
+        enable_interest_picker: false,
+    };
 
-    assert_eq!(
-        curated_recommendation_locale_from_string("xx-YY".to_string()),
-        None
-    );
+    let json = serde_json::to_value(&request).unwrap();
+    assert_eq!(json["locale"], "fr-FR");
 }
 
 #[test]
-fn test_all_locales_contains_expected_variants() {
-    let all = all_curated_recommendation_locales();
+fn test_request_serialization_sections() {
+    let request = CuratedRecommendationsRequest {
+        locale: CuratedRecommendationLocale::EnUs,
+        region: None,
+        count: None,
+        topics: None,
+        feeds: None,
+        sections: Some(vec![SectionSettings {
+            section_id: "abc-123".to_string(),
+            is_followed: true,
+            is_blocked: false,
+        }]),
+        experiment_name: None,
+        experiment_branch: None,
+        enable_interest_picker: false,
+    };
 
-    assert!(all.contains(&"en-US".to_string()));
-    assert!(all.contains(&"fr-FR".to_string()));
-    assert!(all.contains(&"de-AT".to_string()));
+    let json = serde_json::to_value(&request).unwrap();
+    let section = &json["sections"][0];
 
-    // Ensure a few edge cases are present
-    assert_eq!(all.len(), 14); // total number of variants
+    // Verify camelCase renames on SectionSettings
+    assert_eq!(section["sectionId"], "abc-123");
+    assert_eq!(section["isFollowed"], true);
+    assert_eq!(section["isBlocked"], false);
+    assert!(section.get("section_id").is_none());
 }
 
+// --- Builder edge case tests (#4) ---
+
 #[test]
-fn test_round_trip_from_all() {
-    let all = all_curated_recommendation_locales();
+fn test_builder_fails_without_user_agent_header() {
+    let result = CuratedRecommendationsClientBuilder::new().build();
 
-    for locale_str in all {
-        let parsed = curated_recommendation_locale_from_string(locale_str.clone());
-        assert!(parsed.is_some(), "Failed to parse locale: {}", locale_str);
-
-        let reserialized = serde_json::to_string(&parsed.unwrap()).unwrap();
-        let clean = reserialized.trim_matches('"');
-        assert_eq!(clean, locale_str, "Round-trip mismatch: {}", locale_str);
+    match result {
+        Err(Error::Unexpected { message, .. }) => {
+            assert!(message.contains("user_agent_header"));
+        }
+        Err(other) => panic!("Expected Unexpected error, got: {:?}", other),
+        Ok(_) => panic!("Expected error for missing user_agent_header"),
     }
+}
+
+#[test]
+fn test_builder_fails_with_invalid_base_host() {
+    let result = CuratedRecommendationsClientBuilder::new()
+        .user_agent_header("agent/1.0")
+        .base_host("not a valid url")
+        .build();
+
+    match result {
+        Err(Error::UrlParse(_)) => {}
+        Err(other) => panic!("Expected UrlParse error, got: {:?}", other),
+        Ok(_) => panic!("Expected error for invalid base_host"),
+    }
+}
+
+#[test]
+fn test_client_new_with_empty_user_agent() {
+    // Empty string is accepted — the builder only requires user_agent_header to be present.
+    let config = CuratedRecommendationsConfig {
+        base_host: None,
+        user_agent_header: "".to_string(),
+    };
+
+    let result = CuratedRecommendationsClient::new(config);
+    assert!(result.is_ok());
 }

@@ -111,4 +111,38 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_from_locale_string_empty_string() {
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("".into()),
+            None
+        );
+    }
+
+    #[test]
+    fn test_from_locale_string_is_case_sensitive() {
+        // Locales are case-sensitive BCP 47 strings
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("EN-US".into()),
+            None
+        );
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("en-us".into()),
+            None
+        );
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("Fr".into()),
+            None
+        );
+        // Only the exact canonical form should work
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("en-US".into()),
+            Some(CuratedRecommendationLocale::EnUs)
+        );
+        assert_eq!(
+            CuratedRecommendationLocale::from_locale_string("fr".into()),
+            Some(CuratedRecommendationLocale::Fr)
+        );
+    }
 }
