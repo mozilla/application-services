@@ -1,0 +1,59 @@
+# Merino
+
+A cross-platform Rust client library for Mozilla's [Merino](https://merino.services.mozilla.com) curated recommendations service. This powers the curated content recommendations (articles/stories) shown on Firefox's New Tab page.
+
+## Overview
+
+The library provides a `CuratedRecommendationsClient` that fetches curated recommendations from the Merino backend via its REST API (`/api/v1/curated-recommendations`). It uses [UniFFI](https://mozilla.github.io/uniffi-rs/) to generate cross-platform bindings for Android (and other targets).
+
+## Features
+
+- **Locale support** — 14 supported locales across English, French, Spanish, Italian, and German variants.
+- **Content filtering** — Filter recommendations by region, topic, and section follow/block preferences.
+- **Structured feeds** — Responses can include categorized sections (business, sports, tech, etc.), Fakespot product recommendations, and an interest picker with responsive layout configurations.
+- **A/B experiment support** — Pass experiment name and branch parameters to support server-side experimentation.
+- **Cross-platform** — Rust core with UniFFI-generated bindings for Android (and other platforms).
+
+## Architecture
+
+- **`CuratedRecommendationsClient`** — Main entry point constructed with a base host and user agent header.
+- **`models.rs`** — Request/response data types annotated with UniFFI and serde for serialization.
+- **`http.rs`** — HTTP layer built on Mozilla's `viaduct` library, with a trait-based design to allow injecting fake clients for testing.
+- **`error.rs`** — Error types categorized as Network, Validation (422), BadRequest (400), Server (5xx), and Unexpected, with error reporting hooks via `error-support`.
+
+## Usage
+
+```rust
+use merino::curated_recommendations::{
+    CuratedRecommendationsClient, CuratedRecommendationsConfig, CuratedRecommendationsRequest,
+};
+
+// Create a client
+let config = CuratedRecommendationsConfig {
+    base_host: None, // defaults to https://merino.services.mozilla.com
+    user_agent_header: "MyApp/1.0".to_string(),
+};
+let client = CuratedRecommendationsClient::new(config).unwrap();
+
+// Fetch recommendations
+let request = CuratedRecommendationsRequest {
+    locale: CuratedRecommendationLocale::EnUs,
+    region: Some("US".to_string()),
+    count: Some(10),
+    topics: None,
+    feeds: None,
+    sections: None,
+    experiment_name: None,
+    experiment_branch: None,
+    enable_interest_picker: false,
+};
+let response = client.get_curated_recommendations(&request).unwrap();
+```
+
+## Testing
+
+```sh
+cargo test -p merino
+```
+
+The HTTP layer uses a trait (`HttpClientTrait`) so tests can inject fake clients to simulate success and error responses without making real network requests.
