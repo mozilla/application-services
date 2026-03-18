@@ -391,11 +391,3 @@ pub fn multimatch_wiki_suggestion() -> Suggestion {
         full_keyword: "multimatch".into(),
     }
 }
-
-pub fn fakespot_amazon_icon() -> MockIcon {
-    MockIcon {
-        id: "fakespot-amazon",
-        data: "fakespot-icon-amazon-data",
-        mimetype: "image/png",
-    }
-}
