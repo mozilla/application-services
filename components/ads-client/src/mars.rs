@@ -7,7 +7,6 @@ use crate::{
     client::{
         ad_request::AdRequest,
         ad_response::{AdResponse, AdResponseValue},
-        config::Environment,
         ReportReason,
     },
     error::{

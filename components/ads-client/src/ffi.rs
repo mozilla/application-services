@@ -11,9 +11,9 @@ use crate::client::ad_request::{AdContentCategory, AdPlacementRequest, IABConten
 use crate::client::ad_response::{
     AdCallbacks, AdImage, AdSpoc, AdTile, SpocFrequencyCaps, SpocRanking,
 };
-use crate::client::ReportReason;
 use crate::client::config::{AdsCacheConfig, AdsClientConfig, Environment};
 use crate::client::AdsClient;
+use crate::client::ReportReason;
 use crate::error::ComponentError;
 use crate::ffi::telemetry::MozAdsTelemetryWrapper;
 use crate::http_cache::{CacheMode, RequestCachePolicy};
