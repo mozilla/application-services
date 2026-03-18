@@ -5,79 +5,59 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Locales supported by Merino curated recommendations.
-///
-/// Each variant maps to a BCP 47 locale string (e.g. `"en-US"`, `"fr"`) used when
-/// requesting recommendations from the Merino API.
-#[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
-pub enum CuratedRecommendationLocale {
-    #[serde(rename = "fr")]
-    Fr,
-    #[serde(rename = "fr-FR")]
-    FrFr,
-    #[serde(rename = "es")]
-    Es,
-    #[serde(rename = "es-ES")]
-    EsEs,
-    #[serde(rename = "it")]
-    It,
-    #[serde(rename = "it-IT")]
-    ItIt,
-    #[serde(rename = "en")]
-    En,
-    #[serde(rename = "en-CA")]
-    EnCa,
-    #[serde(rename = "en-GB")]
-    EnGb,
-    #[serde(rename = "en-US")]
-    EnUs,
-    #[serde(rename = "de")]
-    De,
-    #[serde(rename = "de-DE")]
-    DeDe,
-    #[serde(rename = "de-AT")]
-    DeAt,
-    #[serde(rename = "de-CH")]
-    DeCh,
+/// Defines the `CuratedRecommendationLocale` enum along with `all_locales()` and
+/// `from_locale_string()` methods, ensuring the variant list is specified exactly once.
+macro_rules! define_locales {
+    ( $( $variant:ident => $str:literal ),+ $(,)? ) => {
+        /// Locales supported by Merino curated recommendations.
+        ///
+        /// Each variant maps to a BCP 47 locale string (e.g. `"en-US"`, `"fr"`) used when
+        /// requesting recommendations from the Merino API.
+        #[derive(Debug, Serialize, PartialEq, Deserialize, uniffi::Enum)]
+        pub enum CuratedRecommendationLocale {
+            $(
+                #[serde(rename = $str)]
+                $variant,
+            )+
+        }
+
+        impl CuratedRecommendationLocale {
+            /// Returns all supported locale strings (e.g. `"en-US"`, `"fr-FR"`).
+            ///
+            /// These strings are the canonical serialized values of the enum variants.
+            pub fn all_locales() -> Vec<String> {
+                vec![ $( $str.to_string(), )+ ]
+            }
+
+            /// Parses a locale string (e.g. `"en-US"`) into a `CuratedRecommendationLocale`
+            /// enum variant.
+            ///
+            /// Returns `None` if the string does not match a known variant.
+            pub fn from_locale_string(locale: String) -> Option<CuratedRecommendationLocale> {
+                match locale.as_str() {
+                    $( $str => Some(CuratedRecommendationLocale::$variant), )+
+                    _ => None,
+                }
+            }
+        }
+    };
 }
 
-impl CuratedRecommendationLocale {
-    /// Returns all supported locale strings (e.g. `"en-US"`, `"fr-FR"`).
-    ///
-    /// These strings are the canonical serialized values of the enum variants.
-    pub fn all_locales() -> Vec<String> {
-        vec![
-            CuratedRecommendationLocale::Fr,
-            CuratedRecommendationLocale::FrFr,
-            CuratedRecommendationLocale::Es,
-            CuratedRecommendationLocale::EsEs,
-            CuratedRecommendationLocale::It,
-            CuratedRecommendationLocale::ItIt,
-            CuratedRecommendationLocale::En,
-            CuratedRecommendationLocale::EnCa,
-            CuratedRecommendationLocale::EnGb,
-            CuratedRecommendationLocale::EnUs,
-            CuratedRecommendationLocale::De,
-            CuratedRecommendationLocale::DeDe,
-            CuratedRecommendationLocale::DeAt,
-            CuratedRecommendationLocale::DeCh,
-        ]
-        .into_iter()
-        .map(|l| {
-            serde_json::to_string(&l)
-                .unwrap()
-                .trim_matches('"')
-                .to_string()
-        })
-        .collect()
-    }
-
-    /// Parses a locale string (e.g. `"en-US"`) into a `CuratedRecommendationLocale` enum variant.
-    ///
-    /// Returns `None` if the string does not match a known variant.
-    pub fn from_locale_string(locale: String) -> Option<CuratedRecommendationLocale> {
-        serde_json::from_str(&format!("\"{}\"", locale)).ok()
-    }
+define_locales! {
+    Fr    => "fr",
+    FrFr  => "fr-FR",
+    Es    => "es",
+    EsEs  => "es-ES",
+    It    => "it",
+    ItIt  => "it-IT",
+    En    => "en",
+    EnCa  => "en-CA",
+    EnGb  => "en-GB",
+    EnUs  => "en-US",
+    De    => "de",
+    DeDe  => "de-DE",
+    DeAt  => "de-AT",
+    DeCh  => "de-CH",
 }
 
 #[cfg(test)]

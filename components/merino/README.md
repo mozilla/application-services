@@ -17,7 +17,12 @@ The library provides a `CuratedRecommendationsClient` that fetches curated recom
 ## Architecture
 
 - **`CuratedRecommendationsClient`** — Main entry point constructed with a base host and user agent header.
-- **`models.rs`** — Request/response data types annotated with UniFFI and serde for serialization.
+- **`models/`** — Request/response data types annotated with UniFFI and serde for serialization, split by domain:
+  - `locale.rs` — Supported locale enum and parsing helpers, defined via a `define_locales!` macro to keep the variant list in one place.
+  - `request.rs` — Client configuration, section settings, and request parameters.
+  - `response.rs` — Response envelope, recommendation items, and interest picker types.
+  - `feeds.rs` — Categorized feed containers, feed sections, and Fakespot product types.
+  - `layout.rs` — Responsive layout, column, and tile configuration types.
 - **`http.rs`** — HTTP layer built on Mozilla's `viaduct` library, with a trait-based design to allow injecting fake clients for testing.
 - **`error.rs`** — Error types categorized as Network, Validation (422), BadRequest (400), Server (5xx), and Unexpected, with error reporting hooks via `error-support`.
 

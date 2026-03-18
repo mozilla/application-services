@@ -85,11 +85,13 @@ impl GetErrorHandling for Error {
                 .report_error("merino-http-error")
             }
 
-            _ => ErrorHandling::convert(CuratedRecommendationsApiError::Other {
-                code: None,
-                reason: self.to_string(),
-            })
-            .report_error("merino-unexpected"),
+            Self::UrlParse(_) | Self::Json(_) => {
+                ErrorHandling::convert(CuratedRecommendationsApiError::Other {
+                    code: None,
+                    reason: self.to_string(),
+                })
+                .report_error("merino-unexpected")
+            }
         }
     }
 }
