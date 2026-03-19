@@ -6,7 +6,7 @@
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
-use ads_client::http_cache::{ByteSize, CacheOutcome, CacheMode, HttpCache, RequestCachePolicy};
+use ads_client::http_cache::{ByteSize, CacheMode, CacheOutcome, HttpCache, RequestCachePolicy};
 use url::Url;
 use viaduct::Request;
 

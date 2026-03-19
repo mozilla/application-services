@@ -6,8 +6,7 @@
 use std::sync::Arc;
 
 use ads_client::{
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest,
-    MozAdsPlacementRequestWithCount,
+    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest, MozAdsPlacementRequestWithCount,
 };
 
 fn init_backend() {
