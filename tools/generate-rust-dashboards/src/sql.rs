@@ -81,19 +81,6 @@ impl Query {
         ])
     }
 
-    pub fn add_standard_glean_columns_no_prefix(&mut self) {
-        self.select.extend([
-            "app_display_version".into(),
-            "architecture".into(),
-            "device_manufacturer".into(),
-            "device_model".into(),
-            "locale".into(),
-            "os".into(),
-            "os_version".into(),
-            "submission_timestamp".into(),
-        ])
-    }
-
     pub fn add_from_using_application_var(&mut self, table_name: &str) {
         // TODO: Add UNIONs once we are enable the glean pipeline for iOS and/or Desktop
         //     let from = format!("
