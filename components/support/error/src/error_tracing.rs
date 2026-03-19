@@ -4,7 +4,7 @@
 
 use std::{
     collections::HashMap,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use parking_lot::Mutex;
@@ -38,8 +38,19 @@ pub fn report_breadcrumb(message: String, module: String, line: u32, column: u32
     //   - Push it to the `RECENT_BREADCRUMBS` list
     //   - Send out the `app-services-error-reporter::breadcrumb`.  Applications can register for
     //     these events and log them.
-    GLOBALS.lock().breadcrumbs.push(message.clone());
+    GLOBALS
+        .lock()
+        .breadcrumbs
+        .push(format_breadcrumb_and_timestamp(&message, SystemTime::now()));
     tracing_support::info!(target: "app-services-error-reporter::breadcrumb", message, module, line, column);
+}
+
+fn format_breadcrumb_and_timestamp(message: &str, time: SystemTime) -> String {
+    let timestamp = match time.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => 0,
+    };
+    format!("{message} ({timestamp})")
 }
 
 // Global structs used for error reporting
@@ -322,5 +333,16 @@ mod test {
         // But not ones from other components
         assert!(rate_limiter.should_send_report("componentb-database-error", start));
         assert!(rate_limiter.should_send_report("componentaa-network-error", start));
+    }
+
+    #[test]
+    fn test_add_breadcrumb_timestamp() {
+        assert_eq!(
+            format_breadcrumb_and_timestamp(
+                "MESSAGE",
+                SystemTime::UNIX_EPOCH + Duration::from_secs(10000000)
+            ),
+            "MESSAGE (10000000)"
+        );
     }
 }
