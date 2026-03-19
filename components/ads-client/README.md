@@ -24,18 +24,18 @@ cargo test -p ads-client
 
 ### Integration Tests
 
-Integration tests make real HTTP calls to the Mozilla Ads Routing Service (MARS) staging environment. They are gated behind the `integration-tests` Cargo feature and are only compiled and run by the dedicated GitHub Actions workflow (`.github/workflows/ads-client-tests.yaml`).
+Integration tests make real HTTP calls to the Mozilla Ads Routing Service (MARS) staging environment. They live in a dedicated crate (`integration-tests/`) and are only run by the dedicated GitHub Actions workflow (`.github/workflows/ads-client-tests.yaml`).
 
 To run integration tests locally:
 
 ```shell
-cargo test -p ads-client --features integration-tests --test integration_test
+cargo test -p ads-client-integration-tests --test integration_test
 ```
 
 To run a specific integration test:
 
 ```shell
-cargo test -p ads-client --features integration-tests --test integration_test test_contract_image_staging
+cargo test -p ads-client-integration-tests --test integration_test test_contract_image_staging
 ```
 
 **Note:** Integration tests require network access and will make real HTTP requests to the MARS staging API.
