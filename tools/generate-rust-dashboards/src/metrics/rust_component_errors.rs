@@ -285,12 +285,21 @@ fn error_list_count_panel() -> Panel {
 }
 
 fn error_list_log_panel() -> Panel {
-    let mut query = Query {
+    let query = Query {
         select: vec![
             "CONCAT(error_type, ': ', details) as message".into(),
             "error_type".into(),
             "details".into(),
             "ARRAY_TO_STRING(breadcrumbs, '\\n') as breadcrumbs".into(),
+            "app_display_version".into(),
+            "architecture".into(),
+            "build_date".into(),
+            "device_manufacturer".into(),
+            "device_model".into(),
+            "locale".into(),
+            "os".into(),
+            "os_version".into(),
+            "submission_timestamp".into(),
         ],
         where_: vec![
             "error_type='${error_type}'".into(),
@@ -310,7 +319,6 @@ fn error_list_log_panel() -> Panel {
         limit: Some(1000),
         ..Query::default()
     };
-    query.add_standard_glean_columns_no_prefix();
 
     LogPanel {
         title: "Error list".into(),
