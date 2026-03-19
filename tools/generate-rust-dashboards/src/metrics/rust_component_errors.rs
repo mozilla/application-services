@@ -305,6 +305,10 @@ fn error_list_log_panel() -> Panel {
             "error_type='${error_type}'".into(),
             "$__timeFilter(submission_timestamp)".into(),
             "normalized_channel = '${channel}'".into(),
+            // If the group by build date var is set, then only show logs after that build date.
+            // The typical use case is wanted to know if a change fixed an error.
+            // In that case, it's usually better to only see the logs after the change.
+            "IF('${build_date}' = '', true, build_date >= '${build_date}')".into(),
             "'${version}' = '' OR version = CAST('${version}' AS NUMERIC)".into(),
             "('${details}' = '' OR details LIKE '%${details}%')".into(),
             filter_where_clause("architecture"),
