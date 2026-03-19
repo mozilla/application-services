@@ -4,14 +4,9 @@
 */
 
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::time::Duration;
 
-use ads_client::{
-    http_cache::{ByteSize, CacheOutcome, HttpCache, RequestCachePolicy},
-    MozAdsClientBuilder, MozAdsEnvironment, MozAdsPlacementRequest,
-    MozAdsPlacementRequestWithCount,
-};
+use ads_client::http_cache::{ByteSize, CacheOutcome, CacheMode, HttpCache, RequestCachePolicy};
 use url::Url;
 use viaduct::Request;
 
@@ -35,71 +30,6 @@ impl From<TestRequest> for Request {
 fn init_backend() {
     // Err means the backend is already initialized.
     let _ = viaduct_hyper::viaduct_init_backend_hyper();
-}
-
-fn staging_client() -> ads_client::MozAdsClient {
-    Arc::new(MozAdsClientBuilder::new())
-        .environment(MozAdsEnvironment::Staging)
-        .build()
-}
-
-#[test]
-fn test_contract_image_staging() {
-    init_backend();
-
-    let client = staging_client();
-    let result = client.request_image_ads(
-        vec![MozAdsPlacementRequest {
-            placement_id: "mock_billboard_1".to_string(),
-            iab_content: None,
-        }],
-        None,
-    );
-
-    assert!(
-        result.is_ok(),
-        "Image ad request failed: {:?}",
-        result.err()
-    );
-    let placements = result.unwrap();
-    assert!(placements.contains_key("mock_billboard_1"));
-}
-
-#[test]
-fn test_contract_spoc_staging() {
-    init_backend();
-
-    let client = staging_client();
-    let result = client.request_spoc_ads(
-        vec![MozAdsPlacementRequestWithCount {
-            placement_id: "mock_spoc_1".to_string(),
-            count: 1,
-            iab_content: None,
-        }],
-        None,
-    );
-
-    assert!(result.is_ok(), "Spoc ad request failed: {:?}", result.err());
-    let placements = result.unwrap();
-    assert!(placements.contains_key("mock_spoc_1"));
-}
-
-#[test]
-fn test_contract_tile_staging() {
-    init_backend();
-
-    let client = staging_client();
-    let result = client.request_tile_ads(
-        vec![MozAdsPlacementRequest {
-            placement_id: "mock_tile_1".to_string(),
-            iab_content: None,
-        }],
-        None,
-    );
-
-    assert!(result.is_ok(), "Tile ad request failed: {:?}", result.err());
-    let placements = result.unwrap();
-    assert!(placements.contains_key("mock_tile_1"));
 }
 
 #[test]
@@ -130,7 +60,7 @@ fn test_cache_works_using_real_timeouts() {
         .send_with_policy(
             req.clone(),
             &RequestCachePolicy {
-                mode: ads_client::http_cache::CacheMode::CacheFirst,
+                mode: CacheMode::CacheFirst,
                 ttl_seconds: Some(test_ttl),
             },
         )

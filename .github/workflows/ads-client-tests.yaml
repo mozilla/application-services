@@ -25,4 +25,4 @@ jobs:
           source $HOME/.cargo/env
           rustup toolchain install
       - name: Run ads-client integration tests against MARS staging
-        run: cargo test -p ads-client-integration-tests --test integration_test
+        run: cargo test -p ads-client-integration-tests
