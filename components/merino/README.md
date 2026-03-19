@@ -8,13 +8,13 @@ The library provides a `CuratedRecommendationsClient` that fetches curated recom
 
 ## Features
 
-- **Locale support** — 14 supported locales across English, French, Spanish, Italian, and German variants.
+- **Locale support** — a number of supported locales.
 - **Content filtering** — Filter recommendations by region, topic, and section follow/block preferences.
 - **Structured feeds** — Responses can include categorized sections (business, sports, tech, etc.), and an interest picker with responsive layout configurations.
 - **A/B experiment support** — Pass experiment name and branch parameters to support server-side experimentation.
 - **Cross-platform** — Rust core with UniFFI-generated bindings for Android (and other platforms).
 
-## Architecture
+## Crate Architecture
 
 - **`CuratedRecommendationsClient`** — Main entry point constructed with a base host and user agent header.
 - **`models/`** — Request/response data types annotated with UniFFI and serde for serialization, split by domain:

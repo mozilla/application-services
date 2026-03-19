@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-//! Merino is a cross-platform client library for Mozilla's curated recommendations service.
+//! Merino is a cross-platform client library for Mozilla's Merino service.
 //!
 //! It provides a [`CuratedRecommendationsClient`](curated_recommendations::CuratedRecommendationsClient)
 //! that fetches curated content recommendations (articles, stories) from the Merino backend,

@@ -15,47 +15,47 @@ use super::response::RecommendationDataItem;
 #[derive(Debug, Deserialize, PartialEq, uniffi::Record, Serialize)]
 pub struct Feeds {
     /// High-priority "need to know" recommendations.
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub need_to_know: Option<CuratedRecommendationsBucket>,
     /// Fakespot product review recommendations.
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub fakespot: Option<FakespotFeed>,
     /// Top stories section.
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub top_stories_section: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub business: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub career: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub arts: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub food: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub health: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub home: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub finance: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub government: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub sports: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub tech: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub travel: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub education: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub hobbies: Option<FeedSection>,
     #[serde(rename = "society-parenting")]
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub society_parenting: Option<FeedSection>,
     #[serde(rename = "education-science")]
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub education_science: Option<FeedSection>,
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub society: Option<FeedSection>,
 }
 
@@ -65,7 +65,7 @@ pub struct CuratedRecommendationsBucket {
     /// The recommendations in this bucket.
     pub recommendations: Vec<RecommendationDataItem>,
     /// Optional display title for this bucket.
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub title: Option<String>,
 }
 
@@ -80,7 +80,7 @@ pub struct FeedSection {
     /// Display title for this section.
     pub title: String,
     /// Optional subtitle for this section.
-    #[uniffi(default = None)]
+    #[uniffi(default)]
     pub subtitle: Option<String>,
     /// Responsive layout configuration for rendering this section.
     pub layout: Layout,

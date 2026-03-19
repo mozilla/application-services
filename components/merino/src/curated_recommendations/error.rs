@@ -6,7 +6,7 @@ use error_support::{ErrorHandling, GetErrorHandling};
 // Re-export logging helpers.
 pub use error_support::{error, trace};
 
-/// Internal result type using [`Error`].
+/// Internal convenience wrapper for `std::Result`.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Public API result type using [`CuratedRecommendationsApiError`], exposed via UniFFI.
@@ -85,13 +85,11 @@ impl GetErrorHandling for Error {
                 .report_error("merino-http-error")
             }
 
-            Self::UrlParse(_) | Self::Json(_) => {
-                ErrorHandling::convert(CuratedRecommendationsApiError::Other {
-                    code: None,
-                    reason: self.to_string(),
-                })
-                .report_error("merino-unexpected")
-            }
+            _ => ErrorHandling::convert(CuratedRecommendationsApiError::Other {
+                code: None,
+                reason: self.to_string(),
+            })
+            .report_error("merino-unexpected"),
         }
     }
 }

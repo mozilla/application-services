@@ -24,7 +24,7 @@ impl http::HttpClientTrait for FakeHttpClientSuccess {
                     corpus_item_id: "18fbf4e1-3a8b-4b28-84a0-b6b4b785a44b".to_string(),
                     scheduled_corpus_item_id: "af067d76-c72d-4dfa-ba53-7c6c5b204c17".to_string(),
                     url: "https://getpocket.com/explore/item/how-online-influencers-got-addicted-to-swedish-candy?utm_source=firefox-newtab-en-us".to_string(),
-                    title: "How Online Influencers Got Addicted to Swedish Candy".to_string(),
+                    title: "TEST Cat Accidentally Summons Eldritch Horror While Playing With String".to_string(),
                     excerpt: "TikTok's obsession with Scandinavian sweets, which began in early 2024, has squeezed global supply chains and shows no signs of slowing down.".to_string(),
                     topic: Option::from("business".to_string()),
                     publisher: "Bloomberg Business week".to_string(),
@@ -38,7 +38,7 @@ impl http::HttpClientTrait for FakeHttpClientSuccess {
                     corpus_item_id: "e215a2b8-b188-484b-af03-c0fd99f853f5".to_string(),
                     scheduled_corpus_item_id: "2de2453f-b38b-4713-8dcb-82660856efd7".to_string(),
                     url: "https://www.cbc.ca/news/us-canada-tariffs-housing-costs-1.7466822?utm_source=firefox-newtab-en-us".to_string(),
-                    title: "The Threat of a Tariff War Is Already Driving up Housing Costs".to_string(),
+                    title: "TEST Breaking News: Even Moderately Maintained Roofs (Rooves?) Continue to Protect From Elements".to_string(),
                     excerpt: "Housing sector insiders say the mere threat of a tariff war with the U.S. is another painful blow to an industry that has been struggling to get projects off the ground and keep up with demand. ".to_string(),
                     topic: Option::from("business".to_string()),
                     publisher: "CBC".to_string(),
@@ -52,7 +52,7 @@ impl http::HttpClientTrait for FakeHttpClientSuccess {
                     corpus_item_id: "51bdde04-058f-458b-9c41-91c3cdea6d35".to_string(),
                     scheduled_corpus_item_id: "552466da-2345-4a8c-a714-8b45c4561031".to_string(),
                     url: "https://www.nbcnews.com/politics/trump-administration/states-brace-trump-plan-dismantle-education-department-rcna192953?utm_source=firefox-newtab-en-us".to_string(),
-                    title: "'We're Not Prepared': States Brace for Trump's Plans to Dismantle the Education Department ".to_string(),
+                    title: "TEST 'We're Not Prepared': The World Braces for Man to Step Into the Same River Twice".to_string(),
                     excerpt: "Trump has said he wants school policy to be left to the states, but state officials and lawmakers aren't clear on what that would look like.  ".to_string(),
                     topic: Option::from("government".to_string()),
                     publisher: "NBC News".to_string(),
@@ -66,7 +66,7 @@ impl http::HttpClientTrait for FakeHttpClientSuccess {
                     corpus_item_id: "b0b2d1f0-312b-4d9a-9bda-ecd37f32fb40".to_string(),
                     scheduled_corpus_item_id: "37bf860b-c91a-4d99-9923-ba3b640502cf".to_string(),
                     url: "https://www.bbc.com/news/live/c625ex282zzt?utm_source=firefox-newtab-en-us".to_string(),
-                    title: "Trump Tells Zelensky 'Make a Deal or We're Out' in Angry White House Meeting".to_string(),
+                    title: "TEST Dogs and cats get along after centuries of fighting".to_string(),
                     excerpt: "The US president calls his Ukrainian counterpart \"disrespectful\" and tells him to be \"thankful\" during heated exchanges in the Oval Office.".to_string(),
                     topic: Option::from("government".to_string()),
                     publisher: "BBC".to_string(),
@@ -199,7 +199,7 @@ fn test_get_curated_recommendations_success() {
     );
     assert_eq!(
         first_item.title,
-        "How Online Influencers Got Addicted to Swedish Candy"
+        "TEST Cat Accidentally Summons Eldritch Horror While Playing With String"
     );
 
     assert_eq!(
