@@ -1,0 +1,15 @@
+[package]
+name = "ads-client-integration-tests"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+ads-client = { path = ".." }
+serde_json = "1"
+url = "2"
+viaduct = { path = "../../../components/viaduct" }
+viaduct-hyper = { path = "../../../components/support/viaduct-hyper" }

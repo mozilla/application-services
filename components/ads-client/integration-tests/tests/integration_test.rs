@@ -3,8 +3,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#![cfg(feature = "integration-tests")]
-
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;

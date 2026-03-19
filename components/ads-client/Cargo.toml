@@ -8,7 +8,6 @@ exclude = ["/android"]
 [features]
 dev = []
 default = []
-integration-tests = []
 
 [dependencies]
 chrono = "0.4"
@@ -35,7 +34,6 @@ sql-support = { path = "../support/sql" }
 mockall = "0.12"
 mockito = { version = "0.31", default-features = false }
 viaduct-dev = { path = "../support/viaduct-dev" }
-viaduct-hyper = { path = "../support/viaduct-hyper" }
 
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }

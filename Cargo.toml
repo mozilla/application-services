@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
 
-# Note: Any additions here should be repeated in default-members below.
+# Note: Any additions here should be repeated in default-members below (unless
+# the crate should not be built by default, e.g. integration-test-only crates).
 members = [
     "components/ads-client",
+    "components/ads-client/integration-tests",
     "components/as-ohttp-client",
     "components/autofill",
     "components/context_id",
