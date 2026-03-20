@@ -137,25 +137,38 @@ impl Storage {
         let tx = self.transaction()?;
         // signatures is a JSON array of objects with "signature" and "x5u" fields,
         // so we need to iterate through the rows and construct the list of signatures.
+        // we use LEFT JOIN to return a row even if list of signatures is empty.
         let mut stmt_metadata = tx.prepare(
-            "SELECT bucket, signatures FROM collection_metadata WHERE collection_url = ?",
+            "
+            SELECT
+                cm.bucket,
+                json_extract(sig.value, '$.x5u') AS x5u,
+                json_extract(sig.value, '$.signature') AS signature
+            FROM collection_metadata AS cm
+            LEFT JOIN json_each(cm.signatures) AS sig ON true
+            WHERE cm.collection_url = ?
+            ",
         )?;
-        let result = stmt_metadata
-            .query_row(params![collection_url], |row| {
-                let bucket: String = row.get(0)?;
-                let signatures_json: String = row.get(1)?;
-                let signatures: Vec<CollectionSignature> = serde_json::from_str(&signatures_json)
-                    .map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1, // column index
-                        rusqlite::types::Type::Text,
-                        Box::new(e),
-                    )
-                })?;
-                Ok(CollectionMetadata { bucket, signatures })
-            })
-            .optional()?;
-        Ok(result)
+
+        let mut rows = stmt_metadata.query(params![collection_url])?;
+        let mut bucket: Option<String> = None;
+        let mut signatures = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            // bucket should be the same for every row, so just set it once
+            if bucket.is_none() {
+                bucket = Some(row.get(0)?);
+            }
+            let x5u: Option<String> = row.get(1)?;
+            let signature: Option<String> = row.get(2)?;
+            if let (Some(x5u), Some(signature)) = (x5u, signature) {
+                signatures.push(CollectionSignature { signature, x5u });
+            }
+        }
+        match bucket {
+            Some(bucket) => Ok(Some(CollectionMetadata { bucket, signatures })),
+            None => Ok(None),
+        }
     }
 
     /// Get cached attachment data
