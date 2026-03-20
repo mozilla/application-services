@@ -1,5 +1,8 @@
 # v150.0 (In progress)
 
+# General
+  - `error-support` breadcrumbs now include the timestamp.
+
 ## ⚠️ Breaking Changes ⚠️
 
 ### Nimbus
